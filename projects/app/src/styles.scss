@@ -1,0 +1,141 @@
+@use '@angular/material' as mat;
+
+html {
+  @include mat.theme(
+    (
+      color: (
+        primary: mat.$azure-palette,
+        tertiary: mat.$blue-palette,
+      ),
+      typography: Roboto,
+      density: 0,
+    )
+  );
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+
+  background: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
+}
+
+:root {
+  // Spacing tokens the composer relies on (defined by the host app's theme
+  // in hongknop-frontend; recreated here for the example app).
+  --mat-sys-inner-spacing: 16px;
+  --mat-sys-outer-spacing: 24px;
+}
+
+/* ProseMirror creates its editable DOM at runtime, outside Angular's emulated
+ * view encapsulation, so the editor surface is styled globally.
+ */
+.ProseMirror {
+  position: relative;
+
+  /** Browsers are notoriously bad at handling text cursors and spaces inside editable divs */
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  white-space: break-spaces;
+  -webkit-font-variant-ligatures: none;
+  font-variant-ligatures: none;
+  font-feature-settings: 'liga' 0;
+
+  // Focus
+  outline: none;
+
+  // Containment
+  display: block;
+  height: 100%;
+  box-sizing: border-box;
+  text-align: inherit;
+
+  // Typography
+  font-family: var(--mat-sys-prose-mirror-font-family, var(--mat-sys-body-medium-font));
+  font-size: var(--mat-sys-prose-mirror-font-size, var(--mat-sys-body-medium-size));
+  font-weight: var(--mat-sys-prose-mirror-font-weight, var(--mat-sys-body-medium-weight));
+  line-height: var(--mat-sys-prose-mirror-line-height, 20px);
+}
+
+/* HTML source editor: token and lint classes applied via ProseMirror
+ * decorations, which render outside Angular's encapsulation like .ProseMirror.
+ */
+.aee-tok-tag {
+  color: var(--mat-sys-primary);
+}
+
+.aee-tok-attr {
+  color: var(--mat-sys-tertiary);
+}
+
+.aee-tok-value {
+  color: var(--mat-sys-aee-tok-value, #188038);
+}
+
+.aee-tok-delimiter {
+  color: var(--mat-sys-outline);
+}
+
+.aee-tok-comment {
+  color: var(--mat-sys-outline);
+  font-style: italic;
+}
+
+.aee-lint-error {
+  text-decoration: underline wavy var(--mat-sys-error);
+  text-decoration-skip-ink: none;
+}
+
+.aee-lint-warning {
+  text-decoration: underline wavy var(--mat-sys-aee-lint-warning, #b06000);
+  text-decoration-skip-ink: none;
+}
+
+// Subtle scrollbar treatment used by the composer's editor pane.
+.scroll-container {
+  --_scrollbar-size: calc(var(--mat-sys-scrollbar-size, 6) * 1px);
+  --_scrollbar-thumb: var(
+    --mat-sys-scrollbar-thumb-color,
+    #{oklch(from var(--mat-sys-outline-variant) l c h / 0.5)}
+  );
+  --_scrollbar-thumb-hover: var(
+    --mat-sys-scrollbar-thumb-hover-color,
+    #{oklch(from var(--mat-sys-outline-variant) l c h / 0.75)}
+  );
+
+  --_current-thumb-color: transparent;
+
+  scrollbar-gutter: stable;
+  scroll-behavior: smooth;
+
+  @supports (-moz-appearance: none) {
+    scrollbar-width: thin;
+    scrollbar-color: var(--_current-thumb-color) transparent;
+  }
+
+  &::-webkit-scrollbar {
+    width: var(--_scrollbar-size);
+    height: var(--_scrollbar-size);
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--_current-thumb-color);
+    border-radius: 16px;
+  }
+
+  &:hover,
+  &:focus-within {
+    --_current-thumb-color: var(--_scrollbar-thumb);
+
+    &::-webkit-scrollbar-thumb:hover {
+      background-color: var(--_scrollbar-thumb-hover);
+    }
+  }
+}

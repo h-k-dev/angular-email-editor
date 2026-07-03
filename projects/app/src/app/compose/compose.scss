@@ -1,0 +1,15 @@
+:host {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--mat-sys-inner-spacing);
+
+  height: 100%;
+  box-sizing: border-box;
+  padding: var(--mat-sys-inner-spacing);
+  background-color: var(--mat-sys-surface-bright);
+}
+
+section {
+  min-width: 0;
+  min-height: 0;
+}

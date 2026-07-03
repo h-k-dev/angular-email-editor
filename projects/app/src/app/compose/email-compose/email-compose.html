@@ -1,0 +1,130 @@
+<div class="toolbar" role="toolbar" aria-label="Text formatting">
+  <button mat-icon-button type="button" aria-label="Undo" [disabled]="!canUndo()" (mousedown)="$event.preventDefault()"
+    (click)="run('undo')">
+    <mat-icon>undo</mat-icon>
+  </button>
+  <button mat-icon-button type="button" aria-label="Redo" [disabled]="!canRedo()" (mousedown)="$event.preventDefault()"
+    (click)="run('redo')">
+    <mat-icon>redo</mat-icon>
+  </button>
+
+  <mat-divider [vertical]="true" />
+
+  <button mat-icon-button type="button" aria-label="Bold" [class.is-active]="isActive('bold')"
+    [attr.aria-pressed]="isActive('bold')" (mousedown)="$event.preventDefault()" (click)="run('toggleBold')">
+    <mat-icon>format_bold</mat-icon>
+  </button>
+  <button mat-icon-button type="button" aria-label="Italic" [class.is-active]="isActive('italic')"
+    [attr.aria-pressed]="isActive('italic')" (mousedown)="$event.preventDefault()" (click)="run('toggleItalic')">
+    <mat-icon>format_italic</mat-icon>
+  </button>
+  <button mat-icon-button type="button" aria-label="Underline" [class.is-active]="isActive('underline')"
+    [attr.aria-pressed]="isActive('underline')" (mousedown)="$event.preventDefault()" (click)="run('toggleUnderline')">
+    <mat-icon>format_underlined</mat-icon>
+  </button>
+
+  <button mat-icon-button type="button" aria-label="Strikethrough" [class.is-active]="isActive('strike')"
+    [attr.aria-pressed]="isActive('strike')" (mousedown)="$event.preventDefault()" (click)="run('toggleStrike')">
+    <mat-icon>format_strikethrough</mat-icon>
+  </button>
+
+  <mat-divider [vertical]="true" />
+
+  <span class="color">
+    <button mat-icon-button type="button" aria-hidden="true" tabindex="-1">
+      <mat-icon>format_color_text</mat-icon>
+    </button>
+    <!-- The native picker anchors to this input's box, so it must stay in
+         layout (overlaid on the button, transparent) rather than display:none. -->
+    <input class="color-input" type="color" aria-label="Text color" (change)="applyColor($event)" />
+  </span>
+  <button mat-icon-button type="button" aria-label="Clear text color" [disabled]="!isActive('textStyle')"
+    (mousedown)="$event.preventDefault()" (click)="clearColor()">
+    <mat-icon>format_color_reset</mat-icon>
+  </button>
+
+  <mat-divider [vertical]="true" />
+
+  <button mat-icon-button type="button" aria-label="Link" [class.is-active]="isActive('link')"
+    [attr.aria-pressed]="isActive('link')" (mousedown)="$event.preventDefault()" (click)="toggleLink()">
+    <mat-icon>link</mat-icon>
+  </button>
+  <button mat-icon-button type="button" aria-label="Quote" [class.is-active]="isActive('blockquote')"
+    [attr.aria-pressed]="isActive('blockquote')" (mousedown)="$event.preventDefault()" (click)="toggleBlockquote()">
+    <mat-icon>format_quote</mat-icon>
+  </button>
+
+  <mat-divider [vertical]="true" />
+
+  <button mat-icon-button type="button" aria-label="Bulleted list" [class.is-active]="isActive('bulletList')"
+    [attr.aria-pressed]="isActive('bulletList')" (mousedown)="$event.preventDefault()"
+    (click)="run('toggleBulletList')">
+    <mat-icon>format_list_bulleted</mat-icon>
+  </button>
+  <button mat-icon-button type="button" aria-label="Numbered list" [class.is-active]="isActive('orderedList')"
+    [attr.aria-pressed]="isActive('orderedList')" (mousedown)="$event.preventDefault()"
+    (click)="run('toggleOrderedList')">
+    <mat-icon>format_list_numbered</mat-icon>
+  </button>
+</div>
+
+<div class="editor scroll-container" #editorHost>
+  <span cdkOverlayOrigin #origin="cdkOverlayOrigin" [style.position]="'fixed'"
+    [style.left.px]="menuState().boundingBox?.left || 0" [style.top.px]="menuState().boundingBox?.top || 0"
+    [style.width.px]="menuState().boundingBox?.width || 0" [style.height.px]="menuState().boundingBox?.height || 0"
+    [style.pointer-events]="'none'">
+  </span>
+
+  <ng-template cdkConnectedOverlay [cdkConnectedOverlayOrigin]="origin" [cdkConnectedOverlayOpen]="menuState().isOpen"
+    [cdkConnectedOverlayPositions]="overlayPositions" [cdkConnectedOverlayHasBackdrop]="false"
+    [cdkConnectedOverlayPush]="true" [cdkConnectedOverlayViewportMargin]="8">
+    <div class="bubble-menu" #bubbleMenu role="toolbar" aria-label="Selection formatting"
+      (mousedown)="$event.preventDefault()">
+      <button mat-icon-button type="button" aria-label="Bold" [class.is-active]="isActive('bold')"
+        [attr.aria-pressed]="isActive('bold')" (click)="run('toggleBold')">
+        <mat-icon>format_bold</mat-icon>
+      </button>
+
+      <button mat-icon-button type="button" aria-label="Italic" [class.is-active]="isActive('italic')"
+        [attr.aria-pressed]="isActive('italic')" (click)="run('toggleItalic')">
+        <mat-icon>format_italic</mat-icon>
+      </button>
+
+      <button mat-icon-button type="button" aria-label="Underline" [class.is-active]="isActive('underline')"
+        [attr.aria-pressed]="isActive('underline')" (click)="run('toggleUnderline')">
+        <mat-icon>format_underlined</mat-icon>
+      </button>
+
+      <button mat-icon-button type="button" aria-label="Strikethrough" [class.is-active]="isActive('strike')"
+        [attr.aria-pressed]="isActive('strike')" (click)="run('toggleStrike')">
+        <mat-icon>format_strikethrough</mat-icon>
+      </button>
+
+      <mat-divider [vertical]="true" />
+
+      <button mat-icon-button type="button" aria-label="Link" [class.is-active]="isActive('link')"
+        [attr.aria-pressed]="isActive('link')" (click)="toggleLink()">
+        <mat-icon>link</mat-icon>
+      </button>
+
+      <button mat-icon-button type="button" aria-label="Quote" [class.is-active]="isActive('blockquote')"
+        [attr.aria-pressed]="isActive('blockquote')" (click)="toggleBlockquote()">
+        <mat-icon>format_quote</mat-icon>
+      </button>
+    </div>
+  </ng-template>
+
+  <div class="slash-menu" #slashMenu role="listbox" aria-label="Insert block">
+    @if (slashState(); as slash) {
+    @for (item of slash.items; track item.title; let i = $index) {
+    <button type="button" role="option" class="slash-item" [class.is-active]="i === slash.activeIndex"
+      [attr.aria-selected]="i === slash.activeIndex" (click)="slash.select(item)">
+      @if (item.icon) {
+      <mat-icon>{{ item.icon }}</mat-icon>
+      }
+      {{ item.title }}
+    </button>
+    }
+    }
+  </div>
+</div>

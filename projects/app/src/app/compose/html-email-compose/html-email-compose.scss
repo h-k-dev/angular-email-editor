@@ -1,0 +1,13 @@
+:host {
+  display: block;
+  overflow-y: auto;
+  cursor: text;
+
+  background-color: var(--mat-sys-surface-container-low);
+  border-radius: var(--mat-sys-corner-medium);
+  padding: var(--mat-sys-inner-spacing);
+
+  // The .ProseMirror surface inside reads these (see styles.scss).
+  --mat-sys-prose-mirror-font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  --mat-sys-prose-mirror-font-size: 13px;
+}

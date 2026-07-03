@@ -1,0 +1,304 @@
+# ROADMAP
+
+Two editors, one document, zero lies: a visual email composer and an HTML
+source editor developed as peers over the same extension contract, kept in
+sync through Angular signals, with ProseMirror as the parsing engine on both
+sides.
+
+## Why this is worth building
+
+Email is a strange dialect of HTML. It is parsed by rendering engines that
+range from "a browser from 2012" to "Microsoft Word", it gets rewritten by
+providers in transit, and it fails silently — the recipient just sees a broken
+message. Every WYSIWYG email editor eventually hits the same wall: the visual
+layer promises things the HTML underneath can't deliver.
+
+Our answer is to make the HTML a first-class, always-visible, always-editable
+projection — and to make one schema the single source of truth for what email
+HTML is allowed to be.
+
+## Principles (opinionated on purpose)
+
+1. **The schema is law.** The email ProseMirror schema defines the entire
+   vocabulary: which tags, which marks, which inline styles. Anything outside
+   it does not survive — not as a bug, as the contract.
+2. **Parsing is repair.** Broken or foreign markup is never rejected; it is
+   parsed, normalized, and re-serialized into canonical form. The linter tells
+   you *what* would change, the round-trip *makes* it change.
+3. **Canonical output is deterministic.** Same document → byte-identical
+   HTML: zero formatting whitespace, `<div>` lines (never `<p>` margins),
+   `<div><br></div>` empty lines, inline styles only, stable attribute order.
+4. **Formatting is presentation-only.** Indentation and line breaks in the
+   source pane are exactly the whitespace the parser discards. Pretty source
+   can never change the rendered email — this is enforced by test.
+5. **Both editors run the same commands.** Ctrl-B in the source pane executes
+   the visual editor's own toggle through the shared schema. Behavior can't
+   diverge, because there is only one behavior.
+6. **Signals carry the truth.** One `html` signal per composer; each editor
+   projects into it and reacts to it. No event soup, no manual sync calls.
+7. **If a mainstream client can't render it, we don't emit it.** Gmail,
+   Outlook (Word engine), Apple Mail, Yahoo, and the big webmailers define
+   our floor. When in doubt: caniemail says no.
+8. **Responsive by default.** Every email we emit must read well on a phone —
+   not as an option, as a property of the output. And because of principle 7,
+   responsiveness is achieved *fluidly* (max-widths, percentage widths,
+   wrapping structures with inline styles), never via `<style>` media
+   queries that half the clients strip.
+9. **We don't fight dark mode.** There is no reliable control — Gmail and
+   Outlook forcibly recolor, and the official mechanisms don't survive
+   transit — so we never emit dark-mode CSS or anti-inversion hacks. Instead
+   the output *inverts gracefully by construction*: colorless by default
+   (uncolored email is every inverter's happy path), and every color *we
+   offer* passes the **dual-contrast rule** — readable against both white
+   and near-black. Enforcement lives at the affordance: the color picker is
+   a curated palette, not an arbitrary hex input. The source pane stays
+   free — a hand-typed hex is the author's own responsibility; we never
+   rewrite, block, or police colors from the code side.
+
+## UI/UX & platform stance
+
+- **Headless first: Angular Aria over Angular Material.** Behavior and
+  accessibility come from headless primitives (Angular Aria patterns, CDK
+  overlays); we own the markup and the pixels. Ideally we use no Material
+  *components* at all — but we'll see, and we say so honestly: today's
+  toolbar still sits on `mat-icon-button`. What we keep regardless is
+  Material's **design token system**: `mat-sys-*` as the theming default is
+  too nice and simple to pass on.
+  - [ ] Migrate the composer UI (toolbar, menus) from Material components to
+        headless Aria/CDK primitives styled purely by the token cascade.
+- **One token cascade, always.** Every visual knob resolves in this exact
+  sequence: `--email-*` / `--html-email-*` (our component tokens) →
+  `--mat-sys-*` (Material system tokens) → hard fallback value. Host apps
+  theme by overriding the first layer, Material themes flow through the
+  second, and the fallback guarantees a sane look with no theme at all.
+  - [ ] Migrate the existing names (`--mat-sys-prose-mirror-*`,
+        `--mat-sys-aee-*`, `aee-*` token classes) onto this cascade.
+- **Angular only — and all of Angular.** We will never care about other
+  frontend frameworks or a framework-agnostic/vanilla-JS wrapper. That budget
+  goes into seamless Angular integration instead: signals and `model()` for
+  state, `effect()` for projections, `afterNextRender` for DOM mounting,
+  OnPush everywhere, zoneless-ready.
+- **No hacking into ProseMirror or Angular.** ProseMirror is extended only
+  through its public contract (schema specs, plugins, props, decorations);
+  Angular only through documented APIs. If a feature needs a private
+  override or monkey patch, the feature waits or the design changes —
+  maintenance beats cleverness.
+- **Tests pin logic, not lines.** No 100%-coverage worship. We test the
+  contracts that keep us honest — canonicalization, round-trip invariance,
+  lint semantics, toggle parity — so refactors fail loudly exactly where it
+  matters and nowhere else.
+
+## Where we are (done)
+
+- [x] Extension architecture: nodes, marks, keymaps, input rules, plugins,
+      commands, slash items — kits are just arrays of extensions.
+- [x] **Email kit**: div-line paragraphs, bold/italic/underline/strike,
+      links, text color, blockquote, lists, headings, images, history,
+      bubble menu, slash menu, math-only text metrics.
+- [x] **HTML source kit**: one `codeLine` per line, syntax highlighting,
+      linting (unclosed tags, stray closers, void misuse, non-email-safe
+      warnings), pretty-printer that is also a repairer, Shift-Alt-F,
+      format-on-blur (refuses on errors, Prettier-style), Tab = 2 spaces,
+      auto-indent on Enter, tag auto-closing (`>` and `</`), line-aware paste.
+- [x] **Mark parity**: mark keymaps/commands of the email kit mirrored into
+      the source editor via sentinel round-trip through the shared schema.
+- [x] **Composer app**: `Compose` owns one canonical `html` signal; the two
+      panes are attribute-selector components with `model()` two-way binding;
+      focus-guarded effects prevent echo loops and cursor yanking.
+- [x] Output-invariance test: `format(html)` and `html` canonicalize
+      identically through the email schema.
+
+## Milestone 1 — Round-trip fidelity
+
+The sync works; now make it lossless and gentle.
+
+- [ ] **Diff-based `setText`/`setContent`**: compute a minimal transaction
+      instead of replacing the whole document. Preserves undo history,
+      selection, and decorations on the receiving side. (Today: the source
+      pane's undo resets whenever the email side edits, and vice versa.)
+- [ ] **Comment policy.** ProseMirror's parser silently drops HTML comments,
+      so canonicalization deletes them — today the linter tolerates what the
+      round-trip destroys. Decide: preserve comments as schema nodes (needed
+      for `<!--[if mso]>` later) or lint them as "will be removed". No silent
+      loss either way.
+- [ ] **Entity discipline**: lint unescaped `&`, bare `<` in text; keep
+      sentinel-safety (selection endpoints inside `&amp;` must not split it).
+- [ ] **Selection mirroring** (stretch): click in the source highlights the
+      corresponding text in the email pane and back — generalize the sentinel
+      offset-mapping into a reusable source map.
+
+## Milestone 2 — The missing composer features
+
+Everything a Gmail-class composer has that we don't, always expressed as
+schema extensions first, toolbar second.
+
+- [ ] **Paste sanitization**: Word/Google Docs/Outlook HTML is the number one
+      source of broken emails. Parse pasted content through the email schema
+      (we get this almost for free) plus explicit strip rules for `mso-*`
+      styles, `<o:p>`, class soup, and pasted `<style>` blocks.
+- [ ] **Link editing UI**: replace `window.prompt` with a small overlay
+      (edit/visit/unlink), auto-link typed URLs, lint `javascript:` schemes
+      away in the source.
+- [ ] **Images**: drag-drop and paste as attachment-backed `cid:` or hosted
+      URL, required alt text (lint it — image-blocking clients show alt only),
+      width capping, no `float`.
+- [ ] **Alignment & direction**: `text-align` on line divs, keep `dir="auto"`.
+- [ ] **Clear formatting** command (both panes — it's just another shared
+      command).
+- [ ] **Font size/family** as a constrained set of email-safe stacks
+      (Arial/Helvetica, Georgia, Courier, system) — no free-form fonts.
+- [ ] **Dual-contrast color palette** (principle 9): replace the native
+      arbitrary-hex color input with a curated swatch set whose every color
+      reads against both white and near-black. Enforcement at the picker
+      only — no color checking, rewriting, or nagging from the source pane.
+- [ ] **Word/line counter placement** and the **`/send` slash command**
+      (compose-level: the slash menu already aggregates extension items).
+
+## Milestone 3 — The deliverability lint engine
+
+Turn the linter from "is this valid HTML" into "will this render in Outlook".
+This is where the source editor earns its seat.
+
+- [ ] **Client-support data module**: a curated, versioned subset of
+      caniemail (tags, attributes, CSS properties × Gmail/Outlook/Apple/
+      Yahoo/Android). Pure data, tree-shakeable, powers everything below.
+- [ ] **Style linting**: flag CSS properties the schema emits or the user
+      types that any floor client ignores or mangles (e.g. `margin` in
+      Outlook's Word engine, shorthand `font`, `position`, negative margins).
+- [ ] **Size budget**: live warning as the canonical HTML approaches
+      **Gmail's 102 KB clipping limit**; error above it.
+- [ ] **Hover documentation**: the lint tooltip says *which client* breaks
+      and *what happens* ("Outlook desktop ignores this", "Gmail clips here").
+- [ ] **Problems panel**: `onDiagnostics` already exists — surface counts and
+      a jump-to-error list in the composer UI.
+- [ ] **Autocomplete** for the email-safe tag/attribute/style vocabulary —
+      the schema knows what's legal; suggest only that.
+
+## Milestone 4 — Preview & proof
+
+"Sure shot that our email renders" needs evidence, not confidence.
+
+- [ ] **Rendered preview pane**: the canonical HTML in a sandboxed iframe —
+      a third projection of the same signal (the architecture already allows
+      any number of peers).
+- [ ] **Client simulation modes**: apply documented client CSS resets/
+      restrictions (Gmail, Outlook Word-engine approximation) to the preview.
+      Honest label: simulation, not screenshot testing.
+- [ ] **Dark mode preview** that simulates *Gmail-style forced inversion* —
+      not just a dark canvas; recoloring is the truth users need to see.
+      The color stance itself is principle 9: we don't fight, we invert
+      gracefully.
+- [ ] **Plain-text projection**: generate the `text/plain` alternative from
+      the document (multipart/alternative is table stakes for deliverability
+      and spam scoring) — blockquotes become `>`, lists become `-`.
+- [ ] **Golden-file test suite**: canonical outputs for a corpus of documents,
+      snapshot-tested; round-trip property tests (parse ∘ serialize =
+      identity on canonical HTML) run in CI.
+- [ ] **Outlook conditional comments** (`<!--[if mso]>`): decide whether the
+      compose use case ever needs them (depends on M1 comment policy);
+      marketing-grade table layouts remain a non-goal.
+
+## Milestone 5 — Layout blocks, our way
+
+MJML is the only well-known answer here, and we don't like it — it's clumsy,
+and it's a foreign dialect. The bet instead: **if our responsive opinions are
+strong enough, native blocks replace MJML entirely.** A `/columns` block is
+just another schema extension that emits fluid, email-safe markup directly —
+no compiler pass, no intermediary format, nothing the user (or the source
+pane) can't see and edit.
+
+- [ ] **Slash-menu layout blocks** (`/columns`, `/button`, `/divider`, …) as
+      ordinary node extensions whose `toDOM`/`emitDOM` produce our fluid
+      hybrid patterns (max-width, percentage widths, inline styles).
+- [ ] **Schema growth to hold them**: constrained table/section nodes with
+      strict parse/serialize rules — the gate for this milestone, and it must
+      not loosen the canonical guarantees for plain text emails.
+- [ ] **Round-trip stance**: blocks are canonical HTML like everything else —
+      editable in the source pane, linted, re-parsed. No hidden state, no
+      "locked" regions; the schema, as always, is law.
+- [ ] **Template-ready, not templated.** We expect a handlebars-like dialect
+      to emerge naturally once the blocks exist: placeholder nodes that
+      survive the round trip and serialize as `{{name}}`-style tokens. We
+      design the schema so nothing blocks that — and promise nothing more.
+
+## The responsiveness ledger
+
+Principle 8 dies in the details: each extension is built on a desktop, looks
+fine on a desktop, and quietly breaks at 320px. This ledger exists because we
+*will* forget. Rule of thumb for everything below: no media queries (they get
+stripped), so every answer must be fluid and inline.
+
+**Definition of done for any node extension: its JSDoc states what happens at
+320px, and its serialize rules implement that answer.**
+
+| Extension | The trap at 320px | Our fluid answer |
+| --- | --- | --- |
+| **Image** | Fixed pixel width overflows the screen; Outlook ignores `max-width` entirely | Hybrid sizing: `width` *attribute* for Outlook + `style="width:100%; max-width:<n>px; height:auto"` for everyone else |
+| **Table / layout blocks (M5)** | Columns keep their desktop widths and force horizontal scroll | Spongy columns: `inline-block` cells with percentage widths inside a `max-width` container, so they wrap/stack naturally; ghost-table needs for Outlook depend on the M1 comment policy |
+| **Lists** | Default `padding-inline-start: 40px` per nesting level — two levels eat a third of the screen | Explicit small inline padding on `ul`/`ol`, tested nested |
+| **Blockquote** | Nested reply chains accumulate margins until text is one word per line | Small fixed inline padding + border, no margin stacking; consider a visual nesting cap |
+| **Headings** | Desktop-sized `h1` wraps into a wall at phone width | Conservative size scale that reads on both; line-height inline and proportional |
+| **Paragraph / document width** | Full-width lines are unreadable on desktop, so someone will add a fixed container that then breaks phones | If we ever emit a wrapper, it is `max-width` + `width:100%` — the hybrid, never a fixed width |
+| **Links / long text** | An unbroken URL or token wider than the viewport forces the whole email to scroll | `word-break`-friendly serialization for link text where possible; lint long unbroken strings |
+| **Button block (M5)** | Padding-based fake buttons too small to tap | Touch target ≥ 44px via padding (never `height`), generous inline `padding` |
+| **Font sizes** | Below ~13px, iOS auto-inflates text and reflows the layout | Minimum emitted font size ≥ 14px; the lint engine (M3) enforces it |
+| **Horizontal rule** | Fixed pixel width | `width:100%`, done |
+
+Two enforcement hooks so the ledger stays alive:
+
+- [ ] **Lint rules from the ledger** (M3): fixed pixel widths without the
+      hybrid pattern, sub-minimum font sizes, unbroken strings past a length
+      budget — each row above that can be linted, is.
+- [ ] **320px preview default** (M4): the preview pane opens phone-width
+      first. If it looks right narrow, desktop is almost free — never the
+      other way around.
+
+## Milestone 6 — Compose workflow
+
+- [ ] `/send` wiring against a real transport (the payload is just the
+      canonical signal + plain-text projection).
+- [ ] Draft persistence (the canonical HTML *is* the draft format).
+- [ ] Reply/forward: parse foreign inbound HTML through the schema —
+      quoted-history blocks (`gmail_quote`-style) as a schema node.
+- [ ] **`.eml` drop & HTML paste — one law.** The body always parses through
+      the email schema, exactly like paste: full strip, no gentler pipeline,
+      which doubles as sanitization (tracking pixels, remote CSS, script
+      attempts die in the parse). The opinionation budget goes into
+      *legibility of loss*, not leniency: an **import report** through the
+      diagnostics channel ("14 elements outside the schema removed, 2 inline
+      images mapped, 1 attachment ignored"). `cid:` images map into the
+      image/attachment story; the `text/plain` part is the content when no
+      HTML part exists; headers are discarded until compose fields return.
+- [ ] Attachments surface.
+
+## Non-goals (so we stay opinionated)
+
+- **Not a drag-drop marketing builder.** No block canvas, no template
+  gallery. This is a *compose* editor — but an ambitious one: the output is
+  always responsive and phone-first (principle 8), and rich layout arrives
+  through our own responsive schema blocks (M5), not through a page builder.
+- **No MJML.** We tried it; it's clumsy, and it would make a foreign dialect
+  the real source of truth. Being opinionated enough about fluid, responsive
+  output is precisely what makes MJML unnecessary — that's the M5 bet.
+- **No `<style>` blocks, no classes, no JS** in output. Inline styles only —
+  everything else is stripped by enough clients to be a lie. This holds for
+  responsiveness too: fluid layout, not media queries.
+- **No template language — yet, but template-ready.** No promises before
+  M1–M4 are solid; when it comes, it will be a handlebars-like dialect as a
+  schema extension (M5), not a preprocessor bolted on top.
+- **No free-form HTML passthrough.** If you need a tag the schema doesn't
+  know, the answer is a new extension with parse/serialize/lint rules — not
+  an escape hatch.
+
+## Architecture notes for future us
+
+- New capability = new extension. If it needs UI, it exposes state through a
+  callback and the app renders it (see bubble/slash menus, diagnostics).
+- Anything both panes must agree on lives in the **email schema**, never in
+  either pane. The source pane consumes it via `createSourceMarks`-style
+  round-trips.
+- The library ships behavior, the app ships pixels. Token classes
+  (`aee-tok-*`, `aee-lint-*`) are the styling contract.
+- The app consumes the library from `dist/` — rebuild it (`ng build
+  angular-email-editor`) or run `npm run watch`; if changes "don't arrive",
+  clear `.angular/cache` (stale Vite prebundle).
