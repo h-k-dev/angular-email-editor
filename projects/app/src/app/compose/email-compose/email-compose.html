@@ -57,7 +57,7 @@
   <mat-divider [vertical]="true" />
 
   <button mat-icon-button type="button" aria-label="Link" [class.is-active]="isActive('link')"
-    [attr.aria-pressed]="isActive('link')" (mousedown)="$event.preventDefault()" (click)="toggleLink()">
+    [attr.aria-pressed]="isActive('link')" (mousedown)="$event.preventDefault()" (click)="openLinkEditor()">
     <mat-icon>link</mat-icon>
   </button>
   <button mat-icon-button type="button" aria-label="Quote" [class.is-active]="isActive('blockquote')"
@@ -78,6 +78,36 @@
     <mat-icon>format_list_numbered</mat-icon>
   </button>
 </div>
+
+<!-- Link editor: anchored at the selection via a fixed virtual origin. The
+     input needs real focus, so no mousedown suppression here — the editor
+     blurs while editing and is refocused on close. -->
+<span cdkOverlayOrigin #linkOrigin="cdkOverlayOrigin" [style.position]="'fixed'"
+  [style.left.px]="linkAnchor()?.left || 0" [style.top.px]="linkAnchor()?.top || 0" [style.width.px]="0"
+  [style.height.px]="linkAnchor()?.height || 0" [style.pointer-events]="'none'">
+</span>
+
+<ng-template cdkConnectedOverlay [cdkConnectedOverlayOrigin]="linkOrigin" [cdkConnectedOverlayOpen]="linkMenuOpen()"
+  [cdkConnectedOverlayPositions]="overlayPositions" [cdkConnectedOverlayHasBackdrop]="true"
+  cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop" (backdropClick)="closeLinkEditor()"
+  [cdkConnectedOverlayPush]="true" [cdkConnectedOverlayViewportMargin]="8">
+  <div class="link-editor" role="dialog" aria-label="Edit link">
+    <input #linkInput class="link-editor__input" type="url" placeholder="Link URL" spellcheck="false"
+      [value]="linkHref()" (input)="linkHref.set($any($event.target).value)" (keydown.enter)="applyLink()"
+      (keydown.escape)="closeLinkEditor()" />
+    <button mat-icon-button type="button" aria-label="Apply link" (click)="applyLink()">
+      <mat-icon>check</mat-icon>
+    </button>
+    @if (linkExisting()) {
+    <button mat-icon-button type="button" aria-label="Open link" (click)="visitLink()">
+      <mat-icon>open_in_new</mat-icon>
+    </button>
+    <button mat-icon-button type="button" aria-label="Remove link" (click)="removeLink()">
+      <mat-icon>link_off</mat-icon>
+    </button>
+    }
+  </div>
+</ng-template>
 
 <div class="editor scroll-container" #editorHost>
   <span cdkOverlayOrigin #origin="cdkOverlayOrigin" [style.position]="'fixed'"
@@ -114,7 +144,7 @@
       <mat-divider [vertical]="true" />
 
       <button mat-icon-button type="button" aria-label="Link" [class.is-active]="isActive('link')"
-        [attr.aria-pressed]="isActive('link')" (click)="toggleLink()">
+        [attr.aria-pressed]="isActive('link')" (click)="openLinkEditor()">
         <mat-icon>link</mat-icon>
       </button>
 

@@ -78,6 +78,13 @@ describe('html-source linter', () => {
   it('accepts complete entities and plain ampersands in prose', () => {
     expect(lintHTML('<div>Tom & Jerry, 5 &lt; 6 &amp; &#169; fine</div>')).toEqual([]);
   });
+
+  it('errors on script-URL attribute values', () => {
+    const diagnostics = lintHTML('<div><a href="javascript:alert(1)">x</a></div>');
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0]).toMatchObject({ severity: 'error' });
+    expect(diagnostics[0].message).toContain('script URL');
+  });
 });
 
 describe('html-source open tags', () => {

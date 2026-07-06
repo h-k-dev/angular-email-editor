@@ -142,13 +142,22 @@ The sync works; now make it lossless and gentle.
 Everything a Gmail-class composer has that we don't, always expressed as
 schema extensions first, toolbar second.
 
-- [ ] **Paste sanitization**: Word/Google Docs/Outlook HTML is the number one
-      source of broken emails. Parse pasted content through the email schema
-      (we get this almost for free) plus explicit strip rules for `mso-*`
-      styles, `<o:p>`, class soup, and pasted `<style>` blocks.
-- [ ] **Link editing UI**: replace `window.prompt` with a small overlay
-      (edit/visit/unlink), auto-link typed URLs, lint `javascript:` schemes
-      away in the source.
+- [x] **Paste sanitization**: the `PasteHygiene` extension cleans clipboard
+      HTML before the schema parse — `<style>`/`<script>` subtrees (whose
+      text would leak through), Word's namespaced tags (`<o:p>`, `<w:*>`),
+      and Word's fake list glyphs (`mso-list:Ignore` spans). Everything else
+      (class soup, `mso-*` styles, Google Docs' `font-weight:normal` `<b>`
+      wrapper) dies in the schema parse, where it belongs. Known limit: Word
+      lists arrive as plain paragraphs (glyphs stripped, structure not
+      reconstructed) — real `<ul>` reconstruction from `mso-list` levels is
+      its own future item.
+- [x] **Link editing UI**: selection-anchored popover (edit/apply on Enter,
+      open, unlink) replaces `window.prompt`; a bare cursor inside a link
+      edits the *whole* link via the new `linkRangeAt` helper, and
+      `setLink`/`unsetLink` learned the same. Typed URLs auto-link on the
+      committing space (`www.` gets `https://`, trailing punctuation stays
+      outside). Script URLs: refused by the schema on parse *and* on the
+      command, and flagged as errors in the source pane.
 - [ ] **Images**: drag-drop and paste as attachment-backed `cid:` or hosted
       URL, required alt text (lint it — image-blocking clients show alt only),
       width capping, no `float`.

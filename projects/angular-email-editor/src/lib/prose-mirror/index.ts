@@ -8,6 +8,7 @@ export * from './measurement';
 export * from './extensions/kits';
 export * from './extensions/html-language';
 export * from './extensions/html-source-marks';
+export * from './extensions/paste-hygiene';
 export * from './extensions/nodes/code-line';
 export * from './extensions/nodes/document';
 export * from './extensions/nodes/paragraph';

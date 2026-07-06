@@ -38,6 +38,7 @@ import {
   defineExtension,
   emailExtensions,
   emailTextPalette,
+  linkRangeAt,
 } from 'angular-email-editor';
 
 @Component({
@@ -76,6 +77,13 @@ export class EmailCompose {
       arbitrary hex lives solely in the HTML source pane, on purpose. */
   palette = emailTextPalette;
   colorMenuOpen = signal(false);
+
+  // Link editor popover, anchored at the selection.
+  linkInput = viewChild<ElementRef<HTMLInputElement>>('linkInput');
+  linkMenuOpen = signal(false);
+  linkHref = signal('');
+  linkExisting = signal(false);
+  linkAnchor = signal<{ left: number; top: number; height: number } | null>(null);
 
   // CDK allows us to pass a custom element that implements getBoundingClientRect()
   // Change virtualOrigin to a simple object with a method
@@ -212,18 +220,59 @@ export class EmailCompose {
     editor.focus();
   }
 
-  toggleLink() {
+  /** Opens the link popover at the selection: prefilled when the cursor sits
+      in an existing link, a no-op when there is neither selection nor link. */
+  openLinkEditor(): void {
     const editor = this.editor();
     if (!editor) return;
 
-    if (editor.isActive('link')) {
-      editor.commands['unsetLink']();
-    } else {
-      const href = window.prompt('Link URL');
-      if (href) editor.commands['setLink']({ href });
+    const { from, empty } = editor.state.selection;
+    const range = linkRangeAt(editor.state, from);
+    if (empty && !range) {
+      editor.focus();
+      return;
     }
 
+    this.linkHref.set(range?.attrs.href ?? '');
+    this.linkExisting.set(!!range);
+    const coords = editor.view.coordsAtPos(from);
+    this.linkAnchor.set({ left: coords.left, top: coords.top, height: coords.bottom - coords.top });
+    this.linkMenuOpen.set(true);
+    setTimeout(() => this.linkInput()?.nativeElement.select());
+  }
+
+  closeLinkEditor(): void {
+    this.linkMenuOpen.set(false);
+    this.focusEditor();
+  }
+
+  /** Applies the entered URL; a scheme-less value gets https:// prepended,
+      an emptied value unlinks — matching what the field visibly says. */
+  applyLink(): void {
+    const editor = this.editor();
+    const raw = this.linkHref().trim();
+    this.linkMenuOpen.set(false);
+    if (!editor) return;
+
+    if (raw) {
+      const href = /^[a-z][\w+.-]*:/i.test(raw) ? raw : `https://${raw}`;
+      editor.commands['setLink']({ href });
+    } else {
+      editor.commands['unsetLink']();
+    }
     editor.focus();
+  }
+
+  removeLink(): void {
+    this.linkMenuOpen.set(false);
+    const editor = this.editor();
+    editor?.commands['unsetLink']();
+    editor?.focus();
+  }
+
+  visitLink(): void {
+    const href = this.linkHref();
+    if (href) window.open(href, '_blank', 'noopener,noreferrer');
   }
 
   toggleBlockquote(): void {

@@ -182,6 +182,26 @@ export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): Htm
     }
   }
 
+  // Script URL schemes in attribute values: the email schema refuses them on
+  // parse and mail clients block them — an error, not a taste question.
+  let lastAttribute = '';
+  for (const token of scan.tokens) {
+    if (token.type === 'attributeName') {
+      lastAttribute = source.slice(token.from, token.to).toLowerCase();
+      continue;
+    }
+    if (token.type !== 'attributeValue') continue;
+    const value = source.slice(token.from, token.to).replace(/^["']|["']$/g, '');
+    if (/^\s*(javascript|vbscript)\s*:/i.test(value)) {
+      diagnostics.push({
+        from: token.from,
+        to: token.to,
+        severity: 'error',
+        message: `"${lastAttribute}" uses a script URL — the schema refuses it and mail clients block it`,
+      });
+    }
+  }
+
   for (const token of scan.tokens) {
     if (token.type !== 'comment') continue;
     if (source.slice(token.from, token.to).endsWith('-->')) {

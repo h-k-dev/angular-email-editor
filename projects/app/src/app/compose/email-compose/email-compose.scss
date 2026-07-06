@@ -90,6 +90,39 @@
   padding: var(--mat-sys-inner-spacing);
 }
 
+// Link editor popover. Token cascade: --email-* → --mat-sys-* → fallback.
+.link-editor {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+
+  background-color: var(--email-compose-link-background, var(--mat-sys-surface-container, #f3f3f3));
+  border-radius: var(--email-compose-link-corner, var(--mat-sys-corner-medium, 8px));
+  box-shadow: var(--mat-sys-level2);
+
+  --mdc-icon-button-state-layer-size: 32px;
+  --mdc-icon-button-icon-size: 20px;
+  --mat-icon-font-size: 20px;
+}
+
+.link-editor__input {
+  width: 260px;
+  padding: 6px 10px;
+  border: none;
+  outline: none;
+
+  background-color: var(--email-compose-link-input-background, var(--mat-sys-surface-bright, #ffffff));
+  color: var(--mat-sys-on-surface, inherit);
+  border-radius: var(--mat-sys-corner-small, 4px);
+  font: var(--mat-sys-body-medium);
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary, #0056b3);
+    outline-offset: -2px;
+  }
+}
+
 // Visibility and top/left are driven by the bubble-menu extension.
 .bubble-menu {
   @include formatting-toolbar;
