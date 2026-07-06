@@ -9,7 +9,7 @@ import {
 } from '../extension';
 import { createSchema } from '../schema';
 import { parseHTML, serializeToHTML } from '../html';
-import { formatHTML, scanHTML } from '../html-source';
+import { entitySpans, formatHTML, scanHTML } from '../html-source';
 import { createOffsetMapper, docText, textOffsetAt } from './html-language';
 
 /** Private-use sentinels that ride through parse → command → serialize,
@@ -136,6 +136,14 @@ function clampToText(source: string, a: number, b: number): [number, number] {
     if (hit) b = hit[0];
     else if (/\s/.test(source[b - 1])) b--;
     else break;
+  }
+
+  // Character references are atomic: a sentinel inside '&amp;' would break
+  // the reference and change the decoded text. Endpoints expand outward so
+  // the whole entity rides along with the selection.
+  for (const [from, to] of entitySpans(source)) {
+    if (a > from && a < to) a = from;
+    if (b > from && b < to) b = to;
   }
   return [a, b];
 }

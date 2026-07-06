@@ -53,6 +53,31 @@ describe('html-source linter', () => {
     expect(diagnostics[0]).toMatchObject({ severity: 'warning' });
     expect(diagnostics[0].message).toContain('not email-safe');
   });
+
+  it('announces that comments will not survive the parse — loud, never silent', () => {
+    const diagnostics = lintHTML('<div>a</div><!--[if mso]>ghost<![endif]-->');
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0]).toMatchObject({ severity: 'warning' });
+    expect(diagnostics[0].message).toContain('drops them');
+  });
+
+  it('flags an unterminated comment as an error', () => {
+    const diagnostics = lintHTML('<div>a</div><!-- swallowed the rest');
+    expect(diagnostics[0]).toMatchObject({ severity: 'error' });
+    expect(diagnostics[0].message).toContain('never closed');
+  });
+
+  it('warns on ambiguous ampersands that legacy-decode without ";"', () => {
+    const diagnostics = lintHTML('<div>save 10% &copy 2026, a=1&#38b</div>');
+    expect(diagnostics).toHaveLength(2);
+    expect(diagnostics[0].message).toContain('"&copy"');
+    expect(diagnostics[1].message).toContain('"&#38"');
+    expect(diagnostics.every((d) => d.severity === 'warning')).toBe(true);
+  });
+
+  it('accepts complete entities and plain ampersands in prose', () => {
+    expect(lintHTML('<div>Tom & Jerry, 5 &lt; 6 &amp; &#169; fine</div>')).toEqual([]);
+  });
 });
 
 describe('html-source open tags', () => {

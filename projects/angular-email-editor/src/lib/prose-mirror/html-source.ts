@@ -155,10 +155,51 @@ export function scanHTML(source: string): HtmlScan {
 }
 
 /** Balance-checks the tag stream: unclosed tags, stray closers, closed void
-    elements, plus warnings for tags outside the email-safe set. */
+    elements, warnings for tags outside the email-safe set — and for
+    comments, which are never email content: the schema drops them on parse
+    (loudly here, never silently). */
 export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): HtmlDiagnostic[] {
   const diagnostics: HtmlDiagnostic[] = [];
   const stack: HtmlTag[] = [];
+
+  // Ambiguous ampersands in text: entity-like but missing the ';'. Browsers
+  // still decode the legacy forms ('&copy' → ©, '&#169' → ©), silently
+  // changing the text. A plain '&' (followed by whitespace or punctuation)
+  // is safe — the round trip normalizes it to '&amp;' without changing
+  // meaning, so it is not worth a warning.
+  for (const [regionFrom, regionTo] of textRegions(source, scan)) {
+    const region = source.slice(regionFrom, regionTo);
+    // Each form terminates on its own alphabet: '&#38b' decodes as '&' + 'b'.
+    const ambiguous =
+      /&(?:#x[0-9a-fA-F]+(?![0-9a-fA-F;])|#\d+(?![\d;])|[a-zA-Z][a-zA-Z0-9]*(?![a-zA-Z0-9;]))/g;
+    for (let match; (match = ambiguous.exec(region)); ) {
+      diagnostics.push({
+        from: regionFrom + match.index,
+        to: regionFrom + match.index + match[0].length,
+        severity: 'warning',
+        message: `Ambiguous "${match[0]}" — legacy entities decode without the ";"; write "&amp;${match[0].slice(1)}" for literal text or add the ";"`,
+      });
+    }
+  }
+
+  for (const token of scan.tokens) {
+    if (token.type !== 'comment') continue;
+    if (source.slice(token.from, token.to).endsWith('-->')) {
+      diagnostics.push({
+        from: token.from,
+        to: token.to,
+        severity: 'warning',
+        message: 'Comments are not email content — the schema drops them on the next parse',
+      });
+    } else {
+      diagnostics.push({
+        from: token.from,
+        to: token.to,
+        severity: 'error',
+        message: 'Comment is never closed with "-->"',
+      });
+    }
+  }
 
   const unclosed = (tag: HtmlTag) =>
     diagnostics.push({
@@ -226,6 +267,37 @@ export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): Htm
   for (const tag of stack) unclosed(tag);
 
   return diagnostics.sort((a, b) => a.from - b.from);
+}
+
+/** Complete character references (`&amp;`, `&#169;`, `&#xA9;`) — spans that
+    edits and selection endpoints must treat as atomic: splitting one breaks
+    the reference and changes the decoded text. */
+export function entitySpans(source: string): [number, number][] {
+  const pattern = /&(?:#\d+|#x[0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]*);/g;
+  const spans: [number, number][] = [];
+  for (let match; (match = pattern.exec(source)); ) {
+    spans.push([match.index, match.index + match[0].length]);
+  }
+  return spans;
+}
+
+/** Text regions of the source — everything outside tags and comments. */
+function textRegions(source: string, scan: HtmlScan): [number, number][] {
+  const blocked = [
+    ...scan.tags.map((tag): [number, number] => [tag.from, tag.to]),
+    ...scan.tokens
+      .filter((token) => token.type === 'comment')
+      .map((token): [number, number] => [token.from, token.to]),
+  ].sort((x, y) => x[0] - y[0]);
+
+  const regions: [number, number][] = [];
+  let cursor = 0;
+  for (const [from, to] of blocked) {
+    if (from > cursor) regions.push([cursor, from]);
+    cursor = Math.max(cursor, to);
+  }
+  if (cursor < source.length) regions.push([cursor, source.length]);
+  return regions;
 }
 
 /** Names of tags still open at the end of the source, outermost first.

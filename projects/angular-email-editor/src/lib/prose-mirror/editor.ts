@@ -1,6 +1,6 @@
 import { Command, EditorState, Plugin } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
-import { MarkType, NodeType, Schema } from 'prosemirror-model';
+import { MarkType, Node, NodeType, Schema } from 'prosemirror-model';
 import { keymap } from 'prosemirror-keymap';
 import { InputRule, inputRules } from 'prosemirror-inputrules';
 import { CommandFactory, Extension, ExtensionContext } from './extension';
@@ -33,11 +33,16 @@ export interface Editor {
   /** Whether a node or mark with the given name (and attrs) is active at the selection. */
   isActive(name: string, attrs?: Record<string, any>): boolean;
   getHTML(): string;
-  /** Replaces the whole document, e.g. when loading a draft. */
+  /** Replaces the document with the given HTML, applied as a minimal diff:
+      unchanged content keeps its positions, so selection, scroll and plugin
+      state survive. The change counts as an external sync — it never enters
+      the undo history and never fires `onUpdate`, so editors mirroring each
+      other cannot echo. */
   setContent(html: string): void;
   /** The document as plain text: top-level blocks joined with newlines. */
   getText(): string;
-  /** Replaces the document with plain text, one default block per line. */
+  /** Replaces the document with plain text, one default block per line.
+      Same external-sync semantics as {@link setContent}. */
   setText(text: string): void;
   focus(): void;
   destroy(): void;
@@ -73,7 +78,9 @@ export function createEditor(options: EditorOptions): Editor {
     attributes: options.attributes,
     dispatchTransaction(transaction) {
       view.updateState(view.state.apply(transaction));
-      if (transaction.docChanged) options.onUpdate?.(editor);
+      if (transaction.docChanged && !transaction.getMeta('externalSync')) {
+        options.onUpdate?.(editor);
+      }
     },
   });
 
@@ -101,8 +108,7 @@ export function createEditor(options: EditorOptions): Editor {
     },
     getHTML: () => serializeToHTML(view.state.doc, schema),
     setContent(html) {
-      const doc = parseHTML(html, schema);
-      view.updateState(EditorState.create({ doc, schema, plugins }));
+      syncDoc(view, parseHTML(html, schema));
     },
     getText() {
       const lines: string[] = [];
@@ -115,14 +121,49 @@ export function createEditor(options: EditorOptions): Editor {
       const lines = text
         .split('\n')
         .map((line) => lineType.create(null, line ? schema.text(line) : null));
-      const doc = schema.topNodeType.create(null, lines);
-      view.updateState(EditorState.create({ doc, schema, plugins }));
+      syncDoc(view, schema.topNodeType.create(null, lines));
     },
     focus: () => view.focus(),
     destroy: () => view.destroy(),
   };
 
   return editor;
+}
+
+/**
+ * Applies a new document as a minimal diff transaction. Content outside the
+ * changed range keeps its positions, so the receiving editor's selection,
+ * scroll and plugin state survive — and its own undo history stays intact:
+ * the sync is flagged `addToHistory: false` (external changes aren't yours
+ * to undo) and `externalSync` (so `dispatchTransaction` skips `onUpdate`,
+ * keeping mirrored editors echo-free).
+ */
+function syncDoc(view: EditorView, doc: Node): void {
+  const previous = view.state.doc;
+  if (previous.eq(doc)) return;
+
+  const start = previous.content.findDiffStart(doc.content);
+  if (start === null) return;
+  const end = previous.content.findDiffEnd(doc.content);
+  if (!end) return;
+  let { a: endA, b: endB } = end;
+  // With overlapping diffs (repeated content) the end can fall before the
+  // start; widen both ends so the replaced range stays valid.
+  const overlap = start - Math.min(endA, endB);
+  if (overlap > 0) {
+    endA += overlap;
+    endB += overlap;
+  }
+
+  const tr = view.state.tr;
+  try {
+    tr.replace(start, endA, doc.slice(start, endB));
+  } catch {
+    // A slice the schema can't fit at that boundary: fall back to replacing
+    // the whole document — still a transaction, so history semantics hold.
+    tr.replaceWith(0, previous.content.size, doc.content);
+  }
+  view.dispatch(tr.setMeta('addToHistory', false).setMeta('externalSync', true));
 }
 
 export function isMarkActive(state: EditorState, type: MarkType): boolean {

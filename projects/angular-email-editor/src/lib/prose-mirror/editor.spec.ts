@@ -48,6 +48,46 @@ describe('createEditor', () => {
     expect(editor.getHTML()).toBe('<h1>Subject</h1>');
   });
 
+  it('setContent never fires onUpdate — mirrored editors cannot echo', () => {
+    editor.setContent('<p>External</p>');
+    expect(updates).toEqual([]);
+  });
+
+  it('setContent preserves the local undo history across external syncs', () => {
+    // A local edit (enters history) ...
+    editor.exec((state, dispatch) => {
+      dispatch?.(state.tr.setSelection(new AllSelection(state.doc)));
+      return true;
+    });
+    editor.commands['toggleBold']();
+
+    // ... then an external sync appends a paragraph (diff at the end only).
+    editor.setContent(editor.getHTML() + '<p>Appended</p>');
+
+    // Undo reverts the local bold; the externally synced content stays.
+    expect(editor.commands['undo']()).toBe(true);
+    expect(editor.getHTML()).toBe('<p dir="auto">Hello world</p><p dir="auto">Appended</p>');
+  });
+
+  it('setContent maps the selection through the diff', () => {
+    editor.exec((state, dispatch) => {
+      dispatch?.(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      return true;
+    });
+
+    // Prepending a paragraph shifts the diff before the selection ...
+    editor.setContent('<p dir="auto">Intro</p><p dir="auto">Hello world</p>');
+    expect(editor.state.doc.textBetween(editor.state.selection.from, editor.state.selection.to)).toBe(
+      'Hello',
+    );
+
+    // ... while a diff after the selection leaves it untouched.
+    const { from, to } = editor.state.selection;
+    editor.setContent('<p dir="auto">Intro</p><p dir="auto">Hello world</p><p dir="auto">Tail</p>');
+    expect(editor.state.selection.from).toBe(from);
+    expect(editor.state.selection.to).toBe(to);
+  });
+
   it('reports wrapping nodes active from anywhere inside them', () => {
     expect(editor.isActive('blockquote')).toBe(false);
     editor.commands['wrapInBlockquote']();

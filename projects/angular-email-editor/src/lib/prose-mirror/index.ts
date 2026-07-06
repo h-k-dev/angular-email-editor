@@ -2,6 +2,7 @@ export * from './extension';
 export * from './schema';
 export * from './html';
 export * from './html-source';
+export * from './dual-contrast';
 export * from './editor';
 export * from './measurement';
 export * from './extensions/kits';

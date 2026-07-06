@@ -56,6 +56,18 @@ describe('html-source marks', () => {
     expect(text(state)).toBe(`<div>${BOLD_OPEN}hi</strong></div>`);
   });
 
+  it('treats character references as atomic — a selection cannot split one', () => {
+    // Selection starts INSIDE '&amp;' (between the m and the p) and runs to
+    // the end of 'b'. The endpoint expands to the entity start, so the
+    // sentinel never breaks the reference.
+    const source = '<div>a &amp; b</div>';
+    const insideEntity = 1 + source.indexOf('&amp;') + 3;
+    const to = 1 + source.indexOf(' b') + 2;
+    let state = stateFrom(source, insideEntity, to);
+    state = run(keymap['Mod-b'], state);
+    expect(text(state)).toBe(`<div>a ${BOLD_OPEN}&amp; b</strong></div>`);
+  });
+
   it('resolves a partially marked range like the visual editor does', () => {
     // The kit's toggle delegates to isMarkActive (rangeHasMark): a range that
     // is bold anywhere counts as active, so toggling unsets — the source

@@ -33,24 +33,49 @@
   flex: none;
 }
 
-// Decorative icon button with a transparent native colour input overlaid on
-// top: the input stays in layout so the OS picker pops out at the button.
-.color {
-  position: relative;
-  display: inline-flex;
+// Curated dual-contrast palette. Token cascade: --email-* → --mat-sys-* →
+// fallback (see ROADMAP, UI/UX stance).
+.color-palette {
+  display: grid;
+  grid-template-columns: repeat(7, 28px);
+  gap: 4px;
+  padding: 8px;
+
+  background-color: var(
+    --email-compose-palette-background,
+    var(--mat-sys-surface-container, #f3f3f3)
+  );
+  border-radius: var(--email-compose-palette-corner, var(--mat-sys-corner-medium, 8px));
+  box-shadow: var(--mat-sys-level2);
 }
 
-.color-input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
+.color-palette__swatch {
+  width: 28px;
+  height: 28px;
   padding: 0;
-  border: none;
-  background: none;
-  opacity: 0;
+  border: 2px solid transparent;
+  border-radius: 50%;
   cursor: pointer;
+  background-color: var(--email-swatch);
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--email-compose-palette-outline, var(--mat-sys-outline, #777777));
+  }
+}
+
+.color-palette__swatch--auto {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  color: var(--mat-sys-on-surface-variant);
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
 }
 
 .editor {

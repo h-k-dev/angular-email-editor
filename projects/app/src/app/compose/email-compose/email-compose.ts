@@ -37,6 +37,7 @@ import {
   createTextMetrics,
   defineExtension,
   emailExtensions,
+  emailTextPalette,
 } from 'angular-email-editor';
 
 @Component({
@@ -70,6 +71,11 @@ export class EmailCompose {
 
   // Our source of truth powered by the PM plugin
   menuState = signal<BubbleMenuState>({ isOpen: false, boundingBox: null });
+
+  /** Curated dual-contrast text colors — the picker offers only these;
+      arbitrary hex lives solely in the HTML source pane, on purpose. */
+  palette = emailTextPalette;
+  colorMenuOpen = signal(false);
 
   // CDK allows us to pass a custom element that implements getBoundingClientRect()
   // Change virtualOrigin to a simple object with a method
@@ -193,20 +199,16 @@ export class EmailCompose {
     editor.focus();
   }
 
-  /** Apply the swatch's value to the selection. The native picker briefly
-      takes focus, but ProseMirror keeps its selection, so the color lands on
-      the right range; we refocus afterwards. */
-  applyColor(event: Event): void {
+  /** Applies a palette swatch to the selection, or `null` for automatic
+      (unset). The palette popover prevents mousedown defaults, so the
+      editor's selection survives the click; we refocus afterwards. */
+  applyColor(color: string | null): void {
+    this.colorMenuOpen.set(false);
     const editor = this.editor();
     if (!editor) return;
-    editor.commands['setColor']((event.target as HTMLInputElement).value);
-    editor.focus();
-  }
 
-  clearColor(): void {
-    const editor = this.editor();
-    if (!editor) return;
-    editor.commands['unsetColor']();
+    if (color) editor.commands['setColor'](color);
+    else editor.commands['unsetColor']();
     editor.focus();
   }
 

@@ -30,18 +30,29 @@
 
   <mat-divider [vertical]="true" />
 
-  <span class="color">
-    <button mat-icon-button type="button" aria-hidden="true" tabindex="-1">
-      <mat-icon>format_color_text</mat-icon>
-    </button>
-    <!-- The native picker anchors to this input's box, so it must stay in
-         layout (overlaid on the button, transparent) rather than display:none. -->
-    <input class="color-input" type="color" aria-label="Text color" (change)="applyColor($event)" />
-  </span>
-  <button mat-icon-button type="button" aria-label="Clear text color" [disabled]="!isActive('textStyle')"
-    (mousedown)="$event.preventDefault()" (click)="clearColor()">
-    <mat-icon>format_color_reset</mat-icon>
+  <button mat-icon-button type="button" aria-label="Text color" [attr.aria-expanded]="colorMenuOpen()"
+    [class.is-active]="isActive('textStyle')" cdkOverlayOrigin #colorOrigin="cdkOverlayOrigin"
+    (mousedown)="$event.preventDefault()" (click)="colorMenuOpen.set(!colorMenuOpen())">
+    <mat-icon>format_color_text</mat-icon>
   </button>
+
+  <!-- Curated dual-contrast palette: every swatch reads on both white and
+       near-black, so it survives forced dark-mode inversion. No hex input. -->
+  <ng-template cdkConnectedOverlay [cdkConnectedOverlayOrigin]="colorOrigin"
+    [cdkConnectedOverlayOpen]="colorMenuOpen()" [cdkConnectedOverlayHasBackdrop]="true"
+    cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop" (backdropClick)="colorMenuOpen.set(false)"
+    [cdkConnectedOverlayPush]="true" [cdkConnectedOverlayViewportMargin]="8">
+    <div class="color-palette" role="listbox" aria-label="Text color" (mousedown)="$event.preventDefault()">
+      <button type="button" class="color-palette__swatch color-palette__swatch--auto" role="option" title="Automatic"
+        aria-label="Automatic" (click)="applyColor(null)">
+        <mat-icon>format_color_reset</mat-icon>
+      </button>
+      @for (color of palette; track color.value) {
+      <button type="button" class="color-palette__swatch" role="option" [title]="color.name"
+        [attr.aria-label]="color.name" [style.--email-swatch]="color.value" (click)="applyColor(color.value)"></button>
+      }
+    </div>
+  </ng-template>
 
   <mat-divider [vertical]="true" />
 
