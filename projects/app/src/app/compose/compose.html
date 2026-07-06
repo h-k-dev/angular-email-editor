@@ -1,2 +1,18 @@
 <section email-compose [(html)]="html" aria-label="Email editor"></section>
-<section html-email-compose class="scroll-container" [(html)]="html" aria-label="Email HTML source"></section>
+<section html-email-compose class="scroll-container" [(html)]="html" [(diagnostics)]="diagnostics"
+  aria-label="Email HTML source"></section>
+<section email-preview [html]="html()" aria-label="Email preview"></section>
+
+<footer class="status" aria-live="polite">
+  <button type="button" class="status__issues status__issues--error" [disabled]="!errors()" (click)="reveal('error')">
+    {{ errors() }} {{ errors() === 1 ? 'error' : 'errors' }}
+  </button>
+  <button type="button" class="status__issues status__issues--warning" [disabled]="!warnings()"
+    (click)="reveal('warning')">
+    {{ warnings() }} {{ warnings() === 1 ? 'warning' : 'warnings' }}
+  </button>
+  <span class="status__size" [class.status__size--warning]="size().level === 'warning'"
+    [class.status__size--error]="size().level === 'error'">
+    {{ sizeLabel() }}
+  </span>
+</footer>

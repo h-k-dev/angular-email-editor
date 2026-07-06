@@ -49,7 +49,7 @@ describe('prose-mirror core', () => {
       '<p dir="auto">Hello <strong style="font-weight: bold;">bold</strong> <em style="font-style: italic;">italic</em> <u style="text-decoration: underline;">underlined</u></p>' +
         '<blockquote><p dir="auto">quoted<br>line</p></blockquote>' +
         '<h2>Title</h2>' +
-        '<p dir="auto"><a href="https://example.com" title="Example" target="_blank" rel="noopener noreferrer" style="color: var(--mat-sys-primary,#0056b3); text-decoration: underline;">link</a></p>',
+        '<p dir="auto"><a href="https://example.com" title="Example" target="_blank" rel="noopener noreferrer">link</a></p>',
     );
   });
 
@@ -120,14 +120,17 @@ describe('prose-mirror core', () => {
   it('insertImage replaces the selection with an image block', () => {
     let state = stateFromHTML('<p>before</p>', 1, 7);
     state = runCommand(state, 'image', 'insertImage', { src: 'cid:logo', alt: 'Logo' });
-    expect(serializeToHTML(state.doc, schema)).toBe('<img src="cid:logo" alt="Logo">');
+    // Hybrid sizing: without a known width, images serialize fluid-capped.
+    expect(serializeToHTML(state.doc, schema)).toBe(
+      '<img src="cid:logo" alt="Logo" style="max-width: 100%; height: auto;">',
+    );
   });
 
   it('setLink and unsetLink manage the link mark', () => {
     let state = stateFromHTML('<p>click here</p>', 1, 11);
     state = runCommand(state, 'link', 'setLink', { href: 'https://example.com' });
     expect(serializeToHTML(state.doc, schema)).toBe(
-      '<p dir="auto"><a href="https://example.com" target="_blank" rel="noopener noreferrer" style="color: var(--mat-sys-primary,#0056b3); text-decoration: underline;">click here</a></p>',
+      '<p dir="auto"><a href="https://example.com" target="_blank" rel="noopener noreferrer">click here</a></p>',
     );
     state = runCommand(state, 'link', 'unsetLink');
     expect(serializeToHTML(state.doc, schema)).toBe('<p dir="auto">click here</p>');

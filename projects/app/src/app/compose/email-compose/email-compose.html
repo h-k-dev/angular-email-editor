@@ -77,6 +77,33 @@
     (click)="run('toggleOrderedList')">
     <mat-icon>format_list_numbered</mat-icon>
   </button>
+
+  <mat-divider [vertical]="true" />
+
+  <button mat-icon-button type="button" aria-label="Align left" [class.is-active]="isActive('paragraph', { align: null })"
+    [attr.aria-pressed]="isActive('paragraph', { align: null })" (mousedown)="$event.preventDefault()"
+    (click)="align(null)">
+    <mat-icon>format_align_left</mat-icon>
+  </button>
+  <button mat-icon-button type="button" aria-label="Align center"
+    [class.is-active]="isActive('paragraph', { align: 'center' })"
+    [attr.aria-pressed]="isActive('paragraph', { align: 'center' })" (mousedown)="$event.preventDefault()"
+    (click)="align('center')">
+    <mat-icon>format_align_center</mat-icon>
+  </button>
+  <button mat-icon-button type="button" aria-label="Align right"
+    [class.is-active]="isActive('paragraph', { align: 'right' })"
+    [attr.aria-pressed]="isActive('paragraph', { align: 'right' })" (mousedown)="$event.preventDefault()"
+    (click)="align('right')">
+    <mat-icon>format_align_right</mat-icon>
+  </button>
+
+  <mat-divider [vertical]="true" />
+
+  <button mat-icon-button type="button" aria-label="Clear formatting" (mousedown)="$event.preventDefault()"
+    (click)="run('clearFormatting')">
+    <mat-icon>format_clear</mat-icon>
+  </button>
 </div>
 
 <!-- Link editor: anchored at the selection via a fixed virtual origin. The

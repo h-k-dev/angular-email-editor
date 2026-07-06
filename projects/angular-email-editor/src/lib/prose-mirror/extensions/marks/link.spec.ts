@@ -4,8 +4,7 @@ import { emailExtensions } from '../kits';
 import { linkRangeAt } from './link';
 
 const linkOpen = (href: string) =>
-  `<a href="${href}" target="_blank" rel="noopener noreferrer" ` +
-  `style="color: var(--mat-sys-primary,#0056b3); text-decoration: underline;">`;
+  `<a href="${href}" target="_blank" rel="noopener noreferrer">`;
 
 describe('link editing', () => {
   let host: HTMLElement;

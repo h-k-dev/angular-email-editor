@@ -183,9 +183,17 @@ export class EmailCompose {
     this.editor()?.focus();
   }
 
-  isActive(name: string): boolean {
+  isActive(name: string, attrs?: Record<string, unknown>): boolean {
     this.#editorTick();
-    return this.editor()?.isActive(name) ?? false;
+    return this.editor()?.isActive(name, attrs) ?? false;
+  }
+
+  /** Paragraph alignment; `null` restores the default (left). */
+  align(align: 'center' | 'right' | null): void {
+    const editor = this.editor();
+    if (!editor) return;
+    editor.commands['setAlignment'](align);
+    editor.focus();
   }
 
   canUndo(): boolean {

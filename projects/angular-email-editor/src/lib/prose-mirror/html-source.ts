@@ -4,6 +4,7 @@
  * on the scanner, while the formatter pretty-prints through the browser's own
  * parser so its output is always well-formed.
  */
+import { clientList, findCssIssues } from './client-support';
 
 export type HtmlTokenType = 'delimiter' | 'tagName' | 'attributeName' | 'attributeValue' | 'comment';
 
@@ -154,6 +155,48 @@ export function scanHTML(source: string): HtmlScan {
   return { tokens, tags };
 }
 
+/** A named attribute within a tag's span, with the source range of its
+    value: `null` when absent, empty value at the name's range when the
+    attribute is present without one. */
+function attributeValueToken(
+  source: string,
+  scan: HtmlScan,
+  tag: HtmlTag,
+  name: string,
+): { value: string; from: number; to: number } | null {
+  let nameToken: HtmlToken | null = null;
+  for (const token of scan.tokens) {
+    if (token.from < tag.from || token.to > tag.to) continue;
+    if (token.type === 'attributeName') {
+      if (nameToken) break; // the named attribute came and went without a value
+      if (source.slice(token.from, token.to).toLowerCase() === name) nameToken = token;
+    } else if (token.type === 'attributeValue' && nameToken) {
+      // Range of the value *content*, quotes excluded, so lint positions can
+      // point at spans inside the value.
+      const raw = source.slice(token.from, token.to);
+      const quoted = raw.startsWith('"') || raw.startsWith("'");
+      const closed = quoted && raw.length > 1 && raw.endsWith(raw[0]);
+      return {
+        value: raw.slice(quoted ? 1 : 0, closed ? -1 : undefined),
+        from: token.from + (quoted ? 1 : 0),
+        to: token.to - (closed ? 1 : 0),
+      };
+    }
+  }
+  return nameToken ? { value: '', from: nameToken.from, to: nameToken.to } : null;
+}
+
+/** The value of a named attribute within a tag's span: `null` when absent,
+    `''` when present without a value. */
+function attributeValue(
+  source: string,
+  scan: HtmlScan,
+  tag: HtmlTag,
+  name: string,
+): string | null {
+  return attributeValueToken(source, scan, tag, name)?.value ?? null;
+}
+
 /** Balance-checks the tag stream: unclosed tags, stray closers, closed void
     elements, warnings for tags outside the email-safe set — and for
     comments, which are never email content: the schema drops them on parse
@@ -179,6 +222,57 @@ export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): Htm
         severity: 'warning',
         message: `Ambiguous "${match[0]}" — legacy entities decode without the ";"; write "&amp;${match[0].slice(1)}" for literal text or add the ";"`,
       });
+    }
+  }
+
+  // Images without alt text: image-blocking clients (corporate Outlook,
+  // Gmail before the tap) render only the alt — a missing one leaves a hole.
+  for (const tag of scan.tags) {
+    if (tag.kind !== 'open' || tag.name !== 'img' || !tag.terminated) continue;
+    const alt = attributeValue(source, scan, tag, 'alt');
+    if (!alt?.trim()) {
+      diagnostics.push({
+        from: tag.nameFrom,
+        to: tag.nameTo,
+        severity: 'warning',
+        message:
+          'Image without alt text — image-blocking clients render nothing in its place',
+      });
+    }
+  }
+
+  // Style declarations the floor clients ignore or mangle — data-driven from
+  // the client-support module; the message names the client and what happens.
+  for (const tag of scan.tags) {
+    if (tag.kind !== 'open' || !tag.terminated) continue;
+    const style = attributeValueToken(source, scan, tag, 'style');
+    if (!style?.value) continue;
+    const hasWidthAttribute = attributeValue(source, scan, tag, 'width') !== null;
+
+    let offset = 0;
+    for (const declaration of style.value.split(';')) {
+      const declarationFrom = style.from + offset;
+      offset += declaration.length + 1;
+
+      const colon = declaration.indexOf(':');
+      if (colon < 0) continue;
+      const property = declaration.slice(0, colon).trim().toLowerCase();
+      const value = declaration.slice(colon + 1).trim();
+
+      // The image hybrid pairs max-width with a width attribute precisely
+      // because Outlook ignores max-width — that combination is by design.
+      if (property === 'max-width' && tag.name === 'img' && hasWidthAttribute) continue;
+
+      const leading = /^\s*/.exec(declaration)![0].length;
+      const trimmed = declaration.trimEnd().length;
+      for (const issue of findCssIssues(property, value, tag.name)) {
+        diagnostics.push({
+          from: declarationFrom + leading,
+          to: declarationFrom + trimmed,
+          severity: 'warning',
+          message: `"${property}" — ${clientList(issue.ignoredBy)}: ${issue.note}`,
+        });
+      }
     }
   }
 
@@ -338,6 +432,54 @@ export function openTags(source: string, scan: HtmlScan = scanHTML(source)): str
     }
   }
   return stack;
+}
+
+/** What the cursor is in the middle of typing, for autocomplete. */
+export type CompletionContext =
+  | { kind: 'tag'; query: string }
+  | { kind: 'closing'; query: string }
+  | { kind: 'attribute'; tag: string; query: string; existing: string[] }
+  | { kind: 'style-property'; tag: string; query: string };
+
+/**
+ * Derives the completion context at a source offset — like the slash menu,
+ * this reads the *document*, not keystrokes, so it survives any way the text
+ * got there. Returns `null` when the cursor is in plain prose or a
+ * non-`style` attribute value.
+ */
+export function completionContextAt(source: string, offset: number): CompletionContext | null {
+  const before = source.slice(0, offset);
+
+  const closing = /<\/([a-zA-Z][-\w]*)?$/.exec(before);
+  if (closing) return { kind: 'closing', query: closing[1] ?? '' };
+
+  const opening = /<([a-zA-Z][-\w]*)?$/.exec(before);
+  if (opening) return { kind: 'tag', query: opening[1] ?? '' };
+
+  // Inside an unterminated tag?
+  const lt = before.lastIndexOf('<');
+  if (lt < 0 || before.indexOf('>', lt) !== -1) return null;
+  const fragment = before.slice(lt);
+  const tag = /^<([a-zA-Z][-\w]*)/.exec(fragment)?.[1]?.toLowerCase();
+  if (!tag) return null;
+
+  // Inside a quoted attribute value: only style properties are completable.
+  const inValue = /([a-zA-Z-]+)\s*=\s*(["'])((?:(?!\2).)*)$/.exec(fragment);
+  if (inValue) {
+    if (inValue[1].toLowerCase() !== 'style') return null;
+    const declaration = inValue[3].split(';').pop() ?? '';
+    if (declaration.includes(':')) return null; // typing a value, not a property
+    return { kind: 'style-property', tag, query: declaration.trimStart() };
+  }
+
+  // Attribute position: after whitespace, possibly mid-word.
+  const attribute = /\s([a-zA-Z-]*)$/.exec(fragment);
+  if (attribute) {
+    const existing = [...fragment.matchAll(/([a-zA-Z-]+)\s*=/g)].map((m) => m[1].toLowerCase());
+    return { kind: 'attribute', tag, query: attribute[1], existing };
+  }
+
+  return null;
 }
 
 /** Block-level tags that get their own indented lines when formatting. */

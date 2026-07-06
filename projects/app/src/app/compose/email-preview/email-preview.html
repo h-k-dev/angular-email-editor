@@ -1,0 +1,23 @@
+<header class="controls">
+  <button type="button" class="controls__toggle" [attr.aria-pressed]="view() === 'text'"
+    (click)="view.set(view() === 'html' ? 'text' : 'html')">
+    {{ view() === 'html' ? 'HTML' : 'Text' }}
+  </button>
+  <button type="button" class="controls__toggle" [attr.aria-pressed]="mode() === 'dark'"
+    title="Simulated Gmail-style forced inversion" [disabled]="view() === 'text'"
+    (click)="mode.set(mode() === 'light' ? 'dark' : 'light')">
+    {{ mode() === 'light' ? 'Light' : 'Dark' }}
+  </button>
+  <button type="button" class="controls__toggle" [attr.aria-pressed]="width() === 600"
+    title="Preview width" (click)="width.set(width() === 320 ? 600 : 320)">
+    {{ width() }}px
+  </button>
+</header>
+
+<div class="stage">
+  @if (view() === 'html') {
+  <iframe class="frame" sandbox title="Email preview" [style.width.px]="width()" [srcdoc]="document()"></iframe>
+  } @else {
+  <pre class="text" [style.width.px]="width()">{{ text() }}</pre>
+  }
+</div>

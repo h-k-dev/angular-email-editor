@@ -1,0 +1,81 @@
+// The preview column: controls on top, a client-surface stage below.
+// Token cascade: --email-preview-* → --mat-sys-* → fallback.
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mat-sys-inner-spacing, 16px);
+}
+
+.controls {
+  display: flex;
+  gap: 4px;
+  padding: 2px;
+  flex: none;
+
+  background-color: var(--email-preview-controls-background, var(--mat-sys-surface-container, #f3f3f3));
+  border-radius: var(--email-preview-corner, var(--mat-sys-corner-medium, 8px));
+}
+
+.controls__toggle {
+  padding: 6px 10px;
+  border: none;
+  background: none;
+  font: var(--mat-sys-body-small, 12px sans-serif);
+  color: var(--mat-sys-on-surface-variant, #555555);
+  border-radius: var(--mat-sys-corner-small, 4px);
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background-color: var(--mat-sys-surface-container-high, #e8e8e8);
+  }
+
+  &[aria-pressed='true'] {
+    color: var(--mat-sys-primary, #0056b3);
+    background-color: var(--mat-sys-secondary-container, #dce6f5);
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
+}
+
+.stage {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+
+  background-color: var(--email-preview-stage-background, var(--mat-sys-surface-container-low, #fafafa));
+  border-radius: var(--email-preview-corner, var(--mat-sys-corner-medium, 8px));
+  padding: var(--mat-sys-inner-spacing, 16px);
+}
+
+.frame {
+  flex: none;
+  height: 100%;
+  border: none;
+  background: #ffffff; // the email artifact is white; dark mode inverts inside
+  border-radius: var(--mat-sys-corner-small, 4px);
+  box-shadow: var(--mat-sys-level1, 0 1px 3px rgba(0, 0, 0, 0.2));
+}
+
+.text {
+  flex: none;
+  height: 100%;
+  margin: 0;
+  padding: 16px;
+  box-sizing: border-box;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+
+  background: #ffffff;
+  color: #202124;
+  border-radius: var(--mat-sys-corner-small, 4px);
+  box-shadow: var(--mat-sys-level1, 0 1px 3px rgba(0, 0, 0, 0.2));
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 13px;
+  line-height: 20px;
+}

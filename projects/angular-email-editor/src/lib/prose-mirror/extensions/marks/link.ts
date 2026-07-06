@@ -115,7 +115,7 @@ export const Link = defineMark({
     ],
     toDOM: (mark) => {
       const { href, title, target, rel } = mark.attrs;
-      // Output the safe attributes
+      // Editor-view styling only — see emitDOM for what the email carries.
       return [
         'a',
         {
@@ -127,6 +127,14 @@ export const Link = defineMark({
         },
         0,
       ];
+    },
+    // Serialization-only override (see serializeToHTML): mail clients style
+    // links natively, `var()` colors mean nothing to them, and re-parsing an
+    // inline `text-decoration: underline` would misread it as an Underline
+    // mark — the canonical email link is a clean <a>.
+    emitDOM: (mark: { attrs: Record<string, any> }) => {
+      const { href, title, target, rel } = mark.attrs;
+      return ['a', { href, title, target, rel }, 0];
     },
   },
   commands: ({ schema }) => ({

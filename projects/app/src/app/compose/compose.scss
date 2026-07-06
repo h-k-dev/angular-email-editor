@@ -1,6 +1,8 @@
 :host {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  // Editor, source, and the phone-width-first preview (ledger: 320px first).
+  grid-template-columns: 1fr 1fr auto;
+  grid-template-rows: 1fr auto;
   gap: var(--mat-sys-inner-spacing);
 
   height: 100%;
@@ -12,4 +14,60 @@
 section {
   min-width: 0;
   min-height: 0;
+}
+
+// The problems strip: counts jump to the first offender in the source pane,
+// the size gauge tracks Gmail's clipping limit. Token cascade: --email-* →
+// --mat-sys-* → fallback.
+.status {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: var(--mat-sys-inner-spacing);
+
+  font: var(--email-compose-status-font, var(--mat-sys-body-small, 12px sans-serif));
+  color: var(--mat-sys-on-surface-variant, #555555);
+}
+
+.status__issues {
+  padding: 2px 8px;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  border-radius: var(--mat-sys-corner-small, 4px);
+  cursor: pointer;
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.55;
+  }
+
+  &--error:not(:disabled) {
+    color: var(--email-compose-status-error, var(--mat-sys-error, #b3261e));
+    font-weight: 600;
+  }
+
+  &--warning:not(:disabled) {
+    color: var(--email-compose-status-warning, var(--mat-sys-aee-lint-warning, #b06000));
+    font-weight: 600;
+  }
+
+  &:not(:disabled):hover {
+    background-color: var(--mat-sys-surface-container, #eeeeee);
+  }
+}
+
+.status__size {
+  margin-left: auto;
+
+  &--warning {
+    color: var(--email-compose-status-warning, #b06000);
+    font-weight: 600;
+  }
+
+  &--error {
+    color: var(--email-compose-status-error, var(--mat-sys-error, #b3261e));
+    font-weight: 600;
+  }
 }

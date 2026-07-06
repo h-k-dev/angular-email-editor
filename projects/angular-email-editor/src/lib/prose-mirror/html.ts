@@ -9,9 +9,10 @@ import {
 const serializerCache = new WeakMap<Schema, DOMSerializer>();
 
 /**
- * A DOMSerializer honouring `emitDOM` node-spec overrides: serialization-only
- * renderings (e.g. email empty lines as `<div><br></div>`) that must not
- * affect the live editor view, which keeps using `toDOM`.
+ * A DOMSerializer honouring `emitDOM` node- and mark-spec overrides:
+ * serialization-only renderings (email empty lines as `<div><br></div>`,
+ * links without editor-only styling) that must not affect the live editor
+ * view, which keeps using `toDOM`.
  */
 function getSerializer(schema: Schema): DOMSerializer {
   let serializer = serializerCache.get(schema);
@@ -21,7 +22,14 @@ function getSerializer(schema: Schema): DOMSerializer {
       const emitDOM = type.spec['emitDOM'] as ((node: Node) => DOMOutputSpec) | undefined;
       if (emitDOM) nodes[name] = emitDOM;
     }
-    serializer = new DOMSerializer(nodes, DOMSerializer.marksFromSchema(schema));
+    const marks = DOMSerializer.marksFromSchema(schema);
+    for (const [name, type] of Object.entries(schema.marks)) {
+      const emitDOM = type.spec['emitDOM'] as
+        | ((mark: unknown, inline: boolean) => DOMOutputSpec)
+        | undefined;
+      if (emitDOM) marks[name] = emitDOM;
+    }
+    serializer = new DOMSerializer(nodes, marks);
     serializerCache.set(schema, serializer);
   }
   return serializer;

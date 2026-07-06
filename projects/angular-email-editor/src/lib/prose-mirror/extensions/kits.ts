@@ -21,6 +21,7 @@ import { History } from './history';
 import { NoTextDrag } from './no-text-drag';
 import { BaseKeymap } from './base-keymap';
 import { PasteHygiene } from './paste-hygiene';
+import { ClearFormatting } from './clear-formatting';
 
 /** Everything but the paragraph flavour, which is what the kits swap. */
 const withParagraph = (paragraph: NodeExtension): Extension[] => [
@@ -44,6 +45,7 @@ const withParagraph = (paragraph: NodeExtension): Extension[] => [
   NoTextDrag,
   BaseKeymap,
   PasteHygiene,
+  ClearFormatting,
 ];
 
 /** Semantic HTML output (`<p>` paragraphs) for content rendered in the app. */

@@ -1,0 +1,12 @@
+<!-- ProseMirror mounts directly into the host element; this listbox is the
+     autocomplete dropdown, positioned by the extension. -->
+<div class="autocomplete" #menu role="listbox" aria-label="Suggestions">
+  @if (completions(); as completion) {
+  @for (item of completion.items; track item.label; let i = $index) {
+  <button type="button" role="option" class="autocomplete__item" [class.is-active]="i === completion.activeIndex"
+    [attr.aria-selected]="i === completion.activeIndex" (click)="completion.select(item)">
+    {{ item.label }}
+  </button>
+  }
+  }
+</div>

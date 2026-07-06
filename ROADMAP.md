@@ -158,12 +158,26 @@ schema extensions first, toolbar second.
       committing space (`www.` gets `https://`, trailing punctuation stays
       outside). Script URLs: refused by the schema on parse *and* on the
       command, and flagged as errors in the source pane.
-- [ ] **Images**: drag-drop and paste as attachment-backed `cid:` or hosted
-      URL, required alt text (lint it — image-blocking clients show alt only),
-      width capping, no `float`.
-- [ ] **Alignment & direction**: `text-align` on line divs, keep `dir="auto"`.
-- [ ] **Clear formatting** command (both panes — it's just another shared
-      command).
+- [x] **Images**: the Image node now serializes the ledger's hybrid sizing
+      (`width` attribute for Outlook + `width:100%; max-width:<n>px;
+      height:auto` for everyone else), caps widths at 600px on parse and on
+      drop, never parses or emits `float`, and handles dropped/pasted image
+      files (data-URL source, alt defaulted from the filename, natural width
+      measured). Missing/empty alt is linted in the source pane. Open ends,
+      deliberately: data-URLs are a stopgap until the `cid:`/attachment story
+      (M6), and there is no alt/width *editing UI* yet — the source pane is
+      the editor for those attrs for now.
+- [x] **Alignment & direction**: paragraphs carry an `align` attr — center
+      and right serialize as inline `text-align`, left canonicalizes to
+      *nothing* (the default carries no declaration, and `dir="auto"` stays
+      meaningful for RTL). Justify is refused: Outlook's Word engine mangles
+      it. Toolbar group + Gmail keybindings (Mod-Shift-L/E/R); empty lines
+      keep their alignment through the `<div><br></div>` serialization.
+- [x] **Clear formatting** (`Mod-\`, toolbar): strips every mark from the
+      selection; block structure (lists, quotes, alignment) is layout, not
+      formatting, and stays. Note: not yet mirrored into the source pane —
+      `createSourceMarks` mirrors mark extensions only; widening it to
+      opt-in functional commands is a small follow-up if wanted.
 - [ ] **Font size/family** as a constrained set of email-safe stacks
       (Arial/Helvetica, Georgia, Courier, system) — no free-form fonts.
 - [x] **Dual-contrast color palette** (principle 9): replace the native
@@ -178,41 +192,59 @@ schema extensions first, toolbar second.
 Turn the linter from "is this valid HTML" into "will this render in Outlook".
 This is where the source editor earns its seat.
 
-- [ ] **Client-support data module**: a curated, versioned subset of
-      caniemail (tags, attributes, CSS properties × Gmail/Outlook/Apple/
-      Yahoo/Android). Pure data, tree-shakeable, powers everything below.
-- [ ] **Style linting**: flag CSS properties the schema emits or the user
-      types that any floor client ignores or mangles (e.g. `margin` in
-      Outlook's Word engine, shorthand `font`, `position`, negative margins).
-- [ ] **Size budget**: live warning as the canonical HTML approaches
-      **Gmail's 102 KB clipping limit**; error above it.
-- [ ] **Hover documentation**: the lint tooltip says *which client* breaks
-      and *what happens* ("Outlook desktop ignores this", "Gmail clips here").
-- [ ] **Problems panel**: `onDiagnostics` already exists — surface counts and
-      a jump-to-error list in the composer UI.
-- [ ] **Autocomplete** for the email-safe tag/attribute/style vocabulary —
-      the schema knows what's legal; suggest only that.
+- [x] **Client-support data module** (`client-support.ts`): a curated
+      caniemail subset — CSS property entries with value/tag scoping
+      (display:flex yes, display:block no; padding on div/p, not td) and
+      client labels. Curation rule: only what we're confident about, phrased
+      as what *actually happens*. Accuracy beats coverage; grows entry by
+      entry.
+- [x] **Style linting**: every inline declaration is checked against the
+      data module, positioned on the exact declaration. The image hybrid
+      (max-width paired with a width attribute) is exempt by design, and our
+      own canonical output is lint-clean — pinned by test.
+- [x] **Size budget**: the status strip grades the canonical HTML against
+      Gmail's 102 KB clip (warning at 80%, error above), in UTF-8 bytes.
+- [x] **Hover documentation**: tooltips name the client and the consequence
+      ("max-width — Outlook (Windows): it sizes from the width attribute
+      instead…") straight from the data module.
+- [x] **Problems panel, first form**: a status strip under the panes —
+      error/warning counts that jump the source pane to the first offender,
+      plus the size gauge. A full listed panel can grow from the same
+      diagnostics stream when needed.
+- [x] **Autocomplete** for the email-safe vocabulary
+      (`createHtmlAutocomplete`, same interaction contract as the slash
+      menu): tags after `<` (accepting inserts the pair with the cursor
+      between), the *currently open* tags after `</`, per-tag attributes
+      (cursor lands inside the `=""`, already-present ones excluded), and
+      safe style properties inside `style="…"` — never in prose, never in
+      non-style attribute values. Context is derived from the document, not
+      keystrokes, via the pure `completionContextAt`.
 
 ## Milestone 4 — Preview & proof
 
 "Sure shot that our email renders" needs evidence, not confidence.
 
-- [ ] **Rendered preview pane**: the canonical HTML in a sandboxed iframe —
-      a third projection of the same signal (the architecture already allows
-      any number of peers).
-- [ ] **Client simulation modes**: apply documented client CSS resets/
-      restrictions (Gmail, Outlook Word-engine approximation) to the preview.
-      Honest label: simulation, not screenshot testing.
-- [ ] **Dark mode preview** that simulates *Gmail-style forced inversion* —
-      not just a dark canvas; recoloring is the truth users need to see.
-      The color stance itself is principle 9: we don't fight, we invert
-      gracefully.
-- [ ] **Plain-text projection**: generate the `text/plain` alternative from
-      the document (multipart/alternative is table stakes for deliverability
-      and spam scoring) — blockquotes become `>`, lists become `-`.
-- [ ] **Golden-file test suite**: canonical outputs for a corpus of documents,
-      snapshot-tested; round-trip property tests (parse ∘ serialize =
-      identity on canonical HTML) run in CI.
+- [x] **Rendered preview pane** (`section[email-preview]`): the canonical
+      HTML in a fully sandboxed iframe (no scripts, no same-origin) — a
+      strictly read-only third projection of the same signal, opening at
+      **320px phone width first** per the ledger, with a 600px toggle.
+- [ ] **Client simulation modes**: today the preview applies a generic
+      client surface (default typography on white); per-client resets
+      (Gmail, Outlook Word-engine approximation) are still open. Honest
+      label: simulation, not screenshot testing.
+- [x] **Dark mode preview**: simulated Gmail-style forced inversion
+      (`invert + hue-rotate`, images double-inverted back) — mid-tones
+      survive, extremes flip, exactly the dual-contrast story made visible.
+      Labeled as a simulation in the UI.
+- [x] **Plain-text projection** (`emailPlainText`): blockquotes become `>`,
+      lists `-`/`1.`, links keep URLs, images fall back to alt text —
+      visible as the preview's "Text" tab, ready for multipart/alternative.
+- [x] **Golden-file test suite**: exact canonical outputs pinned byte-for-
+      byte plus round-trip fixpoint tests on foreign markup. Paid for itself
+      immediately: it caught our styled link re-parsing its own
+      `text-decoration` as an Underline mark — fixed by giving marks
+      `emitDOM` (clean `<a>` in email output, pretty link in the editor
+      view only).
 - [ ] **Outlook conditional comments** (`<!--[if mso]>`): policy decided in
       M1 — if layout blocks need them, their serializer generates them and
       their parser ignores them; they are never document content.
@@ -269,7 +301,7 @@ Two enforcement hooks so the ledger stays alive:
 - [ ] **Lint rules from the ledger** (M3): fixed pixel widths without the
       hybrid pattern, sub-minimum font sizes, unbroken strings past a length
       budget — each row above that can be linted, is.
-- [ ] **320px preview default** (M4): the preview pane opens phone-width
+- [x] **320px preview default** (M4): the preview pane opens phone-width
       first. If it looks right narrow, desktop is almost free — never the
       other way around.
 

@@ -1,4 +1,4 @@
-import { formatHTML, lintHTML, openTags, scanHTML } from './html-source';
+import { completionContextAt, formatHTML, lintHTML, openTags, scanHTML } from './html-source';
 import { createSchema } from './schema';
 import { parseHTML, serializeToHTML } from './html';
 import { emailExtensions } from './extensions/kits';
@@ -79,6 +79,37 @@ describe('html-source linter', () => {
     expect(lintHTML('<div>Tom & Jerry, 5 &lt; 6 &amp; &#169; fine</div>')).toEqual([]);
   });
 
+  it('warns on images without alt text, including empty alt', () => {
+    expect(lintHTML('<div><img src="x.png"></div>')[0].message).toContain('alt text');
+    expect(lintHTML('<div><img src="x.png" alt=""></div>')[0].message).toContain('alt text');
+    expect(lintHTML('<div><img src="x.png" alt="chart"></div>')).toEqual([]);
+  });
+
+  it('warns on styles the floor clients ignore, naming the client', () => {
+    const diagnostics = lintHTML('<div style="max-width: 600px; color: #333">x</div>');
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0].severity).toBe('warning');
+    expect(diagnostics[0].message).toContain('"max-width"');
+    expect(diagnostics[0].message).toContain('Outlook (Windows)');
+  });
+
+  it('exempts the image hybrid: max-width paired with a width attribute is the fix', () => {
+    expect(
+      lintHTML(
+        '<img src="x.png" alt="a" width="400" style="width: 100%; max-width: 400px; height: auto;">',
+      ),
+    ).toEqual([]);
+  });
+
+  it('keeps our own canonical output lint-clean', () => {
+    expect(
+      lintHTML(
+        '<div style="text-align: center;">Hello <strong style="font-weight: bold;">world</strong></div>' +
+          '<div><a href="https://x.io" target="_blank" rel="noopener noreferrer">link</a></div>',
+      ),
+    ).toEqual([]);
+  });
+
   it('errors on script-URL attribute values', () => {
     const diagnostics = lintHTML('<div><a href="javascript:alert(1)">x</a></div>');
     expect(diagnostics).toHaveLength(1);
@@ -98,6 +129,38 @@ describe('html-source open tags', () => {
 
   it('ignores void and self-closing tags', () => {
     expect(openTags('<div><br><img src="x"><span/>')).toEqual(['div']);
+  });
+});
+
+describe('completion context', () => {
+  it('detects tag and closing-tag positions', () => {
+    expect(completionContextAt('<di', 3)).toMatchObject({ kind: 'tag', query: 'di' });
+    expect(completionContextAt('<', 1)).toMatchObject({ kind: 'tag', query: '' });
+    expect(completionContextAt('<div>x</d', 9)).toMatchObject({ kind: 'closing', query: 'd' });
+  });
+
+  it('detects attribute positions with the tag and existing attributes', () => {
+    expect(completionContextAt('<a href="x" ta', 14)).toMatchObject({
+      kind: 'attribute',
+      tag: 'a',
+      query: 'ta',
+      existing: ['href'],
+    });
+  });
+
+  it('completes style properties but never other attribute values', () => {
+    expect(completionContextAt('<div style="color: red; fo', 26)).toMatchObject({
+      kind: 'style-property',
+      tag: 'div',
+      query: 'fo',
+    });
+    expect(completionContextAt('<div style="color: r', 20)).toBeNull();
+    expect(completionContextAt('<a href="ht', 11)).toBeNull();
+  });
+
+  it('stays quiet in prose', () => {
+    expect(completionContextAt('<div>plain text', 15)).toBeNull();
+    expect(completionContextAt('a < b', 5)).toBeNull();
   });
 });
 
