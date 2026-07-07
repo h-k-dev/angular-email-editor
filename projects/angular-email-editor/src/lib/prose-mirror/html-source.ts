@@ -50,6 +50,8 @@ export const EMAIL_SAFE_TAGS = new Set([
   'a', 'b', 'blockquote', 'br', 'del', 'div', 'em', 'font',
   'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'i', 'img', 'li',
   'ol', 'p', 's', 'span', 'strike', 'strong', 'u', 'ul',
+  // Tables are the most client-compatible layout there is.
+  'table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th',
 ]);
 
 const NAME_START = /[a-zA-Z]/;

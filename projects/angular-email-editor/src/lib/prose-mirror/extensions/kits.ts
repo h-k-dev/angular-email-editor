@@ -11,6 +11,9 @@ import { Heading } from './nodes/heading';
 import { Blockquote } from './nodes/blockquote';
 import { BulletList, ListItem, OrderedList } from './nodes/lists';
 import { Image } from './nodes/image';
+import { Divider } from './nodes/divider';
+import { Button } from './nodes/button';
+import { Table, TableRow, TableCell } from './nodes/table';
 import { Bold } from './marks/bold';
 import { Italic } from './marks/italic';
 import { Underline } from './marks/underline';
@@ -35,6 +38,11 @@ const withParagraph = (paragraph: NodeExtension): Extension[] => [
   OrderedList,
   ListItem,
   Image,
+  Divider,
+  Button,
+  Table,
+  TableRow,
+  TableCell,
   Bold,
   Italic,
   Underline,

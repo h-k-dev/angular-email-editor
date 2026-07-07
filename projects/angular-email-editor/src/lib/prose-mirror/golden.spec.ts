@@ -23,6 +23,8 @@ const GOLDEN: string[] = [
   // toDOM-only (a styled link would re-parse its underline as a mark).
   '<div><a href="https://example.com" target="_blank" rel="noopener noreferrer">link</a></div>',
   '<img src="x.png" alt="chart" width="400" style="width: 100%; max-width: 400px; height: auto;">',
+  '<hr style="height: 1px; width: 100%; background-color: rgb(224, 224, 224); margin-top: 12px; margin-bottom: 12px;">',
+  '<a href="https://x.io" style="display: inline-block; padding: 14px 28px; background-color: rgb(26, 115, 232); color: rgb(255, 255, 255); font-weight: bold; text-decoration: none;">Shop now</a>',
 ];
 
 /** Foreign markup: no exact expectation, but the round trip must be a
@@ -36,6 +38,8 @@ const MESSY: string[] = [
   '<div>a &copy; b &amp; c</div>',
   '<blockquote><blockquote><div>deep</div></blockquote></blockquote>',
   '<img src="x.png" alt="wide" width="1200" style="float: left">',
+  '<table><tbody><tr><td>a</td><td>b</td></tr><tr><td>c</td><td>d</td></tr></tbody></table>',
+  '<table><tr><td>no tbody in source</td></tr></table>',
 ];
 
 describe('golden canonical outputs', () => {

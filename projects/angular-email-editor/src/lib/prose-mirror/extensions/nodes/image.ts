@@ -68,6 +68,23 @@ async function insertImageFiles(
   }
 }
 
+/** Opens the OS file picker and inserts the chosen image(s) at the cursor —
+    the slash-menu path, mirroring what drop and paste already do. */
+function pickAndInsertImages(view: EditorView, schema: Schema): void {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.multiple = true;
+  input.style.display = 'none';
+  input.addEventListener('change', () => {
+    const files = Array.from(input.files ?? []).filter((file) => file.type.startsWith('image/'));
+    if (files.length) void insertImageFiles(view, schema, files, view.state.selection.from);
+    input.remove();
+  });
+  document.body.appendChild(input);
+  input.click();
+}
+
 /**
  * Block image with the responsiveness-ledger hybrid sizing: the `width`
  * *attribute* for Outlook (which ignores `max-width` entirely) plus
@@ -125,6 +142,17 @@ export const Image = defineNode({
       return true;
     },
   }),
+  slashItems: ({ schema }) => [
+    {
+      title: 'Image',
+      keywords: ['image', 'picture', 'photo', 'img'],
+      icon: 'image',
+      command: (_state, _dispatch, view) => {
+        if (view) pickAndInsertImages(view, schema);
+        return true;
+      },
+    },
+  ],
   plugins: ({ schema }) => [
     new Plugin({
       key: new PluginKey('imageFiles'),

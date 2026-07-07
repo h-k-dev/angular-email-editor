@@ -30,6 +30,10 @@ function renderBlock(element: Element, lines: string[], prefix: string): void {
     lines.push(prefix + imageText(element));
     return;
   }
+  if (tag === 'hr') {
+    lines.push(`${prefix}---`);
+    return;
+  }
 
   // div, p, headings — one line each, more via <br>. A single trailing <br>
   // is the empty-line marker (<div><br></div>), not an extra line.

@@ -158,6 +158,9 @@ schema extensions first, toolbar second.
       committing space (`www.` gets `https://`, trailing punctuation stays
       outside). Script URLs: refused by the schema on parse *and* on the
       command, and flagged as errors in the source pane.
+- [x] **`/image` slash command**: opens the OS file picker and inserts the
+      chosen image(s) at the cursor — the slash path mirroring the existing
+      drop/paste pipeline.
 - [x] **Images**: the Image node now serializes the ledger's hybrid sizing
       (`width` attribute for Outlook + `width:100%; max-width:<n>px;
       height:auto` for everyone else), caps widths at 600px on parse and on
@@ -259,9 +262,41 @@ just another schema extension that emits fluid, email-safe markup directly —
 no compiler pass, no intermediary format, nothing the user (or the source
 pane) can't see and edit.
 
-- [ ] **Slash-menu layout blocks** (`/columns`, `/button`, `/divider`, …) as
-      ordinary node extensions whose `toDOM`/`emitDOM` produce our fluid
-      hybrid patterns (max-width, percentage widths, inline styles).
+- [~] **Slash-menu layout blocks** — the pattern is proven with three shipped
+      blocks: **`/divider`** (a filled 1px bar, `width: 100%`, ledger-clean),
+      **`/button`** (an atom serializing to a padded `inline-block` anchor —
+      ≥44px touch target via padding, no `height`, no `border-radius`, so
+      it's lint-clean; `display: inline-block` doubles as the parse
+      discriminator that keeps a button distinct from a link), and
+      **`/table`** (see below). All appear in the slash menu automatically
+      (the menu aggregates `slashItems` from the kit). Still to come:
+      **`/columns`** — the flagship responsive *layout* block (spongy
+      inline-block that stacks on phones), distinct from the data table.
+      Learned along the way (button): a block node rendered as an inline `<a>`
+      can't hold editable content — contentEditable unwraps it on typing — so
+      the button is an atom whose label/href are edited in the source pane
+      (like image alt). An inline label editor is a polish follow-up.
+- [~] **`/table` — constrained data table**: a real `<table role=
+      "presentation">` (the most client-compatible layout) restricted to a
+      plain rectangular grid — no colspan/rowspan, so the model is a clean 2D
+      array. Nodes: `table` > `tableRow` > `tableCell` (`paragraph+`, so
+      cells hold rich text). Working: slash/command insertion (cursor lands
+      in cell 0,0), cell editing, **Tab/Shift-Tab navigation** (Tab past the
+      last cell appends a row), and structural commands (`addRow/Column
+      Before/After`, `deleteRow/Column`, `deleteTable`) that rebuild-and-
+      replace the table node rather than juggle positions. Round-trips through
+      the source pane, lint-clean, `<tbody>` fixpoint. Note: this is a *data*
+      table (stays tabular, scrolls on a phone); the spongy stacking layout is
+      the future `/columns`. **Still to come — the Notion-style mouse UI**
+      (hover +/- handles to add/remove rows and columns, row/column selection
+      and drag). Today it's keyboard + command driven; the hover overlay is
+      the next focused piece.
+  - Determinism casualty worth recording: **table cells are borderless.**
+      Chrome canonicalizes `border` to longhands while jsdom collapses
+      longhands to the shorthand — opposite canonical forms, so *no* border
+      declaration serializes identically across engines. Cells use only
+      `padding` + `vertical-align` (both byte-stable everywhere); visual row
+      separation via background striping (a stable longhand) is a follow-up.
 - [ ] **Schema growth to hold them**: constrained table/section nodes with
       strict parse/serialize rules — the gate for this milestone, and it must
       not loosen the canonical guarantees for plain text emails.
@@ -354,3 +389,12 @@ Two enforcement hooks so the ledger stays alive:
 - The app consumes the library from `dist/` — rebuild it (`ng build
   angular-email-editor`) or run `npm run watch`; if changes "don't arrive",
   clear `.angular/cache` (stale Vite prebundle).
+- **Canonical serialized styles must use longhand properties and `rgb()`
+  colours only — never CSS shorthands or hex.** Serialization round-trips
+  through the CSSOM (`DOMSerializer` builds real elements, we read
+  `innerHTML`), which re-serializes shorthands non-deterministically — and
+  jsdom even *orders* them differently from Chrome, so a shorthand breaks
+  canonical stability *and* makes tests disagree with the runtime. Longhands
+  in written order and `rgb(r, g, b)` colours are stable everywhere. This
+  gates every future block's styling (the M5 columns table especially). The
+  golden suite exists to catch violations.
