@@ -1,5 +1,14 @@
-import { Command, EditorState, TextSelection, Transaction } from 'prosemirror-state';
+import {
+  Command,
+  EditorState,
+  Plugin,
+  PluginKey,
+  Selection,
+  TextSelection,
+  Transaction,
+} from 'prosemirror-state';
 import { Node, NodeType, Schema } from 'prosemirror-model';
+import { Decoration, DecorationSet } from 'prosemirror-view';
 import { defineNode } from '../../extension';
 
 /**
@@ -10,19 +19,22 @@ import { defineNode } from '../../extension';
  * spongy layout that stacks. Styles are longhand-only + rgb() so they survive
  * the CSSOM serialize round trip identically across engines (see ROADMAP).
  */
-// Borderless by necessity, not taste: Chrome canonicalizes `border` to
-// longhands while jsdom collapses longhands to the shorthand, so no border
-// declaration serializes identically across engines. `border-collapse`
-// removes default cell spacing; padding + vertical-align are the only cell
-// styling, and both survive the round trip byte-for-byte everywhere. Visual
-// row separation (background striping) is a deterministic follow-up.
+// The serialized table is intentionally borderless — grid lines are an
+// editor-only editing aid (see the `.ProseMirror table` rules in the app's
+// global styles), not part of the email a recipient receives. Padding is a
+// fixed, responsive value (horizontal padding eats a phone's width, so it
+// stays modest).
 const TABLE_STYLE = 'width: 100%; border-collapse: collapse;';
 const CELL_STYLE = 'padding: 8px 12px; vertical-align: top;';
 
 export const TableCell = defineNode({
   name: 'tableCell',
   spec: {
-    content: 'paragraph+',
+    // Inline content directly in the cell (a textblock), not wrapped
+    // paragraphs: an empty cell is `<td></td>`, never `<td><div><br></div></td>`
+    // — the stray `<br>` made ProseMirror's parser grow a phantom cell on the
+    // round trip. Text marks (bold, links, colour) work in cells for free.
+    content: 'inline*',
     isolating: true,
     parseDOM: [{ tag: 'td' }, { tag: 'th' }],
     toDOM: () => ['td', { style: CELL_STYLE }, 0],
@@ -57,8 +69,14 @@ export const Table = defineNode({
     addRowBefore: (): Command => (state, dispatch) => editTable(state, dispatch, addRow(0)),
     addColumnAfter: (): Command => (state, dispatch) => editTable(state, dispatch, addColumn(1)),
     addColumnBefore: (): Command => (state, dispatch) => editTable(state, dispatch, addColumn(0)),
-    deleteRow: (): Command => (state, dispatch) => editTable(state, dispatch, deleteRow),
-    deleteColumn: (): Command => (state, dispatch) => editTable(state, dispatch, deleteColumn),
+    deleteRow: (): Command => (state, dispatch) => editTable(state, dispatch, deleteRowAt(rowIndexOf(state))),
+    deleteColumn: (): Command => (state, dispatch) => editTable(state, dispatch, deleteColumnAt(colIndexOf(state))),
+    // Index-addressed variants for the hover controls (a handle targets a
+    // specific row/column, independent of where the cursor sits).
+    addRowAt: (index: number): Command => (state, dispatch) => editTable(state, dispatch, insertRowAt(index)),
+    addColumnAt: (index: number): Command => (state, dispatch) => editTable(state, dispatch, insertColumnAt(index)),
+    deleteRowAt: (index: number): Command => (state, dispatch) => editTable(state, dispatch, deleteRowAt(index)),
+    deleteColumnAt: (index: number): Command => (state, dispatch) => editTable(state, dispatch, deleteColumnAt(index)),
     deleteTable: (): Command => (state, dispatch) => {
       const ctx = findTableContext(state);
       if (!ctx) return false;
@@ -69,7 +87,29 @@ export const Table = defineNode({
   keymap: () => ({
     Tab: goToCell(1),
     'Shift-Tab': goToCell(-1),
+    // Escape the table downward: from the last row, drop a paragraph below
+    // (creating one if the table is the last block) so you can always write
+    // underneath. Otherwise let the default caret movement handle it.
+    ArrowDown: escapeTableDown,
   }),
+  // Marks the table the cursor is in so the editor can show a subtle grid
+  // *while editing it* — an editing aid only, never serialized.
+  plugins: () => [
+    new Plugin({
+      key: new PluginKey('tableEditingGrid'),
+      props: {
+        decorations(state) {
+          const ctx = findTableContext(state);
+          if (!ctx) return null;
+          return DecorationSet.create(state.doc, [
+            Decoration.node(ctx.tablePos, ctx.tablePos + ctx.table.nodeSize, {
+              class: 'aee-table-editing',
+            }),
+          ]);
+        },
+      },
+    }),
+  ],
   slashItems: ({ schema }) => [
     {
       title: 'Table',
@@ -167,8 +207,11 @@ function editTable(
 
   if (dispatch) {
     const tr = state.tr.replaceWith(ctx.tablePos, ctx.tablePos + ctx.table.nodeSize, next);
-    const selection = TextSelection.near(tr.doc.resolve(Math.min(state.selection.from, tr.doc.content.size)));
-    dispatch(tr.setSelection(selection).scrollIntoView());
+    // Map the old cursor through the rebuild, then snap to the nearest valid
+    // selection (any kind) so we never create a text selection at a
+    // non-inline position.
+    const mapped = Math.min(tr.mapping.map(state.selection.from), tr.doc.content.size);
+    dispatch(tr.setSelection(Selection.near(tr.doc.resolve(mapped))).scrollIntoView());
   }
   return true;
 }
@@ -185,7 +228,12 @@ const tableRows = (table: Node): Node[] => {
   return rows;
 };
 
-function addRow(offset: 0 | 1): TableEdit {
+const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
+
+const rowIndexOf = (state: EditorState) => findTableContext(state)?.rowIndex ?? 0;
+const colIndexOf = (state: EditorState) => findTableContext(state)?.colIndex ?? 0;
+
+function insertRowAt(index: number): TableEdit {
   return (schema, ctx) => {
     const rowType = schema.nodes['tableRow'];
     const cellType = schema.nodes['tableCell'];
@@ -194,39 +242,73 @@ function addRow(offset: 0 | 1): TableEdit {
       Array.from({ length: ctx.cols }, () => cellType.createAndFill()!),
     );
     const rows = tableRows(ctx.table);
-    rows.splice(ctx.rowIndex + offset, 0, fresh);
+    rows.splice(clamp(index, 0, rows.length), 0, fresh);
     return ctx.table.type.create(ctx.table.attrs, rows);
   };
 }
 
-function addColumn(offset: 0 | 1): TableEdit {
+function insertColumnAt(index: number): TableEdit {
   return (schema, ctx) => {
     const cellType = schema.nodes['tableCell'];
     const rows = tableRows(ctx.table).map((row) => {
       const cells = rowCells(row);
-      cells.splice(ctx.colIndex + offset, 0, cellType.createAndFill()!);
+      cells.splice(clamp(index, 0, cells.length), 0, cellType.createAndFill()!);
       return row.type.create(row.attrs, cells);
     });
     return ctx.table.type.create(ctx.table.attrs, rows);
   };
 }
 
-const deleteRow: TableEdit = (_schema, ctx) => {
-  if (ctx.rows <= 1) return null;
-  const rows = tableRows(ctx.table);
-  rows.splice(ctx.rowIndex, 1);
-  return ctx.table.type.create(ctx.table.attrs, rows);
+/** ArrowDown from a table's last row: move to the block below, creating an
+    empty paragraph when the table is the last node so text can go under it. */
+const escapeTableDown: Command = (state, dispatch) => {
+  const ctx = findTableContext(state);
+  if (!ctx || ctx.rowIndex !== ctx.rows - 1) return false;
+
+  const tableEnd = ctx.tablePos + ctx.table.nodeSize;
+  const after = state.doc.resolve(tableEnd).nodeAfter;
+  if (after) return false; // a block already follows — let the default move there
+
+  if (dispatch) {
+    const paragraph = state.schema.nodes['paragraph'].createAndFill();
+    if (!paragraph) return false;
+    const tr = state.tr.insert(tableEnd, paragraph);
+    tr.setSelection(TextSelection.create(tr.doc, tableEnd + 1));
+    dispatch(tr.scrollIntoView());
+  }
+  return true;
 };
 
-const deleteColumn: TableEdit = (_schema, ctx) => {
-  if (ctx.cols <= 1) return null;
-  const rows = tableRows(ctx.table).map((row) => {
-    const cells = rowCells(row);
-    cells.splice(ctx.colIndex, 1);
-    return row.type.create(row.attrs, cells);
-  });
-  return ctx.table.type.create(ctx.table.attrs, rows);
-};
+function deleteRowAt(index: number): TableEdit {
+  return (_schema, ctx) => {
+    if (ctx.rows <= 1 || index < 0 || index >= ctx.rows) return null;
+    const rows = tableRows(ctx.table);
+    rows.splice(index, 1);
+    return ctx.table.type.create(ctx.table.attrs, rows);
+  };
+}
+
+function deleteColumnAt(index: number): TableEdit {
+  return (_schema, ctx) => {
+    if (ctx.cols <= 1 || index < 0 || index >= ctx.cols) return null;
+    const rows = tableRows(ctx.table).map((row) => {
+      const cells = rowCells(row);
+      cells.splice(index, 1);
+      return row.type.create(row.attrs, cells);
+    });
+    return ctx.table.type.create(ctx.table.attrs, rows);
+  };
+}
+
+// Selection-relative wrappers for Tab/keyboard.
+const addRow =
+  (offset: 0 | 1): TableEdit =>
+  (schema, ctx) =>
+    insertRowAt(ctx.rowIndex + offset)(schema, ctx);
+const addColumn =
+  (offset: 0 | 1): TableEdit =>
+  (schema, ctx) =>
+    insertColumnAt(ctx.colIndex + offset)(schema, ctx);
 
 /** Tab / Shift-Tab: move to the next / previous cell, adding a row when
     tabbing past the last cell. */
@@ -273,5 +355,5 @@ function cellStart(
   for (let r = 0; r < row; r++) pos += table.child(r).nodeSize;
   pos += 1; // enter the row
   for (let c = 0; c < col; c++) pos += rowNode.child(c).nodeSize;
-  return pos + 2; // enter the cell, then its first paragraph
+  return pos + 1; // enter the cell (a textblock) to its first inline position
 }

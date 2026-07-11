@@ -17,12 +17,21 @@ describe('table serialization', () => {
     expect(canonical(once)).toBe(once);
   });
 
-  it('serializes a real presentation table with padded cells and a tbody', () => {
+  it('serializes a borderless presentation table with a tbody', () => {
     const html = canonical(SAMPLE);
     expect(html).toContain('<table style="width: 100%; border-collapse: collapse;" role="presentation">');
     expect(html).toContain('<tbody>');
-    expect(html).toContain('<td style="padding: 8px 12px; vertical-align: top;">');
-    expect(html).toContain('<div>a</div>');
+    // Borderless: grid lines are editor-only, never in the email itself.
+    expect(html).toContain('<td style="padding: 8px 12px; vertical-align: top;">a</td>');
+    expect(html).not.toContain('border:');
+  });
+
+  it('round-trips a table with empty cells without growing phantom cells', () => {
+    const empty =
+      '<table><tbody><tr><td></td><td></td></tr><tr><td></td><td></td></tr></tbody></table>';
+    const once = canonical(empty);
+    expect((once.match(/<td/g) || []).length).toBe(4);
+    expect(canonical(once)).toBe(once);
   });
 
   it('produces lint-clean output', () => {
@@ -57,7 +66,7 @@ describe('table editing', () => {
   it('inserts a 2x2 table with the cursor inside the first cell', () => {
     editor.commands['insertTable']();
     expect(dims()).toEqual({ rows: 2, cols: 2 });
-    expect(editor.state.selection.$from.node(-1).type.name).toBe('tableCell');
+    expect(editor.state.selection.$from.parent.type.name).toBe('tableCell');
   });
 
   it('adds and deletes columns and rows', () => {
@@ -89,10 +98,42 @@ describe('table editing', () => {
 
     tab(); // (0,0) -> (0,1)
     expect(dims()).toEqual({ rows: 1, cols: 2 });
-    expect(editor.state.selection.$from.index(-2)).toBe(1); // second column
+    expect(editor.state.selection.$from.index(-1)).toBe(1); // second column
 
     tab(); // past the end -> new row
     expect(dims()).toEqual({ rows: 2, cols: 2 });
+  });
+
+  it('index-addressed commands target a specific row or column', () => {
+    editor.commands['insertTable'](2, 2); // cursor in cell (0,0)
+    editor.commands['addColumnAt'](0); // prepend a column
+    expect(dims()).toEqual({ rows: 2, cols: 3 });
+    editor.commands['addRowAt'](2); // append a row
+    expect(dims()).toEqual({ rows: 3, cols: 3 });
+    editor.commands['deleteColumnAt'](2); // remove a column the cursor is not in
+    expect(dims()).toEqual({ rows: 3, cols: 2 });
+    editor.commands['deleteRowAt'](0); // remove the first row
+    expect(dims()).toEqual({ rows: 2, cols: 2 });
+  });
+
+  it('ArrowDown from the last row escapes to a paragraph below a last-block table', () => {
+    editor.commands['insertTable'](2, 2); // table is the last (only) block; cursor in cell (0,0)
+    const key = (name: string) =>
+      editor.view.someProp('handleKeyDown', (f) =>
+        f(editor.view, new KeyboardEvent('keydown', { key: name })),
+      );
+    // Tab to the last cell (0,0)→(0,1)→(1,0)→(1,1), i.e. the last row.
+    key('Tab');
+    key('Tab');
+    key('Tab');
+    expect(key('ArrowDown')).toBe(true);
+    // A paragraph now follows the table, and the cursor sits in it.
+    expect(editor.state.selection.$from.parent.type.name).toBe('paragraph');
+    editor.exec((state, dispatch) => {
+      dispatch?.(state.tr.insertText('below'));
+      return true;
+    });
+    expect(editor.getHTML()).toContain('</table><div>below</div>');
   });
 
   it('deleteTable removes the whole node', () => {

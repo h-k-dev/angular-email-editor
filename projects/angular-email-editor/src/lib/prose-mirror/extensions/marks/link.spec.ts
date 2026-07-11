@@ -59,6 +59,70 @@ describe('link editing', () => {
   });
 });
 
+describe('paste a URL onto selected text', () => {
+  let host: HTMLElement;
+  let editor: Editor;
+
+  beforeEach(() => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    editor = createEditor({
+      parent: host,
+      extensions: emailExtensions,
+      content: '<div>read the docs here</div>',
+    });
+  });
+
+  afterEach(() => {
+    editor.destroy();
+    host.remove();
+  });
+
+  const select = (from: number, to: number) =>
+    editor.exec((state, dispatch) => {
+      dispatch?.(state.tr.setSelection(TextSelection.create(state.doc, from, to)));
+      return true;
+    });
+
+  const paste = (text: string): boolean =>
+    !!editor.view.someProp('handlePaste', (f) =>
+      f(editor.view, { clipboardData: { getData: () => text } } as unknown as ClipboardEvent, null as never),
+    );
+
+  it('links the selection instead of replacing it', () => {
+    select(6, 14); // "the docs"
+    expect(paste('https://x.io')).toBe(true);
+    expect(editor.getHTML()).toBe(
+      `<div>read ${linkOpen('https://x.io')}the docs</a> here</div>`,
+    );
+  });
+
+  it('prepends https:// to a pasted www URL', () => {
+    select(6, 14);
+    expect(paste('www.x.io')).toBe(true);
+    expect(editor.getHTML()).toContain(linkOpen('https://www.x.io'));
+  });
+
+  it('ignores non-URL text and multi-word pastes (normal paste proceeds)', () => {
+    select(6, 14);
+    expect(paste('just some words')).toBe(false);
+    expect(paste('not-a-url')).toBe(false);
+  });
+
+  it('does nothing without a selection', () => {
+    editor.exec((state, dispatch) => {
+      dispatch?.(state.tr.setSelection(TextSelection.create(state.doc, 3)));
+      return true;
+    });
+    expect(paste('https://x.io')).toBe(false);
+  });
+
+  it('refuses a script-URL paste', () => {
+    select(6, 14);
+    expect(paste('javascript:alert(1)')).toBe(false);
+  });
+});
+
 describe('auto-link input rule', () => {
   let host: HTMLElement;
   let editor: Editor;

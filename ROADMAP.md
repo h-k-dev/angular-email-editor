@@ -287,16 +287,25 @@ pane) can't see and edit.
       replace the table node rather than juggle positions. Round-trips through
       the source pane, lint-clean, `<tbody>` fixpoint. Note: this is a *data*
       table (stays tabular, scrolls on a phone); the spongy stacking layout is
-      the future `/columns`. **Still to come — the Notion-style mouse UI**
-      (hover +/- handles to add/remove rows and columns, row/column selection
-      and drag). Today it's keyboard + command driven; the hover overlay is
-      the next focused piece.
-  - Determinism casualty worth recording: **table cells are borderless.**
-      Chrome canonicalizes `border` to longhands while jsdom collapses
-      longhands to the shorthand — opposite canonical forms, so *no* border
-      declaration serializes identically across engines. Cells use only
-      `padding` + `vertical-align` (both byte-stable everywhere); visual row
-      separation via background striping (a stable longhand) is a follow-up.
+      the future `/columns`. **Deliberately kept simple** (an earlier
+      Notion-style hover overlay — add/delete handles, padding steppers,
+      pointer tracking — was tried and reverted; it was fiddly and got in the
+      way): the only affordance is a **subtle editor-only grid shown while the
+      cursor is editing inside the table**. A ProseMirror decoration tags the
+      active table with `aee-table-editing`; global CSS reveals a
+      transparent-reserved 1px cell border only then (no layout shift), *never*
+      in the serialized email — the exported table is borderless with fixed,
+      responsive padding (`8px 12px`). Structure is keyboard/command-driven:
+      Tab/Shift-Tab navigation, and **ArrowDown from the last row escapes to a
+      paragraph below** (created if the table is the last block) so you can
+      always write underneath. The structural commands (`addColumnAt`,
+      `deleteRowAt`, …) remain in the library for a future, calmer UI.
+  - **Cells hold inline content** (`inline*`), not wrapped paragraphs: an
+      empty cell is `<td></td>`, never `<td><div><br></div></td>`. The stray
+      `<br>` made ProseMirror's parser grow a phantom cell on every round
+      trip — a real corruption bug the text-cell tests had missed. Bonus:
+      text marks (bold, links, colour) now work inside cells. Pinned by an
+      empty-cell round-trip test.
 - [ ] **Schema growth to hold them**: constrained table/section nodes with
       strict parse/serialize rules — the gate for this milestone, and it must
       not loosen the canonical guarantees for plain text emails.

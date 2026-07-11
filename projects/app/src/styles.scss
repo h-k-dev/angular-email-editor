@@ -60,6 +60,20 @@ body {
   line-height: var(--mat-sys-prose-mirror-line-height, 20px);
 }
 
+/* Subtle grid, editor-only — never serialized. The exported email is a
+ * borderless table (see the table node); this grid only appears while the
+ * cursor is editing inside the table (the `aee-table-editing` class is added
+ * by the table extension). A transparent border is always reserved so
+ * revealing it causes no layout shift.
+ */
+.ProseMirror table td {
+  border: 1px solid transparent;
+}
+
+.ProseMirror table.aee-table-editing td {
+  border-color: var(--email-table-grid, rgb(224, 224, 224));
+}
+
 /* HTML source editor: token and lint classes applied via ProseMirror
  * decorations, which render outside Angular's encapsulation like .ProseMirror.
  */

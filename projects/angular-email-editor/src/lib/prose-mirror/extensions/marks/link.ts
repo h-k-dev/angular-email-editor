@@ -56,6 +56,37 @@ function isSafeUrl(url: string | null): boolean {
   return !isMalicious;
 }
 
+/** A single URL from pasted text → an href (prepending https:// for `www.`).
+    Returns null when the text isn't one bare URL (has spaces, or isn't a
+    recognised scheme), so ordinary text still pastes normally. */
+function urlFromText(text: string): string | null {
+  const trimmed = text.trim();
+  if (!trimmed || /\s/.test(trimmed)) return null;
+  if (/^(https?:\/\/|mailto:)/i.test(trimmed)) return trimmed;
+  if (/^www\./i.test(trimmed)) return `https://${trimmed}`;
+  return null;
+}
+
+/** Paste a URL onto selected text and the text becomes the link, rather than
+    replacing the selection with the raw URL (the Gmail/Docs behaviour). */
+export const linkPastePlugin = new Plugin({
+  key: new PluginKey('linkPaste'),
+  props: {
+    handlePaste: (view, event) => {
+      const { state } = view;
+      const type = state.schema.marks['link'];
+      if (!type || state.selection.empty) return false;
+
+      const href = urlFromText(event.clipboardData?.getData('text/plain') ?? '');
+      if (!href || !isSafeUrl(href)) return false;
+
+      const { from, to } = state.selection;
+      view.dispatch(state.tr.addMark(from, to, type.create({ href })).scrollIntoView());
+      return true;
+    },
+  },
+});
+
 export const linkClickPlugin = new Plugin({
   key: new PluginKey('linkClick'),
   props: {
@@ -181,5 +212,5 @@ export const Link = defineMark({
       return state.tr.insertText(' ', end).addMark(urlStart, urlEnd, type.create({ href }));
     }),
   ],
-  plugins: () => [linkClickPlugin],
+  plugins: () => [linkClickPlugin, linkPastePlugin],
 });
