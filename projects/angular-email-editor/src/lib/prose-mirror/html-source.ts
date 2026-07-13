@@ -250,6 +250,10 @@ export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): Htm
     const style = attributeValueToken(source, scan, tag, 'style');
     if (!style?.value) continue;
     const hasWidthAttribute = attributeValue(source, scan, tag, 'width') !== null;
+    // `max-width` is only a problem when it is the *sole* width constraint;
+    // paired with `width: 100%` (the fluid columns pattern) Outlook falls back
+    // to 100% and fills the container gracefully.
+    const hasFluidWidth = /(^|;)\s*width:\s*100%/.test(style.value);
 
     let offset = 0;
     for (const declaration of style.value.split(';')) {
@@ -262,8 +266,11 @@ export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): Htm
       const value = declaration.slice(colon + 1).trim();
 
       // The image hybrid pairs max-width with a width attribute precisely
-      // because Outlook ignores max-width — that combination is by design.
-      if (property === 'max-width' && tag.name === 'img' && hasWidthAttribute) continue;
+      // because Outlook ignores max-width; the fluid columns pattern pairs it
+      // with `width: 100%`. Both are deliberate, safe degradations.
+      if (property === 'max-width' && ((tag.name === 'img' && hasWidthAttribute) || hasFluidWidth)) {
+        continue;
+      }
 
       const leading = /^\s*/.exec(declaration)![0].length;
       const trimmed = declaration.trimEnd().length;

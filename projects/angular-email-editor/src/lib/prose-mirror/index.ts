@@ -25,6 +25,7 @@ export * from './extensions/nodes/image';
 export * from './extensions/nodes/divider';
 export * from './extensions/nodes/button';
 export * from './extensions/nodes/table';
+export * from './extensions/nodes/columns';
 export * from './extensions/nodes/lists';
 export * from './extensions/bubble-menu';
 export * from './extensions/slash-menu';

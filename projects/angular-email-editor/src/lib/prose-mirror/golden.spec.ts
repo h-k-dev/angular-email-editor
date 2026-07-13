@@ -40,6 +40,7 @@ const MESSY: string[] = [
   '<img src="x.png" alt="wide" width="1200" style="float: left">',
   '<table><tbody><tr><td>a</td><td>b</td></tr><tr><td>c</td><td>d</td></tr></tbody></table>',
   '<table><tr><td>no tbody in source</td></tr></table>',
+  '<div style="width: 100%; max-width: 600px;"><div style="display: inline-block; width: 100%; max-width: 300px; vertical-align: top; box-sizing: border-box; padding-left: 8px; padding-right: 8px;"><div>one</div></div><div style="display: inline-block; width: 100%; max-width: 300px; vertical-align: top; box-sizing: border-box; padding-left: 8px; padding-right: 8px;"><div>two</div></div></div>',
 ];
 
 describe('golden canonical outputs', () => {

@@ -57,6 +57,8 @@ describe('createSlashMenu', () => {
       'Divider',
       'Button',
       'Table',
+      'Columns',
+      '3 columns',
       'Bold',
       'Italic',
       'Underline',

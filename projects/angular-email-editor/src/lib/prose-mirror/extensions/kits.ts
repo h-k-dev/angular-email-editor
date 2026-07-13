@@ -14,6 +14,7 @@ import { Image } from './nodes/image';
 import { Divider } from './nodes/divider';
 import { Button } from './nodes/button';
 import { Table, TableRow, TableCell } from './nodes/table';
+import { Columns, Column } from './nodes/columns';
 import { Bold } from './marks/bold';
 import { Italic } from './marks/italic';
 import { Underline } from './marks/underline';
@@ -43,6 +44,8 @@ const withParagraph = (paragraph: NodeExtension): Extension[] => [
   Table,
   TableRow,
   TableCell,
+  Columns,
+  Column,
   Bold,
   Italic,
   Underline,

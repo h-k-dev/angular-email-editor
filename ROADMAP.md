@@ -5,6 +5,29 @@ source editor developed as peers over the same extension contract, kept in
 sync through Angular signals, with ProseMirror as the parsing engine on both
 sides.
 
+## Progress snapshot — 2026-07-11
+
+Foundations and the two-editor core are in; the content and layout-blocks side
+is mature. Tests: **167 library + 4 app, all green**.
+
+| Milestone | State | Left to do |
+| --- | --- | --- |
+| Foundations (two editors, mark parity, canonical `html` signal) | ✅ done | — |
+| **M1 — Round-trip fidelity** | ✅ core done | selection mirroring (stretch) |
+| **M2 — Missing composer features** | 🟢 nearly done | font size/family; word/line counter placement |
+| **M3 — Deliverability lint engine** | ✅ done | — |
+| **M4 — Preview & proof** | 🟢 mostly done | per-client simulation; Outlook conditional comments |
+| **M5 — Layout blocks** | 🟢 flagship done | add/remove-column UI; section-schema + `{{template}}` placeholders |
+| **M6 — Compose workflow** | ⬜ not started | `/send`, drafts, reply/forward, `.eml`/HTML import, attachments |
+
+Most recent work: **`/columns`** (responsive layout block that stacks on
+phones, no media queries), **paste-a-URL-onto-selection** linking, and the
+**table simplification** — the fiddly Notion-style overlay was tried and
+reverted in favour of a plain table with an editor-only grid (shown only while
+the cursor is inside it) plus an ArrowDown escape so you can always write
+underneath. Next candidates: finish M2 (font stacks + counter), or open the M6
+compose-workflow arc.
+
 ## Why this is worth building
 
 Email is a strange dialect of HTML. It is parsed by rendering engines that
@@ -157,7 +180,10 @@ schema extensions first, toolbar second.
       `setLink`/`unsetLink` learned the same. Typed URLs auto-link on the
       committing space (`www.` gets `https://`, trailing punctuation stays
       outside). Script URLs: refused by the schema on parse *and* on the
-      command, and flagged as errors in the source pane.
+      command, and flagged as errors in the source pane. **Paste-to-link**:
+      pasting a bare URL onto selected text links the text instead of
+      replacing it (`linkPastePlugin`; `www.` gets `https://`, script URLs
+      refused, non-URL/multi-word pastes fall through to normal paste).
 - [x] **`/image` slash command**: opens the OS file picker and inserts the
       chosen image(s) at the cursor — the slash path mirroring the existing
       drop/paste pipeline.
@@ -262,21 +288,38 @@ just another schema extension that emits fluid, email-safe markup directly —
 no compiler pass, no intermediary format, nothing the user (or the source
 pane) can't see and edit.
 
-- [~] **Slash-menu layout blocks** — the pattern is proven with three shipped
-      blocks: **`/divider`** (a filled 1px bar, `width: 100%`, ledger-clean),
+- [x] **Slash-menu layout blocks** — four shipped blocks:
+      **`/divider`** (a filled 1px bar, `width: 100%`, ledger-clean),
       **`/button`** (an atom serializing to a padded `inline-block` anchor —
       ≥44px touch target via padding, no `height`, no `border-radius`, so
       it's lint-clean; `display: inline-block` doubles as the parse
-      discriminator that keeps a button distinct from a link), and
-      **`/table`** (see below). All appear in the slash menu automatically
-      (the menu aggregates `slashItems` from the kit). Still to come:
-      **`/columns`** — the flagship responsive *layout* block (spongy
-      inline-block that stacks on phones), distinct from the data table.
+      discriminator that keeps a button distinct from a link), **`/table`**
+      (see below), and **`/columns`** — the flagship. All appear in the slash
+      menu automatically (the menu aggregates `slashItems` from the kit).
       Learned along the way (button): a block node rendered as an inline `<a>`
       can't hold editable content — contentEditable unwraps it on typing — so
       the button is an atom whose label/href are edited in the source pane
       (like image alt). An inline label editor is a polish follow-up.
-- [~] **`/table` — constrained data table**: a real `<table role=
+- [x] **`/columns` — the MJML-killer (responsive layout, no media queries)**:
+      `columns` > `column` nodes. Each column is an `inline-block` div with
+      `width: 100%` capped by `max-width: container/n` and
+      `box-sizing: border-box`; on a wide screen the caps let columns sit side
+      by side, on a phone `width: 100%` wins and they **stack** — verified
+      live (side-by-side at 640px, stacked at 320px). Outlook ignores
+      `inline-block` and simply stacks too: the same graceful, phone-first
+      result, no ghost tables needed for v1. `/columns` inserts 2 (each
+      `max-width: 300px`), `3 columns` inserts 3 (`200px`); columns hold full
+      block content (paragraphs, images, buttons, nested blocks). Parse is
+      discriminated by the `display: inline-block` style (column) and by
+      having inline-block child divs (container) — no data attributes, inline
+      styles only. All longhand/fixed-px, so it's a byte-stable fixpoint in
+      both engines. The lint's `max-width` warning is exempt when paired with
+      `width: 100%` (the fluid pattern degrades gracefully in Outlook), so our
+      own output stays clean. ArrowDown from a column's last block escapes to
+      a paragraph below (like the table). Not yet: a UI to add/remove columns
+      after insertion, and richer gutters beyond the 8px padding; Outlook
+      ghost tables for true side-by-side there remain a deliberate non-goal.
+- [x] **`/table` — constrained data table**: a real `<table role=
       "presentation">` (the most client-compatible layout) restricted to a
       plain rectangular grid — no colspan/rowspan, so the model is a clean 2D
       array. Nodes: `table` > `tableRow` > `tableCell` (`paragraph+`, so
@@ -309,9 +352,10 @@ pane) can't see and edit.
 - [ ] **Schema growth to hold them**: constrained table/section nodes with
       strict parse/serialize rules — the gate for this milestone, and it must
       not loosen the canonical guarantees for plain text emails.
-- [ ] **Round-trip stance**: blocks are canonical HTML like everything else —
-      editable in the source pane, linted, re-parsed. No hidden state, no
-      "locked" regions; the schema, as always, is law.
+- [x] **Round-trip stance**: holds for every shipped block (divider, button,
+      table, columns) — each is canonical HTML, editable in the source pane,
+      linted, re-parsed. No hidden state, no "locked" regions; the schema, as
+      always, is law.
 - [ ] **Template-ready, not templated.** We expect a handlebars-like dialect
       to emerge naturally once the blocks exist: placeholder nodes that
       survive the round trip and serialize as `{{name}}`-style tokens. We
@@ -330,7 +374,7 @@ stripped), so every answer must be fluid and inline.
 | Extension | The trap at 320px | Our fluid answer |
 | --- | --- | --- |
 | **Image** | Fixed pixel width overflows the screen; Outlook ignores `max-width` entirely | Hybrid sizing: `width` *attribute* for Outlook + `style="width:100%; max-width:<n>px; height:auto"` for everyone else |
-| **Table / layout blocks (M5)** | Columns keep their desktop widths and force horizontal scroll | Spongy columns: `inline-block` cells with percentage widths inside a `max-width` container, so they wrap/stack naturally; Outlook ghost tables are *generated by the block serializer* (M1 comment policy — comments are never content) |
+| **Table / layout blocks (M5)** | Columns keep their desktop widths and force horizontal scroll | ✅ **Shipped (`/columns`)**: `inline-block` columns with `width:100%` capped by `max-width: container/n` + `box-sizing:border-box` — side by side when the caps fit, stacked when they don't. Outlook ignores `inline-block` and stacks too. Ghost tables for true Outlook side-by-side remain a non-goal for now. (Data `/table` is separate — it stays tabular.) |
 | **Lists** | Default `padding-inline-start: 40px` per nesting level — two levels eat a third of the screen | Explicit small inline padding on `ul`/`ol`, tested nested |
 | **Blockquote** | Nested reply chains accumulate margins until text is one word per line | Small fixed inline padding + border, no margin stacking; consider a visual nesting cap |
 | **Headings** | Desktop-sized `h1` wraps into a wall at phone width | Conservative size scale that reads on both; line-height inline and proportional |
