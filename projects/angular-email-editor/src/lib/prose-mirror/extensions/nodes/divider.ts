@@ -39,7 +39,9 @@ export const Divider = defineNode({
       keywords: ['divider', 'separator', 'rule', 'hr', 'line'],
       icon: 'horizontal_rule',
       command: (state, dispatch) => {
-        dispatch?.(state.tr.replaceSelectionWith(schema.nodes['divider'].create()).scrollIntoView());
+        dispatch?.(
+          state.tr.replaceSelectionWith(schema.nodes['divider'].create()).scrollIntoView(),
+        );
         return true;
       },
     },

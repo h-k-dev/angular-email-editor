@@ -92,8 +92,7 @@ export interface TextMetrics {
  * handle per hard-break segment.
  */
 type PreparedBlock =
-  | { kind: 'plain'; prepared: PreparedText }
-  | { kind: 'rich'; segments: PreparedRichInline[] };
+  { kind: 'plain'; prepared: PreparedText } | { kind: 'rich'; segments: PreparedRichInline[] };
 
 interface CachedBlock {
   block: PreparedBlock;

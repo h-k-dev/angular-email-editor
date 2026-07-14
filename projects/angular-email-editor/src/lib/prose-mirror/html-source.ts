@@ -6,7 +6,8 @@
  */
 import { clientList, findCssIssues } from './client-support';
 
-export type HtmlTokenType = 'delimiter' | 'tagName' | 'attributeName' | 'attributeValue' | 'comment';
+export type HtmlTokenType =
+  'delimiter' | 'tagName' | 'attributeName' | 'attributeValue' | 'comment';
 
 export interface HtmlToken {
   type: HtmlTokenType;
@@ -40,18 +41,58 @@ export interface HtmlDiagnostic {
 }
 
 export const VOID_TAGS = new Set([
-  'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
-  'link', 'meta', 'source', 'track', 'wbr',
+  'area',
+  'base',
+  'br',
+  'col',
+  'embed',
+  'hr',
+  'img',
+  'input',
+  'link',
+  'meta',
+  'source',
+  'track',
+  'wbr',
 ]);
 
 /** Tags the email schema understands; anything else risks being stripped or
     mangled by mail clients, so the linter flags it. */
 export const EMAIL_SAFE_TAGS = new Set([
-  'a', 'b', 'blockquote', 'br', 'del', 'div', 'em', 'font',
-  'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'i', 'img', 'li',
-  'ol', 'p', 's', 'span', 'strike', 'strong', 'u', 'ul',
+  'a',
+  'b',
+  'blockquote',
+  'br',
+  'del',
+  'div',
+  'em',
+  'font',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'hr',
+  'i',
+  'img',
+  'li',
+  'ol',
+  'p',
+  's',
+  'span',
+  'strike',
+  'strong',
+  'u',
+  'ul',
   // Tables are the most client-compatible layout there is.
-  'table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th',
+  'table',
+  'thead',
+  'tbody',
+  'tfoot',
+  'tr',
+  'td',
+  'th',
 ]);
 
 const NAME_START = /[a-zA-Z]/;
@@ -135,7 +176,8 @@ export function scanHTML(source: string): HtmlScan {
         default: {
           const start = j;
           while (j < source.length && !/[\s=/<>]/.test(source[j])) j++;
-          if (j === start) j++; // stray character; never stall
+          if (j === start)
+            j++; // stray character; never stall
           else tokens.push({ type: 'attributeName', from: start, to: j });
         }
       }
@@ -190,12 +232,7 @@ function attributeValueToken(
 
 /** The value of a named attribute within a tag's span: `null` when absent,
     `''` when present without a value. */
-function attributeValue(
-  source: string,
-  scan: HtmlScan,
-  tag: HtmlTag,
-  name: string,
-): string | null {
+function attributeValue(source: string, scan: HtmlScan, tag: HtmlTag, name: string): string | null {
   return attributeValueToken(source, scan, tag, name)?.value ?? null;
 }
 
@@ -217,7 +254,7 @@ export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): Htm
     // Each form terminates on its own alphabet: '&#38b' decodes as '&' + 'b'.
     const ambiguous =
       /&(?:#x[0-9a-fA-F]+(?![0-9a-fA-F;])|#\d+(?![\d;])|[a-zA-Z][a-zA-Z0-9]*(?![a-zA-Z0-9;]))/g;
-    for (let match; (match = ambiguous.exec(region)); ) {
+    for (let match; (match = ambiguous.exec(region));) {
       diagnostics.push({
         from: regionFrom + match.index,
         to: regionFrom + match.index + match[0].length,
@@ -237,8 +274,7 @@ export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): Htm
         from: tag.nameFrom,
         to: tag.nameTo,
         severity: 'warning',
-        message:
-          'Image without alt text — image-blocking clients render nothing in its place',
+        message: 'Image without alt text — image-blocking clients render nothing in its place',
       });
     }
   }
@@ -268,7 +304,10 @@ export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): Htm
       // The image hybrid pairs max-width with a width attribute precisely
       // because Outlook ignores max-width; the fluid columns pattern pairs it
       // with `width: 100%`. Both are deliberate, safe degradations.
-      if (property === 'max-width' && ((tag.name === 'img' && hasWidthAttribute) || hasFluidWidth)) {
+      if (
+        property === 'max-width' &&
+        ((tag.name === 'img' && hasWidthAttribute) || hasFluidWidth)
+      ) {
         continue;
       }
 
@@ -398,7 +437,7 @@ export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): Htm
 export function entitySpans(source: string): [number, number][] {
   const pattern = /&(?:#\d+|#x[0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]*);/g;
   const spans: [number, number][] = [];
-  for (let match; (match = pattern.exec(source)); ) {
+  for (let match; (match = pattern.exec(source));) {
     spans.push([match.index, match.index + match[0].length]);
   }
   return spans;
@@ -493,10 +532,40 @@ export function completionContextAt(source: string, offset: number): CompletionC
 
 /** Block-level tags that get their own indented lines when formatting. */
 const BLOCK_TAGS = new Set([
-  'address', 'article', 'aside', 'blockquote', 'div', 'dd', 'dl', 'dt',
-  'fieldset', 'figure', 'footer', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-  'header', 'hr', 'li', 'main', 'nav', 'ol', 'p', 'pre', 'section',
-  'table', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr', 'ul',
+  'address',
+  'article',
+  'aside',
+  'blockquote',
+  'div',
+  'dd',
+  'dl',
+  'dt',
+  'fieldset',
+  'figure',
+  'footer',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'header',
+  'hr',
+  'li',
+  'main',
+  'nav',
+  'ol',
+  'p',
+  'pre',
+  'section',
+  'table',
+  'tbody',
+  'td',
+  'tfoot',
+  'th',
+  'thead',
+  'tr',
+  'ul',
 ]);
 
 /**

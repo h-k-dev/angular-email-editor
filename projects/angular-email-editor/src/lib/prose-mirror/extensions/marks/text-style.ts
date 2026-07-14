@@ -146,8 +146,6 @@ export const TextStyle = defineMark({
       fontSize: { default: null },
       fontFamily: { default: null },
     },
-    // Don't let a color span bleed onto the next line on Shift-Enter.
-    splittable: false,
     parseDOM: [
       {
         tag: 'span',

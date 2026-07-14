@@ -38,9 +38,13 @@ describe('createEditor', () => {
       return true;
     });
     expect(editor.commands['toggleBold']()).toBe(true);
-    expect(editor.getHTML()).toBe('<p dir="auto"><strong style="font-weight: bold;">Hello world</strong></p>');
+    expect(editor.getHTML()).toBe(
+      '<p dir="auto"><strong style="font-weight: bold;">Hello world</strong></p>',
+    );
     expect(editor.isActive('bold')).toBe(true);
-    expect(updates.at(-1)).toBe('<p dir="auto"><strong style="font-weight: bold;">Hello world</strong></p>');
+    expect(updates.at(-1)).toBe(
+      '<p dir="auto"><strong style="font-weight: bold;">Hello world</strong></p>',
+    );
   });
 
   it('setContent replaces the document', () => {
@@ -77,9 +81,9 @@ describe('createEditor', () => {
 
     // Prepending a paragraph shifts the diff before the selection ...
     editor.setContent('<p dir="auto">Intro</p><p dir="auto">Hello world</p>');
-    expect(editor.state.doc.textBetween(editor.state.selection.from, editor.state.selection.to)).toBe(
-      'Hello',
-    );
+    expect(
+      editor.state.doc.textBetween(editor.state.selection.from, editor.state.selection.to),
+    ).toBe('Hello');
 
     // ... while a diff after the selection leaves it untouched.
     const { from, to } = editor.state.selection;

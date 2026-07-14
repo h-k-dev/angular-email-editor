@@ -24,6 +24,10 @@ export class Compose {
   protected diagnostics = signal<HtmlDiagnostic[]>([]);
 
   protected sourcePane = viewChild.required(HtmlEmailCompose);
+  protected emailPane = viewChild.required(EmailCompose);
+
+  /** Live word/line counter, measured mathematically by the email pane. */
+  protected metrics = computed(() => this.emailPane().bodyMetrics());
 
   protected errors = computed(
     () => this.diagnostics().filter((d) => d.severity === 'error').length,
@@ -35,7 +39,8 @@ export class Compose {
   /** The canonical HTML measured against Gmail's 102 KB clipping limit. */
   protected size = computed(() => emailSizeBudget(this.html()));
   protected sizeLabel = computed(
-    () => `${(this.size().bytes / 1024).toFixed(1)} kB of ${Math.round(this.size().limit / 1024)} kB`,
+    () =>
+      `${(this.size().bytes / 1024).toFixed(1)} kB of ${Math.round(this.size().limit / 1024)} kB`,
   );
 
   /** Jumps the source pane to the first diagnostic of the given severity. */

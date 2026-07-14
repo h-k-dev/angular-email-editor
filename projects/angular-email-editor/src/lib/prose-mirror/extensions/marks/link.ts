@@ -40,7 +40,8 @@ export function linkRangeAt(state: EditorState, pos: number): LinkRange | null {
   let from = children[index].from;
   let to = children[index].to;
   for (let i = index - 1; i >= 0 && children[i].mark?.eq(mark); i--) from = children[i].from;
-  for (let i = index + 1; i < children.length && children[i].mark?.eq(mark); i++) to = children[i].to;
+  for (let i = index + 1; i < children.length && children[i].mark?.eq(mark); i++)
+    to = children[i].to;
 
   return { from, to, attrs: mark.attrs as LinkAttrs };
 }

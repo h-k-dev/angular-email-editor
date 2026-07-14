@@ -73,7 +73,8 @@ function throughRichSchema(schema: Schema, richCommand: Command): Command {
     if (!dispatch) return true;
 
     // 1. Parse with sentinels marking the selection, then drop them.
-    const marked = source.slice(0, a) + MARK_START + source.slice(a, b) + MARK_END + source.slice(b);
+    const marked =
+      source.slice(0, a) + MARK_START + source.slice(a, b) + MARK_END + source.slice(b);
     let rich = EditorState.create({ doc: parseHTML(marked, schema) });
     const p1 = findChar(rich.doc, MARK_START);
     const p2 = findChar(rich.doc, MARK_END);
@@ -122,8 +123,7 @@ function clampToText(source: string, a: number, b: number): [number, number] {
       .filter((token) => token.type === 'comment')
       .map((token): [number, number] => [token.from, token.to]),
   ];
-  const blockedAt = (index: number) =>
-    blocked.find(([from, to]) => index >= from && index < to);
+  const blockedAt = (index: number) => blocked.find(([from, to]) => index >= from && index < to);
 
   while (a < b) {
     const hit = blockedAt(a);

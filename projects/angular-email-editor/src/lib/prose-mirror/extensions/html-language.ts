@@ -77,7 +77,8 @@ function buildDecorations(doc: Node, options: HtmlLanguageOptions): DecorationSe
   for (const token of scan.tokens) {
     const from = toPm(token.from);
     const to = toPm(token.to);
-    if (to > from) decorations.push(Decoration.inline(from, to, { class: TOKEN_CLASSES[token.type] }));
+    if (to > from)
+      decorations.push(Decoration.inline(from, to, { class: TOKEN_CLASSES[token.type] }));
   }
   for (const diagnostic of diagnostics) {
     const from = toPm(diagnostic.from);

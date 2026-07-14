@@ -37,4 +37,5 @@ export * from './extensions/marks/link';
 export * from './extensions/marks/text-style';
 export * from './extensions/history';
 export * from './extensions/no-text-drag';
+export * from './extensions/split-keeping-marks';
 export * from './extensions/base-keymap';

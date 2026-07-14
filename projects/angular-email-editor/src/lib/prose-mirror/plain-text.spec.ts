@@ -36,7 +36,9 @@ describe('plain-text projection', () => {
 
   it('handles nested quotes', () => {
     expect(
-      emailPlainText('<blockquote><div>outer</div><blockquote><div>inner</div></blockquote></blockquote>'),
+      emailPlainText(
+        '<blockquote><div>outer</div><blockquote><div>inner</div></blockquote></blockquote>',
+      ),
     ).toBe('> outer\n> > inner');
   });
 });

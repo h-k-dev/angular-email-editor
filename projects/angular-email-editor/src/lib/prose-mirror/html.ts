@@ -25,8 +25,7 @@ function getSerializer(schema: Schema): DOMSerializer {
     const marks = DOMSerializer.marksFromSchema(schema);
     for (const [name, type] of Object.entries(schema.marks)) {
       const emitDOM = type.spec['emitDOM'] as
-        | ((mark: unknown, inline: boolean) => DOMOutputSpec)
-        | undefined;
+        ((mark: unknown, inline: boolean) => DOMOutputSpec) | undefined;
       if (emitDOM) marks[name] = emitDOM;
     }
     serializer = new DOMSerializer(nodes, marks);

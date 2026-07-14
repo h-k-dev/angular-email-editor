@@ -62,21 +62,33 @@ export const Table = defineNode({
     toDOM: () => ['table', { style: TABLE_STYLE, role: 'presentation' }, ['tbody', 0]],
   },
   commands: ({ schema }) => ({
-    insertTable:
-      (rows = 2, cols = 2): Command =>
-      insertTableFocused(schema, rows, cols),
+    insertTable: (rows = 2, cols = 2): Command => insertTableFocused(schema, rows, cols),
     addRowAfter: (): Command => (state, dispatch) => editTable(state, dispatch, addRow(1)),
     addRowBefore: (): Command => (state, dispatch) => editTable(state, dispatch, addRow(0)),
     addColumnAfter: (): Command => (state, dispatch) => editTable(state, dispatch, addColumn(1)),
     addColumnBefore: (): Command => (state, dispatch) => editTable(state, dispatch, addColumn(0)),
-    deleteRow: (): Command => (state, dispatch) => editTable(state, dispatch, deleteRowAt(rowIndexOf(state))),
-    deleteColumn: (): Command => (state, dispatch) => editTable(state, dispatch, deleteColumnAt(colIndexOf(state))),
+    deleteRow: (): Command => (state, dispatch) =>
+      editTable(state, dispatch, deleteRowAt(rowIndexOf(state))),
+    deleteColumn: (): Command => (state, dispatch) =>
+      editTable(state, dispatch, deleteColumnAt(colIndexOf(state))),
     // Index-addressed variants for the hover controls (a handle targets a
     // specific row/column, independent of where the cursor sits).
-    addRowAt: (index: number): Command => (state, dispatch) => editTable(state, dispatch, insertRowAt(index)),
-    addColumnAt: (index: number): Command => (state, dispatch) => editTable(state, dispatch, insertColumnAt(index)),
-    deleteRowAt: (index: number): Command => (state, dispatch) => editTable(state, dispatch, deleteRowAt(index)),
-    deleteColumnAt: (index: number): Command => (state, dispatch) => editTable(state, dispatch, deleteColumnAt(index)),
+    addRowAt:
+      (index: number): Command =>
+      (state, dispatch) =>
+        editTable(state, dispatch, insertRowAt(index)),
+    addColumnAt:
+      (index: number): Command =>
+      (state, dispatch) =>
+        editTable(state, dispatch, insertColumnAt(index)),
+    deleteRowAt:
+      (index: number): Command =>
+      (state, dispatch) =>
+        editTable(state, dispatch, deleteRowAt(index)),
+    deleteColumnAt:
+      (index: number): Command =>
+      (state, dispatch) =>
+        editTable(state, dispatch, deleteColumnAt(index)),
     deleteTable: (): Command => (state, dispatch) => {
       const ctx = findTableContext(state);
       if (!ctx) return false;
@@ -333,7 +345,8 @@ function goToCell(direction: 1 | -1): Command {
     const targetRow = Math.floor(target / ctx.cols);
     const targetCol = target % ctx.cols;
     const pos = cellStart(state.doc, ctx.tablePos, targetRow, targetCol, cellType);
-    if (pos != null) dispatch(state.tr.setSelection(TextSelection.create(state.doc, pos)).scrollIntoView());
+    if (pos != null)
+      dispatch(state.tr.setSelection(TextSelection.create(state.doc, pos)).scrollIntoView());
     return true;
   };
 }

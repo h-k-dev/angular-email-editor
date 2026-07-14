@@ -87,7 +87,10 @@ export const Columns = defineNode({
 
 function hasColumnChildren(dom: HTMLElement): boolean {
   for (const child of Array.from(dom.children)) {
-    if (child.tagName === 'DIV' && /display:\s*inline-block/i.test(child.getAttribute('style') ?? '')) {
+    if (
+      child.tagName === 'DIV' &&
+      /display:\s*inline-block/i.test(child.getAttribute('style') ?? '')
+    ) {
       return true;
     }
   }

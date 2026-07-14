@@ -3,8 +3,7 @@ import { Editor, createEditor } from '../../editor';
 import { emailExtensions } from '../kits';
 import { linkRangeAt } from './link';
 
-const linkOpen = (href: string) =>
-  `<a href="${href}" target="_blank" rel="noopener noreferrer">`;
+const linkOpen = (href: string) => `<a href="${href}" target="_blank" rel="noopener noreferrer">`;
 
 describe('link editing', () => {
   let host: HTMLElement;
@@ -86,15 +85,17 @@ describe('paste a URL onto selected text', () => {
 
   const paste = (text: string): boolean =>
     !!editor.view.someProp('handlePaste', (f) =>
-      f(editor.view, { clipboardData: { getData: () => text } } as unknown as ClipboardEvent, null as never),
+      f(
+        editor.view,
+        { clipboardData: { getData: () => text } } as unknown as ClipboardEvent,
+        null as never,
+      ),
     );
 
   it('links the selection instead of replacing it', () => {
     select(6, 14); // "the docs"
     expect(paste('https://x.io')).toBe(true);
-    expect(editor.getHTML()).toBe(
-      `<div>read ${linkOpen('https://x.io')}the docs</a> here</div>`,
-    );
+    expect(editor.getHTML()).toBe(`<div>read ${linkOpen('https://x.io')}the docs</a> here</div>`);
   });
 
   it('prepends https:// to a pasted www URL', () => {

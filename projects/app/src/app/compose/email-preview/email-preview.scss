@@ -12,7 +12,10 @@
   padding: 2px;
   flex: none;
 
-  background-color: var(--email-preview-controls-background, var(--mat-sys-surface-container, #f3f3f3));
+  background-color: var(
+    --email-preview-controls-background,
+    var(--mat-sys-surface-container, #f3f3f3)
+  );
   border-radius: var(--email-preview-corner, var(--mat-sys-corner-medium, 8px));
 }
 
@@ -47,7 +50,10 @@
   display: flex;
   justify-content: center;
 
-  background-color: var(--email-preview-stage-background, var(--mat-sys-surface-container-low, #fafafa));
+  background-color: var(
+    --email-preview-stage-background,
+    var(--mat-sys-surface-container-low, #fafafa)
+  );
   border-radius: var(--email-preview-corner, var(--mat-sys-corner-medium, 8px));
   padding: var(--mat-sys-inner-spacing, 16px);
 }

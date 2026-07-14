@@ -163,6 +163,7 @@ export interface SizeBudget {
     warning from 80% of the budget, error above it. */
 export function emailSizeBudget(html: string): SizeBudget {
   const bytes = new TextEncoder().encode(html).length;
-  const level = bytes > GMAIL_CLIP_BYTES ? 'error' : bytes > GMAIL_CLIP_BYTES * 0.8 ? 'warning' : 'ok';
+  const level =
+    bytes > GMAIL_CLIP_BYTES ? 'error' : bytes > GMAIL_CLIP_BYTES * 0.8 ? 'warning' : 'ok';
   return { bytes, limit: GMAIL_CLIP_BYTES, level };
 }

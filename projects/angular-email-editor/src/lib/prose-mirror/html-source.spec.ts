@@ -168,9 +168,12 @@ describe('html-source formatter', () => {
   it('gives block tags their own indented lines, keeps inline content together', () => {
     const html = '<div>Hello <b>world</b></div><blockquote><div>quoted</div></blockquote>';
     expect(formatHTML(html)).toBe(
-      ['<div>Hello <b>world</b></div>', '<blockquote>', '  <div>quoted</div>', '</blockquote>'].join(
-        '\n',
-      ),
+      [
+        '<div>Hello <b>world</b></div>',
+        '<blockquote>',
+        '  <div>quoted</div>',
+        '</blockquote>',
+      ].join('\n'),
     );
   });
 

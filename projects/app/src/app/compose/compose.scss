@@ -58,6 +58,12 @@ section {
   }
 }
 
+.status__count {
+  // Absorbs the free space so the counter + size form the right-hand group.
+  margin-left: auto;
+  white-space: nowrap;
+}
+
 .status__size {
   margin-left: auto;
 

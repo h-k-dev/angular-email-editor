@@ -44,9 +44,15 @@ describe('columns editing', () => {
   beforeEach(() => {
     host = document.createElement('div');
     document.body.appendChild(host);
-    editor = createEditor({ parent: host, extensions: emailExtensions, content: '<div>intro</div>' });
+    editor = createEditor({
+      parent: host,
+      extensions: emailExtensions,
+      content: '<div>intro</div>',
+    });
     editor.exec((state, dispatch) => {
-      dispatch?.(state.tr.setSelection(TextSelection.create(state.doc, state.doc.content.size - 1)));
+      dispatch?.(
+        state.tr.setSelection(TextSelection.create(state.doc, state.doc.content.size - 1)),
+      );
       return true;
     });
   });

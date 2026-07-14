@@ -86,7 +86,10 @@ function findSession(state: EditorState): Session | null {
 }
 
 /** The completion text and where the cursor lands inside it. */
-function completionFor(context: CompletionContext, label: string): { text: string; cursor: number } {
+function completionFor(
+  context: CompletionContext,
+  label: string,
+): { text: string; cursor: number } {
   switch (context.kind) {
     case 'tag':
       return VOID_TAGS.has(label)

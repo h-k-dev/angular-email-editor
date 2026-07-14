@@ -10,26 +10,28 @@ sides.
 Foundations and the two-editor core are in; the content and layout-blocks side
 is mature. Tests: **179 library + 4 app, all green**.
 
-| Milestone | State | Left to do |
-| --- | --- | --- |
-| Foundations (two editors, mark parity, canonical `html` signal) | ✅ done | — |
-| **M1 — Round-trip fidelity** | ✅ core done | selection mirroring (stretch) |
-| **M2 — Missing composer features** | 🟢 nearly done | word/line counter placement; `/send` |
-| **M3 — Deliverability lint engine** | ✅ done | — |
-| **M4 — Preview & proof** | 🟢 mostly done | per-client simulation; Outlook conditional comments |
-| **M5 — Layout blocks** | 🟢 flagship done | add/remove-column UI; section-schema + `{{template}}` placeholders |
-| **M6 — Compose workflow** | ⬜ not started | `/send`, drafts, reply/forward, `.eml`/HTML import, attachments |
+| Milestone                                                       | State            | Left to do                                                         |
+| --------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------ |
+| Foundations (two editors, mark parity, canonical `html` signal) | ✅ done          | —                                                                  |
+| **M1 — Round-trip fidelity**                                    | ✅ core done     | selection mirroring (stretch)                                      |
+| **M2 — Missing composer features**                              | 🟢 nearly done   | `/send` (waits on M6 transport)                                    |
+| **M3 — Deliverability lint engine**                             | ✅ done          | —                                                                  |
+| **M4 — Preview & proof**                                        | 🟢 mostly done   | per-client simulation; Outlook conditional comments                |
+| **M5 — Layout blocks**                                          | 🟢 flagship done | add/remove-column UI; section-schema + `{{template}}` placeholders |
+| **M6 — Compose workflow**                                       | ⬜ not started   | `/send`, drafts, reply/forward, `.eml`/HTML import, attachments    |
 
 Most recent work: **font size/family** (curated email-safe stacks +
 phone-safe sizes, both merged onto the shared `textStyle` span, toolbar
-pickers mirroring the colour palette) — closing most of M2. Before that:
+pickers mirroring the colour palette) and the **word/line counter** placed in
+the status strip — leaving only `/send` (which waits on M6's transport) open
+in M2. Before that:
 **`/columns`** (responsive layout block that stacks on phones, no media
 queries), **paste-a-URL-onto-selection** linking, and the **table
 simplification** — the fiddly Notion-style overlay was tried and reverted in
 favour of a plain table with an editor-only grid (shown only while the cursor
 is inside it) plus an ArrowDown escape so you can always write underneath.
-Next candidates: the word/line **counter placement** + **`/send`** to finish
-M2, or open the M6 compose-workflow arc.
+Next candidates: the M5 add/remove-column UI, or open the M6 compose-workflow
+arc (which also unblocks M2's `/send`).
 
 ## Why this is worth building
 
@@ -50,7 +52,7 @@ HTML is allowed to be.
    it does not survive — not as a bug, as the contract.
 2. **Parsing is repair.** Broken or foreign markup is never rejected; it is
    parsed, normalized, and re-serialized into canonical form. The linter tells
-   you *what* would change, the round-trip *makes* it change.
+   you _what_ would change, the round-trip _makes_ it change.
 3. **Canonical output is deterministic.** Same document → byte-identical
    HTML: zero formatting whitespace, `<div>` lines (never `<p>` margins),
    `<div><br></div>` empty lines, inline styles only, stable attribute order.
@@ -67,15 +69,15 @@ HTML is allowed to be.
    our floor. When in doubt: caniemail says no.
 8. **Responsive by default.** Every email we emit must read well on a phone —
    not as an option, as a property of the output. And because of principle 7,
-   responsiveness is achieved *fluidly* (max-widths, percentage widths,
+   responsiveness is achieved _fluidly_ (max-widths, percentage widths,
    wrapping structures with inline styles), never via `<style>` media
    queries that half the clients strip.
 9. **We don't fight dark mode.** There is no reliable control — Gmail and
    Outlook forcibly recolor, and the official mechanisms don't survive
    transit — so we never emit dark-mode CSS or anti-inversion hacks. Instead
-   the output *inverts gracefully by construction*: colorless by default
-   (uncolored email is every inverter's happy path), and every color *we
-   offer* passes the **dual-contrast rule** — readable against both white
+   the output _inverts gracefully by construction_: colorless by default
+   (uncolored email is every inverter's happy path), and every color _we
+   offer_ passes the **dual-contrast rule** — readable against both white
    and near-black. Enforcement lives at the affordance: the color picker is
    a curated palette, not an arbitrary hex input. The source pane stays
    free — a hand-typed hex is the author's own responsibility; we never
@@ -86,7 +88,7 @@ HTML is allowed to be.
 - **Headless first: Angular Aria over Angular Material.** Behavior and
   accessibility come from headless primitives (Angular Aria patterns, CDK
   overlays); we own the markup and the pixels. Ideally we use no Material
-  *components* at all — but we'll see, and we say so honestly: today's
+  _components_ at all — but we'll see, and we say so honestly: today's
   toolbar still sits on `mat-icon-button`. What we keep regardless is
   Material's **design token system**: `mat-sys-*` as the theming default is
   too nice and simple to pass on.
@@ -140,19 +142,19 @@ The sync works; now make it lossless and gentle.
 
 - [x] **Diff-based `setText`/`setContent`**: syncs apply as minimal diff
       transactions (`findDiffStart`/`findDiffEnd`), flagged `addToHistory:
-      false` + `externalSync`. The receiving editor keeps its own undo
+    false` + `externalSync`. The receiving editor keeps its own undo
       history (external changes aren't yours to undo — collab semantics),
       its selection maps through the diff, and `onUpdate` stays silent so
       mirrored editors cannot echo.
 - [x] **Comment policy — decided: comments are never content.** They drop on
-      parse, but *loudly*: the linter warns on every comment ("the schema
+      parse, but _loudly_: the linter warns on every comment ("the schema
       drops them on the next parse") and errors on unterminated ones. No
       comment node in the schema, ever. Where Outlook conditionals are needed
-      (M5 ghost tables), the block extension's *serializer* generates them
+      (M5 ghost tables), the block extension's _serializer_ generates them
       deterministically and its parser ignores them — comments as derived
       serializer artifacts, never editable state, so the round trip stays
       stable and nothing hides in the document.
-- [x] **Entity discipline**: the linter warns on *ambiguous* ampersands —
+- [x] **Entity discipline**: the linter warns on _ambiguous_ ampersands —
       entity-like forms missing the `;` (`&copy`, `&#38`) that browsers
       legacy-decode, silently changing the text. Plain `&` in prose and bare
       `<` in text are left alone: the round trip normalizes them without
@@ -179,10 +181,10 @@ schema extensions first, toolbar second.
       its own future item.
 - [x] **Link editing UI**: selection-anchored popover (edit/apply on Enter,
       open, unlink) replaces `window.prompt`; a bare cursor inside a link
-      edits the *whole* link via the new `linkRangeAt` helper, and
+      edits the _whole_ link via the new `linkRangeAt` helper, and
       `setLink`/`unsetLink` learned the same. Typed URLs auto-link on the
       committing space (`www.` gets `https://`, trailing punctuation stays
-      outside). Script URLs: refused by the schema on parse *and* on the
+      outside). Script URLs: refused by the schema on parse _and_ on the
       command, and flagged as errors in the source pane. **Paste-to-link**:
       pasting a bare URL onto selected text links the text instead of
       replacing it (`linkPastePlugin`; `www.` gets `https://`, script URLs
@@ -192,16 +194,16 @@ schema extensions first, toolbar second.
       drop/paste pipeline.
 - [x] **Images**: the Image node now serializes the ledger's hybrid sizing
       (`width` attribute for Outlook + `width:100%; max-width:<n>px;
-      height:auto` for everyone else), caps widths at 600px on parse and on
+    height:auto` for everyone else), caps widths at 600px on parse and on
       drop, never parses or emits `float`, and handles dropped/pasted image
       files (data-URL source, alt defaulted from the filename, natural width
       measured). Missing/empty alt is linted in the source pane. Open ends,
       deliberately: data-URLs are a stopgap until the `cid:`/attachment story
-      (M6), and there is no alt/width *editing UI* yet — the source pane is
+      (M6), and there is no alt/width _editing UI_ yet — the source pane is
       the editor for those attrs for now.
 - [x] **Alignment & direction**: paragraphs carry an `align` attr — center
       and right serialize as inline `text-align`, left canonicalizes to
-      *nothing* (the default carries no declaration, and `dir="auto"` stays
+      _nothing_ (the default carries no declaration, and `dir="auto"` stays
       meaningful for RTL). Justify is refused: Outlook's Word engine mangles
       it. Toolbar group + Gmail keybindings (Mod-Shift-L/E/R); empty lines
       keep their alignment through the `<div><br></div>` serialization.
@@ -212,7 +214,7 @@ schema extensions first, toolbar second.
       opt-in functional commands is a small follow-up if wanted.
 - [x] **Font size/family** as a constrained set of email-safe stacks
       (Sans-serif `Arial, Helvetica, sans-serif`, Serif `Georgia, Times,
-      serif`, Monospace `Courier, monospace`, System `system-ui, sans-serif`)
+    serif`, Monospace `Courier, monospace`, System `system-ui, sans-serif`)
       — no free-form fonts. Both hang off the shared `textStyle` span as
       attributes (like `color`), so size + family + colour merge into one
       `style` string instead of nesting wrappers. Toolbar pickers offer only
@@ -224,14 +226,35 @@ schema extensions first, toolbar second.
       bare single-word identifiers + a generic fallback so they survive the
       CSSOM serialization round-trip byte-identically in both jsdom and Chrome
       (a quoted `"Courier New"` would diverge — the same trap the
-      longhand/`rgb()` rule guards). Lint-clean (only the `font` *shorthand* is
+      longhand/`rgb()` rule guards). Lint-clean (only the `font` _shorthand_ is
       flagged, never the longhands); pinned by golden + round-trip tests.
+      **Persistence (Gmail-parity):** a font/size/colour chosen on a bare
+      cursor sticks for the rest of what you type, across both Enter and
+      Shift-Enter — because `textStyle` no longer carries the (mistaken)
+      `splittable: false` flag, and Enter is now bound to a mark-preserving
+      split (`SplitKeepingMarks`, the `splittable`-aware sibling of
+      prosemirror-commands' `splitBlockKeepMarks`, placed after lists/quotes
+      but before the base keymap). One rule now governs both break paths:
+      `splittable: false` = "stop at any break" — kept only by `link`, so a
+      break inside a link never drags it onto the next line. (Lists already
+      kept marks via `splitListItemKeepMarks`; this closes the same gap for
+      plain `<div>` lines.) Pinned by [split-keeping-marks.spec].
 - [x] **Dual-contrast color palette** (principle 9): replace the native
       arbitrary-hex color input with a curated swatch set whose every color
       reads against both white and near-black. Enforcement at the picker
       only — no color checking, rewriting, or nagging from the source pane.
-- [ ] **Word/line counter placement** and the **`/send` slash command**
-      (compose-level: the slash menu already aggregates extension items).
+- [x] **Word/line counter placement**: the `textMetrics` extension already
+      computes words/lines/height as pure arithmetic (no DOM reads on the
+      keystroke path); this surfaces it. The email pane's `bodyMetrics` signal
+      is lifted to the compose shell via `viewChild` and rendered in the status
+      strip's right-hand group (beside the size gauge) as "N words · N lines",
+      singular-aware. Width-dependent line count rides the extension's existing
+      `ResizeObserver`, so it re-measures fluidly on resize.
+- [ ] **`/send` slash command** (compose-level: the slash menu already
+      aggregates extension items). Design-open: a send _action_ doesn't fit
+      today's `SlashItem` contract (a ProseMirror `Command` for document
+      insertion), and the transport itself is M6 — so this waits on the M6
+      compose-workflow decision rather than shipping a hollow stub.
 
 ## Milestone 3 — The deliverability lint engine
 
@@ -242,7 +265,7 @@ This is where the source editor earns its seat.
       caniemail subset — CSS property entries with value/tag scoping
       (display:flex yes, display:block no; padding on div/p, not td) and
       client labels. Curation rule: only what we're confident about, phrased
-      as what *actually happens*. Accuracy beats coverage; grows entry by
+      as what _actually happens_. Accuracy beats coverage; grows entry by
       entry.
 - [x] **Style linting**: every inline declaration is checked against the
       data module, positioned on the exact declaration. The image hybrid
@@ -260,7 +283,7 @@ This is where the source editor earns its seat.
 - [x] **Autocomplete** for the email-safe vocabulary
       (`createHtmlAutocomplete`, same interaction contract as the slash
       menu): tags after `<` (accepting inserts the pair with the cursor
-      between), the *currently open* tags after `</`, per-tag attributes
+      between), the _currently open_ tags after `</`, per-tag attributes
       (cursor lands inside the `=""`, already-present ones excluded), and
       safe style properties inside `style="…"` — never in prose, never in
       non-style attribute values. Context is derived from the document, not
@@ -337,15 +360,15 @@ pane) can't see and edit.
       after insertion, and richer gutters beyond the 8px padding; Outlook
       ghost tables for true side-by-side there remain a deliberate non-goal.
 - [x] **`/table` — constrained data table**: a real `<table role=
-      "presentation">` (the most client-compatible layout) restricted to a
+    "presentation">` (the most client-compatible layout) restricted to a
       plain rectangular grid — no colspan/rowspan, so the model is a clean 2D
       array. Nodes: `table` > `tableRow` > `tableCell` (`paragraph+`, so
       cells hold rich text). Working: slash/command insertion (cursor lands
       in cell 0,0), cell editing, **Tab/Shift-Tab navigation** (Tab past the
       last cell appends a row), and structural commands (`addRow/Column
-      Before/After`, `deleteRow/Column`, `deleteTable`) that rebuild-and-
+    Before/After`, `deleteRow/Column`, `deleteTable`) that rebuild-and-
       replace the table node rather than juggle positions. Round-trips through
-      the source pane, lint-clean, `<tbody>` fixpoint. Note: this is a *data*
+      the source pane, lint-clean, `<tbody>` fixpoint. Note: this is a _data_
       table (stays tabular, scrolls on a phone); the spongy stacking layout is
       the future `/columns`. **Deliberately kept simple** (an earlier
       Notion-style hover overlay — add/delete handles, padding steppers,
@@ -353,7 +376,7 @@ pane) can't see and edit.
       way): the only affordance is a **subtle editor-only grid shown while the
       cursor is editing inside the table**. A ProseMirror decoration tags the
       active table with `aee-table-editing`; global CSS reveals a
-      transparent-reserved 1px cell border only then (no layout shift), *never*
+      transparent-reserved 1px cell border only then (no layout shift), _never_
       in the serialized email — the exported table is borderless with fixed,
       responsive padding (`8px 12px`). Structure is keyboard/command-driven:
       Tab/Shift-Tab navigation, and **ArrowDown from the last row escapes to a
@@ -361,11 +384,11 @@ pane) can't see and edit.
       always write underneath. The structural commands (`addColumnAt`,
       `deleteRowAt`, …) remain in the library for a future, calmer UI.
   - **Cells hold inline content** (`inline*`), not wrapped paragraphs: an
-      empty cell is `<td></td>`, never `<td><div><br></div></td>`. The stray
-      `<br>` made ProseMirror's parser grow a phantom cell on every round
-      trip — a real corruption bug the text-cell tests had missed. Bonus:
-      text marks (bold, links, colour) now work inside cells. Pinned by an
-      empty-cell round-trip test.
+    empty cell is `<td></td>`, never `<td><div><br></div></td>`. The stray
+    `<br>` made ProseMirror's parser grow a phantom cell on every round
+    trip — a real corruption bug the text-cell tests had missed. Bonus:
+    text marks (bold, links, colour) now work inside cells. Pinned by an
+    empty-cell round-trip test.
 - [ ] **Schema growth to hold them**: constrained table/section nodes with
       strict parse/serialize rules — the gate for this milestone, and it must
       not loosen the canonical guarantees for plain text emails.
@@ -382,24 +405,24 @@ pane) can't see and edit.
 
 Principle 8 dies in the details: each extension is built on a desktop, looks
 fine on a desktop, and quietly breaks at 320px. This ledger exists because we
-*will* forget. Rule of thumb for everything below: no media queries (they get
+_will_ forget. Rule of thumb for everything below: no media queries (they get
 stripped), so every answer must be fluid and inline.
 
 **Definition of done for any node extension: its JSDoc states what happens at
 320px, and its serialize rules implement that answer.**
 
-| Extension | The trap at 320px | Our fluid answer |
-| --- | --- | --- |
-| **Image** | Fixed pixel width overflows the screen; Outlook ignores `max-width` entirely | Hybrid sizing: `width` *attribute* for Outlook + `style="width:100%; max-width:<n>px; height:auto"` for everyone else |
-| **Table / layout blocks (M5)** | Columns keep their desktop widths and force horizontal scroll | ✅ **Shipped (`/columns`)**: `inline-block` columns with `width:100%` capped by `max-width: container/n` + `box-sizing:border-box` — side by side when the caps fit, stacked when they don't. Outlook ignores `inline-block` and stacks too. Ghost tables for true Outlook side-by-side remain a non-goal for now. (Data `/table` is separate — it stays tabular.) |
-| **Lists** | Default `padding-inline-start: 40px` per nesting level — two levels eat a third of the screen | Explicit small inline padding on `ul`/`ol`, tested nested |
-| **Blockquote** | Nested reply chains accumulate margins until text is one word per line | Small fixed inline padding + border, no margin stacking; consider a visual nesting cap |
-| **Headings** | Desktop-sized `h1` wraps into a wall at phone width | Conservative size scale that reads on both; line-height inline and proportional |
-| **Paragraph / document width** | Full-width lines are unreadable on desktop, so someone will add a fixed container that then breaks phones | If we ever emit a wrapper, it is `max-width` + `width:100%` — the hybrid, never a fixed width |
-| **Links / long text** | An unbroken URL or token wider than the viewport forces the whole email to scroll | `word-break`-friendly serialization for link text where possible; lint long unbroken strings |
-| **Button block (M5)** | Padding-based fake buttons too small to tap | Touch target ≥ 44px via padding (never `height`), generous inline `padding` |
-| **Font sizes** | Below ~13px, iOS auto-inflates text and reflows the layout | Minimum emitted font size ≥ 14px; the lint engine (M3) enforces it |
-| **Horizontal rule** | Fixed pixel width | `width:100%`, done |
+| Extension                      | The trap at 320px                                                                                         | Our fluid answer                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Image**                      | Fixed pixel width overflows the screen; Outlook ignores `max-width` entirely                              | Hybrid sizing: `width` _attribute_ for Outlook + `style="width:100%; max-width:<n>px; height:auto"` for everyone else                                                                                                                                                                                                                                              |
+| **Table / layout blocks (M5)** | Columns keep their desktop widths and force horizontal scroll                                             | ✅ **Shipped (`/columns`)**: `inline-block` columns with `width:100%` capped by `max-width: container/n` + `box-sizing:border-box` — side by side when the caps fit, stacked when they don't. Outlook ignores `inline-block` and stacks too. Ghost tables for true Outlook side-by-side remain a non-goal for now. (Data `/table` is separate — it stays tabular.) |
+| **Lists**                      | Default `padding-inline-start: 40px` per nesting level — two levels eat a third of the screen             | Explicit small inline padding on `ul`/`ol`, tested nested                                                                                                                                                                                                                                                                                                          |
+| **Blockquote**                 | Nested reply chains accumulate margins until text is one word per line                                    | Small fixed inline padding + border, no margin stacking; consider a visual nesting cap                                                                                                                                                                                                                                                                             |
+| **Headings**                   | Desktop-sized `h1` wraps into a wall at phone width                                                       | Conservative size scale that reads on both; line-height inline and proportional                                                                                                                                                                                                                                                                                    |
+| **Paragraph / document width** | Full-width lines are unreadable on desktop, so someone will add a fixed container that then breaks phones | If we ever emit a wrapper, it is `max-width` + `width:100%` — the hybrid, never a fixed width                                                                                                                                                                                                                                                                      |
+| **Links / long text**          | An unbroken URL or token wider than the viewport forces the whole email to scroll                         | `word-break`-friendly serialization for link text where possible; lint long unbroken strings                                                                                                                                                                                                                                                                       |
+| **Button block (M5)**          | Padding-based fake buttons too small to tap                                                               | Touch target ≥ 44px via padding (never `height`), generous inline `padding`                                                                                                                                                                                                                                                                                        |
+| **Font sizes**                 | Below ~13px, iOS auto-inflates text and reflows the layout                                                | Minimum emitted font size ≥ 14px; the lint engine (M3) enforces it                                                                                                                                                                                                                                                                                                 |
+| **Horizontal rule**            | Fixed pixel width                                                                                         | `width:100%`, done                                                                                                                                                                                                                                                                                                                                                 |
 
 Two enforcement hooks so the ledger stays alive:
 
@@ -414,14 +437,14 @@ Two enforcement hooks so the ledger stays alive:
 
 - [ ] `/send` wiring against a real transport (the payload is just the
       canonical signal + plain-text projection).
-- [ ] Draft persistence (the canonical HTML *is* the draft format).
+- [ ] Draft persistence (the canonical HTML _is_ the draft format).
 - [ ] Reply/forward: parse foreign inbound HTML through the schema —
       quoted-history blocks (`gmail_quote`-style) as a schema node.
 - [ ] **`.eml` drop & HTML paste — one law.** The body always parses through
       the email schema, exactly like paste: full strip, no gentler pipeline,
       which doubles as sanitization (tracking pixels, remote CSS, script
       attempts die in the parse). The opinionation budget goes into
-      *legibility of loss*, not leniency: an **import report** through the
+      _legibility of loss_, not leniency: an **import report** through the
       diagnostics channel ("14 elements outside the schema removed, 2 inline
       images mapped, 1 attachment ignored"). `cid:` images map into the
       image/attachment story; the `text/plain` part is the content when no
@@ -431,7 +454,7 @@ Two enforcement hooks so the ledger stays alive:
 ## Non-goals (so we stay opinionated)
 
 - **Not a drag-drop marketing builder.** No block canvas, no template
-  gallery. This is a *compose* editor — but an ambitious one: the output is
+  gallery. This is a _compose_ editor — but an ambitious one: the output is
   always responsive and phone-first (principle 8), and rich layout arrives
   through our own responsive schema blocks (M5), not through a page builder.
 - **No MJML.** We tried it; it's clumsy, and it would make a foreign dialect
@@ -457,14 +480,14 @@ Two enforcement hooks so the ledger stays alive:
 - The library ships behavior, the app ships pixels. Token classes
   (`aee-tok-*`, `aee-lint-*`) are the styling contract.
 - The app consumes the library from `dist/` — rebuild it (`ng build
-  angular-email-editor`) or run `npm run watch`; if changes "don't arrive",
+angular-email-editor`) or run `npm run watch`; if changes "don't arrive",
   clear `.angular/cache` (stale Vite prebundle).
 - **Canonical serialized styles must use longhand properties and `rgb()`
   colours only — never CSS shorthands or hex.** Serialization round-trips
   through the CSSOM (`DOMSerializer` builds real elements, we read
   `innerHTML`), which re-serializes shorthands non-deterministically — and
-  jsdom even *orders* them differently from Chrome, so a shorthand breaks
-  canonical stability *and* makes tests disagree with the runtime. Longhands
+  jsdom even _orders_ them differently from Chrome, so a shorthand breaks
+  canonical stability _and_ makes tests disagree with the runtime. Longhands
   in written order and `rgb(r, g, b)` colours are stable everywhere. This
   gates every future block's styling (the M5 columns table especially). The
   golden suite exists to catch violations.

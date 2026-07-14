@@ -23,6 +23,7 @@ import { Strike } from './marks/strike';
 import { TextStyle } from './marks/text-style';
 import { History } from './history';
 import { NoTextDrag } from './no-text-drag';
+import { SplitKeepingMarks } from './split-keeping-marks';
 import { BaseKeymap } from './base-keymap';
 import { PasteHygiene } from './paste-hygiene';
 import { ClearFormatting } from './clear-formatting';
@@ -54,6 +55,9 @@ const withParagraph = (paragraph: NodeExtension): Extension[] => [
   TextStyle,
   History,
   NoTextDrag,
+  // After lists/blockquote (their Enter wins inside those), before BaseKeymap
+  // (whose plain splitBlock this replaces): keeps font/colour across Enter.
+  SplitKeepingMarks,
   BaseKeymap,
   PasteHygiene,
   ClearFormatting,

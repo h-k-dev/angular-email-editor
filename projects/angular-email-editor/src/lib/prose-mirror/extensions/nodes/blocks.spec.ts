@@ -65,10 +65,16 @@ describe('button block', () => {
   it('insertButton drops a default button as an inert atom', () => {
     const host = document.createElement('div');
     document.body.appendChild(host);
-    const editor = createEditor({ parent: host, extensions: emailExtensions, content: '<div>hi</div>' });
+    const editor = createEditor({
+      parent: host,
+      extensions: emailExtensions,
+      content: '<div>hi</div>',
+    });
     try {
       editor.exec((state, dispatch) => {
-        dispatch?.(state.tr.setSelection(TextSelection.create(state.doc, state.doc.content.size - 1)));
+        dispatch?.(
+          state.tr.setSelection(TextSelection.create(state.doc, state.doc.content.size - 1)),
+        );
         return true;
       });
       editor.commands['insertButton']();

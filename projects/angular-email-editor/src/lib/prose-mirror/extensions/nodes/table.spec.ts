@@ -10,7 +10,8 @@ const schema = createSchema(emailExtensions);
 const canonical = (html: string) => serializeToHTML(parseHTML(html, schema), schema);
 
 describe('table serialization', () => {
-  const SAMPLE = '<table><tbody><tr><td>a</td><td>b</td></tr><tr><td>c</td><td>d</td></tr></tbody></table>';
+  const SAMPLE =
+    '<table><tbody><tr><td>a</td><td>b</td></tr><tr><td>c</td><td>d</td></tr></tbody></table>';
 
   it('is a round-trip fixpoint (tbody, styles, structure all stable)', () => {
     const once = canonical(SAMPLE);
@@ -19,7 +20,9 @@ describe('table serialization', () => {
 
   it('serializes a borderless presentation table with a tbody', () => {
     const html = canonical(SAMPLE);
-    expect(html).toContain('<table style="width: 100%; border-collapse: collapse;" role="presentation">');
+    expect(html).toContain(
+      '<table style="width: 100%; border-collapse: collapse;" role="presentation">',
+    );
     expect(html).toContain('<tbody>');
     // Borderless: grid lines are editor-only, never in the email itself.
     expect(html).toContain('<td style="padding: 8px 12px; vertical-align: top;">a</td>');
@@ -46,9 +49,15 @@ describe('table editing', () => {
   beforeEach(() => {
     host = document.createElement('div');
     document.body.appendChild(host);
-    editor = createEditor({ parent: host, extensions: emailExtensions, content: '<div>start</div>' });
+    editor = createEditor({
+      parent: host,
+      extensions: emailExtensions,
+      content: '<div>start</div>',
+    });
     editor.exec((state, dispatch) => {
-      dispatch?.(state.tr.setSelection(TextSelection.create(state.doc, state.doc.content.size - 1)));
+      dispatch?.(
+        state.tr.setSelection(TextSelection.create(state.doc, state.doc.content.size - 1)),
+      );
       return true;
     });
   });
