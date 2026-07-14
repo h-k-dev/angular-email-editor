@@ -19,6 +19,7 @@ const GOLDEN: string[] = [
   '<blockquote><div>quoted<br>line</div></blockquote>',
   '<div><em style="font-style: italic;">italic</em> and <u style="text-decoration: underline;">underlined</u></div>',
   '<div><s style="text-decoration: line-through;">gone</s></div>',
+  '<div><span style="font-size: 18px; font-family: Georgia, Times, serif;">styled</span></div>',
   // Clean canonical link: clients style links natively; editor styling is
   // toDOM-only (a styled link would re-parse its underline as a mark).
   '<div><a href="https://example.com" target="_blank" rel="noopener noreferrer">link</a></div>',

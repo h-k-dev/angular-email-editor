@@ -5,28 +5,31 @@ source editor developed as peers over the same extension contract, kept in
 sync through Angular signals, with ProseMirror as the parsing engine on both
 sides.
 
-## Progress snapshot — 2026-07-11
+## Progress snapshot — 2026-07-13
 
 Foundations and the two-editor core are in; the content and layout-blocks side
-is mature. Tests: **167 library + 4 app, all green**.
+is mature. Tests: **179 library + 4 app, all green**.
 
 | Milestone | State | Left to do |
 | --- | --- | --- |
 | Foundations (two editors, mark parity, canonical `html` signal) | ✅ done | — |
 | **M1 — Round-trip fidelity** | ✅ core done | selection mirroring (stretch) |
-| **M2 — Missing composer features** | 🟢 nearly done | font size/family; word/line counter placement |
+| **M2 — Missing composer features** | 🟢 nearly done | word/line counter placement; `/send` |
 | **M3 — Deliverability lint engine** | ✅ done | — |
 | **M4 — Preview & proof** | 🟢 mostly done | per-client simulation; Outlook conditional comments |
 | **M5 — Layout blocks** | 🟢 flagship done | add/remove-column UI; section-schema + `{{template}}` placeholders |
 | **M6 — Compose workflow** | ⬜ not started | `/send`, drafts, reply/forward, `.eml`/HTML import, attachments |
 
-Most recent work: **`/columns`** (responsive layout block that stacks on
-phones, no media queries), **paste-a-URL-onto-selection** linking, and the
-**table simplification** — the fiddly Notion-style overlay was tried and
-reverted in favour of a plain table with an editor-only grid (shown only while
-the cursor is inside it) plus an ArrowDown escape so you can always write
-underneath. Next candidates: finish M2 (font stacks + counter), or open the M6
-compose-workflow arc.
+Most recent work: **font size/family** (curated email-safe stacks +
+phone-safe sizes, both merged onto the shared `textStyle` span, toolbar
+pickers mirroring the colour palette) — closing most of M2. Before that:
+**`/columns`** (responsive layout block that stacks on phones, no media
+queries), **paste-a-URL-onto-selection** linking, and the **table
+simplification** — the fiddly Notion-style overlay was tried and reverted in
+favour of a plain table with an editor-only grid (shown only while the cursor
+is inside it) plus an ArrowDown escape so you can always write underneath.
+Next candidates: the word/line **counter placement** + **`/send`** to finish
+M2, or open the M6 compose-workflow arc.
 
 ## Why this is worth building
 
@@ -207,8 +210,22 @@ schema extensions first, toolbar second.
       formatting, and stays. Note: not yet mirrored into the source pane —
       `createSourceMarks` mirrors mark extensions only; widening it to
       opt-in functional commands is a small follow-up if wanted.
-- [ ] **Font size/family** as a constrained set of email-safe stacks
-      (Arial/Helvetica, Georgia, Courier, system) — no free-form fonts.
+- [x] **Font size/family** as a constrained set of email-safe stacks
+      (Sans-serif `Arial, Helvetica, sans-serif`, Serif `Georgia, Times,
+      serif`, Monospace `Courier, monospace`, System `system-ui, sans-serif`)
+      — no free-form fonts. Both hang off the shared `textStyle` span as
+      attributes (like `color`), so size + family + colour merge into one
+      `style` string instead of nesting wrappers. Toolbar pickers offer only
+      the curated set (the affordance is the enforcement, mirroring the colour
+      palette); the picker's size list is the phone-safe subset (≥14px per the
+      ledger) while the parser still accepts a hand-typed source-pane size, and
+      the source pane is likewise free to type any font — anything outside the
+      curated set simply drops on parse. Stacks are deliberately built from
+      bare single-word identifiers + a generic fallback so they survive the
+      CSSOM serialization round-trip byte-identically in both jsdom and Chrome
+      (a quoted `"Courier New"` would diverge — the same trap the
+      longhand/`rgb()` rule guards). Lint-clean (only the `font` *shorthand* is
+      flagged, never the longhands); pinned by golden + round-trip tests.
 - [x] **Dual-contrast color palette** (principle 9): replace the native
       arbitrary-hex color input with a curated swatch set whose every color
       reads against both white and near-black. Enforcement at the picker

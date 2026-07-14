@@ -30,6 +30,47 @@
 
   <mat-divider [vertical]="true" />
 
+  <!-- Font family: curated email-safe stacks only (no free-form fonts). -->
+  <button mat-icon-button type="button" aria-label="Font" [attr.aria-expanded]="fontMenuOpen()"
+    cdkOverlayOrigin #fontOrigin="cdkOverlayOrigin" (mousedown)="$event.preventDefault()"
+    (click)="fontMenuOpen.set(!fontMenuOpen())">
+    <mat-icon>font_download</mat-icon>
+  </button>
+
+  <ng-template cdkConnectedOverlay [cdkConnectedOverlayOrigin]="fontOrigin"
+    [cdkConnectedOverlayOpen]="fontMenuOpen()" [cdkConnectedOverlayHasBackdrop]="true"
+    cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop" (backdropClick)="fontMenuOpen.set(false)"
+    [cdkConnectedOverlayPush]="true" [cdkConnectedOverlayViewportMargin]="8">
+    <div class="font-menu" role="listbox" aria-label="Font" (mousedown)="$event.preventDefault()">
+      <button type="button" class="font-menu__item" role="option" (click)="applyFontFamily(null)">Default</button>
+      @for (font of fontFamilies; track font.stack) {
+      <button type="button" class="font-menu__item" role="option" [style.font-family]="font.stack"
+        (click)="applyFontFamily(font.stack)">{{ font.name }}</button>
+      }
+    </div>
+  </ng-template>
+
+  <!-- Font size: phone-safe subset (≥14px). -->
+  <button mat-icon-button type="button" aria-label="Font size" [attr.aria-expanded]="sizeMenuOpen()"
+    cdkOverlayOrigin #sizeOrigin="cdkOverlayOrigin" (mousedown)="$event.preventDefault()"
+    (click)="sizeMenuOpen.set(!sizeMenuOpen())">
+    <mat-icon>format_size</mat-icon>
+  </button>
+
+  <ng-template cdkConnectedOverlay [cdkConnectedOverlayOrigin]="sizeOrigin"
+    [cdkConnectedOverlayOpen]="sizeMenuOpen()" [cdkConnectedOverlayHasBackdrop]="true"
+    cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop" (backdropClick)="sizeMenuOpen.set(false)"
+    [cdkConnectedOverlayPush]="true" [cdkConnectedOverlayViewportMargin]="8">
+    <div class="font-menu" role="listbox" aria-label="Font size" (mousedown)="$event.preventDefault()">
+      <button type="button" class="font-menu__item" role="option" (click)="applyFontSize(null)">Default</button>
+      @for (size of fontSizes; track size) {
+      <button type="button" class="font-menu__item" role="option" (click)="applyFontSize(size)">{{ size }}px</button>
+      }
+    </div>
+  </ng-template>
+
+  <mat-divider [vertical]="true" />
+
   <button mat-icon-button type="button" aria-label="Text color" [attr.aria-expanded]="colorMenuOpen()"
     [class.is-active]="isActive('textStyle')" cdkOverlayOrigin #colorOrigin="cdkOverlayOrigin"
     (mousedown)="$event.preventDefault()" (click)="colorMenuOpen.set(!colorMenuOpen())">

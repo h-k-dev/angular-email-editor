@@ -37,6 +37,8 @@ import {
   createTextMetrics,
   defineExtension,
   emailExtensions,
+  emailFontFamilies,
+  emailFontSizes,
   emailTextPalette,
   linkRangeAt,
 } from 'angular-email-editor';
@@ -77,6 +79,13 @@ export class EmailCompose {
       arbitrary hex lives solely in the HTML source pane, on purpose. */
   palette = emailTextPalette;
   colorMenuOpen = signal(false);
+
+  /** Curated, email-safe font stacks and phone-safe sizes — the pickers offer
+      only these; free-form fonts/sizes live solely in the HTML source pane. */
+  fontFamilies = emailFontFamilies;
+  fontSizes = emailFontSizes;
+  fontMenuOpen = signal(false);
+  sizeMenuOpen = signal(false);
 
   // Link editor popover, anchored at the selection.
   linkInput = viewChild<ElementRef<HTMLInputElement>>('linkInput');
@@ -225,6 +234,28 @@ export class EmailCompose {
 
     if (color) editor.commands['setColor'](color);
     else editor.commands['unsetColor']();
+    editor.focus();
+  }
+
+  /** Applies a curated font stack to the selection, or `null` to clear it. */
+  applyFontFamily(stack: string | null): void {
+    this.fontMenuOpen.set(false);
+    const editor = this.editor();
+    if (!editor) return;
+
+    if (stack) editor.commands['setFontFamily'](stack);
+    else editor.commands['unsetFontFamily']();
+    editor.focus();
+  }
+
+  /** Applies a curated font size to the selection, or `null` to clear it. */
+  applyFontSize(size: number | null): void {
+    this.sizeMenuOpen.set(false);
+    const editor = this.editor();
+    if (!editor) return;
+
+    if (size) editor.commands['setFontSize'](size);
+    else editor.commands['unsetFontSize']();
     editor.focus();
   }
 

@@ -64,6 +64,71 @@ export function parseFontSize(raw: string | null | undefined): FontSize | null {
 }
 
 /**
+ * The sizes the toolbar picker offers: the phone-safe subset (≥14px). Below
+ * ~13px iOS auto-inflates text and reflows the layout (responsiveness ledger,
+ * principle 8), so we don't *offer* those — but {@link parseFontSize} still
+ * accepts the full {@link ALLOWED_SIZES} range, because a hand-typed size in
+ * the HTML source pane is the author's own responsibility, exactly like a
+ * hand-typed hex colour.
+ */
+export const emailFontSizes: FontSize[] = [14, 16, 18, 24, 32];
+
+/** A curated, email-safe font stack the toolbar offers. */
+export interface EmailFont {
+  /** Toolbar label. */
+  name: string;
+  /** The exact `font-family` value emitted — the canonical stored form. */
+  stack: string;
+}
+
+/**
+ * The curated font stacks — the picker offers only these, no free-form fonts
+ * (principle 7: if a mainstream client can't render it, we don't emit it).
+ *
+ * Deliberately built from *single-word* family identifiers plus a generic
+ * fallback: a stack like `Courier New` would round-trip through the CSSOM
+ * (serialization builds real elements and re-reads them) and come back quoted
+ * as `"Courier New"` in Chrome but unquoted in jsdom — a byte-instability that
+ * breaks canonical determinism and makes tests disagree with the runtime (the
+ * same trap the longhand/`rgb()` rule guards against). Bare identifiers and
+ * generic keywords serialize identically everywhere.
+ */
+export const emailFontFamilies: EmailFont[] = [
+  { name: 'Sans-serif', stack: 'Arial, Helvetica, sans-serif' },
+  { name: 'Serif', stack: 'Georgia, Times, serif' },
+  { name: 'Monospace', stack: 'Courier, monospace' },
+  { name: 'System', stack: 'system-ui, sans-serif' },
+];
+
+/** Normalise a `font-family` value to a comparison key: lower-cased, quotes
+    dropped, whitespace around commas collapsed. Lets a hand-typed or CSSOM-
+    reserialized stack match a curated one regardless of cosmetic differences. */
+function fontFamilyKey(raw: string): string {
+  return raw
+    .toLowerCase()
+    .replace(/["']/g, '')
+    .replace(/\s*,\s*/g, ',')
+    .trim();
+}
+
+const FONT_STACK_BY_KEY = new Map(emailFontFamilies.map((f) => [fontFamilyKey(f.stack), f.stack]));
+
+export function isSafeFontFamily(value: unknown): value is string {
+  return typeof value === 'string' && FONT_STACK_BY_KEY.has(fontFamilyKey(value));
+}
+
+/**
+ * Parse a font-family value from the DOM into one of our curated stacks,
+ * returning the *canonical* stack string (so a cosmetically different but
+ * equivalent input normalises to the exact bytes we emit). Rejects anything
+ * outside the curated set — the schema is law.
+ */
+export function parseFontFamily(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  return FONT_STACK_BY_KEY.get(fontFamilyKey(raw)) ?? null;
+}
+
+/**
  * TipTap-style `textStyle` mark: a `<span style="…">` container holding inline
  * text-styling attributes. We expose only `color` — the one styling primitive
  * that renders reliably across email clients.
@@ -78,6 +143,8 @@ export const TextStyle = defineMark({
   spec: {
     attrs: {
       color: { default: null },
+      fontSize: { default: null },
+      fontFamily: { default: null },
     },
     // Don't let a color span bleed onto the next line on Shift-Enter.
     splittable: false,
@@ -87,11 +154,12 @@ export const TextStyle = defineMark({
         getAttrs: (node) => {
           const color = isSafeColor(node.style?.color) ? node.style.color : null;
           const fontSize = parseFontSize(node.style?.fontSize);
+          const fontFamily = parseFontFamily(node.style?.fontFamily);
           const backgroundColor = isSafeColor(node.style?.backgroundColor)
             ? node.style.backgroundColor
             : null;
-          if (!color && !fontSize && !backgroundColor) return false;
-          return { color, fontSize, backgroundColor };
+          if (!color && !fontSize && !fontFamily && !backgroundColor) return false;
+          return { color, fontSize, fontFamily, backgroundColor };
         },
       },
       {
@@ -104,10 +172,11 @@ export const TextStyle = defineMark({
       },
     ],
     toDOM: (mark) => {
-      const { color, fontSize, backgroundColor } = mark.attrs;
+      const { color, fontSize, fontFamily, backgroundColor } = mark.attrs;
       const style = [
         color ? `color: ${color}` : null,
         fontSize ? `font-size: ${fontSize}px` : null,
+        fontFamily ? `font-family: ${fontFamily}` : null,
         backgroundColor ? `background-color: ${backgroundColor}` : null,
       ]
         .filter(Boolean)
@@ -145,6 +214,23 @@ export const TextStyle = defineMark({
      * Clear the font-size.
      */
     unsetFontSize: () => unsetMark(schema.marks['textStyle'], ['fontSize']),
+
+    /**
+     * Apply one of the curated font stacks to the selection. A value outside
+     * the curated set is refused (the picker never sends one; a hand-typed
+     * source-pane value is handled by the parser, not this command).
+     */
+    setFontFamily: (family: string) => (state, dispatch) => {
+      const stack = parseFontFamily(family);
+      return stack
+        ? setMark(schema.marks['textStyle'], { fontFamily: stack })(state, dispatch)
+        : false;
+    },
+
+    /**
+     * Clear the font-family.
+     */
+    unsetFontFamily: () => unsetMark(schema.marks['textStyle'], ['fontFamily']),
 
     /**
      * Apply a background color to the selection.
