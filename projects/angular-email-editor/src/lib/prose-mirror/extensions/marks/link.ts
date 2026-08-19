@@ -49,8 +49,10 @@ export function linkRangeAt(state: EditorState, pos: number): LinkRange | null {
 /** A URL typed in prose, committed by the following space. */
 const AUTO_LINK = /(?:^|\s)((?:https?:\/\/|www\.)[^\s]+)\s$/;
 
-// A simple security check to prevent XSS
-function isSafeUrl(url: string | null): boolean {
+/** A simple security check to prevent XSS. Shared by every URL-bearing
+    extension (links, images): script URLs are refused on parse and on the
+    inserting command alike — the schema is the sanitizer. */
+export function isSafeUrl(url: string | null): boolean {
   if (!url) return false;
   // Block javascript: and vbscript: protocols (case-insensitive, ignoring leading spaces)
   const isMalicious = /^\s*(javascript|vbscript):/i.test(url);

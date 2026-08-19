@@ -119,6 +119,33 @@ html {
   border-color: var(--email-layout-guide, var(--email-table-grid, rgb(224, 224, 224)));
 }
 
+/* Gmail's `⋯` pill: the stand-in for folded quoted history (the QuoteFold
+ * extension). Behaviour — hiding, expanding, keyboard escapes — ships with
+ * the library; these are only the pixels. Token cascade as always. */
+.aee-editor .aee-quote-fold {
+  display: inline-block;
+  margin: 6px 0;
+  padding: 0 10px;
+  border: none;
+  border-radius: var(--email-quote-fold-corner, var(--mat-sys-corner-small, 6px));
+  background-color: var(
+    --email-quote-fold-background,
+    var(--mat-sys-surface-container-high, #e2e2e2)
+  );
+  color: var(--mat-sys-on-surface-variant, #555555);
+  font: inherit;
+  font-size: 18px;
+  line-height: 16px;
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(
+      --email-quote-fold-background-hover,
+      var(--mat-sys-surface-container-highest, #d4d4d4)
+    );
+  }
+}
+
 /* HTML source editor: token and lint classes applied via ProseMirror
  * decorations, which render outside Angular's encapsulation like .ProseMirror.
  */

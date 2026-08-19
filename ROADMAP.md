@@ -8,7 +8,7 @@ sides.
 ## Progress snapshot — 2026-08-19
 
 Foundations and the two-editor core are in; the content and layout-blocks side
-is mature. Tests: **213 library + 4 app, all green**.
+is mature. Tests: **236 library + 4 app, all green**.
 
 | Milestone                                                       | State            | Left to do                                                         |
 | --------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------ |
@@ -18,7 +18,7 @@ is mature. Tests: **213 library + 4 app, all green**.
 | **M3 — Deliverability lint engine**                             | ✅ done          | —                                                                  |
 | **M4 — Preview & proof**                                        | 🟢 mostly done   | per-client simulation; Outlook conditional comments                |
 | **M5 — Layout blocks**                                          | 🟢 flagship done | UX polish pass (see “Known dissatisfactions”); section-schema + `{{template}}` placeholders |
-| **M6 — Compose workflow**                                       | ⬜ not started   | `/send`, drafts, reply/forward, `.eml`/HTML import, attachments    |
+| **M6 — Compose workflow**                                       | 🟡 started       | `/send` intent, drafts, `.eml`/HTML import report, attachments     |
 
 Most recent work: the **block menu** (the bubble menu's sibling for layout
 blocks — one calm toolbar anchored to the block a bare cursor sits in) now
@@ -538,11 +538,68 @@ Two enforcement hooks so the ledger stays alive:
 
 ## Milestone 6 — Compose workflow
 
-- [ ] `/send` wiring against a real transport (the payload is just the
-      canonical signal + plain-text projection).
+**Scope decision (2026-08-19): the envelope is the host's.** We never build
+to/cc/subject fields — this project is the editorial engine, and the host app
+owns addressing, transport, and everything envelope. Headers matter to us only
+where they become *document content*: the attribution line above a reply's
+quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
+**passed in as data** — never from fields we render.
+
+- [ ] **`/send` = a send intent, not a transport.** The slash command (and any
+      send affordance) emits the payload upward — canonical HTML + the
+      plain-text projection — through a callback/output; the host attaches
+      envelope and transport. Nothing network-shaped lives here.
 - [ ] Draft persistence (the canonical HTML _is_ the draft format).
-- [ ] Reply/forward: parse foreign inbound HTML through the schema —
-      quoted-history blocks (`gmail_quote`-style) as a schema node.
+- [x] **Reply/forward seed constructors** — `replyDocument(inbound)` /
+      `forwardDocument(inbound)`: pure functions (inbound data → canonical
+      HTML) that the host feeds through the one `html` signal it already
+      binds. Deliberately **not** a component input: a reply is an event, not
+      state, and a content-bearing input would be a second source of truth
+      beside the canonical signal. Reply = an empty paragraph (typing starts
+      above the history), the attribution line ("On {date}, {from} wrote:",
+      degrading gracefully with partial data; a `Date` formats via Intl with
+      a caller-supplied locale, a string date is used verbatim), and the
+      inbound in a blockquote. Forward = the conventional header block
+      (From/Date/Subject/To — only the supplied lines) and the message
+      *unquoted*. The inbound body parses through the email schema like any
+      paste (one law — sanitization included), and Gmail's
+      `class="gmail_quote"` markup absorbs cleanly: classes drop, nesting
+      survives, all pinned by golden-style tests. **The quoted history _is_
+      the blockquote** — deliberately not a dedicated node: canonical output
+      carries no classes, so a `quotedHistory` node would have no honest
+      parse discriminator against a plain blockquote; if a collapse-history
+      UX ever wants one, that design starts at the discriminator. Building
+      this caught a real hole: `<img src="javascript:…">` survived the parse —
+      the Image node now refuses script URLs exactly like the link mark
+      (shared `isSafeUrl`, refused on parse and on `insertImage`, pinned).
+      Still open: the import *report* (loss counts through the diagnostics
+      channel) lands with the `.eml` work below.
+- [x] **Fold history behind an ellipsis (Gmail's `⋯`) — presentation, never
+      document state.** Shipped as the `QuoteFold` extension (email kit only —
+      reply folding isn't rich-text behaviour), zero app wiring: the hide is
+      an inline `display: none` decoration so behaviour needs no CSS, the `⋯`
+      is a widget decoration (`aee-quote-fold` — the app owns the pixels), and
+      expanded-ness is *the mapped position of the quote the user expanded* —
+      a fresh seed replaces the document, the mapping dies with the replaced
+      range, and the new quote starts folded by algebra, not by special case.
+      Escape hatches pinned by test: the toggle, ArrowDown from the block
+      above (steps in), and an appendTransaction guard that expands whenever
+      *any* selection reaches the hidden range (Ctrl-End, Ctrl-A) — the editor
+      never works invisibly. `foldQuotedHistory` (which Gmail doesn't offer)
+      rescues the cursor before hiding it. Original design sketch follows: No `collapsed` attr, no marker markup: anything the
+      serializer can't emit honestly would be hidden state that lies through
+      the round trip. Instead the *discriminator is derived from the document*
+      like everything else: the **trailing top-level blockquote** is history —
+      exactly what `replyDocument` produces, deterministic, zero markup. An
+      editor-only `quoteFold` extension renders it folded behind a `⋯` toggle
+      (nodeView/decoration — the layout-guides serialization split); open/
+      folded is ephemeral plugin state, so a reopened draft starts folded
+      again, like Gmail. The projections never fold: the email always carries
+      full history, the source pane always shows it (code doesn't lie), the
+      plain-text projection is untouched. Keyboard: ArrowDown into the fold
+      (or clicking it) expands — the table/columns escape convention, mirrored.
+      Known tradeoff, accepted: an *authored* trailing quote starts folded and
+      is one click to open — the same heuristic bet Gmail makes.
 - [ ] **`.eml` drop & HTML paste — one law.** The body always parses through
       the email schema, exactly like paste: full strip, no gentler pipeline,
       which doubles as sanitization (tracking pixels, remote CSS, script
@@ -551,11 +608,16 @@ Two enforcement hooks so the ledger stays alive:
       diagnostics channel ("14 elements outside the schema removed, 2 inline
       images mapped, 1 attachment ignored"). `cid:` images map into the
       image/attachment story; the `text/plain` part is the content when no
-      HTML part exists; headers are discarded until compose fields return.
+      HTML part exists; headers are discarded — envelope is the host's —
+      except as inputs to reply attribution.
 - [ ] Attachments surface.
 
 ## Non-goals (so we stay opinionated)
 
+- **No envelope UI — ever.** To/cc/subject, addressing, transport: all the
+  host app's. We are the editorial engine; the compose *workflow* (M6) deals
+  in payloads and intents, not fields. Header data enters only as input to
+  content (reply attribution), never as UI we own.
 - **Not a drag-drop marketing builder.** No block canvas, no template
   gallery. This is a _compose_ editor — but an ambitious one: the output is
   always responsive and phone-first (principle 8), and rich layout arrives

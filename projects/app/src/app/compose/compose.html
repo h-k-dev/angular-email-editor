@@ -25,6 +25,15 @@
   >
     {{ warnings() }} {{ warnings() === 1 ? 'warning' : 'warnings' }}
   </button>
+  <!-- Demo-only: seeds the composer with the next example reply. -->
+  <button
+    type="button"
+    class="status__example"
+    title="Replace the document with the next example reply seed"
+    (click)="nextReplyExample()"
+  >
+    {{ exampleLabel() }}
+  </button>
   @if (metrics(); as m) {
     <span class="status__count" aria-label="Document length">
       {{ m.words }} {{ m.words === 1 ? 'word' : 'words' }} · {{ m.lines }}

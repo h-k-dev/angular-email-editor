@@ -32,4 +32,12 @@ describe('image node', () => {
     const once = roundTrip('<img src="x.png" alt="chart" width="400">');
     expect(roundTrip(once)).toBe(once);
   });
+
+  it('refuses script URLs on parse — same rule as the link mark', () => {
+    // The node dies; what remains is the canonical empty document.
+    expect(roundTrip('<img src="javascript:evil()" alt="x">')).toBe('<div><br></div>');
+    expect(roundTrip('<img src=" JavaScript:evil()">')).toBe('<div><br></div>');
+    // Legitimate schemes still parse.
+    expect(roundTrip('<img src="data:image/png;base64,AAAA" alt="ok">')).toContain('data:image/png');
+  });
 });

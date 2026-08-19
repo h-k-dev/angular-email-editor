@@ -2,6 +2,7 @@ import { Plugin, PluginKey } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { Schema } from 'prosemirror-model';
 import { defineNode } from '../../extension';
+import { isSafeUrl } from '../marks/link';
 
 export interface ImageAttrs {
   src: string;
@@ -109,12 +110,17 @@ export const Image = defineNode({
     parseDOM: [
       {
         tag: 'img[src]',
-        getAttrs: (node) => ({
-          src: node.getAttribute('src'),
-          alt: node.getAttribute('alt'),
-          title: node.getAttribute('title'),
-          width: parseWidth(node),
-        }),
+        getAttrs: (node) => {
+          const src = node.getAttribute('src');
+          // Same rule as the link mark: a script URL kills the node on parse.
+          if (!isSafeUrl(src)) return false;
+          return {
+            src,
+            alt: node.getAttribute('alt'),
+            title: node.getAttribute('title'),
+            width: parseWidth(node),
+          };
+        },
       },
     ],
     toDOM: (node) => {
@@ -136,6 +142,7 @@ export const Image = defineNode({
   },
   commands: ({ schema }) => ({
     insertImage: (attrs: ImageAttrs) => (state, dispatch) => {
+      if (!isSafeUrl(attrs.src)) return false;
       dispatch?.(
         state.tr.replaceSelectionWith(schema.nodes['image'].create(attrs)).scrollIntoView(),
       );

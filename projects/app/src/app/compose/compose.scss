@@ -58,6 +58,22 @@ section {
   }
 }
 
+// Demo-only reply-seed cycler; a quiet chip so it reads as tooling, not UI.
+.status__example {
+  padding: 2px 8px;
+  border: 1px solid var(--mat-sys-outline-variant, #cccccc);
+  background: none;
+  font: inherit;
+  color: inherit;
+  border-radius: var(--mat-sys-corner-small, 4px);
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover {
+    background-color: var(--mat-sys-surface-container, #eeeeee);
+  }
+}
+
 .status__count {
   // Absorbs the free space so the counter + size form the right-hand group.
   margin-left: auto;

@@ -28,6 +28,7 @@ import { SplitKeepingMarks } from './split-keeping-marks';
 import { BaseKeymap } from './base-keymap';
 import { PasteHygiene } from './paste-hygiene';
 import { ClearFormatting } from './clear-formatting';
+import { QuoteFold } from './quote-fold';
 
 /** Everything but the paragraph flavour, which is what the kits swap. */
 const withParagraph = (paragraph: NodeExtension): Extension[] => [
@@ -73,7 +74,13 @@ export const richTextExtensions: Extension[] = withParagraph(Paragraph);
  * Email-safe output: `<div>` lines instead of `<p>` (mail clients render
  * paragraph margins as double spacing) and empty lines as `<div><br></div>`.
  */
-export const emailExtensions: Extension[] = withParagraph(EmailParagraph);
+export const emailExtensions: Extension[] = [
+  ...withParagraph(EmailParagraph),
+  // Reply-specific (so not in the rich-text kit): the quoted history folds
+  // behind Gmail's `⋯`. Last on purpose — its ArrowDown must run after the
+  // table/columns escapes fall through.
+  QuoteFold,
+];
 
 /**
  * The parallel source-editor kit: the document is HTML source text, one
