@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import { Component, computed, inject, input, signal } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 // Library
@@ -26,7 +26,6 @@ const FORCED_INVERSION = `
  * per the responsiveness ledger — if it reads narrow, desktop is free.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'section[email-preview]',
   templateUrl: './email-preview.html',
   styleUrl: './email-preview.scss',

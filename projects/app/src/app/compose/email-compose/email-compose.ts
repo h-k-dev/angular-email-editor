@@ -1,5 +1,4 @@
 import {
-  ChangeDetectionStrategy,
   Component,
   DestroyRef,
   ElementRef,
@@ -49,7 +48,6 @@ import {
 } from 'angular-email-editor';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'section[email-compose]',
   imports: [
     // Material

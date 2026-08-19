@@ -23,6 +23,22 @@ body {
   font: var(--mat-sys-body-medium);
 }
 
+/* Compact icons app-wide. On `html` (not a component) on purpose: the
+ * toolbar's icon buttons live outside the editor surface, and the picker
+ * menus render in the CDK overlay container on <body> — a narrower scope
+ * would miss them. `--mat-icon-size` is read by the Material Symbols font
+ * class (see styles/fonts), which defaults to 24px without it. */
+html {
+  --mat-icon-size: 16px;
+  @include mat.icon-button-overrides(
+    (
+      icon-size: var(--mat-icon-size),
+      state-layer-size: 32px,
+      touch-target-size: 40px,
+    )
+  );
+}
+
 :root {
   // Spacing tokens the composer relies on (defined by the host app's theme
   // in hongknop-frontend; recreated here for the example app).

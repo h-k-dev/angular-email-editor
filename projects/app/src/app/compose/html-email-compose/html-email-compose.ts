@@ -1,5 +1,4 @@
 import {
-  ChangeDetectionStrategy,
   Component,
   DestroyRef,
   ElementRef,
@@ -36,7 +35,6 @@ import {
  * only the autocomplete listbox.
  */
 @Component({
-  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'section[html-email-compose]',
   templateUrl: './html-email-compose.html',
   styleUrl: './html-email-compose.scss',

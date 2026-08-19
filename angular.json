@@ -55,7 +55,13 @@
                 "input": "projects/app/public"
               }
             ],
-            "styles": ["projects/app/src/styles.scss"]
+            "stylePreprocessorOptions": {
+              "includePaths": ["projects/app/src/styles"]
+            },
+            "styles": [
+              "projects/app/src/styles/fonts/_fonts.scss",
+              "projects/app/src/styles.scss"
+            ]
           },
           "configurations": {
             "production": {

@@ -1,11 +1,10 @@
-import { ChangeDetectionStrategy, Component, computed, signal, viewChild } from '@angular/core';
+import { Component, computed, signal, viewChild } from '@angular/core';
 import { HtmlDiagnostic, emailSizeBudget } from 'angular-email-editor';
 import { EmailCompose } from './email-compose/email-compose';
 import { HtmlEmailCompose } from './html-email-compose/html-email-compose';
 import { EmailPreview } from './email-preview/email-preview';
 
 @Component({
-  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-compose',
   imports: [EmailCompose, HtmlEmailCompose, EmailPreview],
   templateUrl: './compose.html',
