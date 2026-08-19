@@ -1,5 +1,14 @@
 import { Component, computed, signal, viewChild } from '@angular/core';
-import { HtmlDiagnostic, SendIntent, emailSizeBudget, replyDocument } from 'angular-email-editor';
+import { AngularFileDrop, FileDropEvent } from '@h-k-dev/angular-file-drop';
+import {
+  HtmlDiagnostic,
+  SendIntent,
+  emailSizeBudget,
+  importLoss,
+  importedDocument,
+  replyDocument,
+  toInboundMessage,
+} from 'angular-email-editor';
 import { EmailCompose } from './email-compose/email-compose';
 import { HtmlEmailCompose } from './html-email-compose/html-email-compose';
 import { EmailPreview } from './email-preview/email-preview';
@@ -7,7 +16,7 @@ import { REPLY_EXAMPLES } from '../../../test/reply-examples';
 
 @Component({
   selector: 'app-compose',
-  imports: [EmailCompose, HtmlEmailCompose, EmailPreview],
+  imports: [EmailCompose, HtmlEmailCompose, EmailPreview, AngularFileDrop],
   templateUrl: './compose.html',
   styleUrl: './compose.scss',
 })
@@ -47,6 +56,53 @@ export class Compose {
   protected reveal(severity: 'error' | 'warning'): void {
     const diagnostic = this.diagnostics().find((d) => d.severity === severity);
     if (diagnostic) this.sourcePane().reveal(diagnostic);
+  }
+
+  /** A dropped .eml imports as the document. MIME parsing is postal-mime's
+      job (bring-your-own-parser is the library's stance — `toInboundMessage`
+      is the whole bridge); lazy-imported so the parser costs nothing until
+      the first drop. A File is a Blob, so it goes to the parser as raw bytes
+      (correct charsets, no lossy .text() step). */
+  protected importNote = signal<string | null>(null);
+
+  protected async onEmlDrop(event: FileDropEvent): Promise<void> {
+    const dropped = event.files[0]?.file;
+    if (!dropped) return;
+    try {
+      const { default: PostalMime } = await import('postal-mime');
+      const parsed = await PostalMime.parse(dropped);
+      const inbound = toInboundMessage(parsed);
+      // A drop must import immediately: release editor focus first (the
+      // pane's blur catch-up would apply it eventually anyway — this makes
+      // "eventually" be "now").
+      (document.activeElement as HTMLElement | null)?.blur?.();
+      this.html.set(importedDocument(inbound));
+
+      // Legibility of loss: say what the import dropped instead of losing it
+      // silently — schema-side loss from the library, MIME-side from the parser.
+      const loss = importLoss(inbound);
+      const attachments = parsed.attachments?.length ?? 0;
+      const notes = [
+        `Imported ${dropped.name}${inbound.subject ? ` — “${inbound.subject}”` : ''}`,
+      ];
+      if (loss.removedElements) {
+        notes.push(
+          `${loss.removedElements} element${loss.removedElements === 1 ? '' : 's'} outside the ` +
+            `schema removed (${loss.removedTags.slice(0, 3).join(', ')})`,
+        );
+      }
+      if (loss.inlineImages) {
+        notes.push(
+          `${loss.inlineImages} inline image${loss.inlineImages === 1 ? ' awaits' : 's await'} attachments`,
+        );
+      }
+      if (attachments) {
+        notes.push(`${attachments} attachment${attachments === 1 ? '' : 's'} ignored`);
+      }
+      this.importNote.set(notes.join(' · '));
+    } catch {
+      this.importNote.set(`Couldn't read ${dropped.name} as an email`);
+    }
   }
 
   /** Demo stand-in for a transport: the example app has nowhere to send to,

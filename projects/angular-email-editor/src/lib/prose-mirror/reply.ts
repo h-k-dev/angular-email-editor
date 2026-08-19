@@ -30,6 +30,72 @@ export interface ComposeSeedOptions {
   locale?: string;
 }
 
+/**
+ * The shape modern MIME parsers hand back — postal-mime's `Email`, and
+ * anything structurally like it. Accepted **duck-typed** so this library
+ * never depends on any parser: parsing `.eml` is a solved problem with a
+ * decade of edge-case scar tissue (postal-mime, mailparser), and we don't
+ * compete with it. {@link toInboundMessage} is the whole integration.
+ */
+export interface ParsedEmailLike {
+  html?: string | null;
+  text?: string | null;
+  subject?: string | null;
+  /** ISO string (postal-mime), `Date`, or any human-readable string. */
+  date?: string | Date | null;
+  from?: ParsedAddressLike | null;
+  to?: ParsedAddressLike[] | null;
+}
+
+export interface ParsedAddressLike {
+  name?: string | null;
+  address?: string | null;
+}
+
+/**
+ * Bridges a parser result into the seeds — the only glue an `.eml` import
+ * needs, front- or backend-parsed alike:
+ *
+ * ```ts
+ * const parsed = await PostalMime.parse(file);           // File is a Blob
+ * html.set(importedDocument(toInboundMessage(parsed)));  // import it
+ * // …or replyDocument(toInboundMessage(parsed)) to answer it.
+ * ```
+ *
+ * Every field is optional and null-tolerant, so a partial parse still seeds
+ * a sensible document. A parseable date becomes a `Date` (the seeds format
+ * it via Intl with your locale); anything else passes through verbatim.
+ */
+export function toInboundMessage(parsed: ParsedEmailLike): InboundMessage {
+  return {
+    html: parsed.html ?? undefined,
+    text: parsed.text ?? undefined,
+    subject: parsed.subject ?? undefined,
+    date: normalizeDate(parsed.date),
+    from: formatAddress(parsed.from),
+    to:
+      (parsed.to ?? [])
+        .map((address) => formatAddress(address))
+        .filter(Boolean)
+        .join(', ') || undefined,
+  };
+}
+
+function formatAddress(address: ParsedAddressLike | null | undefined): string | undefined {
+  if (!address) return undefined;
+  const name = address.name?.trim();
+  const email = address.address?.trim();
+  if (name && email) return `${name} <${email}>`;
+  return name || email || undefined;
+}
+
+function normalizeDate(date: string | Date | null | undefined): Date | string | undefined {
+  if (date == null) return undefined;
+  if (date instanceof Date) return date;
+  const parsed = new Date(date);
+  return Number.isNaN(parsed.getTime()) ? date : parsed;
+}
+
 // Reply/forward are document *constructors*: pure (inbound data → canonical
 // HTML), so the host seeds the composer through the one `html` signal it
 // already binds — no component API, no second source of truth. The inbound
@@ -95,6 +161,90 @@ export function forwardDocument(inbound: InboundMessage, options?: ComposeSeedOp
   if (!content.childCount) blocks.push(emptyParagraph(schema));
 
   return serializeToHTML(schema.nodes['doc'].create(null, blocks), schema);
+}
+
+/**
+ * The imported message as the document itself — the `.eml`-drop / paste law:
+ * the body parses through the email schema (full strip, which doubles as
+ * sanitization) and *becomes* the document; nothing else of the message
+ * survives into it. Pair with `parseEml`:
+ * `html.set(importedDocument(parseEml(raw)))`.
+ */
+export function importedDocument(inbound: InboundMessage): string {
+  const schema = getSchema();
+  const blocks = inboundBlocks(inbound, schema);
+  const doc = schema.nodes['doc'].create(
+    null,
+    blocks.childCount ? blocks : emptyParagraph(schema),
+  );
+  return serializeToHTML(doc, schema);
+}
+
+/**
+ * What an import will lose — the *legibility of loss* half of the import law.
+ * The parse itself never reports (it just repairs); this walks the inbound
+ * HTML against the schema's own parse vocabulary and says what won't survive,
+ * so the host can tell the user instead of losing content silently.
+ */
+export interface ImportLoss {
+  /** Elements whose tag the schema has no parse rule for — the element is
+      removed on parse (its text content may still survive, unwrapped). */
+  removedElements: number;
+  /** The distinct removed tags, most frequent first. */
+  removedTags: string[];
+  /** Images pointing at `cid:` MIME parts — they parse in, but stay
+      unresolvable until the attachments story lands. */
+  inlineImages: number;
+}
+
+/** Computes the {@link ImportLoss} for an inbound message — pure, derived
+    from the same HTML `importedDocument` consumes:
+    `const loss = importLoss(inbound)` alongside the import, then surface it
+    ("3 elements outside the schema removed (o:p, font)…"). */
+export function importLoss(inbound: InboundMessage): ImportLoss {
+  const none: ImportLoss = { removedElements: 0, removedTags: [], inlineImages: 0 };
+  if (!inbound.html) return none;
+
+  const known = schemaTags(getSchema());
+  const dom = new DOMParser().parseFromString(inbound.html, 'text/html');
+  const removedByTag = new Map<string, number>();
+  let removedElements = 0;
+  let inlineImages = 0;
+
+  for (const element of Array.from(dom.body.querySelectorAll('*'))) {
+    const tag = element.tagName.toLowerCase();
+    if (tag === 'img' && (element.getAttribute('src') ?? '').trim().toLowerCase().startsWith('cid:')) {
+      inlineImages++;
+    }
+    if (!known.has(tag)) {
+      removedElements++;
+      removedByTag.set(tag, (removedByTag.get(tag) ?? 0) + 1);
+    }
+  }
+
+  const removedTags = [...removedByTag.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([tag]) => tag);
+  return { removedElements, removedTags, inlineImages };
+}
+
+/** Tags with a parse rule somewhere in the schema — the vocabulary. tbody &
+    friends have no rule of their own, but the parser walks through them and
+    our serializer emits `<tbody>`, so they are structure, not loss. */
+let knownTags: Set<string> | undefined;
+function schemaTags(schema: Schema): Set<string> {
+  if (knownTags) return knownTags;
+  const tags = new Set<string>(['tbody', 'thead', 'tfoot']);
+  const collect = (parseDOM: unknown) => {
+    for (const rule of (parseDOM as Array<{ tag?: string }>) ?? []) {
+      const tag = rule.tag?.split(/[\s\[.:,>]/)[0]?.toLowerCase();
+      if (tag) tags.add(tag);
+    }
+  };
+  for (const type of Object.values(schema.nodes)) collect(type.spec.parseDOM);
+  for (const type of Object.values(schema.marks)) collect(type.spec.parseDOM);
+  knownTags = tags;
+  return tags;
 }
 
 /** "On {date}, {from} wrote:" — degrading gracefully when data is partial,

@@ -8,7 +8,7 @@ sides.
 ## Progress snapshot — 2026-08-19
 
 Foundations and the two-editor core are in; the content and layout-blocks side
-is mature. Tests: **244 library + 4 app, all green**.
+is mature. Tests: **254 library + 5 app, all green**.
 
 | Milestone                                                       | State            | Left to do                                                         |
 | --------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------ |
@@ -18,7 +18,7 @@ is mature. Tests: **244 library + 4 app, all green**.
 | **M3 — Deliverability lint engine**                             | ✅ done          | —                                                                  |
 | **M4 — Preview & proof**                                        | 🟢 mostly done   | per-client simulation; Outlook conditional comments                |
 | **M5 — Layout blocks**                                          | 🟢 flagship done | UX polish pass (see “Known dissatisfactions”); section-schema + `{{template}}` placeholders |
-| **M6 — Compose workflow**                                       | 🟡 in progress   | drafts, `.eml`/HTML import report, attachments                     |
+| **M6 — Compose workflow**                                       | 🟡 nearly done   | attachments                                                        |
 
 Most recent work: **M6 opened, and it closed M2 on the way** — the
 **reply/forward seed constructors** (`replyDocument`/`forwardDocument`:
@@ -558,7 +558,25 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
       emit nothing, so menus can test enablement safely. The example app wires
       it to an `output<SendIntent>()` on the email pane and shows the payload
       stats in the status strip — the demo stand-in for a mailer.
-- [ ] Draft persistence (the canonical HTML _is_ the draft format).
+- [x] **Draft persistence — nothing to build, by design.** A draft is the host
+      persisting the canonical `html` signal on its own clock (an `effect` +
+      debounce + database) and restoring with `html.set(saved)`; both halves
+      exist since the foundations. No draft format, no draft mode, no draft
+      API — a signal read needs no ceremony. Two editor-side footnotes: a
+      restored draft carries no undo history (external syncs never enter it —
+      collab semantics, pinned by test, correct), and the **restore hazard**
+      below is the one real piece of work drafts make load-bearing.
+- [x] **External writes survive editor focus.** The panes' sync effects skip
+      an incoming value while their editor has focus (protecting the typing
+      loop) — and now a **blur listener catches up with whatever the signal
+      says at that moment**. No pending-value state: last writer wins by
+      construction (if the user's own typing published after the external
+      write, the values already agree and blur is a no-op). Both panes carry
+      the twin listener; an async draft restore or import landing mid-edit is
+      protected while focused and applied on blur, pinned by an app spec.
+      (Test-env note: jsdom needs ResizeObserver + canvas-context stubs
+      before the email pane can mount at all — without them, `createEditor`
+      threw mid-mount and app specs silently exercised nothing.)
 - [x] **Reply/forward seed constructors** — `replyDocument(inbound)` /
       `forwardDocument(inbound)`: pure functions (inbound data → canonical
       HTML) that the host feeds through the one `html` signal it already
@@ -609,16 +627,44 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
       (or clicking it) expands — the table/columns escape convention, mirrored.
       Known tradeoff, accepted: an *authored* trailing quote starts folded and
       is one click to open — the same heuristic bet Gmail makes.
-- [ ] **`.eml` drop & HTML paste — one law.** The body always parses through
-      the email schema, exactly like paste: full strip, no gentler pipeline,
-      which doubles as sanitization (tracking pixels, remote CSS, script
-      attempts die in the parse). The opinionation budget goes into
-      _legibility of loss_, not leniency: an **import report** through the
-      diagnostics channel ("14 elements outside the schema removed, 2 inline
-      images mapped, 1 attachment ignored"). `cid:` images map into the
-      image/attachment story; the `text/plain` part is the content when no
-      HTML part exists; headers are discarded — envelope is the host's —
-      except as inputs to reply attribution.
+- [x] **`.eml` drop & HTML paste — one law** (core shipped; report below).
+      **We do not parse MIME — decided, after briefly shipping our own.** A
+      ~200-line `parseEml` covered the easy 80% (multipart, QP/base64,
+      RFC 2047), but the hard 20% — malformed real-world mail, charset
+      long-tail, RFC 5322 address grammar, TNEF — is a decade of bug-report
+      scar tissue that postal-mime/mailparser already own; competing is a
+      losing bet for an editor library, so it was scrapped the same day.
+      What we own instead is the *integration*: `InboundMessage` is the
+      contract, and `toInboundMessage(parsed)` — a zero-dependency,
+      duck-typed adapter over the shape modern parsers return (postal-mime's
+      `Email`, front- or backend-parsed alike, every field null-tolerant) —
+      is the whole bridge: `importedDocument(toInboundMessage(await
+      PostalMime.parse(file)))` imports a dropped file (a `File` is a `Blob`,
+      so the parser gets raw bytes — correct charsets, no lossy `.text()`
+      step); `replyDocument(...)` answers it. `importedDocument` is the law:
+      the body parses through the schema (full strip = sanitization) and
+      *becomes* the document; `text/plain` is the content when no HTML part
+      exists; headers are discarded — envelope is the host's — except as
+      attribution/forward-header inputs. `cid:` images arrive unresolvable
+      until the attachments story lands. The example app makes the email pane
+      an `.eml` dropzone (`@h-k-dev/angular-file-drop`, accept-filtered so
+      image drops still flow to ProseMirror) with postal-mime lazy-imported
+      on first drop and a sample fixture in `test/`.
+- [x] **Import loss report** — the *legibility of loss* half of the import
+      law. `importLoss(inbound)`: pure, derived from the same HTML the import
+      consumes, measured against the **schema's own parse vocabulary** (every
+      `parseDOM` tag across nodes and marks; tbody/thead/tfoot exempt as
+      structure). Reports elements outside the vocabulary (count + distinct
+      tags, most frequent first — tag-level granularity, so a legacy
+      `<font>` counts as known because `font[color]` parses) and `cid:`
+      images separately (they parse in but stay unresolvable until
+      attachments). Our own canonical output round-trips as zero loss, pinned
+      by test. The example app joins it with the parser's side
+      (`parsed.attachments.length` ignored) into the status strip: "Imported
+      lossy.eml — 3 elements outside the schema removed (center, o:p,
+      script) · 1 inline image awaits attachments". A structured diagnostics
+      surfacing can grow from the same `ImportLoss` object when a problems
+      panel exists.
 - [ ] Attachments surface.
 
 ## Non-goals (so we stay opinionated)

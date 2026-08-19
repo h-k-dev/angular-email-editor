@@ -2,7 +2,13 @@ import { createSchema } from './schema';
 import { parseHTML, serializeToHTML } from './html';
 import { lintHTML } from './html-source';
 import { emailExtensions } from './extensions/kits';
-import { forwardDocument, replyDocument } from './reply';
+import {
+  forwardDocument,
+  importLoss,
+  importedDocument,
+  replyDocument,
+  toInboundMessage,
+} from './reply';
 
 const schema = createSchema(emailExtensions);
 const canonical = (html: string) => serializeToHTML(parseHTML(html, schema), schema);
@@ -85,6 +91,99 @@ describe('replyDocument', () => {
     const html = replyDocument({});
     expect(html).toBe('<div><br></div><blockquote><div><br></div></blockquote>');
     expect(canonical(html)).toBe(html);
+  });
+});
+
+describe('toInboundMessage', () => {
+  // Shaped like postal-mime's `Email` — the adapter is duck-typed on purpose,
+  // so these plain objects are exactly what a real parse hands over.
+  it('bridges a parser result into the seeds', () => {
+    const inbound = toInboundMessage({
+      html: '<div>Body</div>',
+      text: 'Body',
+      subject: 'Café plans — Friday',
+      date: '2026-08-18T14:32:00.000Z',
+      from: { name: 'Jane Doe', address: 'jane@example.com' },
+      to: [
+        { name: 'You', address: 'you@example.com' },
+        { address: 'ops@example.com' },
+      ],
+    });
+    expect(inbound.from).toBe('Jane Doe <jane@example.com>');
+    expect(inbound.to).toBe('You <you@example.com>, ops@example.com');
+    expect(inbound.subject).toBe('Café plans — Friday');
+    expect(inbound.date).toBeInstanceOf(Date); // the seeds Intl-format it
+    expect(inbound.html).toBe('<div>Body</div>');
+  });
+
+  it('tolerates a partial or null-riddled parse — every field optional', () => {
+    const inbound = toInboundMessage({ html: null, text: 'hi', from: null, date: 'no idea when' });
+    expect(inbound.html).toBeUndefined();
+    expect(inbound.from).toBeUndefined();
+    expect(inbound.to).toBeUndefined();
+    expect(inbound.date).toBe('no idea when'); // unparseable dates pass through verbatim
+    expect(replyDocument(inbound)).toContain('<blockquote><div>hi</div></blockquote>');
+  });
+
+  it('composes end-to-end: parsed email → imported document, schema-sanitized', () => {
+    const html = importedDocument(
+      toInboundMessage({ html: '<p class="MsoNormal">Report.</p><script>x()</script>' }),
+    );
+    expect(html).toBe('<div>Report.</div>');
+    expect(canonical(html)).toBe(html);
+  });
+});
+
+describe('importedDocument', () => {
+  it('the message becomes the document; text/plain becomes paragraphs', () => {
+    expect(importedDocument({ text: 'one\n\ntwo' })).toBe(
+      '<div>one</div><div><br></div><div>two</div>',
+    );
+  });
+
+  it('an empty message imports as the canonical empty document', () => {
+    expect(importedDocument({})).toBe('<div><br></div>');
+  });
+});
+
+describe('importLoss', () => {
+  it('counts elements outside the schema vocabulary, most frequent tag first', () => {
+    const loss = importLoss({
+      html:
+        '<p class="MsoNormal"><o:p></o:p></p><center>a</center><center>b</center>' +
+        '<script>x()</script>' +
+        '<div>kept</div>',
+    });
+    expect(loss.removedElements).toBe(4);
+    expect(loss.removedTags).toEqual(['center', 'o:p', 'script']);
+    expect(loss.inlineImages).toBe(0);
+  });
+
+  it('tag-level vocabulary is the granularity: a legacy <font> counts as known (font[color] parses)', () => {
+    expect(importLoss({ html: '<div><font color="#004a77">x</font></div>' }).removedElements).toBe(0);
+  });
+
+  it('counts cid: images separately — they parse in but await the attachments story', () => {
+    const loss = importLoss({
+      html: '<div><img src="cid:part1@example"><img src="https://x.example/a.png"></div>',
+    });
+    expect(loss.inlineImages).toBe(1);
+    expect(loss.removedElements).toBe(0);
+  });
+
+  it('treats table plumbing as structure, not loss — and our own output as lossless', () => {
+    const table = '<table><tbody><tr><td>cell</td></tr></tbody></table>';
+    expect(importLoss({ html: table }).removedElements).toBe(0);
+    // Round trip our own canonical output: importing it must report nothing.
+    expect(importLoss({ html: importedDocument({ html: table }) }).removedElements).toBe(0);
+  });
+
+  it('reports nothing for a text-only message', () => {
+    expect(importLoss({ text: 'plain' })).toEqual({
+      removedElements: 0,
+      removedTags: [],
+      inlineImages: 0,
+    });
   });
 });
 

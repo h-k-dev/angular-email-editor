@@ -192,15 +192,20 @@ export class EmailCompose {
     // the signal value, not a consumer. `setContent` dispatches no
     // transaction, so applying can't echo through `onUpdate`.
     effect(() => {
-      const incoming = this.html();
+      this.html(); // track: any external write re-runs this
       const editor = this.editor();
       if (!editor || editor.view.hasFocus()) return;
-      if (incoming === editor.getHTML()) return;
-
-      editor.setContent(incoming);
-      // Re-publish the canonical form: what survived the schema round-trip.
-      this.html.set(editor.getHTML());
+      this.#applyIncoming(editor);
     });
+  }
+
+  /** Applies the signal's current value to the editor and re-publishes the
+      canonical form (what survived the schema round-trip). */
+  #applyIncoming(editor: Editor): void {
+    const incoming = this.html();
+    if (incoming === editor.getHTML()) return;
+    editor.setContent(incoming);
+    this.html.set(editor.getHTML());
   }
 
   #mountEditor(): void {
@@ -227,6 +232,12 @@ export class EmailCompose {
       attributes: { role: 'textbox', 'aria-label': 'Message body' },
       onUpdate: (editor) => this.html.set(editor.getHTML()),
     });
+    // External writes must survive focus: the sync effect skips while this
+    // editor is focused — so on blur, catch up with whatever the signal says
+    // *now*. Last writer wins: if our own typing published after the external
+    // write, the values already agree and this is a no-op. Without this, an
+    // async draft restore or import landing mid-edit would be dropped forever.
+    editor.view.dom.addEventListener('blur', () => this.#applyIncoming(editor));
     this.editor.set(editor);
     this.html.set(editor.getHTML());
     editor.focus();

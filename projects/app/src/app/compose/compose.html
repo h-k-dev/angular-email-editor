@@ -1,53 +1,41 @@
-<section email-compose [(html)]="html" (send)="onSend($event)" aria-label="Email editor"></section>
-<section
-  html-email-compose
-  class="scroll-container"
-  [(html)]="html"
-  [(diagnostics)]="diagnostics"
-  aria-label="Email HTML source"
-></section>
+<!-- The editor doubles as an .eml dropzone: a dropped message imports as the
+     document (parseEml → importedDocument → the same canonical html signal).
+     clickable=false — clicking the editor must never open a file picker; the
+     accept filter keeps image drops flowing to ProseMirror's own handler. -->
+<section email-compose dropZone #emlZone="dropZone" [clickable]="false" [directory]="false" [multiple]="false"
+  [acceptedFiles]="'.eml,message/rfc822'" [class.eml-dropzone--active]="emlZone.isDragOver()"
+  (fileDrop)="onEmlDrop($event)" [(html)]="html" (send)="onSend($event)" aria-label="Email editor"></section>
+<section html-email-compose class="scroll-container" [(html)]="html" [(diagnostics)]="diagnostics"
+  aria-label="Email HTML source"></section>
 <section email-preview [html]="html()" aria-label="Email preview"></section>
 
 <footer class="status" aria-live="polite">
-  <button
-    type="button"
-    class="status__issues status__issues--error"
-    [disabled]="!errors()"
-    (click)="reveal('error')"
-  >
+  <button type="button" class="status__issues status__issues--error" [disabled]="!errors()" (click)="reveal('error')">
     {{ errors() }} {{ errors() === 1 ? 'error' : 'errors' }}
   </button>
-  <button
-    type="button"
-    class="status__issues status__issues--warning"
-    [disabled]="!warnings()"
-    (click)="reveal('warning')"
-  >
+  <button type="button" class="status__issues status__issues--warning" [disabled]="!warnings()"
+    (click)="reveal('warning')">
     {{ warnings() }} {{ warnings() === 1 ? 'warning' : 'warnings' }}
   </button>
   @if (lastSend(); as note) {
-    <span class="status__send" aria-label="Last send intent">{{ note }}</span>
+  <span class="status__send" aria-label="Last send intent">{{ note }}</span>
+  }
+  @if (importNote(); as note) {
+  <span class="status__send" aria-label="Last import">{{ note }}</span>
   }
   <!-- Demo-only: seeds the composer with the next example reply. -->
-  <button
-    type="button"
-    class="status__example"
-    title="Replace the document with the next example reply seed"
-    (click)="nextReplyExample()"
-  >
+  <button type="button" class="status__example" title="Replace the document with the next example reply seed"
+    (click)="nextReplyExample()">
     {{ exampleLabel() }}
   </button>
   @if (metrics(); as m) {
-    <span class="status__count" aria-label="Document length">
-      {{ m.words }} {{ m.words === 1 ? 'word' : 'words' }} · {{ m.lines }}
-      {{ m.lines === 1 ? 'line' : 'lines' }}
-    </span>
+  <span class="status__count" aria-label="Document length">
+    {{ m.words }} {{ m.words === 1 ? 'word' : 'words' }} · {{ m.lines }}
+    {{ m.lines === 1 ? 'line' : 'lines' }}
+  </span>
   }
-  <span
-    class="status__size"
-    [class.status__size--warning]="size().level === 'warning'"
-    [class.status__size--error]="size().level === 'error'"
-  >
+  <span class="status__size" [class.status__size--warning]="size().level === 'warning'"
+    [class.status__size--error]="size().level === 'error'">
     {{ sizeLabel() }}
   </span>
 </footer>

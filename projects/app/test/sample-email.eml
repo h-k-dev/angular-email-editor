@@ -1,0 +1,20 @@
+From: Jane Doe <jane@example.com>
+To: you@example.com
+Subject: =?UTF-8?Q?Caf=C3=A9_plans_=E2=80=94_Friday?=
+Date: Tue, 18 Aug 2026 16:32:00 +0200
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="XYZ"
+
+--XYZ
+Content-Type: text/plain; charset=utf-8
+
+Shall we meet at the cafe on Friday?
+
+- Jane
+--XYZ
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<div>Shall we meet at the <b>caf=C3=A9</b> on Friday?</div><div><br></div>
+<div>=E2=80=94 Jane</div>
+--XYZ--

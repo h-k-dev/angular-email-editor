@@ -64,13 +64,18 @@ export class HtmlEmailCompose {
     // signal value — rewriting would yank the cursor mid-keystroke. `setText`
     // dispatches no transaction, so applying can't echo through `onUpdate`.
     effect(() => {
-      const incoming = this.html();
+      this.html(); // track: any external write re-runs this
       const editor = this.editor();
       if (!editor || editor.view.hasFocus()) return;
-      if (incoming === editor.getText()) return;
-
-      editor.setText(formatHTML(incoming));
+      this.#applyIncoming(editor);
     });
+  }
+
+  /** Applies the signal's current value to the source view, pretty-printed. */
+  #applyIncoming(editor: Editor): void {
+    const incoming = this.html();
+    if (incoming === editor.getText()) return;
+    editor.setText(formatHTML(incoming));
   }
 
   #mountEditor(): void {
@@ -89,6 +94,9 @@ export class HtmlEmailCompose {
       attributes: { role: 'textbox', 'aria-label': 'Email HTML source' },
       onUpdate: (editor) => this.html.set(editor.getText()),
     });
+    // External writes must survive focus (see the email pane's twin listener):
+    // on blur, catch up with the signal's current value — last writer wins.
+    editor.view.dom.addEventListener('blur', () => this.#applyIncoming(editor));
     this.editor.set(editor);
   }
 

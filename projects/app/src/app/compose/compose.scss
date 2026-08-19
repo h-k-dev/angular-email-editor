@@ -16,6 +16,13 @@ section {
   min-height: 0;
 }
 
+// The editor pane while an .eml file hovers over it.
+section[email-compose].eml-dropzone--active {
+  outline: 2px dashed var(--mat-sys-primary, #0056b3);
+  outline-offset: -2px;
+  border-radius: var(--mat-sys-corner-medium, 8px);
+}
+
 // The problems strip: counts jump to the first offender in the source pane,
 // the size gauge tracks Gmail's clipping limit. Token cascade: --email-* →
 // --mat-sys-* → fallback.
