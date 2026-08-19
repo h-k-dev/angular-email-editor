@@ -58,6 +58,12 @@ section {
   }
 }
 
+// What a real host would hand its transport, shown instead of sending.
+.status__send {
+  color: var(--mat-sys-primary, #0056b3);
+  white-space: nowrap;
+}
+
 // Demo-only reply-seed cycler; a quiet chip so it reads as tooling, not UI.
 .status__example {
   padding: 2px 8px;

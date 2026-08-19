@@ -40,6 +40,7 @@ export * from './extensions/marks/text-style';
 export * from './extensions/history';
 export * from './extensions/layout-guides';
 export * from './extensions/quote-fold';
+export * from './extensions/send-intent';
 export * from './extensions/no-text-drag';
 export * from './extensions/split-keeping-marks';
 export * from './extensions/base-keymap';

@@ -8,6 +8,7 @@ import {
   // Signals
   effect,
   model,
+  output,
   signal,
   viewChild,
 } from '@angular/core';
@@ -29,11 +30,13 @@ import {
   BlockMenuState,
   BubbleMenuState,
   Editor,
+  SendIntent,
   SlashMenuState,
   TextMetrics,
   createBlockMenu,
   createBubbleMenu,
   createEditor,
+  createSendIntent,
   createSlashMenu,
   createTextMetrics,
   defineExtension,
@@ -68,6 +71,11 @@ export class EmailCompose {
       owns the canonical form: whatever comes in is parsed through the email
       schema and re-published as what survived. */
   html = model('');
+
+  /** The send *intent*: canonical HTML + text/plain projection, emitted when
+      the user asks to send (/send, Mod-Enter, toolbar). Envelope and
+      transport are the host's — this is the whole send API. */
+  send = output<SendIntent>();
 
   editorHost = viewChild.required<ElementRef<HTMLElement>>('editorHost');
   bubbleMenu = viewChild.required<ElementRef<HTMLElement>>('bubbleMenu');
@@ -213,6 +221,7 @@ export class EmailCompose {
           onChange: (state) => this.slashState.set(state),
         }),
         createTextMetrics({ onMetrics: (metrics) => this.bodyMetrics.set(metrics) }),
+        createSendIntent({ onSend: (intent) => this.send.emit(intent) }),
         this.#angularSync,
       ],
       attributes: { role: 'textbox', 'aria-label': 'Message body' },

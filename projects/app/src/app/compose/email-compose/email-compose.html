@@ -364,6 +364,21 @@
   >
     <mat-icon>format_clear</mat-icon>
   </button>
+
+  <mat-divider [vertical]="true" />
+
+  <!-- Emits the send intent (canonical HTML + text projection); the host owns
+       what happens next. Also reachable via /send and Mod-Enter. -->
+  <button
+    mat-icon-button
+    type="button"
+    aria-label="Send"
+    title="Send (Ctrl+Enter)"
+    (mousedown)="$event.preventDefault()"
+    (click)="run('requestSend')"
+  >
+    <mat-icon>send</mat-icon>
+  </button>
 </div>
 
 <!-- Link editor: anchored at the selection via a fixed virtual origin. The

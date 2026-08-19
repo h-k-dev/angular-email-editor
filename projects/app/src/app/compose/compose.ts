@@ -1,5 +1,5 @@
 import { Component, computed, signal, viewChild } from '@angular/core';
-import { HtmlDiagnostic, emailSizeBudget, replyDocument } from 'angular-email-editor';
+import { HtmlDiagnostic, SendIntent, emailSizeBudget, replyDocument } from 'angular-email-editor';
 import { EmailCompose } from './email-compose/email-compose';
 import { HtmlEmailCompose } from './html-email-compose/html-email-compose';
 import { EmailPreview } from './email-preview/email-preview';
@@ -47,6 +47,15 @@ export class Compose {
   protected reveal(severity: 'error' | 'warning'): void {
     const diagnostic = this.diagnostics().find((d) => d.severity === severity);
     if (diagnostic) this.sourcePane().reveal(diagnostic);
+  }
+
+  /** Demo stand-in for a transport: the example app has nowhere to send to,
+      so the footer shows what a real host would hand its mailer. */
+  protected lastSend = signal<string | null>(null);
+
+  protected onSend(intent: SendIntent): void {
+    const kb = (new TextEncoder().encode(intent.html).length / 1024).toFixed(1);
+    this.lastSend.set(`Send intent · ${kb} kB HTML · ${intent.text.length} chars text`);
   }
 
   /** Demo-only: cycles the composer through reply seeds built from the dummy

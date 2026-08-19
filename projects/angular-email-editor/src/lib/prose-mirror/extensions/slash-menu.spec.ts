@@ -156,6 +156,107 @@ describe('createSlashMenu', () => {
     expect(state?.open).toBe(false);
   });
 
+  it('ranks a title match above keyword-only matches', () => {
+    // Table's keywords include "columns" — the title must still win.
+    type('/columns');
+    expect(state?.items.map((item) => item.title)).toEqual(['Columns', '3 columns', 'Table']);
+
+    editor.destroy();
+    editor = createEditor({
+      parent: host,
+      extensions: [...richTextExtensions, createSlashMenu({ element: menu, onChange: (s) => (state = s) })],
+    });
+    vi.spyOn(editor.view, 'coordsAtPos').mockReturnValue({ left: 0, right: 0, top: 0, bottom: 0 });
+    type('/table');
+    expect(state?.items[0]?.title).toBe('Table');
+  });
+
+  it('merges a synchronous getItems source after the static matches', () => {
+    editor.destroy();
+    editor = createEditor({
+      parent: host,
+      extensions: [
+        ...richTextExtensions,
+        createSlashMenu({
+          element: menu,
+          onChange: (s) => (state = s),
+          getItems: (query) => [
+            { title: `Search "${query}"`, command: () => true },
+          ],
+        }),
+      ],
+    });
+    vi.spyOn(editor.view, 'coordsAtPos').mockReturnValue({ left: 0, right: 0, top: 0, bottom: 0 });
+
+    type('/quo');
+    expect(state?.items.map((item) => item.title)).toEqual(['Quote', 'Search "quo"']);
+    expect(state?.loading).toBe(false);
+
+    // No static match at all: the source alone keeps the menu open.
+    type('zzz');
+    expect(state?.open).toBe(true);
+    expect(state?.items.map((item) => item.title)).toEqual(['Search "quozzz"']);
+  });
+
+  it('reports loading for an async source and merges the resolved items', async () => {
+    let resolve!: (items: { title: string; command: () => boolean }[]) => void;
+    editor.destroy();
+    editor = createEditor({
+      parent: host,
+      extensions: [
+        ...richTextExtensions,
+        createSlashMenu({
+          element: menu,
+          onChange: (s) => (state = s),
+          getItems: () => new Promise((r) => (resolve = r)),
+        }),
+      ],
+    });
+    vi.spyOn(editor.view, 'coordsAtPos').mockReturnValue({ left: 0, right: 0, top: 0, bottom: 0 });
+
+    type('/zzz'); // nothing static matches — the menu stays open, loading
+    expect(state?.loading).toBe(true);
+    expect(state?.open).toBe(true);
+    expect(menu.style.visibility).toBe('visible');
+
+    resolve([{ title: 'Remote template', command: () => true }]);
+    await Promise.resolve();
+    expect(state?.loading).toBe(false);
+    expect(state?.items.map((item) => item.title)).toEqual(['Remote template']);
+  });
+
+  it('discards a stale async result — a newer query or a dismissal wins', async () => {
+    const pending: Array<(items: { title: string; command: () => boolean }[]) => void> = [];
+    editor.destroy();
+    editor = createEditor({
+      parent: host,
+      extensions: [
+        ...richTextExtensions,
+        createSlashMenu({
+          element: menu,
+          onChange: (s) => (state = s),
+          getItems: () => new Promise((r) => pending.push(r)),
+        }),
+      ],
+    });
+    vi.spyOn(editor.view, 'coordsAtPos').mockReturnValue({ left: 0, right: 0, top: 0, bottom: 0 });
+
+    type('/zz');
+    type('z'); // supersedes the first request
+    expect(pending).toHaveLength(2);
+
+    pending[0]([{ title: 'Stale', command: () => true }]);
+    await Promise.resolve();
+    expect(state?.items.map((item) => item.title)).toEqual([]);
+    expect(state?.loading).toBe(true); // the newer request is still out
+
+    keydown('Escape'); // dismissal invalidates the second request too
+    pending[1]([{ title: 'Too late', command: () => true }]);
+    await Promise.resolve();
+    expect(state?.open).toBe(false);
+    expect(state?.items).toEqual([]);
+  });
+
   it('closes on Escape and stays closed for the same slash', () => {
     type('/');
     expect(state?.open).toBe(true);

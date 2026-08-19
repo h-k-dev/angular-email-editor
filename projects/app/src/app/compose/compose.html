@@ -1,4 +1,4 @@
-<section email-compose [(html)]="html" aria-label="Email editor"></section>
+<section email-compose [(html)]="html" (send)="onSend($event)" aria-label="Email editor"></section>
 <section
   html-email-compose
   class="scroll-container"
@@ -25,6 +25,9 @@
   >
     {{ warnings() }} {{ warnings() === 1 ? 'warning' : 'warnings' }}
   </button>
+  @if (lastSend(); as note) {
+    <span class="status__send" aria-label="Last send intent">{{ note }}</span>
+  }
   <!-- Demo-only: seeds the composer with the next example reply. -->
   <button
     type="button"

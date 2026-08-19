@@ -8,30 +8,30 @@ sides.
 ## Progress snapshot — 2026-08-19
 
 Foundations and the two-editor core are in; the content and layout-blocks side
-is mature. Tests: **236 library + 4 app, all green**.
+is mature. Tests: **244 library + 4 app, all green**.
 
 | Milestone                                                       | State            | Left to do                                                         |
 | --------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------ |
 | Foundations (two editors, mark parity, canonical `html` signal) | ✅ done          | —                                                                  |
 | **M1 — Round-trip fidelity**                                    | ✅ core done     | selection mirroring (stretch)                                      |
-| **M2 — Missing composer features**                              | 🟢 nearly done   | `/send` (waits on M6 transport)                                    |
+| **M2 — Missing composer features**                              | ✅ done          | —                                                                  |
 | **M3 — Deliverability lint engine**                             | ✅ done          | —                                                                  |
 | **M4 — Preview & proof**                                        | 🟢 mostly done   | per-client simulation; Outlook conditional comments                |
 | **M5 — Layout blocks**                                          | 🟢 flagship done | UX polish pass (see “Known dissatisfactions”); section-schema + `{{template}}` placeholders |
-| **M6 — Compose workflow**                                       | 🟡 started       | `/send` intent, drafts, `.eml`/HTML import report, attachments     |
+| **M6 — Compose workflow**                                       | 🟡 in progress   | drafts, `.eml`/HTML import report, attachments                     |
 
-Most recent work: the **block menu** (the bubble menu's sibling for layout
-blocks — one calm toolbar anchored to the block a bare cursor sits in) now
-carries the table's structural commands _and_ the new
-**add/remove-column commands**, closing M5's add/remove-column UI item.
-Before that: **background fills** (three scopes behind one picker),
-**layout guides** (one editor-only outline mechanism for tables and columns:
-cursor, hover, Ctrl-peek), **columns centred by default** with a
-client-padding budget, **font size/family** (curated email-safe stacks +
-phone-safe sizes on the shared `textStyle` span), and the **word/line
-counter** — leaving only `/send` (which waits on M6's transport) open in M2.
-Next candidates: M5's section schema / `{{template}}` placeholders, or open
-the M6 compose-workflow arc (which also unblocks M2's `/send`).
+Most recent work: **M6 opened, and it closed M2 on the way** — the
+**reply/forward seed constructors** (`replyDocument`/`forwardDocument`:
+inbound data → canonical HTML through the host's one `html` signal; envelope
+stays the host's), the **quote fold** (Gmail's `⋯` — presentation-only, the
+trailing blockquote hides behind a toggle and every escape hatch expands it),
+and the **send intent** (`createSendIntent`: `/send`, Mod-Enter, or a toolbar
+button emit `{html, text}` upward — M2's last item, unblocked once the scope
+decision removed the transport). Before that: the **block menu** with
+add/remove-column commands, background fills, layout guides, and the
+`aee-editor` scoping so our global styles can never touch a host's other
+ProseMirror instances. Next: M6's remaining slices — drafts (nearly free),
+the `.eml`/HTML import with its loss report, then attachments.
 
 ## Why this is worth building
 
@@ -268,11 +268,12 @@ schema extensions first, toolbar second.
       strip's right-hand group (beside the size gauge) as "N words · N lines",
       singular-aware. Width-dependent line count rides the extension's existing
       `ResizeObserver`, so it re-measures fluidly on resize.
-- [ ] **`/send` slash command** (compose-level: the slash menu already
-      aggregates extension items). Design-open: a send _action_ doesn't fit
-      today's `SlashItem` contract (a ProseMirror `Command` for document
-      insertion), and the transport itself is M6 — so this waits on the M6
-      compose-workflow decision rather than shipping a hollow stub.
+- [x] **`/send`** — shipped once M6's scope decision dissolved both blockers:
+      there is no transport to wait for (the composer emits a send *intent*),
+      and the `SlashItem` contract fits after all — an item's command is just
+      a ProseMirror `Command`, and a `Command` may act without dispatching
+      (probing calls get no dispatch and emit nothing). See the M6 send-intent
+      entry for the shape. This closes M2.
 
 ## Milestone 3 — The deliverability lint engine
 
@@ -545,10 +546,18 @@ where they become *document content*: the attribution line above a reply's
 quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
 **passed in as data** — never from fields we render.
 
-- [ ] **`/send` = a send intent, not a transport.** The slash command (and any
-      send affordance) emits the payload upward — canonical HTML + the
-      plain-text projection — through a callback/output; the host attaches
-      envelope and transport. Nothing network-shaped lives here.
+- [x] **`/send` = a send intent, not a transport.** Shipped as
+      `createSendIntent({ onSend })` — the bubble/slash-menu factory pattern:
+      the extension computes the payload (canonical HTML + the `emailPlainText`
+      projection, the two parts of `multipart/alternative`) and hands it to the
+      callback; the host attaches envelope and transport. Three ways in, one
+      payload: the `/send` slash item (the menu deletes the query text before
+      the command runs, so the payload is always clean of it), **Mod-Enter**
+      (Gmail's shortcut — unclaimed, hard break only owns Shift-Enter), and the
+      `requestSend` command for toolbar buttons. Probing calls (no dispatch)
+      emit nothing, so menus can test enablement safely. The example app wires
+      it to an `output<SendIntent>()` on the email pane and shows the payload
+      stats in the status strip — the demo stand-in for a mailer.
 - [ ] Draft persistence (the canonical HTML _is_ the draft format).
 - [x] **Reply/forward seed constructors** — `replyDocument(inbound)` /
       `forwardDocument(inbound)`: pure functions (inbound data → canonical
@@ -639,6 +648,20 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
 
 - New capability = new extension. If it needs UI, it exposes state through a
   callback and the app renders it (see bubble/slash menus, diagnostics).
+- **The slash menu is an extensibility surface, and its search grows over
+  time.** Three ways in: extensions declare `slashItems` (kit-level), hosts
+  pass `options.items` (static app-level), and hosts pass
+  `options.getItems(query)` — a per-query **dynamic source**, sync or async
+  (built for an Angular `resource()` keyed on the query: templates, snippets,
+  backend search). Async results merge when they land, stale responses are
+  discarded internally (newer query / dismissal / destroy — hosts never
+  race-guard), and `SlashMenuState.loading` drives a "Searching…" row. Static
+  matches rank **title-first** (exact > prefix > includes > keyword-only, kit
+  order as tiebreak — "/columns" must highlight Columns, not the table whose
+  keywords include it); source items append after them, unfiltered — the
+  source owns its own matching. An item's `command` is just a ProseMirror
+  `Command`, which may act without dispatching (see `/send`) — so slash items
+  can insert content *or* perform actions.
 - Anything both panes must agree on lives in the **email schema**, never in
   either pane. The source pane consumes it via `createSourceMarks`-style
   round-trips.

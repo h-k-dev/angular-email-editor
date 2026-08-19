@@ -6,10 +6,16 @@ export interface SlashMenuState {
   open: boolean;
   /** Text typed after the `/`. */
   query: string;
-  /** Items matching the query, in kit order. */
+  /** Items matching the query: static matches ranked title-first (kit order
+      within a tier), then whatever the {@link SlashMenuOptions.getItems}
+      source contributed for this query. */
   items: SlashItem[];
   /** Index of the keyboard-highlighted item. */
   activeIndex: number;
+  /** True while an async {@link SlashMenuOptions.getItems} result for the
+      current query is still in flight — render a "Searching…" row from it.
+      The menu counts as open while loading, even with zero items yet. */
+  loading: boolean;
   /** Applies an item: removes the `/query` text, then runs its command. */
   select: (item: SlashItem) => void;
 }
@@ -25,6 +31,20 @@ export interface SlashMenuOptions {
   offset?: number;
   /** Extra items appended after the ones collected from the extensions. */
   items?: SlashItem[];
+  /**
+   * Dynamic item source, asked once per query change — the ground for
+   * host-side search that grows over time (a template gallery, a snippet
+   * backend, an Angular `resource()` keyed on the query…).
+   *
+   * A returned array merges immediately; a promise merges when it resolves,
+   * with stale responses discarded (a newer query, a dismissed session, or a
+   * destroyed editor all invalidate it — the host never has to race-guard).
+   * Results are appended after the static matches and are **not** re-filtered:
+   * the source owns its own matching. Each item is an ordinary
+   * {@link SlashItem}, so keyboard navigation, Enter, and `select()` treat
+   * them exactly like kit items.
+   */
+  getItems?: (query: string) => SlashItem[] | Promise<SlashItem[]>;
   /** Notified when the menu opens, closes, filters, or moves its highlight. */
   onChange?: (state: SlashMenuState) => void;
 }
@@ -63,6 +83,26 @@ function filterItems(items: SlashItem[], query: string): SlashItem[] {
   });
 }
 
+/** Matches, best first: a query naming an item's *title* must beat a
+    keyword-only match — typing "/columns" should highlight Columns, not the
+    table (whose keywords include "columns"). Stable within a tier, so kit
+    order remains the tiebreak. */
+function rankItems(matches: SlashItem[], query: string): SlashItem[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return matches;
+  const tier = (item: SlashItem): number => {
+    const title = item.title.toLowerCase();
+    if (title === q) return 0;
+    if (title.startsWith(q)) return 1;
+    if (title.includes(q)) return 2;
+    return 3; // matched via keywords only
+  };
+  return matches
+    .map((item, index) => ({ item, index, tier: tier(item) }))
+    .sort((a, b) => a.tier - b.tier || a.index - b.index)
+    .map((entry) => entry.item);
+}
+
 /**
  * Notion-style `/` command menu. Items come from the extensions themselves
  * (each can declare `slashItems`) plus `options.items`; the host app renders
@@ -84,10 +124,53 @@ function createSlashMenuPlugin(ctx: ExtensionContext, options: SlashMenuOptions)
 
   let view: EditorView | undefined;
   let session: Session | null = null;
+  /** Static matches + the source's contribution — what navigation runs over. */
   let filtered: SlashItem[] = [];
+  let staticMatches: SlashItem[] = [];
+  let dynamicItems: SlashItem[] = [];
+  let loading = false;
+  /** Monotonic ticket: only the newest getItems call may land its result. */
+  let sourceRequest = 0;
   let activeIndex = 0;
   /** `from` of the session closed with Escape; suppressed until it changes. */
   let dismissedAt: number | null = null;
+
+  const invalidateSource = () => {
+    sourceRequest++;
+    dynamicItems = [];
+    loading = false;
+  };
+
+  const mergeItems = () => {
+    filtered = [...staticMatches, ...dynamicItems];
+    if (activeIndex >= filtered.length) activeIndex = Math.max(0, filtered.length - 1);
+  };
+
+  const querySource = (query: string) => {
+    if (!options.getItems) return;
+    const ticket = ++sourceRequest;
+    const result = options.getItems(query);
+    if (Array.isArray(result)) {
+      dynamicItems = result;
+      return;
+    }
+    loading = true;
+    result
+      .then((items) => {
+        if (ticket !== sourceRequest || !view) return; // superseded or closed
+        dynamicItems = items;
+        loading = false;
+        mergeItems();
+        render();
+        emit();
+      })
+      .catch(() => {
+        if (ticket !== sourceRequest || !view) return;
+        loading = false;
+        render();
+        emit();
+      });
+  };
 
   const hide = () => {
     element.style.visibility = 'hidden';
@@ -102,12 +185,25 @@ function createSlashMenuPlugin(ctx: ExtensionContext, options: SlashMenuOptions)
 
   const emit = () =>
     options.onChange?.({
-      open: session !== null && filtered.length > 0,
+      open: session !== null && (filtered.length > 0 || loading),
       query: session?.query ?? '',
       items: filtered,
       activeIndex,
+      loading,
       select,
     });
+
+  /** Shows or hides the floating element to match the current state — shared
+      by the synchronous refresh and the async source landing later. */
+  const render = () => {
+    if (!session || (!filtered.length && !loading)) {
+      hide();
+      return;
+    }
+    // Show first so the element is measurable for the flip check.
+    element.style.visibility = 'visible';
+    position();
+  };
 
   const position = () => {
     if (!view || !session) return;
@@ -147,6 +243,8 @@ function createSlashMenuPlugin(ctx: ExtensionContext, options: SlashMenuOptions)
     if (!session) {
       if (previous) {
         filtered = [];
+        staticMatches = [];
+        invalidateSource();
         hide();
         emit();
       }
@@ -154,33 +252,35 @@ function createSlashMenuPlugin(ctx: ExtensionContext, options: SlashMenuOptions)
     }
 
     if (session.query !== previous?.query || session.from !== previous.from) {
-      filtered = filterItems(allItems, session.query);
+      staticMatches = rankItems(filterItems(allItems, session.query), session.query);
       activeIndex = 0;
+      invalidateSource();
+      querySource(session.query);
+      mergeItems();
     }
 
-    if (!filtered.length) {
-      hide();
-    } else {
-      // Show first so the element is measurable for the flip check.
-      element.style.visibility = 'visible';
-      position();
-    }
+    render();
     emit();
   };
 
   const onKeyDown = (event: KeyboardEvent): boolean => {
-    if (!session || !filtered.length) return false;
+    // While an async source is still loading the menu is open (a spinner row),
+    // so Escape must dismiss it — but item keys need actual items.
+    if (!session || (!filtered.length && !loading)) return false;
     switch (event.key) {
       case 'ArrowDown':
+        if (!filtered.length) return false;
         activeIndex = (activeIndex + 1) % filtered.length;
         emit();
         return true;
       case 'ArrowUp':
+        if (!filtered.length) return false;
         activeIndex = (activeIndex - 1 + filtered.length) % filtered.length;
         emit();
         return true;
       case 'Enter':
       case 'Tab':
+        if (!filtered.length) return false;
         select(filtered[activeIndex]);
         return true;
       case 'Escape':
@@ -196,6 +296,8 @@ function createSlashMenuPlugin(ctx: ExtensionContext, options: SlashMenuOptions)
     dismissedAt = session.from;
     session = null;
     filtered = [];
+    staticMatches = [];
+    invalidateSource();
     hide();
     emit();
   };
