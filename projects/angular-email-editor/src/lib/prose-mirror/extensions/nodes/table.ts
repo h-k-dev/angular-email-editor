@@ -1,15 +1,8 @@
-import {
-  Command,
-  EditorState,
-  Plugin,
-  PluginKey,
-  Selection,
-  TextSelection,
-  Transaction,
-} from 'prosemirror-state';
+import { Command, EditorState, Selection, TextSelection, Transaction } from 'prosemirror-state';
 import { Node, NodeType, Schema } from 'prosemirror-model';
-import { Decoration, DecorationSet } from 'prosemirror-view';
 import { defineNode } from '../../extension';
+import { FILL_TEXT_COLOR } from '../../dual-contrast';
+import { isSafeColor, toEmailSafeColor } from '../marks/text-style';
 
 /**
  * Email data tables: a real `<table>` (the most client-compatible layout there
@@ -27,6 +20,13 @@ import { defineNode } from '../../extension';
 const TABLE_STYLE = 'width: 100%; border-collapse: collapse;';
 const CELL_STYLE = 'padding: 8px 12px; vertical-align: top;';
 
+/** Cell background from a `td`'s inline `background-color` or legacy `bgcolor`
+    attribute; anything not colour-safe drops (the schema is law). */
+function cellAttrs(dom: HTMLElement): { background: string | null } {
+  const raw = dom.style?.backgroundColor || dom.getAttribute('bgcolor');
+  return { background: isSafeColor(raw) ? raw : null };
+}
+
 export const TableCell = defineNode({
   name: 'tableCell',
   spec: {
@@ -36,8 +36,30 @@ export const TableCell = defineNode({
     // round trip. Text marks (bold, links, colour) work in cells for free.
     content: 'inline*',
     isolating: true,
-    parseDOM: [{ tag: 'td' }, { tag: 'th' }],
-    toDOM: () => ['td', { style: CELL_STYLE }, 0],
+    // A fill colour on the cell (the most bulletproof background in email —
+    // `background-color` on `<td>` renders even in Outlook). From the curated
+    // dual-safe palette via `setCellBackground`; longhand rgb() keeps it a
+    // canonical fixpoint like every other style.
+    attrs: { background: { default: null } },
+    parseDOM: [
+      { tag: 'td', getAttrs: cellAttrs },
+      { tag: 'th', getAttrs: cellAttrs },
+    ],
+    toDOM: (node) => {
+      const bg = node.attrs['background'];
+      // The fill always carries its paired text colour (FILL_TEXT_COLOR): the
+      // cell must not depend on the client's default text, which flips to
+      // near-white in non-transforming dark modes while the fill stays pale.
+      return [
+        'td',
+        {
+          style: bg
+            ? `${CELL_STYLE} background-color: ${bg}; color: ${FILL_TEXT_COLOR};`
+            : CELL_STYLE,
+        },
+        0,
+      ];
+    },
   },
 });
 
@@ -95,6 +117,11 @@ export const Table = defineNode({
       dispatch?.(state.tr.delete(ctx.tablePos, ctx.tablePos + ctx.table.nodeSize).scrollIntoView());
       return true;
     },
+    /** Fill the cell the cursor is in (or clear it with `null`). */
+    setCellBackground:
+      (color: string | null): Command =>
+      (state, dispatch) =>
+        setCellBackground(color)(state, dispatch),
   }),
   keymap: () => ({
     Tab: goToCell(1),
@@ -104,24 +131,9 @@ export const Table = defineNode({
     // underneath. Otherwise let the default caret movement handle it.
     ArrowDown: escapeTableDown,
   }),
-  // Marks the table the cursor is in so the editor can show a subtle grid
-  // *while editing it* — an editing aid only, never serialized.
-  plugins: () => [
-    new Plugin({
-      key: new PluginKey('tableEditingGrid'),
-      props: {
-        decorations(state) {
-          const ctx = findTableContext(state);
-          if (!ctx) return null;
-          return DecorationSet.create(state.doc, [
-            Decoration.node(ctx.tablePos, ctx.tablePos + ctx.table.nodeSize, {
-              class: 'aee-table-editing',
-            }),
-          ]);
-        },
-      },
-    }),
-  ],
+  // The editor-only grid shown while editing is not the table's own business:
+  // `LayoutGuides` marks whichever layout block (table *or* columns) holds the
+  // cursor, so both structures reveal themselves identically.
   slashItems: ({ schema }) => [
     {
       title: 'Table',
@@ -131,6 +143,28 @@ export const Table = defineNode({
     },
   ],
 });
+
+/** Sets (or clears) the `background` attr of the `tableCell` enclosing the
+    selection. Cells are isolating, so a selection can't span cells — the one
+    the cursor sits in is the target. Exposed for the app's fill affordance. */
+export function setCellBackground(color: string | null): Command {
+  return (state, dispatch) => {
+    const { $from } = state.selection;
+    for (let depth = $from.depth; depth > 0; depth--) {
+      const node = $from.node(depth);
+      if (node.type.name !== 'tableCell') continue;
+      if (dispatch) {
+        const background = color ? toEmailSafeColor(color) : null;
+        const pos = $from.before(depth);
+        dispatch(
+          state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, background }).scrollIntoView(),
+        );
+      }
+      return true;
+    }
+    return false;
+  };
+}
 
 /** Inserts a table and drops the cursor into its first cell. The table is
     located after insertion (rather than by fragile nodeSize math) and

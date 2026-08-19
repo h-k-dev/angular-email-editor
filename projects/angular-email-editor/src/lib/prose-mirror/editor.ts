@@ -69,13 +69,22 @@ export function createEditor(options: EditorOptions): Editor {
   const plugins: Plugin[] = [...extensionPlugins, ...keymaps];
   if (rules.length) plugins.push(inputRules({ rules }));
 
+  // The editable root always carries our own identity class alongside the
+  // `.ProseMirror` one the view adds: all styling (ours and the host app's)
+  // scopes to `.aee-editor`, so another ProseMirror instance living in the
+  // same application is never touched by this editor's CSS.
+  const attributes = {
+    ...options.attributes,
+    class: ['aee-editor', options.attributes?.['class']].filter(Boolean).join(' '),
+  };
+
   const view = new EditorView(options.parent, {
     state: EditorState.create({
       doc: options.content ? parseHTML(options.content, schema) : undefined,
       schema,
       plugins,
     }),
-    attributes: options.attributes,
+    attributes,
     dispatchTransaction(transaction) {
       view.updateState(view.state.apply(transaction));
       if (transaction.docChanged && !transaction.getMeta('externalSync')) {

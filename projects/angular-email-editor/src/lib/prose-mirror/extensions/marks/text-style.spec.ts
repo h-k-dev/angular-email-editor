@@ -105,3 +105,63 @@ describe('textStyle attribute merging', () => {
     );
   });
 });
+
+describe('textStyle background (highlight)', () => {
+  it('applies a fill paired with the near-black fill text colour and round-trips', () => {
+    const once = applyToHello(commands['setBackgroundColor']('#fef7e0'));
+    expect(once).toBe(
+      '<div><span style="color: rgb(32, 33, 36); background-color: rgb(254, 247, 224);">hello</span></div>',
+    );
+    expect(canonical(once)).toBe(once);
+  });
+
+  it('absorbs the paired colour on parse — clearing the fill leaves no colour behind', () => {
+    const doc = parseHTML(
+      '<div><span style="color: rgb(32, 33, 36); background-color: rgb(254, 247, 224);">hello</span></div>',
+      schema,
+    );
+    let state = EditorState.create({
+      doc,
+      selection: TextSelection.create(doc, 1, doc.content.size - 1),
+    });
+    commands['unsetBackgroundColor']()(state, (tr) => (state = state.apply(tr)));
+    expect(serializeToHTML(state.doc, schema)).toBe('<div>hello</div>');
+  });
+
+  it('keeps the paired colour as an authored colour when there is no fill', () => {
+    // Absorption is scoped to the pair: the same near-black *without* a fill
+    // is someone's deliberate colour choice and must survive.
+    const authored = '<div><span style="color: rgb(32, 33, 36);">hello</span></div>';
+    expect(canonical(authored)).toBe(authored);
+  });
+
+  it('merges a highlight with text colour on one span', () => {
+    const doc = parseHTML('<div>hello</div>', schema);
+    let state = EditorState.create({
+      doc,
+      selection: TextSelection.create(doc, 1, doc.content.size - 1),
+    });
+    const apply = (command: ReturnType<(typeof commands)[string]>) =>
+      command(state, (tr) => (state = state.apply(tr)));
+    apply(commands['setColor']('#c5221f'));
+    apply(commands['setBackgroundColor']('#fef7e0'));
+    expect(serializeToHTML(state.doc, schema)).toBe(
+      '<div><span style="color: rgb(197, 34, 31); background-color: rgb(254, 247, 224);">hello</span></div>',
+    );
+  });
+
+  it('unsetBackgroundColor clears only the fill', () => {
+    const doc = parseHTML(
+      '<div><span style="color: #c5221f; background-color: #fef7e0;">hello</span></div>',
+      schema,
+    );
+    let state = EditorState.create({
+      doc,
+      selection: TextSelection.create(doc, 1, doc.content.size - 1),
+    });
+    commands['unsetBackgroundColor']()(state, (tr) => (state = state.apply(tr)));
+    expect(serializeToHTML(state.doc, schema)).toBe(
+      '<div><span style="color: rgb(197, 34, 31);">hello</span></div>',
+    );
+  });
+});

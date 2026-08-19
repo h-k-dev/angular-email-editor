@@ -31,6 +31,23 @@ describe('createEditor', () => {
     expect(editor.getHTML()).toBe('<p dir="auto">Hello world</p>');
   });
 
+  it('stamps aee-editor on the root — styling scopes to it, never to bare .ProseMirror', () => {
+    // A host app may run other ProseMirror instances; our CSS must not reach them.
+    expect(editor.view.dom.classList.contains('aee-editor')).toBe(true);
+    expect(editor.view.dom.classList.contains('ProseMirror')).toBe(true);
+  });
+
+  it('merges aee-editor with caller-supplied classes instead of clobbering them', () => {
+    const other = createEditor({
+      parent: host,
+      extensions: richTextExtensions,
+      attributes: { class: 'my-editor' },
+    });
+    expect(other.view.dom.classList.contains('aee-editor')).toBe(true);
+    expect(other.view.dom.classList.contains('my-editor')).toBe(true);
+    other.destroy();
+  });
+
   it('exposes extension commands bound to the view', () => {
     // Select the whole document, then toggle bold via the named command.
     editor.exec((state, dispatch) => {

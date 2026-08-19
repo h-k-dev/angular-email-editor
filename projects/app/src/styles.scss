@@ -31,9 +31,12 @@ body {
 }
 
 /* ProseMirror creates its editable DOM at runtime, outside Angular's emulated
- * view encapsulation, so the editor surface is styled globally.
+ * view encapsulation, so the editor surface is styled globally. Everything
+ * scopes to `.aee-editor` — the identity class the library stamps on its own
+ * editable roots — never to bare `.ProseMirror`, so a ProseMirror instance
+ * the host app runs for anything else is left alone.
  */
-.ProseMirror {
+.aee-editor {
   position: relative;
 
   /** Browsers are notoriously bad at handling text cursors and spaces inside editable divs */
@@ -60,18 +63,44 @@ body {
   line-height: var(--mat-sys-prose-mirror-line-height, 20px);
 }
 
-/* Subtle grid, editor-only — never serialized. The exported email is a
- * borderless table (see the table node); this grid only appears while the
- * cursor is editing inside the table (the `aee-table-editing` class is added
- * by the table extension). A transparent border is always reserved so
- * revealing it causes no layout shift.
+/* Layout guides: one subtle, editor-only outline for every layout block —
+ * tables and columns alike (the `LayoutGuides` extension supplies the state).
+ * Never serialized: the exported email is a borderless table / bare
+ * inline-block divs, and the `.aee-column`/`.aee-columns` hooks exist only in
+ * the editor's DOM (the nodes' `emitDOM` drops them).
+ *
+ * A transparent border is always reserved, so revealing a guide never shifts
+ * layout. Three ways to reveal, same for both blocks:
+ *   1. the cursor is inside the block   (.aee-guides-active)
+ *   2. the pointer hovers the block     (:hover — reveals the whole block)
+ *   3. Ctrl is held (~300ms)            (.aee-guides-peek on the editor root)
  */
-.ProseMirror table td {
+.aee-editor table td,
+.aee-editor .aee-column {
   border: 1px solid transparent;
+  // Ease the guides in rather than snapping them on: motion starting early is
+  // what makes a peek read as responsive, and it softens anything that slips
+  // past the peek's hold delay into a partial fade instead of a blink.
+  transition: border-color 140ms ease-out;
 }
 
-.ProseMirror table.aee-table-editing td {
-  border-color: var(--email-table-grid, rgb(224, 224, 224));
+@media (prefers-reduced-motion: reduce) {
+  .aee-editor table td,
+  .aee-editor .aee-column {
+    transition: none;
+  }
+}
+
+/* 1. cursor inside */
+.aee-editor table.aee-guides-active td,
+.aee-editor .aee-columns.aee-guides-active .aee-column,
+/* 2. hover the block — the whole grid, not just the cell/column under the pointer */
+.aee-editor table:hover td,
+.aee-editor .aee-columns:hover .aee-column,
+/* 3. peek: every layout block at once */
+.aee-editor.aee-guides-peek table td,
+.aee-editor.aee-guides-peek .aee-column {
+  border-color: var(--email-layout-guide, var(--email-table-grid, rgb(224, 224, 224)));
 }
 
 /* HTML source editor: token and lint classes applied via ProseMirror

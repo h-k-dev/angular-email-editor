@@ -20,6 +20,10 @@ const GOLDEN: string[] = [
   '<div><em style="font-style: italic;">italic</em> and <u style="text-decoration: underline;">underlined</u></div>',
   '<div><s style="text-decoration: line-through;">gone</s></div>',
   '<div><span style="font-size: 18px; font-family: Georgia, Times, serif;">styled</span></div>',
+  // Fills always pair an explicit near-black text colour (FILL_TEXT_COLOR):
+  // default text flips to near-white in non-transforming dark modes.
+  '<div><span style="color: rgb(32, 33, 36); background-color: rgb(254, 247, 224);">highlit</span></div>',
+  '<table style="width: 100%; border-collapse: collapse;" role="presentation"><tbody><tr><td style="padding: 8px 12px; vertical-align: top; background-color: rgb(230, 244, 234); color: rgb(32, 33, 36);">cell</td></tr></tbody></table>',
   // Clean canonical link: clients style links natively; editor styling is
   // toDOM-only (a styled link would re-parse its underline as a mark).
   '<div><a href="https://example.com" target="_blank" rel="noopener noreferrer">link</a></div>',

@@ -1,4 +1,5 @@
 import { defineMark } from '../../extension';
+import { FILL_TEXT_COLOR, isFillTextColor } from '../../dual-contrast';
 import { setMark } from './set.utils';
 import { unsetMark } from './unset.utils';
 
@@ -10,7 +11,7 @@ import { unsetMark } from './unset.utils';
  * CSSOM, but the legacy `<font color>` path and the programmatic `setColor`
  * command take raw strings, so we gate both.
  */
-function isSafeColor(color: string | null | undefined): color is string {
+export function isSafeColor(color: string | null | undefined): color is string {
   if (!color) return false;
   return (
     /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(color) ||
@@ -130,13 +131,15 @@ export function parseFontFamily(raw: string | null | undefined): string | null {
 
 /**
  * TipTap-style `textStyle` mark: a `<span style="…">` container holding inline
- * text-styling attributes. We expose only `color` — the one styling primitive
- * that renders reliably across email clients.
+ * text-styling attributes — `color`, `fontSize`, `fontFamily` and
+ * `backgroundColor` (the highlighter). All hang off one shared span and merge
+ * into a single `style` string instead of nesting wrapper tags.
  *
- * Modeled on `@tiptap/extension-text-style` + `@tiptap/extension-color`: color
- * is an *attribute* on a shared span rather than its own mark, so future
- * email-safe styles (e.g. background-color) can hang off the same span and
- * merge into one `style` string instead of nesting wrapper tags.
+ * Modeled on `@tiptap/extension-text-style` + `@tiptap/extension-color`: each
+ * primitive is an *attribute* on the span, not its own mark, so `setColor`,
+ * `setFontSize`, … all coalesce onto the same element. `backgroundColor` fills
+ * only from the curated dual-safe background palette (principle 9); a hand-typed
+ * fill in the HTML source is the author's own responsibility, never policed.
  */
 export const TextStyle = defineMark({
   name: 'textStyle',
@@ -145,17 +148,22 @@ export const TextStyle = defineMark({
       color: { default: null },
       fontSize: { default: null },
       fontFamily: { default: null },
+      backgroundColor: { default: null },
     },
     parseDOM: [
       {
         tag: 'span',
         getAttrs: (node) => {
-          const color = isSafeColor(node.style?.color) ? node.style.color : null;
+          let color = isSafeColor(node.style?.color) ? node.style.color : null;
           const fontSize = parseFontSize(node.style?.fontSize);
           const fontFamily = parseFontFamily(node.style?.fontFamily);
           const backgroundColor = isSafeColor(node.style?.backgroundColor)
             ? node.style.backgroundColor
             : null;
+          // The paired fill text colour is an emit artifact of the fill, not
+          // an authored colour — absorb it so the pair round-trips clean and
+          // clearing the fill later also clears its text colour.
+          if (backgroundColor && isFillTextColor(color)) color = null;
           if (!color && !fontSize && !fontFamily && !backgroundColor) return false;
           return { color, fontSize, fontFamily, backgroundColor };
         },
@@ -171,8 +179,11 @@ export const TextStyle = defineMark({
     ],
     toDOM: (mark) => {
       const { color, fontSize, fontFamily, backgroundColor } = mark.attrs;
+      // A fill never rides on the client's default text colour: without an
+      // authored colour it carries the paired near-black (see FILL_TEXT_COLOR).
+      const textColor = color ?? (backgroundColor ? FILL_TEXT_COLOR : null);
       const style = [
-        color ? `color: ${color}` : null,
+        textColor ? `color: ${textColor}` : null,
         fontSize ? `font-size: ${fontSize}px` : null,
         fontFamily ? `font-family: ${fontFamily}` : null,
         backgroundColor ? `background-color: ${backgroundColor}` : null,

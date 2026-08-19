@@ -90,6 +90,26 @@ describe('table editing', () => {
     expect(dims()).toEqual({ rows: 2, cols: 2 });
   });
 
+  it('setCellBackground fills only the current cell with a canonical rgb() bg', () => {
+    editor.commands['insertTable'](); // cursor is in cell (0,0)
+    editor.commands['setCellBackground']('#e6f4ea');
+    const html = editor.getHTML();
+    expect(html).toContain(
+      '<td style="padding: 8px 12px; vertical-align: top; background-color: rgb(230, 244, 234); color: rgb(32, 33, 36);">',
+    );
+    // Only one cell filled; still a fixpoint and lint-clean.
+    expect((html.match(/background-color/g) || []).length).toBe(1);
+    expect(canonical(html)).toBe(html);
+    expect(lintHTML(html)).toEqual([]);
+    editor.commands['setCellBackground'](null);
+    expect(editor.getHTML()).not.toContain('background-color');
+  });
+
+  it('parses a legacy bgcolor attribute into the cell fill', () => {
+    const html = canonical('<table><tbody><tr><td bgcolor="#e6f4ea">x</td></tr></tbody></table>');
+    expect(html).toContain('background-color: rgb(230, 244, 234)');
+  });
+
   it('refuses to delete the last row or column', () => {
     editor.commands['insertTable'](1, 1);
     expect(dims()).toEqual({ rows: 1, cols: 1 });

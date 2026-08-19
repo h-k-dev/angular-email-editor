@@ -1,0 +1,59 @@
+import { TextSelection } from 'prosemirror-state';
+import { createEditor, Editor } from '../editor';
+import { emailExtensions } from './kits';
+import { GUIDES_ACTIVE_CLASS } from './layout-guides';
+
+describe('layout guides', () => {
+  let host: HTMLElement;
+  let editor: Editor;
+
+  beforeEach(() => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    editor = createEditor({
+      parent: host,
+      extensions: emailExtensions,
+      content: '<div>intro</div>',
+    });
+    editor.exec((state, dispatch) => {
+      dispatch?.(
+        state.tr.setSelection(TextSelection.create(state.doc, state.doc.content.size - 1)),
+      );
+      return true;
+    });
+  });
+
+  afterEach(() => {
+    editor.destroy();
+    host.remove();
+  });
+
+  it('marks the table the cursor is in', () => {
+    editor.commands['insertTable']();
+    expect(editor.view.dom.querySelector(`table.${GUIDES_ACTIVE_CLASS}`)).not.toBeNull();
+  });
+
+  it('marks the columns block the cursor is in — the same class, one mechanism', () => {
+    editor.commands['insertColumns'](2);
+    expect(editor.view.dom.querySelector(`.aee-columns.${GUIDES_ACTIVE_CLASS}`)).not.toBeNull();
+  });
+
+  it('marks nothing while the cursor is in ordinary text', () => {
+    expect(editor.view.dom.querySelector(`.${GUIDES_ACTIVE_CLASS}`)).toBeNull();
+  });
+
+  it('renders the editor-only CSS hooks in the view', () => {
+    editor.commands['insertColumns'](2);
+    expect(editor.view.dom.querySelector('.aee-columns')).not.toBeNull();
+    expect(editor.view.dom.querySelectorAll('.aee-column').length).toBe(2);
+  });
+
+  it('never leaks the editor-only hooks into the email', () => {
+    editor.commands['insertColumns'](2);
+    const html = editor.getHTML();
+    // emitDOM drops the class: the email is bare inline-block divs.
+    expect(html).not.toContain('aee-');
+    expect(html).not.toContain('class=');
+    expect(html).toContain('display: inline-block');
+  });
+});

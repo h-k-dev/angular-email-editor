@@ -22,6 +22,7 @@ import { Link } from './marks/link';
 import { Strike } from './marks/strike';
 import { TextStyle } from './marks/text-style';
 import { History } from './history';
+import { LayoutGuides } from './layout-guides';
 import { NoTextDrag } from './no-text-drag';
 import { SplitKeepingMarks } from './split-keeping-marks';
 import { BaseKeymap } from './base-keymap';
@@ -54,6 +55,8 @@ const withParagraph = (paragraph: NodeExtension): Extension[] => [
   Strike,
   TextStyle,
   History,
+  // One editor-only outline mechanism for every layout block (table, columns).
+  LayoutGuides,
   NoTextDrag,
   // After lists/blockquote (their Enter wins inside those), before BaseKeymap
   // (whose plain splitBlock this replaces): keeps font/colour across Enter.

@@ -27,19 +27,24 @@ import { redo, undo } from 'prosemirror-history';
 
 // Library
 import {
+  BlockMenuState,
   BubbleMenuState,
   Editor,
   SlashMenuState,
   TextMetrics,
+  createBlockMenu,
   createBubbleMenu,
   createEditor,
   createSlashMenu,
   createTextMetrics,
   defineExtension,
+  emailBackgroundPalette,
   emailExtensions,
   emailFontFamilies,
   emailFontSizes,
   emailTextPalette,
+  findColumnContext,
+  findTableContext,
   linkRangeAt,
 } from 'angular-email-editor';
 
@@ -68,6 +73,8 @@ export class EmailCompose {
 
   editorHost = viewChild.required<ElementRef<HTMLElement>>('editorHost');
   bubbleMenu = viewChild.required<ElementRef<HTMLElement>>('bubbleMenu');
+  /** Only exists while the block menu is open (it renders in a CDK overlay). */
+  blockMenu = viewChild<ElementRef<HTMLElement>>('blockMenu');
   slashMenu = viewChild.required<ElementRef<HTMLElement>>('slashMenu');
   editor = signal<Editor | undefined>(undefined);
   slashState = signal<SlashMenuState | undefined>(undefined);
@@ -75,10 +82,20 @@ export class EmailCompose {
   // Our source of truth powered by the PM plugin
   menuState = signal<BubbleMenuState>({ isOpen: false, boundingBox: null });
 
+  /** The layout-block toolbar (tables/columns) — the bubble menu's sibling,
+      anchored to the block instead of the selection. Mutually exclusive with
+      the bubble menu: it only opens on a bare cursor. */
+  blockMenuState = signal<BlockMenuState>({ isOpen: false, boundingBox: null, block: null });
+
   /** Curated dual-contrast text colors — the picker offers only these;
       arbitrary hex lives solely in the HTML source pane, on purpose. */
   palette = emailTextPalette;
   colorMenuOpen = signal(false);
+
+  /** Curated dual-safe background fills; the picker routes them to the right
+      scope (text highlight / table cell / column) based on the cursor. */
+  backgroundPalette = emailBackgroundPalette;
+  bgMenuOpen = signal(false);
 
   /** Curated, email-safe font stacks and phone-safe sizes — the pickers offer
       only these; free-form fonts/sizes live solely in the HTML source pane. */
@@ -120,6 +137,26 @@ export class EmailCompose {
       overlayX: 'center',
       overlayY: 'top',
       offsetY: 8,
+    },
+  ];
+
+  /** The block menu sits *below* its block — it describes the whole structure,
+      not the line being typed, and under the block it never covers the first
+      row while writing. Flips above only when the bottom has no room. */
+  blockMenuPositions: ConnectedPosition[] = [
+    {
+      originX: 'center',
+      originY: 'bottom',
+      overlayX: 'center',
+      overlayY: 'top',
+      offsetY: 8,
+    },
+    {
+      originX: 'center',
+      originY: 'top',
+      overlayX: 'center',
+      overlayY: 'bottom',
+      offsetY: -8,
     },
   ];
 
@@ -169,6 +206,10 @@ export class EmailCompose {
           updateDelay: 150,
           onStateChange: (state) => this.menuState.set(state),
         }),
+        createBlockMenu({
+          onStateChange: (state) => this.blockMenuState.set(state),
+          menuElement: () => this.blockMenu()?.nativeElement,
+        }),
         createSlashMenu({
           element: this.slashMenu().nativeElement,
           onChange: (state) => this.slashState.set(state),
@@ -195,6 +236,27 @@ export class EmailCompose {
   isActive(name: string, attrs?: Record<string, unknown>): boolean {
     this.#editorTick();
     return this.editor()?.isActive(name, attrs) ?? false;
+  }
+
+  /** Runs a block command from the block menu. */
+  runBlock(command: string): void {
+    const editor = this.editor();
+    if (!editor) return;
+    editor.commands[command]();
+    this.#restoreFocus();
+  }
+
+  /**
+   * Where focus belongs after a block-menu action. A mouse user never left the
+   * editor (the menu suppresses mousedown), so refocusing is a no-op. A keyboard
+   * user is standing *in* the menu — yanking them back to the editor after every
+   * button would make the menu unusable, so leave them there. Unless the action
+   * dissolved the menu (delete table), where the button they were on is gone.
+   */
+  #restoreFocus(): void {
+    const menu = this.blockMenu()?.nativeElement;
+    if (this.blockMenuState().isOpen && menu?.contains(document.activeElement)) return;
+    this.editor()?.focus();
   }
 
   /** Paragraph alignment; `null` restores the default (left). */
@@ -234,6 +296,28 @@ export class EmailCompose {
 
     if (color) editor.commands['setColor'](color);
     else editor.commands['unsetColor']();
+    editor.focus();
+  }
+
+  /** Applies a background fill to the most relevant scope: selected text gets an
+      inline highlight; a bare cursor in a table cell or column fills that
+      container; otherwise it's an inline highlight (stored, so it continues as
+      you type). `null` clears whichever scope applies. */
+  applyBackground(color: string | null): void {
+    this.bgMenuOpen.set(false);
+    const editor = this.editor();
+    if (!editor) return;
+    const { state } = editor;
+
+    if (state.selection.empty && findTableContext(state)) {
+      editor.commands['setCellBackground'](color);
+    } else if (state.selection.empty && findColumnContext(state)) {
+      editor.commands['setColumnBackground'](color);
+    } else if (color) {
+      editor.commands['setBackgroundColor'](color);
+    } else {
+      editor.commands['unsetBackgroundColor']();
+    }
     editor.focus();
   }
 

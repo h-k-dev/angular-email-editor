@@ -5,10 +5,10 @@ source editor developed as peers over the same extension contract, kept in
 sync through Angular signals, with ProseMirror as the parsing engine on both
 sides.
 
-## Progress snapshot — 2026-07-13
+## Progress snapshot — 2026-08-19
 
 Foundations and the two-editor core are in; the content and layout-blocks side
-is mature. Tests: **179 library + 4 app, all green**.
+is mature. Tests: **213 library + 4 app, all green**.
 
 | Milestone                                                       | State            | Left to do                                                         |
 | --------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------ |
@@ -17,21 +17,21 @@ is mature. Tests: **179 library + 4 app, all green**.
 | **M2 — Missing composer features**                              | 🟢 nearly done   | `/send` (waits on M6 transport)                                    |
 | **M3 — Deliverability lint engine**                             | ✅ done          | —                                                                  |
 | **M4 — Preview & proof**                                        | 🟢 mostly done   | per-client simulation; Outlook conditional comments                |
-| **M5 — Layout blocks**                                          | 🟢 flagship done | add/remove-column UI; section-schema + `{{template}}` placeholders |
+| **M5 — Layout blocks**                                          | 🟢 flagship done | UX polish pass (see “Known dissatisfactions”); section-schema + `{{template}}` placeholders |
 | **M6 — Compose workflow**                                       | ⬜ not started   | `/send`, drafts, reply/forward, `.eml`/HTML import, attachments    |
 
-Most recent work: **font size/family** (curated email-safe stacks +
-phone-safe sizes, both merged onto the shared `textStyle` span, toolbar
-pickers mirroring the colour palette) and the **word/line counter** placed in
-the status strip — leaving only `/send` (which waits on M6's transport) open
-in M2. Before that:
-**`/columns`** (responsive layout block that stacks on phones, no media
-queries), **paste-a-URL-onto-selection** linking, and the **table
-simplification** — the fiddly Notion-style overlay was tried and reverted in
-favour of a plain table with an editor-only grid (shown only while the cursor
-is inside it) plus an ArrowDown escape so you can always write underneath.
-Next candidates: the M5 add/remove-column UI, or open the M6 compose-workflow
-arc (which also unblocks M2's `/send`).
+Most recent work: the **block menu** (the bubble menu's sibling for layout
+blocks — one calm toolbar anchored to the block a bare cursor sits in) now
+carries the table's structural commands _and_ the new
+**add/remove-column commands**, closing M5's add/remove-column UI item.
+Before that: **background fills** (three scopes behind one picker),
+**layout guides** (one editor-only outline mechanism for tables and columns:
+cursor, hover, Ctrl-peek), **columns centred by default** with a
+client-padding budget, **font size/family** (curated email-safe stacks +
+phone-safe sizes on the shared `textStyle` span), and the **word/line
+counter** — leaving only `/send` (which waits on M6's transport) open in M2.
+Next candidates: M5's section schema / `{{template}}` placeholders, or open
+the M6 compose-workflow arc (which also unblocks M2's `/send`).
 
 ## Why this is worth building
 
@@ -243,6 +243,24 @@ schema extensions first, toolbar second.
       arbitrary-hex color input with a curated swatch set whose every color
       reads against both white and near-black. Enforcement at the picker
       only — no color checking, rewriting, or nagging from the source pane.
+- [x] **Background colour / fill**, in three scopes behind one affordance.
+      Principle 9 makes fills the *hardest* colour feature: a background is a
+      **pair** constraint — near-black text sits on it, and forced dark mode
+      recolours fill *and* text together. So `passesDualBackground` selects
+      **pale tints** (readable with black text now, and their complements read
+      with white text after inversion); the text palette's mid-tones are
+      explicitly *not* fills, pinned by test. One curated
+      `emailBackgroundPalette` feeds every scope:
+  - **Text highlight** — a `backgroundColor` attr on the shared `textStyle`
+        span, merging with colour/size/family into one `style` string.
+  - **Table cell** — a `background` attr on `tableCell` (`background-color`
+        on `<td>` is the most bulletproof background in email; renders even in
+        Outlook). Legacy inbound `bgcolor="…"` parses into it.
+  - **Column** — a `background` attr on `column`, for coloured callout panels.
+      The toolbar has a single **fill** picker that routes by cursor: selected
+      text → inline highlight; a bare cursor in a cell or column → fills that
+      container; otherwise → inline highlight. All longhand rgb(), lint-clean,
+      byte-stable fixpoints, pinned by golden + round-trip tests.
 - [x] **Word/line counter placement**: the `textMetrics` extension already
       computes words/lines/height as pure arithmetic (no DOM reads on the
       keystroke path); this surfaces it. The email pane's `bodyMetrics` signal
@@ -356,9 +374,31 @@ pane) can't see and edit.
       both engines. The lint's `max-width` warning is exempt when paired with
       `width: 100%` (the fluid pattern degrades gracefully in Outlook), so our
       own output stays clean. ArrowDown from a column's last block escapes to
-      a paragraph below (like the table). Not yet: a UI to add/remove columns
-      after insertion, and richer gutters beyond the 8px padding; Outlook
-      ghost tables for true side-by-side there remain a deliberate non-goal.
+      a paragraph below (like the table). **Centred by default**: the container
+      pairs its cap with longhand `margin-left/right: auto`, because
+      `max-width` alone leaves the block hugging the left of any viewport wider
+      than it — and an email body that isn't centred reads as broken. Auto
+      margins are normally the thing to distrust in email (Outlook's Word
+      engine handles them poorly), but they are safe here *by the same pairing
+      logic as `width: 100%` + `max-width`*: Outlook ignores `max-width`
+      entirely, so the container spans full width there and has nothing to
+      centre — the only clients where the cap is visible are the ones that
+      honour auto margins. Verified: 600px block, 150px gaps either side, in a
+      900px body. **Add/remove columns after insertion** — shipped, via the
+      block menu (below): `addColumn` inserts an empty column after the
+      cursor's, capped at `MAX_COLUMNS = 4` (at four the even split is already
+      ~140px — a feature-row width, and the floor for readable prose; the cap
+      lives on the command, so authored markup with more columns still parses);
+      `removeColumn` deletes the cursor's column and refuses on the last one
+      (emptying the block is `deleteColumns`' own explicit affordance, the
+      table's deleteRow/deleteTable split). Every structural edit **re-splits
+      the caps evenly** — the geometry derives from the count, so an authored
+      asymmetric cap doesn't survive a structure change (rebuilding is repair);
+      fills and content are kept. Not yet: richer gutters beyond the 8px
+      padding; Outlook ghost tables for true
+      side-by-side there remain a deliberate non-goal. Note the **data
+      `/table` is `width: 100%`** — it always spans, so there is nothing to
+      centre; centring a table would first need a width control (not offered).
 - [x] **`/table` — constrained data table**: a real `<table role=
     "presentation">` (the most client-compatible layout) restricted to a
       plain rectangular grid — no colspan/rowspan, so the model is a clean 2D
@@ -373,12 +413,10 @@ pane) can't see and edit.
       the future `/columns`. **Deliberately kept simple** (an earlier
       Notion-style hover overlay — add/delete handles, padding steppers,
       pointer tracking — was tried and reverted; it was fiddly and got in the
-      way): the only affordance is a **subtle editor-only grid shown while the
-      cursor is editing inside the table**. A ProseMirror decoration tags the
-      active table with `aee-table-editing`; global CSS reveals a
-      transparent-reserved 1px cell border only then (no layout shift), _never_
-      in the serialized email — the exported table is borderless with fixed,
-      responsive padding (`8px 12px`). Structure is keyboard/command-driven:
+      way): the only affordance is a **subtle editor-only grid** — see
+      **Layout guides** below, the one mechanism tables and `/columns` share.
+      It is _never_ in the serialized email — the exported table is borderless
+      with fixed, responsive padding (`8px 12px`). Structure is keyboard/command-driven:
       Tab/Shift-Tab navigation, and **ArrowDown from the last row escapes to a
       paragraph below** (created if the table is the last block) so you can
       always write underneath. The structural commands (`addColumnAt`,
@@ -389,6 +427,71 @@ pane) can't see and edit.
     trip — a real corruption bug the text-cell tests had missed. Bonus:
     text marks (bold, links, colour) now work inside cells. Pinned by an
     empty-cell round-trip test.
+- [x] **Layout guides — one mechanism for every layout block.** Tables and
+      `/columns` both export structures that are *invisible* in the email (a
+      borderless table; bare inline-block divs), so the editor has to show their
+      shape — and it now shows it the same way for both, via the `LayoutGuides`
+      extension. A decoration tags whichever layout block holds the cursor with
+      `aee-guides-active`; the app's global CSS resolves the pixels against a
+      border that is **always reserved as transparent**, so revealing a guide
+      never shifts layout. Three ways in:
+  1. **Cursor inside** the block (the original table behaviour, now shared).
+  2. **Hover** — pure CSS, revealing the *whole* block (not just the cell or
+        column under the pointer), so it reads as one grid.
+  3. **Peek: hold Ctrl (~300ms)** → `aee-guides-peek` on the editor root reveals
+        every block at once. The hold delay is the point: Ctrl is also the
+        prefix of every shortcut, so an instant reveal would flash the grid on
+        each Ctrl-B/C/Z — any other keypress cancels the pending reveal, and a
+        window blur clears a stranded hold. (Alt steals the browser menu bar on
+        Windows, Shift flashes on every capital, and Meta opens the Start menu —
+        Ctrl is the only safe modifier. A toolbar toggle remains the more
+        discoverable option if a persistent mode is ever wanted.)
+      Columns get their CSS hooks (`aee-columns` / `aee-column`) from `toDOM`,
+      while `emitDOM` drops them — the same serialization-only split the email
+      paragraph uses, so no class ever reaches the email. Pinned by test.
+- [x] **Block menu — the bubble menu's sibling for layout blocks.** Block-level
+      commands kept piling up with nowhere to live: the table's structural
+      commands were library-only, and add/remove-column would have been the
+      third feature to hit the same wall. The `blockMenu` extension reports
+      which layout block holds a **bare cursor** (plus the block's rect); the
+      app renders one calm toolbar anchored *below the block* — it describes
+      the whole structure, not the line being typed, and under the block it
+      never covers the first row while writing. The bare-cursor trigger makes
+      it mutually exclusive with the text bubble menu (which needs a non-empty
+      selection) by construction — never stacked. Keyboard-reachable:
+      **Alt-F10** (CKEditor's convention; bare F10 belongs to the browser)
+      moves focus into the menu, Escape hands it back; focus sitting inside
+      the menu counts as still-active, so reaching for it by keyboard isn't
+      the thing that closes it. Today it carries the table's row/column/delete
+      commands and the columns block's add/remove/delete. Deliberately *not*
+      the reverted Notion-style overlay: no pointer tracking, no hover
+      handles — one toolbar, positioned by the app.
+
+### Known dissatisfactions — parked on purpose (noted 2026-08-19)
+
+We're moving forward (M6) before polishing these; the schema/UI split makes
+that safe (the canonical HTML is the only durable contract — all of the below
+is UI-layer or additive). Honest framing: the table/columns *editing UX is
+still clunky and unintuitive* overall; these are the concrete symptoms.
+
+- [ ] **Block menu doesn't track its block.** Adding a row grows the table,
+      but the toolbar stays where it was — the anchor rect isn't re-resolved /
+      the overlay isn't repositioned after a structural edit. The menu should
+      ride its block through every mutation.
+- [ ] **Click-below should escape the block.** Clicking the empty space under
+      a trailing table/columns block should drop the cursor into a paragraph
+      below (creating one when the block is last) — the mouse sibling of the
+      ArrowDown escape. Today only the keyboard path exists.
+- [ ] **Real borders are impossible.** The editor grid is editor-only by
+      design, but there is no affordance to give the *serialized* table a
+      visible border at all. Needs a curated border option (longhand, on the
+      `<td>`s — the Outlook-safe way), routed through the block menu.
+- [ ] **Columns must feel like tables — one editing model.** They are the same
+      thing to a user (a grid; one holds content, one is structure) and today
+      they inherit the same clunkiness *separately*. The mechanisms are
+      already shared (layout guides, block menu) — the remaining interaction
+      polish (navigation, escapes, selection behaviour, menu affordances)
+      should be designed once and applied to both, not fixed per block.
 - [ ] **Schema growth to hold them**: constrained table/section nodes with
       strict parse/serialize rules — the gate for this milestone, and it must
       not loosen the canonical guarantees for plain text emails.
@@ -478,7 +581,10 @@ Two enforcement hooks so the ledger stays alive:
   either pane. The source pane consumes it via `createSourceMarks`-style
   round-trips.
 - The library ships behavior, the app ships pixels. Token classes
-  (`aee-tok-*`, `aee-lint-*`) are the styling contract.
+  (`aee-tok-*`, `aee-lint-*`) are the styling contract — and the editable
+  root always carries **`aee-editor`**, stamped by `createEditor` itself.
+  Global styles scope to `.aee-editor`, never to bare `.ProseMirror`: a host
+  app may run other ProseMirror instances, and our CSS must never reach them.
 - The app consumes the library from `dist/` — rebuild it (`ng build
 angular-email-editor`) or run `npm run watch`; if changes "don't arrive",
   clear `.angular/cache` (stale Vite prebundle).

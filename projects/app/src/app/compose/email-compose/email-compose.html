@@ -211,6 +211,62 @@
     </div>
   </ng-template>
 
+  <!-- Highlight / fill: routes to text, table cell, or column by cursor. -->
+  <button
+    mat-icon-button
+    type="button"
+    aria-label="Highlight color"
+    [attr.aria-expanded]="bgMenuOpen()"
+    cdkOverlayOrigin
+    #bgOrigin="cdkOverlayOrigin"
+    (mousedown)="$event.preventDefault()"
+    (click)="bgMenuOpen.set(!bgMenuOpen())"
+  >
+    <mat-icon>format_color_fill</mat-icon>
+  </button>
+
+  <!-- Curated dual-safe background palette: pale tints that keep text readable
+       in light mode and after forced dark-mode inversion. No hex input. -->
+  <ng-template
+    cdkConnectedOverlay
+    [cdkConnectedOverlayOrigin]="bgOrigin"
+    [cdkConnectedOverlayOpen]="bgMenuOpen()"
+    [cdkConnectedOverlayHasBackdrop]="true"
+    cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop"
+    (backdropClick)="bgMenuOpen.set(false)"
+    [cdkConnectedOverlayPush]="true"
+    [cdkConnectedOverlayViewportMargin]="8"
+  >
+    <div
+      class="color-palette"
+      role="listbox"
+      aria-label="Highlight color"
+      (mousedown)="$event.preventDefault()"
+    >
+      <button
+        type="button"
+        class="color-palette__swatch color-palette__swatch--auto"
+        role="option"
+        title="None"
+        aria-label="None"
+        (click)="applyBackground(null)"
+      >
+        <mat-icon>format_color_reset</mat-icon>
+      </button>
+      @for (color of backgroundPalette; track color.value) {
+        <button
+          type="button"
+          class="color-palette__swatch"
+          role="option"
+          [title]="color.name"
+          [attr.aria-label]="color.name"
+          [style.--email-swatch]="color.value"
+          (click)="applyBackground(color.value)"
+        ></button>
+      }
+    </div>
+  </ng-template>
+
   <mat-divider [vertical]="true" />
 
   <button
@@ -363,6 +419,124 @@
 </ng-template>
 
 <div class="editor scroll-container" #editorHost>
+  <!-- Block menu: anchored to the layout block itself, not the caret. Opens only
+       on a bare cursor, so it never stacks with the bubble menu below. -->
+  <span
+    cdkOverlayOrigin
+    #blockOrigin="cdkOverlayOrigin"
+    [style.position]="'fixed'"
+    [style.left.px]="blockMenuState().boundingBox?.left || 0"
+    [style.top.px]="blockMenuState().boundingBox?.top || 0"
+    [style.width.px]="blockMenuState().boundingBox?.width || 0"
+    [style.height.px]="blockMenuState().boundingBox?.height || 0"
+    [style.pointer-events]="'none'"
+  >
+  </span>
+
+  <!-- disableClose: the CDK otherwise detaches the overlay itself on Escape,
+       which strands it — `isOpen` stays true, so the binding never toggles and
+       the overlay never re-attaches. Escape is ours: it returns focus to the
+       text and leaves the menu open, because the cursor is still in the block. -->
+  <ng-template
+    cdkConnectedOverlay
+    [cdkConnectedOverlayOrigin]="blockOrigin"
+    [cdkConnectedOverlayOpen]="blockMenuState().isOpen"
+    [cdkConnectedOverlayPositions]="blockMenuPositions"
+    [cdkConnectedOverlayHasBackdrop]="false"
+    [cdkConnectedOverlayDisableClose]="true"
+    [cdkConnectedOverlayPush]="true"
+    [cdkConnectedOverlayViewportMargin]="8"
+  >
+    <!-- Alt-F10 moves focus in here; Escape hands it back to the text. -->
+    <div
+      class="bubble-menu"
+      #blockMenu
+      role="toolbar"
+      [attr.aria-label]="blockMenuState().block === 'table' ? 'Table' : 'Columns'"
+      (mousedown)="$event.preventDefault()"
+      (keydown.escape)="focusEditor()"
+    >
+      @if (blockMenuState().block === 'table') {
+        <button
+          mat-icon-button
+          type="button"
+          aria-label="Insert row below"
+          (click)="runBlock('addRowAfter')"
+        >
+          <mat-icon>add</mat-icon>
+        </button>
+        <button
+          mat-icon-button
+          type="button"
+          aria-label="Delete row"
+          (click)="runBlock('deleteRow')"
+        >
+          <mat-icon>remove</mat-icon>
+        </button>
+
+        <mat-divider [vertical]="true" />
+
+        <button
+          mat-icon-button
+          type="button"
+          aria-label="Insert column after"
+          (click)="runBlock('addColumnAfter')"
+        >
+          <mat-icon>view_column</mat-icon>
+        </button>
+        <button
+          mat-icon-button
+          type="button"
+          aria-label="Delete column"
+          (click)="runBlock('deleteColumn')"
+        >
+          <mat-icon>view_week</mat-icon>
+        </button>
+
+        <mat-divider [vertical]="true" />
+
+        <button
+          mat-icon-button
+          type="button"
+          aria-label="Delete table"
+          (click)="runBlock('deleteTable')"
+        >
+          <mat-icon>delete_outline</mat-icon>
+        </button>
+      }
+
+      @if (blockMenuState().block === 'columns') {
+        <button
+          mat-icon-button
+          type="button"
+          aria-label="Add column"
+          (click)="runBlock('addColumn')"
+        >
+          <mat-icon>add</mat-icon>
+        </button>
+        <button
+          mat-icon-button
+          type="button"
+          aria-label="Remove column"
+          (click)="runBlock('removeColumn')"
+        >
+          <mat-icon>remove</mat-icon>
+        </button>
+
+        <mat-divider [vertical]="true" />
+
+        <button
+          mat-icon-button
+          type="button"
+          aria-label="Delete columns"
+          (click)="runBlock('deleteColumns')"
+        >
+          <mat-icon>delete_outline</mat-icon>
+        </button>
+      }
+    </div>
+  </ng-template>
+
   <span
     cdkOverlayOrigin
     #origin="cdkOverlayOrigin"
