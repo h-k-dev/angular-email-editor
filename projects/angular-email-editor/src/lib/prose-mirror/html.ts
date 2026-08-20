@@ -5,6 +5,7 @@ import {
   Node,
   Schema,
 } from 'prosemirror-model';
+import { repairTables } from './extensions/nodes/table';
 
 const serializerCache = new WeakMap<Schema, DOMSerializer>();
 
@@ -42,8 +43,16 @@ export function serializeToHTML(doc: Node, schema: Schema): string {
   return container.innerHTML;
 }
 
-/** Parses an HTML string into a document conforming to the schema. */
+/**
+ * Parses an HTML string into a document conforming to the schema.
+ *
+ * Parsing is repair (principle 2), and tables are where foreign markup breaks
+ * the rules hardest: real mail arrives with rows of unequal length and spans
+ * that reach past the grid. `repairTables` normalizes them here, so every pure
+ * consumer of the parser — `importedDocument`, `replyDocument`, the source
+ * pane's round trip — sees the same rectangle the editor would.
+ */
 export function parseHTML(html: string, schema: Schema): Node {
   const dom = new window.DOMParser().parseFromString(html, 'text/html');
-  return ProseMirrorDOMParser.fromSchema(schema).parse(dom.body);
+  return repairTables(ProseMirrorDOMParser.fromSchema(schema).parse(dom.body), schema);
 }

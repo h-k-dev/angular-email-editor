@@ -482,10 +482,14 @@ still clunky and unintuitive* overall; these are the concrete symptoms.
       but the toolbar stays where it was — the anchor rect isn't re-resolved /
       the overlay isn't repositioned after a structural edit. The menu should
       ride its block through every mutation.
-- [ ] **Click-below should escape the block.** Clicking the empty space under
-      a trailing table/columns block should drop the cursor into a paragraph
-      below (creating one when the block is last) — the mouse sibling of the
-      ArrowDown escape. Today only the keyboard path exists.
+- [ ] **Click-below should escape the block.** *Mechanism shipped
+      (2026-08-20), confirmation outstanding.* `prosemirror-gapcursor` now
+      gives every isolating block a real cursor position beside it, so the
+      click lands a gap cursor and typing there creates the paragraph — the
+      ProseMirror idiom, and better than eagerly growing an empty paragraph
+      nobody asked for. Left open on purpose: click geometry is exactly what
+      jsdom cannot prove and the hidden preview cannot paint, so this stays
+      unchecked until someone confirms it in a real browser.
 - [ ] **Real borders are impossible.** The editor grid is editor-only by
       design, but there is no affordance to give the *serialized* table a
       visible border at all. Needs a curated border option (longhand, on the
@@ -493,9 +497,21 @@ still clunky and unintuitive* overall; these are the concrete symptoms.
 - [ ] **Columns must feel like tables — one editing model.** They are the same
       thing to a user (a grid; one holds content, one is structure) and today
       they inherit the same clunkiness *separately*. The mechanisms are
-      already shared (layout guides, block menu) — the remaining interaction
-      polish (navigation, escapes, selection behaviour, menu affordances)
-      should be designed once and applied to both, not fixed per block.
+      already shared (layout guides, block menu, and now the gap cursor) — the
+      remaining interaction polish (navigation, escapes, selection behaviour,
+      menu affordances) should be designed once and applied to both, not fixed
+      per block. The table half now rides `prosemirror-tables`; the honest
+      question this raises is whether columns should become a table under the
+      skin (one model, literally) or keep their own nodes and merely borrow
+      the interactions. Undecided — and worth deciding before more polish
+      lands on either.
+- [ ] **Merged cells have no affordance yet.** `mergeCells`/`splitCell` are
+      exposed as commands and cell selection works (shift-drag a rectangle),
+      but the block menu opens only on a *bare cursor*, and a cell selection is
+      by definition not empty — so the one moment you'd reach for "merge" is
+      the one moment the menu is closed. Fixing it is a menu-rule decision, not
+      a table one: open on a cursor *or* a cell selection, and keep the text
+      bubble menu out of the way so the two never stack.
 - [ ] **Schema growth to hold them**: constrained table/section nodes with
       strict parse/serialize rules — the gate for this milestone, and it must
       not loosen the canonical guarantees for plain text emails.
@@ -730,6 +746,30 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
 
 ## Architecture notes for future us
 
+- **The table model is `prosemirror-tables` (adopted 2026-08-20).** We ran a
+  hand-rolled rectangular grid for a while and it was wrong in the way
+  hand-rolled grids always are: real mail arrives ragged, our indices assumed
+  a rectangle, and every index-addressed edit then hit the wrong cell. The
+  official package owns the `TableMap`, `CellSelection` and `fixTables`, so we
+  own only the email opinions on top. Two departures from its defaults, both
+  deliberate: **no `columnResizing`** (its output is pixel `colwidth`, the
+  responsiveness ledger's central trap — the attr exists because the library's
+  commands read it, stays null, and is never serialized), and **no header
+  cells** (`<th>` parses as a plain cell; an email table is presentational and
+  a header that renders bold in one client and not another is a lie).
+  `colspan`/`rowspan`, by contrast, are email-safe everywhere including
+  Outlook's Word engine — merged cells are a feature, and imported mail keeps
+  its shape. Repair runs on both paths: a plugin `appendTransaction` for
+  anything arriving as a transaction (paste, drop, `setContent`), and
+  `repairTables` inside `parseHTML` so the pure constructors
+  (`importedDocument`, `replyDocument`) produce the same rectangle.
+- **Gap cursor for block escapes.** `prosemirror-gapcursor` gives every
+  `isolating` block (table, columns) a real cursor position beside it, which is
+  the mouse half of the escapes we had hand-rolled per node. It claims the
+  arrow keys, and extension plugins run before extension keymaps, so a node
+  that wants its own arrow behaviour must register that as a plugin keymap
+  ahead of it (the table's ArrowDown does exactly this) and must sit earlier
+  in the kit.
 - New capability = new extension. If it needs UI, it exposes state through a
   callback and the app renders it (see bubble/slash menus, diagnostics).
 - **The slash menu is an extensibility surface, and its search grows over

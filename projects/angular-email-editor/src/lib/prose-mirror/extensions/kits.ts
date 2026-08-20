@@ -23,6 +23,7 @@ import { Strike } from './marks/strike';
 import { TextStyle } from './marks/text-style';
 import { History } from './history';
 import { LayoutGuides } from './layout-guides';
+import { Gapcursor } from './gapcursor';
 import { NoTextDrag } from './no-text-drag';
 import { SplitKeepingMarks } from './split-keeping-marks';
 import { BaseKeymap } from './base-keymap';
@@ -49,6 +50,9 @@ const withParagraph = (paragraph: NodeExtension): Extension[] => [
   TableCell,
   Columns,
   Column,
+  // After the layout blocks on purpose: their own arrow escapes must be
+  // reached before gap-cursor claims the arrows (see the extension's docs).
+  Gapcursor,
   Bold,
   Italic,
   Underline,

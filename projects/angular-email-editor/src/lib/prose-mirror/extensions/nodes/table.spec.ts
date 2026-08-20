@@ -1,4 +1,5 @@
 import { TextSelection } from 'prosemirror-state';
+import { CellSelection } from 'prosemirror-tables';
 import { createEditor, Editor } from '../../editor';
 import { createSchema } from '../../schema';
 import { parseHTML, serializeToHTML } from '../../html';
@@ -35,6 +36,49 @@ describe('table serialization', () => {
     const once = canonical(empty);
     expect((once.match(/<td/g) || []).length).toBe(4);
     expect(canonical(once)).toBe(once);
+  });
+
+  it('keeps colspan and rowspan — both render in Outlook — as a fixpoint', () => {
+    const merged =
+      '<table><tbody><tr><td colspan="2">wide</td></tr>' +
+      '<tr><td rowspan="2">tall</td><td>b</td></tr><tr><td>c</td></tr></tbody></table>';
+    const once = canonical(merged);
+    expect(once).toContain('<td colspan="2" style="padding: 8px 12px; vertical-align: top;">wide');
+    expect(once).toContain('<td rowspan="2" style="padding: 8px 12px; vertical-align: top;">tall');
+    expect(canonical(once)).toBe(once);
+  });
+
+  it('repairs a ragged table on parse — short rows are padded to the grid', () => {
+    // Real mail is full of these; before prosemirror-tables the ragged shape
+    // survived and every index-addressed edit then targeted the wrong cell.
+    const ragged = '<table><tbody><tr><td>a</td><td>b</td></tr><tr><td>c</td></tr></tbody></table>';
+    const once = canonical(ragged);
+    expect((once.match(/<td/g) || []).length).toBe(4);
+    expect(canonical(once)).toBe(once);
+  });
+
+  it('trims a rowspan that reaches past the last row', () => {
+    // A colspan simply defines the grid's width, but a rowspan can point at
+    // rows that do not exist — `fixTables` clips it back to the table.
+    const overlong = '<table><tbody><tr><td rowspan="5">a</td><td>b</td></tr></tbody></table>';
+    const once = canonical(overlong);
+    expect(once).not.toContain('rowspan');
+    expect(canonical(once)).toBe(once);
+  });
+
+  it('parses a th as an ordinary cell — an email table is presentational', () => {
+    const withHeader =
+      '<table><tbody><tr><th>h</th><th>i</th></tr><tr><td>a</td><td>b</td></tr></tbody></table>';
+    const once = canonical(withHeader);
+    expect(once).not.toContain('<th');
+    expect((once.match(/<td/g) || []).length).toBe(4);
+  });
+
+  it('never emits colwidth — column resizing stays off, so it stays inert', () => {
+    expect(canonical(SAMPLE)).not.toContain('colwidth');
+    expect(canonical('<table><tbody><tr><td width="120">a</td></tr></tbody></table>')).not.toContain(
+      'width="120"',
+    );
   });
 
   it('produces lint-clean output', () => {
@@ -163,6 +207,47 @@ describe('table editing', () => {
       return true;
     });
     expect(editor.getHTML()).toContain('</table><div>below</div>');
+  });
+
+  /** Every `tableCell` position in document order. */
+  const cellPositions = () => {
+    const positions: number[] = [];
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'tableCell') positions.push(pos);
+      return true;
+    });
+    return positions;
+  };
+
+  /** Selects a rectangle of cells, the way a shift-drag does. */
+  const selectCells = (anchor: number, head: number) =>
+    editor.exec((state, dispatch) => {
+      dispatch?.(state.tr.setSelection(CellSelection.create(state.doc, anchor, head)));
+      return true;
+    });
+
+  it('merges a cell selection into one cell and splits it back', () => {
+    editor.commands['insertTable']();
+    const [first, second] = cellPositions();
+    selectCells(first, second);
+
+    editor.commands['mergeCells']();
+    expect(editor.getHTML()).toContain('colspan="2"');
+    // The grid is still 2x2 — a merged cell spans it, it does not shrink it.
+    expect(dims()).toEqual({ rows: 2, cols: 2 });
+
+    editor.commands['splitCell']();
+    expect(editor.getHTML()).not.toContain('colspan');
+    expect(editor.getHTML()).toBe(editor.getHTML().trim());
+  });
+
+  it('setCellBackground fills every cell of a cell selection', () => {
+    editor.commands['insertTable']();
+    const [first, second] = cellPositions();
+    selectCells(first, second);
+    editor.commands['setCellBackground']('#e6f4ea');
+    const fills = editor.getHTML().match(/background-color: rgb\(230, 244, 234\)/g) || [];
+    expect(fills.length).toBe(2);
   });
 
   it('deleteTable removes the whole node', () => {
