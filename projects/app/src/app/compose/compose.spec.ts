@@ -47,9 +47,9 @@ describe('Compose', () => {
     // A draft restore (or import) lands while the user is "in" the editor —
     // written to the pane's model, the exact surface a host binds against.
     const pane = (component as any).emailPane();
-    pane.value.set('<div>restored draft</div>');
+    pane.html.set('<div>restored draft</div>');
     await fixture.whenStable(); // flush the pane's sync effect
-    expect(pane.value()).toBe('<div>restored draft</div>');
+    expect(pane.html()).toBe('<div>restored draft</div>');
     // Protected while focused: the typing surface must not be rewritten…
     expect(pm.textContent).not.toContain('restored draft');
 

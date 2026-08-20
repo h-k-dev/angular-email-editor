@@ -5,7 +5,7 @@ source editor developed as peers over the same extension contract, kept in
 sync through Angular signals, with ProseMirror as the parsing engine on both
 sides.
 
-## Progress snapshot — 2026-08-19
+## Progress snapshot — 2026-08-20
 
 Foundations and the two-editor core are in; the content and layout-blocks side
 is mature. Tests: **254 library + 5 app, all green**.
@@ -18,7 +18,7 @@ is mature. Tests: **254 library + 5 app, all green**.
 | **M3 — Deliverability lint engine**                             | ✅ done          | —                                                                  |
 | **M4 — Preview & proof**                                        | 🟢 mostly done   | per-client simulation; Outlook conditional comments                |
 | **M5 — Layout blocks**                                          | 🟢 flagship done | UX polish pass (see “Known dissatisfactions”); section-schema + `{{template}}` placeholders |
-| **M6 — Compose workflow**                                       | 🟡 nearly done   | attachments                                                        |
+| **M6 — Compose workflow**                                       | 🟡 nearly done   | inline `cid:` images (resolver + send-intent parts) — *not* an attachments surface |
 
 Most recent work: **M6 opened, and it closed M2 on the way** — the
 **reply/forward seed constructors** (`replyDocument`/`forwardDocument`:
@@ -30,8 +30,11 @@ button emit `{html, text}` upward — M2's last item, unblocked once the scope
 decision removed the transport). Before that: the **block menu** with
 add/remove-column commands, background fills, layout guides, and the
 `aee-editor` scoping so our global styles can never touch a host's other
-ProseMirror instances. Next: M6's remaining slices — drafts (nearly free),
-the `.eml`/HTML import with its loss report, then attachments.
+ProseMirror instances. Since then M6 has closed drafts (nothing to build,
+by design), the `.eml` import through the **parser bridge**
+(`toInboundMessage`), and its **loss report** (`importLoss`). Next — and last
+for M6: **inline images**, scoped below as the `cid:` story, not an
+attachments surface.
 
 ## Why this is worth building
 
@@ -665,7 +668,37 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
       script) · 1 inline image awaits attachments". A structured diagnostics
       surfacing can grow from the same `ImportLoss` object when a problems
       panel exists.
-- [ ] Attachments surface.
+- [ ] **Inline images — the `cid:` story, not an attachments surface.**
+      **Scope decision (2026-08-20): we build no attachment UI.** A paperclip,
+      a file list, upload progress, MIME assembly — envelope, all of it, the
+      host's for exactly the reasons to/cc/subject are. What *is* ours is the
+      half that lives in the document: an `<img>` is content, and the editor
+      is the only party that knows which binaries the body points at. That
+      knowledge is editorial, and today it stays trapped in the document.
+      Two loose ends, both real, neither a UI:
+  - [ ] **A `cid:` resolver input** (`cid → object URL`), display-only. An
+        imported `cid:` image renders broken today: the MIME parts went to the
+        host, and nothing connects them back to the node that references them.
+        The resolver is a *view* concern — the canonical `src` stays `cid:`,
+        so the round trip never learns about it and the schema stays law
+        (same split as layout guides: editor-only, never serialized). The
+        preview pane takes the same map.
+  - [ ] **`SendIntent` reports what the document references.** The payload is
+        `{html, text}` — the two parts of `multipart/alternative` — so a host
+        that wants `multipart/related` has no way to know which parts the body
+        uses. The intent grows the inline images it actually references
+        (cid + blob; data-URL images promoted to parts at that moment, which
+        is also how the stopgap dies). We report the truth about the document;
+        the host assembles the MIME and owns the transport, unchanged.
+  - [ ] **Lint the data-URL stopgap** (M3, from the ledger): dropped and
+        pasted images embed as data-URLs, which Gmail and Outlook strip or
+        refuse — emitting one is a principle-7 violation we currently ship
+        knowingly. Lint it in the source pane like any other unsafe output.
+
+      Framing this corrects: it was filed as the last slice of the compose
+      *workflow*, which is why it read as envelope work. It isn't — it is M2's
+      image work meeting M6's import law, and it is the only thing between M6
+      and done.
 
 ## Non-goals (so we stay opinionated)
 
@@ -673,6 +706,11 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
   host app's. We are the editorial engine; the compose *workflow* (M6) deals
   in payloads and intents, not fields. Header data enters only as input to
   content (reply attribution), never as UI we own.
+- **No attachments surface.** No paperclip, no file list, no upload, no
+  MIME assembly — a corollary of the envelope rule, not a separate one.
+  Inline images are the exception that proves it: they are *document content*,
+  so we resolve `cid:` for display and report referenced parts on the send
+  intent — and stop precisely there (M6).
 - **Not a drag-drop marketing builder.** No block canvas, no template
   gallery. This is a _compose_ editor — but an ambitious one: the output is
   always responsive and phone-first (principle 8), and rich layout arrives
