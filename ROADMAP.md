@@ -402,7 +402,9 @@ pane) can't see and edit.
       padding; Outlook ghost tables for true
       side-by-side there remain a deliberate non-goal. Note the **data
       `/table` is `width: 100%`** — it always spans, so there is nothing to
-      centre; centring a table would first need a width control (not offered).
+      centre; centring a table would first need a width control — which now
+      exists (the 2026-08-22 edge drag gives tables a percentage width), so
+      table centring is unblocked and merely undecided.
 - [x] **`/table` — constrained data table**: a real `<table role=
     "presentation">` (the most client-compatible layout) restricted to a
       plain rectangular grid — no colspan/rowspan, so the model is a clean 2D
@@ -763,6 +765,41 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
   anything arriving as a transaction (paste, drop, `setContent`), and
   `repairTables` inside `parseHTML` so the pure constructors
   (`importedDocument`, `replyDocument`) produce the same rectangle.
+  **2026-08-22, two follow-ups:** (1) `table-layout: fixed` (+
+  `overflow-wrap: break-word` on cells) is now part of the *serialized*
+  style — without it every keystroke re-laid the grid out from content and
+  pushed the neighbouring columns; styling it editor-only would have made
+  the editor stable and the received mail jumpy, so it ships in both. (2)
+  **`ColumnResize`** — drag a column boundary, Tiptap's UX with an
+  email-honest mechanism: percentages into the same `colwidth` attr px would
+  have gone into (serialized as `width: n%` on the cells; a px width never
+  parses in), an editor-only NodeView (`div.aee-table-wrap > table >
+  colgroup + tbody` + a boundary-lines overlay) none of which serializes
+  (clipboard uses the schema `toDOM`, so it stays clean too), a 10% floor
+  instead of Tiptap's px min-width, full-height boundary lines *positioned by
+  the model* (`left` = cumulative share — no measurement, no mousemove
+  tracking: the reverted-overlay rule), and a **Word-style deferred commit**:
+  mid-drag only the guide line moves — live reflow was tried and reverted,
+  because a table rewrapping its text on every pointermove reads as the grid
+  flying apart — and release applies one transaction, one reflow, one undo
+  step. Hover-reveal targets the wrapper (grabbing the line must not un-hover
+  the grid it sits on), the grid pins solid while a drag is live, and adding
+  a column to a fully-declared table rescales widths by (n-1)/n so the new
+  column gets an equal share instead of the zero leftover. The table's own
+  box is draggable from **both outer edges**: attrs `{width, offset}` in
+  percent (defaults 100/0 — canonical output unchanged), the offset
+  serialized as `margin-left: n%` (what Outlook's own Word composer emits;
+  clients that strip it degrade gracefully to left-aligned), pixel table
+  widths (the fixed-600px newsletter) repaired to fluid on parse,
+  offset + width clamped to ≤ 100 with a 20% width floor, same
+  deferred-commit drag. **Edge drags absorb, Word-style**: column widths are
+  percentages *of the table*, so a naive table resize slides every interior
+  boundary proportionally — instead the edge-adjacent column takes the whole
+  change and the others rescale by oldWidth/newWidth, keeping interior
+  boundaries absolutely fixed (pinned by test and measured in-browser). This
+  also makes table centring trivial when it's wanted: offset arithmetic. Note for decoration
+  writers: with the NodeView in place, node decorations (layout guides'
+  `aee-guides-active`) land on the wrapper div, not the `<table>`.
 - **Gap cursor for block escapes.** `prosemirror-gapcursor` gives every
   `isolating` block (table, columns) a real cursor position beside it, which is
   the mouse half of the escapes we had hand-rolled per node. It claims the

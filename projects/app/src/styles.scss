@@ -107,12 +107,25 @@ html {
   }
 }
 
+/* While a column drag is live the guides may not fade at all — a wall that
+ * eases while the resize line moves rigidly reads as two separate objects,
+ * which is exactly the feeling this class exists to kill. */
+.aee-editor .aee-table-wrap--resizing td {
+  transition: none;
+}
+
 /* 1. cursor inside */
-.aee-editor table.aee-guides-active td,
+/* (The table's active class sits on its NodeView wrapper, not the <table>.) */
+.aee-editor .aee-table-wrap.aee-guides-active td,
 .aee-editor .aee-columns.aee-guides-active .aee-column,
-/* 2. hover the block — the whole grid, not just the cell/column under the pointer */
-.aee-editor table:hover td,
+/* 2. hover the block — the whole grid, not just the cell/column under the
+      pointer. For tables the hover target is the NodeView *wrapper*: the
+      resize lines are its children but not the table's, and grabbing one must
+      not un-hover the grid you are about to resize. */
+.aee-editor .aee-table-wrap:hover td,
 .aee-editor .aee-columns:hover .aee-column,
+/* 2b. mid-drag the grid is pinned on, whatever the pointer does */
+.aee-editor .aee-table-wrap--resizing td,
 /* 3. peek: every layout block at once */
 .aee-editor.aee-guides-peek table td,
 .aee-editor.aee-guides-peek .aee-column {
@@ -145,6 +158,69 @@ html {
   z-index: 2;
   pointer-events: none;
   background: var(--email-cell-selection, rgba(120, 150, 255, 0.25));
+}
+
+/* Column resize (the `ColumnResize` extension): one full-height line per
+ * column boundary, positioned by the document itself (`left` is the cumulative
+ * column share, no measurement) inside the table NodeView's editor-only
+ * overlay. Hovering anywhere along a boundary lights the whole line — the
+ * boundary is one element, not per-cell segments — and it stays lit through
+ * the drag. Nothing here is in the email.
+ */
+.aee-editor .aee-table-wrap {
+  position: relative;
+  /* No overflow trap here: a fixed-layout table at ≤ 100% can never outgrow
+   * the wrapper, and an `overflow-x: auto` would turn the edge handles'
+   * half-out-of-bounds grab strips into a phantom scrollbar. */
+}
+
+.aee-editor .aee-col-lines {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 100%; /* the NodeView narrows this to the table's own width */
+  pointer-events: none;
+}
+
+/* The grab strip: 9px of hit area centred on the boundary — comfortably
+ * inside the cells' 12px padding, so it never sits over text. */
+.aee-editor .aee-col-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 9px;
+  transform: translateX(-50%);
+  z-index: 4;
+  cursor: col-resize;
+  pointer-events: auto;
+}
+
+/* The visible line is narrower than the strip: easy to hit, quiet to look
+ * at. */
+.aee-editor .aee-col-line::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 3px;
+  transform: translateX(-50%);
+  border-radius: 2px;
+  background: var(--email-column-resize, var(--mat-sys-primary, #4c6ef5));
+  opacity: 0;
+  transition: opacity 140ms ease-out;
+}
+
+.aee-editor .aee-col-line:hover::after,
+.aee-editor .aee-col-line--drag::after {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aee-editor .aee-col-line::after {
+    transition: none;
+  }
 }
 
 /* Gap cursor: the blinking caret in the gaps between block nodes, so a

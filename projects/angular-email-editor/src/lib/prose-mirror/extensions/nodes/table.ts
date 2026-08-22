@@ -40,11 +40,13 @@ import { isSafeColor, toEmailSafeColor } from '../marks/text-style';
  * identically across engines (see ROADMAP).
  *
  * Two deliberate departures from the library's defaults:
- *  - **No `columnResizing`.** Its whole output is `colwidth` in *pixels*,
- *    which is the responsiveness ledger's central trap. The `colwidth` attr
- *    exists (the library's commands read and write it) but stays null and is
- *    never serialized — inert until a percentage-based resize story is
- *    designed. Nothing hidden survives a round trip.
+ *  - **No pixel column widths.** The library's own `columnResizing` plugin
+ *    writes `colwidth` in *pixels* — the responsiveness ledger's central trap
+ *    — so it stays off. Our `ColumnResize` extension reuses the same
+ *    `colwidth` attr but holds **percentages**, serialized as `width: n%` on
+ *    the cells (never a `<colgroup>` — enough clients strip it): fluid at
+ *    every viewport, read by fixed layout in every client, identical in the
+ *    editor and the email.
  *  - **No header cells.** `<th>` parses (as a plain cell) but never
  *    serializes: an email table is presentational, and a header row that
  *    renders bold in one client and not another is a lie we'd rather not tell.
@@ -58,8 +60,67 @@ import { isSafeColor, toEmailSafeColor } from '../marks/text-style';
 // global styles), not part of the email a recipient receives. Padding is a
 // fixed, responsive value (horizontal padding eats a phone's width, so it
 // stays modest).
-const TABLE_STYLE = 'width: 100%; border-collapse: collapse;';
-const CELL_STYLE = 'padding: 8px 12px; vertical-align: top;';
+// `table-layout: fixed` is the difference between a table you can type in and
+// one that jumps: without it, column widths are computed from *content*, so
+// every keystroke re-lays out the whole grid and the column you are typing in
+// shoves its neighbours sideways. Fixed layout takes the widths from the first
+// row instead (equal shares when none are given) and content never moves them.
+//
+// It is serialized, not editor-only CSS: mail clients default to `auto` too, so
+// styling this in the editor alone would make the editor lie about the email —
+// stable while composing, jumpy when received. Support is broad (it is CSS2,
+// and Word honours it), and with `width: 100%` above it stays fluid.
+/** The table's serialized style. Width and offset are attrs (percent; width
+    defaults to 100, offset to 0) so the whole table can be resized from
+    either edge — the same email-honest unit as the columns: fluid at every
+    viewport, and nested percentages compose (a 50% column of an 80% table is
+    40% of the container, in every client and in the editor alike). The
+    offset serializes as `margin-left` — inline margins on tables are what
+    Outlook's own Word composer emits, so its engine reads them, and a client
+    that strips them degrades the table gracefully to left-aligned. */
+export const tableStyle = (width: number, offset: number): string =>
+  `width: ${formatPct(width)};` +
+  (offset > 0 ? ` margin-left: ${formatPct(offset)};` : '') +
+  ' table-layout: fixed; border-collapse: collapse;';
+// Fixed layout means a long unbroken word can no longer widen its column, so it
+// would spill out of the cell instead. The editor never showed that (the
+// editable root sets `word-wrap` for its own reasons, and it inherits), which
+// is exactly why it has to be said out loud here — otherwise the overflow shows
+// up only in the recipient's client.
+const CELL_STYLE = 'padding: 8px 12px; vertical-align: top; overflow-wrap: break-word;';
+
+/** Canonical percentage: one decimal at most, no trailing zero (25%, 33.3%). */
+export const formatPct = (n: number): string => `${Math.round(n * 10) / 10}%`;
+
+/** No column below 10%: at 320px that is ~32px — the width where a column
+    stops being a column. The resize drag clamps here, and the add-column
+    rescale floors here. */
+export const MIN_COLUMN_PCT = 10;
+
+/** No table below 20% of its container — narrower stops being a table. */
+export const MIN_TABLE_PCT = 20;
+
+/** A percentage off parsed markup, or null for anything else — pixel values
+    are the responsiveness trap and repair away. */
+function pctOf(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (!trimmed.endsWith('%')) return null;
+  const parsed = Number.parseFloat(trimmed);
+  return Number.isFinite(parsed) ? Math.round(parsed * 10) / 10 : null;
+}
+
+/** The table's box off parsed markup — width and left offset, percentages
+    only, like the cells. A pixel width (the classic fixed-600px newsletter)
+    repairs to full fluid width; the pair clamps so offset + width ≤ 100 and
+    the width keeps its floor. */
+function parseTableBox(dom: HTMLElement): { width: number; offset: number } {
+  const width = Math.min(
+    Math.max(pctOf(dom.style?.width || dom.getAttribute('width') || '') ?? 100, MIN_TABLE_PCT),
+    100,
+  );
+  const offset = Math.min(Math.max(pctOf(dom.style?.marginLeft || '') ?? 0, 0), 100 - width);
+  return { width, offset };
+}
 
 /** A `colspan`/`rowspan` off parsed markup: 1 when absent, malformed, zero or
     negative — real mail carries all of those, and the grid must stay sane. */
@@ -68,15 +129,30 @@ function span(raw: string | null): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
 }
 
-/** Cell attrs from a `td`/`th`: the spans prosemirror-tables needs, plus our
-    fill from an inline `background-color` or the legacy `bgcolor` attribute.
-    Anything not colour-safe drops (the schema is law). */
+/** A declared cell width off parsed markup — **percentages only**. Pixel
+    widths (Tiptap's `colwidth`, legacy `width="200"`) are the responsiveness
+    trap and drop here; parsing is repair. A span shares its width evenly
+    across its columns, matching how fixed layout distributes it. */
+function parseCellWidth(dom: HTMLElement, colspan: number): number[] | null {
+  const raw = (dom.style?.width || dom.getAttribute('width') || '').trim();
+  if (!raw.endsWith('%')) return null;
+  const total = Number.parseFloat(raw);
+  if (!Number.isFinite(total) || total <= 0 || total >= 100) return null;
+  const share = Math.round((total / colspan) * 10) / 10;
+  return Array.from({ length: colspan }, () => share);
+}
+
+/** Cell attrs from a `td`/`th`: the spans prosemirror-tables needs, a
+    percentage width if one is declared, plus our fill from an inline
+    `background-color` or the legacy `bgcolor` attribute. Anything not
+    colour-safe drops (the schema is law). */
 function cellAttrs(dom: HTMLElement): Record<string, unknown> {
   const raw = dom.style?.backgroundColor || dom.getAttribute('bgcolor');
+  const colspan = span(dom.getAttribute('colspan'));
   return {
-    colspan: span(dom.getAttribute('colspan')),
+    colspan,
     rowspan: span(dom.getAttribute('rowspan')),
-    colwidth: null,
+    colwidth: parseCellWidth(dom, colspan),
     background: isSafeColor(raw) ? raw : null,
   };
 }
@@ -85,16 +161,23 @@ function cellAttrs(dom: HTMLElement): Record<string, unknown> {
     so there is nothing to hide from either side. Attribute order is fixed
     (spans, then style) to keep serialize → parse → serialize a fixpoint. */
 function cellDOM(node: { attrs: Record<string, any> }): [string, Record<string, string>, 0] {
-  const { colspan, rowspan, background } = node.attrs;
+  const { colspan, rowspan, colwidth, background } = node.attrs;
   const attrs: Record<string, string> = {};
   if (colspan > 1) attrs['colspan'] = String(colspan);
   if (rowspan > 1) attrs['rowspan'] = String(rowspan);
+  // Style order is fixed — base, width, fill — to keep the round trip a
+  // fixpoint. A span serializes the *sum* of its entries: that is the width
+  // the cell actually occupies, and parse splits it back evenly.
+  let style = CELL_STYLE;
+  const width = Array.isArray(colwidth)
+    ? colwidth.reduce((total: number, entry: number | null) => total + (entry ?? 0), 0)
+    : 0;
+  if (width > 0) style += ` width: ${formatPct(width)};`;
   // The fill always carries its paired text colour (FILL_TEXT_COLOR): the cell
   // must not depend on the client's default text, which flips to near-white in
   // non-transforming dark modes while the fill stays pale.
-  attrs['style'] = background
-    ? `${CELL_STYLE} background-color: ${background}; color: ${FILL_TEXT_COLOR};`
-    : CELL_STYLE;
+  if (background) style += ` background-color: ${background}; color: ${FILL_TEXT_COLOR};`;
+  attrs['style'] = style;
   return ['td', attrs, 0];
 }
 
@@ -113,8 +196,10 @@ export const TableCell = defineNode({
     attrs: {
       colspan: { default: 1 },
       rowspan: { default: 1 },
-      // Pixel column widths — written only by `columnResizing`, which we do
-      // not enable (see the node docs). Always null, never serialized.
+      // Column widths in **percentages** (one entry per spanned column) —
+      // written by the `ColumnResize` extension, serialized as `width: n%`.
+      // Same attr name the library's commands expect, different unit on
+      // purpose; pixel widths never parse in (see the node docs).
       colwidth: { default: null },
       // A fill colour on the cell (the most bulletproof background in email —
       // `background-color` on `<td>` renders even in Outlook). From the curated
@@ -148,19 +233,33 @@ export const Table = defineNode({
     group: 'block',
     isolating: true,
     tableRole: 'table',
-    parseDOM: [{ tag: 'table' }],
+    // Width and left offset in percent of the container; the defaults
+    // (100, 0) serialize identically to the pre-attr canonical form.
+    attrs: { width: { default: 100 }, offset: { default: 0 } },
+    parseDOM: [{ tag: 'table', getAttrs: (dom) => parseTableBox(dom) }],
     // <tbody> wrapper matches what mail clients expect and what the HTML
     // parser re-injects, so serialize → parse → serialize is a fixpoint.
-    toDOM: () => ['table', { style: TABLE_STYLE, role: 'presentation' }, ['tbody', 0]],
+    toDOM: (node) => [
+      'table',
+      {
+        style: tableStyle(node.attrs['width'] as number, node.attrs['offset'] as number),
+        role: 'presentation',
+      },
+      ['tbody', 0],
+    ],
   },
   commands: ({ schema }) => ({
     insertTable: (rows = 2, cols = 2): Command => insertTableFocused(schema, rows, cols),
     // Selection-relative structure edits, straight from the library: each one
-    // understands merged cells and multi-cell selections for free.
+    // understands merged cells and multi-cell selections for free. The
+    // add-column pair is wrapped: on a table with declared widths, the library
+    // inserts the new column with none — and under fixed layout an unspecified
+    // column gets the *leftover* space, which after a resize is zero. The
+    // wrapper rescales the declared widths to free an equal share.
     addRowBefore: (): Command => addRowBefore,
     addRowAfter: (): Command => addRowAfter,
-    addColumnBefore: (): Command => addColumnBefore,
-    addColumnAfter: (): Command => addColumnAfter,
+    addColumnBefore: (): Command => withColumnRescale(addColumnBefore),
+    addColumnAfter: (): Command => withColumnRescale(addColumnAfter),
     // These refuse when the selection covers every row/column, which is
     // exactly "never delete the last one".
     deleteRow: (): Command => deleteRow,
@@ -180,6 +279,7 @@ export const Table = defineNode({
     addColumnAt: (index: number): Command =>
       editTable((tr, rect) => {
         addColumn(tr, rect, clamp(index, 0, rect.map.width));
+        rescaleForNewColumn(tr, rect.tableStart - 1);
         return true;
       }),
     deleteRowAt: (index: number): Command =>
@@ -336,6 +436,51 @@ function editTable(edit: (tr: Transaction, rect: TableRect) => boolean): Command
     dispatch?.(tr.scrollIntoView());
     return true;
   };
+}
+
+/** Wraps a selection-relative add-column command with the width rescale. */
+function withColumnRescale(command: Command): Command {
+  return (state, dispatch) => {
+    if (!isInTable(state)) return false;
+    const tablePos = selectedRect(state).tableStart - 1;
+    return command(
+      state,
+      dispatch &&
+        ((tr: Transaction) => {
+          rescaleForNewColumn(tr, tablePos);
+          dispatch(tr);
+        }),
+    );
+  };
+}
+
+/**
+ * After a column insert: scales every declared width by (n-1)/n, so the new
+ * (undeclared) column inherits an equal share of the freed space instead of
+ * the leftover — which, on a fully-declared table, is zero, and a zero-width
+ * column is a column that looks deleted. Scaled entries floor at
+ * {@link MIN_COLUMN_PCT}; tables with no declared widths are untouched.
+ */
+function rescaleForNewColumn(tr: Transaction, tablePos: number): void {
+  const table = tr.doc.nodeAt(tablePos);
+  if (!table || table.type.name !== 'table') return;
+  const map = TableMap.get(table);
+  const factor = (map.width - 1) / map.width;
+
+  const seen = new Set<number>();
+  for (const rel of map.map) {
+    if (seen.has(rel)) continue;
+    seen.add(rel);
+    const cell = table.nodeAt(rel)!;
+    const colwidth = cell.attrs['colwidth'] as (number | null)[] | null;
+    if (!colwidth || !colwidth.some((entry) => entry)) continue;
+    const scaled = colwidth.map((entry) =>
+      // 0 entries are the library's padding for freshly spanned columns —
+      // "no width", not "zero width" — and stay untouched.
+      entry ? Math.max(Math.round(entry * factor * 10) / 10, MIN_COLUMN_PCT) : entry,
+    );
+    tr.setNodeMarkup(tablePos + 1 + rel, null, { ...cell.attrs, colwidth: scaled });
+  }
 }
 
 function buildTable(schema: Schema, rows: number, cols: number): Node {

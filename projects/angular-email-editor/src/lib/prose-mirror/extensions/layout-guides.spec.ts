@@ -30,7 +30,11 @@ describe('layout guides', () => {
 
   it('marks the table the cursor is in', () => {
     editor.commands['insertTable']();
-    expect(editor.view.dom.querySelector(`table.${GUIDES_ACTIVE_CLASS}`)).not.toBeNull();
+    // The class lands on the table's NodeView root (the `ColumnResize`
+    // wrapper), which is the block's DOM as far as decorations go.
+    const active = editor.view.dom.querySelector(`.${GUIDES_ACTIVE_CLASS}`);
+    expect(active).not.toBeNull();
+    expect(active!.querySelector('table')).not.toBeNull();
   });
 
   it('marks the columns block the cursor is in — the same class, one mechanism', () => {

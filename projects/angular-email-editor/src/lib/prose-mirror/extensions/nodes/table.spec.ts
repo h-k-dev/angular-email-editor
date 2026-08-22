@@ -22,11 +22,11 @@ describe('table serialization', () => {
   it('serializes a borderless presentation table with a tbody', () => {
     const html = canonical(SAMPLE);
     expect(html).toContain(
-      '<table style="width: 100%; border-collapse: collapse;" role="presentation">',
+      '<table style="width: 100%; table-layout: fixed; border-collapse: collapse;" role="presentation">',
     );
     expect(html).toContain('<tbody>');
     // Borderless: grid lines are editor-only, never in the email itself.
-    expect(html).toContain('<td style="padding: 8px 12px; vertical-align: top;">a</td>');
+    expect(html).toContain('<td style="padding: 8px 12px; vertical-align: top; overflow-wrap: break-word;">a</td>');
     expect(html).not.toContain('border:');
   });
 
@@ -43,8 +43,8 @@ describe('table serialization', () => {
       '<table><tbody><tr><td colspan="2">wide</td></tr>' +
       '<tr><td rowspan="2">tall</td><td>b</td></tr><tr><td>c</td></tr></tbody></table>';
     const once = canonical(merged);
-    expect(once).toContain('<td colspan="2" style="padding: 8px 12px; vertical-align: top;">wide');
-    expect(once).toContain('<td rowspan="2" style="padding: 8px 12px; vertical-align: top;">tall');
+    expect(once).toContain('<td colspan="2" style="padding: 8px 12px; vertical-align: top; overflow-wrap: break-word;">wide');
+    expect(once).toContain('<td rowspan="2" style="padding: 8px 12px; vertical-align: top; overflow-wrap: break-word;">tall');
     expect(canonical(once)).toBe(once);
   });
 
@@ -74,7 +74,7 @@ describe('table serialization', () => {
     expect((once.match(/<td/g) || []).length).toBe(4);
   });
 
-  it('never emits colwidth — column resizing stays off, so it stays inert', () => {
+  it('never emits colwidth or pixel widths — percentages are the only width', () => {
     expect(canonical(SAMPLE)).not.toContain('colwidth');
     expect(canonical('<table><tbody><tr><td width="120">a</td></tr></tbody></table>')).not.toContain(
       'width="120"',
@@ -139,7 +139,7 @@ describe('table editing', () => {
     editor.commands['setCellBackground']('#e6f4ea');
     const html = editor.getHTML();
     expect(html).toContain(
-      '<td style="padding: 8px 12px; vertical-align: top; background-color: rgb(230, 244, 234); color: rgb(32, 33, 36);">',
+      '<td style="padding: 8px 12px; vertical-align: top; overflow-wrap: break-word; background-color: rgb(230, 244, 234); color: rgb(32, 33, 36);">',
     );
     // Only one cell filled; still a fixpoint and lint-clean.
     expect((html.match(/background-color/g) || []).length).toBe(1);
