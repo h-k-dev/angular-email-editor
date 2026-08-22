@@ -455,7 +455,7 @@
   <ng-template
     cdkConnectedOverlay
     [cdkConnectedOverlayOrigin]="blockOrigin"
-    [cdkConnectedOverlayOpen]="blockMenuState().isOpen"
+    [cdkConnectedOverlayOpen]="blockMenuState().isOpen && blockMenuState().block === 'columns'"
     [cdkConnectedOverlayPositions]="blockMenuPositions"
     [cdkConnectedOverlayHasBackdrop]="false"
     [cdkConnectedOverlayDisableClose]="true"
@@ -467,59 +467,16 @@
       class="bubble-menu"
       #blockMenu
       role="toolbar"
-      [attr.aria-label]="blockMenuState().block === 'table' ? 'Table' : 'Columns'"
+      aria-label="Columns"
       (mousedown)="$event.preventDefault()"
       (keydown.escape)="focusEditor()"
     >
-      @if (blockMenuState().block === 'table') {
-        <button
-          mat-icon-button
-          type="button"
-          aria-label="Insert row below"
-          (click)="runBlock('addRowAfter')"
-        >
-          <mat-icon>add</mat-icon>
-        </button>
-        <button
-          mat-icon-button
-          type="button"
-          aria-label="Delete row"
-          (click)="runBlock('deleteRow')"
-        >
-          <mat-icon>remove</mat-icon>
-        </button>
-
-        <mat-divider [vertical]="true" />
-
-        <button
-          mat-icon-button
-          type="button"
-          aria-label="Insert column after"
-          (click)="runBlock('addColumnAfter')"
-        >
-          <mat-icon>view_column</mat-icon>
-        </button>
-        <button
-          mat-icon-button
-          type="button"
-          aria-label="Delete column"
-          (click)="runBlock('deleteColumn')"
-        >
-          <mat-icon>view_week</mat-icon>
-        </button>
-
-        <mat-divider [vertical]="true" />
-
-        <button
-          mat-icon-button
-          type="button"
-          aria-label="Delete table"
-          (click)="runBlock('deleteTable')"
-        >
-          <mat-icon>delete_outline</mat-icon>
-        </button>
-      }
-
+      <!-- No table section: every table operation lives on the table itself
+           now. Adding rows/columns = the + pills (Tab past the last cell also
+           appends a row); deleting a table, row or column = select the whole
+           unit, press Delete; widths = the boundary and edge drags; fill =
+           the toolbar palette. The menu remains only for the columns block,
+           which has not (yet) grown the same affordances. -->
       @if (blockMenuState().block === 'columns') {
         <button
           mat-icon-button

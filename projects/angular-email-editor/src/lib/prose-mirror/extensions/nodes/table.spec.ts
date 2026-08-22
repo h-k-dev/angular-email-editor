@@ -250,6 +250,154 @@ describe('table editing', () => {
     expect(fills.length).toBe(2);
   });
 
+  it('Backspace over a full-grid cell selection removes the table itself', () => {
+    editor.commands['insertTable'](2, 2);
+    const cells: number[] = [];
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'tableCell') cells.push(pos);
+      return true;
+    });
+    editor.exec((state, dispatch) => {
+      dispatch?.(
+        state.tr.setSelection(CellSelection.create(state.doc, cells[0], cells[cells.length - 1])),
+      );
+      return true;
+    });
+    editor.view.dom.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Backspace', keyCode: 8, which: 8, bubbles: true, cancelable: true }),
+    );
+    expect(findTableContext(editor.state)).toBeNull();
+    expect(editor.getHTML()).not.toContain('<table');
+  });
+
+  it('Backspace over a full-width row selection removes those rows', () => {
+    editor.commands['insertTable'](3, 2);
+    const cells: number[] = [];
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'tableCell') cells.push(pos);
+      return true;
+    });
+    // Rows 0-1 (cells 0..3): full width, not full height.
+    editor.exec((state, dispatch) => {
+      dispatch?.(state.tr.setSelection(CellSelection.create(state.doc, cells[0], cells[3])));
+      return true;
+    });
+    editor.view.dom.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Backspace', keyCode: 8, which: 8, bubbles: true, cancelable: true }),
+    );
+    const ctx = findTableContext(editor.state);
+    expect(ctx).not.toBeNull();
+    expect(ctx!.rows).toBe(1);
+    expect(ctx!.cols).toBe(2);
+  });
+
+  it('Delete over a full-height column selection removes that column', () => {
+    editor.commands['insertTable'](2, 3);
+    const cells: number[] = [];
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'tableCell') cells.push(pos);
+      return true;
+    });
+    // Column 0: cells (0,0) and (1,0) — full height, not full width.
+    editor.exec((state, dispatch) => {
+      dispatch?.(state.tr.setSelection(CellSelection.create(state.doc, cells[0], cells[3])));
+      return true;
+    });
+    editor.view.dom.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Delete', keyCode: 46, which: 46, bubbles: true, cancelable: true }),
+    );
+    const ctx = findTableContext(editor.state);
+    expect(ctx).not.toBeNull();
+    expect(ctx!.rows).toBe(2);
+    expect(ctx!.cols).toBe(2);
+  });
+
+  it('Backspace over a partial cell selection clears content, keeps the table', () => {
+    editor.commands['insertTable'](2, 2);
+    editor.exec((state, dispatch) => {
+      dispatch?.(state.tr.insertText('hello'));
+      return true;
+    });
+    const cells: number[] = [];
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'tableCell') cells.push(pos);
+      return true;
+    });
+    // The first row only — the library's deleteCellSelection territory.
+    editor.exec((state, dispatch) => {
+      dispatch?.(state.tr.setSelection(CellSelection.create(state.doc, cells[0], cells[1])));
+      return true;
+    });
+    editor.view.dom.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Backspace', keyCode: 8, which: 8, bubbles: true, cancelable: true }),
+    );
+    expect(editor.getHTML()).toContain('<table');
+    expect(editor.getHTML()).not.toContain('hello');
+  });
+
+  const key = (k: string, code: number, shift = false) =>
+    editor.view.dom.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: k,
+        keyCode: code,
+        which: code,
+        shiftKey: shift,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  const at = () => {
+    const ctx = findTableContext(editor.state);
+    return ctx ? [ctx.rowIndex, ctx.colIndex] : null;
+  };
+
+  it('arrows move cell to cell from a cell edge, wrapping rows', () => {
+    editor.commands['insertTable'](2, 2); // caret in (0,0)
+    key('ArrowRight', 39);
+    expect(at()).toEqual([0, 1]);
+    key('ArrowRight', 39); // end of the row wraps to the next
+    expect(at()).toEqual([1, 0]);
+    key('ArrowLeft', 37);
+    expect(at()).toEqual([0, 1]);
+    expect(editor.state.selection).toBeInstanceOf(TextSelection);
+  });
+
+  it('ArrowRight out of the last cell leaves the table', () => {
+    editor.setContent(
+      '<div>a</div><table><tbody><tr><td></td><td></td></tr></tbody></table><div>after</div>',
+    );
+    const cells: number[] = [];
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'tableCell') cells.push(pos);
+      return true;
+    });
+    editor.exec((state, dispatch) => {
+      dispatch?.(state.tr.setSelection(TextSelection.create(state.doc, cells[1] + 1)));
+      return true;
+    });
+    key('ArrowRight', 39);
+    expect(findTableContext(editor.state)).toBeNull();
+    expect(editor.state.selection.$from.parent.textContent).toBe('after');
+  });
+
+  it('Shift-arrows at a cell edge grow a cell selection, one cell at a time', () => {
+    editor.commands['insertTable'](2, 2);
+    key('ArrowRight', 39, true);
+    expect(editor.state.selection).toBeInstanceOf(CellSelection);
+    let count = 0;
+    (editor.state.selection as CellSelection).forEachCell(() => count++);
+    expect(count).toBe(2);
+
+    key('ArrowDown', 40, true); // from a cell selection: no edge check needed
+    count = 0;
+    (editor.state.selection as CellSelection).forEachCell(() => count++);
+    expect(count).toBe(4);
+
+    // A plain arrow collapses the cell selection back to a caret.
+    key('ArrowRight', 39);
+    expect(editor.state.selection).toBeInstanceOf(TextSelection);
+  });
+
   it('deleteTable removes the whole node', () => {
     editor.commands['insertTable']();
     editor.commands['deleteTable']();

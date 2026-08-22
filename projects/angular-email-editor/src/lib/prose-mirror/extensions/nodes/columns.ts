@@ -1,5 +1,6 @@
 import { Command, EditorState, Selection, TextSelection } from 'prosemirror-state';
 import { Node, Schema } from 'prosemirror-model';
+import { keymap } from 'prosemirror-keymap';
 import { defineNode } from '../../extension';
 import { FILL_TEXT_COLOR } from '../../dual-contrast';
 import { isSafeColor, toEmailSafeColor } from '../marks/text-style';
@@ -42,7 +43,7 @@ type ColumnsAlignment = 'left' | 'center' | 'right';
  * (never the `margin: 0 auto` shorthand): shorthands re-serialize
  * non-deterministically through the CSSOM and break the canonical fixpoint.
  */
-const containerStyle = (align: ColumnsAlignment): string => {
+export const containerStyle = (align: ColumnsAlignment): string => {
   const base = `width: 100%; max-width: ${CONTAINER_MAX}px;`;
   if (align === 'center') return `${base} margin-left: auto; margin-right: auto;`;
   if (align === 'right') return `${base} margin-left: auto;`;
@@ -78,6 +79,55 @@ const columnMaxWidth = (count: number): number =>
  * repair, not opinion.
  */
 export const MAX_COLUMNS = 4;
+
+/** No column cap below this: ~an icon-and-caption column. The boundary drag
+    clamps here from both sides. */
+export const MIN_COLUMN_CAP = 120;
+
+/** Every column's px cap, in order — the block's geometry, straight from the
+    model: a column's left edge is the sum of the caps before it. */
+export function columnCaps(columns: Node): number[] {
+  const caps: number[] = [];
+  columns.forEach((column) => caps.push(column.attrs['maxWidth'] as number));
+  return caps;
+}
+
+/**
+ * Sets the caps of the two columns meeting at `boundary` — what the boundary
+ * drag commits. `leftCap` is the left column's new cap in px; the pair's
+ * total is conserved (the block's budget never changes, so a phone still
+ * stacks exactly as before), and both sides clamp at {@link MIN_COLUMN_CAP}.
+ * Position-addressed: the NodeView knows its block wherever the caret is.
+ */
+export function setColumnsBoundary(columnsPos: number, boundary: number, leftCap: number): Command {
+  return (state, dispatch) => {
+    const columns = state.doc.nodeAt(columnsPos);
+    if (!columns || columns.type.name !== 'columns') return false;
+    if (boundary < 0 || boundary >= columns.childCount - 1) return false;
+
+    const caps = columnCaps(columns);
+    const pair = caps[boundary] + caps[boundary + 1];
+    if (pair < MIN_COLUMN_CAP * 2) return false;
+    const left = Math.round(Math.max(MIN_COLUMN_CAP, Math.min(leftCap, pair - MIN_COLUMN_CAP)));
+    const right = pair - left;
+
+    if (dispatch) {
+      const tr = state.tr;
+      let pos = columnsPos + 1;
+      columns.forEach((column, _offset, index) => {
+        if (index === boundary || index === boundary + 1) {
+          tr.setNodeMarkup(pos, null, {
+            ...column.attrs,
+            maxWidth: index === boundary ? left : right,
+          });
+        }
+        pos += column.nodeSize;
+      });
+      dispatch(tr);
+    }
+    return true;
+  };
+}
 
 function parseColumnMaxWidth(style: string | null): number {
   const m = /max-width:\s*(\d+)px/.exec(style ?? '');
@@ -176,6 +226,10 @@ export const Columns = defineNode({
     deleteColumns: (): Command => deleteColumns,
   }),
   keymap: () => ({ ArrowDown: escapeColumnsDown }),
+  // A plugin keymap (ahead of the gap cursor's) so a horizontal arrow at a
+  // column's edge hops straight into the neighbouring column — the layout
+  // twin of the table's cell-to-cell arrows.
+  plugins: () => [keymap({ ArrowLeft: columnArrow(-1), ArrowRight: columnArrow(1) })],
   slashItems: ({ schema }) => [
     {
       title: 'Columns',
@@ -371,6 +425,38 @@ export const deleteColumns: Command = (state, dispatch) => {
   dispatch?.(state.tr.delete(ctx.pos, ctx.pos + ctx.node.nodeSize).scrollIntoView());
   return true;
 };
+
+/** ArrowLeft/Right at a column's outer edge (the start of its first block,
+    the end of its last): move into the neighbouring column — or out of the
+    block at its ends. Anywhere else the browser keeps the key. */
+function columnArrow(dir: 1 | -1): Command {
+  return (state, dispatch, view) => {
+    if (!view) return false;
+    const selection = state.selection;
+    if (!(selection instanceof TextSelection)) return false;
+    const { $head } = selection;
+    let depth = -1;
+    for (let d = $head.depth; d > 0; d--) {
+      if ($head.node(d).type.name === 'column') {
+        depth = d;
+        break;
+      }
+    }
+    if (depth < 0) return false;
+    // At the column's edge: the caret's block is the column's first/last child
+    // and the caret is at that block's own edge.
+    const column = $head.node(depth);
+    const index = $head.index(depth);
+    if (dir > 0 ? index !== column.childCount - 1 : index !== 0) return false;
+    if (!view.endOfTextblock(dir > 0 ? 'right' : 'left')) return false;
+
+    const from = dir > 0 ? $head.after(depth) : $head.before(depth);
+    const target = Selection.findFrom(state.doc.resolve(from), dir, true);
+    if (!target) return false;
+    dispatch?.(state.tr.setSelection(target).scrollIntoView());
+    return true;
+  };
+}
 
 /** Sets (or clears) the `background` of the `column` the cursor is in. */
 export function setColumnBackground(color: string | null): Command {

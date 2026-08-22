@@ -1,7 +1,18 @@
-import { Command, EditorState, Plugin, PluginKey, TextSelection, Transaction } from 'prosemirror-state';
-import { Node, Schema } from 'prosemirror-model';
-import { keymap } from 'prosemirror-keymap';
 import {
+  Command,
+  EditorState,
+  Plugin,
+  PluginKey,
+  Selection,
+  TextSelection,
+  Transaction,
+} from 'prosemirror-state';
+import { Node, ResolvedPos, Schema } from 'prosemirror-model';
+import { EditorView } from 'prosemirror-view';
+import { keymap } from 'prosemirror-keymap';
+import { chainCommands } from 'prosemirror-commands';
+import {
+  CellSelection,
   TableMap,
   TableRect,
   addColumn,
@@ -17,6 +28,7 @@ import {
   goToNextCell,
   isInTable,
   mergeCells,
+  nextCell,
   removeColumn,
   removeRow,
   selectedRect,
@@ -221,6 +233,12 @@ export const TableRow = defineNode({
   spec: {
     content: 'tableCell+',
     tableRole: 'row',
+    // Our cells are textblocks (inline content), which makes the gap cursor
+    // consider the slot *between two cells* a valid stop — ArrowRight at a
+    // cell's end would park a blinking gap there before moving on. Cells are
+    // navigated cell to cell (see the arrow keymap); the gap cursor belongs
+    // only around the table.
+    allowGapCursor: false,
     parseDOM: [{ tag: 'tr' }],
     toDOM: () => ['tr', 0],
   },
@@ -233,6 +251,7 @@ export const Table = defineNode({
     group: 'block',
     isolating: true,
     tableRole: 'table',
+    allowGapCursor: false,
     // Width and left offset in percent of the container; the defaults
     // (100, 0) serialize identically to the pre-attr canonical form.
     attrs: { width: { default: 100 }, offset: { default: 0 } },
@@ -303,12 +322,42 @@ export const Table = defineNode({
   }),
   plugins: () => [
     // Ordered on purpose. Extension plugins all run before extension keymaps
-    // (see `createEditor`), so an ArrowDown left in this extension's `keymap`
-    // would never be reached — `tableEditing` claims the arrows for cell
-    // selection first. Registering the escape as a plugin keymap *ahead* of
-    // it keeps the pinned behaviour: from the last row, ArrowDown writes
-    // below the table rather than stepping between cells.
-    keymap({ ArrowDown: escapeTableDown }),
+    // (see `createEditor`), so these bindings can't live in this extension's
+    // `keymap` — `tableEditing` would claim the keys first. Registering them
+    // as a plugin keymap *ahead* of it keeps two pinned behaviours: from the
+    // last row, ArrowDown writes below the table rather than stepping between
+    // cells; and Backspace/Delete over a selection covering a *whole*
+    // structural unit removes that unit — the full grid removes the table,
+    // full rows remove those rows, full columns remove those columns.
+    // Anything less falls through to the library's deleteCellSelection,
+    // which clears the selected cells' content. Structure deletion is
+    // therefore a gesture, not a menu item: select the unit (shift-drag, or
+    // shift-arrows growing the cell selection), press Delete.
+    //
+    // The arrows are ours as well, because the library's own cell navigation
+    // is dead for this schema: its `atEndOfCell` starts walking at
+    // `$head.depth - 1`, expecting a paragraph *inside* the cell, and our cells
+    // hold inline content directly — so it never finds a cell and returns
+    // null forever. Left to the browser, arrows crossed cells by accident and
+    // Shift-arrows selected cells only when the native selection happened to
+    // spill over. Now: an arrow at a cell's edge moves to the neighbouring
+    // cell (wrapping rows, leaving the table at its ends); a Shift-arrow at
+    // the edge grows a cell selection, the established editor convention and
+    // the keyboard route to every cell-selection gesture.
+    keymap({
+      ArrowLeft: cellArrow('horiz', -1),
+      ArrowRight: cellArrow('horiz', 1),
+      ArrowUp: cellArrow('vert', -1),
+      ArrowDown: chainCommands(escapeTableDown, cellArrow('vert', 1)),
+      'Shift-ArrowLeft': cellShiftArrow('horiz', -1),
+      'Shift-ArrowRight': cellShiftArrow('horiz', 1),
+      'Shift-ArrowUp': cellShiftArrow('vert', -1),
+      'Shift-ArrowDown': cellShiftArrow('vert', 1),
+      Backspace: deleteFullySelected,
+      'Mod-Backspace': deleteFullySelected,
+      Delete: deleteFullySelected,
+      'Mod-Delete': deleteFullySelected,
+    }),
     // Cell selection (shift-click/drag a rectangle), arrow navigation across
     // cells, and Backspace/Delete over a cell selection. Table node selection
     // stays off: a selected table node has no affordance in our UI, and it
@@ -483,6 +532,52 @@ function rescaleForNewColumn(tr: Transaction, tablePos: number): void {
   }
 }
 
+/**
+ * Appends a column at the table's end — what the editor's `+` pill on the
+ * table's right flank commits (the `ColumnResize` NodeView renders it).
+ * Position-addressed rather than selection-relative, because the pill knows
+ * which table it belongs to regardless of where the caret is. Runs the same
+ * width rescale as every other column add.
+ */
+export function addColumnAtEnd(tablePos: number): Command {
+  return (state, dispatch) => {
+    const table = state.doc.nodeAt(tablePos);
+    if (!table || table.type.name !== 'table') return false;
+    if (dispatch) {
+      const map = TableMap.get(table);
+      const tr = state.tr;
+      addColumn(
+        tr,
+        { map, tableStart: tablePos + 1, table, left: 0, top: 0, right: 0, bottom: 0 },
+        map.width,
+      );
+      rescaleForNewColumn(tr, tablePos);
+      dispatch(tr.scrollIntoView());
+    }
+    return true;
+  };
+}
+
+/** The row twin: appends a row at the table's end for the pill under the
+    bottom edge. No width math — rows carry none. */
+export function addRowAtEnd(tablePos: number): Command {
+  return (state, dispatch) => {
+    const table = state.doc.nodeAt(tablePos);
+    if (!table || table.type.name !== 'table') return false;
+    if (dispatch) {
+      const map = TableMap.get(table);
+      const tr = state.tr;
+      addRow(
+        tr,
+        { map, tableStart: tablePos + 1, table, left: 0, top: 0, right: 0, bottom: 0 },
+        map.height,
+      );
+      dispatch(tr.scrollIntoView());
+    }
+    return true;
+  };
+}
+
 function buildTable(schema: Schema, rows: number, cols: number): Node {
   const cellType = schema.nodes['tableCell'];
   const rowType = schema.nodes['tableRow'];
@@ -493,6 +588,110 @@ function buildTable(schema: Schema, rows: number, cols: number): Node {
       Array.from({ length: cols }, () => cellType.createAndFill()!),
     );
   return tableType.create(null, Array.from({ length: rows }, makeRow))!;
+}
+
+/** Backspace/Delete with a whole structural unit selected: the user marked
+    it — deleting "all the content" of a table, row or column *is* deleting
+    the unit, and leaving an empty husk behind would be the one thing that
+    selection did not ask for. Full grid → the table; full-width rows → those
+    rows; full-height columns → those columns. Any lesser selection returns
+    false and falls through to `deleteCellSelection` (clear contents), the
+    library default. */
+export const deleteFullySelected: Command = (state, dispatch) => {
+  const selection = state.selection;
+  if (!(selection instanceof CellSelection)) return false;
+  const table = selection.$anchorCell.node(-1);
+  const tableStart = selection.$anchorCell.start(-1);
+  const map = TableMap.get(table);
+  const rect = map.rectBetween(
+    selection.$anchorCell.pos - tableStart,
+    selection.$headCell.pos - tableStart,
+  );
+  const fullWidth = rect.left === 0 && rect.right === map.width;
+  const fullHeight = rect.top === 0 && rect.bottom === map.height;
+  if (fullWidth && fullHeight) return deleteTable(state, dispatch);
+  if (fullWidth) return deleteRow(state, dispatch);
+  if (fullHeight) return deleteColumn(state, dispatch);
+  return false;
+};
+
+type Axis = 'horiz' | 'vert';
+
+const edgeName = (axis: Axis, dir: 1 | -1) =>
+  axis === 'vert' ? (dir > 0 ? 'down' : 'up') : dir > 0 ? 'right' : 'left';
+
+/** The caret's cell, resolved at the cell's own position, when the caret
+    stands at that cell's edge in `dir` (so the arrow has nowhere to go within
+    the cell). Vertical moves require an empty selection, like the library. */
+function caretCellAtEdge(
+  state: EditorState,
+  view: EditorView,
+  axis: Axis,
+  dir: 1 | -1,
+): ResolvedPos | null {
+  const selection = state.selection;
+  if (!(selection instanceof TextSelection)) return null;
+  if (axis === 'vert' && !selection.empty) return null;
+  const { $head } = selection;
+  if ($head.parent.type.spec['tableRole'] !== 'cell') return null;
+  if (!view.endOfTextblock(edgeName(axis, dir))) return null;
+  return state.doc.resolve($head.before());
+}
+
+/** Arrow keys across cells: from a cell's edge, the caret moves into the
+    neighbouring cell (rows wrap horizontally; the table's outer edges hand
+    off to the surrounding blocks). A cell selection collapses to a caret at
+    its head cell. Anywhere inside a cell's text, the browser keeps the key. */
+function cellArrow(axis: Axis, dir: 1 | -1): Command {
+  return (state, dispatch, view) => {
+    if (!view) return false;
+    const selection = state.selection;
+    if (selection instanceof CellSelection) {
+      dispatch?.(state.tr.setSelection(Selection.near(selection.$headCell, dir)).scrollIntoView());
+      return true;
+    }
+    const $cell = caretCellAtEdge(state, view, axis, dir);
+    if (!$cell) return false;
+
+    let target: Selection | null;
+    if (axis === 'horiz') {
+      const from = dir > 0 ? $cell.pos + $cell.nodeAfter!.nodeSize : $cell.pos;
+      target = Selection.findFrom(state.doc.resolve(from), dir, true);
+    } else {
+      const $next = nextCell($cell, axis, dir);
+      target = $next
+        ? Selection.near($next, 1)
+        : Selection.findFrom(state.doc.resolve(dir > 0 ? $cell.after(-1) : $cell.before(-1)), dir, true);
+    }
+    if (!target) return false;
+    dispatch?.(state.tr.setSelection(target).scrollIntoView());
+    return true;
+  };
+}
+
+/** Shift-arrows grow a cell selection: from a caret at a cell's edge, this
+    cell plus the neighbour; from a cell selection, one more cell at the head.
+    At the table's outer edge a cell selection stays put rather than spilling
+    into the surrounding text. */
+function cellShiftArrow(axis: Axis, dir: 1 | -1): Command {
+  return (state, dispatch, view) => {
+    if (!view) return false;
+    const selection = state.selection;
+    let $anchor: ResolvedPos;
+    let $head: ResolvedPos;
+    if (selection instanceof CellSelection) {
+      $anchor = selection.$anchorCell;
+      $head = selection.$headCell;
+    } else {
+      const $cell = caretCellAtEdge(state, view, axis, dir);
+      if (!$cell) return false;
+      $anchor = $head = $cell;
+    }
+    const $next = nextCell($head, axis, dir);
+    if (!$next) return selection instanceof CellSelection;
+    dispatch?.(state.tr.setSelection(new CellSelection($anchor, $next)).scrollIntoView());
+    return true;
+  };
 }
 
 /** ArrowDown from a table's last row: move to the block below, creating an

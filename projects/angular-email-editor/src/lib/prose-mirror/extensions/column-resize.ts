@@ -1,9 +1,16 @@
-import { Command, Plugin, PluginKey } from 'prosemirror-state';
+import { Command, EditorState, Plugin, PluginKey } from 'prosemirror-state';
 import { Node } from 'prosemirror-model';
-import { EditorView, ViewMutationRecord } from 'prosemirror-view';
-import { TableMap } from 'prosemirror-tables';
+import { Decoration, DecorationSet, EditorView, ViewMutationRecord } from 'prosemirror-view';
+import { CellSelection, TableMap } from 'prosemirror-tables';
 import { defineExtension } from '../extension';
-import { MIN_COLUMN_PCT, MIN_TABLE_PCT, formatPct, tableStyle } from './nodes/table';
+import {
+  MIN_COLUMN_PCT,
+  MIN_TABLE_PCT,
+  addColumnAtEnd,
+  addRowAtEnd,
+  formatPct,
+  tableStyle,
+} from './nodes/table';
 
 /**
  * Column resize — drag the boundary between two columns, in percentages.
@@ -54,6 +61,17 @@ export const ColumnResize = defineExtension({
       props: {
         nodeViews: {
           table: (node, view, getPos) => new TableView(node, view, getPos as () => number),
+        },
+        // The add pills reveal when the caret stands in the last column /
+        // last row; the classes land on the table's NodeView wrapper. The
+        // hover half of each reveal is pure CSS (`:has(td:last-child:hover)`,
+        // `:has(tr:last-child:hover)`) — this is only the focus half, derived
+        // from the selection like everything else.
+        decorations: (state) => {
+          const decorations = selectionEdgeDecorations(state);
+          const marked = tableEdgeDecoration(state);
+          if (marked) decorations.push(marked);
+          return decorations.length ? DecorationSet.create(state.doc, decorations) : null;
         },
       },
     }),
@@ -234,6 +252,73 @@ export function setTableWidth(tablePos: number, widthPct: number): Command {
   };
 }
 
+/**
+ * Edge classes for the cells on a cell selection's boundary, so CSS can draw
+ * the selection as *one object* — a crisp rectangle around the whole selected
+ * region, Tiptap-style — without Tiptap's machinery. Their overlay is a
+ * floating portal positioned by pixel measurement; ours needs none of it: a
+ * `CellSelection` is always a rectangle in the `TableMap`, so every selected
+ * cell knows from the model alone which of its edges lie on the boundary,
+ * and per-cell border segments assemble into the rectangle by themselves.
+ */
+function selectionEdgeDecorations(state: EditorState): Decoration[] {
+  const selection = state.selection;
+  if (!(selection instanceof CellSelection)) return [];
+  const table = selection.$anchorCell.node(-1);
+  const tableStart = selection.$anchorCell.start(-1);
+  const map = TableMap.get(table);
+  const rect = map.rectBetween(
+    selection.$anchorCell.pos - tableStart,
+    selection.$headCell.pos - tableStart,
+  );
+
+  const decorations: Decoration[] = [];
+  const seen = new Set<number>();
+  for (const rel of map.cellsInRect(rect)) {
+    if (seen.has(rel)) continue;
+    seen.add(rel);
+    const cell = table.nodeAt(rel)!;
+    const box = map.findCell(rel);
+    const classes = [
+      box.top === rect.top ? 'aee-sel-top' : '',
+      box.bottom === rect.bottom ? 'aee-sel-bottom' : '',
+      box.left === rect.left ? 'aee-sel-left' : '',
+      box.right === rect.right ? 'aee-sel-right' : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+    if (classes) {
+      decorations.push(
+        Decoration.node(tableStart + rel, tableStart + rel + cell.nodeSize, { class: classes }),
+      );
+    }
+  }
+  return decorations;
+}
+
+/** A node decoration marking the table whose *last column* and/or *last row*
+    holds the caret — a cell counts when its span reaches that edge of the
+    grid. The classes drive the add pills' focus reveal. */
+function tableEdgeDecoration(state: EditorState): Decoration | null {
+  const { $from } = state.selection;
+  for (let depth = $from.depth; depth > 0; depth--) {
+    if ($from.node(depth).type.name !== 'tableCell') continue;
+    const table = $from.node(depth - 2);
+    const tablePos = $from.before(depth - 2);
+    const map = TableMap.get(table);
+    const cell = map.findCell($from.before(depth) - (tablePos + 1));
+    const classes = [
+      cell.right === map.width ? 'aee-table-wrap--in-last-column' : '',
+      cell.bottom === map.height ? 'aee-table-wrap--in-last-row' : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+    if (!classes) return null;
+    return Decoration.node(tablePos, tablePos + table.nodeSize, { class: classes });
+  }
+  return null;
+}
+
 /** A boundary is draggable only where some row actually has a cell edge on
     it — inside a cell that spans it there is nothing to move. */
 function isDraggable(map: TableMap, boundary: number): boolean {
@@ -258,6 +343,9 @@ class TableView {
   #colgroup: HTMLElement;
   #lines: HTMLElement;
   #edges: { left: HTMLElement; right: HTMLElement };
+  #addColumnZone: HTMLElement;
+  #addColumn: HTMLElement;
+  #addRow: HTMLElement;
   #node: Node;
   #view: EditorView;
   #getPos: () => number;
@@ -292,6 +380,37 @@ class TableView {
       return el;
     };
     this.#edges = { left: edge('left'), right: edge('right') };
+    // The `+` pills: one on the right flank (append a column), one under the
+    // bottom edge (append a row). Compact, not Tiptap's full-length strips,
+    // so the edge-drag handle keeps the rest of the edge to itself.
+    const pill = (className: string, label: string, command: (pos: number) => Command) => {
+      const el = this.dom.appendChild(document.createElement('div'));
+      el.className = `aee-add-pill ${className}`;
+      el.textContent = '+';
+      el.contentEditable = 'false';
+      el.setAttribute('role', 'button');
+      el.setAttribute('aria-hidden', 'true');
+      el.setAttribute('title', label);
+      // preventDefault keeps the caret where it is; the command runs on click.
+      el.addEventListener('mousedown', (event) => event.preventDefault());
+      el.addEventListener('click', () => {
+        command(this.#getPos())(this.#view.state, this.#view.dispatch);
+      });
+      return el;
+    };
+    this.#addColumn = pill('aee-add-pill--column', 'Add column', addColumnAtEnd);
+    // The sensor zone — one contiguous strip from the table's right edge out
+    // to the pill (the YouTube-gesture-layer idea): hovering anywhere along
+    // it reveals the pill, so the pointer never crosses dead space on its way
+    // over. It covers only non-editable ground, which is why it can stay
+    // hit-testable at all times; clicks on the zone itself do nothing — only
+    // the pill acts.
+    this.#addColumnZone = this.dom.appendChild(document.createElement('div'));
+    this.#addColumnZone.className = 'aee-add-zone';
+    this.#addColumnZone.contentEditable = 'false';
+    this.#addColumnZone.setAttribute('aria-hidden', 'true');
+    this.#addColumnZone.appendChild(this.#addColumn);
+    this.#addRow = pill('aee-add-pill--row', 'Add row', addRowAtEnd);
     this.#render(node);
   }
 
@@ -314,7 +433,11 @@ class TableView {
       this.#lines.contains(target) ||
       target === this.#lines ||
       target === this.#edges.left ||
-      target === this.#edges.right
+      target === this.#edges.right ||
+      target === this.#addColumnZone ||
+      this.#addColumnZone.contains(target) ||
+      target === this.#addRow ||
+      this.#addRow.contains(target)
     );
   }
 
@@ -339,6 +462,10 @@ class TableView {
     this.#edges.left.style.transform = offset === 0 ? 'translateX(0)' : 'translateX(-50%)';
     this.#edges.right.style.transform =
       offset + tableWidth >= 100 ? 'translateX(-100%)' : 'translateX(-50%)';
+    // The sensor zone starts exactly at the table's right edge (its far end,
+    // holding the pill, is pinned to the gutter in CSS). The row pill needs
+    // no positioning at all: it is latched full-width to the wrapper.
+    this.#addColumnZone.style.left = `${offset + tableWidth}%`;
 
     // The display colgroup: declared widths verbatim, the rest left to the
     // browser — the same input the email gives a mail client.

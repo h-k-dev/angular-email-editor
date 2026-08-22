@@ -25,6 +25,7 @@ import { History } from './history';
 import { LayoutGuides } from './layout-guides';
 import { Gapcursor } from './gapcursor';
 import { ColumnResize } from './column-resize';
+import { ColumnsResize } from './columns-resize';
 import { NoTextDrag } from './no-text-drag';
 import { SplitKeepingMarks } from './split-keeping-marks';
 import { BaseKeymap } from './base-keymap';
@@ -57,6 +58,8 @@ const withParagraph = (paragraph: NodeExtension): Extension[] => [
   // Table NodeView (scroll wrapper + display colgroup) and the boundary-drag
   // handles. Percentages only — see the extension's docs.
   ColumnResize,
+  // The layout block's twin: same drag vocabulary, px-cap model.
+  ColumnsResize,
   Bold,
   Italic,
   Underline,

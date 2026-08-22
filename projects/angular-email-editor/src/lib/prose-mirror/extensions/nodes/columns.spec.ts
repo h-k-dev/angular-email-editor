@@ -85,6 +85,30 @@ describe('columns editing', () => {
     host.remove();
   });
 
+  it('horizontal arrows at a column edge hop into the neighbouring column', () => {
+    editor.commands['insertColumns'](2); // caret in column 0's empty block
+    const key = (k: string, code: number) =>
+      editor.view.dom.dispatchEvent(
+        new KeyboardEvent('keydown', { key: k, keyCode: code, which: code, bubbles: true, cancelable: true }),
+      );
+    const columnIndex = () => {
+      const { $from } = editor.state.selection;
+      for (let d = $from.depth; d > 0; d--) {
+        if ($from.node(d).type.name === 'columns') return $from.index(d);
+      }
+      return -1;
+    };
+    expect(columnIndex()).toBe(0);
+    key('ArrowRight', 39);
+    expect(columnIndex()).toBe(1);
+    key('ArrowLeft', 37);
+    expect(columnIndex()).toBe(0);
+    // Past the last column: out of the block, into whatever follows.
+    key('ArrowRight', 39);
+    key('ArrowRight', 39);
+    expect(findColumnsContext(editor.state)).toBeNull();
+  });
+
   it('insertColumns drops the cursor into the first column', () => {
     editor.commands['insertColumns'](2);
     expect(findColumnsContext(editor.state)).not.toBeNull();

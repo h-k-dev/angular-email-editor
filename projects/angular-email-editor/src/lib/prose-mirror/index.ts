@@ -39,6 +39,7 @@ export * from './extensions/marks/link';
 export * from './extensions/marks/text-style';
 export * from './extensions/history';
 export * from './extensions/column-resize';
+export * from './extensions/columns-resize';
 export * from './extensions/gapcursor';
 export * from './extensions/layout-guides';
 export * from './extensions/quote-fold';

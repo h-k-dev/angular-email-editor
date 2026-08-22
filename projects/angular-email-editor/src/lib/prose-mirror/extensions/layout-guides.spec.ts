@@ -39,7 +39,11 @@ describe('layout guides', () => {
 
   it('marks the columns block the cursor is in — the same class, one mechanism', () => {
     editor.commands['insertColumns'](2);
-    expect(editor.view.dom.querySelector(`.aee-columns.${GUIDES_ACTIVE_CLASS}`)).not.toBeNull();
+    // The class lands on the block's NodeView wrapper (the `ColumnsResize`
+    // extension), which contains the `.aee-columns` container.
+    const active = editor.view.dom.querySelector(`.${GUIDES_ACTIVE_CLASS}`);
+    expect(active).not.toBeNull();
+    expect(active!.querySelector('.aee-columns')).not.toBeNull();
   });
 
   it('marks nothing while the cursor is in ordinary text', () => {

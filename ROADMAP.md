@@ -496,17 +496,38 @@ still clunky and unintuitive* overall; these are the concrete symptoms.
       design, but there is no affordance to give the *serialized* table a
       visible border at all. Needs a curated border option (longhand, on the
       `<td>`s — the Outlook-safe way), routed through the block menu.
-- [ ] **Columns must feel like tables — one editing model.** They are the same
-      thing to a user (a grid; one holds content, one is structure) and today
-      they inherit the same clunkiness *separately*. The mechanisms are
-      already shared (layout guides, block menu, and now the gap cursor) — the
-      remaining interaction polish (navigation, escapes, selection behaviour,
-      menu affordances) should be designed once and applied to both, not fixed
-      per block. The table half now rides `prosemirror-tables`; the honest
-      question this raises is whether columns should become a table under the
-      skin (one model, literally) or keep their own nodes and merely borrow
-      the interactions. Undecided — and worth deciding before more polish
-      lands on either.
+- [x] **Columns and tables — decided (2026-08-23): separate semantics, shared
+      interaction vocabulary.** The framing that settled it: *a table is data,
+      columns are layout.* So columns do **not** become a table under the skin
+      — different nodes, different models, different email output — and they
+      borrow a table gesture only where the gesture's *meaning* survives the
+      change of semantics. The port matrix:
+  - **Boundary drag** — yes, **shipped 2026-08-23** (`ColumnsResize`; the
+        wrapper carries the container style so it *is* the 600px box, lines
+        at the cumulative caps in px, `MIN_COLUMN_CAP` 120px floor, verified
+        stacked-hides and side-by-side drag in-browser). Same deferred-commit
+        drag, different model: a
+        table splits 100% of itself, columns redistribute the email's px
+        *budget* (the `max-width` caps, the ledger's hybrid); phones still
+        stack because every cap exceeds the viewport. Lines are
+        model-derived in px (cumulative caps from the container's edge), and
+        a CSS container query hides them when the block is stacked — the
+        budget is a constant, so "stacked" flips at a constant width, no
+        measurement.
+  - **Add pill** — yes, same affordance and sensor zone, same meaning.
+  - **Add-row pill** — no: columns have no rows; a second row of columns is a
+        new block, the slash menu's job.
+  - **Delete gesture** — yes, but a different gesture: there is no cell
+        selection, so the layout-native rule is the list item's — Backspace at
+        the start of an empty column removes the column, in the last empty
+        column removes the block.
+  - **Selection rectangle, merge/split** — no: nothing to merge in layout.
+  - **Container edge drag** — parked: columns own `align` already, and a
+        narrower centred set is low value.
+      Nothing flows the other way: no stacking, no px caps in tables — a data
+      table stays tabular and scrolls on a phone. Once the three yeses land,
+      the columns block menu has nothing left either and the block-menu
+      extension can retire wholesale.
 - [ ] **Merged cells have no affordance yet.** `mergeCells`/`splitCell` are
       exposed as commands and cell selection works (shift-drag a rectangle),
       but the block menu opens only on a *bare cursor*, and a cell selection is
@@ -797,9 +818,55 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
   boundary proportionally — instead the edge-adjacent column takes the whole
   change and the others rescale by oldWidth/newWidth, keeping interior
   boundaries absolutely fixed (pinned by test and measured in-browser). This
-  also makes table centring trivial when it's wanted: offset arithmetic. Note for decoration
+  also makes table centring trivial when it's wanted: offset arithmetic.
+  **Add pills (2026-08-22):** the `+` pills append a column / row at the end
+  (Tiptap's `…-end-add-remove` affordances, NodeView-owned). The column pill
+  spans the table's full height and is **pinned just outside the wrapper's
+  right edge**, in the editor's inner-spacing gutter — a fixed, learnable
+  spot that never chases the table, never covers the grid, and stays inside
+  the scroll container's client area so it can't wake a scrollbar — and reveals only around the last column:
+  hovering it — a contiguous sensor zone runs from the table's edge to the
+  pill (the YouTube-gesture-layer pattern, over non-editable ground only), so
+  the pointer never crosses dead space — or standing in it with the caret (a selection-derived node decoration on
+  the wrapper, `aee-table-wrap--in-last-column`). The row pill mirrors all of it along the bottom edge: full-width and
+  wrapper-latched (its own sensor — from any last-row cell, straight down
+  lands on it), straddling the edge because below the table sits the next
+  block's text, not a gutter, and revealed only around the last row (hover
+  or caret, `aee-table-wrap--in-last-row`). They
+  replaced the block menu's add buttons, and **deleting the table is now a
+  gesture, not a menu item**: select every cell (shift-drag, or shift-arrows
+  growing the cell selection) and press Backspace/Delete — deleting *all* of
+  a table's content is deleting the table; an empty husk is the one thing
+  that selection didn't ask for. Anything less than the full grid falls
+  through to the library's deleteCellSelection (clear contents). The gesture family covers every unit
+  (2026-08-23): full-width rows delete those rows, full-height columns delete
+  that column — anything less still falls through to clear-contents.
+  Registered in the pre-`tableEditing` keymap plugin (the ArrowDown-escape
+  trick), because the library claims Backspace/Delete first. **The block menu
+  no longer opens for tables at all** — every operation lives on the table
+  (pills, gestures, boundary/edge drags, the toolbar fill); the menu remains
+  only for the columns block, which hasn't (yet) grown the same affordances.
+  A cell selection also hides the text caret (`:has(.selectedCell)` +
+  `caret-color`) — Chrome otherwise keeps blinking it at the hidden anchor
+  inside the selected rectangle. Keyboard: rows keep an append path (Tab past
+  the last cell), the delete gestures are fully keyboard-reachable
+  (shift-arrows); **append-column currently has no keyboard route** — an
+  accepted gap until the pills become focusable or a keybinding lands. Note for decoration
   writers: with the NodeView in place, node decorations (layout guides'
   `aee-guides-active`) land on the wrapper div, not the `<table>`.
+  **Arrow keys are ours too (2026-08-23).** The library's cell navigation is
+  dead for this schema: its `atEndOfCell` walks from `$head.depth - 1`
+  expecting a paragraph *inside* the cell, and our cells hold inline content
+  directly — so it never finds a cell and arrows fell through to the
+  browser (cells crossed by accident, Shift-arrows cell-selecting only when
+  the native selection spilled over). And because our cells are textblocks,
+  the gap cursor considered the slot *between two cells* a valid stop. Both
+  fixed in the pre-`tableEditing` keymap: an arrow at a cell's edge moves to
+  the neighbouring cell (rows wrap, the outer edges hand off to surrounding
+  blocks), a Shift-arrow there grows a cell selection (one cell per press,
+  stays put at the table's edge), a plain arrow collapses one; and
+  `allowGapCursor: false` on table and row keeps the gap cursor outside.
+  Columns got the horizontal hop too (`columnArrow`).
 - **Gap cursor for block escapes.** `prosemirror-gapcursor` gives every
   `isolating` block (table, columns) a real cursor position beside it, which is
   the mouse half of the escapes we had hand-rolled per node. It claims the

@@ -1,9 +1,11 @@
 import { TextSelection } from 'prosemirror-state';
+import { CellSelection } from 'prosemirror-tables';
 import { createEditor, Editor } from '../editor';
 import { createSchema } from '../schema';
 import { parseHTML, serializeToHTML } from '../html';
 import { emailExtensions } from './kits';
 import { setColumnBoundary, setTableBox, setTableWidth, columnWidths } from './column-resize';
+import { addColumnAtEnd, addRowAtEnd } from './nodes/table';
 
 const schema = createSchema(emailExtensions);
 const canonical = (html: string) => serializeToHTML(parseHTML(html, schema), schema);
@@ -225,6 +227,125 @@ describe('column resize', () => {
     const html = canonical('<table style="width: 70%"><tbody><tr><td>a</td></tr></tbody></table>');
     expect(html).toContain('<table style="width: 70%; table-layout: fixed; border-collapse: collapse;"');
     expect(canonical(html)).toBe(html);
+  });
+
+  it('the add pills append at the end, rescaling widths for the column', () => {
+    editor.commands['insertTable'](2, 2);
+    editor.exec(setColumnBoundary(tablePos(), 0, 65.2));
+
+    // Clicking the column pill appends at the end; declared widths scale by
+    // 2/3 and the new last column takes the freed third as leftover.
+    host.querySelector<HTMLElement>('.aee-add-pill--column')!.click();
+    expect(columnWidths(tableNode())).toEqual([43.5, 23.2, null]);
+
+    host.querySelector<HTMLElement>('.aee-add-pill--row')!.click();
+    expect(tableNode().childCount).toBe(3);
+    // Rows carry no width math; the columns are untouched.
+    expect(columnWidths(tableNode())).toEqual([43.5, 23.2, null]);
+  });
+
+  it('the pills track the table box and never serialize', () => {
+    editor.commands['insertTable'](2, 2);
+    editor.exec(setTableBox(tablePos(), 10, 60));
+    const zone = host.querySelector<HTMLElement>('.aee-add-zone')!;
+    const column = host.querySelector<HTMLElement>('.aee-add-pill--column')!;
+    const row = host.querySelector<HTMLElement>('.aee-add-pill--row')!;
+    // The sensor zone starts on the table's right edge (10 + 60); the pill
+    // lives inside it. The row pill is wrapper-latched: no inline position.
+    expect(zone.style.left).toBe('70%');
+    expect(zone.contains(column)).toBe(true);
+    expect(row.style.left).toBe('');
+    const html = editor.getHTML();
+    expect(html).not.toContain('aee-add-pill');
+    expect(html).not.toContain('aee-add-zone');
+  });
+
+  it('addColumnAtEnd and addRowAtEnd are position-addressed and validated', () => {
+    editor.commands['insertTable'](2, 2);
+    expect(editor.exec(addColumnAtEnd(0))).toBe(false); // not a table position
+    expect(editor.exec(addRowAtEnd(tablePos()))).toBe(true);
+    expect(tableNode().childCount).toBe(3);
+  });
+
+  it('marks the wrapper for the caret\'s grid edges — last column and last row', () => {
+    editor.commands['insertTable'](2, 2);
+    const cells: number[] = [];
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'tableCell') cells.push(pos);
+      return true;
+    });
+    const caretInto = (cellPos: number) =>
+      editor.exec((state, dispatch) => {
+        dispatch?.(state.tr.setSelection(TextSelection.create(state.doc, cellPos + 1)));
+        return true;
+      });
+    const classes = () => {
+      const list = host.querySelector('.aee-table-wrap')!.classList;
+      return {
+        column: list.contains('aee-table-wrap--in-last-column'),
+        row: list.contains('aee-table-wrap--in-last-row'),
+      };
+    };
+
+    caretInto(cells[0]); // (0,0) — neither edge
+    expect(classes()).toEqual({ column: false, row: false });
+    caretInto(cells[1]); // (0,1) — last column only
+    expect(classes()).toEqual({ column: true, row: false });
+    caretInto(cells[2]); // (1,0) — last row only
+    expect(classes()).toEqual({ column: false, row: true });
+    caretInto(cells[3]); // (1,1) — both edges
+    expect(classes()).toEqual({ column: true, row: true });
+  });
+
+  it('marks selection-boundary edges per cell, assembling one rectangle', () => {
+    editor.commands['insertTable'](2, 2);
+    const cells: number[] = [];
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'tableCell') cells.push(pos);
+      return true;
+    });
+    const edgeClasses = () =>
+      [...host.querySelectorAll('td')].map((td) =>
+        ['aee-sel-top', 'aee-sel-bottom', 'aee-sel-left', 'aee-sel-right']
+          .filter((cls) => td.classList.contains(cls))
+          .join(','),
+      );
+
+    // Full grid: each corner cell carries its two outer edges.
+    editor.exec((state, dispatch) => {
+      dispatch?.(state.tr.setSelection(CellSelection.create(state.doc, cells[0], cells[3])));
+      return true;
+    });
+    expect(edgeClasses()).toEqual([
+      'aee-sel-top,aee-sel-left',
+      'aee-sel-top,aee-sel-right',
+      'aee-sel-bottom,aee-sel-left',
+      'aee-sel-bottom,aee-sel-right',
+    ]);
+
+    // One row: its cells carry top AND bottom — the rectangle is one cell tall.
+    editor.exec((state, dispatch) => {
+      dispatch?.(state.tr.setSelection(CellSelection.create(state.doc, cells[0], cells[1])));
+      return true;
+    });
+    expect(edgeClasses()).toEqual([
+      'aee-sel-top,aee-sel-bottom,aee-sel-left',
+      'aee-sel-top,aee-sel-bottom,aee-sel-right',
+      '',
+      '',
+    ]);
+
+    // (A cell selection also puts ProseMirror-hideselection on the root so
+    // the app's CSS can blank the raw DOM selection and caret — but the class
+    // rides selectionToDOM, which only runs for a *focused* view, so that
+    // half is verified in the browser, not here.)
+
+    // A text selection clears every edge class.
+    editor.exec((state, dispatch) => {
+      dispatch?.(state.tr.setSelection(TextSelection.create(state.doc, cells[0] + 1)));
+      return true;
+    });
+    expect(edgeClasses()).toEqual(['', '', '', '']);
   });
 
   it('refuses a boundary outside the table', () => {

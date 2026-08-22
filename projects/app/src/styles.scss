@@ -110,22 +110,42 @@ html {
 /* While a column drag is live the guides may not fade at all — a wall that
  * eases while the resize line moves rigidly reads as two separate objects,
  * which is exactly the feeling this class exists to kill. */
-.aee-editor .aee-table-wrap--resizing td {
+.aee-editor .aee-table-wrap--resizing td,
+.aee-editor .aee-columns-wrap--resizing .aee-column {
   transition: none;
 }
 
-/* 1. cursor inside */
-/* (The table's active class sits on its NodeView wrapper, not the <table>.) */
+/* The columns block's NodeView (the `ColumnsResize` extension): the wrapper
+ * IS the email's 600px centred box (it carries the container style), so the
+ * boundary lines inside it sit at the cumulative px caps — geometry straight
+ * from the model. `container-type` lets CSS know when the block is *stacked*:
+ * the caps sum to a constant budget (560px), so below that width the columns
+ * are on top of each other and a horizontal drag means nothing — the lines
+ * simply hide. No measurement, no observer. */
+.aee-editor .aee-columns-wrap {
+  position: relative;
+  container-type: inline-size;
+  container-name: aee-columns;
+}
+
+@container aee-columns (width < 560px) {
+  .aee-col-lines {
+    display: none;
+  }
+}
+
+/* 1. cursor inside — on both blocks the class lands on the NodeView wrapper */
 .aee-editor .aee-table-wrap.aee-guides-active td,
-.aee-editor .aee-columns.aee-guides-active .aee-column,
+.aee-editor .aee-columns-wrap.aee-guides-active .aee-column,
 /* 2. hover the block — the whole grid, not just the cell/column under the
       pointer. For tables the hover target is the NodeView *wrapper*: the
       resize lines are its children but not the table's, and grabbing one must
       not un-hover the grid you are about to resize. */
 .aee-editor .aee-table-wrap:hover td,
-.aee-editor .aee-columns:hover .aee-column,
+.aee-editor .aee-columns-wrap:hover .aee-column,
 /* 2b. mid-drag the grid is pinned on, whatever the pointer does */
 .aee-editor .aee-table-wrap--resizing td,
+.aee-editor .aee-columns-wrap--resizing .aee-column,
 /* 3. peek: every layout block at once */
 .aee-editor.aee-guides-peek table td,
 .aee-editor.aee-guides-peek .aee-column {
@@ -151,13 +171,80 @@ html {
   position: relative;
 }
 
+/* ProseMirror's own hide-selection contract, transcribed from
+ * prosemirror-view/style/prosemirror.css (we ship scoped styles instead of
+ * importing that sheet, so its rules must live here). Any selection that
+ * declares `visible = false` — a CellSelection, a selected node — puts this
+ * class on the editor root; without these rules Chrome paints the raw DOM
+ * selection anyway: a blue sliver on every empty cell's line and a blinking
+ * caret at the hidden anchor, stray markers inside the real selection. */
+.aee-editor.ProseMirror-hideselection {
+  caret-color: transparent;
+}
+.aee-editor.ProseMirror-hideselection *::selection {
+  background: transparent;
+}
+.aee-editor.ProseMirror-hideselection *::-moz-selection {
+  background: transparent;
+}
+
+/* Mid-drag belt and braces: during a live mouse drag ProseMirror defers DOM
+ * selection work (fighting the browser's native drag would break it), so the
+ * class above can lag until mouseup — while the browser happily paints its
+ * raw selection through the whole hold. The `selectedCell` decorations do NOT
+ * lag (the tint proves it), so they gate the same blanking for the drag's
+ * duration. Scoped to cell selections: ordinary text selection inside one
+ * cell keeps its native highlight. */
+.aee-editor:has(td.selectedCell) {
+  caret-color: transparent;
+}
+.aee-editor:has(td.selectedCell) *::selection {
+  background: transparent;
+}
+
+/* Drawn as ONE object, Tiptap-style: a primary-tinted fill under a crisp
+ * 2px primary rectangle around the whole selected region. The rectangle is
+ * assembled from per-cell border segments — the `aee-sel-*` classes say which
+ * of a cell's edges lie on the selection's boundary, computed from the
+ * TableMap (a cell selection is always a rectangle), so no overlay, no
+ * portal, no measurement. */
 .aee-editor .selectedCell::after {
   content: '';
   position: absolute;
   inset: 0;
   z-index: 2;
   pointer-events: none;
-  background: var(--email-cell-selection, rgba(120, 150, 255, 0.25));
+  background: var(
+    --email-cell-selection,
+    color-mix(in srgb, var(--mat-sys-primary, #4c6ef5) 12%, transparent)
+  );
+}
+
+.aee-editor td.aee-sel-top::after {
+  border-top: 2px solid var(--email-cell-selection-border, var(--mat-sys-primary, #4c6ef5));
+}
+.aee-editor td.aee-sel-bottom::after {
+  border-bottom: 2px solid var(--email-cell-selection-border, var(--mat-sys-primary, #4c6ef5));
+}
+.aee-editor td.aee-sel-left::after {
+  border-left: 2px solid var(--email-cell-selection-border, var(--mat-sys-primary, #4c6ef5));
+}
+.aee-editor td.aee-sel-right::after {
+  border-right: 2px solid var(--email-cell-selection-border, var(--mat-sys-primary, #4c6ef5));
+}
+
+/* Rounded corners land exactly on the rectangle's four corner cells. */
+.aee-editor td.aee-sel-top.aee-sel-left::after {
+  border-top-left-radius: 3px;
+}
+.aee-editor td.aee-sel-top.aee-sel-right::after {
+  border-top-right-radius: 3px;
+}
+.aee-editor td.aee-sel-bottom.aee-sel-left::after {
+  border-bottom-left-radius: 3px;
+}
+.aee-editor td.aee-sel-bottom.aee-sel-right::after {
+  border-bottom-right-radius: 3px;
 }
 
 /* Column resize (the `ColumnResize` extension): one full-height line per
@@ -219,6 +306,117 @@ html {
 
 @media (prefers-reduced-motion: reduce) {
   .aee-editor .aee-col-line::after {
+    transition: none;
+  }
+}
+
+/* The add pills (the `ColumnResize` NodeView): a `+` on the table's right
+ * flank appends a column, a `+` straddling the bottom edge appends a row.
+ * Revealed with the rest of the table's affordances; positioned inline by
+ * the NodeView (model-derived, the column pill `min()`-clamped into the
+ * wrapper) — these are only the pixels. */
+.aee-editor .aee-add-pill {
+  position: absolute;
+  z-index: 5;
+  border-radius: var(--email-quote-fold-corner, var(--mat-sys-corner-small, 6px));
+  background-color: var(--mat-sys-surface-container-high, #e2e2e2);
+  color: var(--mat-sys-on-surface-variant, #555555);
+  font-size: 14px;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 140ms ease-out,
+    background-color 140ms ease-out;
+}
+
+/* The sensor zone: one contiguous strip from the table's right edge (inline
+ * `left`, model-derived) out past the wrapper into the editor's 16px
+ * inner-spacing gutter, where the pill sits — fully outside the grid, 2px
+ * shy of the padding edge, so no scrollbar ever wakes. Hover anywhere along
+ * the zone and the pill reveals; the pointer never crosses dead space on the
+ * way to it. Only non-editable ground is covered, so it stays hit-testable
+ * at all times; the zone itself takes no clicks — only the pill does. */
+.aee-editor .aee-add-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -14px;
+  z-index: 3;
+}
+
+/* The pill spans every row, pinned at the zone's far end — a fixed, learnable
+ * spot that never chases the table and never covers the grid. Outside the
+ * grid there is also nothing to collide with: the edge-drag handle keeps the
+ * whole table edge. */
+.aee-editor .aee-add-pill--column {
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The row twin, mirrored: full-width and latched to the wrapper (as the
+ * column pill spans all rows, this one spans all columns), sitting fully
+ * *below* the bottom edge with a small gap so the last row's edge stays
+ * clearly visible. That puts it over the following block's ground — but only
+ * while revealed (pointer-events are gated), and full width makes the pill
+ * its own sensor: from any cell of the last row, straight down lands on it.
+ * The ::before lip bridges the 3px gap so the hover can't drop mid-crossing. */
+.aee-editor .aee-add-pill--row {
+  top: calc(100% + 3px);
+  left: 0;
+  right: 0;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.aee-editor .aee-add-pill--row::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 0;
+  right: 0;
+  height: 4px;
+}
+
+/* Both pills reveal only when you are *about* their edge: hovering the last
+ * column / last row (or the pill's own ground), or standing there with the
+ * caret (the `--in-last-*` classes, selection-derived decorations). */
+.aee-editor .aee-table-wrap:has(tr > td:last-child:hover) .aee-add-pill--column,
+.aee-editor .aee-table-wrap--in-last-column .aee-add-pill--column,
+.aee-editor .aee-add-zone:hover .aee-add-pill--column {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.aee-editor .aee-table-wrap:has(tr:last-child:hover) .aee-add-pill--row,
+.aee-editor .aee-table-wrap--in-last-row .aee-add-pill--row,
+.aee-editor .aee-add-pill--row:hover {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Out of the way while a resize drag is live — two affordances moving at
+ * once is noise. */
+.aee-editor .aee-table-wrap--resizing .aee-add-pill {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.aee-editor .aee-add-pill:hover {
+  background-color: var(--mat-sys-surface-container-highest, #d4d4d4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aee-editor .aee-add-pill {
     transition: none;
   }
 }
