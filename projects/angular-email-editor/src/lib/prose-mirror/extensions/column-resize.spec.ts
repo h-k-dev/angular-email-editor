@@ -172,7 +172,11 @@ describe('column resize', () => {
     const lines = host.querySelector<HTMLElement>('.aee-col-lines')!;
     // Left edge on the offset (0), right edge on offset + width.
     expect([...edges].map((edge) => edge.style.left)).toEqual(['0%', '80%']);
-    expect(lines.style.width).toBe('80%');
+    // The layer itself carries no inline geometry: CSS insets it to the
+    // wrapper's content box (inside the editor-only gutter), so every child
+    // percentage above is already a share of the table's own area.
+    expect(lines.style.left).toBe('');
+    expect(lines.style.width).toBe('');
     expect(editor.getHTML()).not.toContain('aee-col-line--edge');
   });
 
@@ -370,6 +374,16 @@ describe('column resize', () => {
     editor.exec(setColumnBoundary(tablePos(), 0, 30));
     const line = host.querySelector<HTMLElement>('.aee-col-line')!;
     expect(Math.round(parseFloat(line.style.left))).toBe(30);
+  });
+
+  it('places boundary lines against the wrapper box, not the table alone', () => {
+    editor.commands['insertTable'](2, 2);
+    // A 60%-wide table offset 20%: its midpoint boundary sits at 50% of the
+    // *wrapper* (20 + 60/2), which is the coordinate space the lines layer
+    // measures in now that the gutter insets it.
+    editor.exec(setTableBox(tablePos(), 20, 60));
+    const line = host.querySelector<HTMLElement>('.aee-col-line')!;
+    expect(Math.round(parseFloat(line.style.left))).toBe(50);
   });
 
   it('hides the line where every row is spanned across the boundary', () => {

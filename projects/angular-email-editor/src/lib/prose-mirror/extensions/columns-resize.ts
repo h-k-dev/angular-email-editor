@@ -24,11 +24,11 @@ import {
  * between two neighbouring caps and conserves their sum, so the block's
  * stacking behaviour never changes, only the split.
  *
- * Geometry, as always, from the model: the NodeView's wrapper carries the
- * container style itself (the email's centred 600px box), so a boundary's
- * `left` is simply the sum of the caps before it, in px. And "stacked" — the
- * one state where a horizontal drag means nothing — is a CSS container query
- * on the wrapper: the caps sum to a constant budget, so the block stacks at a
+ * Geometry, as always, from the model: the NodeView's *box* carries the
+ * container style (the email's centred 600px box), so a boundary's `left` is
+ * simply the sum of the caps before it, in px. And "stacked" — the one state
+ * where a horizontal drag means nothing — is a CSS container query on that
+ * same box: the caps sum to a constant budget, so the block stacks at a
  * constant width, and the lines hide themselves. No measurement, no
  * observer.
  */
@@ -49,16 +49,22 @@ export const ColumnsResize = defineExtension({
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
 /**
- * `div.aee-columns-wrap (container style) > div.aee-columns (contentDOM) +
- * div.aee-col-lines`. The wrapper takes the container's own style — width,
- * max-width, alignment margins — so it *is* the box the columns lay out in,
- * and the lines layer over it is in the columns' coordinate space. The inner
- * contentDOM keeps the `aee-columns` hook and fills the wrapper. The schema's
- * `toDOM` (clipboard) and `emitDOM` (email) are untouched.
+ * `div.aee-columns-wrap (editorial gutter) > div.aee-columns-box (the email's
+ * container style) > div.aee-columns (contentDOM) + div.aee-col-lines`.
+ *
+ * The split matters: the gutter is editor-only room for the block's
+ * affordances, while the box is the email's 600px centred container. Putting
+ * both on one element would let editorial padding shrink the width the
+ * columns lay out in — and since they stack at a constant budget, the editor
+ * would start stacking at a pane width where the recipient still sees them
+ * side by side. Separated, the gutter costs the layout nothing. The lines
+ * layer sits inside the box, so its coordinates are the columns' own. The
+ * schema's `toDOM` (clipboard) and `emitDOM` (email) are untouched.
  */
 class ColumnsView {
   dom: HTMLElement;
   contentDOM: HTMLElement;
+  #box: HTMLElement;
   #lines: HTMLElement;
   #node: Node;
   #view: EditorView;
@@ -70,10 +76,16 @@ class ColumnsView {
     this.#getPos = getPos;
     this.dom = document.createElement('div');
     this.dom.className = 'aee-columns-wrap';
-    this.contentDOM = this.dom.appendChild(document.createElement('div'));
+    // Two roles, two elements — the reason this block needed restructuring.
+    // The wrapper carries the *editorial* gutter (affordance room, no effect
+    // on the email); the box inside it carries the *email's* container style,
+    // so padding can never narrow the 600px the columns actually lay out in.
+    this.#box = this.dom.appendChild(document.createElement('div'));
+    this.#box.className = 'aee-columns-box';
+    this.contentDOM = this.#box.appendChild(document.createElement('div'));
     this.contentDOM.className = 'aee-columns';
     this.contentDOM.setAttribute('style', 'width: 100%;');
-    this.#lines = this.dom.appendChild(document.createElement('div'));
+    this.#lines = this.#box.appendChild(document.createElement('div'));
     this.#lines.className = 'aee-col-lines';
     this.#lines.contentEditable = 'false';
     this.#lines.setAttribute('aria-hidden', 'true');
@@ -91,6 +103,7 @@ class ColumnsView {
     const target = record.target;
     return (
       target === this.dom ||
+      target === this.#box ||
       target === this.#lines ||
       this.#lines.contains(target) ||
       // The contentDOM's own attributes are ours; its children are ProseMirror's.
@@ -99,7 +112,7 @@ class ColumnsView {
   }
 
   #render(node: Node): void {
-    this.dom.setAttribute('style', containerStyle(node.attrs['align']));
+    this.#box.setAttribute('style', containerStyle(node.attrs['align']));
 
     const caps = columnCaps(node);
     const boundaries = Math.max(caps.length - 1, 0);
@@ -127,7 +140,7 @@ class ColumnsView {
     const startX = event.clientX;
     const startLeft = caps.slice(0, boundary + 1).reduce((sum, cap) => sum + cap, 0);
 
-    // px in the editor are px in the email: the wrapper is the 600px box.
+    // px in the editor are px in the email: the box is the 600px container.
     const leftAt = (ev: PointerEvent) =>
       clamp(caps[boundary] + (ev.clientX - startX), MIN_COLUMN_CAP, pair - MIN_COLUMN_CAP);
 

@@ -109,6 +109,43 @@ describe('columns editing', () => {
     expect(findColumnsContext(editor.state)).toBeNull();
   });
 
+  it('Tab walks the columns and never lets focus escape the editor', () => {
+    editor.commands['insertColumns'](3);
+    const key = (k: string, code: number, shift = false) => {
+      const ev = new KeyboardEvent('keydown', {
+        key: k,
+        keyCode: code,
+        which: code,
+        shiftKey: shift,
+        bubbles: true,
+        cancelable: true,
+      });
+      editor.view.dom.dispatchEvent(ev);
+      return ev.defaultPrevented;
+    };
+    const columnIndex = () => {
+      const { $from } = editor.state.selection;
+      for (let d = $from.depth; d > 0; d--) {
+        if ($from.node(d).type.name === 'columns') return $from.index(d);
+      }
+      return -1;
+    };
+
+    expect(columnIndex()).toBe(0);
+    expect(key('Tab', 9)).toBe(true);
+    expect(columnIndex()).toBe(1);
+    key('Tab', 9);
+    expect(columnIndex()).toBe(2);
+    key('Tab', 9, true);
+    expect(columnIndex()).toBe(1);
+
+    // Past the last column Tab leaves the block — but stays claimed, so the
+    // browser never moves focus out of the editor.
+    key('Tab', 9);
+    expect(key('Tab', 9)).toBe(true);
+    expect(findColumnsContext(editor.state)).toBeNull();
+  });
+
   it('insertColumns drops the cursor into the first column', () => {
     editor.commands['insertColumns'](2);
     expect(findColumnsContext(editor.state)).not.toBeNull();

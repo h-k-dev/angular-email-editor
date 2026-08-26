@@ -225,7 +225,16 @@ export const Columns = defineNode({
     removeColumn: (): Command => removeColumn,
     deleteColumns: (): Command => deleteColumns,
   }),
-  keymap: () => ({ ArrowDown: escapeColumnsDown }),
+  keymap: () => ({
+    ArrowDown: escapeColumnsDown,
+    // Tab walks the columns, the table's convention applied to the layout
+    // block. Unbound, Tab fell through to the browser's focus navigation and
+    // jumped out of the editor entirely (into the source pane, in the example
+    // app) with the caret left behind — so it is claimed for the whole block,
+    // even where there is nowhere left to go.
+    Tab: columnTab(1),
+    'Shift-Tab': columnTab(-1),
+  }),
   // A plugin keymap (ahead of the gap cursor's) so a horizontal arrow at a
   // column's edge hops straight into the neighbouring column — the layout
   // twin of the table's cell-to-cell arrows.
@@ -425,6 +434,52 @@ export const deleteColumns: Command = (state, dispatch) => {
   dispatch?.(state.tr.delete(ctx.pos, ctx.pos + ctx.node.nodeSize).scrollIntoView());
   return true;
 };
+
+/**
+ * Tab / Shift-Tab inside a columns block: move to the next / previous column,
+ * and past the block's ends hand off to the surrounding blocks. Always claims
+ * the key while the caret is inside the block — an unclaimed Tab in a
+ * contenteditable moves *browser focus*, which yanks the user out of the
+ * editor mid-edit.
+ */
+function columnTab(dir: 1 | -1): Command {
+  return (state, dispatch) => {
+    const ctx = findColumnsEditContext(state);
+    if (!ctx) return false;
+
+    const index = ctx.index + dir;
+    if (index >= 0 && index < ctx.node.childCount) {
+      let pos = ctx.pos + 1;
+      for (let i = 0; i < index; i++) pos += ctx.node.child(i).nodeSize;
+      // Enter at the column's near edge: its start going forward, its end
+      // coming back — the same feel as tabbing across table cells.
+      const inside = dir > 0 ? pos + 1 : pos + ctx.node.child(index).nodeSize - 1;
+      dispatch?.(
+        state.tr.setSelection(Selection.near(state.doc.resolve(inside), dir)).scrollIntoView(),
+      );
+      return true;
+    }
+
+    const from = dir > 0 ? ctx.pos + ctx.node.nodeSize : ctx.pos;
+    const outside = Selection.findFrom(state.doc.resolve(from), dir, true);
+    if (outside) {
+      dispatch?.(state.tr.setSelection(outside).scrollIntoView());
+      return true;
+    }
+    // Tabbing out of the last column of a trailing block: write a paragraph
+    // to land in, the same courtesy ArrowDown already extends (a dead-ended
+    // Tab would just look like the key stopped working).
+    if (dir > 0 && dispatch) {
+      const paragraph = state.schema.nodes['paragraph'].createAndFill();
+      if (paragraph) {
+        const tr = state.tr.insert(from, paragraph);
+        tr.setSelection(TextSelection.create(tr.doc, from + 1));
+        dispatch(tr.scrollIntoView());
+      }
+    }
+    return true;
+  };
+}
 
 /** ArrowLeft/Right at a column's outer edge (the start of its first block,
     the end of its last): move into the neighbouring column — or out of the

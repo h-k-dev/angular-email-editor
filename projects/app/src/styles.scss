@@ -122,10 +122,29 @@ html {
  * the caps sum to a constant budget (560px), so below that width the columns
  * are on top of each other and a horizontal drag means nothing — the lines
  * simply hide. No measurement, no observer. */
+/* Gutter only — the email's container style lives on the box inside, which is
+ * what keeps this padding editorial in the strict sense: it reserves room for
+ * affordances without touching the width the columns lay out in. */
 .aee-editor .aee-columns-wrap {
+  --aee-block-gutter-y: 20px;
+  --aee-block-gutter-x: 20px;
+  position: relative;
+  padding: var(--aee-block-gutter-y) var(--aee-block-gutter-x);
+}
+
+/* The block's own area. `container-type` lives here, not on the wrapper, so
+ * "is this block stacked?" is asked of the columns' real width: the caps sum
+ * to a constant budget (560px), so below that they are on top of each other
+ * and a horizontal drag means nothing — the lines hide themselves. No
+ * measurement, no observer. */
+.aee-editor .aee-columns-box {
   position: relative;
   container-type: inline-size;
   container-name: aee-columns;
+}
+
+.aee-editor .aee-table-box {
+  position: relative;
 }
 
 @container aee-columns (width < 560px) {
@@ -254,20 +273,42 @@ html {
  * boundary is one element, not per-cell segments — and it stays lit through
  * the drag. Nothing here is in the email.
  */
+/* The editor-only gutter around a layout block. It reserves the ground the
+ * block's affordances live on — today the add pills and the resize edges,
+ * tomorrow column actions above and row actions to the left — so none of them
+ * has to hang over the text that follows or precedes the block. It is padding
+ * on the NodeView *wrapper*, so it exists only while editing: the serialized
+ * table and columns carry no margin of their own.
+ *
+ * Both blocks get all four sides. The wrapper is *only* the gutter; the box
+ * inside it is the block's own area (for columns, the email's 600px
+ * container), so this padding can never change what the email lays out in.
+ * Each block declares its own values rather than sharing a rule, so neither
+ * depends on where it sits in this file. */
 .aee-editor .aee-table-wrap {
+  --aee-block-gutter-y: 20px;
+  --aee-block-gutter-x: 20px;
   position: relative;
+  padding: var(--aee-block-gutter-y) var(--aee-block-gutter-x);
   /* No overflow trap here: a fixed-layout table at ≤ 100% can never outgrow
    * the wrapper, and an `overflow-x: auto` would turn the edge handles'
    * half-out-of-bounds grab strips into a phantom scrollbar. */
 }
 
+/* The geometry layer fills the block's box (inside the editorial gutter), so
+ * every child's percentage is a share of the block itself and the gutter can
+ * change without a single number in the NodeView moving. */
 .aee-editor .aee-col-lines {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 100%; /* the NodeView narrows this to the table's own width */
+  inset: 0;
   pointer-events: none;
+}
+
+/* The boundary lines' own container (the render pass owns its child list, so
+ * the edge handles and add zone must not live directly in it). */
+.aee-editor .aee-col-boundaries {
+  position: absolute;
+  inset: 0;
 }
 
 /* The grab strip: 9px of hit area centred on the boundary — comfortably
@@ -339,12 +380,16 @@ html {
  * the zone and the pill reveals; the pointer never crosses dead space on the
  * way to it. Only non-editable ground is covered, so it stays hit-testable
  * at all times; the zone itself takes no clicks — only the pill does. */
+/* Reaches from the table's right edge out to the far side of the gutter,
+ * where the pill sits. `pointer-events` is re-enabled because the layer it
+ * lives in switches them off. */
 .aee-editor .aee-add-zone {
   position: absolute;
   top: 0;
   bottom: 0;
-  right: -14px;
+  right: calc(var(--aee-block-gutter-x) * -1);
   z-index: 3;
+  pointer-events: auto;
 }
 
 /* The pill spans every row, pinned at the zone's far end — a fixed, learnable
@@ -354,7 +399,7 @@ html {
 .aee-editor .aee-add-pill--column {
   top: 0;
   bottom: 0;
-  right: 0;
+  right: 2px;
   width: 12px;
   display: flex;
   align-items: center;
@@ -368,8 +413,11 @@ html {
  * while revealed (pointer-events are gated), and full width makes the pill
  * its own sensor: from any cell of the last row, straight down lands on it.
  * The ::before lip bridges the 3px gap so the hover can't drop mid-crossing. */
+/* `100%` is the padded box, so the table's bottom edge is one gutter above
+ * it — the pill hangs 3px under that, inside the gutter, clear of the text
+ * that follows. */
 .aee-editor .aee-add-pill--row {
-  top: calc(100% + 3px);
+  top: calc(100% - var(--aee-block-gutter-y) + 3px);
   left: 0;
   right: 0;
   height: 12px;

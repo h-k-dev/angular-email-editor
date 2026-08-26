@@ -866,7 +866,33 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
   blocks), a Shift-arrow there grows a cell selection (one cell per press,
   stays put at the table's edge), a plain arrow collapses one; and
   `allowGapCursor: false` on table and row keeps the gap cursor outside.
-  Columns got the horizontal hop too (`columnArrow`).
+  Columns got the horizontal hop too (`columnArrow`), **and Tab
+  (`columnTab`)**: unbound, Tab in a columns block fell through to the
+  browser's own focus navigation and jumped clean out of the editor — into
+  the source pane, in the example app — leaving the caret behind. It now
+  walks the columns like a table's cells, hands off to the surrounding blocks
+  at the ends (writing a paragraph when the block is last, as ArrowDown
+  already does), and is *claimed for the whole block* so focus can never be
+  yanked away mid-edit. Outside a layout block Tab still escapes the editor
+  normally, which is the accessible behaviour.
+- **The block gutter (2026-08-23).** Both NodeView wrappers carry editor-only
+  padding (`--aee-block-gutter-x/y`, 20px) — the ground the block's
+  affordances stand on, so none of them hangs over the text around the block
+  (the add-row pill used to cover the following line). It reserves room for
+  the row/column action handles still to come. Two consequences worth
+  knowing: (1) the geometry layer (`.aee-col-lines`) is CSS-inset to the
+  wrapper's *content* box, so every child percentage is a share of the block
+  itself and the gutter can change without a number moving in the NodeView —
+  table-relative shares are converted once, in `#toBoxPct`, and a drag
+  measures `#contentBox()` rather than `clientWidth` (which counts padding).
+  (2) **Wrapper and box are two elements, and that split is the point.** The
+  wrapper carries only the editorial gutter; the box inside it carries the
+  block's own area — for columns, the email's 600px container (and the
+  `container-type` that answers "is this stacked?"). Collapsing the two, as
+  the first attempt did, let editorial padding narrow the width the columns
+  lay out in, which would have made the editor stack at a pane width where
+  the recipient still sees them side by side. Separated, the gutter costs the
+  layout nothing: at a 654px pane the box still measures exactly 600px.
 - **Gap cursor for block escapes.** `prosemirror-gapcursor` gives every
   `isolating` block (table, columns) a real cursor position beside it, which is
   the mouse half of the escapes we had hand-rolled per node. It claims the

@@ -110,6 +110,12 @@ export class EmailCompose {
   fontMenuOpen = signal(false);
   sizeMenuOpen = signal(false);
 
+  /** Table-size picker: an 8×8 hover grid — sweep to preview, click to insert.
+      The picked size reads columns × rows, the way the grid is swept. */
+  tableSteps = Array.from({ length: 8 }, (_, i) => i);
+  tableMenuOpen = signal(false);
+  tablePick = signal({ cols: 2, rows: 2 });
+
   // Link editor popover, anchored at the selection.
   linkInput = viewChild<ElementRef<HTMLInputElement>>('linkInput');
   linkMenuOpen = signal(false);
@@ -358,6 +364,24 @@ export class EmailCompose {
 
     if (size) editor.commands['setFontSize'](size);
     else editor.commands['unsetFontSize']();
+    editor.focus();
+  }
+
+  /** Opens the picker at the command's default size, so the preview never
+      starts from a stale sweep of the previous open. */
+  toggleTableMenu(): void {
+    this.tablePick.set({ cols: 2, rows: 2 });
+    this.tableMenuOpen.update((open) => !open);
+  }
+
+  /** Inserts the picked table. The picker speaks columns × rows;
+      `insertTable` takes rows first. */
+  insertTable(cols: number, rows: number): void {
+    this.tableMenuOpen.set(false);
+    const editor = this.editor();
+    if (!editor) return;
+
+    editor.commands['insertTable'](rows, cols);
     editor.focus();
   }
 

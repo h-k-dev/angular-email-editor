@@ -47,10 +47,13 @@ describe('columns resize', () => {
     editor.commands['insertColumns'](3);
     const wrap = host.querySelector<HTMLElement>('.aee-columns-wrap')!;
     expect(wrap).toBeTruthy();
-    // The wrapper IS the email's box: max-width and the centring margins.
-    expect(wrap.getAttribute('style')).toContain('max-width: 600px');
-    expect(wrap.getAttribute('style')).toContain('margin-left: auto');
-    expect(wrap.querySelector('.aee-columns')).toBeTruthy();
+    // The wrapper is editorial gutter only; the box inside it is the email's
+    // container — so gutter padding can never narrow the columns' 600px.
+    expect(wrap.getAttribute('style')).toBeNull();
+    const box = wrap.querySelector<HTMLElement>('.aee-columns-box')!;
+    expect(box.getAttribute('style')).toContain('max-width: 600px');
+    expect(box.getAttribute('style')).toContain('margin-left: auto');
+    expect(box.querySelector('.aee-columns')).toBeTruthy();
 
     // Two boundaries for three columns, at the cumulative caps (186, 372).
     const caps = columnCaps(columnsNode());

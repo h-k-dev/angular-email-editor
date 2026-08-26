@@ -322,6 +322,64 @@
   <button
     mat-icon-button
     type="button"
+    aria-label="Insert table"
+    [attr.aria-expanded]="tableMenuOpen()"
+    cdkOverlayOrigin
+    #tableOrigin="cdkOverlayOrigin"
+    (mousedown)="$event.preventDefault()"
+    (click)="toggleTableMenu()"
+  >
+    <mat-icon>table_chart</mat-icon>
+  </button>
+
+  <!-- Table-size picker: sweep the grid to preview columns × rows, click to
+       insert. Every cell is a real button, so the keyboard path (Tab/arrows +
+       Enter) works and focus drives the same preview as hover. -->
+  <ng-template
+    cdkConnectedOverlay
+    [cdkConnectedOverlayOrigin]="tableOrigin"
+    [cdkConnectedOverlayOpen]="tableMenuOpen()"
+    [cdkConnectedOverlayHasBackdrop]="true"
+    cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop"
+    (backdropClick)="tableMenuOpen.set(false)"
+    [cdkConnectedOverlayPush]="true"
+    [cdkConnectedOverlayViewportMargin]="8"
+  >
+    <div class="table-picker" (mousedown)="$event.preventDefault()">
+      <div class="table-picker__grid" role="group" aria-label="Table size">
+        @for (row of tableSteps; track row) {
+          @for (col of tableSteps; track col) {
+            <button
+              type="button"
+              class="table-picker__cell"
+              [class.is-selected]="col < tablePick().cols && row < tablePick().rows"
+              [attr.aria-label]="col + 1 + ' by ' + (row + 1) + ' table'"
+              (mouseenter)="tablePick.set({ cols: col + 1, rows: row + 1 })"
+              (focus)="tablePick.set({ cols: col + 1, rows: row + 1 })"
+              (click)="insertTable(col + 1, row + 1)"
+            ></button>
+          }
+        }
+      </div>
+      <div class="table-picker__size" aria-hidden="true">
+        <span class="table-picker__count">
+          <mat-icon>view_column</mat-icon>
+          {{ tablePick().cols }}
+        </span>
+        <span>x</span>
+        <span class="table-picker__count">
+          <mat-icon>table_rows</mat-icon>
+          {{ tablePick().rows }}
+        </span>
+      </div>
+    </div>
+  </ng-template>
+
+  <mat-divider [vertical]="true" />
+
+  <button
+    mat-icon-button
+    type="button"
     aria-label="Align left"
     [class.is-active]="isActive('paragraph', { align: null })"
     [attr.aria-pressed]="isActive('paragraph', { align: null })"

@@ -339,9 +339,11 @@ function isDraggable(map: TableMap, boundary: number): boolean {
 class TableView {
   dom: HTMLElement;
   contentDOM: HTMLElement;
+  #box: HTMLElement;
   #table: HTMLTableElement;
   #colgroup: HTMLElement;
   #lines: HTMLElement;
+  #boundaries: HTMLElement;
   #edges: { left: HTMLElement; right: HTMLElement };
   #addColumnZone: HTMLElement;
   #addColumn: HTMLElement;
@@ -356,7 +358,12 @@ class TableView {
     this.#getPos = getPos;
     this.dom = document.createElement('div');
     this.dom.className = 'aee-table-wrap';
-    this.#table = this.dom.appendChild(document.createElement('table'));
+    // The gutter belongs to the wrapper (editorial space); the box inside it
+    // is the block's own area, and every piece of geometry measures against
+    // that — so the gutter can change without moving a single number.
+    this.#box = this.dom.appendChild(document.createElement('div'));
+    this.#box.className = 'aee-table-box';
+    this.#table = this.#box.appendChild(document.createElement('table'));
     this.#table.setAttribute(
       'style',
       tableStyle(node.attrs['width'] as number, node.attrs['offset'] as number),
@@ -364,15 +371,23 @@ class TableView {
     this.#table.setAttribute('role', 'presentation');
     this.#colgroup = this.#table.appendChild(document.createElement('colgroup'));
     this.contentDOM = this.#table.appendChild(document.createElement('tbody'));
-    this.#lines = this.dom.appendChild(document.createElement('div'));
+    this.#lines = this.#box.appendChild(document.createElement('div'));
     this.#lines.className = 'aee-col-lines';
     this.#lines.contentEditable = 'false';
     this.#lines.setAttribute('aria-hidden', 'true');
+    // The boundary lines get their own container: the render pass trims it to
+    // exactly one child per boundary, which would otherwise delete the edge
+    // handles and the add zone that share this layer.
+    this.#boundaries = this.#lines.appendChild(document.createElement('div'));
+    this.#boundaries.className = 'aee-col-boundaries';
     // The table's own resize handles, one per outer edge. Wrapper-relative,
     // so their `left`s *are* the model's offset and offset + width — numbers
     // straight from the document, no measurement.
     const edge = (side: 'left' | 'right') => {
-      const el = this.dom.appendChild(document.createElement('div'));
+      // Inside the lines layer, which CSS insets to the wrapper's *content*
+      // box — so every percentage below is a share of the table's own area,
+      // gutter or no gutter.
+      const el = this.#lines.appendChild(document.createElement('div'));
       el.className = 'aee-col-line aee-col-line--edge';
       el.contentEditable = 'false';
       el.setAttribute('aria-hidden', 'true');
@@ -405,7 +420,7 @@ class TableView {
     // over. It covers only non-editable ground, which is why it can stay
     // hit-testable at all times; clicks on the zone itself do nothing — only
     // the pill acts.
-    this.#addColumnZone = this.dom.appendChild(document.createElement('div'));
+    this.#addColumnZone = this.#lines.appendChild(document.createElement('div'));
     this.#addColumnZone.className = 'aee-add-zone';
     this.#addColumnZone.contentEditable = 'false';
     this.#addColumnZone.setAttribute('aria-hidden', 'true');
@@ -427,6 +442,7 @@ class TableView {
     const target = record.target;
     return (
       target === this.dom ||
+      target === this.#box ||
       target === this.#table ||
       target === this.#colgroup ||
       this.#colgroup.contains(target) ||
@@ -448,12 +464,11 @@ class TableView {
     const tableWidth = node.attrs['width'] as number;
     const offset = node.attrs['offset'] as number;
 
-    // The table's box and everything positioned against it: the boundary
-    // lines layer spans exactly the table (their `left` percentages stay
-    // table-relative), and the edge handles sit on the table's outer edges.
+    // The table's box and everything positioned against it. The lines layer
+    // is CSS-inset to the wrapper's content box (inside the editor-only
+    // gutter), so a child's `left` percentage is a share of the table's own
+    // area — table-relative shares are converted once, here.
     this.#table.setAttribute('style', tableStyle(tableWidth, offset));
-    this.#lines.style.left = `${offset}%`;
-    this.#lines.style.width = `${tableWidth}%`;
     this.#edges.left.style.left = `${offset}%`;
     this.#edges.right.style.left = `${offset + tableWidth}%`;
     // At the container's own edges the handles tuck fully inside — a strip
@@ -479,23 +494,38 @@ class TableView {
     // One line per interior boundary, placed at the cumulative share — the
     // document says where the boundary is, so no measurement, ever. Elements
     // are reused so a mid-drag re-render can't orphan the drag.
-    resizeChildren(this.#lines, Math.max(declared.length - 1, 0), 'div', (line) => {
+    resizeChildren(this.#boundaries, Math.max(declared.length - 1, 0), 'div', (line) => {
       line.className = 'aee-col-line';
       line.addEventListener('pointerdown', (event) => this.#startDrag(line, event));
     });
     let cumulative = 0;
     for (let boundary = 0; boundary < declared.length - 1; boundary++) {
       cumulative += effective[boundary];
-      const line = this.#lines.children[boundary] as HTMLElement;
-      line.style.left = `${cumulative}%`;
+      const line = this.#boundaries.children[boundary] as HTMLElement;
+      line.style.left = `${this.#toBoxPct(cumulative)}%`;
       line.style.display = isDraggable(map, boundary) ? '' : 'none';
     }
+  }
+
+  /** A share of the *table* (what the model speaks) as a share of the
+      wrapper's content box (what the lines layer measures against). */
+  #toBoxPct(tablePct: number): number {
+    const width = this.#node.attrs['width'] as number;
+    const offset = this.#node.attrs['offset'] as number;
+    return offset + (tablePct * width) / 100;
+  }
+
+  /** The block's own area — the box inside the editorial gutter, which is
+      what every percentage here is a share of. */
+  #contentBox(): { left: number; width: number } {
+    const rect = this.#box.getBoundingClientRect();
+    return { left: rect.left, width: rect.width };
   }
 
   #startDrag(line: HTMLElement, event: PointerEvent): void {
     // Keeps the caret where it is and stops ProseMirror starting a selection.
     event.preventDefault();
-    const boundary = Array.prototype.indexOf.call(this.#lines.children, line);
+    const boundary = Array.prototype.indexOf.call(this.#boundaries.children, line);
     const tableWidth = this.#table.getBoundingClientRect().width;
     if (boundary < 0 || !tableWidth) return;
 
@@ -520,7 +550,7 @@ class TableView {
     // A bonus of the still table: `tableWidth`, measured once above, stays
     // exact for the whole drag.
     const preview = (ev: PointerEvent) => {
-      line.style.left = `${startLeft - effective[boundary] + leftAt(ev)}%`;
+      line.style.left = `${this.#toBoxPct(startLeft - effective[boundary] + leftAt(ev))}%`;
     };
     const finish = (ev: PointerEvent) => {
       window.removeEventListener('pointermove', preview);
@@ -559,8 +589,7 @@ class TableView {
       (the right edge stays put); the right edge moves the width. */
   #startEdgeDrag(side: 'left' | 'right', event: PointerEvent): void {
     event.preventDefault();
-    const wrapperWidth = this.dom.clientWidth;
-    const wrapperLeft = this.dom.getBoundingClientRect().left;
+    const { left: wrapperLeft, width: wrapperWidth } = this.#contentBox();
     if (!wrapperWidth) return;
 
     const handle = this.#edges[side];
