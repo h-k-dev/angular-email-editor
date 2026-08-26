@@ -71,6 +71,8 @@ export const ColumnResize = defineExtension({
           const decorations = selectionEdgeDecorations(state);
           const marked = tableEdgeDecoration(state);
           if (marked) decorations.push(marked);
+          const active = activeCellDecoration(state);
+          if (active) decorations.push(active);
           return decorations.length ? DecorationSet.create(state.doc, decorations) : null;
         },
       },
@@ -294,6 +296,19 @@ function selectionEdgeDecorations(state: EditorState): Decoration[] {
     }
   }
   return decorations;
+}
+
+/** A node decoration outlining the caret's cell — the selection rectangle's
+    quiet sibling (same outline, none of the tint), so the cell being typed in
+    is always visible. Text cursor or in-cell text selection only: a cell
+    selection draws the real rectangle instead. */
+function activeCellDecoration(state: EditorState): Decoration | null {
+  const selection = state.selection;
+  if (selection instanceof CellSelection) return null;
+  const { $from, $to } = selection;
+  if ($from.parent.type.name !== 'tableCell' || !$from.sameParent($to)) return null;
+  const pos = $from.before();
+  return Decoration.node(pos, pos + $from.parent.nodeSize, { class: 'aee-cell-active' });
 }
 
 /** A node decoration marking the table whose *last column* and/or *last row*

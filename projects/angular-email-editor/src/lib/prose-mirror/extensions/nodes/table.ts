@@ -39,6 +39,7 @@ import {
 import { defineNode } from '../../extension';
 import { FILL_TEXT_COLOR } from '../../dual-contrast';
 import { isSafeColor, toEmailSafeColor } from '../marks/text-style';
+import { marksAcrossBreak } from '../split-keeping-marks';
 
 /**
  * Email data tables: a real `<table>` (the most client-compatible layout there
@@ -345,6 +346,21 @@ export const Table = defineNode({
     // the edge grows a cell selection, the established editor convention and
     // the keyboard route to every cell-selection gesture.
     keymap({
+      // A newline in a cell is a hard break: cells are inline-only textblocks
+      // (no paragraphs — see the cell node docs), so the stock Enter chain has
+      // nothing valid to split. Worse than useless, in fact: on an *empty*
+      // in-between cell, `liftEmptyBlock` splits the closest splittable
+      // ancestor — the row — and Enter grows the table. Both bindings live
+      // here (not on the extensions that own them) because the cell is
+      // isolating, which makes the generic handlers refuse it.
+      Enter: breakInCell,
+      'Shift-Enter': breakInCell,
+      // Select-all is scoped to the unit being edited: from inside a cell it
+      // selects that cell's text, never the whole document. An *empty* cell
+      // has no text to scope to, so there it selects every cell — the
+      // grid-wide selection whose Delete removes the table. From a cell
+      // selection the key falls through to the stock whole-document one.
+      'Mod-a': selectCellContent,
       ArrowLeft: cellArrow('horiz', -1),
       ArrowRight: cellArrow('horiz', 1),
       ArrowUp: cellArrow('vert', -1),
@@ -693,6 +709,47 @@ function cellShiftArrow(axis: Axis, dir: 1 | -1): Command {
     return true;
   };
 }
+
+/** Enter / Shift-Enter inside a cell: a hard break, carrying the marks that
+    survive a break — the same continuation rule as everywhere else (see
+    {@link marksAcrossBreak}). A cell selection is not a place to type a
+    newline, so it falls through. */
+const breakInCell: Command = (state, dispatch) => {
+  const { $from, $to } = state.selection;
+  if (state.selection instanceof CellSelection) return false;
+  if ($from.parent.type.spec['tableRole'] !== 'cell' || !$from.sameParent($to)) return false;
+
+  if (dispatch) {
+    const marks = marksAcrossBreak(state);
+    const tr = state.tr.replaceSelectionWith(state.schema.nodes['hardBreak'].create());
+    if (marks) tr.ensureMarks(marks);
+    dispatch(tr.scrollIntoView());
+  }
+  return true;
+};
+
+/** Mod-A with the caret in a cell: select that cell's content — or, from an
+    empty cell, every cell — and stop; see the keymap note. A cell selection
+    is already beyond single-cell editing and falls through to the stock
+    select-all. */
+const selectCellContent: Command = (state, dispatch) => {
+  const { $from } = state.selection;
+  if (state.selection instanceof CellSelection) return false;
+  if ($from.parent.type.spec['tableRole'] !== 'cell') return false;
+
+  if (dispatch) {
+    if ($from.parent.content.size === 0) {
+      const map = TableMap.get($from.node(-2));
+      const tableStart = $from.start(-2);
+      const $first = state.doc.resolve(tableStart + map.map[0]);
+      const $last = state.doc.resolve(tableStart + map.map[map.map.length - 1]);
+      dispatch(state.tr.setSelection(new CellSelection($first, $last)));
+    } else {
+      dispatch(state.tr.setSelection(TextSelection.create(state.doc, $from.start(), $from.end())));
+    }
+  }
+  return true;
+};
 
 /** ArrowDown from a table's last row: move to the block below, creating an
     empty paragraph when the table is the last node so text can go under it. */

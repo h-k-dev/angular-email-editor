@@ -1,4 +1,4 @@
-import { Command, EditorState, Selection, TextSelection } from 'prosemirror-state';
+import { Command, EditorState, NodeSelection, Selection, TextSelection } from 'prosemirror-state';
 import { Node, Schema } from 'prosemirror-model';
 import { keymap } from 'prosemirror-keymap';
 import { defineNode } from '../../extension';
@@ -237,8 +237,16 @@ export const Columns = defineNode({
   }),
   // A plugin keymap (ahead of the gap cursor's) so a horizontal arrow at a
   // column's edge hops straight into the neighbouring column — the layout
-  // twin of the table's cell-to-cell arrows.
-  plugins: () => [keymap({ ArrowLeft: columnArrow(-1), ArrowRight: columnArrow(1) })],
+  // twin of the table's cell-to-cell arrows. Mod-A is the table's scoped
+  // select-all applied here: column content first, block from an empty
+  // column, the stock whole-document one from the block selection on.
+  plugins: () => [
+    keymap({
+      ArrowLeft: columnArrow(-1),
+      ArrowRight: columnArrow(1),
+      'Mod-a': selectColumnContent,
+    }),
+  ],
   slashItems: ({ schema }) => [
     {
       title: 'Columns',
@@ -512,6 +520,37 @@ function columnArrow(dir: 1 | -1): Command {
     return true;
   };
 }
+
+/** Mod-A with the caret in a column: select that column's content — or, from
+    an *empty* column, the whole columns block (whose Delete removes it) — and
+    stop. The table's scoped select-all applied to the layout block; from the
+    block selection the key falls through to the stock whole-document one. */
+const selectColumnContent: Command = (state, dispatch) => {
+  const selection = state.selection;
+  if (!(selection instanceof TextSelection)) return false;
+  const { $from } = selection;
+  let depth = -1;
+  for (let d = $from.depth; d > 0; d--) {
+    if ($from.node(d).type.name === 'column') {
+      depth = d;
+      break;
+    }
+  }
+  if (depth < 0) return false;
+
+  const column = $from.node(depth);
+  const empty = column.childCount === 1 && column.firstChild!.childCount === 0;
+  if (dispatch) {
+    if (empty) {
+      dispatch(state.tr.setSelection(NodeSelection.create(state.doc, $from.before(depth - 1))));
+    } else {
+      const $start = state.doc.resolve($from.start(depth));
+      const $end = state.doc.resolve($from.end(depth));
+      dispatch(state.tr.setSelection(TextSelection.between($start, $end)));
+    }
+  }
+  return true;
+};
 
 /** Sets (or clears) the `background` of the `column` the cursor is in. */
 export function setColumnBackground(color: string | null): Command {

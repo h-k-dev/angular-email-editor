@@ -1,4 +1,4 @@
-import { TextSelection } from 'prosemirror-state';
+import { NodeSelection, TextSelection } from 'prosemirror-state';
 import { createEditor, Editor } from '../../editor';
 import { createSchema } from '../../schema';
 import { parseHTML, serializeToHTML } from '../../html';
@@ -107,6 +107,39 @@ describe('columns editing', () => {
     key('ArrowRight', 39);
     key('ArrowRight', 39);
     expect(findColumnsContext(editor.state)).toBeNull();
+  });
+
+  it('Mod-A scopes to the column: its content, or the block when empty', () => {
+    editor.commands['insertColumns'](2); // caret in column 0's empty paragraph
+    const key = (k: string, code: number, init: KeyboardEventInit = {}) => {
+      const ev = new KeyboardEvent('keydown', {
+        key: k,
+        keyCode: code,
+        which: code,
+        bubbles: true,
+        cancelable: true,
+        ...init,
+      });
+      editor.view.dom.dispatchEvent(ev);
+      return ev.defaultPrevented;
+    };
+
+    editor.exec((state, dispatch) => {
+      dispatch?.(state.tr.insertText('hello'));
+      return true;
+    });
+    expect(key('a', 65, { ctrlKey: true })).toBe(true);
+    const sel = editor.state.selection;
+    expect(editor.state.doc.textBetween(sel.from, sel.to)).toBe('hello');
+    expect(findColumnsContext(editor.state)).not.toBeNull();
+
+    // An empty column has no text to scope to: Mod-A selects the whole block
+    // (the selection whose Delete removes it).
+    key('Tab', 9); // into column 1, still empty
+    expect(key('a', 65, { ctrlKey: true })).toBe(true);
+    const blockSel = editor.state.selection;
+    expect(blockSel).toBeInstanceOf(NodeSelection);
+    expect((blockSel as NodeSelection).node.type.name).toBe('columns');
   });
 
   it('Tab walks the columns and never lets focus escape the editor', () => {

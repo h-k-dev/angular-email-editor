@@ -252,6 +252,18 @@ html {
   border-right: 2px solid var(--email-cell-selection-border, var(--mat-sys-primary, #4c6ef5));
 }
 
+/* The caret's cell: the selection rectangle without its tint, so the cell
+ * being typed in is always visible. Same border token, same radius. */
+.aee-editor td.aee-cell-active::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  border: 2px solid var(--email-cell-selection-border, var(--mat-sys-primary, #4c6ef5));
+  border-radius: 3px;
+}
+
 /* Rounded corners land exactly on the rectangle's four corner cells. */
 .aee-editor td.aee-sel-top.aee-sel-left::after {
   border-top-left-radius: 3px;

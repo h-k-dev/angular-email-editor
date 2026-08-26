@@ -38,6 +38,15 @@ describe('table serialization', () => {
     expect(canonical(once)).toBe(once);
   });
 
+  it('keeps line breaks inside cells as a fixpoint — no phantom cells', () => {
+    const withBreaks =
+      '<table><tbody><tr><td>a<br>b</td><td><br></td></tr></tbody></table>';
+    const once = canonical(withBreaks);
+    expect(once).toContain('a<br>b');
+    expect((once.match(/<td/g) || []).length).toBe(2);
+    expect(canonical(once)).toBe(once);
+  });
+
   it('keeps colspan and rowspan — both render in Outlook — as a fixpoint', () => {
     const merged =
       '<table><tbody><tr><td colspan="2">wide</td></tr>' +
@@ -175,6 +184,69 @@ describe('table editing', () => {
 
     tab(); // past the end -> new row
     expect(dims()).toEqual({ rows: 2, cols: 2 });
+  });
+
+  it('Enter in a cell inserts a line break — never splits the row', () => {
+    editor.commands['insertTable'](1, 3); // cursor in cell (0,0)
+    const key = (name: string, init?: KeyboardEventInit) =>
+      editor.view.someProp('handleKeyDown', (f) =>
+        f(editor.view, new KeyboardEvent('keydown', { key: name, ...init })),
+      );
+
+    // Empty first cell: previously a silent no-op.
+    expect(key('Enter')).toBe(true);
+    expect(dims()).toEqual({ rows: 1, cols: 3 });
+
+    // Empty *in-between* cell: previously `liftEmptyBlock` split the row here
+    // and Enter grew the table.
+    key('Tab');
+    expect(key('Enter')).toBe(true);
+    expect(dims()).toEqual({ rows: 1, cols: 3 });
+
+    // Shift-Enter breaks too (the generic hard-break refuses isolating cells).
+    expect(key('Enter', { shiftKey: true })).toBe(true);
+    expect(dims()).toEqual({ rows: 1, cols: 3 });
+
+    // Mid-text: the break lands where the cursor is.
+    editor.exec((state, dispatch) => {
+      dispatch?.(state.tr.insertText('ab'));
+      return true;
+    });
+    editor.exec((state, dispatch) => {
+      const pos = state.selection.from - 1; // between a and b
+      dispatch?.(state.tr.setSelection(TextSelection.create(state.doc, pos)));
+      return true;
+    });
+    expect(key('Enter')).toBe(true);
+    expect(editor.getHTML()).toContain('a<br>b');
+    expect(dims()).toEqual({ rows: 1, cols: 3 });
+  });
+
+  it('Mod-A inside a cell selects only that cell — content or blank', () => {
+    editor.commands['insertTable'](1, 2); // cursor in cell (0,0)
+    const key = (name: string, init?: KeyboardEventInit) =>
+      editor.view.someProp('handleKeyDown', (f) =>
+        f(editor.view, new KeyboardEvent('keydown', { key: name, ...init })),
+      );
+
+    editor.exec((state, dispatch) => {
+      dispatch?.(state.tr.insertText('hello'));
+      return true;
+    });
+    expect(key('a', { ctrlKey: true })).toBe(true);
+    let sel = editor.state.selection;
+    expect(sel.$from.parent.type.name).toBe('tableCell');
+    expect(editor.state.doc.textBetween(sel.from, sel.to)).toBe('hello');
+
+    // A blank cell has no text to scope to: Mod-A selects every cell instead
+    // (the grid-wide selection whose Delete removes the table).
+    key('Tab');
+    expect(key('a', { ctrlKey: true })).toBe(true);
+    sel = editor.state.selection;
+    expect(sel).toBeInstanceOf(CellSelection);
+    let covered = 0;
+    (sel as CellSelection).forEachCell(() => covered++);
+    expect(covered).toBe(2);
   });
 
   it('index-addressed commands target a specific row or column', () => {
