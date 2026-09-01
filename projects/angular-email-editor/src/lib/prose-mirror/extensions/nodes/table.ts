@@ -100,7 +100,52 @@ export const tableStyle = (width: number, offset: number): string =>
 // editable root sets `word-wrap` for its own reasons, and it inherits), which
 // is exactly why it has to be said out loud here — otherwise the overflow shows
 // up only in the recipient's client.
-const CELL_STYLE = 'padding: 8px 12px; vertical-align: top; overflow-wrap: break-word;';
+// No padding here: the email carries only *authored* padding (the `padding`
+// attr, parsed off user markup). The comfortable default spacing seen while
+// composing is editorial — an `.aee-editor` CSS rule the serializer never
+// sees — so it can also reserve the room the block affordances live in.
+const CELL_STYLE = 'vertical-align: top; overflow-wrap: break-word;';
+
+/**
+ * A px-only padding (the shorthand, or any set of longhands) off parsed
+ * markup, canonicalized through the CSSOM so serialize → parse → serialize is
+ * a fixpoint. Anything else — %, em, negative, calc — repairs away: padding
+ * in the email is a deliberate authored choice, in the one unit every client
+ * reads the same.
+ */
+export function parsePadding(dom: HTMLElement): string | null {
+  const style = dom.style;
+  if (!style) return null;
+  let raw = style.padding;
+  if (!raw && (style.paddingTop || style.paddingRight || style.paddingBottom || style.paddingLeft)) {
+    raw =
+      `${style.paddingTop || '0px'} ${style.paddingRight || '0px'} ` +
+      `${style.paddingBottom || '0px'} ${style.paddingLeft || '0px'}`;
+  }
+  if (!raw) return null;
+  const parts = raw.trim().split(/\s+/);
+  if (parts.length > 4) return null;
+  if (!parts.every((part) => part === '0' || /^\d+(?:\.\d+)?px$/.test(part))) return null;
+  const probe = document.createElement('div');
+  probe.style.padding = raw;
+  return probe.style.padding || null;
+}
+
+/** The bordered table's default grid color: Excel's classic gridline
+    blue-gray (#D0D7E5) — the shade a spreadsheet-shaped table is expected to
+    wear, light enough to organize without shouting, and legible on both
+    white and dark-mode-inverted grounds. Serialized per *cell* (`border` on
+    `<td>` is the bulletproof border in email — Outlook's Word engine renders
+    it), with `border-collapse` on the table keeping the grid single-lined. */
+export const TABLE_BORDER_COLOR = 'rgb(208, 215, 229)';
+
+/** The bordered table's *real* cell padding — Excel-style breathing room, so
+    the rendered email is readable inside its grid. Deliberately the same
+    value as the editor's editorial default spacing (the app's `.aee-editor
+    table td` rule): a bordered and a plain table feel identical while
+    composing; only what the recipient gets differs — the preset ships its
+    padding, the plain table ships none unless authored. */
+export const TABLE_CELL_PADDING = '8px 12px';
 
 /** Canonical percentage: one decimal at most, no trailing zero (25%, 33.3%). */
 export const formatPct = (n: number): string => `${Math.round(n * 10) / 10}%`;
@@ -159,6 +204,18 @@ function parseCellWidth(dom: HTMLElement, colspan: number): number[] | null {
     percentage width if one is declared, plus our fill from an inline
     `background-color` or the legacy `bgcolor` attribute. Anything not
     colour-safe drops (the schema is law). */
+/** A cell border off parsed markup: the color, when it is colour-safe and a
+    border is actually drawn. Width and style normalize to the canonical
+    `1px solid` — parsing is repair, and a 3px dashed border is not a look
+    this schema sells. */
+function parseCellBorder(dom: HTMLElement): string | null {
+  const style = dom.style;
+  if (!style) return null;
+  const color = style.borderTopColor || style.borderColor;
+  if (!color || style.borderTopStyle === 'none') return null;
+  return isSafeColor(color) ? color : null;
+}
+
 function cellAttrs(dom: HTMLElement): Record<string, unknown> {
   const raw = dom.style?.backgroundColor || dom.getAttribute('bgcolor');
   const colspan = span(dom.getAttribute('colspan'));
@@ -166,6 +223,8 @@ function cellAttrs(dom: HTMLElement): Record<string, unknown> {
     colspan,
     rowspan: span(dom.getAttribute('rowspan')),
     colwidth: parseCellWidth(dom, colspan),
+    padding: parsePadding(dom),
+    border: parseCellBorder(dom),
     background: isSafeColor(raw) ? raw : null,
   };
 }
@@ -174,18 +233,23 @@ function cellAttrs(dom: HTMLElement): Record<string, unknown> {
     so there is nothing to hide from either side. Attribute order is fixed
     (spans, then style) to keep serialize → parse → serialize a fixpoint. */
 function cellDOM(node: { attrs: Record<string, any> }): [string, Record<string, string>, 0] {
-  const { colspan, rowspan, colwidth, background } = node.attrs;
+  const { colspan, rowspan, colwidth, padding, border, background } = node.attrs;
   const attrs: Record<string, string> = {};
   if (colspan > 1) attrs['colspan'] = String(colspan);
   if (rowspan > 1) attrs['rowspan'] = String(rowspan);
-  // Style order is fixed — base, width, fill — to keep the round trip a
-  // fixpoint. A span serializes the *sum* of its entries: that is the width
-  // the cell actually occupies, and parse splits it back evenly.
-  let style = CELL_STYLE;
+  // Style order is fixed — padding (authored only), base, width, border,
+  // fill — to keep the round trip a fixpoint. A span serializes the *sum* of
+  // its entries: that is the width the cell actually occupies, and parse
+  // splits it back evenly.
+  let style = (padding ? `padding: ${padding}; ` : '') + CELL_STYLE;
   const width = Array.isArray(colwidth)
     ? colwidth.reduce((total: number, entry: number | null) => total + (entry ?? 0), 0)
     : 0;
   if (width > 0) style += ` width: ${formatPct(width)};`;
+  // The real grid line, per cell (the editor's faint editing grid is a class
+  // style; this inline border wins over it, so a bordered table shows its
+  // actual borders while composing).
+  if (border) style += ` border: 1px solid ${border};`;
   // The fill always carries its paired text colour (FILL_TEXT_COLOR): the cell
   // must not depend on the client's default text, which flips to near-white in
   // non-transforming dark modes while the fill stays pale.
@@ -214,6 +278,13 @@ export const TableCell = defineNode({
       // Same attr name the library's commands expect, different unit on
       // purpose; pixel widths never parse in (see the node docs).
       colwidth: { default: null },
+      // Authored padding only (px, via `parsePadding`); `null` — the default —
+      // serializes none, and the editor's comfortable spacing is CSS-only.
+      padding: { default: null },
+      // The cell's grid-line colour (`border: 1px solid <color>`), or null
+      // for the borderless default. Set for every cell of a `/bordered-table`
+      // insert; kept uniform by the repair plugin (see `unifyCellBorders`).
+      border: { default: null },
       // A fill colour on the cell (the most bulletproof background in email —
       // `background-color` on `<td>` renders even in Outlook). From the curated
       // dual-safe palette via `setCellBackground`; longhand rgb() keeps it a
@@ -384,10 +455,16 @@ export const Table = defineNode({
     // a rectangle. Covers everything that reaches the editor as a transaction
     // — paste, drops, `setContent`, an import landing on the html signal —
     // while `repairTables` covers the pure parse path (see `html.ts`).
+    // `unifyCellBorders` rides the same pass: cells that structural edits add
+    // arrive with the default null border and inherit a uniform table's.
     new Plugin({
       key: new PluginKey('tableRepair'),
-      appendTransaction: (transactions, oldState, newState) =>
-        transactions.some((tr) => tr.docChanged) ? fixTables(newState, oldState) : undefined,
+      appendTransaction: (transactions, oldState, newState) => {
+        if (!transactions.some((tr) => tr.docChanged)) return undefined;
+        const tr = fixTables(newState, oldState) ?? newState.tr;
+        unifyCellBorders(tr);
+        return tr.docChanged ? tr : undefined;
+      },
     }),
   ],
   // The editor-only grid shown while editing is not the table's own business:
@@ -399,6 +476,12 @@ export const Table = defineNode({
       keywords: ['table', 'grid', 'rows', 'columns'],
       icon: 'table_chart',
       command: insertTableFocused(schema, 2, 2),
+    },
+    {
+      title: 'Bordered table',
+      keywords: ['bordered-table', 'table', 'borders', 'grid', 'excel', 'lines'],
+      icon: 'grid_on',
+      command: insertTableFocused(schema, 2, 2, TABLE_BORDER_COLOR),
     },
   ],
 });
@@ -426,9 +509,14 @@ export function setCellBackground(color: string | null): Command {
 /** Inserts a table and drops the cursor into its first cell. The table is
     located after insertion (rather than by fragile nodeSize math) and
     `cellStart` resolves the exact text position inside cell (0, 0). */
-function insertTableFocused(schema: Schema, rows: number, cols: number): Command {
+function insertTableFocused(
+  schema: Schema,
+  rows: number,
+  cols: number,
+  border: string | null = null,
+): Command {
   return (state, dispatch) => {
-    const table = buildTable(schema, rows, cols);
+    const table = buildTable(schema, rows, cols, border);
     if (!dispatch) return true;
 
     const from = state.selection.from;
@@ -594,16 +682,57 @@ export function addRowAtEnd(tablePos: number): Command {
   };
 }
 
-function buildTable(schema: Schema, rows: number, cols: number): Node {
+function buildTable(schema: Schema, rows: number, cols: number, border: string | null): Node {
   const cellType = schema.nodes['tableCell'];
   const rowType = schema.nodes['tableRow'];
   const tableType = schema.nodes['table'];
+  // The bordered preset ships real padding with its grid (see
+  // TABLE_CELL_PADDING); a plain table ships none unless authored.
+  const attrs = { border, padding: border ? TABLE_CELL_PADDING : null };
   const makeRow = () =>
     rowType.create(
       null,
-      Array.from({ length: cols }, () => cellType.createAndFill()!),
+      Array.from({ length: cols }, () => cellType.createAndFill(attrs)!),
     );
   return tableType.create(null, Array.from({ length: rows }, makeRow))!;
+}
+
+/**
+ * Keeps a *uniformly* bordered table uniform: when every bordered cell wears
+ * the same colour and some cells have none — which is what any structural
+ * edit produces, since `addRow`/`addColumn`/the pills create cells with the
+ * default null border — the bare cells inherit it. A table with *mixed*
+ * border colours (authored, imported) is left exactly as written: repair,
+ * not opinion. `setNodeMarkup` never changes node sizes, so positions
+ * collected up front stay valid as the jobs apply.
+ */
+function unifyCellBorders(tr: Transaction): void {
+  const jobs: { pos: number; attrs: Record<string, unknown> }[] = [];
+  tr.doc.descendants((node, pos) => {
+    if (node.type.name !== 'table') return true;
+
+    const colors = new Set<string>();
+    let bare = 0;
+    node.descendants((cell) => {
+      if (cell.type.name !== 'tableCell') return true;
+      const border = cell.attrs['border'] as string | null;
+      if (border) colors.add(border);
+      else bare++;
+      return true;
+    });
+
+    if (colors.size === 1 && bare > 0) {
+      const border = [...colors][0];
+      node.descendants((cell, rel) => {
+        if (cell.type.name === 'tableCell' && !cell.attrs['border']) {
+          jobs.push({ pos: pos + 1 + rel, attrs: { ...cell.attrs, border } });
+        }
+        return true;
+      });
+    }
+    return false; // cells handled; nothing tabular nests deeper
+  });
+  for (const job of jobs) tr.setNodeMarkup(job.pos, null, job.attrs);
 }
 
 /** Backspace/Delete with a whole structural unit selected: the user marked

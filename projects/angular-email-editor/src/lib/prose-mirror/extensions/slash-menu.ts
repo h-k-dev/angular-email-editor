@@ -1,6 +1,7 @@
 import { EditorState, Plugin, PluginKey } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { ExtensionContext, FunctionalExtension, SlashItem, defineExtension } from '../extension';
+import { positionMenuAt } from './menu-position';
 
 export interface SlashMenuState {
   open: boolean;
@@ -207,29 +208,7 @@ function createSlashMenuPlugin(ctx: ExtensionContext, options: SlashMenuOptions)
 
   const position = () => {
     if (!view || !session) return;
-    const container = element.offsetParent ?? element.parentElement;
-    if (!container) return;
-    const containerRect = container.getBoundingClientRect();
-    const coords = view.coordsAtPos(session.from);
-
-    const left = Math.min(
-      Math.max(coords.left - containerRect.left + container.scrollLeft, 0),
-      Math.max(container.scrollWidth - element.offsetWidth, 0),
-    );
-
-    // Below the line containing the slash; flip above when it would overflow
-    // the visible part of the scroll container.
-    let top = coords.bottom - containerRect.top + container.scrollTop + offset;
-    const visibleBottom = container.scrollTop + container.clientHeight;
-    if (top + element.offsetHeight > visibleBottom) {
-      const above = coords.top - containerRect.top + container.scrollTop;
-      if (above - element.offsetHeight - offset >= container.scrollTop) {
-        top = above - element.offsetHeight - offset;
-      }
-    }
-
-    element.style.left = `${left}px`;
-    element.style.top = `${top}px`;
+    positionMenuAt(view, element, session.from, offset);
   };
 
   const refresh = () => {

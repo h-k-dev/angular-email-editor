@@ -1,5 +1,6 @@
 import { setBlockType } from 'prosemirror-commands';
 import { Command } from 'prosemirror-state';
+import { Fragment } from 'prosemirror-model';
 import { defineNode } from '../../extension';
 
 const BLOCK_TAGS = new Set([
@@ -28,6 +29,19 @@ function hasBlockChildren(node: HTMLElement) {
 }
 
 export type ParagraphAlignment = 'center' | 'right' | null;
+
+/**
+ * A line whose sole content is one `<br>` — the empty-line *marker* our own
+ * `emitDOM` writes (mail clients collapse a truly empty div). It must parse
+ * back to an **empty** paragraph: read as a hardBreak instead, the editor
+ * renders marker + its own trailing break as a double-height blank line,
+ * while the serialized bytes (and thus the preview) show a single one — the
+ * one honest height.
+ */
+function isEmptyLineMarker(node: HTMLElement): boolean {
+  if (node.children.length !== 1 || node.children[0].tagName !== 'BR') return false;
+  return !(node.textContent ?? '').trim();
+}
 
 /** Left is the default and canonicalizes to `null` — `text-align: left`
     never serializes, so unaligned text stays free of declarations (which
@@ -73,6 +87,18 @@ export const EmailParagraph = defineNode({
       align: { default: null },
     },
     parseDOM: [
+      // The empty-line marker first (same tags, earlier rules win): its <br>
+      // is transport syntax, not content — see {@link isEmptyLineMarker}.
+      {
+        tag: 'p',
+        getAttrs: (node) => (isEmptyLineMarker(node) ? { align: alignmentOf(node) } : false),
+        getContent: () => Fragment.empty,
+      },
+      {
+        tag: 'div',
+        getAttrs: (node) => (isEmptyLineMarker(node) ? { align: alignmentOf(node) } : false),
+        getContent: () => Fragment.empty,
+      },
       { tag: 'p', getAttrs: (node) => ({ align: alignmentOf(node) }) },
       // Divs holding inline content are lines. Container divs do not match,
       // so the parser descends into their children instead.

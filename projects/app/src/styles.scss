@@ -130,6 +130,12 @@ html {
   --aee-block-gutter-x: 20px;
   position: relative;
   padding: var(--aee-block-gutter-y) var(--aee-block-gutter-x);
+  /* The gutter must not shift the block out of the text column (Tiptap's
+   * model, at a calmer scale): negative inline margins put the block's edge
+   * exactly where a text line starts, and the affordances hang into the
+   * surface margin instead — which the host surface reserves (see the app's
+   * `.editor` inline padding). */
+  margin-inline: calc(-1 * var(--aee-block-gutter-x));
 }
 
 /* The block's own area. `container-type` lives here, not on the wrapper, so
@@ -188,6 +194,28 @@ html {
  */
 .aee-editor table td {
   position: relative;
+  /* Editorial spacing: the serialized email carries only *authored* padding
+   * (an inline style, which wins over this rule). This default keeps the
+   * composing surface comfortable without shipping our taste in the email. */
+  padding: 8px 12px;
+}
+
+/* The columns' editorial gutter — same contract as the cells above: the email
+ * has no padding unless the author wrote one (inline style wins here too),
+ * and this spacing doubles as the room the boundary drags live in. Between
+ * columns only: the block's outer text edges align with the surrounding
+ * paragraphs, like the email itself. */
+.aee-editor .aee-column {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.aee-editor .aee-column:first-child {
+  padding-left: 0;
+}
+
+.aee-editor .aee-column:last-child {
+  padding-right: 0;
 }
 
 /* ProseMirror's own hide-selection contract, transcribed from
@@ -252,6 +280,34 @@ html {
   border-right: 2px solid var(--email-cell-selection-border, var(--mat-sys-primary, #4c6ef5));
 }
 
+/* Merge-tag pill: editor-only chrome for a personalization token. The email
+ * carries the raw `{{path}}` text — none of this styling serializes. */
+.aee-editor .aee-merge-tag {
+  display: inline-block;
+  padding: 0 8px;
+  border-radius: 999px;
+  background-color: var(
+    --email-merge-tag-background,
+    color-mix(in srgb, var(--mat-sys-primary, #4c6ef5) 12%, transparent)
+  );
+  color: var(--email-merge-tag-color, var(--mat-sys-primary, #4c6ef5));
+  font-size: 0.9em;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.aee-editor .aee-merge-tag.ProseMirror-selectednode {
+  outline: 2px solid var(--mat-sys-primary, #4c6ef5);
+  outline-offset: 1px;
+}
+
+/* An expression token (ternary, filter chain, arithmetic) — same pill, but
+ * monospace so logic reads as logic, not prose. */
+.aee-editor .aee-merge-tag--expr {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 0.85em;
+}
+
 /* The caret's cell: the selection rectangle without its tint, so the cell
  * being typed in is always visible. Same border token, same radius. */
 .aee-editor td.aee-cell-active::after {
@@ -302,6 +358,9 @@ html {
   --aee-block-gutter-x: 20px;
   position: relative;
   padding: var(--aee-block-gutter-y) var(--aee-block-gutter-x);
+  /* Aligned like the columns above: the gutter hangs into the surface
+   * margin, the table's edge sits on the text column. */
+  margin-inline: calc(-1 * var(--aee-block-gutter-x));
   /* No overflow trap here: a fixed-layout table at ≤ 100% can never outgrow
    * the wrapper, and an `overflow-x: auto` would turn the edge handles'
    * half-out-of-bounds grab strips into a phantom scrollbar. */
@@ -427,11 +486,13 @@ html {
  * The ::before lip bridges the 3px gap so the hover can't drop mid-crossing. */
 /* `100%` is the padded box, so the table's bottom edge is one gutter above
  * it — the pill hangs 3px under that, inside the gutter, clear of the text
- * that follows. */
+ * that follows. Inline it spans the *table*, not the padded box: the wrapper
+ * overhangs one gutter into the surface margin on each side, and a pill
+ * reaching into that empty space reads as a stray extension. */
 .aee-editor .aee-add-pill--row {
   top: calc(100% - var(--aee-block-gutter-y) + 3px);
-  left: 0;
-  right: 0;
+  left: var(--aee-block-gutter-x);
+  right: var(--aee-block-gutter-x);
   height: 12px;
   display: flex;
   align-items: center;
@@ -447,18 +508,17 @@ html {
   height: 4px;
 }
 
-/* Both pills reveal only when you are *about* their edge: hovering the last
- * column / last row (or the pill's own ground), or standing there with the
- * caret (the `--in-last-*` classes, selection-derived decorations). */
+/* Both pills reveal on *hover only* — the last column / last row, or the
+ * pill's own ground. Deliberately not on the caret (the `--in-last-*`
+ * decoration classes still land, unused): typing in the last row with the
+ * mouse parked elsewhere must not keep a button permanently on screen. */
 .aee-editor .aee-table-wrap:has(tr > td:last-child:hover) .aee-add-pill--column,
-.aee-editor .aee-table-wrap--in-last-column .aee-add-pill--column,
 .aee-editor .aee-add-zone:hover .aee-add-pill--column {
   opacity: 1;
   pointer-events: auto;
 }
 
 .aee-editor .aee-table-wrap:has(tr:last-child:hover) .aee-add-pill--row,
-.aee-editor .aee-table-wrap--in-last-row .aee-add-pill--row,
 .aee-editor .aee-add-pill--row:hover {
   opacity: 1;
   pointer-events: auto;

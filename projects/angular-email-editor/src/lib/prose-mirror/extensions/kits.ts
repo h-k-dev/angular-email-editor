@@ -7,6 +7,7 @@ import { Text } from './nodes/text';
 import { HtmlLanguage } from './html-language';
 import { createSourceMarks } from './html-source-marks';
 import { HardBreak } from './nodes/hard-break';
+import { MergeTag } from './nodes/merge-tag';
 import { Heading } from './nodes/heading';
 import { Blockquote } from './nodes/blockquote';
 import { BulletList, ListItem, OrderedList } from './nodes/lists';
@@ -39,6 +40,9 @@ const withParagraph = (paragraph: NodeExtension): Extension[] => [
   paragraph,
   Text,
   HardBreak,
+  // Personalization tokens (`{{firstName}}`): pills in the editor, raw
+  // Handlebars-flavoured text in the email.
+  MergeTag,
   Heading,
   Blockquote,
   BulletList,

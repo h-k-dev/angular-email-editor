@@ -2,16 +2,25 @@ import { Command } from 'prosemirror-state';
 import { FunctionalExtension, defineExtension } from '../extension';
 import { serializeToHTML } from '../html';
 import { emailPlainText } from '../plain-text';
+import { mergeTagFields } from './nodes/merge-tag';
 
 /**
  * What the composer hands the host when the user asks to send: the canonical
- * HTML and its `text/plain` projection — the two parts of a well-formed
- * `multipart/alternative` body. Everything else (addressing, headers,
- * transport) is the host's; nothing network-shaped lives in this library.
+ * HTML, its `text/plain` projection — the two parts of a well-formed
+ * `multipart/alternative` body — and the personalization fields the body
+ * requires. Everything else (addressing, headers, transport) is the host's;
+ * nothing network-shaped lives in this library.
  */
 export interface SendIntent {
   html: string;
   text: string;
+  /** Every field identifier the body's merge tags read, in first-use order —
+      the values the host must resolve before the mail can render. Straight
+      off the document's nodes (see `mergeTagFields`), so a host without its
+      own template engine never text-parses the HTML to discover them; a host
+      with one (an AngularJS-expression evaluator, say) is free to ignore
+      this and scan `html` itself. Empty when the body is template-free. */
+  requiredFields: string[];
 }
 
 export interface SendIntentOptions {
@@ -36,7 +45,11 @@ export const createSendIntent = (options: SendIntentOptions): FunctionalExtensio
     // Probing callers (menu enablement) pass no dispatch — don't send twice.
     if (dispatch) {
       const html = serializeToHTML(state.doc, state.schema);
-      options.onSend({ html, text: emailPlainText(html) });
+      options.onSend({
+        html,
+        text: emailPlainText(html),
+        requiredFields: mergeTagFields(state.doc),
+      });
     }
     return true;
   };

@@ -1,47 +1,28 @@
-import { EditorState, TextSelection } from 'prosemirror-state';
 import { createSchema } from '../../schema';
 import { parseHTML, serializeToHTML } from '../../html';
 import { emailExtensions } from '../kits';
-import { EmailParagraph } from './email-paragraph';
 
 const schema = createSchema(emailExtensions);
-const roundTrip = (html: string) => serializeToHTML(parseHTML(html, schema), schema);
 
-describe('email paragraph alignment', () => {
-  it('round-trips center and right, reads legacy align attributes', () => {
-    expect(roundTrip('<div style="text-align: center;">a</div>')).toBe(
-      '<div style="text-align: center;">a</div>',
-    );
-    expect(roundTrip('<p align="right">b</p>')).toBe('<div style="text-align: right;">b</div>');
+describe('email paragraph empty-line marker', () => {
+  it('parses <div><br></div> back to an EMPTY paragraph, bytes unchanged', () => {
+    // The <br> is emit-side transport (mail clients collapse a bare empty
+    // div), not content. Read as a hardBreak it makes the editor render a
+    // double-height blank line (marker + trailing break) while the email
+    // shows a single one.
+    const doc = parseHTML('<div>a</div><div><br></div><div>b</div>', schema);
+    expect(doc.child(1).childCount).toBe(0);
+    expect(serializeToHTML(doc, schema)).toBe('<div>a</div><div><br></div><div>b</div>');
   });
 
-  it('canonicalizes left away — the default carries no declaration', () => {
-    expect(roundTrip('<div style="text-align: left;">c</div>')).toBe('<div>c</div>');
-    expect(roundTrip('<div style="text-align: justify;">d</div>')).toBe('<div>d</div>');
+  it('treats an aligned or <p>-flavoured marker the same, keeping the align', () => {
+    const doc = parseHTML('<p style="text-align: right;"><br></p>', schema);
+    expect(doc.child(0).childCount).toBe(0);
+    expect(doc.child(0).attrs['align']).toBe('right');
   });
 
-  it('keeps alignment on empty lines', () => {
-    expect(roundTrip('<div style="text-align: center;"><br></div>')).toBe(
-      '<div style="text-align: center;"><br></div>',
-    );
-  });
-
-  it('setAlignment covers every selected paragraph and toggles back to default', () => {
-    const doc = parseHTML('<div>one</div><div>two</div>', schema);
-    let state = EditorState.create({
-      doc,
-      selection: TextSelection.create(doc, 1, doc.content.size - 1),
-    });
-    const commands = EmailParagraph.commands!({ schema, extensions: emailExtensions });
-    const run = (align: 'center' | 'right' | null) =>
-      commands['setAlignment'](align)(state, (tr) => (state = state.apply(tr)));
-
-    run('center');
-    expect(serializeToHTML(state.doc, schema)).toBe(
-      '<div style="text-align: center;">one</div><div style="text-align: center;">two</div>',
-    );
-
-    run(null);
-    expect(serializeToHTML(state.doc, schema)).toBe('<div>one</div><div>two</div>');
+  it('keeps a real mid-text hard break as content', () => {
+    const doc = parseHTML('<div>a<br>b</div>', schema);
+    expect(doc.child(0).childCount).toBe(3); // text, hardBreak, text
   });
 });

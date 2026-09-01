@@ -71,7 +71,22 @@ section[email-compose].eml-dropzone--active {
   white-space: nowrap;
 }
 
-// Demo-only reply-seed cycler; a quiet chip so it reads as tooling, not UI.
+// Demo-only example cycler; a quiet split chip so it reads as tooling, not
+// UI. The main half cycles, the caret half opens the set menu.
+.status__example-group {
+  display: inline-flex;
+
+  .status__example {
+    border-radius: var(--mat-sys-corner-small, 4px) 0 0 var(--mat-sys-corner-small, 4px);
+  }
+
+  .status__example--caret {
+    border-left: none;
+    border-radius: 0 var(--mat-sys-corner-small, 4px) var(--mat-sys-corner-small, 4px) 0;
+    padding-inline: 4px;
+  }
+}
+
 .status__example {
   padding: 2px 8px;
   border: 1px solid var(--mat-sys-outline-variant, #cccccc);
@@ -84,6 +99,34 @@ section[email-compose].eml-dropzone--active {
 
   &:hover {
     background-color: var(--mat-sys-surface-container, #eeeeee);
+  }
+}
+
+// The example-set dropdown (same quiet look as the chips it serves).
+.example-menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 220px;
+  padding: 4px;
+
+  background-color: var(--mat-sys-surface-container, #f3f3f3);
+  border-radius: var(--mat-sys-corner-medium, 8px);
+  box-shadow: var(--mat-sys-level2);
+}
+
+.example-menu__item {
+  padding: 6px 10px;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  border-radius: var(--mat-sys-corner-small, 4px);
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background-color: var(--mat-sys-surface-bright, #ffffff);
   }
 }
 

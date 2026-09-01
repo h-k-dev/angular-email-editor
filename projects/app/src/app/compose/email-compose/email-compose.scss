@@ -113,6 +113,21 @@
   }
 }
 
+// The raw syntax shown right-aligned next to a token's label in the {{ menu.
+.merge-menu__path {
+  margin-left: auto;
+  padding-left: 16px;
+  color: var(--mat-sys-on-surface-variant, #777777);
+  font: var(--mat-sys-body-small, inherit);
+}
+
+// The searching / loading-more row at the list's end.
+.merge-menu__status {
+  padding: 6px 8px;
+  color: var(--mat-sys-on-surface-variant, #777777);
+  font: var(--mat-sys-body-small, inherit);
+}
+
 // Table-size picker. Token cascade: --email-* → --mat-sys-* → fallback.
 .table-picker {
   display: flex;
@@ -184,6 +199,11 @@
   background-color: var(--mat-sys-surface-bright);
   border-radius: var(--mat-sys-corner-medium);
   padding: var(--mat-sys-inner-spacing);
+  // The surface margin the layout blocks' editorial gutters hang into
+  // (their wrappers pull themselves back onto the text column with negative
+  // inline margins — Tiptap's model, at a calmer scale). Must stay ≥ the
+  // 20px block gutter or the edge affordances clip.
+  padding-inline: max(var(--mat-sys-inner-spacing, 16px), 28px);
 }
 
 // Link editor popover. Token cascade: --email-* → --mat-sys-* → fallback.

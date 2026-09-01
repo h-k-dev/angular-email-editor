@@ -23,11 +23,33 @@
   @if (importNote(); as note) {
   <span class="status__send" aria-label="Last import">{{ note }}</span>
   }
-  <!-- Demo-only: seeds the composer with the next example reply. -->
-  <button type="button" class="status__example" title="Replace the document with the next example reply seed"
-    (click)="nextReplyExample()">
-    {{ exampleLabel() }}
-  </button>
+  <!-- Demo-only: seeds the composer with example documents. Split button —
+       the main half cycles the active set, the caret picks a set (reply
+       seeds, AngularJS-expression templates, Handlebars templates). -->
+  <span class="status__example-group">
+    <button type="button" class="status__example" title="Replace the document with the active set's next example"
+      (click)="nextExample()">
+      {{ exampleLabel() }}
+    </button>
+    <button type="button" class="status__example status__example--caret" aria-label="Choose example set"
+      [attr.aria-expanded]="exampleMenuOpen()" cdkOverlayOrigin #exampleOrigin="cdkOverlayOrigin"
+      (click)="exampleMenuOpen.set(!exampleMenuOpen())">
+      ▾
+    </button>
+  </span>
+  <ng-template cdkConnectedOverlay [cdkConnectedOverlayOrigin]="exampleOrigin"
+    [cdkConnectedOverlayOpen]="exampleMenuOpen()" [cdkConnectedOverlayHasBackdrop]="true"
+    cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop"
+    (backdropClick)="exampleMenuOpen.set(false)" [cdkConnectedOverlayPush]="true"
+    [cdkConnectedOverlayViewportMargin]="8">
+    <div class="example-menu" role="menu" aria-label="Example sets">
+      @for (option of exampleSetOptions; track option.key) {
+      <button type="button" role="menuitem" class="example-menu__item" (click)="nextExample(option.key)">
+        {{ option.label }}
+      </button>
+      }
+    </div>
+  </ng-template>
   @if (metrics(); as m) {
   <span class="status__count" aria-label="Document length">
     {{ m.words }} {{ m.words === 1 ? 'word' : 'words' }} · {{ m.lines }}

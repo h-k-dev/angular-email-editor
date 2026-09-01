@@ -32,6 +32,18 @@ describe('send intent', () => {
     expect(sent[0].text).toBe('Hello world');
   });
 
+  it('reports the fields the body requires', () => {
+    editor.exec((state, dispatch) => {
+      dispatch?.(state.tr.insertText('Hi {{customer_name}}: {{cf_70 | formatPrice}} '));
+      return true;
+    });
+    // Promotion is a parse-time repair; simulate the round trip a real
+    // document has been through before a send.
+    editor.setContent(editor.getHTML());
+    editor.commands['requestSend']();
+    expect(sent[0].requiredFields).toEqual(['customer_name', 'cf_70']);
+  });
+
   it("Mod-Enter is the keyboard path — Gmail's send shortcut", () => {
     const handled = editor.view.someProp('handleKeyDown', (f) =>
       f(editor.view, new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true })),

@@ -665,6 +665,38 @@
     </div>
   </ng-template>
 
+  <!-- {{ autocomplete: the slash menu's sibling for personalization tokens.
+       Items stream in pages from the host's source; scrolling near the end
+       (or ArrowDown on the last row) fetches the next page. -->
+  <div
+    class="slash-menu merge-tag-menu"
+    #mergeTagMenu
+    role="listbox"
+    aria-label="Personalization tokens"
+    (scroll)="onMergeMenuScroll()"
+  >
+    @if (mergeMenuState(); as tags) {
+      @for (item of tags.items; track item.path; let i = $index) {
+        <button
+          type="button"
+          role="option"
+          class="slash-item"
+          [class.is-active]="i === tags.activeIndex"
+          [attr.aria-selected]="i === tags.activeIndex"
+          (click)="tags.select(item)"
+        >
+          {{ item.label || item.path }}
+          <span class="merge-menu__path">{{ '{{' + item.path + '}}' }}</span>
+        </button>
+      }
+      @if (tags.loading || tags.loadingMore) {
+        <div class="merge-menu__status" role="status">
+          {{ tags.loading ? 'Searching…' : 'Loading more…' }}
+        </div>
+      }
+    }
+  </div>
+
   <div class="slash-menu" #slashMenu role="listbox" aria-label="Insert block">
     @if (slashState(); as slash) {
       @for (item of slash.items; track item.title; let i = $index) {

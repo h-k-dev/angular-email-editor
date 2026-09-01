@@ -5,7 +5,7 @@ import { createSchema } from '../../schema';
 import { parseHTML, serializeToHTML } from '../../html';
 import { lintHTML } from '../../html-source';
 import { emailExtensions } from '../kits';
-import { findTableContext } from './table';
+import { TABLE_BORDER_COLOR, Table, findTableContext } from './table';
 
 const schema = createSchema(emailExtensions);
 const canonical = (html: string) => serializeToHTML(parseHTML(html, schema), schema);
@@ -26,7 +26,7 @@ describe('table serialization', () => {
     );
     expect(html).toContain('<tbody>');
     // Borderless: grid lines are editor-only, never in the email itself.
-    expect(html).toContain('<td style="padding: 8px 12px; vertical-align: top; overflow-wrap: break-word;">a</td>');
+    expect(html).toContain('<td style="vertical-align: top; overflow-wrap: break-word;">a</td>');
     expect(html).not.toContain('border:');
   });
 
@@ -52,8 +52,8 @@ describe('table serialization', () => {
       '<table><tbody><tr><td colspan="2">wide</td></tr>' +
       '<tr><td rowspan="2">tall</td><td>b</td></tr><tr><td>c</td></tr></tbody></table>';
     const once = canonical(merged);
-    expect(once).toContain('<td colspan="2" style="padding: 8px 12px; vertical-align: top; overflow-wrap: break-word;">wide');
-    expect(once).toContain('<td rowspan="2" style="padding: 8px 12px; vertical-align: top; overflow-wrap: break-word;">tall');
+    expect(once).toContain('<td colspan="2" style="vertical-align: top; overflow-wrap: break-word;">wide');
+    expect(once).toContain('<td rowspan="2" style="vertical-align: top; overflow-wrap: break-word;">tall');
     expect(canonical(once)).toBe(once);
   });
 
@@ -88,6 +88,26 @@ describe('table serialization', () => {
     expect(canonical('<table><tbody><tr><td width="120">a</td></tr></tbody></table>')).not.toContain(
       'width="120"',
     );
+  });
+
+  it('keeps authored cell padding — px only — and drops the rest', () => {
+    // Padding in the email is the author's choice; the editor's comfortable
+    // default is CSS-only and never serializes.
+    const padded = canonical('<table><tbody><tr><td style="padding: 4px 10px;">a</td></tr></tbody></table>');
+    expect(padded).toContain('<td style="padding: 4px 10px; vertical-align: top;');
+    expect(canonical(padded)).toBe(padded);
+
+    // Non-px padding is the responsiveness trap and repairs away.
+    const pct = canonical('<table><tbody><tr><td style="padding: 5%;">a</td></tr></tbody></table>');
+    expect(pct).not.toContain('padding');
+  });
+
+  it('keeps an authored cell border, normalized to 1px solid', () => {
+    const bordered = canonical(
+      '<table><tbody><tr><td style="border: 2px dashed rgb(1, 2, 3);">a</td></tr></tbody></table>',
+    );
+    expect(bordered).toContain('border: 1px solid rgb(1, 2, 3);');
+    expect(canonical(bordered)).toBe(bordered);
   });
 
   it('produces lint-clean output', () => {
@@ -148,7 +168,7 @@ describe('table editing', () => {
     editor.commands['setCellBackground']('#e6f4ea');
     const html = editor.getHTML();
     expect(html).toContain(
-      '<td style="padding: 8px 12px; vertical-align: top; overflow-wrap: break-word; background-color: rgb(230, 244, 234); color: rgb(32, 33, 36);">',
+      '<td style="vertical-align: top; overflow-wrap: break-word; background-color: rgb(230, 244, 234); color: rgb(32, 33, 36);">',
     );
     // Only one cell filled; still a fixpoint and lint-clean.
     expect((html.match(/background-color/g) || []).length).toBe(1);
@@ -169,6 +189,38 @@ describe('table editing', () => {
     expect(editor.commands['deleteRow']()).toBe(false);
     expect(editor.commands['deleteColumn']()).toBe(false);
     expect(dims()).toEqual({ rows: 1, cols: 1 });
+  });
+
+  it('/bordered-table inserts the Excel grid, and new cells inherit it', () => {
+    const item = Table.slashItems!({ schema: editor.schema, extensions: [] }).find(
+      (entry) => entry.title === 'Bordered table',
+    )!;
+    editor.exec(item.command);
+    let html = editor.getHTML();
+    expect((html.match(/border: 1px solid rgb\(208, 215, 229\);/g) || []).length).toBe(4);
+    expect(canonical(html)).toBe(html);
+    expect(lintHTML(html)).toEqual([]);
+
+    // Structural edits create default (borderless) cells; the repair pass
+    // keeps a uniformly bordered table uniform.
+    editor.commands['addRowAfter']();
+    editor.commands['addColumnAfter']();
+    html = editor.getHTML();
+    expect(dims()).toEqual({ rows: 3, cols: 3 });
+    expect((html.match(/border: 1px solid rgb\(208, 215, 229\);/g) || []).length).toBe(9);
+    expect(html).toContain(TABLE_BORDER_COLOR);
+  });
+
+  it('a table with mixed border colours is left as written', () => {
+    editor.setContent(
+      '<table><tbody><tr>' +
+        '<td style="border: 1px solid rgb(1, 2, 3);">a</td>' +
+        '<td style="border: 1px solid rgb(9, 9, 9);">b</td>' +
+        '</tr></tbody></table>',
+    );
+    const html = editor.getHTML();
+    expect(html).toContain('rgb(1, 2, 3)');
+    expect(html).toContain('rgb(9, 9, 9)');
   });
 
   it('Tab moves across cells and appends a row past the last one', () => {
@@ -477,3 +529,4 @@ describe('table editing', () => {
     expect(editor.getHTML()).not.toContain('<table');
   });
 });
+

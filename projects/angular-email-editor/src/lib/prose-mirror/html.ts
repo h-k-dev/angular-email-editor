@@ -6,6 +6,7 @@ import {
   Schema,
 } from 'prosemirror-model';
 import { repairTables } from './extensions/nodes/table';
+import { promoteMergeTags } from './extensions/nodes/merge-tag';
 
 const serializerCache = new WeakMap<Schema, DOMSerializer>();
 
@@ -30,6 +31,24 @@ function getSerializer(schema: Schema): DOMSerializer {
       if (emitDOM) marks[name] = emitDOM;
     }
     serializer = new DOMSerializer(nodes, marks);
+    // A bare string is documented DOMOutputSpec ("a text node") but the
+    // fragment serializer predates it — only the static `renderSpec` (the
+    // editor view's path) honours it, and `serializeNodeInner` throws trying
+    // to use "{{" as a tag name. The merge tag's `emitDOM` is exactly that
+    // case: `{{path}}` as raw text. Patch the instance so both the fragment
+    // walk and mark wrapping route strings to a text node.
+    const inner = (
+      serializer as unknown as {
+        serializeNodeInner(node: Node, options: object): globalThis.Node;
+      }
+    ).serializeNodeInner.bind(serializer);
+    (serializer as unknown as Record<string, unknown>)['serializeNodeInner'] = (
+      node: Node,
+      options: object,
+    ): globalThis.Node => {
+      const spec = nodes[node.type.name]?.(node);
+      return typeof spec === 'string' ? document.createTextNode(spec) : inner(node, options);
+    };
     serializerCache.set(schema, serializer);
   }
   return serializer;
@@ -51,8 +70,13 @@ export function serializeToHTML(doc: Node, schema: Schema): string {
  * that reach past the grid. `repairTables` normalizes them here, so every pure
  * consumer of the parser — `importedDocument`, `replyDocument`, the source
  * pane's round trip — sees the same rectangle the editor would.
+ *
+ * The same principle promotes `{{path}}` tokens in running text into
+ * `mergeTag` pills (`promoteMergeTags`): the serialized email carries the raw
+ * Handlebars-flavoured text, and parse restores the structured form.
  */
 export function parseHTML(html: string, schema: Schema): Node {
   const dom = new window.DOMParser().parseFromString(html, 'text/html');
-  return repairTables(ProseMirrorDOMParser.fromSchema(schema).parse(dom.body), schema);
+  const parsed = ProseMirrorDOMParser.fromSchema(schema).parse(dom.body);
+  return promoteMergeTags(repairTables(parsed, schema), schema);
 }

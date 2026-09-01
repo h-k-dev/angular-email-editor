@@ -30,12 +30,17 @@ import {
   BlockMenuState,
   BubbleMenuState,
   Editor,
+  MergeTagItem,
+  MergeTagMenuState,
+  MergeTagPage,
+  MergeTagRequest,
   SendIntent,
   SlashMenuState,
   TextMetrics,
   createBlockMenu,
   createBubbleMenu,
   createEditor,
+  createMergeTagMenu,
   createSendIntent,
   createSlashMenu,
   createTextMetrics,
@@ -82,6 +87,7 @@ export class EmailCompose {
   /** Only exists while the block menu is open (it renders in a CDK overlay). */
   blockMenu = viewChild<ElementRef<HTMLElement>>('blockMenu');
   slashMenu = viewChild.required<ElementRef<HTMLElement>>('slashMenu');
+  mergeTagMenu = viewChild.required<ElementRef<HTMLElement>>('mergeTagMenu');
   editor = signal<Editor | undefined>(undefined);
   slashState = signal<SlashMenuState | undefined>(undefined);
 
@@ -115,6 +121,41 @@ export class EmailCompose {
   tableSteps = Array.from({ length: 8 }, (_, i) => i);
   tableMenuOpen = signal(false);
   tablePick = signal({ cols: 2, rows: 2 });
+
+  /** The `{{` autocomplete's live state — the app renders the listbox rows
+      from it (items, highlight, loading rows) and calls `loadMore` from the
+      scroll handler. Opening, filtering and paging live in the extension. */
+  mergeMenuState = signal<MergeTagMenuState | undefined>(undefined);
+
+  /** Stands in for the variable-catalogue backend: a labelled core plus
+      enough generated custom fields to need paging, filtered server-side
+      (the source owns matching) and answered a page at a time after a small
+      latency. A real host swaps this for an HTTP call with the same shape. */
+  #mergeTagCatalogue: MergeTagItem[] = [
+    { path: 'firstName', label: 'First name' },
+    { path: 'lastName', label: 'Last name' },
+    { path: 'email', label: 'Email address' },
+    { path: 'company.name', label: 'Company' },
+    { path: 'unsubscribeUrl', label: 'Unsubscribe URL' },
+    ...Array.from({ length: 80 }, (_, i) => ({
+      path: `custom.field${i + 1}`,
+      label: `Custom field ${i + 1}`,
+    })),
+  ];
+
+  #fetchMergeTags = ({ query, cursor }: MergeTagRequest): Promise<MergeTagPage> =>
+    new Promise((resolve) =>
+      setTimeout(() => {
+        const q = query.toLowerCase();
+        const matches = this.#mergeTagCatalogue.filter(
+          (tag) => tag.path.toLowerCase().includes(q) || tag.label?.toLowerCase().includes(q),
+        );
+        const start = cursor ? Number(cursor) : 0;
+        const items = matches.slice(start, start + 20);
+        const end = start + items.length;
+        resolve({ items, nextCursor: end < matches.length ? String(end) : null });
+      }, 150),
+    );
 
   // Link editor popover, anchored at the selection.
   linkInput = viewChild<ElementRef<HTMLInputElement>>('linkInput');
@@ -230,6 +271,12 @@ export class EmailCompose {
         createSlashMenu({
           element: this.slashMenu().nativeElement,
           onChange: (state) => this.slashState.set(state),
+        }),
+        createMergeTagMenu({
+          element: this.mergeTagMenu().nativeElement,
+          getTags: this.#fetchMergeTags,
+          debounce: 150,
+          onChange: (state) => this.mergeMenuState.set(state),
         }),
         createTextMetrics({ onMetrics: (metrics) => this.bodyMetrics.set(metrics) }),
         createSendIntent({ onSend: (intent) => this.send.emit(intent) }),
@@ -365,6 +412,15 @@ export class EmailCompose {
     if (size) editor.commands['setFontSize'](size);
     else editor.commands['unsetFontSize']();
     editor.focus();
+  }
+
+  /** Infinite scroll: nearing the listbox's end fetches the next page. The
+      extension makes `loadMore` a safe no-op while loading or exhausted. */
+  onMergeMenuScroll(): void {
+    const el = this.mergeTagMenu().nativeElement;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 48) {
+      this.mergeMenuState()?.loadMore();
+    }
   }
 
   /** Opens the picker at the command's default size, so the preview never

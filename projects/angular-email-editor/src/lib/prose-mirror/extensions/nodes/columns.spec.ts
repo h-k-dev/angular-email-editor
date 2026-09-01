@@ -11,7 +11,7 @@ const canonical = (html: string) => serializeToHTML(parseHTML(html, schema), sch
 
 const COL = (max: number) =>
   `display: inline-block; width: 100%; max-width: ${max}px; vertical-align: top; ` +
-  `box-sizing: border-box; padding-left: 8px; padding-right: 8px;`;
+  `box-sizing: border-box;`;
 const TWO_COLS =
   `<div style="width: 100%; max-width: 600px;">` +
   `<div style="${COL(300)}"><div>a</div></div>` +
@@ -34,6 +34,25 @@ describe('columns serialization', () => {
 
   it('is lint-clean — max-width paired with width:100% is exempt', () => {
     expect(lintHTML(canonical(TWO_COLS))).toEqual([]);
+  });
+
+  it('serializes no padding by default; authored padding stays — and warns', () => {
+    // The gutter seen while composing is editorial CSS, not the email's.
+    expect(canonical(TWO_COLS)).not.toContain('padding');
+
+    // Authored padding (legacy longhand pair included) canonicalizes to one
+    // shorthand, round-trips — and the linter tells the truth about it:
+    // Outlook's Word engine ignores padding outside table cells.
+    const padded = TWO_COLS.replace(
+      /box-sizing: border-box;/g,
+      'box-sizing: border-box; padding-left: 8px; padding-right: 8px;',
+    );
+    const once = canonical(padded);
+    expect(once).toContain('box-sizing: border-box; padding: 0px 8px;');
+    expect(canonical(once)).toBe(once);
+    const warnings = lintHTML(once);
+    expect(warnings.every((w) => w.severity === 'warning')).toBe(true);
+    expect(warnings.some((w) => w.message.includes('padding'))).toBe(true);
   });
 
   it('keeps an authored left alignment — left carries no declaration', () => {

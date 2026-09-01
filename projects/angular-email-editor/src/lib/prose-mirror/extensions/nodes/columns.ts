@@ -4,6 +4,7 @@ import { keymap } from 'prosemirror-keymap';
 import { defineNode } from '../../extension';
 import { FILL_TEXT_COLOR } from '../../dual-contrast';
 import { isSafeColor, toEmailSafeColor } from '../marks/text-style';
+import { parsePadding } from './table';
 
 /**
  * Responsive layout columns — the fluid, no-media-query answer to MJML. Each
@@ -62,9 +63,14 @@ function parseAlignment(dom: HTMLElement): ColumnsAlignment {
 
 // A filled panel always pairs its background with FILL_TEXT_COLOR — explicit
 // dark text survives the dark modes that flip default text but keep the fill.
-const columnStyle = (maxWidth: number, background: string | null): string =>
+// Padding is *authored only* (the attr, from user markup) — the gutters seen
+// while composing are editorial `.aee-editor` CSS, which also reserves the
+// room the boundary/add affordances live in; the email carries none of it
+// unless the author asked.
+const columnStyle = (maxWidth: number, background: string | null, padding: string | null): string =>
   `display: inline-block; width: 100%; max-width: ${maxWidth}px; ` +
-  `vertical-align: top; box-sizing: border-box; padding-left: 8px; padding-right: 8px;` +
+  `vertical-align: top; box-sizing: border-box;` +
+  (padding ? ` padding: ${padding};` : '') +
   (background ? ` background-color: ${background}; color: ${FILL_TEXT_COLOR};` : '');
 
 const columnMaxWidth = (count: number): number =>
@@ -143,8 +149,13 @@ export const Column = defineNode({
     isolating: true,
     // `background` fills the whole column panel — a coloured callout — from the
     // curated dual-safe palette via `setColumnBackground`. Longhand rgb(), so
-    // the block stays a byte-stable fixpoint in both engines.
-    attrs: { maxWidth: { default: columnMaxWidth(2) }, background: { default: null } },
+    // the block stays a byte-stable fixpoint in both engines. `padding` is
+    // authored only (px, via `parsePadding`) — `null` serializes none.
+    attrs: {
+      maxWidth: { default: columnMaxWidth(2) },
+      background: { default: null },
+      padding: { default: null },
+    },
     parseDOM: [
       {
         tag: 'div',
@@ -157,6 +168,7 @@ export const Column = defineNode({
           return {
             maxWidth: parseColumnMaxWidth(style),
             background: isSafeColor(bg) ? bg : null,
+            padding: parsePadding(el),
           };
         },
       },
@@ -167,13 +179,15 @@ export const Column = defineNode({
       'div',
       {
         class: 'aee-column',
-        style: columnStyle(node.attrs['maxWidth'], node.attrs['background']),
+        style: columnStyle(node.attrs['maxWidth'], node.attrs['background'], node.attrs['padding']),
       },
       0,
     ],
     emitDOM: (node: { attrs: Record<string, any> }) => [
       'div',
-      { style: columnStyle(node.attrs['maxWidth'], node.attrs['background']) },
+      {
+        style: columnStyle(node.attrs['maxWidth'], node.attrs['background'], node.attrs['padding']),
+      },
       0,
     ],
   },
