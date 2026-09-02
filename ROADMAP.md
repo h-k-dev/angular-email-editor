@@ -10,14 +10,14 @@ sides.
 Foundations and the two-editor core are in; the content and layout-blocks side
 is mature. Tests: **372 library + 5 app, all green** (2026-09-02).
 
-| Milestone                                                       | State            | Left to do                                                         |
-| --------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------ |
-| Foundations (two editors, mark parity, canonical `html` signal) | ✅ done          | —                                                                  |
-| **M1 — Round-trip fidelity**                                    | ✅ core done     | selection mirroring (stretch)                                      |
-| **M2 — Missing composer features**                              | ✅ done          | —                                                                  |
-| **M3 — Deliverability lint engine**                             | ✅ done          | —                                                                  |
-| **M4 — Preview & proof**                                        | 🟢 mostly done   | per-client simulation; Outlook conditional comments                |
-| **M5 — Layout blocks**                                          | 🟢 flagship done | UX polish pass (see “Known dissatisfactions”); section-schema + `{{template}}` placeholders |
+| Milestone                                                       | State            | Left to do                                                                                      |
+| --------------------------------------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------- |
+| Foundations (two editors, mark parity, canonical `html` signal) | ✅ done          | —                                                                                               |
+| **M1 — Round-trip fidelity**                                    | ✅ core done     | selection mirroring (stretch)                                                                   |
+| **M2 — Missing composer features**                              | ✅ done          | —                                                                                               |
+| **M3 — Deliverability lint engine**                             | ✅ done          | —                                                                                               |
+| **M4 — Preview & proof**                                        | 🟢 mostly done   | per-client simulation; Outlook conditional comments                                             |
+| **M5 — Layout blocks**                                          | 🟢 flagship done | UX polish pass (see “Known dissatisfactions”); section-schema + `{{template}}` placeholders     |
 | **M6 — Compose workflow**                                       | 🟡 nearly done   | the `cid:` resolver (display-only) — send-intent parts and the data-URL lint shipped 2026-09-02 |
 
 Most recent work: **M6 opened, and it closed M2 on the way** — the
@@ -145,7 +145,7 @@ The sync works; now make it lossless and gentle.
 
 - [x] **Diff-based `setText`/`setContent`**: syncs apply as minimal diff
       transactions (`findDiffStart`/`findDiffEnd`), flagged `addToHistory:
-    false` + `externalSync`. The receiving editor keeps its own undo
+  false` + `externalSync`. The receiving editor keeps its own undo
       history (external changes aren't yours to undo — collab semantics),
       its selection maps through the diff, and `onUpdate` stays silent so
       mirrored editors cannot echo.
@@ -197,7 +197,7 @@ schema extensions first, toolbar second.
       drop/paste pipeline.
 - [x] **Images are inline — decided 2026-09-02, Gmail's and Proton's model.**
       The node was a block; the caret could only stand above or below it as
-      a gap cursor. Both reference clients keep the image *in the text line*
+      a gap cursor. Both reference clients keep the image _in the text line_
       (`<div><img …><br></div>` in Gmail's compose DOM), which is what gives
       the tall caret right beside the image and lets typing continue next to
       it. Now `inline: true, group: 'inline'`, an atom like the merge tag:
@@ -208,7 +208,7 @@ schema extensions first, toolbar second.
       as it did on the block form, and Outlook renders inline images
       natively. Dropped files insert at the caret; at a block boundary the
       transform wraps the image into a line of its own. Being an inline atom
-      it is *selectable*: a click makes it the node selection — kept on
+      it is _selectable_: a click makes it the node selection — kept on
       purpose, the resize pads below will hang on it. ProseMirror hides the
       native highlight for node selections, and an `<img>` cannot carry an
       overlay, so the editor renders the image in an editor-only wrapper
@@ -227,12 +227,12 @@ schema extensions first, toolbar second.
       `MAX_IMAGE_WIDTH` use, so what wraps in the editor wraps in the email,
       the columns block goes side by side at exactly the editor's width, and
       a max-size image fills the line. First attempt capped the image to the
-      *pane's* line instead, which on a three-pane screen was ~400px — the
+      _pane's_ line instead, which on a three-pane screen was ~400px — the
       cap was right, the column was wrong.
 - [x] **Image resize — shipped 2026-09-02.** Two pads inset on the wrapper's
       left and right edges, shown on hover and on the selected image (and
       throughout a drag, since the pointer may leave the image). Dragging a pad draws
-      only a primary *frame* at the would-be size — ratio-preserving by
+      only a primary _frame_ at the would-be size — ratio-preserving by
       construction, since only `width` is ever written and the serialized
       style keeps `height: auto` — and the actual resize (`setNodeMarkup`
       with the new width, clamped between `MIN_IMAGE_WIDTH` and the line's own
@@ -244,8 +244,8 @@ schema extensions first, toolbar second.
       node drag or a click; a press without movement commits nothing. The
       app owns the pixels: `--email-image-pad` / `--email-image-resize-frame`
       → `--mat-sys-primary` → fallback.
-- [x] **Drop line (2026-09-02).** A dragged image drops *inline at the
-      caret* — where the cursor sat before the drag, Gmail's rule: the
+- [x] **Drop line (2026-09-02).** A dragged image drops _inline at the
+      caret_ — where the cursor sat before the drag, Gmail's rule: the
       pointer only says the drag is over the editor. While the drag is in
       flight a horizontal line runs under the caret's visual line, the line
       the image is about to join — the caret's own box gives the line's
@@ -256,7 +256,7 @@ schema extensions first, toolbar second.
       → fallback. Shown only for drags the editor would claim — a mixed drag
       draws nothing here, the host's zone lights up instead.
 - [x] **Image placeholder (2026-09-02) — the slide-deck model.** `/image
-      placeholder` inserts a *sized frame awaiting its file*: an Image node
+    placeholder` inserts a _sized frame awaiting its file_: an Image node
       with no `src`, no new node type — one schema rule, one serialization
       (`<img width="320" style="…">`, honest: nothing pretends to be a
       picture), the same resize pads for free. In the editor it is a dashed
@@ -266,14 +266,14 @@ schema extensions first, toolbar second.
       source pane lints an unfilled one ("Image placeholder — no source
       yet"), once, instead of the alt warning. Precedent, for the record:
       no compose client has this (Gmail, Outlook, Proton, Apple Mail never
-      separate *where* an image goes from *which*); Keynote/PowerPoint/Pages
+      separate _where_ an image goes from _which_); Keynote/PowerPoint/Pages
       media placeholders and Canva frames do exactly this, Notion/Gutenberg
       insert an unsized empty block, email builders (Mailchimp, Beefree) an
       empty block sized by settings. Ours is the image counterpart of the
       merge tag — template-ready by construction.
 - [x] **Images**: the Image node now serializes the ledger's hybrid sizing
       (`width` attribute for Outlook + `width:100%; max-width:<n>px;
-    height:auto` for everyone else), caps widths at 600px on parse and on
+  height:auto` for everyone else), caps widths at 600px on parse and on
       drop, never parses or emits `float`, and handles dropped/pasted image
       files (data-URL source, alt defaulted from the filename, natural width
       measured). Missing/empty alt is linted in the source pane, and so is
@@ -294,7 +294,7 @@ schema extensions first, toolbar second.
       opt-in functional commands is a small follow-up if wanted.
 - [x] **Font size/family** as a constrained set of email-safe stacks
       (Sans-serif `Arial, Helvetica, sans-serif`, Serif `Georgia, Times,
-    serif`, Monospace `Courier, monospace`, System `system-ui, sans-serif`)
+  serif`, Monospace `Courier, monospace`, System `system-ui, sans-serif`)
       — no free-form fonts. Both hang off the shared `textStyle` span as
       attributes (like `color`), so size + family + colour merge into one
       `style` string instead of nesting wrappers. Toolbar pickers offer only
@@ -324,23 +324,23 @@ schema extensions first, toolbar second.
       reads against both white and near-black. Enforcement at the picker
       only — no color checking, rewriting, or nagging from the source pane.
 - [x] **Background colour / fill**, in three scopes behind one affordance.
-      Principle 9 makes fills the *hardest* colour feature: a background is a
+      Principle 9 makes fills the _hardest_ colour feature: a background is a
       **pair** constraint — near-black text sits on it, and forced dark mode
-      recolours fill *and* text together. So `passesDualBackground` selects
+      recolours fill _and_ text together. So `passesDualBackground` selects
       **pale tints** (readable with black text now, and their complements read
       with white text after inversion); the text palette's mid-tones are
-      explicitly *not* fills, pinned by test. One curated
+      explicitly _not_ fills, pinned by test. One curated
       `emailBackgroundPalette` feeds every scope:
   - **Text highlight** — a `backgroundColor` attr on the shared `textStyle`
-        span, merging with colour/size/family into one `style` string.
+    span, merging with colour/size/family into one `style` string.
   - **Table cell** — a `background` attr on `tableCell` (`background-color`
-        on `<td>` is the most bulletproof background in email; renders even in
-        Outlook). Legacy inbound `bgcolor="…"` parses into it.
+    on `<td>` is the most bulletproof background in email; renders even in
+    Outlook). Legacy inbound `bgcolor="…"` parses into it.
   - **Column** — a `background` attr on `column`, for coloured callout panels.
-      The toolbar has a single **fill** picker that routes by cursor: selected
-      text → inline highlight; a bare cursor in a cell or column → fills that
-      container; otherwise → inline highlight. All longhand rgb(), lint-clean,
-      byte-stable fixpoints, pinned by golden + round-trip tests.
+    The toolbar has a single **fill** picker that routes by cursor: selected
+    text → inline highlight; a bare cursor in a cell or column → fills that
+    container; otherwise → inline highlight. All longhand rgb(), lint-clean,
+    byte-stable fixpoints, pinned by golden + round-trip tests.
 - [x] **Word/line counter placement**: the `textMetrics` extension already
       computes words/lines/height as pure arithmetic (no DOM reads on the
       keystroke path); this surfaces it. The email pane's `bodyMetrics` signal
@@ -349,7 +349,7 @@ schema extensions first, toolbar second.
       singular-aware. Width-dependent line count rides the extension's existing
       `ResizeObserver`, so it re-measures fluidly on resize.
 - [x] **`/send`** — shipped once M6's scope decision dissolved both blockers:
-      there is no transport to wait for (the composer emits a send *intent*),
+      there is no transport to wait for (the composer emits a send _intent_),
       and the `SlashItem` contract fits after all — an item's command is just
       a ProseMirror `Command`, and a `Command` may act without dispatching
       (probing calls get no dispatch and emit nothing). See the M6 send-intent
@@ -368,13 +368,13 @@ This is where the source editor earns its seat.
       entry.
 - [x] **Own-output blind spots closed (2026-09-02).** `padding` on `<a>` is
       now an entry — Outlook ignores it, so the button no longer uses it: it
-      is the *border-based* bulletproof button (borders in the background
+      is the _border-based_ bulletproof button (borders in the background
       colour give the ≥ 44px target; Outlook draws borders on inline
       elements), and our output stays lint-clean honestly rather than by
       omission. `display: inline-block` is an entry too (Outlook renders
       inline or stacks), exempt where we degrade on purpose: paired with
       `width: 100%` (the fluid columns stack) and on anchors (the button
-      keeps its box). Deliberately *not* entries: `box-sizing` and
+      keeps its box). Deliberately _not_ entries: `box-sizing` and
       `overflow-wrap`, which Outlook ignores harmlessly in our cells and
       columns — flagging them would be noise on every email.
 - [x] **Style linting**: every inline declaration is checked against the
@@ -471,8 +471,8 @@ pane) can't see and edit.
       `max-width` alone leaves the block hugging the left of any viewport wider
       than it — and an email body that isn't centred reads as broken. Auto
       margins are normally the thing to distrust in email (Outlook's Word
-      engine handles them poorly), but they are safe here *by the same pairing
-      logic as `width: 100%` + `max-width`*: Outlook ignores `max-width`
+      engine handles them poorly), but they are safe here _by the same pairing
+      logic as `width: 100%` + `max-width`_: Outlook ignores `max-width`
       entirely, so the container spans full width there and has nothing to
       centre — the only clients where the cap is visible are the ones that
       honour auto margins. Verified: 600px block, 150px gaps either side, in a
@@ -494,13 +494,13 @@ pane) can't see and edit.
       exists (the 2026-08-22 edge drag gives tables a percentage width), so
       table centring is unblocked and merely undecided.
 - [x] **`/table` — constrained data table**: a real `<table role=
-    "presentation">` (the most client-compatible layout) restricted to a
+  "presentation">` (the most client-compatible layout) restricted to a
       plain rectangular grid — no colspan/rowspan, so the model is a clean 2D
       array. Nodes: `table` > `tableRow` > `tableCell` (`paragraph+`, so
       cells hold rich text). Working: slash/command insertion (cursor lands
       in cell 0,0), cell editing, **Tab/Shift-Tab navigation** (Tab past the
       last cell appends a row), and structural commands (`addRow/Column
-    Before/After`, `deleteRow/Column`, `deleteTable`) that rebuild-and-
+  Before/After`, `deleteRow/Column`, `deleteTable`) that rebuild-and-
       replace the table node rather than juggle positions. Round-trips through
       the source pane, lint-clean, `<tbody>` fixpoint. Note: this is a _data_
       table (stays tabular, scrolls on a phone); the spongy stacking layout is
@@ -522,7 +522,7 @@ pane) can't see and edit.
     text marks (bold, links, colour) now work inside cells. Pinned by an
     empty-cell round-trip test.
 - [x] **Layout guides — one mechanism for every layout block.** Tables and
-      `/columns` both export structures that are *invisible* in the email (a
+      `/columns` both export structures that are _invisible_ in the email (a
       borderless table; bare inline-block divs), so the editor has to show their
       shape — and it now shows it the same way for both, via the `LayoutGuides`
       extension. A decoration tags whichever layout block holds the cursor with
@@ -530,25 +530,25 @@ pane) can't see and edit.
       border that is **always reserved as transparent**, so revealing a guide
       never shifts layout. Three ways in:
   1. **Cursor inside** the block (the original table behaviour, now shared).
-  2. **Hover** — pure CSS, revealing the *whole* block (not just the cell or
-        column under the pointer), so it reads as one grid.
+  2. **Hover** — pure CSS, revealing the _whole_ block (not just the cell or
+     column under the pointer), so it reads as one grid.
   3. **Peek: hold Ctrl (~300ms)** → `aee-guides-peek` on the editor root reveals
-        every block at once. The hold delay is the point: Ctrl is also the
-        prefix of every shortcut, so an instant reveal would flash the grid on
-        each Ctrl-B/C/Z — any other keypress cancels the pending reveal, and a
-        window blur clears a stranded hold. (Alt steals the browser menu bar on
-        Windows, Shift flashes on every capital, and Meta opens the Start menu —
-        Ctrl is the only safe modifier. A toolbar toggle remains the more
-        discoverable option if a persistent mode is ever wanted.)
-      Columns get their CSS hooks (`aee-columns` / `aee-column`) from `toDOM`,
-      while `emitDOM` drops them — the same serialization-only split the email
-      paragraph uses, so no class ever reaches the email. Pinned by test.
+     every block at once. The hold delay is the point: Ctrl is also the
+     prefix of every shortcut, so an instant reveal would flash the grid on
+     each Ctrl-B/C/Z — any other keypress cancels the pending reveal, and a
+     window blur clears a stranded hold. (Alt steals the browser menu bar on
+     Windows, Shift flashes on every capital, and Meta opens the Start menu —
+     Ctrl is the only safe modifier. A toolbar toggle remains the more
+     discoverable option if a persistent mode is ever wanted.)
+     Columns get their CSS hooks (`aee-columns` / `aee-column`) from `toDOM`,
+     while `emitDOM` drops them — the same serialization-only split the email
+     paragraph uses, so no class ever reaches the email. Pinned by test.
 - [x] **Block menu — the bubble menu's sibling for layout blocks.** Block-level
       commands kept piling up with nowhere to live: the table's structural
       commands were library-only, and add/remove-column would have been the
       third feature to hit the same wall. The `blockMenu` extension reports
       which layout block holds a **bare cursor** (plus the block's rect); the
-      app renders one calm toolbar anchored *below the block* — it describes
+      app renders one calm toolbar anchored _below the block_ — it describes
       the whole structure, not the line being typed, and under the block it
       never covers the first row while writing. The bare-cursor trigger makes
       it mutually exclusive with the text bubble menu (which needs a non-empty
@@ -557,7 +557,7 @@ pane) can't see and edit.
       moves focus into the menu, Escape hands it back; focus sitting inside
       the menu counts as still-active, so reaching for it by keyboard isn't
       the thing that closes it. Today it carries the table's row/column/delete
-      commands and the columns block's add/remove/delete. Deliberately *not*
+      commands and the columns block's add/remove/delete. Deliberately _not_
       the reverted Notion-style overlay: no pointer tracking, no hover
       handles — one toolbar, positioned by the app.
 
@@ -565,15 +565,15 @@ pane) can't see and edit.
 
 We're moving forward (M6) before polishing these; the schema/UI split makes
 that safe (the canonical HTML is the only durable contract — all of the below
-is UI-layer or additive). Honest framing: the table/columns *editing UX is
-still clunky and unintuitive* overall; these are the concrete symptoms.
+is UI-layer or additive). Honest framing: the table/columns _editing UX is
+still clunky and unintuitive_ overall; these are the concrete symptoms.
 
 - [ ] **Block menu doesn't track its block.** Adding a row grows the table,
       but the toolbar stays where it was — the anchor rect isn't re-resolved /
       the overlay isn't repositioned after a structural edit. The menu should
       ride its block through every mutation.
-- [ ] **Click-below should escape the block.** *Mechanism shipped
-      (2026-08-20), confirmation outstanding.* `prosemirror-gapcursor` now
+- [ ] **Click-below should escape the block.** _Mechanism shipped
+      (2026-08-20), confirmation outstanding._ `prosemirror-gapcursor` now
       gives every isolating block a real cursor position beside it, so the
       click lands a gap cursor and typing there creates the paragraph — the
       ProseMirror idiom, and better than eagerly growing an empty paragraph
@@ -581,47 +581,47 @@ still clunky and unintuitive* overall; these are the concrete symptoms.
       jsdom cannot prove and the hidden preview cannot paint, so this stays
       unchecked until someone confirms it in a real browser.
 - [ ] **Real borders are impossible.** The editor grid is editor-only by
-      design, but there is no affordance to give the *serialized* table a
+      design, but there is no affordance to give the _serialized_ table a
       visible border at all. Needs a curated border option (longhand, on the
       `<td>`s — the Outlook-safe way), routed through the block menu.
 - [x] **Columns and tables — decided (2026-08-23): separate semantics, shared
-      interaction vocabulary.** The framing that settled it: *a table is data,
-      columns are layout.* So columns do **not** become a table under the skin
+      interaction vocabulary.** The framing that settled it: _a table is data,
+      columns are layout._ So columns do **not** become a table under the skin
       — different nodes, different models, different email output — and they
-      borrow a table gesture only where the gesture's *meaning* survives the
+      borrow a table gesture only where the gesture's _meaning_ survives the
       change of semantics. The port matrix:
   - **Boundary drag** — yes, **shipped 2026-08-23** (`ColumnsResize`; the
-        wrapper carries the container style so it *is* the 600px box, lines
-        at the cumulative caps in px, `MIN_COLUMN_CAP` 120px floor, verified
-        stacked-hides and side-by-side drag in-browser). Same deferred-commit
-        drag, different model: a
-        table splits 100% of itself, columns redistribute the email's px
-        *budget* (the `max-width` caps, the ledger's hybrid); phones still
-        stack because every cap exceeds the viewport. Lines are
-        model-derived in px (cumulative caps from the container's edge), and
-        a CSS container query hides them when the block is stacked — the
-        budget is a constant, so "stacked" flips at a constant width, no
-        measurement.
+    wrapper carries the container style so it _is_ the 600px box, lines
+    at the cumulative caps in px, `MIN_COLUMN_CAP` 120px floor, verified
+    stacked-hides and side-by-side drag in-browser). Same deferred-commit
+    drag, different model: a
+    table splits 100% of itself, columns redistribute the email's px
+    _budget_ (the `max-width` caps, the ledger's hybrid); phones still
+    stack because every cap exceeds the viewport. Lines are
+    model-derived in px (cumulative caps from the container's edge), and
+    a CSS container query hides them when the block is stacked — the
+    budget is a constant, so "stacked" flips at a constant width, no
+    measurement.
   - **Add pill** — yes, same affordance and sensor zone, same meaning.
   - **Add-row pill** — no: columns have no rows; a second row of columns is a
-        new block, the slash menu's job.
+    new block, the slash menu's job.
   - **Delete gesture** — yes, but a different gesture: there is no cell
-        selection, so the layout-native rule is the list item's — Backspace at
-        the start of an empty column removes the column, in the last empty
-        column removes the block.
+    selection, so the layout-native rule is the list item's — Backspace at
+    the start of an empty column removes the column, in the last empty
+    column removes the block.
   - **Selection rectangle, merge/split** — no: nothing to merge in layout.
   - **Container edge drag** — parked: columns own `align` already, and a
-        narrower centred set is low value.
-      Nothing flows the other way: no stacking, no px caps in tables — a data
-      table stays tabular and scrolls on a phone. Once the three yeses land,
-      the columns block menu has nothing left either and the block-menu
-      extension can retire wholesale.
+    narrower centred set is low value.
+    Nothing flows the other way: no stacking, no px caps in tables — a data
+    table stays tabular and scrolls on a phone. Once the three yeses land,
+    the columns block menu has nothing left either and the block-menu
+    extension can retire wholesale.
 - [ ] **Merged cells have no affordance yet.** `mergeCells`/`splitCell` are
       exposed as commands and cell selection works (shift-drag a rectangle),
-      but the block menu opens only on a *bare cursor*, and a cell selection is
+      but the block menu opens only on a _bare cursor_, and a cell selection is
       by definition not empty — so the one moment you'd reach for "merge" is
       the one moment the menu is closed. Fixing it is a menu-rule decision, not
-      a table one: open on a cursor *or* a cell selection, and keep the text
+      a table one: open on a cursor _or_ a cell selection, and keep the text
       bubble menu out of the way so the two never stack.
 - [ ] **Schema growth to hold them**: constrained table/section nodes with
       strict parse/serialize rules — the gate for this milestone, and it must
@@ -649,9 +649,9 @@ stripped), so every answer must be fluid and inline.
 | ------------------------------ | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Image**                      | Fixed pixel width overflows the screen; Outlook ignores `max-width` entirely                              | Hybrid sizing: `width` _attribute_ for Outlook + `style="width:100%; max-width:<n>px; height:auto"` for everyone else                                                                                                                                                                                                                                              |
 | **Table / layout blocks (M5)** | Columns keep their desktop widths and force horizontal scroll                                             | ✅ **Shipped (`/columns`)**: `inline-block` columns with `width:100%` capped by `max-width: container/n` + `box-sizing:border-box` — side by side when the caps fit, stacked when they don't. Outlook ignores `inline-block` and stacks too. Ghost tables for true Outlook side-by-side remain a non-goal for now. (Data `/table` is separate — it stays tabular.) |
-| **Lists**                      | Default `padding-inline-start: 40px` per nesting level — two levels eat a third of the screen             | ✅ **Shipped 2026-09-02**: `margin: 0px; padding-left: 24px` on `ul`/`ol` — 24px per level, no margins, tested nested |
-| **Blockquote**                 | Nested reply chains accumulate margins until text is one word per line                                    | ✅ **Shipped 2026-09-02**: `margin: 0px; padding-left: 12px; border-left: 2px solid` — 14px per nesting level, never a stacked margin |
-| **Headings**                   | Desktop-sized `h1` wraps into a wall at phone width                                                       | ✅ **Shipped 2026-09-02**: 24/20/18/16px scale as inline `font-size`, `margin: 0`; no `line-height` on purpose (Outlook substitutes its own — the lint would say so) |
+| **Lists**                      | Default `padding-inline-start: 40px` per nesting level — two levels eat a third of the screen             | ✅ **Shipped 2026-09-02**: `margin: 0px; padding-left: 24px` on `ul`/`ol` — 24px per level, no margins, tested nested                                                                                                                                                                                                                                              |
+| **Blockquote**                 | Nested reply chains accumulate margins until text is one word per line                                    | ✅ **Shipped 2026-09-02**: `margin: 0px; padding-left: 12px; border-left: 2px solid` — 14px per nesting level, never a stacked margin                                                                                                                                                                                                                              |
+| **Headings**                   | Desktop-sized `h1` wraps into a wall at phone width                                                       | ✅ **Shipped 2026-09-02**: 24/20/18/16px scale as inline `font-size`, `margin: 0`; no `line-height` on purpose (Outlook substitutes its own — the lint would say so)                                                                                                                                                                                               |
 | **Paragraph / document width** | Full-width lines are unreadable on desktop, so someone will add a fixed container that then breaks phones | If we ever emit a wrapper, it is `max-width` + `width:100%` — the hybrid, never a fixed width                                                                                                                                                                                                                                                                      |
 | **Links / long text**          | An unbroken URL or token wider than the viewport forces the whole email to scroll                         | `word-break`-friendly serialization for link text where possible; lint long unbroken strings                                                                                                                                                                                                                                                                       |
 | **Button block (M5)**          | Padding-based fake buttons too small to tap                                                               | Touch target ≥ 44px via padding (never `height`), generous inline `padding`                                                                                                                                                                                                                                                                                        |
@@ -675,7 +675,7 @@ Two enforcement hooks so the ledger stays alive:
 **Scope decision (2026-08-19): the envelope is the host's.** We never build
 to/cc/subject fields — this project is the editorial engine, and the host app
 owns addressing, transport, and everything envelope. Headers matter to us only
-where they become *document content*: the attribution line above a reply's
+where they become _document content_: the attribution line above a reply's
 quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
 **passed in as data** — never from fields we render.
 
@@ -721,7 +721,7 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
       a caller-supplied locale, a string date is used verbatim), and the
       inbound in a blockquote. Forward = the conventional header block
       (From/Date/Subject/To — only the supplied lines) and the message
-      *unquoted*. The inbound body parses through the email schema like any
+      _unquoted_. The inbound body parses through the email schema like any
       paste (one law — sanitization included), and Gmail's
       `class="gmail_quote"` markup absorbs cleanly: classes drop, nesting
       survives, all pinned by golden-style tests. **The quoted history _is_
@@ -732,23 +732,23 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
       this caught a real hole: `<img src="javascript:…">` survived the parse —
       the Image node now refuses script URLs exactly like the link mark
       (shared `isSafeUrl`, refused on parse and on `insertImage`, pinned).
-      Still open: the import *report* (loss counts through the diagnostics
+      Still open: the import _report_ (loss counts through the diagnostics
       channel) lands with the `.eml` work below.
 - [x] **Fold history behind an ellipsis (Gmail's `⋯`) — presentation, never
       document state.** Shipped as the `QuoteFold` extension (email kit only —
       reply folding isn't rich-text behaviour), zero app wiring: the hide is
       an inline `display: none` decoration so behaviour needs no CSS, the `⋯`
       is a widget decoration (`aee-quote-fold` — the app owns the pixels), and
-      expanded-ness is *the mapped position of the quote the user expanded* —
+      expanded-ness is _the mapped position of the quote the user expanded_ —
       a fresh seed replaces the document, the mapping dies with the replaced
       range, and the new quote starts folded by algebra, not by special case.
       Escape hatches pinned by test: the toggle, ArrowDown from the block
       above (steps in), and an appendTransaction guard that expands whenever
-      *any* selection reaches the hidden range (Ctrl-End, Ctrl-A) — the editor
+      _any_ selection reaches the hidden range (Ctrl-End, Ctrl-A) — the editor
       never works invisibly. `foldQuotedHistory` (which Gmail doesn't offer)
       rescues the cursor before hiding it. Original design sketch follows: No `collapsed` attr, no marker markup: anything the
       serializer can't emit honestly would be hidden state that lies through
-      the round trip. Instead the *discriminator is derived from the document*
+      the round trip. Instead the _discriminator is derived from the document_
       like everything else: the **trailing top-level blockquote** is history —
       exactly what `replyDocument` produces, deterministic, zero markup. An
       editor-only `quoteFold` extension renders it folded behind a `⋯` toggle
@@ -758,7 +758,7 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
       full history, the source pane always shows it (code doesn't lie), the
       plain-text projection is untouched. Keyboard: ArrowDown into the fold
       (or clicking it) expands — the table/columns escape convention, mirrored.
-      Known tradeoff, accepted: an *authored* trailing quote starts folded and
+      Known tradeoff, accepted: an _authored_ trailing quote starts folded and
       is one click to open — the same heuristic bet Gmail makes.
 - [x] **`.eml` drop & HTML paste — one law** (core shipped; report below).
       **We do not parse MIME — decided, after briefly shipping our own.** A
@@ -767,23 +767,23 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
       long-tail, RFC 5322 address grammar, TNEF — is a decade of bug-report
       scar tissue that postal-mime/mailparser already own; competing is a
       losing bet for an editor library, so it was scrapped the same day.
-      What we own instead is the *integration*: `InboundMessage` is the
+      What we own instead is the _integration_: `InboundMessage` is the
       contract, and `toInboundMessage(parsed)` — a zero-dependency,
       duck-typed adapter over the shape modern parsers return (postal-mime's
       `Email`, front- or backend-parsed alike, every field null-tolerant) —
       is the whole bridge: `importedDocument(toInboundMessage(await
-      PostalMime.parse(file)))` imports a dropped file (a `File` is a `Blob`,
+    PostalMime.parse(file)))` imports a dropped file (a `File` is a `Blob`,
       so the parser gets raw bytes — correct charsets, no lossy `.text()`
       step); `replyDocument(...)` answers it. `importedDocument` is the law:
       the body parses through the schema (full strip = sanitization) and
-      *becomes* the document; `text/plain` is the content when no HTML part
+      _becomes_ the document; `text/plain` is the content when no HTML part
       exists; headers are discarded — envelope is the host's — except as
       attribution/forward-header inputs. `cid:` images arrive unresolvable
       until the attachments story lands. The example app makes the email pane
       an `.eml` dropzone (`@h-k-dev/angular-file-drop`, accept-filtered so
       image drops still flow to ProseMirror) with postal-mime lazy-imported
       on first drop and a sample fixture in `test/`.
-- [x] **Import loss report** — the *legibility of loss* half of the import
+- [x] **Import loss report** — the _legibility of loss_ half of the import
       law. `importLoss(inbound)`: pure, derived from the same HTML the import
       consumes, measured against the **schema's own parse vocabulary** (every
       `parseDOM` tag across nodes and marks; tbody/thead/tfoot exempt as
@@ -801,7 +801,7 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
 - [ ] **Inline images — the `cid:` story, not an attachments surface.**
       **Scope decision (2026-08-20): we build no attachment UI.** A paperclip,
       a file list, upload progress, MIME assembly — envelope, all of it, the
-      host's for exactly the reasons to/cc/subject are. What *is* ours is the
+      host's for exactly the reasons to/cc/subject are. What _is_ ours is the
       half that lives in the document: an `<img>` is content, and the editor
       is the only party that knows which binaries the body points at. That
       knowledge is editorial, and today it stays trapped in the document.
@@ -809,15 +809,15 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
   - [x] **Inline or attachment — decided 2026-09-02: the drop decides, the
         editor never asks.** Place first (Gmail's rule): the body is the
         inline zone, the host's shell around it is the attachment zone. Type
-        second, inside the body: the editor claims a drop only when *every*
+        second, inside the body: the editor claims a drop only when _every_
         file is an image (`claimedImageFiles`) — pure images are content and
         embed inline; a mixed drop (an image with a PDF) is an attachment
-        gesture and bubbles *whole*, untouched, to the host's dropzone —
+        gesture and bubbles _whole_, untouched, to the host's dropzone —
         nothing to decide, nothing silently lost. The two zones never fight
         because they nest: ProseMirror sees the event first and calls
         `preventDefault` only when it claims, and the host's dropzone
         (`angular-file-drop`) backs off on `defaultPrevented` — the same
-        arrangement the `.eml` import already runs on. What is *inline* in
+        arrangement the `.eml` import already runs on. What is _inline_ in
         the payload is derived from the document, not from a flag: a part the
         body references by `cid:` is inline (`multipart/related`), anything
         else is the host's attachment (`multipart/mixed`); delete the image
@@ -827,14 +827,14 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
   - [ ] **A `cid:` resolver input** (`cid → object URL`), display-only. An
         imported `cid:` image renders broken today: the MIME parts went to the
         host, and nothing connects them back to the node that references them.
-        The resolver is a *view* concern — the canonical `src` stays `cid:`,
+        The resolver is a _view_ concern — the canonical `src` stays `cid:`,
         so the round trip never learns about it and the schema stays law
         (same split as layout guides: editor-only, never serialized). The
         preview pane takes the same map.
   - [x] **`SendIntent` reports what the document references** — shipped
         2026-09-02 as `inlineImages: InlineImage[]` on the payload, computed
         by the pure `promoteInlineImages(doc)`. The payload's `html` is
-        serialized from a *copy* of the document in which every data-URL
+        serialized from a _copy_ of the document in which every data-URL
         image points at a generated Content-ID (`cid:image-1@aee`, … —
         deterministic, so the same document always yields the same payload;
         identical data URLs share one part; ids the document already
@@ -855,20 +855,20 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
         a dropped image is the one deliberate exception — the warning is
         the point, the data URL is what the editor must hold until send.
 
-      Framing this corrects: it was filed as the last slice of the compose
-      *workflow*, which is why it read as envelope work. It isn't — it is M2's
-      image work meeting M6's import law, and it is the only thing between M6
-      and done.
+    Framing this corrects: it was filed as the last slice of the compose
+    _workflow_, which is why it read as envelope work. It isn't — it is M2's
+    image work meeting M6's import law, and it is the only thing between M6
+    and done.
 
 ## Non-goals (so we stay opinionated)
 
 - **No envelope UI — ever.** To/cc/subject, addressing, transport: all the
-  host app's. We are the editorial engine; the compose *workflow* (M6) deals
+  host app's. We are the editorial engine; the compose _workflow_ (M6) deals
   in payloads and intents, not fields. Header data enters only as input to
   content (reply attribution), never as UI we own.
 - **No attachments surface.** No paperclip, no file list, no upload, no
   MIME assembly — a corollary of the envelope rule, not a separate one.
-  Inline images are the exception that proves it: they are *document content*,
+  Inline images are the exception that proves it: they are _document content_,
   so we resolve `cid:` for display and report referenced parts on the send
   intent — and stop precisely there (M6).
 - **Not a drag-drop marketing builder.** No block canvas, no template
@@ -908,7 +908,7 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
   `repairTables` inside `parseHTML` so the pure constructors
   (`importedDocument`, `replyDocument`) produce the same rectangle.
   **2026-08-22, two follow-ups:** (1) `table-layout: fixed` (+
-  `overflow-wrap: break-word` on cells) is now part of the *serialized*
+  `overflow-wrap: break-word` on cells) is now part of the _serialized_
   style — without it every keystroke re-laid the grid out from content and
   pushed the neighbouring columns; styling it editor-only would have made
   the editor stable and the received mail jumpy, so it ships in both. (2)
@@ -916,10 +916,10 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
   email-honest mechanism: percentages into the same `colwidth` attr px would
   have gone into (serialized as `width: n%` on the cells; a px width never
   parses in), an editor-only NodeView (`div.aee-table-wrap > table >
-  colgroup + tbody` + a boundary-lines overlay) none of which serializes
+colgroup + tbody` + a boundary-lines overlay) none of which serializes
   (clipboard uses the schema `toDOM`, so it stays clean too), a 10% floor
-  instead of Tiptap's px min-width, full-height boundary lines *positioned by
-  the model* (`left` = cumulative share — no measurement, no mousemove
+  instead of Tiptap's px min-width, full-height boundary lines _positioned by
+  the model_ (`left` = cumulative share — no measurement, no mousemove
   tracking: the reverted-overlay rule), and a **Word-style deferred commit**:
   mid-drag only the guide line moves — live reflow was tried and reverted,
   because a table rewrapping its text on every pointermove reads as the grid
@@ -935,7 +935,7 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
   widths (the fixed-600px newsletter) repaired to fluid on parse,
   offset + width clamped to ≤ 100 with a 20% width floor, same
   deferred-commit drag. **Edge drags absorb, Word-style**: column widths are
-  percentages *of the table*, so a naive table resize slides every interior
+  percentages _of the table_, so a naive table resize slides every interior
   boundary proportionally — instead the edge-adjacent column takes the whole
   change and the others rescale by oldWidth/newWidth, keeping interior
   boundaries absolutely fixed (pinned by test and measured in-browser). This
@@ -956,7 +956,7 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
   or caret, `aee-table-wrap--in-last-row`). They
   replaced the block menu's add buttons, and **deleting the table is now a
   gesture, not a menu item**: select every cell (shift-drag, or shift-arrows
-  growing the cell selection) and press Backspace/Delete — deleting *all* of
+  growing the cell selection) and press Backspace/Delete — deleting _all_ of
   a table's content is deleting the table; an empty husk is the one thing
   that selection didn't ask for. Anything less than the full grid falls
   through to the library's deleteCellSelection (clear contents). The gesture family covers every unit
@@ -977,11 +977,11 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
   `aee-guides-active`) land on the wrapper div, not the `<table>`.
   **Arrow keys are ours too (2026-08-23).** The library's cell navigation is
   dead for this schema: its `atEndOfCell` walks from `$head.depth - 1`
-  expecting a paragraph *inside* the cell, and our cells hold inline content
+  expecting a paragraph _inside_ the cell, and our cells hold inline content
   directly — so it never finds a cell and arrows fell through to the
   browser (cells crossed by accident, Shift-arrows cell-selecting only when
   the native selection spilled over). And because our cells are textblocks,
-  the gap cursor considered the slot *between two cells* a valid stop. Both
+  the gap cursor considered the slot _between two cells_ a valid stop. Both
   fixed in the pre-`tableEditing` keymap: an arrow at a cell's edge moves to
   the neighbouring cell (rows wrap, the outer edges hand off to surrounding
   blocks), a Shift-arrow there grows a cell selection (one cell per press,
@@ -993,7 +993,7 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
   the source pane, in the example app — leaving the caret behind. It now
   walks the columns like a table's cells, hands off to the surrounding blocks
   at the ends (writing a paragraph when the block is last, as ArrowDown
-  already does), and is *claimed for the whole block* so focus can never be
+  already does), and is _claimed for the whole block_ so focus can never be
   yanked away mid-edit. Outside a layout block Tab still escapes the editor
   normally, which is the accessible behaviour.
 - **The block gutter (2026-08-23).** Both NodeView wrappers carry editor-only
@@ -1002,7 +1002,7 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
   (the add-row pill used to cover the following line). It reserves room for
   the row/column action handles still to come. Two consequences worth
   knowing: (1) the geometry layer (`.aee-col-lines`) is CSS-inset to the
-  wrapper's *content* box, so every child percentage is a share of the block
+  wrapper's _content_ box, so every child percentage is a share of the block
   itself and the gutter can change without a number moving in the NodeView —
   table-relative shares are converted once, in `#toBoxPct`, and a drag
   measures `#contentBox()` rather than `clientWidth` (which counts padding).
@@ -1036,7 +1036,7 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
   keywords include it); source items append after them, unfiltered — the
   source owns its own matching. An item's `command` is just a ProseMirror
   `Command`, which may act without dispatching (see `/send`) — so slash items
-  can insert content *or* perform actions.
+  can insert content _or_ perform actions.
 - Anything both panes must agree on lives in the **email schema**, never in
   either pane. The source pane consumes it via `createSourceMarks`-style
   round-trips.

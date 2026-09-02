@@ -76,7 +76,9 @@ describe('prose-mirror core', () => {
   it('setHeading converts a paragraph into a heading', () => {
     let state = stateFromHTML('<p>Title</p>', 1, 1);
     state = runCommand(state, 'heading', 'setHeading', 3);
-    expect(serializeToHTML(state.doc, schema)).toBe('<h3 style="margin: 0px; font-size: 18px;">Title</h3>');
+    expect(serializeToHTML(state.doc, schema)).toBe(
+      '<h3 style="margin: 0px; font-size: 18px;">Title</h3>',
+    );
   });
 
   it('wrapInBlockquote wraps the current block', () => {
@@ -100,19 +102,31 @@ describe('prose-mirror core', () => {
   it('toggleBulletList wraps and unwraps a paragraph', () => {
     let state = stateFromHTML('<p>item</p>', 1, 1);
     state = runCommand(state, 'bulletList', 'toggleBulletList');
-    expect(serializeToHTML(state.doc, schema)).toBe('<ul style="margin: 0px; padding-left: 24px;"><li><p dir="auto">item</p></li></ul>');
+    expect(serializeToHTML(state.doc, schema)).toBe(
+      '<ul style="margin: 0px; padding-left: 24px;"><li><p dir="auto">item</p></li></ul>',
+    );
     state = runCommand(state, 'bulletList', 'toggleBulletList');
     expect(serializeToHTML(state.doc, schema)).toBe('<p dir="auto">item</p>');
   });
 
   it('toggleOrderedList converts a bullet list in place', () => {
-    let state = stateFromHTML('<ul style="margin: 0px; padding-left: 24px;"><li><p>item</p></li></ul>', 3, 3);
+    let state = stateFromHTML(
+      '<ul style="margin: 0px; padding-left: 24px;"><li><p>item</p></li></ul>',
+      3,
+      3,
+    );
     state = runCommand(state, 'orderedList', 'toggleOrderedList');
-    expect(serializeToHTML(state.doc, schema)).toBe('<ol style="margin: 0px; padding-left: 24px;"><li><p dir="auto">item</p></li></ol>');
+    expect(serializeToHTML(state.doc, schema)).toBe(
+      '<ol style="margin: 0px; padding-left: 24px;"><li><p dir="auto">item</p></li></ol>',
+    );
   });
 
   it('isNodeActive sees wrapper ancestors like blockquote and lists', () => {
-    const state = stateFromHTML('<blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><p>quoted</p></blockquote>', 2, 2);
+    const state = stateFromHTML(
+      '<blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><p>quoted</p></blockquote>',
+      2,
+      2,
+    );
     expect(isNodeActive(state, schema.nodes['blockquote'])).toBe(true);
     expect(isNodeActive(state, schema.nodes['bulletList'])).toBe(false);
   });

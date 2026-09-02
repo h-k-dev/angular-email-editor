@@ -39,8 +39,7 @@ describe('table serialization', () => {
   });
 
   it('keeps line breaks inside cells as a fixpoint — no phantom cells', () => {
-    const withBreaks =
-      '<table><tbody><tr><td>a<br>b</td><td><br></td></tr></tbody></table>';
+    const withBreaks = '<table><tbody><tr><td>a<br>b</td><td><br></td></tr></tbody></table>';
     const once = canonical(withBreaks);
     expect(once).toContain('a<br>b');
     expect((once.match(/<td/g) || []).length).toBe(2);
@@ -52,8 +51,12 @@ describe('table serialization', () => {
       '<table><tbody><tr><td colspan="2">wide</td></tr>' +
       '<tr><td rowspan="2">tall</td><td>b</td></tr><tr><td>c</td></tr></tbody></table>';
     const once = canonical(merged);
-    expect(once).toContain('<td colspan="2" style="vertical-align: top; overflow-wrap: break-word;">wide');
-    expect(once).toContain('<td rowspan="2" style="vertical-align: top; overflow-wrap: break-word;">tall');
+    expect(once).toContain(
+      '<td colspan="2" style="vertical-align: top; overflow-wrap: break-word;">wide',
+    );
+    expect(once).toContain(
+      '<td rowspan="2" style="vertical-align: top; overflow-wrap: break-word;">tall',
+    );
     expect(canonical(once)).toBe(once);
   });
 
@@ -85,15 +88,17 @@ describe('table serialization', () => {
 
   it('never emits colwidth or pixel widths — percentages are the only width', () => {
     expect(canonical(SAMPLE)).not.toContain('colwidth');
-    expect(canonical('<table><tbody><tr><td width="120">a</td></tr></tbody></table>')).not.toContain(
-      'width="120"',
-    );
+    expect(
+      canonical('<table><tbody><tr><td width="120">a</td></tr></tbody></table>'),
+    ).not.toContain('width="120"');
   });
 
   it('keeps authored cell padding — px only — and drops the rest', () => {
     // Padding in the email is the author's choice; the editor's comfortable
     // default is CSS-only and never serializes.
-    const padded = canonical('<table><tbody><tr><td style="padding: 4px 10px;">a</td></tr></tbody></table>');
+    const padded = canonical(
+      '<table><tbody><tr><td style="padding: 4px 10px;">a</td></tr></tbody></table>',
+    );
     expect(padded).toContain('<td style="padding: 4px 10px; vertical-align: top;');
     expect(canonical(padded)).toBe(padded);
 
@@ -388,7 +393,13 @@ describe('table editing', () => {
       return true;
     });
     editor.view.dom.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'Backspace', keyCode: 8, which: 8, bubbles: true, cancelable: true }),
+      new KeyboardEvent('keydown', {
+        key: 'Backspace',
+        keyCode: 8,
+        which: 8,
+        bubbles: true,
+        cancelable: true,
+      }),
     );
     expect(findTableContext(editor.state)).toBeNull();
     expect(editor.getHTML()).not.toContain('<table');
@@ -407,7 +418,13 @@ describe('table editing', () => {
       return true;
     });
     editor.view.dom.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'Backspace', keyCode: 8, which: 8, bubbles: true, cancelable: true }),
+      new KeyboardEvent('keydown', {
+        key: 'Backspace',
+        keyCode: 8,
+        which: 8,
+        bubbles: true,
+        cancelable: true,
+      }),
     );
     const ctx = findTableContext(editor.state);
     expect(ctx).not.toBeNull();
@@ -428,7 +445,13 @@ describe('table editing', () => {
       return true;
     });
     editor.view.dom.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'Delete', keyCode: 46, which: 46, bubbles: true, cancelable: true }),
+      new KeyboardEvent('keydown', {
+        key: 'Delete',
+        keyCode: 46,
+        which: 46,
+        bubbles: true,
+        cancelable: true,
+      }),
     );
     const ctx = findTableContext(editor.state);
     expect(ctx).not.toBeNull();
@@ -453,7 +476,13 @@ describe('table editing', () => {
       return true;
     });
     editor.view.dom.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'Backspace', keyCode: 8, which: 8, bubbles: true, cancelable: true }),
+      new KeyboardEvent('keydown', {
+        key: 'Backspace',
+        keyCode: 8,
+        which: 8,
+        bubbles: true,
+        cancelable: true,
+      }),
     );
     expect(editor.getHTML()).toContain('<table');
     expect(editor.getHTML()).not.toContain('hello');
@@ -529,4 +558,3 @@ describe('table editing', () => {
     expect(editor.getHTML()).not.toContain('<table');
   });
 });
-

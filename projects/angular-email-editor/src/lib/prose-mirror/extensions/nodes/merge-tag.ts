@@ -88,12 +88,14 @@ export const MergeTag = defineNode({
     /** Inserts a field token at the selection — the `{{` menu calls this.
         Fields only: free-form expressions are typed or imported, never built
         by an API that could smuggle syntax past the validation. */
-    insertMergeTag: (path: string): Command => (state, dispatch) => {
-      if (!isMergeTagPath(path)) return false;
-      const node = schema.nodes['mergeTag'].create({ expr: path });
-      dispatch?.(state.tr.replaceSelectionWith(node).scrollIntoView());
-      return true;
-    },
+    insertMergeTag:
+      (path: string): Command =>
+      (state, dispatch) => {
+        if (!isMergeTagPath(path)) return false;
+        const node = schema.nodes['mergeTag'].create({ expr: path });
+        dispatch?.(state.tr.replaceSelectionWith(node).scrollIntoView());
+        return true;
+      },
   }),
   // Typing the raw syntax promotes on the closing brace — the keyboard-only
   // path to a pill, no menu required.
@@ -139,7 +141,7 @@ function promoteInFragment(fragment: Fragment, schema: Schema): Fragment {
       let last = 0;
       let matched = false;
       SCAN.lastIndex = 0;
-      for (let match; (match = SCAN.exec(text)); ) {
+      for (let match; (match = SCAN.exec(text));) {
         if (!isMergeTagExpression(match[1])) continue;
         matched = true;
         if (match.index > last) out.push(schema.text(text.slice(last, match.index), child.marks));
@@ -204,7 +206,8 @@ export function mergeTagFields(doc: Node): string[] {
   const seen = new Set<string>();
   for (const expr of stripped) {
     forEachIdentifier(expr, (name, context) => {
-      if (context.isFilter || context.isCall || context.isDottedTail || context.isAssignment) return;
+      if (context.isFilter || context.isCall || context.isDottedTail || context.isAssignment)
+        return;
       if (RESERVED.has(name) || assigned.has(name) || seen.has(name)) return;
       seen.add(name);
       fields.push(name);

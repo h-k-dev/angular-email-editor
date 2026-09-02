@@ -88,11 +88,18 @@ describe('html-source linter', () => {
   it('enforces the ledger: sub-minimum font sizes and fixed pixel widths, positioned on the declaration', () => {
     const source = '<div style="font-size: 12px; width: 600px">x</div>';
     const diagnostics = lintHTML(source);
-    expect(diagnostics.map((d) => source.slice(d.from, d.to))).toEqual(['font-size: 12px', 'width: 600px']);
+    expect(diagnostics.map((d) => source.slice(d.from, d.to))).toEqual([
+      'font-size: 12px',
+      'width: 600px',
+    ]);
     expect(diagnostics[0].message).toContain('14px');
     expect(diagnostics[1].message).toContain('max-width: 600px');
     // The image hybrid and fluid widths are the fix, not the problem.
-    expect(lintHTML('<img src="x.png" alt="a" width="400" style="width: 100%; max-width: 400px; height: auto;">')).toEqual([]);
+    expect(
+      lintHTML(
+        '<img src="x.png" alt="a" width="400" style="width: 100%; max-width: 400px; height: auto;">',
+      ),
+    ).toEqual([]);
     expect(lintHTML('<div style="width: 100%; max-width: 600px;">x</div>')).toEqual([]);
     expect(lintHTML('<div style="font-size: 14px">x</div>')).toEqual([]);
   });
@@ -102,7 +109,9 @@ describe('html-source linter', () => {
     const diagnostics = lintHTML(`<div>${url}</div>`);
     expect(diagnostics).toHaveLength(1);
     expect(diagnostics[0].message).toContain(`${url.length} characters`);
-    expect(lintHTML('<div>{{customer_first_name_and_a_very_long_field_identifier_here}}</div>')).toEqual([]);
+    expect(
+      lintHTML('<div>{{customer_first_name_and_a_very_long_field_identifier_here}}</div>'),
+    ).toEqual([]);
     expect(lintHTML('<div>short words only here</div>')).toEqual([]);
   });
 
@@ -112,11 +121,21 @@ describe('html-source linter', () => {
         '<div style="display: inline-block; width: 100%; max-width: 300px; vertical-align: top; box-sizing: border-box;">one</div>',
       ),
     ).toEqual([]);
-    expect(lintHTML('<a href="https://x.io" style="display: inline-block; border-style: solid; border-width: 14px 28px;">Shop</a>')).toEqual([]);
-    const padded = lintHTML('<a href="https://x.io" style="display: inline-block; padding: 14px 28px;">Shop</a>');
+    expect(
+      lintHTML(
+        '<a href="https://x.io" style="display: inline-block; border-style: solid; border-width: 14px 28px;">Shop</a>',
+      ),
+    ).toEqual([]);
+    const padded = lintHTML(
+      '<a href="https://x.io" style="display: inline-block; padding: 14px 28px;">Shop</a>',
+    );
     expect(padded).toHaveLength(1);
     expect(padded[0].message).toContain('borders');
-    expect(lintHTML('<div style="display: inline-block; width: 300px">x</div>').map((d) => d.message.split(' —')[0])).toEqual(['"display"', '"width: 300px"']);
+    expect(
+      lintHTML('<div style="display: inline-block; width: 300px">x</div>').map(
+        (d) => d.message.split(' —')[0],
+      ),
+    ).toEqual(['"display"', '"width: 300px"']);
   });
 
   it('warns once on a placeholder — an <img> without a source — not about its alt too', () => {

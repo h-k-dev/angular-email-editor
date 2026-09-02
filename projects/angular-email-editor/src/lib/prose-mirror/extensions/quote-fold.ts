@@ -65,7 +65,9 @@ const quoteFoldKey = new PluginKey<QuoteFoldState>('quoteFold');
 const expandQuote: Command = (state, dispatch) => {
   const quote = historyQuoteAt(state.doc);
   if (!quote || !isHistoryFolded(state)) return false;
-  dispatch?.(state.tr.setMeta(quoteFoldKey, { type: 'expand', pos: quote.pos } satisfies QuoteFoldMeta));
+  dispatch?.(
+    state.tr.setMeta(quoteFoldKey, { type: 'expand', pos: quote.pos } satisfies QuoteFoldMeta),
+  );
   return true;
 };
 
@@ -96,7 +98,10 @@ const arrowIntoFold: Command = (state, dispatch) => {
   if ($from.after(1) !== quote.pos) return false; // the fold isn't what's next
 
   if (dispatch) {
-    const tr = state.tr.setMeta(quoteFoldKey, { type: 'expand', pos: quote.pos } satisfies QuoteFoldMeta);
+    const tr = state.tr.setMeta(quoteFoldKey, {
+      type: 'expand',
+      pos: quote.pos,
+    } satisfies QuoteFoldMeta);
     tr.setSelection(TextSelection.near(tr.doc.resolve(quote.pos + 1)));
     dispatch(tr.scrollIntoView());
   }

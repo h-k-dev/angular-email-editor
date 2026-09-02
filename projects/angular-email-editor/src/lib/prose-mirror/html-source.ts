@@ -264,7 +264,7 @@ export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): Htm
     // Each form terminates on its own alphabet: '&#38b' decodes as '&' + 'b'.
     const ambiguous =
       /&(?:#x[0-9a-fA-F]+(?![0-9a-fA-F;])|#\d+(?![\d;])|[a-zA-Z][a-zA-Z0-9]*(?![a-zA-Z0-9;]))/g;
-    for (let match; (match = ambiguous.exec(region)); ) {
+    for (let match; (match = ambiguous.exec(region));) {
       diagnostics.push({
         from: regionFrom + match.index,
         to: regionFrom + match.index + match[0].length,
@@ -278,7 +278,7 @@ export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): Htm
     // renderer's business, not a line's — masked out before measuring.
     const masked = region.replace(/\{\{[^{}\r\n]{1,200}\}\}/g, (tag) => ' '.repeat(tag.length));
     const runs = new RegExp(`\\S{${MAX_UNBROKEN_RUN + 1},}`, 'g');
-    for (let match; (match = runs.exec(masked)); ) {
+    for (let match; (match = runs.exec(masked));) {
       diagnostics.push({
         from: regionFrom + match.index,
         to: regionFrom + match.index + match[0].length,

@@ -43,7 +43,9 @@ describe('replyDocument', () => {
         '<img src="javascript:evil()">',
       from: 'Attacker',
     });
-    expect(html).toContain('<blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div>Word text</div></blockquote>');
+    expect(html).toContain(
+      '<blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div>Word text</div></blockquote>',
+    );
     expect(html).not.toContain('script');
     expect(html).not.toContain('javascript:');
     expect(html).not.toContain('class=');
@@ -57,7 +59,9 @@ describe('replyDocument', () => {
         '<div>Original</div></blockquote>',
       from: 'Jane',
     });
-    expect(html).toContain('<blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div>Sure!</div><blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div>Original</div></blockquote></blockquote>');
+    expect(html).toContain(
+      '<blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div>Sure!</div><blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div>Original</div></blockquote></blockquote>',
+    );
     expect(html).not.toContain('gmail_quote');
     expect(canonical(html)).toBe(html);
   });
@@ -73,7 +77,9 @@ describe('replyDocument', () => {
     expect(replyDocument({ text: 'x', from: 'Jane' })).toContain('<div>Jane wrote:</div>');
     expect(replyDocument({ text: 'x', date: 'yesterday' })).toContain('<div>On yesterday:</div>');
     // No metadata: the quote stands on its own, no attribution paragraph.
-    expect(replyDocument({ text: 'x' })).toBe('<div><br></div><blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div>x</div></blockquote>');
+    expect(replyDocument({ text: 'x' })).toBe(
+      '<div><br></div><blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div>x</div></blockquote>',
+    );
   });
 
   it('formats a Date via Intl with the given locale, deterministically', () => {
@@ -89,7 +95,9 @@ describe('replyDocument', () => {
 
   it('quotes an empty inbound as an empty line rather than invalid markup', () => {
     const html = replyDocument({});
-    expect(html).toBe('<div><br></div><blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div><br></div></blockquote>');
+    expect(html).toBe(
+      '<div><br></div><blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div><br></div></blockquote>',
+    );
     expect(canonical(html)).toBe(html);
   });
 });
@@ -104,10 +112,7 @@ describe('toInboundMessage', () => {
       subject: 'Café plans — Friday',
       date: '2026-08-18T14:32:00.000Z',
       from: { name: 'Jane Doe', address: 'jane@example.com' },
-      to: [
-        { name: 'You', address: 'you@example.com' },
-        { address: 'ops@example.com' },
-      ],
+      to: [{ name: 'You', address: 'you@example.com' }, { address: 'ops@example.com' }],
     });
     expect(inbound.from).toBe('Jane Doe <jane@example.com>');
     expect(inbound.to).toBe('You <you@example.com>, ops@example.com');
@@ -122,7 +127,9 @@ describe('toInboundMessage', () => {
     expect(inbound.from).toBeUndefined();
     expect(inbound.to).toBeUndefined();
     expect(inbound.date).toBe('no idea when'); // unparseable dates pass through verbatim
-    expect(replyDocument(inbound)).toContain('<blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div>hi</div></blockquote>');
+    expect(replyDocument(inbound)).toContain(
+      '<blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div>hi</div></blockquote>',
+    );
   });
 
   it('composes end-to-end: parsed email → imported document, schema-sanitized', () => {
@@ -160,7 +167,9 @@ describe('importLoss', () => {
   });
 
   it('tag-level vocabulary is the granularity: a legacy <font> counts as known (font[color] parses)', () => {
-    expect(importLoss({ html: '<div><font color="#004a77">x</font></div>' }).removedElements).toBe(0);
+    expect(importLoss({ html: '<div><font color="#004a77">x</font></div>' }).removedElements).toBe(
+      0,
+    );
   });
 
   it('counts cid: images separately — they parse in but await the attachments story', () => {

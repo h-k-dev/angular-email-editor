@@ -25,7 +25,7 @@ describe('merge-tag serialization', () => {
     expect(canonical(once)).toBe(once);
   });
 
-  it('keeps an expression byte-verbatim — it is another system\'s program', () => {
+  it("keeps an expression byte-verbatim — it is another system's program", () => {
     // AngularJS-style expressions (the iusta dialect): spacing, quotes and
     // filters must survive untouched, or the evaluator sees a different
     // program than the author wrote.

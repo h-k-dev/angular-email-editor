@@ -156,7 +156,9 @@ describe('column resize', () => {
     editor.commands['insertTable'](2, 2);
     expect(editor.exec(setTableWidth(tablePos(), 80))).toBe(true);
     const html = editor.getHTML();
-    expect(html).toContain('<table style="width: 80%; table-layout: fixed; border-collapse: collapse;"');
+    expect(html).toContain(
+      '<table style="width: 80%; table-layout: fixed; border-collapse: collapse;"',
+    );
     expect(canonical(html)).toBe(html);
 
     editor.exec(setTableWidth(tablePos(), 5));
@@ -222,14 +224,18 @@ describe('column resize', () => {
   });
 
   it('a pixel table width parses to full fluid width — repair, not respect', () => {
-    const html = canonical('<table style="width: 600px"><tbody><tr><td>a</td></tr></tbody></table>');
+    const html = canonical(
+      '<table style="width: 600px"><tbody><tr><td>a</td></tr></tbody></table>',
+    );
     expect(html).toContain('width: 100%; table-layout: fixed');
     expect(canonical(html)).toBe(html);
   });
 
   it('a percentage table width round-trips as a fixpoint', () => {
     const html = canonical('<table style="width: 70%"><tbody><tr><td>a</td></tr></tbody></table>');
-    expect(html).toContain('<table style="width: 70%; table-layout: fixed; border-collapse: collapse;"');
+    expect(html).toContain(
+      '<table style="width: 70%; table-layout: fixed; border-collapse: collapse;"',
+    );
     expect(canonical(html)).toBe(html);
   });
 
@@ -271,7 +277,7 @@ describe('column resize', () => {
     expect(tableNode().childCount).toBe(3);
   });
 
-  it('marks the wrapper for the caret\'s grid edges — last column and last row', () => {
+  it("marks the wrapper for the caret's grid edges — last column and last row", () => {
     editor.commands['insertTable'](2, 2);
     const cells: number[] = [];
     editor.state.doc.descendants((node, pos) => {
@@ -388,8 +394,7 @@ describe('column resize', () => {
 
   it('hides the line where every row is spanned across the boundary', () => {
     editor.setContent(
-      '<div>intro</div>' +
-        '<table><tbody><tr><td colspan="2">w</td></tr></tbody></table>',
+      '<div>intro</div>' + '<table><tbody><tr><td colspan="2">w</td></tr></tbody></table>',
     );
     // One boundary exists in the grid, but no row has a cell edge on it —
     // dragging it would move nothing, so it does not offer itself.

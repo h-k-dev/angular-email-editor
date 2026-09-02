@@ -14,10 +14,7 @@ import { EmailCompose } from './email-compose/email-compose';
 import { HtmlEmailCompose } from './html-email-compose/html-email-compose';
 import { EmailPreview } from './email-preview/email-preview';
 import { REPLY_EXAMPLES } from '../../../test/reply-examples';
-import {
-  ANGULAR_EXPRESSION_EXAMPLES,
-  HANDLEBARS_EXAMPLES,
-} from '../../../test/template-examples';
+import { ANGULAR_EXPRESSION_EXAMPLES, HANDLEBARS_EXAMPLES } from '../../../test/template-examples';
 
 type ExampleSetKey = 'reply' | 'angular' | 'handlebars';
 
@@ -97,9 +94,7 @@ export class Compose {
       // silently — schema-side loss from the library, MIME-side from the parser.
       const loss = importLoss(inbound);
       const attachments = parsed.attachments?.length ?? 0;
-      const notes = [
-        `Imported ${dropped.name}${inbound.subject ? ` — “${inbound.subject}”` : ''}`,
-      ];
+      const notes = [`Imported ${dropped.name}${inbound.subject ? ` — “${inbound.subject}”` : ''}`];
       if (loss.removedElements) {
         notes.push(
           `${loss.removedElements} element${loss.removedElements === 1 ? '' : 's'} outside the ` +
@@ -169,9 +164,10 @@ export class Compose {
   };
 
   /** Dropdown rows, in the order they should read. */
-  protected exampleSetOptions = (
-    ['reply', 'angular', 'handlebars'] as const
-  ).map((key) => ({ key, label: this.#exampleSets[key].label }));
+  protected exampleSetOptions = (['reply', 'angular', 'handlebars'] as const).map((key) => ({
+    key,
+    label: this.#exampleSets[key].label,
+  }));
 
   protected exampleMenuOpen = signal(false);
   /** The active set and its position; -1 = nothing loaded yet. Each set

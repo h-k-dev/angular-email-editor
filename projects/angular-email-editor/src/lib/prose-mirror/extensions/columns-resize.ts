@@ -2,12 +2,7 @@ import { Plugin, PluginKey } from 'prosemirror-state';
 import { Node } from 'prosemirror-model';
 import { EditorView, ViewMutationRecord } from 'prosemirror-view';
 import { defineExtension } from '../extension';
-import {
-  MIN_COLUMN_CAP,
-  columnCaps,
-  containerStyle,
-  setColumnsBoundary,
-} from './nodes/columns';
+import { MIN_COLUMN_CAP, columnCaps, containerStyle, setColumnsBoundary } from './nodes/columns';
 
 /**
  * Boundary drag for the `/columns` layout block — the table drag's twin, with
@@ -154,7 +149,11 @@ class ColumnsView {
       line.classList.remove('aee-col-line--drag');
       this.dom.classList.remove('aee-columns-wrap--resizing');
       document.body.style.cursor = bodyCursor;
-      setColumnsBoundary(this.#getPos(), boundary, leftAt(ev))(this.#view.state, this.#view.dispatch);
+      setColumnsBoundary(
+        this.#getPos(),
+        boundary,
+        leftAt(ev),
+      )(this.#view.state, this.#view.dispatch);
       this.#render(this.#node);
     };
 

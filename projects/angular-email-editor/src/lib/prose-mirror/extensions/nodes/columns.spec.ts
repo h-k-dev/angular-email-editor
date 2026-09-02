@@ -63,7 +63,8 @@ describe('columns serialization', () => {
   });
 
   it('round-trips each alignment as a fixpoint, lint-clean', () => {
-    const withMargins = (margins: string) => TWO_COLS.replace('max-width: 600px;', `max-width: 600px; ${margins}`);
+    const withMargins = (margins: string) =>
+      TWO_COLS.replace('max-width: 600px;', `max-width: 600px; ${margins}`);
     const centred = canonical(withMargins('margin-left: auto; margin-right: auto;'));
     const right = canonical(withMargins('margin-left: auto;'));
 
@@ -108,7 +109,13 @@ describe('columns editing', () => {
     editor.commands['insertColumns'](2); // caret in column 0's empty block
     const key = (k: string, code: number) =>
       editor.view.dom.dispatchEvent(
-        new KeyboardEvent('keydown', { key: k, keyCode: code, which: code, bubbles: true, cancelable: true }),
+        new KeyboardEvent('keydown', {
+          key: k,
+          keyCode: code,
+          which: code,
+          bubbles: true,
+          cancelable: true,
+        }),
       );
     const columnIndex = () => {
       const { $from } = editor.state.selection;

@@ -117,7 +117,10 @@ export function parsePadding(dom: HTMLElement): string | null {
   const style = dom.style;
   if (!style) return null;
   let raw = style.padding;
-  if (!raw && (style.paddingTop || style.paddingRight || style.paddingBottom || style.paddingLeft)) {
+  if (
+    !raw &&
+    (style.paddingTop || style.paddingRight || style.paddingBottom || style.paddingLeft)
+  ) {
     raw =
       `${style.paddingTop || '0px'} ${style.paddingRight || '0px'} ` +
       `${style.paddingBottom || '0px'} ${style.paddingLeft || '0px'}`;
@@ -806,7 +809,11 @@ function cellArrow(axis: Axis, dir: 1 | -1): Command {
       const $next = nextCell($cell, axis, dir);
       target = $next
         ? Selection.near($next, 1)
-        : Selection.findFrom(state.doc.resolve(dir > 0 ? $cell.after(-1) : $cell.before(-1)), dir, true);
+        : Selection.findFrom(
+            state.doc.resolve(dir > 0 ? $cell.after(-1) : $cell.before(-1)),
+            dir,
+            true,
+          );
     }
     if (!target) return false;
     dispatch?.(state.tr.setSelection(target).scrollIntoView());

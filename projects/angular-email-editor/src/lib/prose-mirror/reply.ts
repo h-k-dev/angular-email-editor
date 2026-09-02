@@ -125,10 +125,7 @@ export function replyDocument(inbound: InboundMessage, options?: ComposeSeedOpti
 
   const quoted = inboundBlocks(inbound, schema);
   blocks.push(
-    schema.nodes['blockquote'].create(
-      null,
-      quoted.childCount ? quoted : emptyParagraph(schema),
-    ),
+    schema.nodes['blockquote'].create(null, quoted.childCount ? quoted : emptyParagraph(schema)),
   );
 
   return serializeToHTML(schema.nodes['doc'].create(null, blocks), schema);
@@ -173,10 +170,7 @@ export function forwardDocument(inbound: InboundMessage, options?: ComposeSeedOp
 export function importedDocument(inbound: InboundMessage): string {
   const schema = getSchema();
   const blocks = inboundBlocks(inbound, schema);
-  const doc = schema.nodes['doc'].create(
-    null,
-    blocks.childCount ? blocks : emptyParagraph(schema),
-  );
+  const doc = schema.nodes['doc'].create(null, blocks.childCount ? blocks : emptyParagraph(schema));
   return serializeToHTML(doc, schema);
 }
 
@@ -213,7 +207,10 @@ export function importLoss(inbound: InboundMessage): ImportLoss {
 
   for (const element of Array.from(dom.body.querySelectorAll('*'))) {
     const tag = element.tagName.toLowerCase();
-    if (tag === 'img' && (element.getAttribute('src') ?? '').trim().toLowerCase().startsWith('cid:')) {
+    if (
+      tag === 'img' &&
+      (element.getAttribute('src') ?? '').trim().toLowerCase().startsWith('cid:')
+    ) {
       inlineImages++;
     }
     if (!known.has(tag)) {
@@ -222,9 +219,7 @@ export function importLoss(inbound: InboundMessage): ImportLoss {
     }
   }
 
-  const removedTags = [...removedByTag.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([tag]) => tag);
+  const removedTags = [...removedByTag.entries()].sort((a, b) => b[1] - a[1]).map(([tag]) => tag);
   return { removedElements, removedTags, inlineImages };
 }
 
@@ -275,9 +270,7 @@ function inboundBlocks(inbound: InboundMessage, schema: Schema): Fragment {
   if (!text) return Fragment.empty;
   const paragraphs = text
     .split(/\r?\n/)
-    .map((line) =>
-      line ? textParagraph(schema, line) : emptyParagraph(schema),
-    );
+    .map((line) => (line ? textParagraph(schema, line) : emptyParagraph(schema)));
   return Fragment.from(paragraphs);
 }
 

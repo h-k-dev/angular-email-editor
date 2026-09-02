@@ -41,7 +41,9 @@ describe('quote fold', () => {
 
   it('folding is presentation only — the serialized email always carries the history', () => {
     const html = editor.getHTML();
-    expect(html).toContain('<blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div>Original message</div></blockquote>');
+    expect(html).toContain(
+      '<blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div>Original message</div></blockquote>',
+    );
     expect(html).not.toContain('aee-quote');
     expect(html).not.toContain('display: none');
   });
@@ -57,9 +59,7 @@ describe('quote fold', () => {
     const quote = historyQuoteAt(editor.state.doc)!;
     // End of the attribution paragraph — the block sitting right above the fold.
     editor.exec((state, dispatch) => {
-      dispatch?.(
-        state.tr.setSelection(TextSelection.near(state.doc.resolve(quote.pos), -1)),
-      );
+      dispatch?.(state.tr.setSelection(TextSelection.near(state.doc.resolve(quote.pos), -1)));
       return true;
     });
     const handled = editor.view.someProp('handleKeyDown', (f) =>
@@ -75,9 +75,7 @@ describe('quote fold', () => {
   it('any selection reaching the hidden range auto-expands — never edit invisibly', () => {
     const quote = historyQuoteAt(editor.state.doc)!;
     editor.exec((state, dispatch) => {
-      dispatch?.(
-        state.tr.setSelection(TextSelection.create(state.doc, quote.pos + 2)),
-      );
+      dispatch?.(state.tr.setSelection(TextSelection.create(state.doc, quote.pos + 2)));
       return true;
     });
     expect(isHistoryFolded(editor.state)).toBe(false);
@@ -86,11 +84,7 @@ describe('quote fold', () => {
   it('editing above the fold keeps the expanded state tracking through position shifts', () => {
     editor.commands['expandQuotedHistory']();
     editor.exec((state, dispatch) => {
-      dispatch?.(
-        state.tr
-          .setSelection(TextSelection.create(state.doc, 1))
-          .insertText('Thanks! '),
-      );
+      dispatch?.(state.tr.setSelection(TextSelection.create(state.doc, 1)).insertText('Thanks! '));
       return true;
     });
     expect(isHistoryFolded(editor.state)).toBe(false);
@@ -99,7 +93,9 @@ describe('quote fold', () => {
   it('a fresh external seed starts folded again — the mapping dies with the replaced range', () => {
     editor.commands['expandQuotedHistory']();
     expect(isHistoryFolded(editor.state)).toBe(false);
-    editor.setContent(replyDocument({ html: '<div>A different thread entirely</div>', from: 'Sam' }));
+    editor.setContent(
+      replyDocument({ html: '<div>A different thread entirely</div>', from: 'Sam' }),
+    );
     expect(isHistoryFolded(editor.state)).toBe(true);
     expect(toggle()).toBeTruthy();
   });
@@ -113,9 +109,7 @@ describe('quote fold', () => {
     });
     expect(editor.commands['foldQuotedHistory']()).toBe(true);
     expect(isHistoryFolded(editor.state)).toBe(true);
-    expect(editor.state.selection.from).toBeLessThanOrEqual(
-      historyQuoteAt(editor.state.doc)!.pos,
-    );
+    expect(editor.state.selection.from).toBeLessThanOrEqual(historyQuoteAt(editor.state.doc)!.pos);
   });
 
   it('commands refuse when they have nothing to do', () => {

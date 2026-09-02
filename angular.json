@@ -28,9 +28,7 @@
           "builder": "@angular/build:unit-test",
           "options": {
             "tsConfig": "projects/angular-email-editor/tsconfig.spec.json",
-            "setupFiles": [
-              "projects/angular-email-editor/src/test-setup.ts"
-            ]
+            "setupFiles": ["projects/angular-email-editor/src/test-setup.ts"]
           }
         }
       }
@@ -59,14 +57,9 @@
               }
             ],
             "stylePreprocessorOptions": {
-              "includePaths": [
-                "projects/app/src/styles"
-              ]
+              "includePaths": ["projects/app/src/styles"]
             },
-            "styles": [
-              "projects/app/src/styles/fonts/_fonts.scss",
-              "projects/app/src/styles.scss"
-            ]
+            "styles": ["projects/app/src/styles/fonts/_fonts.scss", "projects/app/src/styles.scss"]
           },
           "configurations": {
             "production": {

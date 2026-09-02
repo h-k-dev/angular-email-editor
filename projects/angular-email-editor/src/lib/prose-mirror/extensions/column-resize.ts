@@ -213,9 +213,7 @@ export function setTableBox(
         const effective = effectiveWidths(table);
         const absorbIndex = absorb === 'first' ? 0 : map.width - 1;
         const others = 100 - effective[absorbIndex];
-        width = round1(
-          clamp(width, minTableWidth(oldWidth, others), 100 - offset),
-        );
+        width = round1(clamp(width, minTableWidth(oldWidth, others), 100 - offset));
         const factor = oldWidth / width;
         const pcts = effective.map((pct, index) =>
           index === absorbIndex ? 0 : round1(pct * factor),
@@ -548,9 +546,7 @@ class TableView {
     const pair = effective[boundary] + effective[boundary + 1];
     if (pair < MIN_COLUMN_PCT * 2) return;
     const startX = event.clientX;
-    const startLeft = effective
-      .slice(0, boundary + 1)
-      .reduce((sum, width) => sum + width, 0);
+    const startLeft = effective.slice(0, boundary + 1).reduce((sum, width) => sum + width, 0);
 
     const leftAt = (ev: PointerEvent) =>
       clamp(
@@ -574,10 +570,11 @@ class TableView {
       line.classList.remove('aee-col-line--drag');
       this.dom.classList.remove('aee-table-wrap--resizing');
       document.body.style.cursor = bodyCursor;
-      setColumnBoundary(this.#getPos(), boundary, leftAt(ev))(
-        this.#view.state,
-        this.#view.dispatch,
-      );
+      setColumnBoundary(
+        this.#getPos(),
+        boundary,
+        leftAt(ev),
+      )(this.#view.state, this.#view.dispatch);
     };
 
     line.classList.add('aee-col-line--drag');
@@ -639,10 +636,11 @@ class TableView {
       const edge = edgeAt(ev);
       const box: [number, number] =
         side === 'left' ? [edge, right - edge] : [offset, edge - offset];
-      setTableBox(this.#getPos(), ...box, side === 'left' ? 'first' : 'last')(
-        this.#view.state,
-        this.#view.dispatch,
-      );
+      setTableBox(
+        this.#getPos(),
+        ...box,
+        side === 'left' ? 'first' : 'last',
+      )(this.#view.state, this.#view.dispatch);
       // Commit re-renders the handles onto the model; if it was a no-op
       // (clamped to the same values), snap this one back explicitly.
       this.#render(this.#node);
