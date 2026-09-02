@@ -8,7 +8,7 @@ sides.
 ## Progress snapshot — 2026-08-20
 
 Foundations and the two-editor core are in; the content and layout-blocks side
-is mature. Tests: **369 library + 5 app, all green** (2026-09-02).
+is mature. Tests: **372 library + 5 app, all green** (2026-09-02).
 
 | Milestone                                                       | State            | Left to do                                                         |
 | --------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------ |
@@ -366,6 +366,17 @@ This is where the source editor earns its seat.
       client labels. Curation rule: only what we're confident about, phrased
       as what _actually happens_. Accuracy beats coverage; grows entry by
       entry.
+- [x] **Own-output blind spots closed (2026-09-02).** `padding` on `<a>` is
+      now an entry — Outlook ignores it, so the button no longer uses it: it
+      is the *border-based* bulletproof button (borders in the background
+      colour give the ≥ 44px target; Outlook draws borders on inline
+      elements), and our output stays lint-clean honestly rather than by
+      omission. `display: inline-block` is an entry too (Outlook renders
+      inline or stacks), exempt where we degrade on purpose: paired with
+      `width: 100%` (the fluid columns stack) and on anchors (the button
+      keeps its box). Deliberately *not* entries: `box-sizing` and
+      `overflow-wrap`, which Outlook ignores harmlessly in our cells and
+      columns — flagging them would be noise on every email.
 - [x] **Style linting**: every inline declaration is checked against the
       data module, positioned on the exact declaration. The image hybrid
       (max-width paired with a width attribute) is exempt by design, and our
@@ -638,9 +649,9 @@ stripped), so every answer must be fluid and inline.
 | ------------------------------ | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Image**                      | Fixed pixel width overflows the screen; Outlook ignores `max-width` entirely                              | Hybrid sizing: `width` _attribute_ for Outlook + `style="width:100%; max-width:<n>px; height:auto"` for everyone else                                                                                                                                                                                                                                              |
 | **Table / layout blocks (M5)** | Columns keep their desktop widths and force horizontal scroll                                             | ✅ **Shipped (`/columns`)**: `inline-block` columns with `width:100%` capped by `max-width: container/n` + `box-sizing:border-box` — side by side when the caps fit, stacked when they don't. Outlook ignores `inline-block` and stacks too. Ghost tables for true Outlook side-by-side remain a non-goal for now. (Data `/table` is separate — it stays tabular.) |
-| **Lists**                      | Default `padding-inline-start: 40px` per nesting level — two levels eat a third of the screen             | Explicit small inline padding on `ul`/`ol`, tested nested                                                                                                                                                                                                                                                                                                          |
-| **Blockquote**                 | Nested reply chains accumulate margins until text is one word per line                                    | Small fixed inline padding + border, no margin stacking; consider a visual nesting cap                                                                                                                                                                                                                                                                             |
-| **Headings**                   | Desktop-sized `h1` wraps into a wall at phone width                                                       | Conservative size scale that reads on both; line-height inline and proportional                                                                                                                                                                                                                                                                                    |
+| **Lists**                      | Default `padding-inline-start: 40px` per nesting level — two levels eat a third of the screen             | ✅ **Shipped 2026-09-02**: `margin: 0px; padding-left: 24px` on `ul`/`ol` — 24px per level, no margins, tested nested |
+| **Blockquote**                 | Nested reply chains accumulate margins until text is one word per line                                    | ✅ **Shipped 2026-09-02**: `margin: 0px; padding-left: 12px; border-left: 2px solid` — 14px per nesting level, never a stacked margin |
+| **Headings**                   | Desktop-sized `h1` wraps into a wall at phone width                                                       | ✅ **Shipped 2026-09-02**: 24/20/18/16px scale as inline `font-size`, `margin: 0`; no `line-height` on purpose (Outlook substitutes its own — the lint would say so) |
 | **Paragraph / document width** | Full-width lines are unreadable on desktop, so someone will add a fixed container that then breaks phones | If we ever emit a wrapper, it is `max-width` + `width:100%` — the hybrid, never a fixed width                                                                                                                                                                                                                                                                      |
 | **Links / long text**          | An unbroken URL or token wider than the viewport forces the whole email to scroll                         | `word-break`-friendly serialization for link text where possible; lint long unbroken strings                                                                                                                                                                                                                                                                       |
 | **Button block (M5)**          | Padding-based fake buttons too small to tap                                                               | Touch target ≥ 44px via padding (never `height`), generous inline `padding`                                                                                                                                                                                                                                                                                        |
@@ -649,9 +660,12 @@ stripped), so every answer must be fluid and inline.
 
 Two enforcement hooks so the ledger stays alive:
 
-- [ ] **Lint rules from the ledger** (M3): fixed pixel widths without the
-      hybrid pattern, sub-minimum font sizes, unbroken strings past a length
-      budget — each row above that can be linted, is.
+- [x] **Lint rules from the ledger** — shipped 2026-09-02: a fixed pixel
+      `width` on anything but an `<img>` ("use the hybrid"), `font-size`
+      below 14px (iOS inflates; the picker never offers less, a hand-typed
+      size is caught), and unbroken runs past 40 characters (a 320px line at
+      14px; merge tags masked out first) — each positioned on the offending
+      declaration or run, like the client-support warnings.
 - [x] **320px preview default** (M4): the preview pane opens phone-width
       first. If it looks right narrow, desktop is almost free — never the
       other way around.

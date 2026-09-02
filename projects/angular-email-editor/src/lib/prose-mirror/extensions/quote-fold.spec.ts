@@ -41,7 +41,7 @@ describe('quote fold', () => {
 
   it('folding is presentation only — the serialized email always carries the history', () => {
     const html = editor.getHTML();
-    expect(html).toContain('<blockquote><div>Original message</div></blockquote>');
+    expect(html).toContain('<blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div>Original message</div></blockquote>');
     expect(html).not.toContain('aee-quote');
     expect(html).not.toContain('display: none');
   });

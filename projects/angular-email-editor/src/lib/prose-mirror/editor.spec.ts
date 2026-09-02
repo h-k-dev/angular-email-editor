@@ -65,8 +65,8 @@ describe('createEditor', () => {
   });
 
   it('setContent replaces the document', () => {
-    editor.setContent('<h1>Subject</h1>');
-    expect(editor.getHTML()).toBe('<h1>Subject</h1>');
+    editor.setContent('<h1 style="margin: 0px; font-size: 24px;">Subject</h1>');
+    expect(editor.getHTML()).toBe('<h1 style="margin: 0px; font-size: 24px;">Subject</h1>');
   });
 
   it('setContent never fires onUpdate — mirrored editors cannot echo', () => {
@@ -119,7 +119,7 @@ describe('createEditor', () => {
 
   it('toggles a bullet list on and off', () => {
     editor.commands['toggleBulletList']();
-    expect(editor.getHTML()).toBe('<ul><li><p dir="auto">Hello world</p></li></ul>');
+    expect(editor.getHTML()).toBe('<ul style="margin: 0px; padding-left: 24px;"><li><p dir="auto">Hello world</p></li></ul>');
     expect(editor.isActive('bulletList')).toBe(true);
 
     editor.commands['toggleBulletList']();
@@ -130,7 +130,7 @@ describe('createEditor', () => {
   it('converts between list flavours in place', () => {
     editor.commands['toggleBulletList']();
     editor.commands['toggleOrderedList']();
-    expect(editor.getHTML()).toBe('<ol><li><p dir="auto">Hello world</p></li></ol>');
+    expect(editor.getHTML()).toBe('<ol style="margin: 0px; padding-left: 24px;"><li><p dir="auto">Hello world</p></li></ol>');
     expect(editor.isActive('orderedList')).toBe(true);
     expect(editor.isActive('bulletList')).toBe(false);
   });

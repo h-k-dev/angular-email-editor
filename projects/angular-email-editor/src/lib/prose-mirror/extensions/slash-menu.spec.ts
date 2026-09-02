@@ -95,7 +95,7 @@ describe('createSlashMenu', () => {
     expect(state?.activeIndex).toBe(1);
 
     keydown('Enter');
-    expect(editor.getHTML()).toBe('<h2></h2>');
+    expect(editor.getHTML()).toBe('<h2 style="margin: 0px; font-size: 20px;"></h2>');
     expect(state?.open).toBe(false);
   });
 
@@ -110,7 +110,7 @@ describe('createSlashMenu', () => {
     expect(state?.items.map((item) => item.title)).toEqual(['Quote']);
 
     state!.select(state!.items[0]);
-    expect(editor.getHTML()).toBe('<blockquote><p dir="auto"></p></blockquote>');
+    expect(editor.getHTML()).toBe('<blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><p dir="auto"></p></blockquote>');
     expect(state?.open).toBe(false);
   });
 

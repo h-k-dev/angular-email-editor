@@ -12,7 +12,7 @@ const command = ClearFormatting.commands!({ schema, extensions: emailExtensions 
 describe('clear formatting', () => {
   it('strips every mark from the selection but keeps block structure', () => {
     const doc = parseHTML(
-      '<blockquote><div><strong>bold</strong> <em>italic</em> <a href="https://x.io">link</a></div></blockquote>',
+      '<blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div><strong>bold</strong> <em>italic</em> <a href="https://x.io">link</a></div></blockquote>',
       schema,
     );
     let state = EditorState.create({
@@ -21,7 +21,7 @@ describe('clear formatting', () => {
     });
     expect(command(state, (tr) => (state = state.apply(tr)))).toBe(true);
     expect(serializeToHTML(state.doc, schema)).toBe(
-      '<blockquote><div>bold italic link</div></blockquote>',
+      '<blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div>bold italic link</div></blockquote>',
     );
   });
 

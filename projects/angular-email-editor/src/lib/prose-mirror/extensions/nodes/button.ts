@@ -1,20 +1,27 @@
 import { Command } from 'prosemirror-state';
 import { defineNode } from '../../extension';
 
-/** The button's canonical styling. No `height` — the touch target comes from
-    padding (≥ 44px tall, per the ledger). No `border-radius` — Outlook squares
-    it anyway, and dropping it keeps our own output lint-clean. rgb() colours,
-    not hex: the browser normalizes hex to rgb on the serialize round trip, so
-    the canonical form must already be rgb to stay stable. */
-const BUTTON_STYLE =
-  'display: inline-block; padding: 14px 28px; ' +
-  'background-color: rgb(26, 115, 232); color: rgb(255, 255, 255); ' +
-  'font-weight: bold; text-decoration: none;';
+/** The button's canonical styling — the *border-based* bulletproof button:
+    the touch target (≥ 44px tall, per the ledger) comes from borders in the
+    background colour, not from padding, because Outlook's Word engine ignores
+    padding on an anchor (the client-support module says so) and would render
+    a padded button as a bare coloured text run — while it does draw borders
+    on inline elements, so the box survives there too. No `height`. No
+    `border-radius` — Outlook squares it anyway, and dropping it keeps our own
+    output lint-clean. rgb() colours, not hex: the browser normalizes hex to
+    rgb on the serialize round trip, so the canonical form must already be
+    rgb to stay stable. */
+export const BUTTON_STYLE =
+  'display: inline-block; background-color: rgb(26, 115, 232); color: rgb(255, 255, 255); ' +
+  'font-weight: bold; text-decoration: none; ' +
+  // Longhands in the CSSOM's own order (width, style, color) and at the end,
+  // where every serializer puts them — the canonical string is a fixpoint.
+  'border-width: 14px 28px; border-style: solid; border-color: rgb(26, 115, 232);';
 
 /**
- * A call-to-action button: a block that serializes to a padded `inline-block`
- * anchor — the email-safe "fake button" every client renders as a tappable
- * coloured box. `display: inline-block` in the style is also the parse
+ * A call-to-action button: a block that serializes to a bordered
+ * `inline-block` anchor — the email-safe "fake button" every client,
+ * Outlook included, renders as a tappable coloured box. `display: inline-block` in the style is also the parse
  * discriminator: it is what tells a button apart from an ordinary link, so the
  * two never collide on the round trip.
  *

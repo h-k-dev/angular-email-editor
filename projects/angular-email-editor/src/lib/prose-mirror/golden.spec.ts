@@ -16,7 +16,7 @@ const GOLDEN: string[] = [
   '<div><br></div>',
   '<div style="text-align: center;">centered</div>',
   '<div style="text-align: right;"><br></div>',
-  '<blockquote><div>quoted<br>line</div></blockquote>',
+  '<blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div>quoted<br>line</div></blockquote>',
   '<div><em style="font-style: italic;">italic</em> and <u style="text-decoration: underline;">underlined</u></div>',
   '<div><s style="text-decoration: line-through;">gone</s></div>',
   '<div><span style="font-size: 18px; font-family: Georgia, Times, serif;">styled</span></div>',
@@ -34,19 +34,19 @@ const GOLDEN: string[] = [
   // A placeholder: a sized frame with no source yet (linted, never a lie).
   '<div><img width="320" style="width: 100%; max-width: 320px; height: auto;"></div>',
   '<hr style="height: 1px; width: 100%; background-color: rgb(224, 224, 224); margin-top: 12px; margin-bottom: 12px;">',
-  '<a href="https://x.io" style="display: inline-block; padding: 14px 28px; background-color: rgb(26, 115, 232); color: rgb(255, 255, 255); font-weight: bold; text-decoration: none;">Shop now</a>',
+  '<a href="https://x.io" style="display: inline-block; background-color: rgb(26, 115, 232); color: rgb(255, 255, 255); font-weight: bold; text-decoration: none; border-width: 14px 28px; border-style: solid; border-color: rgb(26, 115, 232);">Shop now</a>',
 ];
 
 /** Foreign markup: no exact expectation, but the round trip must be a
     fixpoint — parsing its own output must change nothing. */
 const MESSY: string[] = [
   '<p>P becomes a div line</p>',
-  '<h2>A heading</h2><p align="center">centered legacy</p>',
-  '<ul><li>bare item text</li><li>another</li></ul>',
+  '<h2 style="margin: 0px; font-size: 20px;">A heading</h2><p align="center">centered legacy</p>',
+  '<ul style="margin: 0px; padding-left: 24px;"><li>bare item text</li><li>another</li></ul>',
   '<div style="text-align: justify;">justify dies</div>',
   '<span style="font-weight: 700">bold span</span> trailing',
   '<div>a &copy; b &amp; c</div>',
-  '<blockquote><blockquote><div>deep</div></blockquote></blockquote>',
+  '<blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div>deep</div></blockquote></blockquote>',
   '<img src="x.png" alt="wide" width="1200" style="float: left">',
   '<table><tbody><tr><td>a</td><td>b</td></tr><tr><td>c</td><td>d</td></tr></tbody></table>',
   '<table><tr><td>no tbody in source</td></tr></table>',

@@ -33,6 +33,16 @@ export interface HtmlScan {
   tags: HtmlTag[];
 }
 
+/** The responsiveness ledger's floor: below it iOS Mail auto-inflates text
+    and reflows the layout. The picker never offers less; a hand-typed size
+    is linted. */
+export const MIN_FONT_SIZE = 14;
+
+/** The ledger's line budget: about this many characters fit a 320px line at
+    14px. A longer run with no break point forces the email to scroll
+    sideways. */
+export const MAX_UNBROKEN_RUN = 40;
+
 export interface HtmlDiagnostic {
   from: number;
   to: number;
@@ -254,12 +264,26 @@ export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): Htm
     // Each form terminates on its own alphabet: '&#38b' decodes as '&' + 'b'.
     const ambiguous =
       /&(?:#x[0-9a-fA-F]+(?![0-9a-fA-F;])|#\d+(?![\d;])|[a-zA-Z][a-zA-Z0-9]*(?![a-zA-Z0-9;]))/g;
-    for (let match; (match = ambiguous.exec(region));) {
+    for (let match; (match = ambiguous.exec(region)); ) {
       diagnostics.push({
         from: regionFrom + match.index,
         to: regionFrom + match.index + match[0].length,
         severity: 'warning',
         message: `Ambiguous "${match[0]}" — legacy entities decode without the ";"; write "&amp;${match[0].slice(1)}" for literal text or add the ";"`,
+      });
+    }
+
+    // The ledger's line budget: a run with no break point wider than a phone
+    // line forces the whole email to scroll sideways. Merge tags are a
+    // renderer's business, not a line's — masked out before measuring.
+    const masked = region.replace(/\{\{[^{}\r\n]{1,200}\}\}/g, (tag) => ' '.repeat(tag.length));
+    const runs = new RegExp(`\\S{${MAX_UNBROKEN_RUN + 1},}`, 'g');
+    for (let match; (match = runs.exec(masked)); ) {
+      diagnostics.push({
+        from: regionFrom + match.index,
+        to: regionFrom + match.index + match[0].length,
+        severity: 'warning',
+        message: `Unbroken run of ${match[0].length} characters — wider than a phone line (${MAX_UNBROKEN_RUN} fit at 320px), the email scrolls sideways; break it or shorten it`,
       });
     }
   }
@@ -341,8 +365,41 @@ export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): Htm
         continue;
       }
 
+      // Two of our own patterns degrade in Outlook *on purpose*: the fluid
+      // columns (inline-block + width: 100%) stack, and the bordered button
+      // anchor renders inline with its box intact. Neither is a surprise.
+      if (
+        property === 'display' &&
+        /^inline-block\b/i.test(value) &&
+        (tag.name === 'a' || hasFluidWidth)
+      ) {
+        continue;
+      }
+
       const leading = /^\s*/.exec(declaration)![0].length;
       const trimmed = declaration.trimEnd().length;
+
+      // The responsiveness ledger, enforced: sizes that reflow on iOS, and
+      // fixed widths that overflow a phone (the image hybrid pairs its width
+      // *attribute* with a fluid style, so an <img> is exempt).
+      const px = /^(\d+(?:\.\d+)?)px$/i.exec(value);
+      if (property === 'font-size' && px && parseFloat(px[1]) < MIN_FONT_SIZE) {
+        diagnostics.push({
+          from: declarationFrom + leading,
+          to: declarationFrom + trimmed,
+          severity: 'warning',
+          message: `"font-size: ${value}" — below ${MIN_FONT_SIZE}px iOS Mail auto-inflates text and reflows the layout; the minimum is ${MIN_FONT_SIZE}px`,
+        });
+      }
+      if (property === 'width' && px && tag.name !== 'img') {
+        diagnostics.push({
+          from: declarationFrom + leading,
+          to: declarationFrom + trimmed,
+          severity: 'warning',
+          message: `"width: ${value}" — a fixed width overflows a phone; use width: 100% with max-width: ${value} (the hybrid)`,
+        });
+      }
+
       for (const issue of findCssIssues(property, value, tag.name)) {
         diagnostics.push({
           from: declarationFrom + leading,

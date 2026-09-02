@@ -55,6 +55,11 @@ export const splitListItemKeepMarks =
     );
   };
 
+/** The ledger's answer to the 40px-per-level default indent that eats a
+    third of a phone screen: a small explicit indent, no margins (lines carry
+    none). Nested lists compound 24px per level, readable at 320px. */
+export const LIST_STYLE = 'margin: 0px; padding-left: 24px;';
+
 export const ListItem = defineNode({
   name: 'listItem',
   spec: {
@@ -78,7 +83,7 @@ export const BulletList = defineNode({
     content: 'listItem+',
     group: 'block list',
     parseDOM: [{ tag: 'ul' }],
-    toDOM: () => ['ul', 0],
+    toDOM: () => ['ul', { style: LIST_STYLE }, 0],
   },
   commands: ({ schema }) => ({
     toggleBulletList: () => toggleList(schema.nodes['bulletList'], schema.nodes['listItem']),
@@ -115,7 +120,9 @@ export const OrderedList = defineNode({
       },
     ],
     toDOM: (node) =>
-      node.attrs['order'] === 1 ? ['ol', 0] : ['ol', { start: node.attrs['order'] }, 0],
+      node.attrs['order'] === 1
+        ? ['ol', { style: LIST_STYLE }, 0]
+        : ['ol', { start: node.attrs['order'], style: LIST_STYLE }, 0],
   },
   commands: ({ schema }) => ({
     toggleOrderedList: () => toggleList(schema.nodes['orderedList'], schema.nodes['listItem']),

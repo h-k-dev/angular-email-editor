@@ -42,9 +42,15 @@ export const CSS_SUPPORT: CssSupportIssue[] = [
   },
   {
     property: 'padding',
-    onTags: ['div', 'p', 'span'],
+    onTags: ['div', 'p', 'span', 'a'],
     ignoredBy: ['outlook-desktop'],
-    note: 'the Word engine only honours padding on table cells',
+    note: 'the Word engine only honours padding on table cells — a button gets its size from borders in its background colour instead',
+  },
+  {
+    property: 'display',
+    valuePattern: /^inline-block\b/i,
+    ignoredBy: ['outlook-desktop'],
+    note: 'renders inline, or stacks — never side by side; the fluid columns pattern (width: 100% + max-width) stacks on purpose there, and a bordered anchor button keeps its box',
   },
   {
     property: 'border-radius',

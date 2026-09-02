@@ -13,8 +13,9 @@ const DIVIDER =
   '<hr style="height: 1px; width: 100%; background-color: rgb(224, 224, 224); ' +
   'margin-top: 12px; margin-bottom: 12px;">';
 const BUTTON_STYLE =
-  'display: inline-block; padding: 14px 28px; background-color: rgb(26, 115, 232); ' +
-  'color: rgb(255, 255, 255); font-weight: bold; text-decoration: none;';
+  'display: inline-block; background-color: rgb(26, 115, 232); color: rgb(255, 255, 255); ' +
+  'font-weight: bold; text-decoration: none; border-width: 14px 28px; border-style: solid; ' +
+  'border-color: rgb(26, 115, 232);';
 
 describe('divider block', () => {
   it('round-trips to a full-width rule', () => {
@@ -28,7 +29,7 @@ describe('divider block', () => {
 });
 
 describe('button block', () => {
-  it('serializes as a padded inline-block anchor', () => {
+  it('serializes as a bordered inline-block anchor — the Outlook-safe button', () => {
     expect(roundTrip(`<a href="https://x.io" style="${BUTTON_STYLE}">Shop now</a>`)).toBe(
       `<a href="https://x.io" style="${BUTTON_STYLE}">Shop now</a>`,
     );

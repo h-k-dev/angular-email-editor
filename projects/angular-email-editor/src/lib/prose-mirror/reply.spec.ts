@@ -25,7 +25,7 @@ describe('replyDocument', () => {
     expect(html).toBe(
       '<div><br></div>' +
         '<div>On Aug 12, 2026, 9:14 AM, Jane Doe &lt;jane@example.com&gt; wrote:</div>' +
-        '<blockquote><div>Hello there</div><div><br></div><div>Best, Jane</div></blockquote>',
+        '<blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div>Hello there</div><div><br></div><div>Best, Jane</div></blockquote>',
     );
   });
 
@@ -43,7 +43,7 @@ describe('replyDocument', () => {
         '<img src="javascript:evil()">',
       from: 'Attacker',
     });
-    expect(html).toContain('<blockquote><div>Word text</div></blockquote>');
+    expect(html).toContain('<blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div>Word text</div></blockquote>');
     expect(html).not.toContain('script');
     expect(html).not.toContain('javascript:');
     expect(html).not.toContain('class=');
@@ -57,7 +57,7 @@ describe('replyDocument', () => {
         '<div>Original</div></blockquote>',
       from: 'Jane',
     });
-    expect(html).toContain('<blockquote><div>Sure!</div><blockquote><div>Original</div></blockquote></blockquote>');
+    expect(html).toContain('<blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div>Sure!</div><blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div>Original</div></blockquote></blockquote>');
     expect(html).not.toContain('gmail_quote');
     expect(canonical(html)).toBe(html);
   });
@@ -65,7 +65,7 @@ describe('replyDocument', () => {
   it('falls back to the text/plain part, one paragraph per line', () => {
     const html = replyDocument({ text: 'line one\n\nline two', from: 'Jane' });
     expect(html).toContain(
-      '<blockquote><div>line one</div><div><br></div><div>line two</div></blockquote>',
+      '<blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div>line one</div><div><br></div><div>line two</div></blockquote>',
     );
   });
 
@@ -73,7 +73,7 @@ describe('replyDocument', () => {
     expect(replyDocument({ text: 'x', from: 'Jane' })).toContain('<div>Jane wrote:</div>');
     expect(replyDocument({ text: 'x', date: 'yesterday' })).toContain('<div>On yesterday:</div>');
     // No metadata: the quote stands on its own, no attribution paragraph.
-    expect(replyDocument({ text: 'x' })).toBe('<div><br></div><blockquote><div>x</div></blockquote>');
+    expect(replyDocument({ text: 'x' })).toBe('<div><br></div><blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div>x</div></blockquote>');
   });
 
   it('formats a Date via Intl with the given locale, deterministically', () => {
@@ -89,7 +89,7 @@ describe('replyDocument', () => {
 
   it('quotes an empty inbound as an empty line rather than invalid markup', () => {
     const html = replyDocument({});
-    expect(html).toBe('<div><br></div><blockquote><div><br></div></blockquote>');
+    expect(html).toBe('<div><br></div><blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div><br></div></blockquote>');
     expect(canonical(html)).toBe(html);
   });
 });
@@ -122,7 +122,7 @@ describe('toInboundMessage', () => {
     expect(inbound.from).toBeUndefined();
     expect(inbound.to).toBeUndefined();
     expect(inbound.date).toBe('no idea when'); // unparseable dates pass through verbatim
-    expect(replyDocument(inbound)).toContain('<blockquote><div>hi</div></blockquote>');
+    expect(replyDocument(inbound)).toContain('<blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div>hi</div></blockquote>');
   });
 
   it('composes end-to-end: parsed email → imported document, schema-sanitized', () => {
