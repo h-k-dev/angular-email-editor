@@ -1,7 +1,10 @@
 :host {
   display: grid;
   // Editor, source, and the phone-width-first preview (ledger: 320px first).
-  grid-template-columns: 1fr 1fr auto;
+  // The editor column is content-sized: the text column inside it is the
+  // email's 600px box (`.aee-editor` in styles.scss) and never squeezes —
+  // the source pane takes what is left.
+  grid-template-columns: auto 1fr auto;
   grid-template-rows: 1fr auto;
   gap: var(--mat-sys-inner-spacing);
 

@@ -126,7 +126,13 @@ export class Compose {
 
   protected onSend(intent: SendIntent): void {
     const kb = (new TextEncoder().encode(intent.html).length / 1024).toFixed(1);
-    this.lastSend.set(`Send intent · ${kb} kB HTML · ${intent.text.length} chars text`);
+    const parts = intent.inlineImages.length;
+    this.lastSend.set(
+      `Send intent · ${kb} kB HTML · ${intent.text.length} chars text` +
+        (parts
+          ? ` · ${parts} inline image${parts === 1 ? '' : 's'} as cid: part${parts === 1 ? '' : 's'}`
+          : ''),
+    );
   }
 
   /** Demo-only example cycler, one set per scenario: reply seeds (the split

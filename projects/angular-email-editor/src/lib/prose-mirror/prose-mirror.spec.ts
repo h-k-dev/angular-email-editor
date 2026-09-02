@@ -117,12 +117,12 @@ describe('prose-mirror core', () => {
     expect(isNodeActive(state, schema.nodes['bulletList'])).toBe(false);
   });
 
-  it('insertImage replaces the selection with an image block', () => {
+  it('insertImage replaces the selection with an inline image, in the line', () => {
     let state = stateFromHTML('<p>before</p>', 1, 7);
     state = runCommand(state, 'image', 'insertImage', { src: 'cid:logo', alt: 'Logo' });
     // Hybrid sizing: without a known width, images serialize fluid-capped.
     expect(serializeToHTML(state.doc, schema)).toBe(
-      '<img src="cid:logo" alt="Logo" style="max-width: 100%; height: auto;">',
+      '<p dir="auto"><img src="cid:logo" alt="Logo" style="max-width: 100%; height: auto;"></p>',
     );
   });
 

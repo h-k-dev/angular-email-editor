@@ -85,6 +85,26 @@ describe('html-source linter', () => {
     expect(lintHTML('<div><img src="x.png" alt="chart"></div>')).toEqual([]);
   });
 
+  it('warns once on a placeholder — an <img> without a source — not about its alt too', () => {
+    const diagnostics = lintHTML(
+      '<div><img width="320" style="width: 100%; max-width: 320px; height: auto;"></div>',
+    );
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0].severity).toBe('warning');
+    expect(diagnostics[0].message).toContain('placeholder');
+  });
+
+  it('warns on data-URL images — the drop/paste stopgap — positioned on the source', () => {
+    const source = '<div><img src="data:image/png;base64,AAAA" alt="a"></div>';
+    const diagnostics = lintHTML(source);
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0].severity).toBe('warning');
+    expect(diagnostics[0].message).toContain('data URL');
+    expect(diagnostics[0].message).toContain('Gmail');
+    expect(source.slice(diagnostics[0].from, diagnostics[0].to)).toBe('data:image/png;base64,AAAA');
+    expect(lintHTML('<div><img src="cid:part@mail" alt="a"></div>')).toEqual([]);
+  });
+
   it('warns on styles the floor clients ignore, naming the client', () => {
     const diagnostics = lintHTML('<div style="max-width: 600px; color: #333">x</div>');
     expect(diagnostics).toHaveLength(1);

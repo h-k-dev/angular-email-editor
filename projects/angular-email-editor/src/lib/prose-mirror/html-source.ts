@@ -268,6 +268,18 @@ export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): Htm
   // Gmail before the tap) render only the alt — a missing one leaves a hole.
   for (const tag of scan.tags) {
     if (tag.kind !== 'open' || tag.name !== 'img' || !tag.terminated) continue;
+    // No source: a placeholder — a sized frame awaiting its file. One warning,
+    // not the alt one on top: the file brings the alt.
+    if (!attributeValue(source, scan, tag, 'src')?.trim()) {
+      diagnostics.push({
+        from: tag.nameFrom,
+        to: tag.nameTo,
+        severity: 'warning',
+        message:
+          'Image placeholder — no source yet; click it in the editor to choose the file before sending',
+      });
+      continue;
+    }
     const alt = attributeValue(source, scan, tag, 'alt');
     if (!alt?.trim()) {
       diagnostics.push({
@@ -277,6 +289,24 @@ export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): Htm
         message: 'Image without alt text — image-blocking clients render nothing in its place',
       });
     }
+  }
+
+  // Images embedded as data URLs — the drop/paste stopgap. Gmail and Outlook
+  // refuse them, so the recipient sees a hole where the image was. The send
+  // intent promotes them to `cid:` parts, but the HTML as written is not a
+  // sendable email, and the source pane says so.
+  for (const tag of scan.tags) {
+    if (tag.kind !== 'open' || tag.name !== 'img' || !tag.terminated) continue;
+    const src = attributeValueToken(source, scan, tag, 'src');
+    if (!src || !src.value.trimStart().toLowerCase().startsWith('data:')) continue;
+    diagnostics.push({
+      from: src.from,
+      to: src.to,
+      severity: 'warning',
+      message:
+        `Image embedded as a data URL — ${clientList(['gmail', 'outlook-desktop'])}: ` +
+        'the image is not displayed; sending promotes it to an inline cid: part',
+    });
   }
 
   // Style declarations the floor clients ignore or mangle — data-driven from

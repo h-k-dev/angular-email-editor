@@ -27,7 +27,12 @@ const GOLDEN: string[] = [
   // Clean canonical link: clients style links natively; editor styling is
   // toDOM-only (a styled link would re-parse its underline as a mark).
   '<div><a href="https://example.com" target="_blank" rel="noopener noreferrer">link</a></div>',
-  '<img src="x.png" alt="chart" width="400" style="width: 100%; max-width: 400px; height: auto;">',
+  // Inline image, Gmail's own shape: on a line of its own it wraps in a div
+  // line; inside text it stays in the line (the caret stands beside it).
+  '<div><img src="x.png" alt="chart" width="400" style="width: 100%; max-width: 400px; height: auto;"></div>',
+  '<div>see <img src="x.png" alt="chart" style="max-width: 100%; height: auto;"> here</div>',
+  // A placeholder: a sized frame with no source yet (linted, never a lie).
+  '<div><img width="320" style="width: 100%; max-width: 320px; height: auto;"></div>',
   '<hr style="height: 1px; width: 100%; background-color: rgb(224, 224, 224); margin-top: 12px; margin-bottom: 12px;">',
   '<a href="https://x.io" style="display: inline-block; padding: 14px 28px; background-color: rgb(26, 115, 232); color: rgb(255, 255, 255); font-weight: bold; text-decoration: none;">Shop now</a>',
 ];

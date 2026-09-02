@@ -70,6 +70,14 @@ html {
   display: block;
   height: 100%;
   box-sizing: border-box;
+  // The text column *is* the email's box: 600px wide, the same ceiling the
+  // columns block and the image cap use (no padding here, so border-box is
+  // 600 of available width — the columns block goes side by side at exactly
+  // 600). A width, not a max-width: the composer never shrinks below the
+  // email's box — Gmail's compose is fixed-width for the same reason — the
+  // host lays its panes out around it (the example app's source pane yields).
+  // So a max-size image fills the line and the next caret is the next line.
+  width: 600px;
   text-align: inherit;
 
   // Typography
@@ -683,4 +691,147 @@ html {
       background-color: var(--_scrollbar-thumb-hover);
     }
   }
+}
+
+/* The image drop line — the Image extension’s drag indicator: a bare
+   `div.aee-drop-line` the library positions against the editor’s offset
+   parent (so it is not scoped under `.aee-editor` — it lives beside the
+   editor, never inside the document). The app owns the pixels; one token
+   in the cascade, primary by default. */
+.aee-drop-line {
+  position: absolute;
+  z-index: 20;
+  height: 2px;
+  margin-top: -1px;
+  border-radius: 1px;
+  pointer-events: none;
+  background-color: var(--email-drop-line, var(--mat-sys-primary, #6750a4));
+}
+
+/* The inline image's editor-only wrapper (`span.aee-image > img`, never
+ * serialized): a box to paint on. A node selection lands
+ * `ProseMirror-selectednode` on it — the tint overlay and the outline say
+ * "selected" the way a text highlight would; the resize pads will hang on
+ * the same box. The block <img> inside an inline-block span sits on the
+ * baseline exactly as the bare inline <img> does in the sent email. */
+.aee-editor .aee-image {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.aee-editor .aee-image img {
+  display: block;
+}
+
+.aee-editor .aee-image.ProseMirror-selectednode {
+  outline: 2px solid var(--mat-sys-primary, #4c6ef5);
+  outline-offset: 1px;
+}
+
+.aee-editor .aee-image.ProseMirror-selectednode::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-color: var(
+    --email-image-selection,
+    color-mix(in srgb, var(--mat-sys-primary, #4c6ef5) 24%, transparent)
+  );
+}
+
+/* Resize pads — two bars inset on the image's left and right edges, shown on
+ * hover and on the selected image. Dragging one draws the frame at the
+ * would-be size; the resize itself lands on release. Pads sit above the
+ * selection tint (positioned, z-index). */
+.aee-editor .aee-image__pad {
+  display: none;
+  position: absolute;
+  top: 50%;
+  z-index: 1;
+  width: 6px;
+  height: 32px;
+  max-height: 60%;
+  transform: translateY(-50%);
+  border: 1px solid var(--mat-sys-on-primary, #ffffff);
+  border-radius: 3px;
+  background-color: var(--email-image-pad, var(--mat-sys-primary, #4c6ef5));
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.aee-editor .aee-image__pad--left {
+  left: 4px;
+}
+
+.aee-editor .aee-image__pad--right {
+  right: 4px;
+}
+
+/* On hover, on the selected image, and throughout a drag (the pointer may
+ * leave the image while dragging). */
+.aee-editor .aee-image:hover .aee-image__pad,
+.aee-editor .aee-image.ProseMirror-selectednode .aee-image__pad,
+.aee-editor .aee-image--resizing .aee-image__pad {
+  display: block;
+}
+
+.aee-editor .aee-image__frame {
+  display: none;
+  position: absolute;
+  top: 0;
+  z-index: 2;
+  box-sizing: border-box;
+  border: 2px solid var(--email-image-resize-frame, var(--mat-sys-primary, #4c6ef5));
+  pointer-events: none;
+}
+
+.aee-editor .aee-image--resizing .aee-image__frame {
+  display: block;
+}
+
+.aee-editor .aee-image--resizing-right .aee-image__frame {
+  left: 0;
+}
+
+.aee-editor .aee-image--resizing-left .aee-image__frame {
+  right: 0;
+}
+
+.aee-editor:has(.aee-image--resizing) {
+  cursor: ew-resize;
+  user-select: none;
+}
+
+/* The image placeholder — an image with no source yet: a dashed frame at the
+ * frame's width (the wrapper carries it), 4:3 until a picture fills it, the
+ * same pads. Click opens the picker. */
+.aee-editor .aee-image--placeholder {
+  cursor: pointer;
+}
+
+.aee-editor .aee-image__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  padding: 8px;
+  border: 2px dashed var(--email-image-placeholder-border, var(--mat-sys-outline-variant, #c4c7c5));
+  border-radius: var(--mat-sys-corner-medium, 8px);
+  background-color: var(
+    --email-image-placeholder-background,
+    var(--mat-sys-surface-container, #f3f3f3)
+  );
+  color: var(--mat-sys-on-surface-variant, #555555);
+  font: var(--mat-sys-body-small, 12px sans-serif);
+  text-align: center;
+  user-select: none;
+}
+
+.aee-editor .aee-image--placeholder:hover .aee-image__placeholder,
+.aee-editor .aee-image--placeholder.ProseMirror-selectednode .aee-image__placeholder {
+  border-color: var(--mat-sys-primary, #4c6ef5);
+  color: var(--mat-sys-primary, #4c6ef5);
 }

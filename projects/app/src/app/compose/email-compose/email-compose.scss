@@ -34,6 +34,10 @@
   // Overflowing buttons wrap to the next row instead of bleeding out of
   // reach — the toolbar has outgrown a single row on narrow panes.
   flex-wrap: wrap;
+  // The pane's grid column is content-sized to the 600px editor box; the
+  // toolbar must not widen it with its unwrapped row — size containment
+  // keeps its intrinsic width out of the column and lets it wrap inside.
+  contain: inline-size;
 }
 
 // Curated dual-contrast palette. Token cascade: --email-* → --mat-sys-* →

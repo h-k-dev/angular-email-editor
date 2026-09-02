@@ -8,7 +8,7 @@ sides.
 ## Progress snapshot — 2026-08-20
 
 Foundations and the two-editor core are in; the content and layout-blocks side
-is mature. Tests: **254 library + 5 app, all green**.
+is mature. Tests: **369 library + 5 app, all green** (2026-09-02).
 
 | Milestone                                                       | State            | Left to do                                                         |
 | --------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------ |
@@ -18,7 +18,7 @@ is mature. Tests: **254 library + 5 app, all green**.
 | **M3 — Deliverability lint engine**                             | ✅ done          | —                                                                  |
 | **M4 — Preview & proof**                                        | 🟢 mostly done   | per-client simulation; Outlook conditional comments                |
 | **M5 — Layout blocks**                                          | 🟢 flagship done | UX polish pass (see “Known dissatisfactions”); section-schema + `{{template}}` placeholders |
-| **M6 — Compose workflow**                                       | 🟡 nearly done   | inline `cid:` images (resolver + send-intent parts) — *not* an attachments surface |
+| **M6 — Compose workflow**                                       | 🟡 nearly done   | the `cid:` resolver (display-only) — send-intent parts and the data-URL lint shipped 2026-09-02 |
 
 Most recent work: **M6 opened, and it closed M2 on the way** — the
 **reply/forward seed constructors** (`replyDocument`/`forwardDocument`:
@@ -195,15 +195,92 @@ schema extensions first, toolbar second.
 - [x] **`/image` slash command**: opens the OS file picker and inserts the
       chosen image(s) at the cursor — the slash path mirroring the existing
       drop/paste pipeline.
+- [x] **Images are inline — decided 2026-09-02, Gmail's and Proton's model.**
+      The node was a block; the caret could only stand above or below it as
+      a gap cursor. Both reference clients keep the image *in the text line*
+      (`<div><img …><br></div>` in Gmail's compose DOM), which is what gives
+      the tall caret right beside the image and lets typing continue next to
+      it. Now `inline: true, group: 'inline'`, an atom like the merge tag:
+      an image on its own line serializes as `<div><img …></div>` (Gmail's
+      own shape — the golden corpus was bumped deliberately), inside text it
+      stays in the line. Hybrid sizing is unchanged: `width: 100%` on an
+      inline-replaced element resolves against the containing block exactly
+      as it did on the block form, and Outlook renders inline images
+      natively. Dropped files insert at the caret; at a block boundary the
+      transform wraps the image into a line of its own. Being an inline atom
+      it is *selectable*: a click makes it the node selection — kept on
+      purpose, the resize pads below will hang on it. ProseMirror hides the
+      native highlight for node selections, and an `<img>` cannot carry an
+      overlay, so the editor renders the image in an editor-only wrapper
+      (`span.aee-image > img`, a NodeView: the `<img>` inside is exactly
+      `toDOM`, and serializer and clipboard never see the span) and the app
+      paints the selection on the wrapper — a primary tint overlay plus the
+      outline, selected the way a text highlight reads. Backspace/Delete
+      remove it, arrows step over it.
+- [x] **The editor's text column is the email's 600px box (2026-09-02).**
+      `.aee-editor` is `width: 600px` in the app — a width, not a max-width:
+      the composer never shrinks below the email's box (Gmail's compose is
+      fixed-width for the same reason; it reaches ~587px, Proton ~585, we
+      reach the full 600), and the host lays its panes out around it — the
+      example app's grid gives the editor a content-sized column and the
+      source pane what is left. Same ceiling `CONTAINER_MAX` and
+      `MAX_IMAGE_WIDTH` use, so what wraps in the editor wraps in the email,
+      the columns block goes side by side at exactly the editor's width, and
+      a max-size image fills the line. First attempt capped the image to the
+      *pane's* line instead, which on a three-pane screen was ~400px — the
+      cap was right, the column was wrong.
+- [x] **Image resize — shipped 2026-09-02.** Two pads inset on the wrapper's
+      left and right edges, shown on hover and on the selected image (and
+      throughout a drag, since the pointer may leave the image). Dragging a pad draws
+      only a primary *frame* at the would-be size — ratio-preserving by
+      construction, since only `width` is ever written and the serialized
+      style keeps `height: auto` — and the actual resize (`setNodeMarkup`
+      with the new width, clamped between `MIN_IMAGE_WIDTH` and the line's own
+      width, never past `MAX_IMAGE_WIDTH` — at the ceiling the image fills
+      the line and the next caret position is the next line)
+      happens once, on release: `ColumnsResize`'s deferred-commit drag, on
+      an image. The node selection survives the commit, so the pads stay.
+      A pad press never reaches ProseMirror (`stopEvent`), so it is never a
+      node drag or a click; a press without movement commits nothing. The
+      app owns the pixels: `--email-image-pad` / `--email-image-resize-frame`
+      → `--mat-sys-primary` → fallback.
+- [x] **Drop line (2026-09-02).** A dragged image drops *inline at the
+      caret* — where the cursor sat before the drag, Gmail's rule: the
+      pointer only says the drag is over the editor. While the drag is in
+      flight a horizontal line runs under the caret's visual line, the line
+      the image is about to join — the caret's own box gives the line's
+      bottom, the surrounding block its width (`imageDropTarget`). The line is a bare `div.aee-drop-line` positioned
+      the way prosemirror-dropcursor positions itself (absolutely, against
+      the editor's offset parent — never inside the document); the app owns
+      the pixels through one token, `--email-drop-line` → `--mat-sys-primary`
+      → fallback. Shown only for drags the editor would claim — a mixed drag
+      draws nothing here, the host's zone lights up instead.
+- [x] **Image placeholder (2026-09-02) — the slide-deck model.** `/image
+      placeholder` inserts a *sized frame awaiting its file*: an Image node
+      with no `src`, no new node type — one schema rule, one serialization
+      (`<img width="320" style="…">`, honest: nothing pretends to be a
+      picture), the same resize pads for free. In the editor it is a dashed
+      frame (`span.aee-image__placeholder`, app-styled, 4:3); size it first,
+      then click it and the picker's file fills it in place, keeping the
+      frame's width and the author's alt (`filledPlaceholderAttrs`). The
+      source pane lints an unfilled one ("Image placeholder — no source
+      yet"), once, instead of the alt warning. Precedent, for the record:
+      no compose client has this (Gmail, Outlook, Proton, Apple Mail never
+      separate *where* an image goes from *which*); Keynote/PowerPoint/Pages
+      media placeholders and Canva frames do exactly this, Notion/Gutenberg
+      insert an unsized empty block, email builders (Mailchimp, Beefree) an
+      empty block sized by settings. Ours is the image counterpart of the
+      merge tag — template-ready by construction.
 - [x] **Images**: the Image node now serializes the ledger's hybrid sizing
       (`width` attribute for Outlook + `width:100%; max-width:<n>px;
     height:auto` for everyone else), caps widths at 600px on parse and on
       drop, never parses or emits `float`, and handles dropped/pasted image
       files (data-URL source, alt defaulted from the filename, natural width
-      measured). Missing/empty alt is linted in the source pane. Open ends,
-      deliberately: data-URLs are a stopgap until the `cid:`/attachment story
-      (M6), and there is no alt/width _editing UI_ yet — the source pane is
-      the editor for those attrs for now.
+      measured). Missing/empty alt is linted in the source pane, and so is
+      a data-URL source (2026-09-02) — the data URL is what the editor holds,
+      the send intent turns it into a `cid:` part (M6). Open end,
+      deliberately: there is no alt/width _editing UI_ yet — the source pane
+      is the editor for those attrs for now.
 - [x] **Alignment & direction**: paragraphs carry an `align` attr — center
       and right serialize as inline `text-align`, left canonicalizes to
       _nothing_ (the default carries no declaration, and `dir="auto"` stays
@@ -715,6 +792,24 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
       is the only party that knows which binaries the body points at. That
       knowledge is editorial, and today it stays trapped in the document.
       Two loose ends, both real, neither a UI:
+  - [x] **Inline or attachment — decided 2026-09-02: the drop decides, the
+        editor never asks.** Place first (Gmail's rule): the body is the
+        inline zone, the host's shell around it is the attachment zone. Type
+        second, inside the body: the editor claims a drop only when *every*
+        file is an image (`claimedImageFiles`) — pure images are content and
+        embed inline; a mixed drop (an image with a PDF) is an attachment
+        gesture and bubbles *whole*, untouched, to the host's dropzone —
+        nothing to decide, nothing silently lost. The two zones never fight
+        because they nest: ProseMirror sees the event first and calls
+        `preventDefault` only when it claims, and the host's dropzone
+        (`angular-file-drop`) backs off on `defaultPrevented` — the same
+        arrangement the `.eml` import already runs on. What is *inline* in
+        the payload is derived from the document, not from a flag: a part the
+        body references by `cid:` is inline (`multipart/related`), anything
+        else is the host's attachment (`multipart/mixed`); delete the image
+        from the body and it leaves `inlineImages`. No Proton-style prompt —
+        a host that wants one puts its own zone around the editor and calls
+        `readImageFile` + `insertImage` for the inline choice.
   - [ ] **A `cid:` resolver input** (`cid → object URL`), display-only. An
         imported `cid:` image renders broken today: the MIME parts went to the
         host, and nothing connects them back to the node that references them.
@@ -722,17 +817,29 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
         so the round trip never learns about it and the schema stays law
         (same split as layout guides: editor-only, never serialized). The
         preview pane takes the same map.
-  - [ ] **`SendIntent` reports what the document references.** The payload is
-        `{html, text}` — the two parts of `multipart/alternative` — so a host
-        that wants `multipart/related` has no way to know which parts the body
-        uses. The intent grows the inline images it actually references
-        (cid + blob; data-URL images promoted to parts at that moment, which
-        is also how the stopgap dies). We report the truth about the document;
-        the host assembles the MIME and owns the transport, unchanged.
-  - [ ] **Lint the data-URL stopgap** (M3, from the ledger): dropped and
-        pasted images embed as data-URLs, which Gmail and Outlook strip or
-        refuse — emitting one is a principle-7 violation we currently ship
-        knowingly. Lint it in the source pane like any other unsafe output.
+  - [x] **`SendIntent` reports what the document references** — shipped
+        2026-09-02 as `inlineImages: InlineImage[]` on the payload, computed
+        by the pure `promoteInlineImages(doc)`. The payload's `html` is
+        serialized from a *copy* of the document in which every data-URL
+        image points at a generated Content-ID (`cid:image-1@aee`, … —
+        deterministic, so the same document always yields the same payload;
+        identical data URLs share one part; ids the document already
+        references are skipped), and each promoted image carries its decoded
+        `Blob`. Pre-existing `cid:` references (an imported reply's parts)
+        are listed by id with `blob: null` — the host received those with the
+        import and owns them. The document itself is never touched: no
+        transaction, the editor keeps displaying its data URLs, the round
+        trip never learns about the promotion. An undecodable data URL is
+        left as-is rather than sent as garbage — the lint below names it.
+        We report the truth about the document; the host assembles the MIME
+        (`multipart/related` around the `alternative`) and owns the
+        transport, unchanged.
+  - [x] **Lint the data-URL stopgap** — shipped 2026-09-02: an `<img>` with
+        a `data:` source is a warning positioned on the source value, naming
+        Gmail and Outlook (Windows) and saying what sending does about it.
+        Footnote to "our canonical output is lint-clean": a document holding
+        a dropped image is the one deliberate exception — the warning is
+        the point, the data URL is what the editor must hold until send.
 
       Framing this corrects: it was filed as the last slice of the compose
       *workflow*, which is why it read as envelope work. It isn't — it is M2's

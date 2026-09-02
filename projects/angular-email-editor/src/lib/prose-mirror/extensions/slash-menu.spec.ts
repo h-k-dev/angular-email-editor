@@ -54,6 +54,7 @@ describe('createSlashMenu', () => {
       'Bulleted list',
       'Numbered list',
       'Image',
+      'Image placeholder',
       'Divider',
       'Button',
       'Table',

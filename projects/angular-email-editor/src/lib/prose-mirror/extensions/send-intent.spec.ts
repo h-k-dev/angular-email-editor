@@ -44,6 +44,34 @@ describe('send intent', () => {
     expect(sent[0].requiredFields).toEqual(['customer_name', 'cf_70']);
   });
 
+  it('promotes data-URL images to cid: parts in the payload, never in the document', () => {
+    const dataUrl = 'data:image/png;base64,aGk=';
+    editor.setContent(`<div>see</div><img src="${dataUrl}" alt="chart">`);
+    editor.commands['requestSend']();
+
+    expect(sent[0].html).toContain('src="cid:image-1@aee"');
+    expect(sent[0].html).not.toContain('data:');
+    expect(sent[0].text).toBe('see\n[chart]');
+    expect(sent[0].inlineImages).toHaveLength(1);
+    expect(sent[0].inlineImages[0].cid).toBe('image-1@aee');
+    expect(sent[0].inlineImages[0].blob?.type).toBe('image/png');
+    expect(sent[0].inlineImages[0].blob?.size).toBe(2);
+    // The editor keeps its data URL: the promotion is a payload projection.
+    expect(editor.getHTML()).toContain(dataUrl);
+  });
+
+  it('reports pre-existing cid: references without bytes — the host owns those parts', () => {
+    editor.setContent('<img src="cid:part1@mail" alt="logo">');
+    editor.commands['requestSend']();
+    expect(sent[0].html).toBe(editor.getHTML());
+    expect(sent[0].inlineImages).toEqual([{ cid: 'part1@mail', blob: null }]);
+  });
+
+  it('reports no inline images for a plain body', () => {
+    editor.commands['requestSend']();
+    expect(sent[0].inlineImages).toEqual([]);
+  });
+
   it("Mod-Enter is the keyboard path — Gmail's send shortcut", () => {
     const handled = editor.view.someProp('handleKeyDown', (f) =>
       f(editor.view, new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true })),

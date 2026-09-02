@@ -46,6 +46,7 @@ export * from './extensions/gapcursor';
 export * from './extensions/layout-guides';
 export * from './extensions/quote-fold';
 export * from './extensions/send-intent';
+export * from './extensions/inline-images';
 export * from './extensions/no-text-drag';
 export * from './extensions/split-keeping-marks';
 export * from './extensions/base-keymap';

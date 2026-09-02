@@ -3,17 +3,28 @@ import { FunctionalExtension, defineExtension } from '../extension';
 import { serializeToHTML } from '../html';
 import { emailPlainText } from '../plain-text';
 import { mergeTagFields } from './nodes/merge-tag';
+import { InlineImage, promoteInlineImages } from './inline-images';
 
 /**
  * What the composer hands the host when the user asks to send: the canonical
  * HTML, its `text/plain` projection — the two parts of a well-formed
- * `multipart/alternative` body — and the personalization fields the body
- * requires. Everything else (addressing, headers, transport) is the host's;
- * nothing network-shaped lives in this library.
+ * `multipart/alternative` body — the inline image parts that HTML references
+ * (`multipart/related`, should the host want it), and the personalization
+ * fields the body requires. Everything else (addressing, headers, transport)
+ * is the host's; nothing network-shaped lives in this library.
  */
 export interface SendIntent {
+  /** The canonical HTML — with every data-URL image already promoted to a
+      `cid:` reference (see {@link promoteInlineImages}); the document in the
+      editor keeps its data URLs. */
   html: string;
   text: string;
+  /** Every inline image `html` references, in document order: promoted
+      data-URL images carry their bytes, pre-existing `cid:` references
+      (an imported reply's parts, which the host already owns) carry none.
+      Empty when the body has no inline images — plain
+      `multipart/alternative` then. */
+  inlineImages: InlineImage[];
   /** Every field identifier the body's merge tags read, in first-use order —
       the values the host must resolve before the mail can render. Straight
       off the document's nodes (see `mergeTagFields`), so a host without its
@@ -44,10 +55,14 @@ export const createSendIntent = (options: SendIntentOptions): FunctionalExtensio
   const requestSend: Command = (state, dispatch) => {
     // Probing callers (menu enablement) pass no dispatch — don't send twice.
     if (dispatch) {
-      const html = serializeToHTML(state.doc, state.schema);
+      // The promotion lives in the payload only — no transaction, the
+      // document is not touched, the editor keeps showing its data URLs.
+      const { doc, images } = promoteInlineImages(state.doc);
+      const html = serializeToHTML(doc, state.schema);
       options.onSend({
         html,
         text: emailPlainText(html),
+        inlineImages: images,
         requiredFields: mergeTagFields(state.doc),
       });
     }
