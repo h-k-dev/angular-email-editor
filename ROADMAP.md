@@ -8,7 +8,7 @@ sides.
 ## Progress snapshot — 2026-08-20
 
 Foundations and the two-editor core are in; the content and layout-blocks side
-is mature. Tests: **372 library + 5 app, all green** (2026-09-02).
+is mature. Tests: **379 library + 5 app, all green** (2026-09-02).
 
 | Milestone                                                       | State            | Left to do                                                                                      |
 | --------------------------------------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------- |
@@ -18,7 +18,7 @@ is mature. Tests: **372 library + 5 app, all green** (2026-09-02).
 | **M3 — Deliverability lint engine**                             | ✅ done          | —                                                                                               |
 | **M4 — Preview & proof**                                        | 🟢 mostly done   | per-client simulation; Outlook conditional comments                                             |
 | **M5 — Layout blocks**                                          | 🟢 flagship done | UX polish pass (see “Known dissatisfactions”); section-schema + `{{template}}` placeholders     |
-| **M6 — Compose workflow**                                       | 🟡 nearly done   | the `cid:` resolver (display-only) — send-intent parts and the data-URL lint shipped 2026-09-02 |
+| **M6 — Compose workflow**                                       | ✅ done          | — (the inline image registry closed it, 2026-09-02)                |
 
 Most recent work: **M6 opened, and it closed M2 on the way** — the
 **reply/forward seed constructors** (`replyDocument`/`forwardDocument`:
@@ -798,7 +798,8 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
       script) · 1 inline image awaits attachments". A structured diagnostics
       surfacing can grow from the same `ImportLoss` object when a problems
       panel exists.
-- [ ] **Inline images — the `cid:` story, not an attachments surface.**
+- [x] **Inline images — the `cid:` story, not an attachments surface.**
+      *Closed 2026-09-02 with the registry (below).*
       **Scope decision (2026-08-20): we build no attachment UI.** A paperclip,
       a file list, upload progress, MIME assembly — envelope, all of it, the
       host's for exactly the reasons to/cc/subject are. What _is_ ours is the
@@ -824,13 +825,37 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
         from the body and it leaves `inlineImages`. No Proton-style prompt —
         a host that wants one puts its own zone around the editor and calls
         `readImageFile` + `insertImage` for the inline choice.
-  - [ ] **A `cid:` resolver input** (`cid → object URL`), display-only. An
+  - [x] **A `cid:` resolver input** (`cid → object URL`), display-only —
+        shipped 2026-09-02 as the *registry*, see the shipped note below. An
         imported `cid:` image renders broken today: the MIME parts went to the
         host, and nothing connects them back to the node that references them.
         The resolver is a _view_ concern — the canonical `src` stays `cid:`,
         so the round trip never learns about it and the schema stays law
         (same split as layout guides: editor-only, never serialized). The
         preview pane takes the same map.
+        **Shipped as the registry — the Gmail model.** One
+        `InlineImageRegistry` per composer (`InlineImageStore`,
+        framework-free: add bytes → cid, resolve cid → display URL, blob)
+        handed to the editor by `createInlineImages({ registry })` — plugin
+        state that the Image node, the send intent and the host all read.
+        With it a drop registers its bytes and inserts `src="cid:image-1@aee"`
+        *at once*: the document stays light, the size gauge honest, and a
+        draft is html + the referenced parts. Node views display a `cid:`
+        through the registry's URL (a view concern — the round trip never
+        learns), render a "missing" frame for a part the registry lacks, and
+        re-resolve when it arrives late (a registry change is a meta
+        transaction bumping a version carried by a node decoration on every
+        `cid:` image). The send intent reads its bytes from the registry.
+        The Angular side is `InlineImages`, an `@Injectable()` wrapping the
+        store with a signal, provided *per composer* (never root — two
+        composers must not share parts) and revoking its URLs with it: the
+        example app feeds it an import's parts *before* setting the document,
+        the editor pane hands it to the extension, and the preview renders
+        `previewHtml(html)` — `cid:` sources as data URLs, because a
+        sandboxed, opaque-origin frame cannot load the editor's blob URLs.
+        Parts stay registered after their image is deleted (undo); the send
+        intent and a draft report only what the document references. No
+        registry configured → the data-URL path, unchanged.
   - [x] **`SendIntent` reports what the document references** — shipped
         2026-09-02 as `inlineImages: InlineImage[]` on the payload, computed
         by the pure `promoteInlineImages(doc)`. The payload's `html` is

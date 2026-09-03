@@ -12,6 +12,8 @@ import {
 } from './image';
 import { NodeSelection, TextSelection } from 'prosemirror-state';
 import { Transform } from 'prosemirror-transform';
+import { InlineImageStore, createInlineImages } from '../inline-images';
+import { SendIntent, createSendIntent } from '../send-intent';
 
 const schema = createSchema(emailExtensions);
 const roundTrip = (html: string) => serializeToHTML(parseHTML(html, schema), schema);
@@ -344,6 +346,67 @@ describe('image node', () => {
         alt: 'a',
         width: 600,
       });
+    });
+  });
+
+  describe('cid: sources resolve through the registry — a view concern, never the document', () => {
+    const mount = (content: string, store: InlineImageStore) => {
+      const host = document.createElement('div');
+      document.body.appendChild(host);
+      const editor = createEditor({
+        parent: host,
+        extensions: [...emailExtensions, createInlineImages({ registry: store })],
+        content,
+      });
+      return { editor, unmount: () => (editor.destroy(), host.remove()) };
+    };
+    const store = () =>
+      new InlineImageStore({ createUrl: (b) => `blob:fake/${b.size}`, revokeUrl: () => {} });
+
+    it('displays a known part through its URL while the document keeps the cid', () => {
+      const registry = store();
+      registry.add(new Blob(['abc']), 'p1');
+      const { editor, unmount } = mount('<div><img src="cid:p1" alt="logo"></div>', registry);
+      const wrapper = editor.view.nodeDOM(1) as HTMLElement;
+      expect(wrapper.querySelector('img')?.getAttribute('src')).toBe('blob:fake/3');
+      expect(editor.getHTML()).toContain('src="cid:p1"');
+      unmount();
+    });
+
+    it('renders a missing frame for an unknown part, and re-resolves when the part arrives', () => {
+      const registry = store();
+      const { editor, unmount } = mount('<div><img src="cid:late" alt="logo"></div>', registry);
+      const wrapper = editor.view.nodeDOM(1) as HTMLElement;
+      expect(wrapper.querySelector('.aee-image__missing')).not.toBeNull();
+      expect(wrapper.querySelector('img')).toBeNull();
+      registry.add(new Blob(['abcd']), 'late');
+      expect(wrapper.querySelector('.aee-image__missing')).toBeNull();
+      expect(wrapper.querySelector('img')?.getAttribute('src')).toBe('blob:fake/4');
+      expect(editor.getHTML()).toContain('src="cid:late"');
+      unmount();
+    });
+
+    it('the send intent reads the bytes from the registry', () => {
+      const registry = store();
+      const bytes = new Blob(['xy'], { type: 'image/png' });
+      registry.add(bytes, 'p1');
+      const host = document.createElement('div');
+      document.body.appendChild(host);
+      const sent: SendIntent[] = [];
+      const editor = createEditor({
+        parent: host,
+        extensions: [
+          ...emailExtensions,
+          createInlineImages({ registry }),
+          createSendIntent({ onSend: (intent) => sent.push(intent) }),
+        ],
+        content: '<div><img src="cid:p1" alt="logo"></div>',
+      });
+      editor.commands['requestSend']();
+      expect(sent[0].inlineImages).toEqual([{ cid: 'p1', blob: bytes }]);
+      expect(sent[0].html).toContain('src="cid:p1"');
+      editor.destroy();
+      host.remove();
     });
   });
 

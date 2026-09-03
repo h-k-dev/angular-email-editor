@@ -3,6 +3,7 @@ import { EditorView, NodeView } from 'prosemirror-view';
 import { DOMSerializer, Node, Schema } from 'prosemirror-model';
 import { defineNode } from '../../extension';
 import { isSafeUrl } from '../marks/link';
+import { InlineImageRegistry, inlineImageRegistry } from '../inline-images';
 
 export interface ImageAttrs {
   /** `null` is a placeholder: a sized frame awaiting its file (see the
@@ -28,28 +29,42 @@ function parseWidth(node: HTMLElement): number | null {
   return parsed > 0 ? Math.min(parsed, MAX_IMAGE_WIDTH) : null;
 }
 
-/** Reads a dropped/pasted image file into insertable attrs: data-URL source,
-    alt defaulted from the filename, natural width capped for email. */
-export function readImageFile(file: File): Promise<ImageAttrs> {
+/** The natural width of an image at `url`, capped for email — null when it
+    cannot be measured. */
+function naturalWidth(url: string): Promise<number | null> {
+  return new Promise((resolve) => {
+    const probe = document.createElement('img');
+    probe.onload = () => resolve(probe.naturalWidth ? Math.min(probe.naturalWidth, MAX_IMAGE_WIDTH) : null);
+    probe.onerror = () => resolve(null);
+    probe.src = url;
+  });
+}
+
+function dataUrl(file: File): Promise<string> {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
-  }).then(
-    (src) =>
-      new Promise<ImageAttrs>((resolve) => {
-        const probe = document.createElement('img');
-        const attrs = (width: number | null): ImageAttrs => ({
-          src,
-          alt: file.name.replace(/\.\w+$/, ''),
-          width: width ? Math.min(width, MAX_IMAGE_WIDTH) : null,
-        });
-        probe.onload = () => resolve(attrs(probe.naturalWidth || null));
-        probe.onerror = () => resolve(attrs(null));
-        probe.src = src;
-      }),
-  );
+  });
+}
+
+/** Reads a dropped/pasted/picked image file into insertable attrs: alt
+    defaulted from the filename, natural width capped for email, and the
+    source — a `cid:` when a registry holds the bytes (the Gmail model: the
+    document stays light, the part travels with the send intent), else a
+    data URL (the registry-less fallback, promoted at send). */
+export function readImageFile(file: File, registry?: InlineImageRegistry): Promise<ImageAttrs> {
+  const alt = file.name.replace(/\.\w+$/, '');
+  if (registry) {
+    const cid = registry.add(file);
+    return naturalWidth(registry.resolve(cid) ?? '').then((width) => ({
+      src: `cid:${cid}`,
+      alt,
+      width,
+    }));
+  }
+  return dataUrl(file).then((src) => naturalWidth(src).then((width) => ({ src, alt, width })));
 }
 
 /**
@@ -195,7 +210,7 @@ async function insertImageFiles(
   pos: number,
 ): Promise<void> {
   for (const file of files) {
-    const attrs = await readImageFile(file);
+    const attrs = await readImageFile(file, inlineImageRegistry(view.state));
     if (view.isDestroyed) return;
     const node = schema.nodes['image'].create(attrs);
     const tr = view.state.tr.insert(Math.min(pos, view.state.doc.content.size), node);
@@ -266,14 +281,28 @@ export function filledPlaceholderAttrs(placeholder: ImageAttrs, picked: ImageAtt
   };
 }
 
+/** A frame standing in for the image: the placeholder awaiting its file, or
+    a `cid:` whose part the registry does not hold. The app owns the pixels. */
+function imageFrame(className: string, label: string): HTMLElement {
+  const box = document.createElement('span');
+  box.className = className;
+  box.setAttribute('role', 'button');
+  box.textContent = label;
+  return box;
+}
+
 /**
  * The image's editor-only wrapper — `span.aee-image > img`, a NodeView. The
  * `<img>` inside is exactly `toDOM` (one source of truth; the serializer and
- * the clipboard never see the span). The wrapper exists because an `<img>`
- * cannot carry an overlay: a click makes the image the node selection, the
- * wrapper carries `ProseMirror-selectednode`, and the app paints the
- * selection there — the tint and the outline. Attribute changes update the
- * `<img>` in place.
+ * the clipboard never see the span) — except that a `cid:` source is
+ * *displayed* through the registry's URL while the document keeps the `cid:`
+ * (the resolver is a view concern; the round trip never learns about it). A
+ * `cid:` with no part renders as a "missing" frame, never a broken icon.
+ * The wrapper exists because an `<img>` cannot carry an overlay: a click
+ * makes the image the node selection, the wrapper carries
+ * `ProseMirror-selectednode`, and the app paints the selection there — the
+ * tint and the outline. Attribute changes update the `<img>` in place, and
+ * so does a registry change (the extension's decoration version).
  *
  * The wrapper also carries the **resize pads**: two pads inset on the left
  * and right edges, shown on hover and on the selected image (the app's CSS).
@@ -311,7 +340,7 @@ class ImageView implements NodeView {
     this.dom = document.createElement('span');
     this.dom.className = 'aee-image';
     this.apply(node);
-    this.img = ImageView.render(node);
+    this.img = this.render(node);
     this.dom.appendChild(this.img);
     for (const side of ['left', 'right'] as const) {
       const pad = document.createElement('span');
@@ -325,21 +354,23 @@ class ImageView implements NodeView {
     this.dom.addEventListener('click', (event) => this.onClick(event));
   }
 
-  private static render(node: Node): HTMLElement {
-    if (!node.attrs['src']) {
-      const box = document.createElement('span');
-      box.className = 'aee-image__placeholder';
-      box.setAttribute('role', 'button');
-      box.textContent = 'Choose an image';
-      return box;
+  private render(node: Node): HTMLElement {
+    const src = node.attrs['src'] as string | null;
+    if (!src) return imageFrame('aee-image__placeholder', 'Choose an image');
+    const img = DOMSerializer.renderSpec(document, node.type.spec.toDOM!(node)).dom as HTMLElement;
+    const cid = /^\s*cid:(.+)$/i.exec(src)?.[1]?.trim();
+    if (cid) {
+      const url = inlineImageRegistry(this.view.state)?.resolve(cid);
+      if (!url) return imageFrame('aee-image__missing', 'Image not available');
+      img.setAttribute('src', url);
     }
-    return DOMSerializer.renderSpec(document, node.type.spec.toDOM!(node)).dom as HTMLElement;
+    return img;
   }
 
   update(node: Node): boolean {
     if (node.type !== this.node.type) return false;
     this.node = node;
-    const img = ImageView.render(node);
+    const img = this.render(node);
     this.img.replaceWith(img);
     this.img = img;
     this.apply(node);
@@ -383,7 +414,7 @@ class ImageView implements NodeView {
     if ((event.target as Element | null)?.closest?.('.aee-image__pad')) return;
     void pickImageFiles(false).then(async ([file]) => {
       if (!file || this.view.isDestroyed) return;
-      const picked = await readImageFile(file);
+      const picked = await readImageFile(file, inlineImageRegistry(this.view.state));
       const pos = this.getPos();
       if (pos === undefined || this.view.isDestroyed) return;
       const attrs = filledPlaceholderAttrs(this.node.attrs as ImageAttrs, picked);

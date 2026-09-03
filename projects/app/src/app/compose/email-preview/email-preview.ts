@@ -2,7 +2,7 @@ import { Component, computed, inject, input, signal } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 // Library
-import { emailPlainText } from 'angular-email-editor';
+import { InlineImages, emailPlainText } from 'angular-email-editor';
 
 /** Approximates a mail client's rendering surface: default typography on
     white — the email itself carries no such defaults, the client does. */
@@ -40,13 +40,17 @@ export class EmailPreview {
   mode = signal<'light' | 'dark'>('light');
   width = signal<320 | 600>(320);
 
+  /** The composer's registry: `cid:` sources become data URLs for the frame
+      (an opaque-origin sandbox cannot load the editor's blob URLs). */
+  readonly #images = inject(InlineImages);
+
   /** Our own canonical HTML inside a fully sandboxed frame (no scripts, no
       same-origin), so bypassing the sanitizer is safe here. */
   document = computed<SafeHtml>(() =>
     this.#sanitizer.bypassSecurityTrustHtml(
       `<!doctype html><html><head><meta charset="utf-8"><style>${CLIENT_SURFACE}${
         this.mode() === 'dark' ? FORCED_INVERSION : ''
-      }</style></head><body>${this.html()}</body></html>`,
+      }</style></head><body>${this.#images.previewHtml(this.html())}</body></html>`,
     ),
   );
 

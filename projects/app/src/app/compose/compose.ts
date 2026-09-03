@@ -1,16 +1,23 @@
-import { Component, computed, signal, viewChild } from '@angular/core';
+import { Component, computed, inject, signal, viewChild } from '@angular/core';
 import { OverlayModule } from '@angular/cdk/overlay';
 import { AngularFileDrop, FileDropEvent } from '@h-k-dev/angular-file-drop';
 import {
   HtmlDiagnostic,
   SendIntent,
   emailSizeBudget,
+  InlineImages,
   importLoss,
   importedDocument,
   replyDocument,
   toInboundMessage,
 } from 'angular-email-editor';
 import { EmailCompose } from './email-compose/email-compose';
+
+/** A status-strip note and the document it is about. */
+interface StatusNote {
+  text: string;
+  html: string;
+}
 import { HtmlEmailCompose } from './html-email-compose/html-email-compose';
 import { EmailPreview } from './email-preview/email-preview';
 import { REPLY_EXAMPLES } from '../../../test/reply-examples';
@@ -29,6 +36,9 @@ interface ExampleSet {
 @Component({
   selector: 'app-compose',
   imports: [EmailCompose, HtmlEmailCompose, EmailPreview, AngularFileDrop, OverlayModule],
+  // One inline image registry per composer — the editor pane hands it to the
+  // editor, the preview resolves from it, an import feeds it. Never in root.
+  providers: [InlineImages],
   templateUrl: './compose.html',
   styleUrl: './compose.scss',
 })
@@ -75,7 +85,18 @@ export class Compose {
       is the whole bridge); lazy-imported so the parser costs nothing until
       the first drop. A File is a Blob, so it goes to the parser as raw bytes
       (correct charsets, no lossy .text() step). */
-  protected importNote = signal<string | null>(null);
+  readonly #images = inject(InlineImages);
+
+  /** A status note describes *one* document: it is stamped with the html it
+      was made for and shown only while that is still the document — a note
+      outliving its document ("1 inline image as cid: part" after the image
+      was deleted) is a status desync. */
+  readonly #importNote = signal<StatusNote | null>(null);
+  protected importNote = computed(() => this.#current(this.#importNote()));
+
+  #current(note: StatusNote | null): string | null {
+    return note && note.html === this.html() ? note.text : null;
+  }
 
   protected async onEmlDrop(event: FileDropEvent): Promise<void> {
     const dropped = event.files[0]?.file;
@@ -87,6 +108,18 @@ export class Compose {
       // A drop must import immediately: release editor focus first (the
       // pane's blur catch-up would apply it eventually anyway — this makes
       // "eventually" be "now").
+      // The message's inline parts go into the registry *before* the document,
+      // so every `cid:` resolves the moment its node view mounts.
+      let inlineParts = 0;
+      for (const part of parsed.attachments ?? []) {
+        const cid = part.contentId?.replace(/^<|>$/g, '');
+        if (!cid || !part.content) continue;
+        this.#images.add(
+          new Blob([part.content as BlobPart], { type: part.mimeType || 'application/octet-stream' }),
+          cid,
+        );
+        inlineParts++;
+      }
       (document.activeElement as HTMLElement | null)?.blur?.();
       this.html.set(importedDocument(inbound));
 
@@ -102,32 +135,38 @@ export class Compose {
         );
       }
       if (loss.inlineImages) {
+        const missing = Math.max(0, loss.inlineImages - inlineParts);
         notes.push(
-          `${loss.inlineImages} inline image${loss.inlineImages === 1 ? ' awaits' : 's await'} attachments`,
+          `${inlineParts} inline image${inlineParts === 1 ? '' : 's'} restored from the message` +
+            (missing ? ` (${missing} missing)` : ''),
         );
       }
-      if (attachments) {
-        notes.push(`${attachments} attachment${attachments === 1 ? '' : 's'} ignored`);
+      const ignored = attachments - inlineParts;
+      if (ignored > 0) {
+        notes.push(`${ignored} attachment${ignored === 1 ? '' : 's'} ignored`);
       }
-      this.importNote.set(notes.join(' · '));
+      this.#importNote.set({ text: notes.join(' · '), html: this.html() });
     } catch {
-      this.importNote.set(`Couldn't read ${dropped.name} as an email`);
+      this.#importNote.set({ text: `Couldn't read ${dropped.name} as an email`, html: this.html() });
     }
   }
 
   /** Demo stand-in for a transport: the example app has nowhere to send to,
       so the footer shows what a real host would hand its mailer. */
-  protected lastSend = signal<string | null>(null);
+  readonly #lastSend = signal<StatusNote | null>(null);
+  protected lastSend = computed(() => this.#current(this.#lastSend()));
 
   protected onSend(intent: SendIntent): void {
     const kb = (new TextEncoder().encode(intent.html).length / 1024).toFixed(1);
     const parts = intent.inlineImages.length;
-    this.lastSend.set(
-      `Send intent · ${kb} kB HTML · ${intent.text.length} chars text` +
+    this.#lastSend.set({
+      html: this.html(),
+      text:
+        `Send intent · ${kb} kB HTML · ${intent.text.length} chars text` +
         (parts
           ? ` · ${parts} inline image${parts === 1 ? '' : 's'} as cid: part${parts === 1 ? '' : 's'}`
           : ''),
-    );
+    });
   }
 
   /** Demo-only example cycler, one set per scenario: reply seeds (the split

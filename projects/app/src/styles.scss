@@ -835,3 +835,23 @@ html {
   border-color: var(--mat-sys-primary, #4c6ef5);
   color: var(--mat-sys-primary, #4c6ef5);
 }
+
+/* A `cid:` image whose part the registry does not hold — a restored draft
+ * without its parts, an import the host never registered: a frame that
+ * says so, never a broken icon. Same box as the placeholder, error-toned. */
+.aee-editor .aee-image__missing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  padding: 8px;
+  border: 2px dashed var(--email-image-missing-border, var(--mat-sys-error, #b3261e));
+  border-radius: var(--mat-sys-corner-medium, 8px);
+  background-color: var(--email-image-missing-background, var(--mat-sys-surface-container, #f3f3f3));
+  color: var(--mat-sys-error, #b3261e);
+  font: var(--mat-sys-body-small, 12px sans-serif);
+  text-align: center;
+  user-select: none;
+}

@@ -41,9 +41,11 @@ import {
   createBubbleMenu,
   createEditor,
   createMergeTagMenu,
+  createInlineImages,
   createSendIntent,
   createSlashMenu,
   createTextMetrics,
+  InlineImages,
   defineExtension,
   emailBackgroundPalette,
   emailExtensions,
@@ -71,6 +73,8 @@ import {
 })
 export class EmailCompose {
   #destroyRef = inject(DestroyRef);
+  /** The composer's inline image registry — provided by the composer. */
+  readonly #images = inject(InlineImages);
 
   /** Canonical email HTML, two-way bound by the parent composer. This editor
       owns the canonical form: whatever comes in is parsed through the email
@@ -279,6 +283,7 @@ export class EmailCompose {
           onChange: (state) => this.mergeMenuState.set(state),
         }),
         createTextMetrics({ onMetrics: (metrics) => this.bodyMetrics.set(metrics) }),
+        createInlineImages({ registry: this.#images }),
         createSendIntent({ onSend: (intent) => this.send.emit(intent) }),
         this.#angularSync,
       ],
