@@ -99,7 +99,7 @@ function findSession(state: EditorState): Session | null {
  * The `{{` autocomplete: the slash menu's sibling for personalization tokens,
  * with one extra wrinkle — the source is *paged* (`cursor`/`nextCursor`), so
  * a server-backed variable catalogue streams in as the host's listbox scrolls
- * (`loadMore`). Selection inserts a `mergeTag` pill; typing the token out in
+ * (`loadMore`). Selection inserts the `{{path}}` text (the pill follows); typing the token out in
  * full still works through the node's own input rule.
  */
 export const createMergeTagMenu = (options: MergeTagMenuOptions): FunctionalExtension =>
@@ -187,10 +187,9 @@ function createMergeTagMenuPlugin(options: MergeTagMenuOptions): Plugin {
 
   const select = (item: MergeTagItem) => {
     if (!view || !session) return;
-    const type = view.state.schema.nodes['mergeTag'];
-    if (!type) return;
+    // The token is text; the mark follows from it (the merge-tag extension).
     const tr = view.state.tr.delete(session.from, session.to);
-    tr.replaceSelectionWith(type.create({ expr: item.path }));
+    tr.insertText(`{{ ${item.path} }}`);
     view.dispatch(tr.scrollIntoView());
     view.focus();
   };

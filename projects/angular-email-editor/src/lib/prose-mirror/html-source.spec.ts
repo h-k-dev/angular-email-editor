@@ -1,7 +1,12 @@
 import { completionContextAt, formatHTML, lintHTML, openTags, scanHTML } from './html-source';
+
 import { createSchema } from './schema';
 import { parseHTML, serializeToHTML } from './html';
 import { emailExtensions } from './extensions/kits';
+
+const emailSchema = createSchema(emailExtensions);
+/** Parse + serialize through the email schema — what the source pane's text becomes. */
+const canonicalEmail = (html: string) => serializeToHTML(parseHTML(html, emailSchema), emailSchema);
 
 describe('html-source scanner', () => {
   it('tokenizes tags, attributes and comments', () => {
@@ -188,6 +193,165 @@ describe('html-source linter', () => {
     expect(diagnostics).toHaveLength(1);
     expect(diagnostics[0]).toMatchObject({ severity: 'error' });
     expect(diagnostics[0].message).toContain('script URL');
+  });
+});
+
+describe('html-source formatter — merge tags', () => {
+  it('pads every token canonically, and the result canonicalizes like the input', () => {
+    const formatted = formatHTML('<div>Hi {{firstName}}, {{  cf_70|formatPrice }}!</div>');
+    expect(formatted).toBe('<div>Hi {{ firstName }}, {{ cf_70|formatPrice }}!</div>');
+    expect(formatHTML('<div>{{#if a}}{{x}}{{/if}} {{~ y ~}}</div>')).toBe(
+      '<div>{{#if a}}{{ x }}{{/if}} {{~ y ~}}</div>',
+    );
+  });
+});
+
+describe('html-source formatter — 80 characters', () => {
+  const LONG =
+    '<div>Sehr geehrte Damen und Herren, vielen Dank für Ihre Nachricht vom letzten Dienstag, die wir mit großem Interesse gelesen haben und heute beantworten.</div>';
+
+  it('wraps running text at spaces to the width, and canonicalizes like the input', () => {
+    const formatted = formatHTML(LONG);
+    const lines = formatted.split('\n');
+    expect(lines[0]).toBe('<div>');
+    expect(lines.at(-1)).toBe('</div>');
+    expect(lines.length).toBeGreaterThan(3);
+    expect(lines.every((line) => line.length <= 80)).toBe(true);
+    expect(lines.slice(1, -1).every((line) => line.startsWith('  ') && !line.startsWith('   '))).toBe(true);
+    expect(canonicalEmail(formatted)).toBe(canonicalEmail(LONG));
+  });
+
+  it('wraps an over-wide token the way Prettier prints an interpolation, never inside a literal', () => {
+    const html =
+      "<div>Anbei {{ customer_gender == 'male' ? 'Sehr geehrter Herr ' + customer_surname : customer_gender == 'female' ? 'Sehr geehrte Frau ' + customer_surname : 'Guten Tag ' + customer_name }}, die Unterlagen.</div>";
+    const formatted = formatHTML(html);
+    expect(formatted).toBe(
+      [
+        '<div>',
+        '  Anbei',
+        '  {{',
+        "    customer_gender == 'male' ? 'Sehr geehrter Herr ' + customer_surname :",
+        "    customer_gender == 'female' ? 'Sehr geehrte Frau ' + customer_surname :",
+        "    'Guten Tag ' + customer_name",
+        '  }},',
+        '  die Unterlagen.',
+        '</div>',
+      ].join('\n'),
+    );
+    expect(formatted.split('\n').every((line) => line.length <= 80)).toBe(true);
+    expect(canonicalEmail(formatted)).toBe(canonicalEmail(html));
+    // A token that fits stays one word, and one that is a single word overflows whole.
+    expect(formatHTML('<div>Hi {{ firstName }}</div>')).toBe('<div>Hi {{ firstName }}</div>');
+    const single = `<div>{{ ${'a'.repeat(90)} }}</div>`;
+    expect(formatHTML(single)).toBe(`<div>\n  {{ ${'a'.repeat(90)} }}\n</div>`);
+  });
+
+  it('never breaks inside a tag, an attribute value or a token', () => {
+    const html =
+      "<div>Angebot für {{ customer_gender == 'male' ? 'Sehr geehrter Herr' : 'Sehr geehrte Frau' }} <a href=\"https://example.com/a/very/long/path?with=query&amp;and=more\" target=\"_blank\" rel=\"noopener noreferrer\">hier klicken</a> jetzt und <b>fett gedruckt bis zum Ende der Zeile</b> weiter</div>";
+    const formatted = formatHTML(html);
+    for (const line of formatted.split('\n')) {
+      expect((line.match(/\{\{/g) ?? []).length).toBe((line.match(/\}\}/g) ?? []).length);
+      expect((line.match(/"/g) ?? []).length % 2).toBe(0); // never inside an attribute value
+    }
+    expect(formatted).toContain("{{ customer_gender == 'male' ? 'Sehr geehrter Herr' : 'Sehr geehrte Frau' }}");
+    expect(canonicalEmail(formatted)).toBe(canonicalEmail(html));
+  });
+
+  it('breaks a wide open tag one attribute per line, the > back on the margin', () => {
+    const img =
+      '<img src="https://example.com/images/newsletter/header-2026-09.png" alt="Header" width="600" style="width: 100%; max-width: 600px; height: auto;">';
+    expect(formatHTML(img)).toBe(
+      [
+        '<img',
+        '  src="https://example.com/images/newsletter/header-2026-09.png"',
+        '  alt="Header"',
+        '  width="600"',
+        '  style="width: 100%; max-width: 600px; height: auto;"',
+        '>',
+      ].join('\n'),
+    );
+    expect(canonicalEmail(formatHTML(img))).toBe(canonicalEmail(img));
+  });
+
+  it('breaks a wide inline tag at its attributes too — an image in a line', () => {
+    const html =
+      '<div><img src="https://example.com/images/newsletter/header-2026-09.png" alt="Header" width="600" style="width: 100%; max-width: 600px; height: auto;"></div>';
+    expect(formatHTML(html)).toBe(
+      [
+        '<div>',
+        '  <img',
+        '    src="https://example.com/images/newsletter/header-2026-09.png"',
+        '    alt="Header"',
+        '    width="600"',
+        '    style="width: 100%; max-width: 600px; height: auto;"',
+        '  >',
+        '</div>',
+      ].join('\n'),
+    );
+    expect(canonicalEmail(formatHTML(html))).toBe(canonicalEmail(html));
+    // Text glued to the tag stays glued: no whitespace is invented.
+    const glued =
+      '<div>Klicken Sie <a href="https://example.com/a/very/long/path/that/keeps/going/and/going" target="_blank" rel="noopener noreferrer">hier</a>, bitte.</div>';
+    const formatted = formatHTML(glued);
+    expect(formatted).toContain('  >hier</a>,');
+    expect(canonicalEmail(formatted)).toBe(canonicalEmail(glued));
+  });
+
+  it('prints a wide style attribute as embedded CSS, one declaration per line, like Prettier', () => {
+    const columns =
+      '<div style="width: 100%; max-width: 600px;">' +
+      '<div style="display: inline-block; width: 100%; max-width: 280px; vertical-align: top; box-sizing: border-box;">' +
+      "<div>Frist:</div><div>{{ cf_68 | calcDate:'+2 weeks' | formatDateDE }}</div>" +
+      '</div></div>';
+    expect(formatHTML(columns)).toBe(
+      [
+        '<div style="width: 100%; max-width: 600px;">',
+        '  <div',
+        '    style="',
+        '      display: inline-block;',
+        '      width: 100%;',
+        '      max-width: 280px;',
+        '      vertical-align: top;',
+        '      box-sizing: border-box;',
+        '    "',
+        '  >',
+        '    <div>Frist:</div>',
+        "    <div>{{ cf_68 | calcDate:'+2 weeks' | formatDateDE }}</div>",
+        '  </div>',
+        '</div>',
+      ].join('\n'),
+    );
+    expect(canonicalEmail(formatHTML(columns))).toBe(canonicalEmail(columns));
+
+    // The button: a block-level anchor whose label lands on its own line — and
+    // whose parse collapses it back (parsing is repair).
+    const button =
+      '<a href="https://x.io" style="display: inline-block; background-color: rgb(26, 115, 232); color: rgb(255, 255, 255); font-weight: bold; text-decoration: none; border-width: 14px 28px; border-style: solid; border-color: rgb(26, 115, 232);">Shop now</a>';
+    const formatted = formatHTML(button);
+    expect(formatted.split('\n')).toEqual([
+      '<a',
+      '  href="https://x.io"',
+      '  style="',
+      '    display: inline-block;',
+      '    background-color: rgb(26, 115, 232);',
+      '    color: rgb(255, 255, 255);',
+      '    font-weight: bold;',
+      '    text-decoration: none;',
+      '    border-width: 14px 28px;',
+      '    border-style: solid;',
+      '    border-color: rgb(26, 115, 232);',
+      '  "',
+      '>',
+      '  Shop now',
+      '</a>',
+    ]);
+    expect(canonicalEmail(formatted)).toBe(button);
+  });
+
+  it('keeps content that fits on one line, and honours a custom width', () => {
+    expect(formatHTML('<div>Hi <b>there</b></div>')).toBe('<div>Hi <b>there</b></div>');
+    expect(formatHTML('<div>one two three four</div>', '  ', 14)).toBe('<div>\n  one two\n  three four\n</div>');
   });
 });
 

@@ -135,7 +135,7 @@ describe('createMergeTagMenu', () => {
     await settle();
     const item = state!.items.find((entry) => entry.path === 'custom.field3')!;
     state!.select(item);
-    expect(editor.getHTML()).toBe('<div>Hi {{custom.field3}}</div>');
+    expect(editor.getHTML()).toBe('<div>Hi {{ custom.field3 }}</div>');
     expect(state?.open).toBe(false);
   });
 
@@ -144,7 +144,7 @@ describe('createMergeTagMenu', () => {
     await settle();
     expect(state?.items.map((item) => item.path)).toEqual(['custom.field20']);
     keydown('Enter');
-    expect(editor.getHTML()).toBe('<div>{{custom.field20}}</div>');
+    expect(editor.getHTML()).toBe('<div>{{ custom.field20 }}</div>');
   });
 
   it('discards a stale page — a newer query or a dismissal wins', async () => {

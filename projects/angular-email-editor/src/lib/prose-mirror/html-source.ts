@@ -5,6 +5,7 @@
  * parser so its output is always well-formed.
  */
 import { clientList, findCssIssues } from './client-support';
+import { normalizeMergeTagText } from './extensions/nodes/merge-tag';
 
 export type HtmlTokenType =
   'delimiter' | 'tagName' | 'attributeName' | 'attributeValue' | 'comment';
@@ -276,7 +277,8 @@ export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): Htm
     // The ledger's line budget: a run with no break point wider than a phone
     // line forces the whole email to scroll sideways. Merge tags are a
     // renderer's business, not a line's — masked out before measuring.
-    const masked = region.replace(/\{\{[^{}\r\n]{1,200}\}\}/g, (tag) => ' '.repeat(tag.length));
+    // Same ceiling as MAX_MERGE_TAG_LENGTH in the merge-tag node.
+    const masked = region.replace(/\{\{[^{}]{1,1002}\}\}/g, (tag) => ' '.repeat(tag.length));
     const runs = new RegExp(`\\S{${MAX_UNBROKEN_RUN + 1},}`, 'g');
     for (let match; (match = runs.exec(masked));) {
       diagnostics.push({
@@ -531,7 +533,9 @@ export function entitySpans(source: string): [number, number][] {
 }
 
 /** Text regions of the source — everything outside tags and comments. */
-function textRegions(source: string, scan: HtmlScan): [number, number][] {
+/** The runs of source outside tags and comments — running text, where tokens
+    live. Exported for the highlighter. */
+export function textRegions(source: string, scan: HtmlScan): [number, number][] {
   const blocked = [
     ...scan.tags.map((tag): [number, number] => [tag.from, tag.to]),
     ...scan.tokens
@@ -660,19 +664,34 @@ const BLOCK_TAGS = new Set([
  * lines, inline content kept together. Parses through the browser's DOM, so
  * malformed input comes back auto-corrected — formatting is also repair.
  */
-export function formatHTML(html: string, indent = '  '): string {
+/** The width the formatter optimizes for — Prettier's. Email HTML is built
+    for arbitrary line lengths; the formatter only ever adds whitespace the
+    parser discards, so a break lands on a space in running text (never
+    inside a tag, an attribute value or a `{{ }}` token) or between a tag's
+    attributes. A word wider than the line stays whole and overflows. */
+export const FORMAT_WIDTH = 80;
+
+export function formatHTML(html: string, indent = '  ', width = FORMAT_WIDTH): string {
   const body = new DOMParser().parseFromString(html, 'text/html').body;
   const lines: string[] = [];
-  for (const child of Array.from(body.childNodes)) formatNode(child, 0, lines, indent);
+  for (const child of Array.from(body.childNodes)) formatNode(child, 0, lines, indent, width);
   return lines.join('\n');
 }
 
-function formatNode(node: globalThis.Node, depth: number, lines: string[], indent: string): void {
+function formatNode(
+  node: globalThis.Node,
+  depth: number,
+  lines: string[],
+  indent: string,
+  width: number,
+): void {
   const pad = indent.repeat(depth);
 
   if (node.nodeType === Node.TEXT_NODE) {
-    const text = collapseWhitespace(node.nodeValue ?? '').trim();
-    if (text) lines.push(pad + escapeText(text));
+    // Tokens at their canonical padding — the same form the schema serializes,
+    // so formatting stays presentation-only (the invariance test pins it).
+    const text = normalizeMergeTagText(collapseWhitespace(node.nodeValue ?? '').trim());
+    if (text) lines.push(...wrapInline(escapeText(text), pad, width));
     return;
   }
   if (node.nodeType === Node.COMMENT_NODE) {
@@ -683,20 +702,250 @@ function formatNode(node: globalThis.Node, depth: number, lines: string[], inden
 
   const tag = node.tagName.toLowerCase();
   if (VOID_TAGS.has(tag)) {
-    lines.push(pad + openTag(node));
+    lines.push(...openTagLines(node, pad, indent, width));
     return;
   }
   if (!BLOCK_TAGS.has(tag) || !hasBlockChild(node)) {
-    lines.push(pad + openTag(node) + inlineContent(node) + `</${tag}>`);
+    const open = openTag(node);
+    const content = inlineContent(node);
+    const close = `</${tag}>`;
+    const oneLine = pad + open + content + close;
+    if (oneLine.length <= width) {
+      lines.push(oneLine);
+      return;
+    }
+    // Too wide: the open tag alone (its attributes broken if that is the wide
+    // part), the content wrapped one level in, the close tag back on the
+    // margin — every added break is whitespace the parser drops at a block's
+    // edges or collapses to the one space that was already there.
+    lines.push(...openTagLines(node, pad, indent, width));
+    if (content) lines.push(...wrapInline(content, pad + indent, width));
+    lines.push(pad + close);
     return;
   }
 
-  lines.push(pad + openTag(node));
+  lines.push(...openTagLines(node, pad, indent, width));
   for (const child of Array.from(node.childNodes)) {
     if (child.nodeType === Node.TEXT_NODE && !(child.nodeValue ?? '').trim()) continue;
-    formatNode(child, depth + 1, lines, indent);
+    formatNode(child, depth + 1, lines, indent, width);
   }
   lines.push(`${pad}</${tag}>`);
+}
+
+/** The open tag on one line when it fits, else one attribute per line with
+    the `>` back on the margin — whitespace inside a tag is free. */
+function openTagLines(element: Element, pad: string, indent: string, width: number): string[] {
+  const whole = pad + openTag(element);
+  if (whole.length <= width || !element.attributes.length) return [whole];
+  const lines = [`${pad}<${element.tagName.toLowerCase()}`];
+  for (const attr of element.attributes) {
+    const value = attr.value === '' ? null : escapeAttribute(attr.value);
+    lines.push(...attributeLines(attr.name, value, pad + indent, indent, width));
+  }
+  lines.push(`${pad}>`);
+  return lines;
+}
+
+/** One attribute of a broken-up tag on its own line at `pad` — or, for a
+    `style` that still does not fit, Prettier's embedded-CSS form: one
+    declaration per line one level in, the closing quote back at `pad`.
+    Whitespace between declarations is nothing to CSS (and to every parse
+    rule, which read the style through the CSSOM or a whitespace-tolerant
+    regex), so the parsed style is unchanged. `value` is already escaped. */
+function attributeLines(
+  name: string,
+  value: string | null,
+  pad: string,
+  indent: string,
+  width: number,
+): string[] {
+  const line = value === null ? `${pad}${name}` : `${pad}${name}="${value}"`;
+  if (line.length <= width || name !== 'style' || value === null) return [line];
+  const declarations = splitDeclarations(value);
+  if (declarations.length < 2) return [line];
+  return [`${pad}style="`, ...declarations.map((d) => `${pad}${indent}${d};`), `${pad}"`];
+}
+
+/** CSS declarations of a style value, split at the `;` between them (not
+    one inside quotes or parentheses), trimmed, empties dropped. */
+function splitDeclarations(style: string): string[] {
+  const declarations: string[] = [];
+  let current = '';
+  let quote: string | null = null;
+  let depth = 0;
+  for (const ch of style) {
+    if (quote) {
+      if (ch === quote) quote = null;
+    } else if (ch === '"' || ch === "'") {
+      quote = ch;
+    } else if (ch === '(') {
+      depth++;
+    } else if (ch === ')') {
+      depth = Math.max(0, depth - 1);
+    } else if (ch === ';' && depth === 0) {
+      if (current.trim()) declarations.push(current.trim());
+      current = '';
+      continue;
+    }
+    current += ch;
+  }
+  if (current.trim()) declarations.push(current.trim());
+  return declarations;
+}
+
+/** The words of serialized inline content: a break opportunity is a space
+    outside any tag (attribute values included) and outside any `{{ }}`
+    token — a token is one word, whatever its length. */
+function breakableWords(content: string): string[] {
+  const words: string[] = [];
+  let word = '';
+  let inTag = false;
+  let quote: string | null = null;
+  let inToken = false;
+  for (let i = 0; i < content.length; i++) {
+    const ch = content[i];
+    if (inTag) {
+      if (quote) {
+        if (ch === quote) quote = null;
+      } else if (ch === '"' || ch === "'") {
+        quote = ch;
+      } else if (ch === '>') {
+        inTag = false;
+      }
+      word += ch;
+      continue;
+    }
+    if (ch === '<') {
+      inTag = true;
+      word += ch;
+      continue;
+    }
+    if (!inToken && ch === '{' && content[i + 1] === '{') {
+      inToken = true;
+      word += '{{';
+      i++;
+      continue;
+    }
+    if (inToken && ch === '}' && content[i + 1] === '}') {
+      inToken = false;
+      word += '}}';
+      i++;
+      continue;
+    }
+    if (ch === ' ' && !inToken) {
+      if (word) words.push(word);
+      word = '';
+      continue;
+    }
+    word += ch;
+  }
+  if (word) words.push(word);
+  return words;
+}
+
+/** Greedy fill of inline content to the width, every line at `pad`. A word
+    that is a tag and does not fit even alone breaks at its attributes (see
+    {@link tagWordLines}); any other over-wide word simply overflows. */
+function wrapInline(content: string, pad: string, width: number): string[] {
+  const lines: string[] = [];
+  let line = '';
+  for (const word of breakableWords(content)) {
+    if (line && line.length + 1 + word.length <= width) {
+      line += ` ${word}`;
+      continue;
+    }
+    if (line) lines.push(line);
+    line = '';
+    const expanded =
+      (pad + word).length > width
+        ? (tagWordLines(word, pad, width) ?? tokenWordLines(word, pad, width))
+        : null;
+    if (expanded) lines.push(...expanded);
+    else line = pad + word;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+/** Greedy fill of plain words, every line at `pad`. */
+function fillWords(words: string[], pad: string, width: number): string[] {
+  const lines: string[] = [];
+  let line = '';
+  for (const word of words) {
+    if (!line) line = pad + word;
+    else if (line.length + 1 + word.length > width) {
+      lines.push(line);
+      line = pad + word;
+    } else line += ` ${word}`;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+/** The words of an expression: split at spaces outside string literals —
+    a break inside a literal would read as a changed string, even though the
+    parser would collapse it back. */
+function expressionWords(expr: string): string[] {
+  const words: string[] = [];
+  let word = '';
+  let quote: string | null = null;
+  for (let i = 0; i < expr.length; i++) {
+    const ch = expr[i];
+    if (quote) {
+      word += ch;
+      if (ch === '\\' && i + 1 < expr.length) word += expr[++i];
+      else if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      word += ch;
+      continue;
+    }
+    if (ch === ' ') {
+      if (word) words.push(word);
+      word = '';
+      continue;
+    }
+    word += ch;
+  }
+  if (word) words.push(word);
+  return words;
+}
+
+/** An over-wide word holding a `{{ … }}` token, the way Prettier prints a long
+    Angular interpolation: the braces on their own lines (anything glued to
+    them stays glued), the expression filled between them one level in. Every
+    break replaces a space the parser collapses back, so the token — and the
+    email — is unchanged; the source-side scanner reads the wrapped form. */
+function tokenWordLines(word: string, pad: string, width: number): string[] | null {
+  const match = /^([^{]*)\{\{(.*)\}\}([^{]*)$/s.exec(word);
+  if (!match) return null;
+  const [, head, inner, tail] = match;
+  const words = expressionWords(inner.trim());
+  if (words.length < 2) return null;
+  return [`${pad}${head}{{`, ...fillWords(words, pad + '  ', width), `${pad}}}${tail}`];
+}
+
+/** An over-wide word that starts with a tag, broken one attribute per line
+    with the `>` (and whatever text was glued to it) back on the margin. A
+    word begins and ends at a break opportunity, so the added line breaks
+    are exactly the whitespace that was there — or a block edge. Null when
+    the word is not a tag with attributes. */
+function tagWordLines(word: string, pad: string, width: number): string[] | null {
+  const match = /^<([A-Za-z][\w-]*)((?:\s+[^\s"'>=]+(?:="[^"]*"|='[^']*')?)+)\s*>([\s\S]*)$/.exec(word);
+  if (!match) return null;
+  const [, name, attributes, tail] = match;
+  const indent = pad + '  ';
+  const lines = [`${pad}<${name}`];
+  for (const attribute of attributes.match(/[^\s"'>=]+(?:="[^"]*"|='[^']*')?/g) ?? []) {
+    const eq = attribute.indexOf('=');
+    const attrName = eq < 0 ? attribute : attribute.slice(0, eq);
+    const attrValue = eq < 0 ? null : attribute.slice(eq + 2, -1);
+    lines.push(...attributeLines(attrName, attrValue, indent, '  ', width));
+  }
+  lines.push(`${pad}>${tail}`);
+  return lines.some((line) => line.length > width) && lines.length <= 2 ? null : lines;
 }
 
 function hasBlockChild(element: Element): boolean {
@@ -710,7 +959,8 @@ function inlineContent(element: Element): string {
   const parts: string[] = [];
   for (const child of element.childNodes) {
     if (child.nodeType === Node.TEXT_NODE) {
-      parts.push(escapeText(collapseWhitespace(child.nodeValue ?? '')));
+      // Tokens at their canonical padding here too (inline text is the common case).
+      parts.push(escapeText(normalizeMergeTagText(collapseWhitespace(child.nodeValue ?? ''))));
     } else if (child.nodeType === Node.COMMENT_NODE) {
       parts.push(`<!--${child.nodeValue}-->`);
     } else if (child instanceof Element) {

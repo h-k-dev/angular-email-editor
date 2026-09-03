@@ -86,8 +86,16 @@ export function createEditor(options: EditorOptions): Editor {
     }),
     attributes,
     dispatchTransaction(transaction) {
-      view.updateState(view.state.apply(transaction));
-      if (transaction.docChanged && !transaction.getMeta('externalSync')) {
+      // Plugins may append transactions (the merge-tag invariants turn a
+      // stored-mark toggle into a whole-token mark): the document can change
+      // even when the dispatched transaction itself did not. Judge by all of
+      // them, or the html signal falls behind the editor.
+      const { state, transactions } = view.state.applyTransaction(transaction);
+      view.updateState(state);
+      if (
+        transactions.some((applied) => applied.docChanged) &&
+        !transaction.getMeta('externalSync')
+      ) {
         options.onUpdate?.(editor);
       }
     },

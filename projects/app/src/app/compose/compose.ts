@@ -60,8 +60,12 @@ export class Compose {
   /** Live word/line counter, measured mathematically by the email pane. */
   protected metrics = computed(() => this.emailPane().bodyMetrics());
 
+  /** Errors: the source pane's lint errors plus the body's expression
+      syntax problems (the dialect the editor pane opts into). */
   protected errors = computed(
-    () => this.diagnostics().filter((d) => d.severity === 'error').length,
+    () =>
+      this.diagnostics().filter((d) => d.severity === 'error').length +
+      this.emailPane().expressionDiagnostics().length,
   );
   protected warnings = computed(
     () => this.diagnostics().filter((d) => d.severity === 'warning').length,
@@ -74,10 +78,16 @@ export class Compose {
       `${(this.size().bytes / 1024).toFixed(1)} kB of ${Math.round(this.size().limit / 1024)} kB`,
   );
 
-  /** Jumps the source pane to the first diagnostic of the given severity. */
+  /** Jumps to the first diagnostic of the given severity: the source pane
+      for a lint finding, the editor pane for an expression problem. */
   protected reveal(severity: 'error' | 'warning'): void {
     const diagnostic = this.diagnostics().find((d) => d.severity === severity);
-    if (diagnostic) this.sourcePane().reveal(diagnostic);
+    if (diagnostic) {
+      this.sourcePane().reveal(diagnostic);
+      return;
+    }
+    const expression = this.emailPane().expressionDiagnostics()[0];
+    if (severity === 'error' && expression) this.emailPane().revealExpression(expression);
   }
 
   /** A dropped .eml imports as the document. MIME parsing is postal-mime's

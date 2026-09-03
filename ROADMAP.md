@@ -8,7 +8,7 @@ sides.
 ## Progress snapshot — 2026-08-20
 
 Foundations and the two-editor core are in; the content and layout-blocks side
-is mature. Tests: **379 library + 5 app, all green** (2026-09-02).
+is mature. Tests: **409 library + 5 app, all green** (2026-09-02).
 
 | Milestone                                                       | State            | Left to do                                                                                      |
 | --------------------------------------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------- |
@@ -131,6 +131,17 @@ HTML is allowed to be.
       warnings), pretty-printer that is also a repairer, Shift-Alt-F,
       format-on-blur (refuses on errors, Prettier-style), Tab = 2 spaces,
       auto-indent on Enter, tag auto-closing (`>` and `</`), line-aware paste.
+      **Formats to 80 characters (2026-09-02)** — Prettier's width; the HTML
+      is built for arbitrary lengths, the source is optimized for reading:
+      running text wraps at spaces, a wide open tag breaks one attribute per
+      line with the `>` back on the margin (a `style` that still does not fit
+      prints as embedded CSS, one declaration per line, Prettier's way), an
+      over-wide `{{ }}` token prints
+      the way Prettier prints an Angular interpolation (braces on their own
+      lines, the expression filled between them, never broken inside a string
+      literal), and nothing ever breaks inside a tag or an attribute value —
+      only whitespace the parser collapses or discards is added, so the
+      invariance test still holds and the email never sees a newline.
 - [x] **Mark parity**: mark keymaps/commands of the email kit mirrored into
       the source editor via sentinel round-trip through the shared schema.
 - [x] **Composer app**: `Compose` owns one canonical `html` signal; the two
@@ -630,6 +641,53 @@ still clunky and unintuitive_ overall; these are the concrete symptoms.
       table, columns) — each is canonical HTML, editable in the source pane,
       linted, re-parsed. No hidden state, no "locked" regions; the schema, as
       always, is law.
+- [x] **Merge tags are text with a mark, not atoms — decided 2026-09-02.**
+      The atom pill could not be entered (no cursor inside, no hand editing)
+      and could not wrap (a 171-character ternary overflowed the 600px column
+      by 459px). Now the raw `{{expression}}` is ordinary text and `mergeTag`
+      is a mark that only paints the pill — editor-only, the email carries
+      the bare text (`emitDOM: null`, the serializer skips the mark). Two
+      invariants, kept by `appendTransaction` after every change and by
+      `promoteMergeTags` at parse: (1) the mark covers exactly what reads as
+      a token — derived from the text, never stored, so type `}}` and the
+      pill appears, delete a brace and it is gone; (2) formatting is
+      *all-or-nothing on a token*: Ctrl-B with the cursor inside bolds the
+      whole `{{…}}` (stored marks become a whole-token mark), a mark added or
+      removed over part of a token is widened to the token (its steps are
+      widened), and a token pasted partially formatted is repaired to whole —
+      so the value it renders to ("Mr Wild") is formatted as one. The bubble
+      menu stays away inside a token. Lost on purpose: one-Backspace deletion
+      and dragging a token as a block — it is text now.
+- [x] **Tokens are padded canonically: `{{ expr }}` (2026-09-02).** One
+      space each side of the trimmed expression — the formatter's rule
+      (Shift-Alt-F, Mod-S, format-on-blur) and, because formatting must stay
+      presentation-only, the *schema's* form too: the parser repairs incoming
+      padding, the editor pads a token once it is complete and the cursor has
+      left it (never under the typist's cursor), the `{{` menu inserts the
+      form directly. The expression itself stays byte-verbatim; edge
+      whitespace is insignificant to AngularJS and Handlebars alike.
+      Handlebars' `{{~ … ~}}` and `{{& …}}` keep their sigils against the
+      braces. The invariance test still holds: `format(html)` and `html`
+      canonicalize identically.
+- [x] **AngularJS expressions — the first dialect, opt-in (2026-09-02).**
+      The merge-tag mark is dialect-neutral; a *dialect* (`ExpressionDialect`,
+      one per editor as plugin state) layers meaning on the tokens. The
+      sponsor's dialect came first: `createAngularExpressions()` — a
+      recursive-descent parser for `$parse`'s grammar (literals, members,
+      calls, unary/binary operators, the ternary, filters with `:` args,
+      assignments, `;` statements). From the parse: **syntax diagnostics**
+      (an unbalanced quote, a dangling `?`, a stray `#` — positioned inside
+      the token, underlined in place via `.aee-expr-error`, reported to the
+      host through `onDiagnostics`; the example app counts them as errors
+      in the status strip and reveals them in the editor pane) and **exact
+      required fields** on the send intent (the root of a member chain,
+      both sides of a computed member, call and filter arguments; never a
+      bare callee, a filter name, a property tail, a literal or a local
+      assigned anywhere) — the generic lexer stays the fallback for editors
+      without a dialect. Recognises, never evaluates or rewrites. Next
+      slices: highlighting inside the pill, filter/field completion inside
+      a token, evaluation with sample data for the preview; a Handlebars
+      dialect (block pairing awareness) alongside.
 - [ ] **Template-ready, not templated.** We expect a handlebars-like dialect
       to emerge naturally once the blocks exist: placeholder nodes that
       survive the round trip and serialize as `{{name}}`-style tokens. We

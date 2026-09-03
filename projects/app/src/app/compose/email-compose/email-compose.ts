@@ -1,3 +1,4 @@
+import { TextSelection } from 'prosemirror-state';
 import {
   Component,
   DestroyRef,
@@ -41,11 +42,14 @@ import {
   createBubbleMenu,
   createEditor,
   createMergeTagMenu,
+  createAngularExpressions,
   createInlineImages,
   createSendIntent,
   createSlashMenu,
   createTextMetrics,
+  ExpressionDiagnostic,
   InlineImages,
+  mergeTagAt,
   defineExtension,
   emailBackgroundPalette,
   emailExtensions,
@@ -220,6 +224,26 @@ export class EmailCompose {
   /** Body stats measured mathematically via pretext — no DOM reads. */
   bodyMetrics = signal<TextMetrics | undefined>(undefined);
 
+  /** Syntax problems in the body's AngularJS expressions (the dialect this
+      composer opts into) — counted in the status strip beside the source
+      pane's lint, revealed in this pane. */
+  expressionDiagnostics = signal<ExpressionDiagnostic[]>([]);
+
+  /** Selects the token range of a diagnostic and focuses the editor. */
+  revealExpression(diagnostic: ExpressionDiagnostic): void {
+    const editor = this.editor();
+    if (!editor) return;
+    const { doc } = editor.state;
+    // An end-of-input problem has no width: select the whole token instead.
+    const token = diagnostic.from === diagnostic.to ? mergeTagAt(doc, diagnostic.from) : undefined;
+    const from = token?.from ?? diagnostic.from;
+    const to = token?.to ?? Math.min(Math.max(diagnostic.to, from + 1), doc.content.size);
+    editor.view.dispatch(
+      editor.state.tr.setSelection(TextSelection.create(doc, from, to)).scrollIntoView(),
+    );
+    editor.view.focus();
+  }
+
   /** Bumped on every ProseMirror transaction so toolbar bindings recompute. */
   #editorTick = signal(0);
 
@@ -282,6 +306,9 @@ export class EmailCompose {
           debounce: 150,
           onChange: (state) => this.mergeMenuState.set(state),
         }),
+        // The dialect is the sponsor's: AngularJS expressions. Opt-in — a
+        // Handlebars host installs its own dialect here instead.
+        createAngularExpressions({ onDiagnostics: (d) => this.expressionDiagnostics.set(d) }),
         createTextMetrics({ onMetrics: (metrics) => this.bodyMetrics.set(metrics) }),
         createInlineImages({ registry: this.#images }),
         createSendIntent({ onSend: (intent) => this.send.emit(intent) }),

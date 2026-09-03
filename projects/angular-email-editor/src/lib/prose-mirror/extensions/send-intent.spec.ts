@@ -34,7 +34,7 @@ describe('send intent', () => {
 
   it('reports the fields the body requires', () => {
     editor.exec((state, dispatch) => {
-      dispatch?.(state.tr.insertText('Hi {{customer_name}}: {{cf_70 | formatPrice}} '));
+      dispatch?.(state.tr.insertText('Hi {{ customer_name }}: {{ cf_70 | formatPrice }} '));
       return true;
     });
     // Promotion is a parse-time repair; simulate the round trip a real

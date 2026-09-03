@@ -1,5 +1,6 @@
 import { EditorState, Plugin, PluginKey, TextSelection, AllSelection } from 'prosemirror-state';
 import { FunctionalExtension, defineExtension } from '../extension'; // Adjust path if needed
+import { selectionInsideMergeTag } from './nodes/merge-tag';
 
 export interface BubbleMenuState {
   isOpen: boolean;
@@ -12,9 +13,12 @@ export interface BubbleMenuOptions {
   shouldShow?: (state: EditorState) => boolean;
 }
 
+// Inside a merge tag the menu stays away: the token is text, but formatting
+// it is all-or-nothing and lives on the keyboard (Ctrl-B bolds the whole).
 const defaultShouldShow = (state: EditorState) =>
   !state.selection.empty &&
-  (state.selection instanceof TextSelection || state.selection instanceof AllSelection);
+  (state.selection instanceof TextSelection || state.selection instanceof AllSelection) &&
+  !selectionInsideMergeTag(state);
 
 export const createBubbleMenu = (options: BubbleMenuOptions): FunctionalExtension =>
   defineExtension({

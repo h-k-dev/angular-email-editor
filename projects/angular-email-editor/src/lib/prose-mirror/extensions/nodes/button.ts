@@ -49,7 +49,10 @@ export const Button = defineNode({
         getAttrs: (dom) => {
           if (!(dom instanceof HTMLElement)) return false;
           if (!/display:\s*inline-block/i.test(dom.getAttribute('style') ?? '')) return false;
-          return { href: dom.getAttribute('href') ?? '#', label: dom.textContent ?? '' };
+          // Collapsed: a formatter may print the label on its own line, and a
+          // label never carries raw whitespace.
+          const label = (dom.textContent ?? '').replace(/\s+/g, ' ').trim();
+          return { href: dom.getAttribute('href') ?? '#', label };
         },
       },
     ],

@@ -288,32 +288,21 @@ html {
   border-right: 2px solid var(--email-cell-selection-border, var(--mat-sys-primary, #4c6ef5));
 }
 
-/* Merge-tag pill: editor-only chrome for a personalization token. The email
- * carries the raw `{{path}}` text — none of this styling serializes. */
+/* Merge-tag pill: editor-only chrome for a personalization token — a *mark*
+ * on the raw `{{…}}` text, so the cursor lands anywhere inside and a long
+ * expression wraps like text (`clone` caps every wrapped piece). Just text
+ * with a background: no colour of its own, so bold, colour and the rest —
+ * always applied to the whole token — show through. The email carries the
+ * raw text; none of this serializes. */
 .aee-editor .aee-merge-tag {
-  display: inline-block;
-  padding: 0 8px;
-  border-radius: 999px;
+  padding: 1px 4px;
+  border-radius: 4px;
   background-color: var(
     --email-merge-tag-background,
     color-mix(in srgb, var(--mat-sys-primary, #4c6ef5) 12%, transparent)
   );
-  color: var(--email-merge-tag-color, var(--mat-sys-primary, #4c6ef5));
-  font-size: 0.9em;
-  white-space: nowrap;
-  cursor: default;
-}
-
-.aee-editor .aee-merge-tag.ProseMirror-selectednode {
-  outline: 2px solid var(--mat-sys-primary, #4c6ef5);
-  outline-offset: 1px;
-}
-
-/* An expression token (ternary, filter chain, arithmetic) — same pill, but
- * monospace so logic reads as logic, not prose. */
-.aee-editor .aee-merge-tag--expr {
-  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
-  font-size: 0.85em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 
 /* The caret's cell: the selection rectangle without its tint, so the cell
@@ -854,4 +843,21 @@ html {
   font: var(--mat-sys-body-small, 12px sans-serif);
   text-align: center;
   user-select: none;
+}
+
+/* An expression the dialect cannot parse — the AngularJS extension marks the
+ * offending span inside the token; the title carries the message. Wavy, in
+ * the error colour, never affecting layout. */
+.aee-editor .aee-expr-error {
+  text-decoration: underline wavy var(--email-expression-error, var(--mat-sys-error, #b3261e));
+  text-decoration-skip-ink: none;
+  text-underline-offset: 3px;
+}
+
+/* Interpolations in the source pane, Angular-template style: the braces as
+ * muted as any delimiter; the expression stays in the text colour — the
+ * braces are all the signal it needs (`.aee-tok-expression` is still
+ * painted on it, for a host that wants more). */
+.aee-tok-brace {
+  color: var(--mat-sys-outline);
 }

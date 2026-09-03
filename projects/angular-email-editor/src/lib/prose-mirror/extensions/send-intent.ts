@@ -3,6 +3,7 @@ import { FunctionalExtension, defineExtension } from '../extension';
 import { serializeToHTML } from '../html';
 import { emailPlainText } from '../plain-text';
 import { mergeTagFields } from './nodes/merge-tag';
+import { expressionDialect } from './dialects/dialect';
 import { InlineImage, inlineImageRegistry, promoteInlineImages } from './inline-images';
 
 /**
@@ -63,7 +64,9 @@ export const createSendIntent = (options: SendIntentOptions): FunctionalExtensio
         html,
         text: emailPlainText(html),
         inlineImages: images,
-        requiredFields: mergeTagFields(state.doc),
+        // The installed dialect parses; without one the generic lexer guesses.
+        requiredFields:
+          expressionDialect(state)?.requiredFields(state.doc) ?? mergeTagFields(state.doc),
       });
     }
     return true;

@@ -33,6 +33,8 @@ export * from './extensions/bubble-menu';
 export * from './extensions/block-menu';
 export * from './extensions/slash-menu';
 export * from './extensions/merge-tag-menu';
+export * from './extensions/dialects/dialect';
+export * from './extensions/dialects/angular-expressions';
 export * from './extensions/text-metrics';
 export * from './extensions/marks/bold';
 export * from './extensions/marks/italic';

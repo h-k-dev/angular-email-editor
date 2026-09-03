@@ -26,9 +26,16 @@ function getSerializer(schema: Schema): DOMSerializer {
     }
     const marks = DOMSerializer.marksFromSchema(schema);
     for (const [name, type] of Object.entries(schema.marks)) {
+      // A mark may declare `emitDOM: null` — editor-only chrome that leaves
+      // no trace in the email (the merge-tag pill): the serializer then skips
+      // the mark and emits its text bare.
+      if (!('emitDOM' in type.spec)) continue;
       const emitDOM = type.spec['emitDOM'] as
-        ((mark: unknown, inline: boolean) => DOMOutputSpec) | undefined;
+        | ((mark: unknown, inline: boolean) => DOMOutputSpec)
+        | null
+        | undefined;
       if (emitDOM) marks[name] = emitDOM;
+      else delete (marks as Record<string, unknown>)[name];
     }
     serializer = new DOMSerializer(nodes, marks);
     // A bare string is documented DOMOutputSpec ("a text node") but the

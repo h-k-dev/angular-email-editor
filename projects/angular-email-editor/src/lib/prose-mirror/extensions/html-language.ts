@@ -1,3 +1,5 @@
+import { scanMergeTags } from './nodes/merge-tag';
+import { textRegions } from '../html-source';
 import { Command, EditorState, Plugin, PluginKey, TextSelection } from 'prosemirror-state';
 import { Fragment, Node, Slice } from 'prosemirror-model';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
@@ -16,6 +18,11 @@ export interface HtmlLanguageOptions {
   /** Called with fresh diagnostics after every document change. */
   onDiagnostics?: (diagnostics: HtmlDiagnostic[]) => void;
 }
+
+/** Interpolation classes — Angular-template style: the `{{` `}}` muted like
+    any delimiter, the expression between them set apart from prose. */
+const BRACE_CLASS = 'aee-tok-brace';
+const EXPRESSION_CLASS = 'aee-tok-expression';
 
 const TOKEN_CLASSES: Record<HtmlTokenType, string> = {
   delimiter: 'aee-tok-delimiter',
@@ -79,6 +86,22 @@ function buildDecorations(doc: Node, options: HtmlLanguageOptions): DecorationSe
     const to = toPm(token.to);
     if (to > from)
       decorations.push(Decoration.inline(from, to, { class: TOKEN_CLASSES[token.type] }));
+  }
+  // `{{ … }}` in running text: the braces muted, the expression set apart.
+  for (const [regionFrom, regionTo] of textRegions(source, scan)) {
+    for (const tag of scanMergeTags(source.slice(regionFrom, regionTo), { multiline: true })) {
+      const [exprFrom, exprTo] = tag.expr;
+      const spans: [number, number, string][] = [
+        [tag.from, tag.from + 2, BRACE_CLASS],
+        [exprFrom, exprTo, EXPRESSION_CLASS],
+        [tag.to - 2, tag.to, BRACE_CLASS],
+      ];
+      for (const [from, to, className] of spans) {
+        const pmFrom = toPm(regionFrom + from);
+        const pmTo = toPm(regionFrom + to);
+        if (pmTo > pmFrom) decorations.push(Decoration.inline(pmFrom, pmTo, { class: className }));
+      }
+    }
   }
   for (const diagnostic of diagnostics) {
     const from = toPm(diagnostic.from);
@@ -183,7 +206,7 @@ function handleCodePaste(state: EditorState, text: string | undefined): Slice | 
 /**
  * The HTML language service of the source editor kit: syntax-highlight and
  * lint decorations over the document treated as HTML source text, a
- * `formatDocument` command (Shift-Alt-F, VS Code style), tag auto-closing
+ * `formatDocument` command (Shift-Alt-F and Mod-S, VS Code style), tag auto-closing
  * while typing, format-on-blur when the markup is error-free, and line-aware
  * pasting. Diagnostics render as wavy underlines with the message as tooltip.
  *
@@ -196,7 +219,17 @@ export const createHtmlLanguage = (options: HtmlLanguageOptions = {}): Functiona
   return defineExtension({
     name: 'htmlLanguage',
     commands: () => ({ formatDocument: () => formatDocument }),
-    keymap: () => ({ 'Shift-Alt-f': formatDocument }),
+    // Both bindings live on the editor's own keymap: they fire only while the
+    // source editor has focus, never from a window listener. Mod-S always
+    // reports handled so the browser's save dialog stays shut even when
+    // formatting refuses (errors in the markup) — VS Code's format-on-save.
+    keymap: () => ({
+      'Shift-Alt-f': formatDocument,
+      'Mod-s': (state, dispatch, view) => {
+        formatDocument(state, dispatch, view);
+        return true;
+      },
+    }),
     plugins: () => [
       new Plugin<DecorationSet>({
         key,
