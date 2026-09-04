@@ -1,3 +1,168 @@
+<!-- Link editor: anchored at the selection via a fixed virtual origin. The
+     input needs real focus, so no mousedown suppression here — the editor
+     blurs while editing and is refocused on close. -->
+<span cdkOverlayOrigin #linkOrigin="cdkOverlayOrigin" [style.position]="'fixed'"
+  [style.left.px]="linkAnchor()?.left || 0" [style.top.px]="linkAnchor()?.top || 0" [style.width.px]="0"
+  [style.height.px]="linkAnchor()?.height || 0" [style.pointer-events]="'none'">
+</span>
+
+<ng-template cdkConnectedOverlay [cdkConnectedOverlayOrigin]="linkOrigin" [cdkConnectedOverlayOpen]="linkMenuOpen()"
+  [cdkConnectedOverlayPositions]="overlayPositions" [cdkConnectedOverlayHasBackdrop]="true"
+  cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop" (backdropClick)="closeLinkEditor()"
+  [cdkConnectedOverlayPush]="true" [cdkConnectedOverlayViewportMargin]="8">
+  <div class="link-editor" role="dialog" aria-label="Edit link">
+    <input #linkInput class="link-editor__input" type="url" placeholder="Link URL" spellcheck="false"
+      [value]="linkHref()" (input)="linkHref.set($any($event.target).value)" (keydown.enter)="applyLink()"
+      (keydown.escape)="closeLinkEditor()" />
+    <button mat-icon-button type="button" aria-label="Apply link" (click)="applyLink()">
+      <mat-icon>check</mat-icon>
+    </button>
+    @if (linkExisting()) {
+    <button mat-icon-button type="button" aria-label="Open link" (click)="visitLink()">
+      <mat-icon>open_in_new</mat-icon>
+    </button>
+    <button mat-icon-button type="button" aria-label="Remove link" (click)="removeLink()">
+      <mat-icon>link_off</mat-icon>
+    </button>
+    }
+  </div>
+</ng-template>
+
+<div class="editor scroll-container" #editorHost [hidden]="codeView()">
+  <!-- Block menu: anchored to the layout block itself, not the caret. Opens only
+       on a bare cursor, so it never stacks with the bubble menu below. -->
+  <span cdkOverlayOrigin #blockOrigin="cdkOverlayOrigin" [style.position]="'fixed'"
+    [style.left.px]="blockMenuState().boundingBox?.left || 0" [style.top.px]="blockMenuState().boundingBox?.top || 0"
+    [style.width.px]="blockMenuState().boundingBox?.width || 0"
+    [style.height.px]="blockMenuState().boundingBox?.height || 0" [style.pointer-events]="'none'">
+  </span>
+
+  <!-- disableClose: the CDK otherwise detaches the overlay itself on Escape,
+       which strands it — `isOpen` stays true, so the binding never toggles and
+       the overlay never re-attaches. Escape is ours: it returns focus to the
+       text and leaves the menu open, because the cursor is still in the block. -->
+  <ng-template cdkConnectedOverlay [cdkConnectedOverlayOrigin]="blockOrigin"
+    [cdkConnectedOverlayOpen]="blockMenuState().isOpen && blockMenuState().block === 'columns'"
+    [cdkConnectedOverlayPositions]="blockMenuPositions" [cdkConnectedOverlayHasBackdrop]="false"
+    [cdkConnectedOverlayDisableClose]="true" [cdkConnectedOverlayPush]="true" [cdkConnectedOverlayViewportMargin]="8">
+    <!-- Alt-F10 moves focus in here; Escape hands it back to the text. -->
+    <div class="bubble-menu" #blockMenu role="toolbar" aria-label="Columns" (mousedown)="$event.preventDefault()"
+      (keydown.escape)="focusEditor()">
+      <!-- No table section: every table operation lives on the table itself
+           now. Adding rows/columns = the + pills (Tab past the last cell also
+           appends a row); deleting a table, row or column = select the whole
+           unit, press Delete; widths = the boundary and edge drags; fill =
+           the toolbar palette. The menu remains only for the columns block,
+           which has not (yet) grown the same affordances. -->
+      @if (blockMenuState().block === 'columns') {
+      <button mat-icon-button type="button" aria-label="Add column" (click)="runBlock('addColumn')">
+        <mat-icon>add</mat-icon>
+      </button>
+      <button mat-icon-button type="button" aria-label="Remove column" (click)="runBlock('removeColumn')">
+        <mat-icon>remove</mat-icon>
+      </button>
+
+      <mat-divider [vertical]="true" />
+
+      <button mat-icon-button type="button" aria-label="Delete columns" (click)="runBlock('deleteColumns')">
+        <mat-icon>delete_outline</mat-icon>
+      </button>
+      }
+    </div>
+  </ng-template>
+
+  <span cdkOverlayOrigin #origin="cdkOverlayOrigin" [style.position]="'fixed'"
+    [style.left.px]="menuState().boundingBox?.left || 0" [style.top.px]="menuState().boundingBox?.top || 0"
+    [style.width.px]="menuState().boundingBox?.width || 0" [style.height.px]="menuState().boundingBox?.height || 0"
+    [style.pointer-events]="'none'">
+  </span>
+
+  <ng-template cdkConnectedOverlay [cdkConnectedOverlayOrigin]="origin" [cdkConnectedOverlayOpen]="menuState().isOpen"
+    [cdkConnectedOverlayPositions]="overlayPositions" [cdkConnectedOverlayHasBackdrop]="false"
+    [cdkConnectedOverlayPush]="true" [cdkConnectedOverlayViewportMargin]="8">
+    <div class="bubble-menu" #bubbleMenu role="toolbar" aria-label="Selection formatting"
+      (mousedown)="$event.preventDefault()">
+      <button mat-icon-button type="button" aria-label="Bold" [class.is-active]="isActive('bold')"
+        [attr.aria-pressed]="isActive('bold')" (click)="run('toggleBold')">
+        <mat-icon>format_bold</mat-icon>
+      </button>
+
+      <button mat-icon-button type="button" aria-label="Italic" [class.is-active]="isActive('italic')"
+        [attr.aria-pressed]="isActive('italic')" (click)="run('toggleItalic')">
+        <mat-icon>format_italic</mat-icon>
+      </button>
+
+      <button mat-icon-button type="button" aria-label="Underline" [class.is-active]="isActive('underline')"
+        [attr.aria-pressed]="isActive('underline')" (click)="run('toggleUnderline')">
+        <mat-icon>format_underlined</mat-icon>
+      </button>
+
+      <button mat-icon-button type="button" aria-label="Strikethrough" [class.is-active]="isActive('strike')"
+        [attr.aria-pressed]="isActive('strike')" (click)="run('toggleStrike')">
+        <mat-icon>format_strikethrough</mat-icon>
+      </button>
+
+      <mat-divider [vertical]="true" />
+
+      <button mat-icon-button type="button" aria-label="Link" [class.is-active]="isActive('link')"
+        [attr.aria-pressed]="isActive('link')" (click)="openLinkEditor()">
+        <mat-icon>link</mat-icon>
+      </button>
+
+      <button mat-icon-button type="button" aria-label="Quote" [class.is-active]="isActive('blockquote')"
+        [attr.aria-pressed]="isActive('blockquote')" (click)="toggleBlockquote()">
+        <mat-icon>format_quote</mat-icon>
+      </button>
+    </div>
+  </ng-template>
+
+  <!-- {{ autocomplete: the slash menu's sibling for personalization tokens.
+       Items stream in pages from the host's source; scrolling near the end
+       (or ArrowDown on the last row) fetches the next page. -->
+  <div class="slash-menu merge-tag-menu" #mergeTagMenu role="listbox" aria-label="Personalization tokens"
+    (scroll)="onMergeMenuScroll()">
+    @if (mergeMenuState(); as tags) {
+    @for (item of tags.items; track item.path; let i = $index) {
+    <button type="button" role="option" class="slash-item" [class.is-active]="i === tags.activeIndex"
+      [attr.aria-selected]="i === tags.activeIndex" (click)="tags.select(item)">
+      {{ item.label || item.path }}
+      <span class="merge-menu__path">{{ '{{' + item.path + '}}' }}</span>
+    </button>
+    }
+    @if (tags.loading || tags.loadingMore) {
+    <div class="merge-menu__status" role="status">
+      {{ tags.loading ? 'Searching…' : 'Loading more…' }}
+    </div>
+    }
+    }
+  </div>
+
+  <div class="slash-menu" #slashMenu role="listbox" aria-label="Insert block">
+    @if (slashState(); as slash) {
+    @for (item of slash.items; track item.title; let i = $index) {
+    <button type="button" role="option" class="slash-item" [class.is-active]="i === slash.activeIndex"
+      [attr.aria-selected]="i === slash.activeIndex" (click)="slash.select(item)">
+      @if (item.icon) {
+      <mat-icon>{{ item.icon }}</mat-icon>
+      }
+      {{ item.title }}
+    </button>
+    }
+    }
+  </div>
+</div>
+
+<!-- Code view: the composer's HTML source pane lands here, moved in as a
+     DOM portal (never re-created — its editor, undo history and lint carry
+     over) and moved back out when the view switches. -->
+<div class="code" [hidden]="!codeView()">
+  <ng-template [cdkPortalOutlet]="codePortal()" />
+</div>
+
+<!-- The formatting toolbar sits *below* the editing surface: on a phone the
+     shell's height follows the virtual keyboard (see app.scss), so the bar
+     rides up and stays reachable right above the keys. Last in DOM as on
+     screen. -->
 <div class="toolbar" role="toolbar" aria-label="Text formatting">
   <button mat-icon-button type="button" aria-label="Undo" [disabled]="!canUndo()" (mousedown)="$event.preventDefault()"
     (click)="run('undo')">
@@ -129,19 +294,19 @@
     [attr.aria-pressed]="isActive('link')" (mousedown)="$event.preventDefault()" (click)="openLinkEditor()">
     <mat-icon>link</mat-icon>
   </button>
-  <button mat-icon-button type="button" aria-label="Quote" [class.is-active]="isActive('blockquote')"
+  <button mat-icon-button type="button" [disabled]="codeView()" aria-label="Quote" [class.is-active]="isActive('blockquote')"
     [attr.aria-pressed]="isActive('blockquote')" (mousedown)="$event.preventDefault()" (click)="toggleBlockquote()">
     <mat-icon>format_quote</mat-icon>
   </button>
 
   <mat-divider [vertical]="true" />
 
-  <button mat-icon-button type="button" aria-label="Bulleted list" [class.is-active]="isActive('bulletList')"
+  <button mat-icon-button type="button" [disabled]="codeView()" aria-label="Bulleted list" [class.is-active]="isActive('bulletList')"
     [attr.aria-pressed]="isActive('bulletList')" (mousedown)="$event.preventDefault()"
     (click)="run('toggleBulletList')">
     <mat-icon>format_list_bulleted</mat-icon>
   </button>
-  <button mat-icon-button type="button" aria-label="Numbered list" [class.is-active]="isActive('orderedList')"
+  <button mat-icon-button type="button" [disabled]="codeView()" aria-label="Numbered list" [class.is-active]="isActive('orderedList')"
     [attr.aria-pressed]="isActive('orderedList')" (mousedown)="$event.preventDefault()"
     (click)="run('toggleOrderedList')">
     <mat-icon>format_list_numbered</mat-icon>
@@ -149,7 +314,7 @@
 
   <mat-divider [vertical]="true" />
 
-  <button mat-icon-button type="button" aria-label="Insert table" [attr.aria-expanded]="tableMenuOpen()"
+  <button mat-icon-button type="button" [disabled]="codeView()" aria-label="Insert table" [attr.aria-expanded]="tableMenuOpen()"
     cdkOverlayOrigin #tableOrigin="cdkOverlayOrigin" (mousedown)="$event.preventDefault()" (click)="toggleTableMenu()">
     <mat-icon>table_chart</mat-icon>
   </button>
@@ -188,19 +353,19 @@
 
   <mat-divider [vertical]="true" />
 
-  <button mat-icon-button type="button" aria-label="Align left"
+  <button mat-icon-button type="button" [disabled]="codeView()" aria-label="Align left"
     [class.is-active]="isActive('paragraph', { align: null })"
     [attr.aria-pressed]="isActive('paragraph', { align: null })" (mousedown)="$event.preventDefault()"
     (click)="align(null)">
     <mat-icon>format_align_left</mat-icon>
   </button>
-  <button mat-icon-button type="button" aria-label="Align center"
+  <button mat-icon-button type="button" [disabled]="codeView()" aria-label="Align center"
     [class.is-active]="isActive('paragraph', { align: 'center' })"
     [attr.aria-pressed]="isActive('paragraph', { align: 'center' })" (mousedown)="$event.preventDefault()"
     (click)="align('center')">
     <mat-icon>format_align_center</mat-icon>
   </button>
-  <button mat-icon-button type="button" aria-label="Align right"
+  <button mat-icon-button type="button" [disabled]="codeView()" aria-label="Align right"
     [class.is-active]="isActive('paragraph', { align: 'right' })"
     [attr.aria-pressed]="isActive('paragraph', { align: 'right' })" (mousedown)="$event.preventDefault()"
     (click)="align('right')">
@@ -209,171 +374,42 @@
 
   <mat-divider [vertical]="true" />
 
-  <button mat-icon-button type="button" aria-label="Clear formatting" (mousedown)="$event.preventDefault()"
+  <button mat-icon-button type="button" [disabled]="codeView()" aria-label="Clear formatting" (mousedown)="$event.preventDefault()"
     (click)="run('clearFormatting')">
     <mat-icon>format_clear</mat-icon>
   </button>
 
   <mat-divider [vertical]="true" />
 
-  <!-- Emits the send intent (canonical HTML + text projection); the host owns
-       what happens next. Also reachable via /send and Mod-Enter. -->
-  <button mat-icon-button type="button" aria-label="Send" title="Send (Ctrl+Enter)"
-    (mousedown)="$event.preventDefault()" (click)="run('requestSend')">
-    <mat-icon>send</mat-icon>
+  <!-- The HTML source, two ways. Code view (Summernote's </>) swaps the
+       editing surface for the source the composer hands in through the
+       portal; marks and history keep working — the source kit mirrors
+       every mark command, so the buttons above route to whichever editor is
+       showing, and only block commands (lists, quote, table, alignment,
+       clear formatting) lock, having no source-side twin. Detach puts the
+       source beside the editor instead, in its own column on the right; the
+       editor stays the toolbar's target then. Each button toggles its own state; pressing
+       one while the other is on switches. -->
+  <button mat-icon-button type="button" aria-label="HTML source" title="Edit the HTML source"
+    [class.is-active]="codeView()" [attr.aria-pressed]="codeView()" (mousedown)="$event.preventDefault()"
+    (click)="toggleSourceView('code')">
+    <mat-icon>code</mat-icon>
   </button>
-</div>
+  <!-- The dock-out options exist only where a second pane fits beside the
+       editor (the composer's `dockable` — a viewport breakpoint). -->
+  @if (dockable()) {
+  <button mat-icon-button type="button" aria-label="Detach HTML source" title="Show the HTML source beside the editor"
+    [class.is-active]="sourceView() === 'detached'" [attr.aria-pressed]="sourceView() === 'detached'"
+    (mousedown)="$event.preventDefault()" (click)="toggleSourceView('detached')">
+    <mat-icon>dock_to_right</mat-icon>
+  </button>
+  <!-- The preview is a detachable pane as well — but only ever to the left,
+       so one plain toggle. Hidden by default, like the source. -->
+  <button mat-icon-button type="button" aria-label="Preview" title="Show the preview beside the editor"
+    [class.is-active]="preview()" [attr.aria-pressed]="preview()" (mousedown)="$event.preventDefault()"
+    (click)="preview.set(!preview())">
+    <mat-icon>dock_to_left</mat-icon>
+  </button>
+  }
 
-<!-- Link editor: anchored at the selection via a fixed virtual origin. The
-     input needs real focus, so no mousedown suppression here — the editor
-     blurs while editing and is refocused on close. -->
-<span cdkOverlayOrigin #linkOrigin="cdkOverlayOrigin" [style.position]="'fixed'"
-  [style.left.px]="linkAnchor()?.left || 0" [style.top.px]="linkAnchor()?.top || 0" [style.width.px]="0"
-  [style.height.px]="linkAnchor()?.height || 0" [style.pointer-events]="'none'">
-</span>
-
-<ng-template cdkConnectedOverlay [cdkConnectedOverlayOrigin]="linkOrigin" [cdkConnectedOverlayOpen]="linkMenuOpen()"
-  [cdkConnectedOverlayPositions]="overlayPositions" [cdkConnectedOverlayHasBackdrop]="true"
-  cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop" (backdropClick)="closeLinkEditor()"
-  [cdkConnectedOverlayPush]="true" [cdkConnectedOverlayViewportMargin]="8">
-  <div class="link-editor" role="dialog" aria-label="Edit link">
-    <input #linkInput class="link-editor__input" type="url" placeholder="Link URL" spellcheck="false"
-      [value]="linkHref()" (input)="linkHref.set($any($event.target).value)" (keydown.enter)="applyLink()"
-      (keydown.escape)="closeLinkEditor()" />
-    <button mat-icon-button type="button" aria-label="Apply link" (click)="applyLink()">
-      <mat-icon>check</mat-icon>
-    </button>
-    @if (linkExisting()) {
-    <button mat-icon-button type="button" aria-label="Open link" (click)="visitLink()">
-      <mat-icon>open_in_new</mat-icon>
-    </button>
-    <button mat-icon-button type="button" aria-label="Remove link" (click)="removeLink()">
-      <mat-icon>link_off</mat-icon>
-    </button>
-    }
-  </div>
-</ng-template>
-
-<div class="editor scroll-container" #editorHost>
-  <!-- Block menu: anchored to the layout block itself, not the caret. Opens only
-       on a bare cursor, so it never stacks with the bubble menu below. -->
-  <span cdkOverlayOrigin #blockOrigin="cdkOverlayOrigin" [style.position]="'fixed'"
-    [style.left.px]="blockMenuState().boundingBox?.left || 0" [style.top.px]="blockMenuState().boundingBox?.top || 0"
-    [style.width.px]="blockMenuState().boundingBox?.width || 0"
-    [style.height.px]="blockMenuState().boundingBox?.height || 0" [style.pointer-events]="'none'">
-  </span>
-
-  <!-- disableClose: the CDK otherwise detaches the overlay itself on Escape,
-       which strands it — `isOpen` stays true, so the binding never toggles and
-       the overlay never re-attaches. Escape is ours: it returns focus to the
-       text and leaves the menu open, because the cursor is still in the block. -->
-  <ng-template cdkConnectedOverlay [cdkConnectedOverlayOrigin]="blockOrigin"
-    [cdkConnectedOverlayOpen]="blockMenuState().isOpen && blockMenuState().block === 'columns'"
-    [cdkConnectedOverlayPositions]="blockMenuPositions" [cdkConnectedOverlayHasBackdrop]="false"
-    [cdkConnectedOverlayDisableClose]="true" [cdkConnectedOverlayPush]="true" [cdkConnectedOverlayViewportMargin]="8">
-    <!-- Alt-F10 moves focus in here; Escape hands it back to the text. -->
-    <div class="bubble-menu" #blockMenu role="toolbar" aria-label="Columns" (mousedown)="$event.preventDefault()"
-      (keydown.escape)="focusEditor()">
-      <!-- No table section: every table operation lives on the table itself
-           now. Adding rows/columns = the + pills (Tab past the last cell also
-           appends a row); deleting a table, row or column = select the whole
-           unit, press Delete; widths = the boundary and edge drags; fill =
-           the toolbar palette. The menu remains only for the columns block,
-           which has not (yet) grown the same affordances. -->
-      @if (blockMenuState().block === 'columns') {
-      <button mat-icon-button type="button" aria-label="Add column" (click)="runBlock('addColumn')">
-        <mat-icon>add</mat-icon>
-      </button>
-      <button mat-icon-button type="button" aria-label="Remove column" (click)="runBlock('removeColumn')">
-        <mat-icon>remove</mat-icon>
-      </button>
-
-      <mat-divider [vertical]="true" />
-
-      <button mat-icon-button type="button" aria-label="Delete columns" (click)="runBlock('deleteColumns')">
-        <mat-icon>delete_outline</mat-icon>
-      </button>
-      }
-    </div>
-  </ng-template>
-
-  <span cdkOverlayOrigin #origin="cdkOverlayOrigin" [style.position]="'fixed'"
-    [style.left.px]="menuState().boundingBox?.left || 0" [style.top.px]="menuState().boundingBox?.top || 0"
-    [style.width.px]="menuState().boundingBox?.width || 0" [style.height.px]="menuState().boundingBox?.height || 0"
-    [style.pointer-events]="'none'">
-  </span>
-
-  <ng-template cdkConnectedOverlay [cdkConnectedOverlayOrigin]="origin" [cdkConnectedOverlayOpen]="menuState().isOpen"
-    [cdkConnectedOverlayPositions]="overlayPositions" [cdkConnectedOverlayHasBackdrop]="false"
-    [cdkConnectedOverlayPush]="true" [cdkConnectedOverlayViewportMargin]="8">
-    <div class="bubble-menu" #bubbleMenu role="toolbar" aria-label="Selection formatting"
-      (mousedown)="$event.preventDefault()">
-      <button mat-icon-button type="button" aria-label="Bold" [class.is-active]="isActive('bold')"
-        [attr.aria-pressed]="isActive('bold')" (click)="run('toggleBold')">
-        <mat-icon>format_bold</mat-icon>
-      </button>
-
-      <button mat-icon-button type="button" aria-label="Italic" [class.is-active]="isActive('italic')"
-        [attr.aria-pressed]="isActive('italic')" (click)="run('toggleItalic')">
-        <mat-icon>format_italic</mat-icon>
-      </button>
-
-      <button mat-icon-button type="button" aria-label="Underline" [class.is-active]="isActive('underline')"
-        [attr.aria-pressed]="isActive('underline')" (click)="run('toggleUnderline')">
-        <mat-icon>format_underlined</mat-icon>
-      </button>
-
-      <button mat-icon-button type="button" aria-label="Strikethrough" [class.is-active]="isActive('strike')"
-        [attr.aria-pressed]="isActive('strike')" (click)="run('toggleStrike')">
-        <mat-icon>format_strikethrough</mat-icon>
-      </button>
-
-      <mat-divider [vertical]="true" />
-
-      <button mat-icon-button type="button" aria-label="Link" [class.is-active]="isActive('link')"
-        [attr.aria-pressed]="isActive('link')" (click)="openLinkEditor()">
-        <mat-icon>link</mat-icon>
-      </button>
-
-      <button mat-icon-button type="button" aria-label="Quote" [class.is-active]="isActive('blockquote')"
-        [attr.aria-pressed]="isActive('blockquote')" (click)="toggleBlockquote()">
-        <mat-icon>format_quote</mat-icon>
-      </button>
-    </div>
-  </ng-template>
-
-  <!-- {{ autocomplete: the slash menu's sibling for personalization tokens.
-       Items stream in pages from the host's source; scrolling near the end
-       (or ArrowDown on the last row) fetches the next page. -->
-  <div class="slash-menu merge-tag-menu" #mergeTagMenu role="listbox" aria-label="Personalization tokens"
-    (scroll)="onMergeMenuScroll()">
-    @if (mergeMenuState(); as tags) {
-    @for (item of tags.items; track item.path; let i = $index) {
-    <button type="button" role="option" class="slash-item" [class.is-active]="i === tags.activeIndex"
-      [attr.aria-selected]="i === tags.activeIndex" (click)="tags.select(item)">
-      {{ item.label || item.path }}
-      <span class="merge-menu__path">{{ '{{' + item.path + '}}' }}</span>
-    </button>
-    }
-    @if (tags.loading || tags.loadingMore) {
-    <div class="merge-menu__status" role="status">
-      {{ tags.loading ? 'Searching…' : 'Loading more…' }}
-    </div>
-    }
-    }
-  </div>
-
-  <div class="slash-menu" #slashMenu role="listbox" aria-label="Insert block">
-    @if (slashState(); as slash) {
-    @for (item of slash.items; track item.title; let i = $index) {
-    <button type="button" role="option" class="slash-item" [class.is-active]="i === slash.activeIndex"
-      [attr.aria-selected]="i === slash.activeIndex" (click)="slash.select(item)">
-      @if (item.icon) {
-      <mat-icon>{{ item.icon }}</mat-icon>
-      }
-      {{ item.title }}
-    </button>
-    }
-    }
-  </div>
 </div>

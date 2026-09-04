@@ -1,0 +1,92 @@
+<header class="doc-header">
+  <h1 class="doc-title">Styling</h1>
+  <p class="doc-lede">
+    Every visual aspect resolves through a three-step chain, at point of use:
+    <code>--email-*</code> &rarr; <code>--mat-sys-*</code> &rarr; a hardcoded fallback. Set any
+    token on <code>:root</code>, on a container, or on the element itself &mdash; with a Material M3
+    theme present (like this example app) the middle step already carries light and dark, so most
+    hosts set nothing at all. The exports behind these surfaces are on the
+    <a routerLink="/api">API</a> page.
+  </p>
+</header>
+
+<section class="doc-card" aria-label="How theming works">
+  <h2 class="doc-card-title">Where the styles live</h2>
+  <p class="doc-card-hint">
+    ProseMirror creates the editable DOM at runtime, outside Angular&rsquo;s emulated view
+    encapsulation &mdash; so the editor surface is styled <em>globally</em>, and every rule scopes
+    to <code>.aee-editor</code>, the identity class the library stamps on its own editable roots.
+    Never style bare <code>.ProseMirror</code>: a ProseMirror instance the host runs for anything
+    else has to be left alone. The composer&rsquo;s own chrome (menus, pickers, preview) is
+    component-scoped as usual.
+  </p>
+  <pre class="doc-snippet"><code>{{ example }}</code></pre>
+</section>
+
+@for (group of groups; track group.title) {
+  <section class="doc-card" [attr.aria-label]="group.title">
+    <h2 class="doc-card-title">{{ group.title }}</h2>
+    <p class="doc-card-hint">{{ group.hint }}</p>
+    <div class="doc-table-scroll">
+      <table class="doc-table doc-table--signatures">
+        <thead>
+          <tr>
+            <th>Token</th>
+            <th>M3 system fallback</th>
+            <th>Final fallback</th>
+            <th>Alters</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (token of group.tokens; track token.name) {
+            <tr>
+              <td>
+                <code>{{ token.name }}</code>
+              </td>
+              <td>
+                @if (token.system) {
+                  <code>{{ token.system }}</code>
+                } @else {
+                  &mdash;
+                }
+              </td>
+              <td>
+                <code>{{ token.fallback }}</code>
+              </td>
+              <td>{{ token.alters }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+}
+
+<section class="doc-card" aria-label="Class hooks">
+  <h2 class="doc-card-title">Class hooks</h2>
+  <p class="doc-card-hint">
+    Below the tokens: the classes the library puts on its own runtime DOM. Reach for these when a
+    token does not exist for what you want to change &mdash; and tell us, because a missing token is
+    usually the real bug.
+  </p>
+  <div class="doc-table-scroll">
+    <table class="doc-table doc-table--signatures">
+      <thead>
+        <tr>
+          <th>Class</th>
+          <th>Applies to</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (hook of hooks; track hook.name) {
+          <tr>
+            <td>
+              <code>{{ hook.name }}</code>
+            </td>
+            <td>{{ hook.applies }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>

@@ -20,10 +20,14 @@ const FORCED_INVERSION = `
   img { filter: invert(1) hue-rotate(180deg); }
 `;
 
+/** The preview is phone-width, full stop: per the responsiveness ledger, an
+    email that reads at 320px is free at any desktop width — so a wider
+    preview never shows anything a narrower one did not already prove. */
+const PHONE_WIDTH = 320;
+
 /**
  * The third projection of the canonical `html` signal: a strictly read-only,
- * sandboxed rendering of what the recipient sees. Phone-width (320px) first,
- * per the responsiveness ledger — if it reads narrow, desktop is free.
+ * sandboxed rendering of what the recipient sees, at phone width.
  */
 @Component({
   selector: 'section[email-preview]',
@@ -38,7 +42,7 @@ export class EmailPreview {
 
   view = signal<'html' | 'text'>('html');
   mode = signal<'light' | 'dark'>('light');
-  width = signal<320 | 600>(320);
+  protected readonly PHONE_WIDTH = PHONE_WIDTH;
 
   /** The composer's registry: `cid:` sources become data URLs for the frame
       (an opaque-origin sandbox cannot load the editor's blob URLs). */

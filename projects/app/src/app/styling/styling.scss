@@ -1,0 +1,51 @@
+// Same reference column as the API page: the page owns its inset, because the
+// shell's <main> ships none (the composer's chrome must reach the aside).
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  inline-size: 100%;
+  max-inline-size: 72rem;
+  margin-inline: auto;
+  padding: 1.5rem 1rem 3rem;
+  box-sizing: border-box;
+}
+
+.doc-header {
+  flex: 0 0 auto;
+}
+
+.doc-title {
+  margin: 0 0 0.25rem;
+  font: var(--mat-sys-headline-small);
+  color: var(--mat-sys-on-surface);
+}
+
+.doc-lede {
+  margin: 0;
+  max-inline-size: 60ch;
+  font: var(--mat-sys-body-medium);
+  color: var(--mat-sys-on-surface-variant);
+
+  code {
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 0.8125rem;
+  }
+
+  a {
+    color: var(--mat-sys-primary);
+  }
+}
+
+// The one worked example. Scrolls on its own rather than widening the card.
+.doc-snippet {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+  border-radius: var(--mat-sys-corner-small, 6px);
+  background: var(--mat-sys-surface-container);
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--mat-sys-on-surface);
+}

@@ -1,0 +1,66 @@
+// The writer is one sheet: the editorial area's surface is the writer's
+// background — bar, editor and formatting toolbar sit on the same paper, so
+// neither toolbar needs a strip of its own. A column: the bar on top, the
+// projected editor filling the rest (the host gives the editor flex: 1 —
+// projected content is the host's to style).
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  padding: 8px;
+  box-sizing: border-box;
+
+  background-color: var(--mat-sys-surface-bright);
+  border-radius: var(--mat-sys-corner-medium);
+  // Lifted just off the page — the lowest system elevation, so it reads as
+  // a sheet on a desk rather than a panel.
+  box-shadow: var(--mat-sys-level1);
+}
+
+// No chrome of its own: only the Send button is.
+.writer-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.writer-bar__spacer {
+  flex: 1 1 auto;
+}
+
+// The envelope rows stack flush; each address field draws its own hairline
+// (address-input.scss) and the Subject row matches it here.
+.writer-envelope {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.writer-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding-inline: 8px;
+  border-block-end: 1px solid var(--mat-sys-outline-variant);
+  cursor: text;
+}
+
+.writer-field__label {
+  flex: none;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+}
+
+.writer-field__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  outline: none;
+  padding: 4px 0;
+  background: none;
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
+}

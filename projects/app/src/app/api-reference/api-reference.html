@@ -1,0 +1,40 @@
+<header class="doc-header">
+  <h1 class="doc-title">API</h1>
+  <p class="doc-lede">
+    Everything <code>angular-email-editor</code> exports, grouped the way a host meets it. The core
+    is framework-free ProseMirror; the only Angular pieces are the
+    <code>InlineImages</code> registry and the panes this example app builds around the editor.
+    Colours, spacing and class hooks live on the <a routerLink="/styling">Styling</a> page.
+  </p>
+</header>
+
+@for (group of groups; track group.title) {
+  <section class="doc-card" [attr.aria-label]="group.title">
+    <h2 class="doc-card-title">{{ group.title }}</h2>
+    <p class="doc-card-hint">{{ group.hint }}</p>
+    <div class="doc-table-scroll">
+      <table class="doc-table doc-table--signatures">
+        <thead>
+          <tr>
+            <th>Export</th>
+            <th>Signature</th>
+            <th>What it does</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (entry of group.entries; track entry.name) {
+            <tr>
+              <td>
+                <code>{{ entry.name }}</code>
+              </td>
+              <td>
+                <code>{{ entry.signature }}</code>
+              </td>
+              <td>{{ entry.does }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+}

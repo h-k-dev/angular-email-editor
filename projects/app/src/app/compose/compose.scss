@@ -1,22 +1,90 @@
 :host {
   display: grid;
-  // Editor, source, and the phone-width-first preview (ledger: 320px first).
-  // The editor column is content-sized: the text column inside it is the
-  // email's 600px box (`.aee-editor` in styles.scss) and never squeezes —
-  // the source pane takes what is left.
-  grid-template-columns: auto 1fr auto;
+  // The writer's natural width: the email's 600px text column plus the
+  // editing surface's inline inset (`.editor` in email-compose.scss), the
+  // scrollbar gutter that surface reserves (`.scroll-container` in
+  // styles.scss) and the writer's own padding (email-writer.scss). Declared,
+  // not measured: the text column is fluid (`.aee-editor` is width: 100% up
+  // to 600px), so an auto track would size the column to whatever happens to
+  // be typed.
+  --compose-writer-width: calc(
+    600px + 2 * max(var(--mat-sys-inner-spacing, 16px), 28px) + var(--mat-sys-scrollbar-size, 6) *
+      1px + 2 * 8px
+  );
+
+  // The writer is always centred on the screen: a middle column that takes
+  // its natural width where there is room and shrinks with the screen where
+  // there is not (the email is designed for 600px *and below*), between two
+  // equal flanks. The phone-width-first preview (ledger: 320px first) docks
+  // into the left flank, hugging the writer; the HTML source into the right
+  // one; an empty flank still holds its width, so nothing moves when a pane
+  // shows or hides. minmax(0, …) on the flanks: a flank never grows for its
+  // content — that would shift the centre — the content overflows it instead.
+  grid-template-columns: minmax(0, 1fr) minmax(0, var(--compose-writer-width)) minmax(0, 1fr);
   grid-template-rows: 1fr auto;
   gap: var(--mat-sys-inner-spacing);
 
   height: 100%;
   box-sizing: border-box;
   padding: var(--mat-sys-inner-spacing);
-  background-color: var(--mat-sys-surface-bright);
+  // No background of its own: the page shows the shell's surface through.
+  // The lifted surface-bright is the editorial area's alone (`.editor` in
+  // email-compose.scss) — the paper, not the desk.
 }
 
 section {
   min-width: 0;
   min-height: 0;
+}
+
+// Explicit columns: a hidden pane is display:none, and auto-placement would
+// otherwise slide the composer into the empty flank. Row 1 is the panes,
+// row 2 the status strip (grid-column: 1 / -1 below).
+section[email-preview] {
+  grid-column: 1;
+}
+
+// Below the docking breakpoint nothing can dock, so the flanks go: one
+// column, and the writer takes the whole width — on a phone the two empty
+// flanks would otherwise still cost their gaps (32px of a 375px screen).
+:host(.compose--narrow) {
+  grid-template-columns: minmax(0, 1fr);
+
+  section[email-writer] {
+    grid-column: 1;
+  }
+}
+
+section[email-writer] {
+  grid-column: 2;
+}
+
+// Projected into the writer's column: the editor takes what the top bar
+// leaves (the writer cannot style projected content itself).
+section[email-compose] {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+section[html-email-compose] {
+  grid-column: 3;
+}
+
+// The source fills its flank; the preview hugs the composer instead of
+// centring in its own. Both panes are hidden by default, and hidden means
+// gone from the grid: each pane's own :host display rule would otherwise
+// outrank the UA [hidden] rule and leave it occupying its column, invisible
+// only in name.
+section[email-preview] {
+  justify-self: end;
+}
+
+section[email-preview][hidden] {
+  display: none;
+}
+
+section[html-email-compose][hidden] {
+  display: none;
 }
 
 // The editor pane while an .eml file hovers over it.

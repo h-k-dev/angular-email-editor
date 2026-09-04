@@ -23,6 +23,18 @@ body {
   font: var(--mat-sys-body-medium);
 }
 
+/* The shell is the <body> (index.html), and it carries the theme class: every
+ * --mat-sys-* value is a light-dark() pair, so flipping color-scheme here
+ * re-resolves the whole theme — nothing else has to know. The App component
+ * seeds the class from the OS preference and the toolbar toggle takes over. */
+body {
+  color-scheme: light;
+}
+
+body.dark-mode {
+  color-scheme: dark;
+}
+
 /* Compact icons app-wide. On `html` (not a component) on purpose: the
  * toolbar's icon buttons live outside the editor surface, and the picker
  * menus render in the CDK overlay container on <body> — a narrower scope
@@ -70,14 +82,15 @@ html {
   display: block;
   height: 100%;
   box-sizing: border-box;
-  // The text column *is* the email's box: 600px wide, the same ceiling the
-  // columns block and the image cap use (no padding here, so border-box is
-  // 600 of available width — the columns block goes side by side at exactly
-  // 600). A width, not a max-width: the composer never shrinks below the
-  // email's box — Gmail's compose is fixed-width for the same reason — the
-  // host lays its panes out around it (the example app's source pane yields).
-  // So a max-size image fills the line and the next caret is the next line.
-  width: 600px;
+  // The text column *is* the email's box: 600px at most — the same ceiling
+  // the columns block and the image cap use (no padding here, so border-box
+  // is 600 of available width — the columns block goes side by side at
+  // exactly 600, and a max-size image fills the line). A max-width, not a
+  // width: the email is designed for 600 *and below* — the same fluid rules
+  // that lay it out on a phone (columns stack, images shrink, tables are
+  // percentages) lay it out here when the host gives the editor less.
+  width: 100%;
+  max-width: 600px;
   text-align: inherit;
 
   // Typography
@@ -602,6 +615,15 @@ html {
   }
 }
 
+/* The HTML source editor is code, not the email's box: it takes its pane's
+ * full width instead of the 600px cap above. The formatter prints 80 columns,
+ * and 80 columns of 13px monospace are ~610px (Cascadia; Consolas ~575px) —
+ * more than the email column holds, so a capped source pane wraps the very
+ * lines the formatter just measured to fit. */
+section[html-email-compose] .aee-editor {
+  max-width: none;
+}
+
 /* HTML source editor: token and lint classes applied via ProseMirror
  * decorations, which render outside Angular's encapsulation like .ProseMirror.
  */
@@ -838,7 +860,10 @@ html {
   padding: 8px;
   border: 2px dashed var(--email-image-missing-border, var(--mat-sys-error, #b3261e));
   border-radius: var(--mat-sys-corner-medium, 8px);
-  background-color: var(--email-image-missing-background, var(--mat-sys-surface-container, #f3f3f3));
+  background-color: var(
+    --email-image-missing-background,
+    var(--mat-sys-surface-container, #f3f3f3)
+  );
   color: var(--mat-sys-error, #b3261e);
   font: var(--mat-sys-body-small, 12px sans-serif);
   text-align: center;
@@ -860,4 +885,78 @@ html {
  * painted on it, for a host that wants more). */
 .aee-tok-brace {
   color: var(--mat-sys-outline);
+}
+
+/* ---------------------------------------------------------------------------
+ * Reference-page chrome (API + Styling). Global because both pages share it
+ * and neither owns it; scoped to `.doc-*` so nothing here can reach the
+ * editor surface above.
+ * ------------------------------------------------------------------------ */
+.doc-card {
+  flex: 0 0 auto;
+  padding: 1rem 1.25rem 1.25rem;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: var(--mat-sys-corner-medium, 12px);
+  background: var(--mat-sys-surface);
+}
+
+.doc-card code {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+.doc-card-title {
+  margin: 0 0 0.25rem;
+  font: var(--mat-sys-title-medium);
+  color: var(--mat-sys-on-surface);
+}
+
+.doc-card-hint {
+  margin: 0.25rem 0 0.75rem;
+  font: var(--mat-sys-body-medium);
+  color: var(--mat-sys-on-surface-variant);
+
+  code {
+    font-size: 0.8125rem;
+  }
+}
+
+/* Wide tables keep their layout and scroll inside their card rather than
+ * squeezing the columns into unreadable slivers. */
+.doc-table-scroll {
+  overflow-x: auto;
+}
+
+.doc-table {
+  inline-size: 100%;
+  min-inline-size: 52rem;
+  border-collapse: collapse;
+  font: var(--mat-sys-body-medium);
+
+  th,
+  td {
+    padding: 0.625rem 0.75rem;
+    border-block-end: 1px solid var(--mat-sys-outline-variant);
+    text-align: start;
+    vertical-align: top;
+  }
+
+  th {
+    font: var(--mat-sys-label-large);
+    color: var(--mat-sys-on-surface-variant);
+    white-space: nowrap;
+  }
+
+  code {
+    padding: 0 0.375rem;
+    border-radius: 4px;
+    background: var(--mat-sys-surface-container);
+    font-size: 0.8125rem;
+    white-space: nowrap;
+  }
+}
+
+/* Signatures are long — let them wrap instead of forcing the whole table
+ * into horizontal scroll. */
+.doc-table--signatures td:nth-child(2) code {
+  white-space: normal;
 }

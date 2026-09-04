@@ -1,9 +1,19 @@
-import { Component, computed, inject, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  Injector,
+  afterNextRender,
+  computed,
+  effect,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { OverlayModule } from '@angular/cdk/overlay';
+import { DomPortal } from '@angular/cdk/portal';
 import { AngularFileDrop, FileDropEvent } from '@h-k-dev/angular-file-drop';
 import {
   HtmlDiagnostic,
-  SendIntent,
   emailSizeBudget,
   InlineImages,
   importLoss,
@@ -11,7 +21,9 @@ import {
   replyDocument,
   toInboundMessage,
 } from 'angular-email-editor';
-import { EmailCompose } from './email-compose/email-compose';
+import { EmailCompose, SourceView } from './email-compose/email-compose';
+import { EmailMessage, EmailWriter } from './email-writer/email-writer';
+import { Viewport } from '../viewport';
 
 /** A status-strip note and the document it is about. */
 interface StatusNote {
@@ -35,12 +47,26 @@ interface ExampleSet {
 
 @Component({
   selector: 'app-compose',
-  imports: [EmailCompose, HtmlEmailCompose, EmailPreview, AngularFileDrop, OverlayModule],
+  imports: [
+    EmailWriter,
+    EmailCompose,
+    HtmlEmailCompose,
+    EmailPreview,
+    AngularFileDrop,
+    OverlayModule,
+  ],
   // One inline image registry per composer — the editor pane hands it to the
   // editor, the preview resolves from it, an import feeds it. Never in root.
   providers: [InlineImages],
   templateUrl: './compose.html',
   styleUrl: './compose.scss',
+  host: {
+    // State hooks: the preview docked left, the source docked right.
+    '[class.compose--detached]': "sourceView() === 'detached'",
+    '[class.compose--preview]': 'previewOpen()',
+    // Below the docking breakpoint there are no flanks to keep.
+    '[class.compose--narrow]': 'viewport.narrow()',
+  },
 })
 export class Compose {
   /**
@@ -54,6 +80,44 @@ export class Compose {
   /** Lint results streamed up from the source pane's language service. */
   protected diagnostics = signal<HtmlDiagnostic[]>([]);
 
+  /** The envelope, owned here as a real host would (seeded from an account,
+      a reply's headers, a draft) — the writer edits it. */
+  protected from = signal<string[]>(['you@example.com']);
+  protected to = signal<string[]>([]);
+  protected subject = signal('');
+
+  /** Where the HTML source shows (the toolbar's </> and detach buttons).
+      Owned here because revealing a finding has to switch to a view that can
+      show it. */
+  protected sourceView = signal<SourceView>('hidden');
+
+  /** Whether the preview pane shows, docked to the left (the toolbar's
+      preview button). Hidden by default, like the source. */
+  protected previewOpen = signal(false);
+
+  /** Below the docking breakpoint the composer shows one pane at a time: the
+      dock-out buttons leave the toolbar, and a pane already docked beside the
+      editor collapses. Code view is in place, so it stays. */
+  protected readonly viewport = inject(Viewport);
+
+  readonly #collapseOnNarrow = effect(() => {
+    if (!this.viewport.narrow()) return;
+    if (this.sourceView() === 'detached') this.sourceView.set('hidden');
+    this.previewOpen.set(false);
+  });
+
+  /** The source pane's element, for the code-view portal. */
+  protected sourceEl = viewChild.required('sourceEl', { read: ElementRef });
+
+  /** In code view the source pane's own DOM node moves into the composer's
+      editing surface (a DomPortal: attached, the node moves in; detached, it
+      returns to its column on the right). The editor inside is never
+      re-created. */
+  protected codePortal = computed(() =>
+    this.sourceView() === 'code' ? new DomPortal(this.sourceEl()) : null,
+  );
+
+  readonly #injector = inject(Injector);
   protected sourcePane = viewChild.required(HtmlEmailCompose);
   protected emailPane = viewChild.required(EmailCompose);
 
@@ -83,11 +147,30 @@ export class Compose {
   protected reveal(severity: 'error' | 'warning'): void {
     const diagnostic = this.diagnostics().find((d) => d.severity === severity);
     if (diagnostic) {
-      this.sourcePane().reveal(diagnostic);
+      this.#inView(true, () => this.sourcePane().reveal(diagnostic));
       return;
     }
     const expression = this.emailPane().expressionDiagnostics()[0];
-    if (severity === 'error' && expression) this.emailPane().revealExpression(expression);
+    if (severity === 'error' && expression) {
+      this.#inView(false, () => this.emailPane().revealExpression(expression));
+    }
+  }
+
+  /** Runs `show` with the pane it needs on screen — the source (either
+      view of it) or the editor — switching first when it is not, and only
+      after the switch has rendered: selecting and focusing inside a hidden
+      surface is a no-op. A hidden source opens in code view; a source
+      standing in the editor's place steps aside for it. */
+  #inView(source: boolean, show: () => void): void {
+    const view = this.sourceView();
+    const visible = source ? view !== 'hidden' : view !== 'code';
+    if (visible) {
+      show();
+      return;
+    }
+    (document.activeElement as HTMLElement | null)?.blur?.();
+    this.sourceView.set(source ? 'code' : 'hidden');
+    afterNextRender(show, { injector: this.#injector });
   }
 
   /** A dropped .eml imports as the document. MIME parsing is postal-mime's
@@ -125,7 +208,9 @@ export class Compose {
         const cid = part.contentId?.replace(/^<|>$/g, '');
         if (!cid || !part.content) continue;
         this.#images.add(
-          new Blob([part.content as BlobPart], { type: part.mimeType || 'application/octet-stream' }),
+          new Blob([part.content as BlobPart], {
+            type: part.mimeType || 'application/octet-stream',
+          }),
           cid,
         );
         inlineParts++;
@@ -157,22 +242,29 @@ export class Compose {
       }
       this.#importNote.set({ text: notes.join(' · '), html: this.html() });
     } catch {
-      this.#importNote.set({ text: `Couldn't read ${dropped.name} as an email`, html: this.html() });
+      this.#importNote.set({
+        text: `Couldn't read ${dropped.name} as an email`,
+        html: this.html(),
+      });
     }
   }
 
   /** Demo stand-in for a transport: the example app has nowhere to send to,
-      so the footer shows what a real host would hand its mailer. */
+      so the footer shows what a real host would hand its mailer — envelope
+      and body alike. */
   readonly #lastSend = signal<StatusNote | null>(null);
   protected lastSend = computed(() => this.#current(this.#lastSend()));
 
-  protected onSend(intent: SendIntent): void {
-    const kb = (new TextEncoder().encode(intent.html).length / 1024).toFixed(1);
-    const parts = intent.inlineImages.length;
+  protected onSend(message: EmailMessage): void {
+    const kb = (new TextEncoder().encode(message.html).length / 1024).toFixed(1);
+    const parts = message.inlineImages.length;
+    const recipients = message.to.length;
     this.#lastSend.set({
       html: this.html(),
       text:
-        `Send intent · ${kb} kB HTML · ${intent.text.length} chars text` +
+        `Send intent · to ${recipients} recipient${recipients === 1 ? '' : 's'}` +
+        (message.subject ? ` · “${message.subject}”` : ' · no subject') +
+        ` · ${kb} kB HTML · ${message.text.length} chars text` +
         (parts
           ? ` · ${parts} inline image${parts === 1 ? '' : 's'} as cid: part${parts === 1 ? '' : 's'}`
           : ''),

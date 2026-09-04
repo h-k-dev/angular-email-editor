@@ -1,1 +1,21 @@
-<router-outlet />
+<mat-toolbar class="app-toolbar">
+  <nav class="app-nav" aria-label="Pages">
+    @for (page of pages; track page.path) {
+    <a class="app-nav-link" [routerLink]="page.path" routerLinkActive="app-nav-link--active"
+      [routerLinkActiveOptions]="{ exact: true }">
+      <mat-icon class="app-nav-icon">{{ page.icon }}</mat-icon>
+      <span>{{ page.label }}</span>
+    </a>
+    }
+  </nav>
+
+  <span class="app-spacer"></span>
+
+  <button matIconButton type="button" [attr.aria-label]="themeLabel()" (click)="toggleTheme()">
+    <mat-icon>{{ theme() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
+  </button>
+</mat-toolbar>
+
+<main class="app-main">
+  <router-outlet />
+</main>

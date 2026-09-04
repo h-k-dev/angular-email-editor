@@ -1,0 +1,38 @@
+<header class="writer-bar">
+  <span class="writer-bar__spacer"></span>
+  <button
+    matButton="filled"
+    type="button"
+    class="writer-bar__send"
+    title="Send (Ctrl+Enter)"
+    (click)="requestSend()"
+  >
+    <mat-icon>send</mat-icon>
+    Send
+  </button>
+</header>
+
+<!-- The envelope, as Gmail lays it out: one hairline row per field. From
+     takes a single address; To takes many; Subject is plain text. -->
+<div class="writer-envelope">
+  <div
+    email-address-input
+    label="From"
+    [max]="1"
+    placeholder="you@example.com"
+    [(addresses)]="from"
+  ></div>
+  <div email-address-input label="To" placeholder="Recipients" [(addresses)]="to"></div>
+  <label class="writer-field">
+    <span class="writer-field__label">Subject</span>
+    <input
+      class="writer-field__input"
+      type="text"
+      autocomplete="off"
+      [value]="subject()"
+      (input)="subject.set($any($event.target).value)"
+    />
+  </label>
+</div>
+
+<ng-content />

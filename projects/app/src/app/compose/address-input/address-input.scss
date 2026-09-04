@@ -1,0 +1,50 @@
+// One row, Gmail-style: the field's name on the left, chips and typing to
+// the right of it, a hairline below. No box, no outline — the writer's sheet
+// is the surface.
+:host {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding-inline: 8px;
+  border-block-end: 1px solid var(--mat-sys-outline-variant);
+  cursor: text;
+}
+
+.field-label {
+  flex: none;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+}
+
+.field-chips {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+// Compact chips: the row is 40px, so chips sit at 24px.
+.field-chip {
+  --mdc-chip-container-height: 24px;
+}
+
+// A chip that is not an address: flagged in the error colours, kept.
+.field-chip.is-invalid {
+  --mdc-chip-elevated-container-color: var(--mat-sys-error-container);
+  --mdc-chip-label-text-color: var(--mat-sys-on-error-container);
+  --mdc-chip-with-trailing-icon-trailing-icon-color: var(--mat-sys-on-error-container);
+}
+
+.field-input {
+  flex: 1 1 8ch;
+  min-width: 8ch;
+  border: none;
+  outline: none;
+  padding: 4px 0;
+  background: none;
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
+
+  &::placeholder {
+    color: var(--mat-sys-on-surface-variant);
+  }
+}

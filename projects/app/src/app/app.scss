@@ -1,5 +1,92 @@
+// Shell fits the viewport; <main> is the single scroll container for pages.
+// Minus the virtual keyboard: where the browser does not shrink the layout
+// viewport for it (iOS), the Viewport service measures the cover and the
+// shell gives it up — so anything anchored to the bottom (the composer's
+// toolbar) rides up above the keys instead of hiding behind them.
 :host {
-  display: block;
-  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - var(--keyboard-inset, 0px));
   overflow: hidden;
+}
+
+.app-toolbar {
+  flex: 0 0 auto;
+  gap: 0.75rem;
+  // Flat against the page: no elevation, no divider — the active pill is the
+  // only thing that needs to read as chrome.
+  box-shadow: none;
+  // The nav is the only thing allowed to overflow, and it scrolls itself.
+  overflow: hidden;
+}
+
+// Scrolls sideways on a narrow screen instead of pushing the theme button
+// off the bar. No visible scrollbar — the pills are the affordance.
+.app-nav {
+  display: flex;
+  gap: 0.25rem;
+  min-inline-size: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.app-nav-link {
+  flex: 0 0 auto; // each pill keeps its natural width
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 100vw;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-large);
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:hover {
+    background: color-mix(in srgb, var(--mat-sys-on-surface-variant) 8%, transparent);
+  }
+
+  &--active {
+    background: var(--mat-sys-secondary-container);
+    color: var(--mat-sys-on-secondary-container);
+  }
+}
+
+.app-nav-icon {
+  flex: 0 0 auto;
+}
+
+.app-spacer {
+  flex: 1 1 auto;
+}
+
+// A stretched flex cross size is definite, so the composer's `height: 100%`
+// resolves against it (no scroll); the reference pages are taller than the
+// shell and scroll here instead.
+.app-main {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow-y: auto;
+}
+
+// Narrow screens: tighter chrome, and the labels carry the nav alone — three
+// icon-less pills and the theme button fit a 360px bar without scrolling.
+@media (max-width: 600px) {
+  .app-toolbar {
+    gap: 0.25rem;
+    padding-inline: 0.5rem;
+  }
+
+  .app-nav-link {
+    padding-inline: 0.625rem;
+  }
+
+  .app-nav-icon {
+    display: none;
+  }
 }

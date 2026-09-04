@@ -3,11 +3,14 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  Injector,
   afterNextRender,
   inject,
 
   // Signals
+  computed,
   effect,
+  input,
   model,
   output,
   signal,
@@ -21,6 +24,7 @@ import { MatIconModule } from '@angular/material/icon';
 
 // CDK
 import { ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
+import { Portal, PortalModule } from '@angular/cdk/portal';
 
 // ProseMirror
 import { Plugin } from 'prosemirror-state';
@@ -61,6 +65,10 @@ import {
   linkRangeAt,
 } from 'angular-email-editor';
 
+/** Where the HTML source shows: nowhere, in the editing surface's place
+    (code view), or beside the editor in its own column (detached). */
+export type SourceView = 'hidden' | 'code' | 'detached';
+
 @Component({
   selector: 'section[email-compose]',
   imports: [
@@ -71,6 +79,7 @@ import {
 
     // CDK
     OverlayModule,
+    PortalModule,
   ],
   templateUrl: './email-compose.html',
   styleUrl: './email-compose.scss',
@@ -85,10 +94,49 @@ export class EmailCompose {
       schema and re-published as what survived. */
   html = model('');
 
+  /** How the HTML source shows, driven by the toolbar's two buttons. Two-way
+      so the composer can flip it too (revealing a lint finding lands in the
+      source). The composer owns the pane; this component only knows the
+      slot it can offer (see `codePortal`). */
+  sourceView = model<SourceView>('hidden');
+
+  /** Code view (Summernote's </>): the source stands in the editing surface's
+      place and the toolbar targets it. */
+  codeView = computed(() => this.sourceView() === 'code');
+
+  /** Whether the composer's preview pane shows (docked to the left — the
+      only place it goes). The toolbar hosts the toggle; the composer owns
+      the pane. */
+  preview = model(false);
+
+  /** Whether a pane can dock beside the editor at all. Off, the two dock-out
+      buttons leave the toolbar — code view (in place) stays. The composer
+      decides from the viewport. */
+  dockable = input(true);
+
+  /** The source pane as a DOM portal, attached into the code-view slot while
+      `sourceView` is 'code' — the composer builds it, since it owns the
+      pane; null otherwise, and the pane returns to its own column. */
+  codePortal = input<Portal<unknown> | null>(null);
+
+  /** The source pane's editor. Its kit mirrors every mark command and
+      history, so in code view the toolbar's mark buttons act on *it* — the
+      same command, on the visible text. */
+  codeEditor = input<Editor | undefined>();
+
+  readonly #injector = inject(Injector);
   /** The send *intent*: canonical HTML + text/plain projection, emitted when
-      the user asks to send (/send, Mod-Enter, toolbar). Envelope and
-      transport are the host's — this is the whole send API. */
+      the user asks to send (/send, Mod-Enter, or {@link requestSend} from the
+      writer's Send button). Envelope and transport are the host's — this is
+      the whole send API. */
   send = output<SendIntent>();
+
+  /** Asks for the send intent — the writer's Send button. Always the email
+      editor: its send-intent extension builds the payload, and in code view
+      its document is already the source's (it syncs while unfocused). */
+  requestSend(): void {
+    this.editor()?.commands['requestSend']();
+  }
 
   editorHost = viewChild.required<ElementRef<HTMLElement>>('editorHost');
   bubbleMenu = viewChild.required<ElementRef<HTMLElement>>('bubbleMenu');
@@ -333,7 +381,24 @@ export class EmailCompose {
   }
 
   focusEditor(): void {
-    this.editor()?.focus();
+    this.#target()?.focus();
+  }
+
+  /** Flips code view. Whatever surface is focused is about to be hidden —
+      release it first, so its blur catch-up publishes to the shared signal
+      before the other view reads it. The editor regains the caret only once
+      it is rendered again: focusing a hidden element is a no-op. */
+  toggleSourceView(view: 'code' | 'detached'): void {
+    (document.activeElement as HTMLElement | null)?.blur?.();
+    this.sourceView.update((current) => (current === view ? 'hidden' : view));
+    afterNextRender(() => this.focusEditor(), { injector: this.#injector });
+  }
+
+  /** The editor the toolbar acts on: the source pane while code view is up,
+      the email editor otherwise. Node-level commands (lists, tables, …) never
+      route here — the source kit has no twin for them, so their buttons lock. */
+  #target(): Editor | undefined {
+    return this.codeView() ? this.codeEditor() : this.editor();
   }
 
   isActive(name: string, attrs?: Record<string, unknown>): boolean {
@@ -371,21 +436,31 @@ export class EmailCompose {
   }
 
   canUndo(): boolean {
-    this.#editorTick();
-    const editor = this.editor();
+    const editor = this.#tracked();
     return !!editor && undo(editor.state);
   }
 
   canRedo(): boolean {
-    this.#editorTick();
-    const editor = this.editor();
+    const editor = this.#tracked();
     return !!editor && redo(editor.state);
   }
 
+  /** The target editor, read so the binding recomputes when it changes: the
+      email editor ticks on every transaction; the source pane publishes into
+      the shared html on every doc change, which is when its undo depth moves. */
+  #tracked(): Editor | undefined {
+    this.#editorTick();
+    this.html();
+    return this.#target();
+  }
+
+  /** Runs a named command on the visible editor — a mark or history command
+      exists on both kits; a block command only on the email editor, and its
+      button is locked in code view. */
   run(command: string) {
-    const editor = this.editor();
+    const editor = this.#target();
     if (!editor) return;
-    editor.commands[command]();
+    editor.commands[command]?.();
     editor.focus();
   }
 
@@ -394,7 +469,7 @@ export class EmailCompose {
       editor's selection survives the click; we refocus afterwards. */
   applyColor(color: string | null): void {
     this.colorMenuOpen.set(false);
-    const editor = this.editor();
+    const editor = this.#target();
     if (!editor) return;
 
     if (color) editor.commands['setColor'](color);
@@ -408,13 +483,15 @@ export class EmailCompose {
       you type). `null` clears whichever scope applies. */
   applyBackground(color: string | null): void {
     this.bgMenuOpen.set(false);
-    const editor = this.editor();
+    const editor = this.#target();
     if (!editor) return;
     const { state } = editor;
 
-    if (state.selection.empty && findTableContext(state)) {
+    // The container scopes are the email editor's: the source has no cells.
+    const bare = state.selection.empty && !this.codeView();
+    if (bare && findTableContext(state)) {
       editor.commands['setCellBackground'](color);
-    } else if (state.selection.empty && findColumnContext(state)) {
+    } else if (bare && findColumnContext(state)) {
       editor.commands['setColumnBackground'](color);
     } else if (color) {
       editor.commands['setBackgroundColor'](color);
@@ -427,7 +504,7 @@ export class EmailCompose {
   /** Applies a curated font stack to the selection, or `null` to clear it. */
   applyFontFamily(stack: string | null): void {
     this.fontMenuOpen.set(false);
-    const editor = this.editor();
+    const editor = this.#target();
     if (!editor) return;
 
     if (stack) editor.commands['setFontFamily'](stack);
@@ -438,7 +515,7 @@ export class EmailCompose {
   /** Applies a curated font size to the selection, or `null` to clear it. */
   applyFontSize(size: number | null): void {
     this.sizeMenuOpen.set(false);
-    const editor = this.editor();
+    const editor = this.#target();
     if (!editor) return;
 
     if (size) editor.commands['setFontSize'](size);
@@ -476,11 +553,13 @@ export class EmailCompose {
   /** Opens the link popover at the selection: prefilled when the cursor sits
       in an existing link, a no-op when there is neither selection nor link. */
   openLinkEditor(): void {
-    const editor = this.editor();
+    const editor = this.#target();
     if (!editor) return;
 
     const { from, empty } = editor.state.selection;
-    const range = linkRangeAt(editor.state, from);
+    // The source pane has no link mark to read back: there it is insert-only,
+    // on a selection.
+    const range = this.codeView() ? undefined : linkRangeAt(editor.state, from);
     if (empty && !range) {
       editor.focus();
       return;
@@ -502,7 +581,7 @@ export class EmailCompose {
   /** Applies the entered URL; a scheme-less value gets https:// prepended,
       an emptied value unlinks — matching what the field visibly says. */
   applyLink(): void {
-    const editor = this.editor();
+    const editor = this.#target();
     const raw = this.linkHref().trim();
     this.linkMenuOpen.set(false);
     if (!editor) return;
@@ -518,7 +597,7 @@ export class EmailCompose {
 
   removeLink(): void {
     this.linkMenuOpen.set(false);
-    const editor = this.editor();
+    const editor = this.#target();
     editor?.commands['unsetLink']();
     editor?.focus();
   }

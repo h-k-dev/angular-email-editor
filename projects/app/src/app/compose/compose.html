@@ -1,111 +1,143 @@
-<!-- The editor doubles as an .eml dropzone: a dropped message imports as the
+<!-- The preview, docked to the left when the toolbar's preview button is on. -->
+<section
+  email-preview
+  [hidden]="!previewOpen()"
+  [html]="html()"
+  aria-label="Email preview"
+></section>
+<!-- The writer frames the editor: Send on top, the editor below.
+     The editor, or — via the portal — the source in its place; the toolbar's
+     </> and detach buttons switch.
+     The editor doubles as an .eml dropzone: a dropped message imports as the
      document (parseEml → importedDocument → the same canonical html signal).
      clickable=false — clicking the editor must never open a file picker; the
      accept filter keeps image drops flowing to ProseMirror's own handler. -->
 <section
-  email-compose
-  dropZone
-  #emlZone="dropZone"
-  [clickable]="false"
-  [directory]="false"
-  [multiple]="false"
-  [acceptedFiles]="'.eml,message/rfc822'"
-  [class.eml-dropzone--active]="emlZone.isDragOver()"
-  (fileDrop)="onEmlDrop($event)"
-  [(html)]="html"
+  email-writer
+  aria-label="Email writer"
+  [(from)]="from"
+  [(to)]="to"
+  [(subject)]="subject"
   (send)="onSend($event)"
-  aria-label="Email editor"
-></section>
+>
+  <section
+    email-compose
+    dropZone
+    #emlZone="dropZone"
+    [clickable]="false"
+    [directory]="false"
+    [multiple]="false"
+    [acceptedFiles]="'.eml,message/rfc822'"
+    [class.eml-dropzone--active]="emlZone.isDragOver()"
+    (fileDrop)="onEmlDrop($event)"
+    [(html)]="html"
+    [(sourceView)]="sourceView"
+    [(preview)]="previewOpen"
+    [dockable]="!viewport.narrow()"
+    [codePortal]="codePortal()"
+    [codeEditor]="sourcePane().editor()"
+    aria-label="Email editor"
+  ></section>
+</section>
+<!-- The HTML source pane. Its home is this right column (the detached view);
+     in code view a DOM portal moves the very same node into the composer's
+     editing surface and back — the editor inside is never re-created, so
+     undo history and lint carry across. Hidden by default. -->
 <section
   html-email-compose
+  #sourceEl
   class="scroll-container"
+  [hidden]="sourceView() === 'hidden'"
   [(html)]="html"
   [(diagnostics)]="diagnostics"
   aria-label="Email HTML source"
 ></section>
-<section email-preview [html]="html()" aria-label="Email preview"></section>
 
-<footer class="status" aria-live="polite">
-  <button
-    type="button"
-    class="status__issues status__issues--error"
-    [disabled]="!errors()"
-    (click)="reveal('error')"
-  >
-    {{ errors() }} {{ errors() === 1 ? 'error' : 'errors' }}
-  </button>
-  <button
-    type="button"
-    class="status__issues status__issues--warning"
-    [disabled]="!warnings()"
-    (click)="reveal('warning')"
-  >
-    {{ warnings() }} {{ warnings() === 1 ? 'warning' : 'warnings' }}
-  </button>
-  @if (lastSend(); as note) {
-    <span class="status__send" aria-label="Last send intent">{{ note }}</span>
-  }
-  @if (importNote(); as note) {
-    <span class="status__send" aria-label="Last import">{{ note }}</span>
-  }
-  <!-- Demo-only: seeds the composer with example documents. Split button —
+<!-- The status strip (problems, examples, statistics) is desktop chrome:
+     below the docking breakpoint it is not rendered at all. -->
+@if (!viewport.narrow()) {
+  <footer class="status" aria-live="polite">
+    <button
+      type="button"
+      class="status__issues status__issues--error"
+      [disabled]="!errors()"
+      (click)="reveal('error')"
+    >
+      {{ errors() }} {{ errors() === 1 ? 'error' : 'errors' }}
+    </button>
+    <button
+      type="button"
+      class="status__issues status__issues--warning"
+      [disabled]="!warnings()"
+      (click)="reveal('warning')"
+    >
+      {{ warnings() }} {{ warnings() === 1 ? 'warning' : 'warnings' }}
+    </button>
+    @if (lastSend(); as note) {
+      <span class="status__send" aria-label="Last send intent">{{ note }}</span>
+    }
+    @if (importNote(); as note) {
+      <span class="status__send" aria-label="Last import">{{ note }}</span>
+    }
+    <!-- Demo-only: seeds the composer with example documents. Split button —
        the main half cycles the active set, the caret picks a set (reply
        seeds, AngularJS-expression templates, Handlebars templates). -->
-  <span class="status__example-group">
-    <button
-      type="button"
-      class="status__example"
-      title="Replace the document with the active set's next example"
-      (click)="nextExample()"
-    >
-      {{ exampleLabel() }}
-    </button>
-    <button
-      type="button"
-      class="status__example status__example--caret"
-      aria-label="Choose example set"
-      [attr.aria-expanded]="exampleMenuOpen()"
-      cdkOverlayOrigin
-      #exampleOrigin="cdkOverlayOrigin"
-      (click)="exampleMenuOpen.set(!exampleMenuOpen())"
-    >
-      ▾
-    </button>
-  </span>
-  <ng-template
-    cdkConnectedOverlay
-    [cdkConnectedOverlayOrigin]="exampleOrigin"
-    [cdkConnectedOverlayOpen]="exampleMenuOpen()"
-    [cdkConnectedOverlayHasBackdrop]="true"
-    cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop"
-    (backdropClick)="exampleMenuOpen.set(false)"
-    [cdkConnectedOverlayPush]="true"
-    [cdkConnectedOverlayViewportMargin]="8"
-  >
-    <div class="example-menu" role="menu" aria-label="Example sets">
-      @for (option of exampleSetOptions; track option.key) {
-        <button
-          type="button"
-          role="menuitem"
-          class="example-menu__item"
-          (click)="nextExample(option.key)"
-        >
-          {{ option.label }}
-        </button>
-      }
-    </div>
-  </ng-template>
-  @if (metrics(); as m) {
-    <span class="status__count" aria-label="Document length">
-      {{ m.words }} {{ m.words === 1 ? 'word' : 'words' }} · {{ m.lines }}
-      {{ m.lines === 1 ? 'line' : 'lines' }}
+    <span class="status__example-group">
+      <button
+        type="button"
+        class="status__example"
+        title="Replace the document with the active set's next example"
+        (click)="nextExample()"
+      >
+        {{ exampleLabel() }}
+      </button>
+      <button
+        type="button"
+        class="status__example status__example--caret"
+        aria-label="Choose example set"
+        [attr.aria-expanded]="exampleMenuOpen()"
+        cdkOverlayOrigin
+        #exampleOrigin="cdkOverlayOrigin"
+        (click)="exampleMenuOpen.set(!exampleMenuOpen())"
+      >
+        ▾
+      </button>
     </span>
-  }
-  <span
-    class="status__size"
-    [class.status__size--warning]="size().level === 'warning'"
-    [class.status__size--error]="size().level === 'error'"
-  >
-    {{ sizeLabel() }}
-  </span>
-</footer>
+    <ng-template
+      cdkConnectedOverlay
+      [cdkConnectedOverlayOrigin]="exampleOrigin"
+      [cdkConnectedOverlayOpen]="exampleMenuOpen()"
+      [cdkConnectedOverlayHasBackdrop]="true"
+      cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop"
+      (backdropClick)="exampleMenuOpen.set(false)"
+      [cdkConnectedOverlayPush]="true"
+      [cdkConnectedOverlayViewportMargin]="8"
+    >
+      <div class="example-menu" role="menu" aria-label="Example sets">
+        @for (option of exampleSetOptions; track option.key) {
+          <button
+            type="button"
+            role="menuitem"
+            class="example-menu__item"
+            (click)="nextExample(option.key)"
+          >
+            {{ option.label }}
+          </button>
+        }
+      </div>
+    </ng-template>
+    @if (metrics(); as m) {
+      <span class="status__count" aria-label="Document length">
+        {{ m.words }} {{ m.words === 1 ? 'word' : 'words' }} · {{ m.lines }}
+        {{ m.lines === 1 ? 'line' : 'lines' }}
+      </span>
+    }
+    <span
+      class="status__size"
+      [class.status__size--warning]="size().level === 'warning'"
+      [class.status__size--error]="size().level === 'error'"
+    >
+      {{ sizeLabel() }}
+    </span>
+  </footer>
+}

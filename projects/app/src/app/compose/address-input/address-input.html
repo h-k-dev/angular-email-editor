@@ -1,0 +1,36 @@
+<label class="field-label" [for]="inputId">{{ label() }}</label>
+<mat-chip-grid #grid class="field-chips" [attr.aria-label]="label()">
+  @for (address of addresses(); track address) {
+    <mat-chip-row
+      class="field-chip"
+      [class.is-invalid]="!valid(address)"
+      [editable]="false"
+      [attr.aria-invalid]="!valid(address)"
+      [title]="valid(address) ? address : address + ' — not an email address'"
+      (removed)="remove(address)"
+    >
+      {{ address }}
+      <button matChipRemove type="button" [attr.aria-label]="'Remove ' + address">
+        <mat-icon>cancel</mat-icon>
+      </button>
+    </mat-chip-row>
+  }
+  <!-- Hidden once the field is full (From takes one address): the chips say
+       everything, and a second address would only be refused. -->
+  <input
+    #field
+    class="field-input"
+    [id]="inputId"
+    type="email"
+    autocomplete="off"
+    spellcheck="false"
+    [hidden]="full()"
+    [placeholder]="addresses().length ? '' : placeholder()"
+    [matChipInputFor]="grid"
+    [matChipInputSeparatorKeyCodes]="separators"
+    [matChipInputAddOnBlur]="true"
+    (matChipInputTokenEnd)="add($event)"
+    (paste)="paste($event)"
+    (keydown.backspace)="backspace(field)"
+  />
+</mat-chip-grid>
