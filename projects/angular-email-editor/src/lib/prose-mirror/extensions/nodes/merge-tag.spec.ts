@@ -242,7 +242,9 @@ describe('merge-tag editing — text with a mark', () => {
     type('z');
     expect(editor.getHTML()).toBe('<div>zx {{ a }} y</div>');
     // Handlebars' whitespace control keeps its sigil against the braces.
-    expect(canonical('<div>{{~ foo ~}} {{&amp;raw}}</div>')).toBe('<div>{{~ foo ~}} {{&amp;raw}}</div>');
+    expect(canonical('<div>{{~ foo ~}} {{&amp;raw}}</div>')).toBe(
+      '<div>{{~ foo ~}} {{&amp;raw}}</div>',
+    );
   });
 
   it('typing the closing brace makes the token a pill; deleting a brace un-pills it', () => {
@@ -258,7 +260,9 @@ describe('merge-tag editing — text with a mark', () => {
     });
     expect(editor.getHTML()).toBe('<div>Hi {{ firstName }</div>');
     expect(tokens(editor.state.doc)).toBe(0);
-    expect(editor.state.doc.rangeHasMark(1, editor.state.doc.content.size - 1, schema.marks['mergeTag'])).toBe(false);
+    expect(
+      editor.state.doc.rangeHasMark(1, editor.state.doc.content.size - 1, schema.marks['mergeTag']),
+    ).toBe(false);
   });
 
   it('the cursor goes inside and edits the expression like text', () => {

@@ -1,16 +1,17 @@
 :host {
   display: grid;
-  // The writer's natural width: the email's 600px text column plus the
-  // editing surface's inline inset (`.editor` in email-compose.scss), the
-  // scrollbar gutter that surface reserves (`.scroll-container` in
-  // styles.scss) and the writer's own padding (email-writer.scss). Declared,
-  // not measured: the text column is fluid (`.aee-editor` is width: 100% up
-  // to 600px), so an auto track would size the column to whatever happens to
-  // be typed.
-  --compose-writer-width: calc(
-    600px + 2 * max(var(--mat-sys-inner-spacing, 16px), 28px) + var(--mat-sys-scrollbar-size, 6) *
-      1px + 2 * 8px
-  );
+  // The writer's natural width: 600px is the *sheet*, insets included — not
+  // the text column. The sections' own inline inset (16px a side) comes out
+  // of it, so the editor composes in ~568px. That is deliberate: the email is
+  // designed for 600px *and below*, and `.aee-editor` is a max-width, so the
+  // same fluid rules that lay the email out on a phone lay it out here (see
+  // its comment in styles.scss). The columns block keeps its side-by-side row
+  // on the way — its caps sum to a 560px budget, 8px under the column here.
+  // The scrollbar gutter (`.scroll-container` in styles.scss) sits outside
+  // the 600: it is a scroll affordance, not part of the sheet's measure.
+  // Declared, not measured: the text column is fluid, so an auto track would
+  // size the column to whatever happens to be typed.
+  --compose-writer-width: calc(600px + var(--mat-sys-scrollbar-size, 6) * 1px);
 
   // The writer is always centred on the screen: a middle column that takes
   // its natural width where there is room and shrinks with the screen where

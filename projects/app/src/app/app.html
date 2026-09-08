@@ -1,11 +1,15 @@
 <mat-toolbar class="app-toolbar">
   <nav class="app-nav" aria-label="Pages">
     @for (page of pages; track page.path) {
-    <a class="app-nav-link" [routerLink]="page.path" routerLinkActive="app-nav-link--active"
-      [routerLinkActiveOptions]="{ exact: true }">
-      <mat-icon class="app-nav-icon">{{ page.icon }}</mat-icon>
-      <span>{{ page.label }}</span>
-    </a>
+      <a
+        class="app-nav-link"
+        [routerLink]="page.path"
+        routerLinkActive="app-nav-link--active"
+        [routerLinkActiveOptions]="{ exact: true }"
+      >
+        <mat-icon class="app-nav-icon">{{ page.icon }}</mat-icon>
+        <span>{{ page.label }}</span>
+      </a>
     }
   </nav>
 

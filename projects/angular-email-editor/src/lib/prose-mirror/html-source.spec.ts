@@ -217,7 +217,9 @@ describe('html-source formatter — 80 characters', () => {
     expect(lines.at(-1)).toBe('</div>');
     expect(lines.length).toBeGreaterThan(3);
     expect(lines.every((line) => line.length <= 80)).toBe(true);
-    expect(lines.slice(1, -1).every((line) => line.startsWith('  ') && !line.startsWith('   '))).toBe(true);
+    expect(
+      lines.slice(1, -1).every((line) => line.startsWith('  ') && !line.startsWith('   ')),
+    ).toBe(true);
     expect(canonicalEmail(formatted)).toBe(canonicalEmail(LONG));
   });
 
@@ -248,13 +250,15 @@ describe('html-source formatter — 80 characters', () => {
 
   it('never breaks inside a tag, an attribute value or a token', () => {
     const html =
-      "<div>Angebot für {{ customer_gender == 'male' ? 'Sehr geehrter Herr' : 'Sehr geehrte Frau' }} <a href=\"https://example.com/a/very/long/path?with=query&amp;and=more\" target=\"_blank\" rel=\"noopener noreferrer\">hier klicken</a> jetzt und <b>fett gedruckt bis zum Ende der Zeile</b> weiter</div>";
+      '<div>Angebot für {{ customer_gender == \'male\' ? \'Sehr geehrter Herr\' : \'Sehr geehrte Frau\' }} <a href="https://example.com/a/very/long/path?with=query&amp;and=more" target="_blank" rel="noopener noreferrer">hier klicken</a> jetzt und <b>fett gedruckt bis zum Ende der Zeile</b> weiter</div>';
     const formatted = formatHTML(html);
     for (const line of formatted.split('\n')) {
       expect((line.match(/\{\{/g) ?? []).length).toBe((line.match(/\}\}/g) ?? []).length);
       expect((line.match(/"/g) ?? []).length % 2).toBe(0); // never inside an attribute value
     }
-    expect(formatted).toContain("{{ customer_gender == 'male' ? 'Sehr geehrter Herr' : 'Sehr geehrte Frau' }}");
+    expect(formatted).toContain(
+      "{{ customer_gender == 'male' ? 'Sehr geehrter Herr' : 'Sehr geehrte Frau' }}",
+    );
     expect(canonicalEmail(formatted)).toBe(canonicalEmail(html));
   });
 
@@ -351,7 +355,9 @@ describe('html-source formatter — 80 characters', () => {
 
   it('keeps content that fits on one line, and honours a custom width', () => {
     expect(formatHTML('<div>Hi <b>there</b></div>')).toBe('<div>Hi <b>there</b></div>');
-    expect(formatHTML('<div>one two three four</div>', '  ', 14)).toBe('<div>\n  one two\n  three four\n</div>');
+    expect(formatHTML('<div>one two three four</div>', '  ', 14)).toBe(
+      '<div>\n  one two\n  three four\n</div>',
+    );
   });
 });
 

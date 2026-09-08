@@ -8,7 +8,11 @@
   flex-direction: column;
   gap: 8px;
   min-height: 0;
-  padding: 8px;
+  // Block only. The sheet deliberately imposes no inline padding: each
+  // section below sets its own from the shared spacing token, so the editing
+  // surface can reserve the room its layout blocks need without that room
+  // becoming an indent every other row has to live with.
+  padding-block: 8px;
   box-sizing: border-box;
 
   background-color: var(--mat-sys-surface-bright);
@@ -24,6 +28,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  padding-inline: var(--mat-sys-inner-spacing, 16px);
 }
 
 .writer-bar__spacer {
@@ -43,7 +48,7 @@
   align-items: center;
   gap: 8px;
   min-height: 40px;
-  padding-inline: 8px;
+  padding-inline: var(--mat-sys-inner-spacing, 16px);
   border-block-end: 1px solid var(--mat-sys-outline-variant);
   cursor: text;
 }

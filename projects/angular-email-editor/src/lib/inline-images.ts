@@ -1,5 +1,8 @@
 import { DestroyRef, Injectable, inject, signal } from '@angular/core';
-import { InlineImageStore, rewriteInlineImageSources } from './prose-mirror/extensions/inline-images';
+import {
+  InlineImageStore,
+  rewriteInlineImageSources,
+} from './prose-mirror/extensions/inline-images';
 
 /** A blob as a data URL — what the preview's opaque-origin sandbox can load. */
 function toDataUrl(blob: Blob): Promise<string> {

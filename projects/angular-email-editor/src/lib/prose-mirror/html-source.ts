@@ -933,7 +933,9 @@ function tokenWordLines(word: string, pad: string, width: number): string[] | nu
     are exactly the whitespace that was there — or a block edge. Null when
     the word is not a tag with attributes. */
 function tagWordLines(word: string, pad: string, width: number): string[] | null {
-  const match = /^<([A-Za-z][\w-]*)((?:\s+[^\s"'>=]+(?:="[^"]*"|='[^']*')?)+)\s*>([\s\S]*)$/.exec(word);
+  const match = /^<([A-Za-z][\w-]*)((?:\s+[^\s"'>=]+(?:="[^"]*"|='[^']*')?)+)\s*>([\s\S]*)$/.exec(
+    word,
+  );
   if (!match) return null;
   const [, name, attributes, tail] = match;
   const indent = pad + '  ';

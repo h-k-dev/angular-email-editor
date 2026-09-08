@@ -256,8 +256,7 @@ class Parser {
 
   private logicalOr = (): AngularNode => this.binary(this.logicalAnd, ['||']);
   private logicalAnd = (): AngularNode => this.binary(this.equality, ['&&']);
-  private equality = (): AngularNode =>
-    this.binary(this.relational, ['===', '!==', '==', '!=']);
+  private equality = (): AngularNode => this.binary(this.relational, ['===', '!==', '==', '!=']);
   private relational = (): AngularNode => this.binary(this.additive, ['<=', '>=', '<', '>']);
   private additive = (): AngularNode => this.binary(this.multiplicative, ['+', '-']);
   private multiplicative = (): AngularNode => this.binary(this.unary, ['*', '/', '%']);
@@ -458,7 +457,12 @@ function analyzeDocument(doc: Node): Omit<DialectState, 'dialect'> {
   for (const tag of mergeTagRanges(doc)) {
     const inner = tag.from + 2; // past the opening braces
     for (const issue of analyzeAngularExpression(tag.expr)) {
-      const diagnostic = { ...issue, from: inner + issue.from, to: inner + issue.to, expr: tag.expr };
+      const diagnostic = {
+        ...issue,
+        from: inner + issue.from,
+        to: inner + issue.to,
+        expr: tag.expr,
+      };
       diagnostics.push(diagnostic);
       // An end-of-input problem has no width: underline the whole token.
       const [from, to] =

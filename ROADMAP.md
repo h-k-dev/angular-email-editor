@@ -10,15 +10,15 @@ sides.
 Foundations and the two-editor core are in; the content and layout-blocks side
 is mature. Tests: **409 library + 5 app, all green** (2026-09-02).
 
-| Milestone                                                       | State            | Left to do                                                                                      |
-| --------------------------------------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------- |
-| Foundations (two editors, mark parity, canonical `html` signal) | ✅ done          | —                                                                                               |
-| **M1 — Round-trip fidelity**                                    | ✅ core done     | selection mirroring (stretch)                                                                   |
-| **M2 — Missing composer features**                              | ✅ done          | —                                                                                               |
-| **M3 — Deliverability lint engine**                             | ✅ done          | —                                                                                               |
-| **M4 — Preview & proof**                                        | 🟢 mostly done   | per-client simulation; Outlook conditional comments                                             |
-| **M5 — Layout blocks**                                          | 🟢 flagship done | UX polish pass (see “Known dissatisfactions”); section-schema + `{{template}}` placeholders     |
-| **M6 — Compose workflow**                                       | ✅ done          | — (the inline image registry closed it, 2026-09-02)                |
+| Milestone                                                       | State            | Left to do                                                                                  |
+| --------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------- |
+| Foundations (two editors, mark parity, canonical `html` signal) | ✅ done          | —                                                                                           |
+| **M1 — Round-trip fidelity**                                    | ✅ core done     | selection mirroring (stretch)                                                               |
+| **M2 — Missing composer features**                              | ✅ done          | —                                                                                           |
+| **M3 — Deliverability lint engine**                             | ✅ done          | —                                                                                           |
+| **M4 — Preview & proof**                                        | 🟢 mostly done   | per-client simulation; Outlook conditional comments                                         |
+| **M5 — Layout blocks**                                          | 🟢 flagship done | UX polish pass (see “Known dissatisfactions”); section-schema + `{{template}}` placeholders |
+| **M6 — Compose workflow**                                       | ✅ done          | — (the inline image registry closed it, 2026-09-02)                                         |
 
 Most recent work: **M6 opened, and it closed M2 on the way** — the
 **reply/forward seed constructors** (`replyDocument`/`forwardDocument`:
@@ -156,7 +156,7 @@ The sync works; now make it lossless and gentle.
 
 - [x] **Diff-based `setText`/`setContent`**: syncs apply as minimal diff
       transactions (`findDiffStart`/`findDiffEnd`), flagged `addToHistory:
-  false` + `externalSync`. The receiving editor keeps its own undo
+false` + `externalSync`. The receiving editor keeps its own undo
       history (external changes aren't yours to undo — collab semantics),
       its selection maps through the diff, and `onUpdate` stays silent so
       mirrored editors cannot echo.
@@ -267,7 +267,7 @@ schema extensions first, toolbar second.
       → fallback. Shown only for drags the editor would claim — a mixed drag
       draws nothing here, the host's zone lights up instead.
 - [x] **Image placeholder (2026-09-02) — the slide-deck model.** `/image
-    placeholder` inserts a _sized frame awaiting its file_: an Image node
+  placeholder` inserts a _sized frame awaiting its file_: an Image node
       with no `src`, no new node type — one schema rule, one serialization
       (`<img width="320" style="…">`, honest: nothing pretends to be a
       picture), the same resize pads for free. In the editor it is a dashed
@@ -284,7 +284,7 @@ schema extensions first, toolbar second.
       merge tag — template-ready by construction.
 - [x] **Images**: the Image node now serializes the ledger's hybrid sizing
       (`width` attribute for Outlook + `width:100%; max-width:<n>px;
-  height:auto` for everyone else), caps widths at 600px on parse and on
+height:auto` for everyone else), caps widths at 600px on parse and on
       drop, never parses or emits `float`, and handles dropped/pasted image
       files (data-URL source, alt defaulted from the filename, natural width
       measured). Missing/empty alt is linted in the source pane, and so is
@@ -305,7 +305,7 @@ schema extensions first, toolbar second.
       opt-in functional commands is a small follow-up if wanted.
 - [x] **Font size/family** as a constrained set of email-safe stacks
       (Sans-serif `Arial, Helvetica, sans-serif`, Serif `Georgia, Times,
-  serif`, Monospace `Courier, monospace`, System `system-ui, sans-serif`)
+serif`, Monospace `Courier, monospace`, System `system-ui, sans-serif`)
       — no free-form fonts. Both hang off the shared `textStyle` span as
       attributes (like `color`), so size + family + colour merge into one
       `style` string instead of nesting wrappers. Toolbar pickers offer only
@@ -505,13 +505,13 @@ pane) can't see and edit.
       exists (the 2026-08-22 edge drag gives tables a percentage width), so
       table centring is unblocked and merely undecided.
 - [x] **`/table` — constrained data table**: a real `<table role=
-  "presentation">` (the most client-compatible layout) restricted to a
+"presentation">` (the most client-compatible layout) restricted to a
       plain rectangular grid — no colspan/rowspan, so the model is a clean 2D
       array. Nodes: `table` > `tableRow` > `tableCell` (`paragraph+`, so
       cells hold rich text). Working: slash/command insertion (cursor lands
       in cell 0,0), cell editing, **Tab/Shift-Tab navigation** (Tab past the
       last cell appends a row), and structural commands (`addRow/Column
-  Before/After`, `deleteRow/Column`, `deleteTable`) that rebuild-and-
+Before/After`, `deleteRow/Column`, `deleteTable`) that rebuild-and-
       replace the table node rather than juggle positions. Round-trips through
       the source pane, lint-clean, `<tbody>` fixpoint. Note: this is a _data_
       table (stays tabular, scrolls on a phone); the spongy stacking layout is
@@ -651,7 +651,7 @@ still clunky and unintuitive_ overall; these are the concrete symptoms.
       `promoteMergeTags` at parse: (1) the mark covers exactly what reads as
       a token — derived from the text, never stored, so type `}}` and the
       pill appears, delete a brace and it is gone; (2) formatting is
-      *all-or-nothing on a token*: Ctrl-B with the cursor inside bolds the
+      _all-or-nothing on a token_: Ctrl-B with the cursor inside bolds the
       whole `{{…}}` (stored marks become a whole-token mark), a mark added or
       removed over part of a token is widened to the token (its steps are
       widened), and a token pasted partially formatted is repaired to whole —
@@ -661,7 +661,7 @@ still clunky and unintuitive_ overall; these are the concrete symptoms.
 - [x] **Tokens are padded canonically: `{{ expr }}` (2026-09-02).** One
       space each side of the trimmed expression — the formatter's rule
       (Shift-Alt-F, Mod-S, format-on-blur) and, because formatting must stay
-      presentation-only, the *schema's* form too: the parser repairs incoming
+      presentation-only, the _schema's_ form too: the parser repairs incoming
       padding, the editor pads a token once it is complete and the cursor has
       left it (never under the typist's cursor), the `{{` menu inserts the
       form directly. The expression itself stays byte-verbatim; edge
@@ -670,7 +670,7 @@ still clunky and unintuitive_ overall; these are the concrete symptoms.
       braces. The invariance test still holds: `format(html)` and `html`
       canonicalize identically.
 - [x] **AngularJS expressions — the first dialect, opt-in (2026-09-02).**
-      The merge-tag mark is dialect-neutral; a *dialect* (`ExpressionDialect`,
+      The merge-tag mark is dialect-neutral; a _dialect_ (`ExpressionDialect`,
       one per editor as plugin state) layers meaning on the tokens. The
       sponsor's dialect came first: `createAngularExpressions()` — a
       recursive-descent parser for `$parse`'s grammar (literals, members,
@@ -830,7 +830,7 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
       duck-typed adapter over the shape modern parsers return (postal-mime's
       `Email`, front- or backend-parsed alike, every field null-tolerant) —
       is the whole bridge: `importedDocument(toInboundMessage(await
-    PostalMime.parse(file)))` imports a dropped file (a `File` is a `Blob`,
+  PostalMime.parse(file)))` imports a dropped file (a `File` is a `Blob`,
       so the parser gets raw bytes — correct charsets, no lossy `.text()`
       step); `replyDocument(...)` answers it. `importedDocument` is the law:
       the body parses through the schema (full strip = sanitization) and
@@ -857,7 +857,7 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
       surfacing can grow from the same `ImportLoss` object when a problems
       panel exists.
 - [x] **Inline images — the `cid:` story, not an attachments surface.**
-      *Closed 2026-09-02 with the registry (below).*
+      _Closed 2026-09-02 with the registry (below)._
       **Scope decision (2026-08-20): we build no attachment UI.** A paperclip,
       a file list, upload progress, MIME assembly — envelope, all of it, the
       host's for exactly the reasons to/cc/subject are. What _is_ ours is the
@@ -884,7 +884,7 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
         a host that wants one puts its own zone around the editor and calls
         `readImageFile` + `insertImage` for the inline choice.
   - [x] **A `cid:` resolver input** (`cid → object URL`), display-only —
-        shipped 2026-09-02 as the *registry*, see the shipped note below. An
+        shipped 2026-09-02 as the _registry_, see the shipped note below. An
         imported `cid:` image renders broken today: the MIME parts went to the
         host, and nothing connects them back to the node that references them.
         The resolver is a _view_ concern — the canonical `src` stays `cid:`,
@@ -897,7 +897,7 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
         handed to the editor by `createInlineImages({ registry })` — plugin
         state that the Image node, the send intent and the host all read.
         With it a drop registers its bytes and inserts `src="cid:image-1@aee"`
-        *at once*: the document stays light, the size gauge honest, and a
+        _at once_: the document stays light, the size gauge honest, and a
         draft is html + the referenced parts. Node views display a `cid:`
         through the registry's URL (a view concern — the round trip never
         learns), render a "missing" frame for a part the registry lacks, and
@@ -905,9 +905,9 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
         transaction bumping a version carried by a node decoration on every
         `cid:` image). The send intent reads its bytes from the registry.
         The Angular side is `InlineImages`, an `@Injectable()` wrapping the
-        store with a signal, provided *per composer* (never root — two
+        store with a signal, provided _per composer_ (never root — two
         composers must not share parts) and revoking its URLs with it: the
-        example app feeds it an import's parts *before* setting the document,
+        example app feeds it an import's parts _before_ setting the document,
         the editor pane hands it to the extension, and the preview renders
         `previewHtml(html)` — `cid:` sources as data URLs, because a
         sandboxed, opaque-origin frame cannot load the editor's blob URLs.

@@ -82,13 +82,15 @@ html {
   display: block;
   height: 100%;
   box-sizing: border-box;
-  // The text column *is* the email's box: 600px at most — the same ceiling
-  // the columns block and the image cap use (no padding here, so border-box
-  // is 600 of available width — the columns block goes side by side at
-  // exactly 600, and a max-size image fills the line). A max-width, not a
-  // width: the email is designed for 600 *and below* — the same fluid rules
-  // that lay it out on a phone (columns stack, images shrink, tables are
-  // percentages) lay it out here when the host gives the editor less.
+  // The text column is the email's box, capped at its 600px ceiling — the
+  // same one the columns block and the image cap use. A max-width, not a
+  // width, and the host normally gives it less: the app's writer sheet is
+  // 600px *including* its sections' inline inset, so the column composes in
+  // ~568px. That is the point of the cap being fluid — the email is designed
+  // for 600 *and below*, and the same rules that lay it out on a phone
+  // (columns stack, images shrink, tables are percentages) lay it out here.
+  // The columns block still goes side by side: its caps sum to a 560px
+  // budget, deliberately short of the ceiling for exactly this reason.
   width: 100%;
   max-width: 600px;
   text-align: inherit;
@@ -148,7 +150,9 @@ html {
  * affordances without touching the width the columns lay out in. */
 .aee-editor .aee-columns-wrap {
   --aee-block-gutter-y: 20px;
-  --aee-block-gutter-x: 20px;
+  // Inline, the gutter *is* the host surface's inline inset — same token, so
+  // the hang below can never outgrow the room the surface reserves for it.
+  --aee-block-gutter-x: var(--mat-sys-inner-spacing, 16px);
   position: relative;
   padding: var(--aee-block-gutter-y) var(--aee-block-gutter-x);
   /* The gutter must not shift the block out of the text column (Tiptap's
@@ -365,7 +369,8 @@ html {
  * depends on where it sits in this file. */
 .aee-editor .aee-table-wrap {
   --aee-block-gutter-y: 20px;
-  --aee-block-gutter-x: 20px;
+  // Same token as the surface's inline inset — see the columns wrapper above.
+  --aee-block-gutter-x: var(--mat-sys-inner-spacing, 16px);
   position: relative;
   padding: var(--aee-block-gutter-y) var(--aee-block-gutter-x);
   /* Aligned like the columns above: the gutter hangs into the surface

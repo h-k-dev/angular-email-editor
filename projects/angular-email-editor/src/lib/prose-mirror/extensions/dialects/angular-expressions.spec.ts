@@ -28,13 +28,13 @@ describe('AngularJS expression parser', () => {
       " '2021-09-21' | calcDate:'+5days' | formatDateDE",
       " cf_68 | calcDate:'+4 weeks' | formatDateDE",
       'now | formatDateTimeDE',
-      " round(parseFloat(cf_70) * 0.19,2) | formatPrice ",
+      ' round(parseFloat(cf_70) * 0.19,2) | formatPrice ',
       "customer_gender == 'male' ? 'Sehr geehrter Herr ' + customer_title + ' ' + customer_surname : customer_gender == 'female' ? 'Sehr geehrte Frau ' + customer_title + ' ' + customer_surname : customer_gender == 'diverse' ? 'Guten Tag ' + customer_firstname + ' ' + customer_surname : 'Sehr geehrte Damen und Herren'",
       "rows[idx].name || 'n/a'",
       '!(a && b) === -c',
       "[1, 'two', three]",
       'a.b.c(d, e)[f]',
-      "x >= 1e3 && y <= .5 || z != \"q\\\"uote\"",
+      'x >= 1e3 && y <= .5 || z != "q\\"uote"',
     ]) {
       expect(analyzeAngularExpression(expr)).toEqual([]);
     }
@@ -101,7 +101,7 @@ describe('AngularJS required fields', () => {
     expect(fields('cf_70 * 1e3')).toEqual(['cf_70']); // `e3` is not a field
     expect(fields('rows[idx].name')).toEqual(['rows', 'idx']);
     expect(fields('customer.getName(prefix)')).toEqual(['customer', 'prefix']);
-    expect(fields("a || b, c")).toEqual([]); // does not parse: reported, not guessed
+    expect(fields('a || b, c')).toEqual([]); // does not parse: reported, not guessed
     expect(fields('a || b')).toEqual(['a', 'b']);
     expect(fields('customer.note = draft; customer.note')).toEqual(['customer', 'draft']);
     expect(fields('x = 1', 'x + y')).toEqual(['y']); // a local assigned in another token

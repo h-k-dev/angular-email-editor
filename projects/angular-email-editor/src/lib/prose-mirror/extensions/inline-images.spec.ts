@@ -88,7 +88,10 @@ describe('InlineImageStore', () => {
     let n = 0;
     const revoked: string[] = [];
     return {
-      options: { createUrl: () => `blob:fake/${++n}`, revokeUrl: (url: string) => revoked.push(url) },
+      options: {
+        createUrl: () => `blob:fake/${++n}`,
+        revokeUrl: (url: string) => revoked.push(url),
+      },
       revoked,
     };
   };
@@ -132,7 +135,11 @@ describe('rewriteInlineImageSources', () => {
   it('rewrites the cid sources it can resolve and leaves the rest', () => {
     const html =
       '<div><img src="cid:a" alt="x"> <img alt="y" src="cid:b"> <img src="https://x/y.png"></div>';
-    expect(rewriteInlineImageSources(html, (cid) => (cid === 'a' ? 'data:image/png;base64,AA' : undefined))).toBe(
+    expect(
+      rewriteInlineImageSources(html, (cid) =>
+        cid === 'a' ? 'data:image/png;base64,AA' : undefined,
+      ),
+    ).toBe(
       '<div><img src="data:image/png;base64,AA" alt="x"> <img alt="y" src="cid:b"> <img src="https://x/y.png"></div>',
     );
   });

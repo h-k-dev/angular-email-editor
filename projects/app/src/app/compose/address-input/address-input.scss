@@ -6,7 +6,10 @@
   align-items: center;
   gap: 8px;
   min-height: 40px;
-  padding-inline: 8px;
+  // The row's own inline inset — the same token every section of the writer
+  // reads (email-writer.scss), which is what puts an address on the same
+  // text edge as the subject and the body.
+  padding-inline: var(--mat-sys-inner-spacing, 16px);
   border-block-end: 1px solid var(--mat-sys-outline-variant);
   cursor: text;
 }

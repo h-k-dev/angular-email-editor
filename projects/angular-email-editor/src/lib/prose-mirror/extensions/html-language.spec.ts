@@ -15,7 +15,9 @@ describe('html-language — interpolation highlighting', () => {
     document.body.appendChild(host);
     const editor = createEditor({ parent: host, extensions: htmlSourceExtensions, content: '' });
     editor.setText('<div>Hi {{ firstName }}, {{ cf_70 | formatPrice }}!</div>');
-    const braces = [...editor.view.dom.querySelectorAll('.aee-tok-brace')].map((el) => el.textContent);
+    const braces = [...editor.view.dom.querySelectorAll('.aee-tok-brace')].map(
+      (el) => el.textContent,
+    );
     const expressions = [...editor.view.dom.querySelectorAll('.aee-tok-expression')].map(
       (el) => el.textContent,
     );
@@ -23,8 +25,12 @@ describe('html-language — interpolation highlighting', () => {
     expect(expressions).toEqual([' firstName ', ' cf_70 | formatPrice ']);
     // A token the formatter wrapped over lines is still one token.
     editor.setText("<div>\n  {{\n    a == 'x' ? 'y' : 'z'\n  }}\n</div>");
-    expect([...editor.view.dom.querySelectorAll('.aee-tok-brace')].map((el) => el.textContent)).toEqual(['{{', '}}']);
-    expect(scanMergeTags("{{\n  a\n}}", { multiline: true })).toEqual([{ from: 0, to: 9, expr: [2, 7] }]);
+    expect(
+      [...editor.view.dom.querySelectorAll('.aee-tok-brace')].map((el) => el.textContent),
+    ).toEqual(['{{', '}}']);
+    expect(scanMergeTags('{{\n  a\n}}', { multiline: true })).toEqual([
+      { from: 0, to: 9, expr: [2, 7] },
+    ]);
     // Tag tokens keep their own classes; braces inside a tag are never tokens.
     editor.setText('<div title="{{ notAToken }}">x</div>');
     expect(editor.view.dom.querySelector('.aee-tok-brace')).toBeNull();

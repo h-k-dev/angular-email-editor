@@ -37,6 +37,11 @@
   // toolbar must not widen it with its unwrapped row — size containment
   // keeps its intrinsic width out of the column and lets it wrap inside.
   contain: inline-size;
+  // The toolbar's own inline inset, optically matched to the sections above
+  // and below: an icon button carries 6px of state layer around its 20px
+  // glyph, so the box starts 6px short of the text edge and the glyphs land
+  // on it. The block padding stays the mixin's 2px.
+  padding-inline: calc(var(--mat-sys-inner-spacing, 16px) - 6px);
 }
 
 // Curated dual-contrast palette. Token cascade: --email-* → --mat-sys-* →
@@ -199,12 +204,16 @@
   overflow-y: auto;
   cursor: text;
 
+  // The editing surface is a section like any other in the writer, so it
+  // sets its own inline inset rather than inheriting a blanket one from the
+  // sheet — every section reads the same spacing token, and they line up
+  // because they agree on the token, not because a container squeezed them.
+  // Inline, that inset doubles as the surface margin the layout blocks'
+  // editorial gutters hang into (their wrappers pull themselves back onto the
+  // text column with negative inline margins — Tiptap's model, at a calmer
+  // scale), which is why the block gutter reads the same token: the hang can
+  // never outgrow the room, whatever the token is set to.
   padding: var(--mat-sys-inner-spacing);
-  // The surface margin the layout blocks' editorial gutters hang into
-  // (their wrappers pull themselves back onto the text column with negative
-  // inline margins — Tiptap's model, at a calmer scale). Must stay ≥ the
-  // 20px block gutter or the edge affordances clip.
-  padding-inline: max(var(--mat-sys-inner-spacing, 16px), 28px);
 }
 
 // Code view: the projected source pane takes the editing surface's place.

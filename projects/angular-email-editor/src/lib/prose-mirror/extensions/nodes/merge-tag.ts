@@ -105,7 +105,7 @@ export function scanMergeTags(
   // back to spaces, so the token is judged on its collapsed form.
   const scan = options.multiline ? /(?<!\{)\{\{([^{}]{1,1002})\}\}/g : SCAN;
   scan.lastIndex = 0;
-  for (let match; (match = scan.exec(text)); ) {
+  for (let match; (match = scan.exec(text));) {
     if (!isMergeTagExpression(match[1].replace(/\s+/g, ' '))) continue;
     const from = match.index;
     const to = from + match[0].length;
@@ -131,9 +131,13 @@ function textblockTags(textblock: Node, base: number): MergeTagRange[] {
   });
   const tags: MergeTagRange[] = [];
   SCAN.lastIndex = 0;
-  for (let match; (match = SCAN.exec(text)); ) {
+  for (let match; (match = SCAN.exec(text));) {
     if (!isMergeTagExpression(match[1])) continue;
-    tags.push({ from: base + match.index, to: base + match.index + match[0].length, expr: match[1] });
+    tags.push({
+      from: base + match.index,
+      to: base + match.index + match[0].length,
+      expr: match[1],
+    });
   }
   return tags;
 }
@@ -285,7 +289,11 @@ function wholeMarksOnTokens(tr: Transform, type: MarkType): boolean {
 /** Invariant 2c: a mark toggled with the cursor *inside* a token (no
     selection — ProseMirror would only set stored marks for the next typed
     character) applies to the whole token instead. */
-function applyStoredMarksToToken(tr: Transaction, state: EditorState, applied: Transaction): boolean {
+function applyStoredMarksToToken(
+  tr: Transaction,
+  state: EditorState,
+  applied: Transaction,
+): boolean {
   if (!applied.storedMarksSet || !state.selection.empty) return false;
   const tag = mergeTagAt(state.doc, state.selection.from);
   if (!tag || state.selection.from === tag.from || state.selection.from === tag.to) return false;

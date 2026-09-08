@@ -34,7 +34,8 @@ function parseWidth(node: HTMLElement): number | null {
 function naturalWidth(url: string): Promise<number | null> {
   return new Promise((resolve) => {
     const probe = document.createElement('img');
-    probe.onload = () => resolve(probe.naturalWidth ? Math.min(probe.naturalWidth, MAX_IMAGE_WIDTH) : null);
+    probe.onload = () =>
+      resolve(probe.naturalWidth ? Math.min(probe.naturalWidth, MAX_IMAGE_WIDTH) : null);
     probe.onerror = () => resolve(null);
     probe.src = url;
   });

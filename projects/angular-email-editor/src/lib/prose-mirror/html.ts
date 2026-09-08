@@ -31,9 +31,7 @@ function getSerializer(schema: Schema): DOMSerializer {
       // the mark and emits its text bare.
       if (!('emitDOM' in type.spec)) continue;
       const emitDOM = type.spec['emitDOM'] as
-        | ((mark: unknown, inline: boolean) => DOMOutputSpec)
-        | null
-        | undefined;
+        ((mark: unknown, inline: boolean) => DOMOutputSpec) | null | undefined;
       if (emitDOM) marks[name] = emitDOM;
       else delete (marks as Record<string, unknown>)[name];
     }
