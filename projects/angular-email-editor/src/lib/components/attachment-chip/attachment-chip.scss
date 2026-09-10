@@ -1,0 +1,208 @@
+// Unencapsulated on purpose. Parts are addressed by data-slot, and a slot
+// can be projected by the host — encapsulated styles would never reach a
+// projected icon. Every rule is scoped under the chip's attribute and holds
+// its specificity to that one attribute (`:where` around the part), so:
+//   - a consumer's `[email-attachment-chip] [data-slot='name']` always wins,
+//     from any stylesheet, without ::ng-deep;
+//   - a bare element rule in the app (`button { … }`) still loses.
+//
+// Colours and sizes are --email-attachment-chip-* tokens with neutral
+// fallbacks: finished with no theme, and themed by mapping the tokens.
+
+[email-attachment-chip] {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: var(--email-attachment-chip-max-width, 240px);
+  min-width: 0;
+  min-height: 40px;
+  margin: 0;
+  padding: 4px 4px 4px 8px;
+  box-sizing: border-box;
+
+  background-color: var(--email-attachment-chip-background, #f1f3f4);
+  color: var(--email-attachment-chip-color, #1f1f1f);
+  border: 1px solid var(--email-attachment-chip-border-color, rgba(0, 0, 0, 0.12));
+  border-radius: var(--email-attachment-chip-corner, 8px);
+  font: inherit;
+  font-size: var(--email-attachment-chip-font-size, 13px);
+  line-height: 16px;
+  transition: opacity 150ms ease;
+}
+
+[email-attachment-chip][aria-disabled='true'] {
+  opacity: 0.6;
+}
+
+// ── icon ────────────────────────────────────────────────────────────────
+// Sized for any element in the slot, default or projected; the stroke
+// settings only for the default SVG.
+[email-attachment-chip] :where([data-slot='icon']) {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: var(--email-attachment-chip-icon-color, #5f6368);
+}
+
+[email-attachment-chip] :where(svg[data-slot='icon']) {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+// ── label: name over size ───────────────────────────────────────────────
+// The label takes the slack and gives it back: `min-width: 0` is what lets
+// a long filename ellipsize instead of pushing the trailing slots out.
+[email-attachment-chip] :where([data-slot='label']) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+[email-attachment-chip] :where([data-slot='name'], [data-slot='size']) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[email-attachment-chip] :where([data-slot='size']) {
+  font-size: 0.85em;
+  line-height: 14px;
+  color: var(--email-attachment-chip-secondary-color, #5f6368);
+}
+
+// ── progress ────────────────────────────────────────────────────────────
+// One ring, three modes: determinate (the host's number, eased between
+// updates), indeterminate (a spinning arc) and simulated (a CSS fill whose
+// duration the chip binds from the attachment's size). Rotated so a fill
+// starts at twelve o'clock.
+[email-attachment-chip] :where([data-slot='progress']) {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+
+[email-attachment-chip] :where(svg[data-slot='progress']) {
+  fill: none;
+  stroke-width: 2;
+  transform: rotate(-90deg);
+}
+
+[email-attachment-chip] :where([data-slot='progress-track']) {
+  stroke: var(--email-attachment-chip-progress-track, rgba(0, 0, 0, 0.12));
+}
+
+[email-attachment-chip] :where([data-slot='progress-indicator']) {
+  stroke: var(--email-attachment-chip-progress-color, #0b57d0);
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  transition: stroke-dashoffset 150ms linear;
+}
+
+[email-attachment-chip] :where(svg[data-mode='indeterminate']) {
+  animation: email-attachment-chip-spin 900ms linear infinite;
+}
+
+[email-attachment-chip] :where(svg[data-mode='indeterminate'] [data-slot='progress-indicator']) {
+  stroke-dasharray: 25 75;
+}
+
+// The duration here is a placeholder — the chip binds the real one inline.
+[email-attachment-chip] :where(svg[data-mode='simulated'] [data-slot='progress-indicator']) {
+  animation: email-attachment-chip-fill 1s cubic-bezier(0.2, 0.6, 0.35, 1) forwards;
+}
+
+// ── remove ──────────────────────────────────────────────────────────────
+// A bare button sized to the glyph it holds — a 40px row has no room for a
+// full touch-target button next to a progress ring.
+[email-attachment-chip] :where([data-slot='remove']) {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+
+  background: none;
+  color: var(--email-attachment-chip-icon-color, #5f6368);
+}
+
+[email-attachment-chip] :where([data-slot='remove'] svg) {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+}
+
+[email-attachment-chip] :where([data-slot='remove']:hover:not(:disabled), [data-slot='remove']:focus-visible) {
+  background-color: var(--email-attachment-chip-hover-background, rgba(0, 0, 0, 0.08));
+  color: var(--email-attachment-chip-color, #1f1f1f);
+}
+
+[email-attachment-chip] :where([data-slot='remove']:focus-visible) {
+  outline: 2px solid var(--email-attachment-chip-focus-ring, #0b57d0);
+  outline-offset: 1px;
+}
+
+[email-attachment-chip] :where([data-slot='remove']:disabled) {
+  cursor: default;
+}
+
+// ── enter / leave ───────────────────────────────────────────────────────
+// Opt-in, driven by Angular's animate.enter / animate.leave on the chip's
+// element — the host decides, per list, whether chips animate at all.
+[email-attachment-chip].email-attachment-chip-enter {
+  animation: email-attachment-chip-enter 160ms ease-out;
+}
+
+[email-attachment-chip].email-attachment-chip-leave {
+  animation: email-attachment-chip-leave 120ms ease-in forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [email-attachment-chip].email-attachment-chip-enter,
+  [email-attachment-chip].email-attachment-chip-leave {
+    animation: none;
+  }
+}
+
+@keyframes email-attachment-chip-spin {
+  from {
+    transform: rotate(-90deg);
+  }
+  to {
+    transform: rotate(270deg);
+  }
+}
+
+@keyframes email-attachment-chip-fill {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes email-attachment-chip-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
+@keyframes email-attachment-chip-leave {
+  to {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}

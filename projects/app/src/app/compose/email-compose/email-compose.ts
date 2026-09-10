@@ -26,6 +26,10 @@ import { MatIconModule } from '@angular/material/icon';
 import { ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
 import { Portal, PortalModule } from '@angular/cdk/portal';
 
+import { AngularFileDrop, FileDropEvent } from '@h-k-dev/angular-file-drop';
+
+import { DropHint, DropHintArt } from '../drop-hint/drop-hint';
+
 // ProseMirror
 import { Plugin } from 'prosemirror-state';
 import { redo, undo } from 'prosemirror-history';
@@ -47,6 +51,7 @@ import {
   createEditor,
   createMergeTagMenu,
   createAngularExpressions,
+  createImageDrag,
   createInlineImages,
   createSendIntent,
   createSlashMenu,
@@ -80,6 +85,9 @@ export type SourceView = 'hidden' | 'code' | 'detached';
     // CDK
     OverlayModule,
     PortalModule,
+
+    AngularFileDrop,
+    DropHint,
   ],
   templateUrl: './email-compose.html',
   styleUrl: './email-compose.scss',
@@ -123,6 +131,42 @@ export class EmailCompose {
       history, so in code view the toolbar's mark buttons act on *it* — the
       same command, on the visible text. */
   codeEditor = input<Editor | undefined>();
+
+  /** Files let go over the editing surface that the editor did not take for
+      itself — attachments, by the host's reading. The surface is the
+      dropzone, and only the surface: the paper, where a file goes *into*
+      the message; the toolbar and the strip below the body are chrome, and
+      a drop there falls through to whatever wraps the composer. This
+      component only carries the drop out. What the editor keeps is decided
+      inside it (`claimedImageFiles`): a drag of nothing but images embeds
+      inline, so it never lights the surface and its drop never arrives
+      here. Everything else does, whole. */
+  fileDrop = output<FileDropEvent>();
+
+  /** An image-only drag over the text: the editor's, to embed — the one
+      drag the surface's dropzone never reports, since the editor claims it
+      as it comes over (`claimDragEvent` on its drag events) and the zone
+      stands down. Told by the editor itself, through `createImageDrag`. */
+  protected readonly imageDrag = signal(false);
+
+  /** What the surface's hint says: the two outcomes of a drop on the text,
+      named at the moment of the drop. Images alone go *into* the message;
+      anything else — a PDF, or an image among other files — is attached,
+      as it would be anywhere else on the message. */
+  protected readonly surfaceHint = computed<{ art: DropHintArt; heading: string; text: string }>(
+    () =>
+      this.imageDrag()
+        ? {
+            art: 'inline',
+            heading: 'Drop to place in the text',
+            text: 'The image lands where the caret is, in the message itself. To attach it instead, drop it outside the text — on the address rows or the toolbar.',
+          }
+        : {
+            art: 'attach',
+            heading: 'Drop to attach',
+            text: 'The files join the attachments below the message. An image dropped here on its own is placed in the text instead.',
+          },
+  );
 
   readonly #injector = inject(Injector);
   /** The send *intent*: canonical HTML + text/plain projection, emitted when
@@ -359,6 +403,7 @@ export class EmailCompose {
         createAngularExpressions({ onDiagnostics: (d) => this.expressionDiagnostics.set(d) }),
         createTextMetrics({ onMetrics: (metrics) => this.bodyMetrics.set(metrics) }),
         createInlineImages({ registry: this.#images }),
+        createImageDrag({ onChange: (over) => this.imageDrag.set(over) }),
         createSendIntent({ onSend: (intent) => this.send.emit(intent) }),
         this.#angularSync,
       ],

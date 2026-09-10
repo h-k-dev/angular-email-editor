@@ -1,0 +1,96 @@
+// An overlay across its zone, click-through: `pointer-events: none`, so this
+// never appears in hit-testing and never takes a drop the zone should have
+// had — and no z-index, it relies only on being last in DOM among positioned
+// things. The host it fills is the zone's element (or a positioned box the
+// same size), which is why the zone, not this, decides where it appears.
+:host {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+// A dashed field over the zone while a file hovers, so the target reads as a
+// target rather than as a caption floating on the background. Offset and
+// corner are the zone's to set: the page draws its outline inside its own
+// margin, on its large corner; a sheet keeps the tight default.
+:host(.is-active) {
+  border-radius: var(--drop-hint-radius, var(--mat-sys-corner-medium, 8px));
+  outline: 2px dashed var(--mat-sys-primary, #0056b3);
+  outline-offset: var(--drop-hint-outline-offset, -2px);
+  background-color: color-mix(in srgb, var(--mat-sys-primary, #0056b3) 6%, transparent);
+}
+
+.hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: 320px;
+  padding: 20px 24px;
+  text-align: center;
+
+  background-color: var(--mat-sys-surface-bright, #ffffff);
+  color: var(--mat-sys-on-surface, #1f1f1f);
+  border-radius: var(--mat-sys-corner-medium, 8px);
+  box-shadow: var(--mat-sys-level2);
+
+  // Rises the short distance into place. A drag is already in motion, so the
+  // card meeting it halfway reads as a response rather than an interruption.
+  // Both ends stated and `both` fill: an implicit end state leaves the card
+  // on whatever the animation last painted if it is ever interrupted, and an
+  // invisible hint is worse than no animation.
+  animation: drop-hint-in 140ms ease-out both;
+}
+
+@keyframes drop-hint-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hint {
+    animation: none;
+  }
+}
+
+// The drawing carries the accent; the words below stay in text colours, so
+// the eye lands on the picture first.
+.hint__art {
+  width: 168px;
+  height: 96px;
+  color: var(--mat-sys-primary, #0056b3);
+}
+
+// The parts of the drawing that are *content* rather than structure: quieter
+// than the outlines that hold them, so the page reads as a page.
+.hint__line {
+  opacity: 0.45;
+}
+
+.hint__line--head {
+  stroke-width: 4;
+  opacity: 0.75;
+}
+
+.hint__arrow {
+  opacity: 0.7;
+}
+
+.hint__title {
+  margin: 0;
+  font: var(--mat-sys-title-small);
+}
+
+.hint__body {
+  margin: 0;
+  color: var(--mat-sys-on-surface-variant, #555555);
+  font: var(--mat-sys-body-small);
+}

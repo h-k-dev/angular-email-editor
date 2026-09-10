@@ -1,143 +1,219 @@
-<!-- The preview, docked to the left when the toolbar's preview button is on. -->
-<section
-  email-preview
-  [hidden]="!previewOpen()"
-  [html]="html()"
-  aria-label="Email preview"
-></section>
-<!-- The writer frames the editor: Send on top, the editor below.
+<!-- Three nested dropzones, one rule each, and a hint apiece that says the
+     rule at the moment it matters:
+       · the page — everything outside the message — *imports*: an .eml
+         dropped here is parsed and rendered into the editor;
+       · the writer — the message, address rows to toolbar — *attaches*,
+         whatever the file (the zone is on the writer section below);
+       · the editing surface inside it, the text, *embeds* a drop of nothing
+         but images and attaches anything else (email-compose.html).
+
+     `selfOnly` is what keeps them apart: a drag that lands in a nested zone
+     is structurally never the outer one's — regardless of stacking, and
+     regardless of what that zone does with the drop. Before
+     angular-file-drop 1.2 this had to be done by keeping the zone painted
+     *under* the panes, which broke the moment it was given a position. -->
+<div
+  class="page"
+  dropZone
+  #emlZone="dropZone"
+  selfOnly
+  [clickable]="false"
+  [directory]="false"
+  [multiple]="false"
+  [acceptedFiles]="'.eml,message/rfc822'"
+  (fileDrop)="onEmlDrop($event)"
+>
+  <!-- The import hint. Inside the zone now that the zone is an ancestor, and
+       click-through so it can cover the sheet without taking a drop from it. -->
+  <div
+    drop-hint
+    art="import"
+    heading="Drop to open this message"
+    text="The .eml is parsed and rendered into the editor, replacing what is written. To send a message along instead, drop it on the message — it becomes an attachment."
+    [active]="emlZone.isDragOver()"
+  ></div>
+
+  <!-- The preview, docked to the left when the toolbar's preview button is on. -->
+  <section
+    email-preview
+    [hidden]="!previewOpen()"
+    [html]="html()"
+    aria-label="Email preview"
+  ></section>
+  <!-- The writer frames the editor: Send on top, the editor below.
      The editor, or — via the portal — the source in its place; the toolbar's
      </> and detach buttons switch.
-     The editor doubles as an .eml dropzone: a dropped message imports as the
-     document (parseEml → importedDocument → the same canonical html signal).
-     clickable=false — clicking the editor must never open a file picker; the
-     accept filter keeps image drops flowing to ProseMirror's own handler. -->
-<section
-  email-writer
-  aria-label="Email writer"
-  [(from)]="from"
-  [(to)]="to"
-  [(subject)]="subject"
-  (send)="onSend($event)"
->
+     The writer is the *attachment* zone: a file dropped anywhere on the
+     message — the address rows, the toolbar, the strip — joins the strip
+     under the body. Always: no accept filter, because the place decides, not
+     the type, and an .eml dropped on the message means "send it along", not
+     "open it". selfOnly, so the surface's zone inside is not this one's.
+     The editing surface nested in the composer is the one exception, and
+     only for a drop of nothing but images: the editor claims such a drag as
+     it comes over the text and takes the drop (`claimedImageFiles`),
+     embedding them inline, and every zone stands down for a claimed drag.
+     Anything else dropped on
+     the surface is an attachment like everywhere else on the message — the
+     composer's own zone takes it and carries it out as `fileDrop`.
+     clickable=false — clicking the message must never open a file picker. -->
   <section
-    email-compose
+    email-writer
+    aria-label="Email writer"
     dropZone
-    #emlZone="dropZone"
+    #writerZone="dropZone"
+    selfOnly
     [clickable]="false"
     [directory]="false"
-    [multiple]="false"
-    [acceptedFiles]="'.eml,message/rfc822'"
-    [class.eml-dropzone--active]="emlZone.isDragOver()"
-    (fileDrop)="onEmlDrop($event)"
-    [(html)]="html"
-    [(sourceView)]="sourceView"
-    [(preview)]="previewOpen"
-    [dockable]="!viewport.narrow()"
-    [codePortal]="codePortal()"
-    [codeEditor]="sourcePane().editor()"
-    aria-label="Email editor"
-  ></section>
-</section>
-<!-- The HTML source pane. Its home is this right column (the detached view);
+    [multiple]="true"
+    (fileDrop)="onAttachmentDrop($event)"
+    [(from)]="from"
+    [(to)]="to"
+    [(subject)]="subject"
+    (send)="onSend($event)"
+  >
+    <section
+      email-compose
+      (fileDrop)="onAttachmentDrop($event)"
+      [(html)]="html"
+      [(sourceView)]="sourceView"
+      [(preview)]="previewOpen"
+      [dockable]="!viewport.narrow()"
+      [codePortal]="codePortal()"
+      [codeEditor]="sourcePane().editor()"
+      aria-label="Email editor"
+    >
+      <!-- The attachment strip, projected into the composer's below-body slot
+         so it lands between the message and the toolbar. The list is the
+         host's (a drop or an .eml import fills it); the container only lays
+         the chips out, and a chip only asks to be removed. -->
+      <ul email-attachment-chips below-body>
+        @for (attachment of attachments(); track attachment) {
+          <!-- The demo already holds every file it shows, so it has nothing
+               real to report — simulateProgress plays the attaching moment. -->
+          <li
+            email-attachment-chip
+            [attachment]="attachment"
+            simulateProgress
+            animate.enter="email-attachment-chip-enter"
+            animate.leave="email-attachment-chip-leave"
+            (removed)="removeAttachment(attachment)"
+          ></li>
+        }
+      </ul>
+    </section>
+    <!-- The writer's hint, projected last so it overlays the composer:
+         click-through, so the surface's zone underneath still gets its
+         drags. Off while the drag is over the surface — selfOnly resets this
+         zone the moment a drag enters a nested one — so the two hints never
+         stack. -->
+    <div
+      drop-hint
+      art="attach"
+      heading="Drop to attach"
+      text="Anything dropped on the message is attached, images included. To place an image in the text instead, drop it where you write."
+      [active]="writerZone.isDragOver()"
+    ></div>
+  </section>
+  <!-- The HTML source pane. Its home is this right column (the detached view);
      in code view a DOM portal moves the very same node into the composer's
      editing surface and back — the editor inside is never re-created, so
      undo history and lint carry across. Hidden by default. -->
-<section
-  html-email-compose
-  #sourceEl
-  class="scroll-container"
-  [hidden]="sourceView() === 'hidden'"
-  [(html)]="html"
-  [(diagnostics)]="diagnostics"
-  aria-label="Email HTML source"
-></section>
+  <section
+    html-email-compose
+    #sourceEl
+    class="scroll-container"
+    [hidden]="sourceView() === 'hidden'"
+    [(html)]="html"
+    [(diagnostics)]="diagnostics"
+    aria-label="Email HTML source"
+  ></section>
 
-<!-- The status strip (problems, examples, statistics) is desktop chrome:
+  <!-- The status strip (problems, examples, statistics) is desktop chrome:
      below the docking breakpoint it is not rendered at all. -->
-@if (!viewport.narrow()) {
-  <footer class="status" aria-live="polite">
-    <button
-      type="button"
-      class="status__issues status__issues--error"
-      [disabled]="!errors()"
-      (click)="reveal('error')"
-    >
-      {{ errors() }} {{ errors() === 1 ? 'error' : 'errors' }}
-    </button>
-    <button
-      type="button"
-      class="status__issues status__issues--warning"
-      [disabled]="!warnings()"
-      (click)="reveal('warning')"
-    >
-      {{ warnings() }} {{ warnings() === 1 ? 'warning' : 'warnings' }}
-    </button>
-    @if (lastSend(); as note) {
-      <span class="status__send" aria-label="Last send intent">{{ note }}</span>
-    }
-    @if (importNote(); as note) {
-      <span class="status__send" aria-label="Last import">{{ note }}</span>
-    }
-    <!-- Demo-only: seeds the composer with example documents. Split button —
+  @if (!viewport.narrow()) {
+    <footer class="status" aria-live="polite">
+      <button
+        type="button"
+        class="status__issues status__issues--error"
+        [disabled]="!errors()"
+        (click)="reveal('error')"
+      >
+        {{ errors() }} {{ errors() === 1 ? 'error' : 'errors' }}
+      </button>
+      <button
+        type="button"
+        class="status__issues status__issues--warning"
+        [disabled]="!warnings()"
+        (click)="reveal('warning')"
+      >
+        {{ warnings() }} {{ warnings() === 1 ? 'warning' : 'warnings' }}
+      </button>
+      @if (lastSend(); as note) {
+        <span class="status__send" aria-label="Last send intent">{{ note }}</span>
+      }
+      @if (importNote(); as note) {
+        <span class="status__send" aria-label="Last import">{{ note }}</span>
+      }
+      <!-- Demo-only: seeds the composer with example documents. Split button —
        the main half cycles the active set, the caret picks a set (reply
        seeds, AngularJS-expression templates, Handlebars templates). -->
-    <span class="status__example-group">
-      <button
-        type="button"
-        class="status__example"
-        title="Replace the document with the active set's next example"
-        (click)="nextExample()"
-      >
-        {{ exampleLabel() }}
-      </button>
-      <button
-        type="button"
-        class="status__example status__example--caret"
-        aria-label="Choose example set"
-        [attr.aria-expanded]="exampleMenuOpen()"
-        cdkOverlayOrigin
-        #exampleOrigin="cdkOverlayOrigin"
-        (click)="exampleMenuOpen.set(!exampleMenuOpen())"
-      >
-        ▾
-      </button>
-    </span>
-    <ng-template
-      cdkConnectedOverlay
-      [cdkConnectedOverlayOrigin]="exampleOrigin"
-      [cdkConnectedOverlayOpen]="exampleMenuOpen()"
-      [cdkConnectedOverlayHasBackdrop]="true"
-      cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop"
-      (backdropClick)="exampleMenuOpen.set(false)"
-      [cdkConnectedOverlayPush]="true"
-      [cdkConnectedOverlayViewportMargin]="8"
-    >
-      <div class="example-menu" role="menu" aria-label="Example sets">
-        @for (option of exampleSetOptions; track option.key) {
-          <button
-            type="button"
-            role="menuitem"
-            class="example-menu__item"
-            (click)="nextExample(option.key)"
-          >
-            {{ option.label }}
-          </button>
-        }
-      </div>
-    </ng-template>
-    @if (metrics(); as m) {
-      <span class="status__count" aria-label="Document length">
-        {{ m.words }} {{ m.words === 1 ? 'word' : 'words' }} · {{ m.lines }}
-        {{ m.lines === 1 ? 'line' : 'lines' }}
+      <span class="status__example-group">
+        <button
+          type="button"
+          class="status__example"
+          title="Replace the document with the active set's next example"
+          (click)="nextExample()"
+        >
+          {{ exampleLabel() }}
+        </button>
+        <button
+          type="button"
+          class="status__example status__example--caret"
+          aria-label="Choose example set"
+          [attr.aria-expanded]="exampleMenuOpen()"
+          cdkOverlayOrigin
+          #exampleOrigin="cdkOverlayOrigin"
+          (click)="exampleMenuOpen.set(!exampleMenuOpen())"
+        >
+          ▾
+        </button>
       </span>
-    }
-    <span
-      class="status__size"
-      [class.status__size--warning]="size().level === 'warning'"
-      [class.status__size--error]="size().level === 'error'"
-    >
-      {{ sizeLabel() }}
-    </span>
-  </footer>
-}
+      <ng-template
+        cdkConnectedOverlay
+        [cdkConnectedOverlayOrigin]="exampleOrigin"
+        [cdkConnectedOverlayOpen]="exampleMenuOpen()"
+        [cdkConnectedOverlayHasBackdrop]="true"
+        cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop"
+        (backdropClick)="exampleMenuOpen.set(false)"
+        [cdkConnectedOverlayPush]="true"
+        [cdkConnectedOverlayViewportMargin]="8"
+      >
+        <div class="example-menu" role="menu" aria-label="Example sets">
+          @for (option of exampleSetOptions; track option.key) {
+            <button
+              type="button"
+              role="menuitem"
+              class="example-menu__item"
+              (click)="nextExample(option.key)"
+            >
+              {{ option.label }}
+            </button>
+          }
+        </div>
+      </ng-template>
+      @if (metrics(); as m) {
+        <span class="status__count" aria-label="Document length">
+          {{ m.words }} {{ m.words === 1 ? 'word' : 'words' }} · {{ m.lines }}
+          {{ m.lines === 1 ? 'line' : 'lines' }}
+        </span>
+      }
+      <span
+        class="status__size"
+        [class.status__size--warning]="size().level === 'warning'"
+        [class.status__size--error]="size().level === 'error'"
+      >
+        {{ sizeLabel() }}
+      </span>
+    </footer>
+  }
+</div>

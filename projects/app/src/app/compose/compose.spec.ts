@@ -63,6 +63,9 @@ describe('Compose', () => {
 
   it("the toolbar's </> moves the HTML source into the editing surface's place and back", async () => {
     const root = fixture.nativeElement as HTMLElement;
+    // The pane's home is the page wrapper, which is also the .eml import
+    // dropzone (compose.html) — not the component host.
+    const page = root.querySelector('.page') as HTMLElement;
     const editor = root.querySelector('.editor') as HTMLElement;
     const code = root.querySelector('.code') as HTMLElement;
     const source = root.querySelector('section[html-email-compose]') as HTMLElement;
@@ -74,7 +77,7 @@ describe('Compose', () => {
 
     // Hidden by default, in its own column (a sibling of the composer).
     expect(source.hidden).toBe(true);
-    expect(source.parentElement).toBe(root);
+    expect(source.parentElement).toBe(page);
     expect(editor.hidden).toBe(false);
     expect(code.hidden).toBe(true);
 
@@ -98,7 +101,7 @@ describe('Compose', () => {
     toggle.click();
     await fixture.whenStable();
     // …and back home, hidden again.
-    expect(source.parentElement).toBe(root);
+    expect(source.parentElement).toBe(page);
     expect(source.hidden).toBe(true);
     expect(editor.hidden).toBe(false);
     expect(code.hidden).toBe(true);
@@ -107,6 +110,9 @@ describe('Compose', () => {
 
   it('detach shows the HTML source beside the editor; the two buttons switch each other', async () => {
     const root = fixture.nativeElement as HTMLElement;
+    // The pane's home is the page wrapper, which is also the .eml import
+    // dropzone (compose.html) — not the component host.
+    const page = root.querySelector('.page') as HTMLElement;
     const editor = root.querySelector('.editor') as HTMLElement;
     const code = root.querySelector('.code') as HTMLElement;
     const source = root.querySelector('section[html-email-compose]') as HTMLElement;
@@ -118,7 +124,7 @@ describe('Compose', () => {
     await fixture.whenStable();
     expect(root.classList.contains('compose--detached')).toBe(true);
     expect(source.hidden).toBe(false);
-    expect(source.parentElement).toBe(root); // its own column, not the slot
+    expect(source.parentElement).toBe(page); // its own column, not the slot
     expect(editor.hidden).toBe(false); // the editor stays, and stays the target
     expect(quote.disabled).toBe(false);
     expect(detach.getAttribute('aria-pressed')).toBe('true');
@@ -189,7 +195,12 @@ describe('Compose below the docking breakpoint', () => {
     const narrow = signal(false);
     await TestBed.configureTestingModule({
       imports: [Compose],
-      providers: [{ provide: Viewport, useValue: { narrow: narrow.asReadonly() } }],
+      providers: [
+        {
+          provide: Viewport,
+          useValue: { narrow: narrow.asReadonly(), compact: signal(false).asReadonly() },
+        },
+      ],
     }).compileComponents();
     const fixture = TestBed.createComponent(Compose);
     await fixture.whenStable();

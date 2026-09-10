@@ -1,7 +1,8 @@
 import { NodeSelection, Plugin, PluginKey } from 'prosemirror-state';
 import { EditorView, NodeView } from 'prosemirror-view';
 import { DOMSerializer, Node, Schema } from 'prosemirror-model';
-import { defineNode } from '../../extension';
+import { claimDragEvent } from '@h-k-dev/angular-file-drop/core';
+import { FunctionalExtension, defineExtension, defineNode } from '../../extension';
 import { isSafeUrl } from '../marks/link';
 import { InlineImageRegistry, inlineImageRegistry } from '../inline-images';
 
@@ -94,8 +95,69 @@ function imageFiles(data: DataTransfer | null): File[] {
 function isImageDrag(data: DataTransfer | null): boolean {
   const items = Array.from(data?.items ?? []).filter((item) => item.kind === 'file');
   if (items.length) return items.every((item) => !item.type || item.type.startsWith('image/'));
+  return isFileDrag(data);
+}
+
+/** A drag carrying files at all — the OS kind, as opposed to a text
+    selection or one of the editor's own node drags. */
+function isFileDrag(data: DataTransfer | null): boolean {
   return Array.from(data?.types ?? []).includes('Files');
 }
+
+/**
+ * The drag phase of the claim rule, as a `handleDOMEvents` hook: an image
+ * drag is claimed the moment it comes over the editor, not only at the drop.
+ *
+ * A dropzone wrapping the editor (angular-file-drop) highlights for every
+ * file drag over it and stands down for one a nested handler has claimed.
+ * `handleDrop` claims image drops — but by then the zone has been promising
+ * an attachment for the whole drag. Saying it here, on `dragenter` and
+ * `dragover`, keeps the zone's word honest: it lights over the text for a
+ * PDF, which it will get, and not for an image, which the editor keeps. The
+ * claim is a mark on the event and nothing else — ProseMirror still accepts
+ * the drag as it always has (false: its own handler runs), and a host with
+ * no such zone sees no difference at all. Mixed drags and anything that is
+ * not a file drag are left unmarked: the zone's, or nobody's.
+ */
+function claimImageDrag(_view: EditorView, event: DragEvent): boolean {
+  if (isImageDrag(event.dataTransfer)) claimDragEvent(event);
+  return false;
+}
+
+/**
+ * Whether an image drag the editor will embed is over it — the drag phase of
+ * the claim rule (`isImageDrag`), told to the host.
+ *
+ * A host that wraps the editor in a file dropzone needs this to say the
+ * right thing while a file hangs over the text: its zone reports a drag it
+ * would take, and an image drag is exactly the one it will *not* get — the
+ * editor claims those as they come over it (`claimImageDrag`), so the zone
+ * stands down and reads nothing. This is the other half, from the editor
+ * that knows: on while an image-only drag is over the editing
+ * surface, off when it leaves, drops, or turns out to be mixed. Reported on
+ * change only. The drop line (`ImageDropLine`) is what tracks it — this is
+ * the same state, spoken.
+ */
+export const createImageDrag = (options: {
+  onChange: (over: boolean) => void;
+}): FunctionalExtension =>
+  defineExtension({
+    name: 'imageDrag',
+    plugins: () => [
+      new Plugin<ImageDragOptions>({
+        key: imageDragKey,
+        state: { init: () => options, apply: (_tr, value) => value },
+      }),
+    ],
+  });
+
+interface ImageDragOptions {
+  onChange: (over: boolean) => void;
+}
+
+/** The host's listener, if one is configured — plugin state, like the
+    registry, so the drop line can find it from its view. */
+const imageDragKey = new PluginKey<ImageDragOptions>('imageDrag');
 
 export interface ImageDropTarget {
   /** The caret — the image is inserted inline where the cursor sits (Gmail's
@@ -139,6 +201,7 @@ export function imageDropTarget(view: EditorView): ImageDropTarget {
 class ImageDropLine {
   private element: HTMLElement | null = null;
   private timeout: ReturnType<typeof setTimeout> | null = null;
+  private over = false;
   private readonly listeners: [keyof HTMLElementEventMap, (event: DragEvent) => void][];
 
   constructor(private readonly view: EditorView) {
@@ -174,7 +237,15 @@ class ImageDropLine {
     if (event.target === this.view.dom || !into || !this.view.dom.contains(into)) this.hide();
   }
 
+  /** The host's view of the same state (`createImageDrag`), on change only. */
+  private report(over: boolean): void {
+    if (this.over === over) return;
+    this.over = over;
+    imageDragKey.getState(this.view.state)?.onChange(over);
+  }
+
   private show(target: ImageDropTarget): void {
+    this.report(true);
     const parent = (this.view.dom.offsetParent as HTMLElement | null) ?? document.body;
     if (!this.element) {
       this.element = document.createElement('div');
@@ -197,6 +268,7 @@ class ImageDropLine {
   }
 
   private hide(): void {
+    this.report(false);
     if (this.timeout) clearTimeout(this.timeout);
     this.timeout = null;
     this.element?.remove();
@@ -575,6 +647,10 @@ export const Image = defineNode({
     new Plugin({
       key: new PluginKey('imageFiles'),
       props: {
+        handleDOMEvents: {
+          dragenter: claimImageDrag,
+          dragover: claimImageDrag,
+        },
         handleDrop(view, event) {
           const files = imageFiles(event.dataTransfer);
           if (!files.length) return false;

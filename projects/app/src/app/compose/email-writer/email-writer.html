@@ -1,14 +1,18 @@
 <header class="writer-bar">
   <span class="writer-bar__spacer"></span>
+  <!-- An icon button like every other in the writer: the app's global
+       icon-button override gives it the 32px state layer and 40px touch
+       target (styles.scss), so nothing is restated here. The label moves to
+       aria-label and the title, which is where a lone icon carries it. -->
   <button
-    matButton="filled"
+    mat-icon-button
     type="button"
     class="writer-bar__send"
+    aria-label="Send"
     title="Send (Ctrl+Enter)"
     (click)="requestSend()"
   >
     <mat-icon>send</mat-icon>
-    Send
   </button>
 </header>
 

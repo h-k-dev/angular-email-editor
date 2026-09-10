@@ -7,6 +7,7 @@ import {
   ImageAttrs,
   PLACEHOLDER_WIDTH,
   claimedImageFiles,
+  createImageDrag,
   filledPlaceholderAttrs,
   imageDropTarget,
 } from './image';
@@ -14,6 +15,7 @@ import { NodeSelection, TextSelection } from 'prosemirror-state';
 import { Transform } from 'prosemirror-transform';
 import { InlineImageStore, createInlineImages } from '../inline-images';
 import { SendIntent, createSendIntent } from '../send-intent';
+import { isDragEventClaimed } from '@h-k-dev/angular-file-drop/core';
 
 const schema = createSchema(emailExtensions);
 const roundTrip = (html: string) => serializeToHTML(parseHTML(html, schema), schema);
@@ -103,6 +105,40 @@ describe('image node', () => {
       };
       expect(drop([png, pdf])).toEqual({ claimed: false, prevented: 0 });
       expect(drop([png])).toEqual({ claimed: true, prevented: 1 });
+      editor.destroy();
+      host.remove();
+    });
+
+    it('claims an image drag as it comes over the text, and leaves any other file drag unclaimed', () => {
+      const host = document.createElement('div');
+      document.body.appendChild(host);
+      const editor = createEditor({
+        parent: host,
+        extensions: emailExtensions,
+        content: '<div>x</div>',
+      });
+      // A dropzone wrapping the editor stands down for a claimed drag: this
+      // is what keeps its highlight off the text for the one drop it will
+      // not get, and on for the PDF it will. ProseMirror's own acceptance of
+      // the drag (preventDefault) is untouched either way.
+      const drag = (type: string, items: { kind: string; type: string }[], types = ['Files']) => {
+        const event = new Event(type, { bubbles: true, cancelable: true });
+        Object.defineProperty(event, 'dataTransfer', {
+          value: { items, types, getData: () => '' },
+        });
+        editor.view.dom.dispatchEvent(event);
+        return { claimed: isDragEventClaimed(event), prevented: event.defaultPrevented };
+      };
+      const image = { kind: 'file', type: 'image/png' };
+      const pdf = { kind: 'file', type: 'application/pdf' };
+      const text = { kind: 'string', type: 'text/plain' };
+
+      expect(drag('dragover', [image])).toEqual({ claimed: true, prevented: true });
+      expect(drag('dragenter', [image])).toEqual({ claimed: true, prevented: true });
+      expect(drag('dragover', [pdf])).toEqual({ claimed: false, prevented: true });
+      expect(drag('dragover', [image, pdf])).toEqual({ claimed: false, prevented: true });
+      expect(drag('dragover', [text], ['text/plain'])).toEqual({ claimed: false, prevented: true });
+
       editor.destroy();
       host.remove();
     });
@@ -421,6 +457,41 @@ describe('image node', () => {
       );
       // The next image goes after the new line, not inside it.
       expect(tr.mapping.map(5)).toBe(5 + node.nodeSize + 2);
+    });
+
+    it('tells the host, through createImageDrag, when an image drag is over the text — on change only', () => {
+      const host = document.createElement('div');
+      document.body.appendChild(host);
+      const reported: boolean[] = [];
+      const editor = createEditor({
+        parent: host,
+        extensions: [...emailExtensions, createImageDrag({ onChange: (over) => reported.push(over) })],
+        content: '<div>one</div>',
+      });
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 2)));
+      editor.view.coordsAtPos = () => ({ top: 0, bottom: 20, left: 0, right: 0 });
+      const drag = (type: string, items: { kind: string; type: string }[]) => {
+        const event = new Event(type, { bubbles: true });
+        Object.defineProperty(event, 'dataTransfer', {
+          value: { items, types: ['Files'], getData: () => '' },
+        });
+        editor.view.dom.dispatchEvent(event);
+      };
+      const image = { kind: 'file', type: 'image/png' };
+      const pdf = { kind: 'file', type: 'application/pdf' };
+
+      drag('dragover', [image]);
+      drag('dragover', [image]);
+      expect(reported).toEqual([true]);
+      // A mixed drag is the host's, and says so.
+      drag('dragover', [image, pdf]);
+      expect(reported).toEqual([true, false]);
+      drag('dragover', [image]);
+      drag('drop', [image]);
+      expect(reported).toEqual([true, false, true, false]);
+
+      editor.destroy();
+      host.remove();
     });
 
     it('draws the line for an image drag, removes it on drop, and draws nothing for a mixed drag', () => {

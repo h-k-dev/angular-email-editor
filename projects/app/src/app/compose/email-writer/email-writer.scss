@@ -8,6 +8,9 @@
   flex-direction: column;
   gap: 8px;
   min-height: 0;
+  // The containing block for the writer's drop hint, which overlays the sheet
+  // (projected in by the composer, last).
+  position: relative;
   // Block only. The sheet deliberately imposes no inline padding: each
   // section below sets its own from the shared spacing token, so the editing
   // surface can reserve the room its layout blocks need without that room
@@ -16,7 +19,15 @@
   box-sizing: border-box;
 
   background-color: var(--mat-sys-surface-bright);
-  border-radius: var(--mat-sys-corner-medium);
+  // Corners only while the sheet has a desk to sit on. At the full-width
+  // breakpoint and below the page's padding is gone (compose.scss) and this is
+  // screen, edge to edge — a rounded screen corner is a device, not a sheet.
+  // The same steep clamp the padding uses, so the two snap in one paint; the
+  // self-driving form (100cqi - 100%) is out because a percentage in
+  // border-radius resolves against the box's *height* on the vertical axis,
+  // and this sheet is taller than the viewport is wide on any tablet held
+  // portrait — it would drop its corners while still centred.
+  border-radius: clamp(0px, (100vw - 768px) * 100, var(--mat-sys-corner-medium, 8px));
   // Lifted just off the page — the lowest system elevation, so it reads as
   // a sheet on a desk rather than a panel.
   box-shadow: var(--mat-sys-level1);
@@ -28,7 +39,11 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding-inline: var(--mat-sys-inner-spacing, 16px);
+  // Optical, not geometric: the bar holds icon buttons, whose 32px state
+  // layer sits 8px clear of the 16px glyph inside it. Inset the box by that
+  // much less and the glyph — the only part anyone sees — lands on the same
+  // edge as the address labels and the body text.
+  padding-inline: calc(var(--mat-sys-inner-spacing, 16px) - 8px);
 }
 
 .writer-bar__spacer {

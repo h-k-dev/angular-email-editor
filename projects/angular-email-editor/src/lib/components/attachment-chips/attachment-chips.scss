@@ -1,0 +1,22 @@
+// Unencapsulated like the chip, and for the same reason: one attribute of
+// specificity, so a consumer's rule on the strip always wins.
+//
+// No surface of its own — the strip sits on whatever sheet the host puts it
+// on. Its inline inset is a token so a host can line the first chip's icon
+// up with its own text edge.
+[email-attachment-chips] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--email-attachment-chips-gap, 6px);
+  flex: none;
+  margin: 0;
+  padding-block: 0;
+  padding-inline: var(--email-attachment-chips-inset, 16px);
+  list-style: none;
+}
+
+// Beats the flex display above — the host binds `hidden` while there are no
+// chips, and `display: flex` would otherwise keep an empty row on the sheet.
+[email-attachment-chips][hidden] {
+  display: none;
+}

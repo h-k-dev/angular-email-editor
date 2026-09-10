@@ -22,7 +22,9 @@ describe('EmailWriter', () => {
   it('puts Send on the right of its top bar, and sending without an editor is a no-op', () => {
     const bar = fixture.nativeElement.querySelector('.writer-bar') as HTMLElement;
     const send = bar.querySelector('.writer-bar__send') as HTMLButtonElement;
-    expect(send.textContent).toContain('Send');
+    // Icon-only, so the name lives on the label, not in the text.
+    expect(send.getAttribute('aria-label')).toBe('Send');
+    expect(send.querySelector('mat-icon')?.textContent?.trim()).toBe('send');
     expect(bar.lastElementChild).toBe(send);
     expect(() => send.click()).not.toThrow();
   });

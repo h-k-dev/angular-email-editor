@@ -13,6 +13,9 @@ import { OverlayModule } from '@angular/cdk/overlay';
 import { DomPortal } from '@angular/cdk/portal';
 import { AngularFileDrop, FileDropEvent } from '@h-k-dev/angular-file-drop';
 import {
+  Attachment,
+  AttachmentChip,
+  AttachmentChips,
   HtmlDiagnostic,
   emailSizeBudget,
   InlineImages,
@@ -22,8 +25,16 @@ import {
   toInboundMessage,
 } from 'angular-email-editor';
 import { EmailCompose, SourceView } from './email-compose/email-compose';
+import { DropHint } from './drop-hint/drop-hint';
 import { EmailMessage, EmailWriter } from './email-writer/email-writer';
 import { Viewport } from '../viewport';
+
+/** A dropped file that is a message rather than an attachment. The MIME type
+    is what a mail client sets; the extension is what survives a trip through
+    a filesystem that never knew the type — either alone is enough. */
+function isEml(file: File): boolean {
+  return file.type === 'message/rfc822' || /\.eml$/i.test(file.name);
+}
 
 /** A status-strip note and the document it is about. */
 interface StatusNote {
@@ -50,6 +61,9 @@ interface ExampleSet {
   imports: [
     EmailWriter,
     EmailCompose,
+    AttachmentChips,
+    AttachmentChip,
+    DropHint,
     HtmlEmailCompose,
     EmailPreview,
     AngularFileDrop,
@@ -64,8 +78,10 @@ interface ExampleSet {
     // State hooks: the preview docked left, the source docked right.
     '[class.compose--detached]': "sourceView() === 'detached'",
     '[class.compose--preview]': 'previewOpen()',
-    // Below the docking breakpoint there are no flanks to keep.
-    '[class.compose--narrow]': 'viewport.narrow()',
+    // Below the flank breakpoint there are no flanks to keep. Note this is
+    // *not* the docking breakpoint: between the two nothing docks, but the
+    // writer stays a centred column.
+    '[class.compose--compact]': 'viewport.compact()',
   },
 })
 export class Compose {
@@ -85,6 +101,12 @@ export class Compose {
   protected from = signal<string[]>(['you@example.com']);
   protected to = signal<string[]>([]);
   protected subject = signal('');
+
+  /** The message's attachments — the host's, exactly as the envelope above
+      is. The strip under the body only displays them and asks for removals
+      (`removeAttachment`); what puts
+      one here is a picker, a dropzone or, today, an imported `.eml`. */
+  protected attachments = signal<Attachment[]>([]);
 
   /** Where the HTML source shows (the toolbar's </> and detach buttons).
       Owned here because revealing a finding has to switch to a view that can
@@ -191,9 +213,37 @@ export class Compose {
     return note && note.html === this.html() ? note.text : null;
   }
 
+  /**
+   * A file dropped on the editing surface is an attachment — including an
+   * `.eml`, which there means "send this message along", not "open it".
+   * Opening is the page's gesture, one zone out (`onEmlDrop`), and the page
+   * is everything but the surface — the toolbar and the strip included.
+   *
+   * Only drops the editor did not claim arrive here: ProseMirror takes a
+   * pure-image drop and embeds it inline, so images alone are content and
+   * anything else — a PDF, or an image among other files — is an attachment.
+   */
+  protected onAttachmentDrop(event: FileDropEvent): void {
+    const dropped = event.files.map(({ file }) => file);
+    if (!dropped.length) return;
+    // A `File` already satisfies `Attachment` (name + type), so it goes in
+    // as it is — the strip needs no adapter and the bytes stay reachable for
+    // whatever eventually sends them.
+    this.attachments.update((current) => [...current, ...dropped]);
+  }
+
+  /** A chip asked to go. Identity, not name: two files may share a name,
+      and removing one must not take the other with it. */
+  protected removeAttachment(attachment: Attachment): void {
+    this.attachments.update((current) => current.filter((a) => a !== attachment));
+  }
+
   protected async onEmlDrop(event: FileDropEvent): Promise<void> {
     const dropped = event.files[0]?.file;
-    if (!dropped) return;
+    if (dropped) await this.#importEml(dropped);
+  }
+
+  async #importEml(dropped: File): Promise<void> {
     try {
       const { default: PostalMime } = await import('postal-mime');
       const parsed = await PostalMime.parse(dropped);
@@ -203,10 +253,22 @@ export class Compose {
       // "eventually" be "now").
       // The message's inline parts go into the registry *before* the document,
       // so every `cid:` resolves the moment its node view mounts.
+      // A part the body references by `cid:` is inline content and goes to
+      // the registry; everything else is an attachment and goes to the strip
+      // under the body. The same split the payload makes at send time
+      // (multipart/related vs multipart/mixed), made once here.
       let inlineParts = 0;
+      const attached: Attachment[] = [];
       for (const part of parsed.attachments ?? []) {
         const cid = part.contentId?.replace(/^<|>$/g, '');
-        if (!cid || !part.content) continue;
+        if (!cid || !part.content) {
+          attached.push({
+            name: part.filename || 'attachment',
+            type: part.mimeType || undefined,
+            size: typeof part.content === 'string' ? undefined : part.content?.byteLength,
+          });
+          continue;
+        }
         this.#images.add(
           new Blob([part.content as BlobPart], {
             type: part.mimeType || 'application/octet-stream',
@@ -215,6 +277,7 @@ export class Compose {
         );
         inlineParts++;
       }
+      this.attachments.set(attached);
       (document.activeElement as HTMLElement | null)?.blur?.();
       this.html.set(importedDocument(inbound));
 
@@ -238,7 +301,7 @@ export class Compose {
       }
       const ignored = attachments - inlineParts;
       if (ignored > 0) {
-        notes.push(`${ignored} attachment${ignored === 1 ? '' : 's'} ignored`);
+        notes.push(`${ignored} attachment${ignored === 1 ? '' : 's'} kept`);
       }
       this.#importNote.set({ text: notes.join(' · '), html: this.html() });
     } catch {

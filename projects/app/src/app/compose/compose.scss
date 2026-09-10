@@ -1,4 +1,24 @@
+// The host is only a box for the page to fill. The layout lives on `.page`
+// below, which is also the import dropzone: the zone has to *contain* the
+// panes for `selfOnly` to route drops to the writer's attachment zone, and a
+// grid container cannot have a wrapper between it and its items.
 :host {
+  display: block;
+  height: 100%;
+}
+
+// The page, and the import zone: drop an .eml anywhere on it and the message
+// is rendered into the editor. It wraps everything, so the flanks, the gaps,
+// the status strip and the page's own margin all import — and `selfOnly`
+// (angular-file-drop ≥ 1.2) is what keeps it out of the writer, where
+// a dropped file is an attachment instead.
+//
+// Structural, not painted: the previous arrangement put the zone *under* the
+// panes and relied on them covering it, which quietly broke the moment the
+// zone was given a `position`. `selfOnly` says the same thing in the markup —
+// a drag landing inside a nested zone is never this one's — and holds however
+// the two are stacked.
+.page {
   display: grid;
   // The writer's natural width: 600px is the *sheet*, insets included — not
   // the text column. The sections' own inline inset (16px a side) comes out
@@ -22,12 +42,27 @@
   // shows or hides. minmax(0, …) on the flanks: a flank never grows for its
   // content — that would shift the centre — the content overflows it instead.
   grid-template-columns: minmax(0, 1fr) minmax(0, var(--compose-writer-width)) minmax(0, 1fr);
-  grid-template-rows: 1fr auto;
+  // One explicit row. The status strip auto-places into an implicit second
+  // one, so its row gap exists only on the screens the strip does: an
+  // explicit `auto` track would size to 0 where the strip is not rendered
+  // (below the docking breakpoint) and still charge 16px of gap for it —
+  // a dead strip of page along the bottom edge.
+  grid-template-rows: 1fr;
   gap: var(--mat-sys-inner-spacing);
 
   height: 100%;
   box-sizing: border-box;
-  padding: var(--mat-sys-inner-spacing);
+  // The containing block for the import hint, which overlays the page.
+  position: relative;
+  // The page's own margin, and it belongs to the desk rather than the sheet:
+  // at the full-width breakpoint and below the writer *is* the screen, and its
+  // own 16px inset is the only margin the email needs. A steep clamp, not a
+  // media query: the step lands in the same paint as the layout it goes with
+  // (the .compose--compact class is a BreakpointObserver round-trip behind),
+  // and the ramp — 16px of padding gained over 0.16px of screen — is a snap
+  // in everything but name. 768px mirrors FULL_WIDTH_MAX_WIDTH (viewport.ts),
+  // and both are inclusive of 768 so the class and the clamp agree there.
+  padding: clamp(0px, (100vw - 768px) * 100, var(--mat-sys-inner-spacing, 16px));
   // No background of its own: the page shows the shell's surface through.
   // The lifted surface-bright is the editorial area's alone (`.editor` in
   // email-compose.scss) — the paper, not the desk.
@@ -38,6 +73,14 @@ section {
   min-height: 0;
 }
 
+// The page's hint draws its outline inside the page's own margin, on the
+// page's large corner. The writer's hint (projected into the sheet, so also
+// styled from here) keeps the component's tight default.
+.page > [drop-hint] {
+  --drop-hint-outline-offset: -10px;
+  --drop-hint-radius: var(--mat-sys-corner-large, 16px);
+}
+
 // Explicit columns: a hidden pane is display:none, and auto-placement would
 // otherwise slide the composer into the empty flank. Row 1 is the panes,
 // row 2 the status strip (grid-column: 1 / -1 below).
@@ -45,10 +88,13 @@ section[email-preview] {
   grid-column: 1;
 }
 
-// Below the docking breakpoint nothing can dock, so the flanks go: one
-// column, and the writer takes the whole width — on a phone the two empty
-// flanks would otherwise still cost their gaps (32px of a 375px screen).
-:host(.compose--narrow) {
+// At the full-width breakpoint and below the flanks go: one column, and the writer takes
+// the whole width — on a phone the two empty flanks would otherwise still
+// cost their gaps (32px of a 375px screen). Above it the writer keeps its
+// centred column even where nothing can dock: an empty flank costs only its
+// share of the free space, and the sheet reading as the middle of the screen
+// is worth more than the ~50px a tablet-width gutter gives back.
+:host(.compose--compact) .page {
   grid-template-columns: minmax(0, 1fr);
 
   section[email-writer] {
@@ -88,11 +134,22 @@ section[html-email-compose][hidden] {
   display: none;
 }
 
-// The editor pane while an .eml file hovers over it.
-section[email-compose].eml-dropzone--active {
-  outline: 2px dashed var(--mat-sys-primary, #0056b3);
-  outline-offset: -2px;
-  border-radius: var(--mat-sys-corner-medium, 8px);
+
+// The library's chips know nothing of Material; this is where the demo hands
+// them its theme. Custom properties inherit, so setting them on the strip
+// themes every chip inside it.
+ul[email-attachment-chips] {
+  --email-attachment-chips-inset: var(--mat-sys-inner-spacing, 16px);
+  --email-attachment-chip-background: var(--mat-sys-surface-container);
+  --email-attachment-chip-color: var(--mat-sys-on-surface);
+  --email-attachment-chip-icon-color: var(--mat-sys-on-surface-variant);
+  --email-attachment-chip-border-color: var(--mat-sys-outline-variant);
+  --email-attachment-chip-hover-background: var(--mat-sys-surface-container-highest);
+  --email-attachment-chip-focus-ring: var(--mat-sys-primary);
+  --email-attachment-chip-corner: var(--mat-sys-corner-small);
+  --email-attachment-chip-secondary-color: var(--mat-sys-on-surface-variant);
+  --email-attachment-chip-progress-color: var(--mat-sys-primary);
+  --email-attachment-chip-progress-track: var(--mat-sys-outline-variant);
 }
 
 // The problems strip: counts jump to the first offender in the source pane,

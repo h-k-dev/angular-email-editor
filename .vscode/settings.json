@@ -1,0 +1,31 @@
+{
+  // Without these, format-on-save falls back to VS Code's *built-in* HTML and
+  // TypeScript formatters, which are not Prettier: they only normalize
+  // indentation and spacing and never re-flow a line, so the file drifts away
+  // from what `npx prettier` produces (and drifts back on the next CLI run).
+  // Pinning the formatter per language makes save and CLI the same tool.
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "[typescript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[javascript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[html]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[scss]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[css]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[json]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[jsonc]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[markdown]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+
+  // Use the repo's own Prettier (3.9.x), not the copy bundled in the
+  // extension — a version skew reformats files nobody edited.
+  "prettier.prettierPath": "./node_modules/prettier",
+
+  // `core.autocrlf` is true here, but Prettier writes LF (its `endOfLine`
+  // default). Without this, a file saved by VS Code on Windows comes back
+  // CRLF and the next CLI run rewrites every line of it.
+  "files.eol": "\n",
+
+  // Belt and braces for anything Prettier does not claim: `.editorconfig`
+  // asks for both, and the built-in HTML formatter honours neither.
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true
+}

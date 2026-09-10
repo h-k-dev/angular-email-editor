@@ -1,0 +1,65 @@
+@if (active()) {
+  <div class="hint">
+    <!-- The trade, left to right: what is dragged, an arrow, what it becomes.
+         currentColor throughout, so the drawing follows the theme with no
+         second palette to keep in step. -->
+    <svg
+      class="hint__art"
+      viewBox="0 0 168 96"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      @switch (art()) {
+        @case ('import') {
+          <!-- The .eml: an envelope, still closed. -->
+          <rect x="8" y="26" width="52" height="40" rx="4" />
+          <path d="M8 32l26 18 26-18" />
+          <!-- Becomes the rendered message: a page with a heading and body
+               lines, the heading filled so it reads as content rather than
+               more chrome. -->
+          <rect x="108" y="18" width="52" height="60" rx="4" />
+          <path class="hint__line hint__line--head" d="M118 32h20" />
+          <path class="hint__line" d="M118 44h32" />
+          <path class="hint__line" d="M118 54h32" />
+          <path class="hint__line" d="M118 64h22" />
+        }
+        @case ('attach') {
+          <!-- A file, whatever it is: a sheet with a folded corner. -->
+          <path d="M14 18h30l12 12v42a4 4 0 0 1-4 4H14a4 4 0 0 1-4-4V22a4 4 0 0 1 4-4z" />
+          <path d="M44 18v12h12" />
+          <!-- Becomes a chip under the message; the message itself is
+               untouched. -->
+          <rect x="108" y="18" width="52" height="34" rx="4" />
+          <path class="hint__line hint__line--head" d="M118 28h20" />
+          <path class="hint__line" d="M118 40h32" />
+          <rect x="108" y="60" width="52" height="18" rx="9" />
+          <path class="hint__line" d="M118 69h20" />
+          <path d="M146 66l6 6M152 66l-6 6" />
+        }
+        @case ('inline') {
+          <!-- An image: a frame with a sun and hills. -->
+          <rect x="8" y="26" width="52" height="40" rx="4" />
+          <circle cx="24" cy="40" r="4" />
+          <path d="M10 60l14-12 10 8 8-6 18 12" />
+          <!-- Goes into the text: the same frame, small, between the lines. -->
+          <rect x="108" y="18" width="52" height="60" rx="4" />
+          <path class="hint__line hint__line--head" d="M118 30h20" />
+          <path class="hint__line" d="M118 40h32" />
+          <rect x="118" y="46" width="32" height="18" rx="2" />
+          <path d="M120 62l8-7 6 4 6-4 8 6" />
+          <path class="hint__line" d="M118 70h32" />
+        }
+      }
+      <!-- Becomes. -->
+      <path class="hint__arrow" d="M74 46h20" />
+      <path class="hint__arrow" d="M88 40l6 6-6 6" />
+    </svg>
+
+    <p class="hint__title">{{ heading() }}</p>
+    <p class="hint__body">{{ text() }}</p>
+  </div>
+}

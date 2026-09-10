@@ -1,4 +1,8 @@
 {
   // For more information, visit: https://go.microsoft.com/fwlink/?linkid=827846
-  "recommendations": ["angular.ng-template"]
+  // Prettier is not optional here: settings.json pins it as the formatter for
+  // every language in the repo, and without the extension installed save
+  // silently falls back to VS Code's built-in formatters, which disagree with
+  // `npx prettier`.
+  "recommendations": ["angular.ng-template", "esbenp.prettier-vscode"]
 }

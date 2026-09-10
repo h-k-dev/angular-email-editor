@@ -197,6 +197,17 @@
   }
 }
 
+// The body: the editing surface or the source in its place, and the hint
+// over whichever shows. Positioned so the hint has a box to cover — the
+// surface's own, which scrolls, would carry the hint away with the text.
+.body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .editor {
   position: relative;
   flex: 1;
@@ -215,6 +226,7 @@
   // never outgrow the room, whatever the token is set to.
   padding: var(--mat-sys-inner-spacing);
 }
+
 
 // Code view: the projected source pane takes the editing surface's place.
 // A grid cell so the projected section stretches on both axes without the
