@@ -1,62 +1,51 @@
-import { Component, contentChild, effect, model, output } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
+import { Component, computed, inject } from '@angular/core';
+
+// Form
+import { FormRoot } from '@angular/forms/signals';
+
+// Material
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { SendIntent } from 'angular-email-editor';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-import { AddressInput } from '../address-input/address-input';
-import { EmailCompose } from '../email-compose/email-compose';
-
-/** What the writer hands the host on Send: the envelope it collected plus
-    the editor's send intent (the body, its text projection, inline parts,
-    required fields). Transport stays the host's. */
-export interface EmailMessage extends SendIntent {
-  from: string[];
-  to: string[];
-  subject: string;
-}
+// Global
+import { Viewport } from '../../viewport';
 
 /**
- * The email writer: the frame an editor is written in. Send on top, the
- * envelope fields under it — From, To, Subject, Gmail-style rows — and the
- * editor projected below. The writer owns the envelope and the act of
- * sending; the editor owns the payload (its send-intent extension builds it);
- * the host owns what happens next (`(send)`).
+ * The email writer: the sheet a message is written on, and the form it is
+ * sent with. It declares the sheet's regions — the bar with Send, the
+ * envelope block, the body filling the rest — and the host fills them: the
+ * bar's extra buttons marked `actions`, rows marked `envelope` land in the envelope block, everything else
+ * (the editor, with the attachment strip inside it) in the body, each a
+ * `[formField]` of the one `[formRoot]` this element carries. The root is a
+ * host directive, so the host binds `[formRoot]="envelope"` right on the
+ * writer and keeps every field on its own template, beside the model they
+ * edit.
+ *
+ * The Send button is the form's submit. It, Enter in the subject, and the
+ * editor's Mod-Enter and /send all end in the same `submit()`, validated the
+ * same way; while the submission runs the button shows its progress, and
+ * the form ignores another submit until it settles. What
+ * sending *does* is the host's (the form's action).
+ *
+ * The bar has two places. On a phone it heads the sheet, above the envelope,
+ * where the thumb and the eye start; wider, it closes the sheet under the
+ * formatting toolbar, where the message ends and is sent.
  */
 @Component({
-  selector: 'section[email-writer]',
-  imports: [MatButtonModule, MatIconModule, AddressInput],
+  selector: 'form[email-writer]',
+  imports: [NgTemplateOutlet, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
+  hostDirectives: [{ directive: FormRoot, inputs: ['formRoot'] }],
   templateUrl: './email-writer.html',
   styleUrl: './email-writer.scss',
 })
 export class EmailWriter {
-  /** The envelope, two-way bound so the host can seed and read it. */
-  from = model<string[]>([]);
-  to = model<string[]>([]);
-  subject = model('');
+  readonly #root = inject(FormRoot);
 
-  /** The message, whenever a send is asked for — the Send button, or the
-      editor's own ways in (/send, Mod-Enter): every path ends here. */
-  send = output<EmailMessage>();
+  /** The full-width breakpoint puts the bar on top; above it, at the bottom. */
+  protected readonly viewport = inject(Viewport);
 
-  /** The editor written in — projected, so the host keeps its bindings. */
-  readonly editor = contentChild(EmailCompose);
-
-  constructor() {
-    // Relay the editor's intent as the whole message. The editor's output is
-    // subscribed for as long as that editor is the projected one.
-    effect((onCleanup) => {
-      const editor = this.editor();
-      if (!editor) return;
-      const subscription = editor.send.subscribe((intent) =>
-        this.send.emit({ ...intent, from: this.from(), to: this.to(), subject: this.subject() }),
-      );
-      onCleanup(() => subscription.unsubscribe());
-    });
-  }
-
-  /** Asks the editor for its send intent; the relay above turns it into
-      the message. */
-  requestSend(): void {
-    this.editor()?.requestSend();
-  }
+  /** The submission is running — the transport has the message. */
+  protected readonly submitting = computed(() => this.#root.fieldTree()().submitting());
 }

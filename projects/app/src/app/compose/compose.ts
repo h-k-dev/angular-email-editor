@@ -2,32 +2,60 @@ import {
   Component,
   ElementRef,
   Injector,
+
+  // Singals
   afterNextRender,
   computed,
-  effect,
   inject,
+  linkedSignal,
   signal,
   viewChild,
 } from '@angular/core';
+
+// Angular CDK
 import { OverlayModule } from '@angular/cdk/overlay';
 import { DomPortal } from '@angular/cdk/portal';
-import { AngularFileDrop, FileDropEvent } from '@h-k-dev/angular-file-drop';
+
+// Angular Signal Forms
 import {
+  FieldTree,
+  FormField,
+  FormRoot,
+  TreeValidationResult,
+  form,
+  submit,
+  validate,
+} from '@angular/forms/signals';
+
+// Angular File Drop
+import { AngularFileDrop, FileDropEvent } from '@h-k-dev/angular-file-drop';
+
+// Angular Email Editor
+import {
+  AddressInput,
   Attachment,
   AttachmentChip,
+  AttachmentChipIcon,
   AttachmentChips,
+  AttachmentKind,
   HtmlDiagnostic,
-  emailSizeBudget,
   InlineImages,
+  addressList,
+  emailSizeBudget,
   importLoss,
   importedDocument,
+  isEmailAddress,
+  parseMailbox,
   replyDocument,
   toInboundMessage,
 } from 'angular-email-editor';
+import { MatIcon } from '@angular/material/icon';
 import { EmailCompose, SourceView } from './email-compose/email-compose';
 import { DropHint } from './drop-hint/drop-hint';
-import { EmailMessage, EmailWriter } from './email-writer/email-writer';
+import { EmailWriter } from './email-writer/email-writer';
 import { Viewport } from '../viewport';
+import { AttachmentRef, AttachmentUploads } from '../../services/attachment-uploads';
+import { EmailSend, SendRejected } from '../../services/email-send';
 
 /** A dropped file that is a message rather than an attachment. The MIME type
     is what a mail client sets; the extension is what survives a trip through
@@ -46,6 +74,30 @@ import { EmailPreview } from './email-preview/email-preview';
 import { REPLY_EXAMPLES } from '../../../test/reply-examples';
 import { ANGULAR_EXPRESSION_EXAMPLES, HANDLEBARS_EXAMPLES } from '../../../test/template-examples';
 
+/**
+ * The message as the form holds it: what the user controls, and nothing
+ * derived. The text projection, the inline parts and the cid promotion are
+ * the editor's to produce at send time (`EmailMessage`); the attachment
+ * bytes are the store's, by id. Every row on the sheet is a field of this.
+ */
+export interface Envelope {
+  from: string[];
+  to: string[];
+  cc: string[];
+  bcc: string[];
+  subject: string;
+  html: string;
+  attachments: AttachmentRef[];
+}
+
+/** Whether a body has anything to send: some text, or an image. An empty
+    editor still serializes to a paragraph, so `required` cannot tell. */
+function hasContent(html: string): boolean {
+  if (/<img\b/i.test(html)) return true;
+  const text = new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '';
+  return text.trim().length > 0;
+}
+
 type ExampleSetKey = 'reply' | 'angular' | 'handlebars';
 
 interface ExampleSet {
@@ -59,15 +111,25 @@ interface ExampleSet {
 @Component({
   selector: 'app-compose',
   imports: [
+    // Form
+    FormField,
+    FormRoot,
+
+    // Angular CDK
+    OverlayModule,
+
+    // Components
     EmailWriter,
     EmailCompose,
+    AddressInput,
     AttachmentChips,
     AttachmentChip,
+    AttachmentChipIcon,
+    MatIcon,
     DropHint,
     HtmlEmailCompose,
     EmailPreview,
     AngularFileDrop,
-    OverlayModule,
   ],
   // One inline image registry per composer — the editor pane hands it to the
   // editor, the preview resolves from it, an import feeds it. Never in root.
@@ -75,57 +137,126 @@ interface ExampleSet {
   templateUrl: './compose.html',
   styleUrl: './compose.scss',
   host: {
-    // State hooks: the preview docked left, the source docked right.
     '[class.compose--detached]': "sourceView() === 'detached'",
     '[class.compose--preview]': 'previewOpen()',
-    // Below the flank breakpoint there are no flanks to keep. Note this is
-    // *not* the docking breakpoint: between the two nothing docks, but the
-    // writer stays a centred column.
     '[class.compose--compact]': 'viewport.compact()',
   },
 })
 export class Compose {
+  /** The upload store: the strip's chips read their progress from it, and a
+      removed chip stops its transfer there. */
+  protected readonly uploads = inject(AttachmentUploads);
+
+  /** The chip's icon slot, filled with the app's own icon set: one Material
+      Symbols ligature per kind the chip works out from the MIME type. */
+  protected readonly attachmentIcons: Record<AttachmentKind, string> = {
+    file: 'draft',
+    document: 'description',
+    pdf: 'picture_as_pdf',
+    spreadsheet: 'table_chart',
+    presentation: 'slideshow',
+    archive: 'folder_zip',
+    image: 'image',
+    video: 'movie',
+    audio: 'audio_file',
+    message: 'mail',
+  };
+  readonly #transport = inject(EmailSend);
+
+  /** The message — one model, owned here as a real host would own it
+      (seeded from an account, a reply's headers, a draft). Every row on the
+      sheet binds to a field of it through the form below. */
+  protected readonly message = signal<Envelope>({
+    from: ['you@example.com'],
+    to: [],
+    cc: [],
+    bcc: [],
+    subject: '',
+    html: '',
+    attachments: [],
+  });
+
   /**
-   * Canonical email HTML — the single signal both composers bind to.
-   * The email composer publishes what its schema serializes; the HTML
-   * composer publishes raw source, which the email composer parses and
-   * canonicalizes back into this signal.
+   * The form over the message. The rules are the ones a mail client
+   * enforces before it lets go: one sender, at least one recipient and all
+   * of them addresses, something in the body, and no attachment still on
+   * its way up. Submission hands the validated message to the transport
+   * (`#deliver`); a submit that fails validation puts the caret on the
+   * first row that needs it (`#revealInvalid`). Every way to send — the
+   * Send button, Enter in the subject, Mod-Enter and /send in the editor —
+   * goes through `submit()`, so every one is validated the same way.
    */
-  protected html = signal('');
+  protected readonly envelope = form(
+    this.message,
+    (p) => {
+      addressList(p.from, { max: 1 });
+      addressList(p.to);
+      addressList(p.cc, { min: 0 });
+      addressList(p.bcc, { min: 0 });
+      validate(p.html, ({ value }) =>
+        hasContent(value())
+          ? null
+          : { kind: 'body.empty', message: 'Write something before sending' },
+      );
+      validate(p.attachments, ({ value }) =>
+        value().some((attachment) => attachment.id === null)
+          ? {
+              kind: 'attachments.pending',
+              message: 'Still attaching — wait for the uploads to finish',
+            }
+          : null,
+      );
+    },
+    {
+      name: 'message',
+      submission: {
+        action: (field) => this.#deliver(field),
+        onInvalid: (field) => this.#revealInvalid(field),
+      },
+    },
+  );
+
+  /**
+   * Canonical email HTML — the form's `html` field, as the signal the panes
+   * bind to. The email composer publishes what its schema serializes (it is
+   * the field's control); the HTML composer publishes raw source here, which
+   * the email composer parses and canonicalizes back. A write lands in the
+   * message, and reads come from it: the model is the one source of truth.
+   */
+  protected html = linkedSignal<string, string>({
+    source: () => this.message().html,
+    computation: (html) => html,
+    set: (html) => this.message.update((m) => (m.html === html ? m : { ...m, html })),
+  });
 
   /** Lint results streamed up from the source pane's language service. */
   protected diagnostics = signal<HtmlDiagnostic[]>([]);
 
-  /** The envelope, owned here as a real host would (seeded from an account,
-      a reply's headers, a draft) — the writer edits it. */
-  protected from = signal<string[]>(['you@example.com']);
-  protected to = signal<string[]>([]);
-  protected subject = signal('');
-
-  /** The message's attachments — the host's, exactly as the envelope above
-      is. The strip under the body only displays them and asks for removals
-      (`removeAttachment`); what puts
-      one here is a picker, a dropzone or, today, an imported `.eml`. */
-  protected attachments = signal<Attachment[]>([]);
+  /** Below the docking breakpoint the composer shows one pane at a time: the
+      dock-out buttons leave the toolbar, and a pane already docked beside the
+      editor collapses. Code view is in place, so it stays. The two pane
+      signals below are linked to the breakpoint for it: state that resets
+      when its source changes, not an effect writing into a signal. */
+  protected readonly viewport = inject(Viewport);
 
   /** Where the HTML source shows (the toolbar's </> and detach buttons).
       Owned here because revealing a finding has to switch to a view that can
-      show it. */
-  protected sourceView = signal<SourceView>('hidden');
+      show it. Going narrow folds a detached pane back to hidden; going wide
+      again leaves whatever the user has. */
+  protected sourceView = linkedSignal({
+    source: this.viewport.narrow,
+    computation: (narrow, previous): SourceView => {
+      const view = previous?.value ?? 'hidden';
+      return narrow && view === 'detached' ? 'hidden' : view;
+    },
+  });
 
   /** Whether the preview pane shows, docked to the left (the toolbar's
-      preview button). Hidden by default, like the source. */
-  protected previewOpen = signal(false);
-
-  /** Below the docking breakpoint the composer shows one pane at a time: the
-      dock-out buttons leave the toolbar, and a pane already docked beside the
-      editor collapses. Code view is in place, so it stays. */
-  protected readonly viewport = inject(Viewport);
-
-  readonly #collapseOnNarrow = effect(() => {
-    if (!this.viewport.narrow()) return;
-    if (this.sourceView() === 'detached') this.sourceView.set('hidden');
-    this.previewOpen.set(false);
+      preview button). Hidden by default, like the source, and closed by the
+      breakpoint going narrow. */
+  protected previewOpen = linkedSignal({
+    source: this.viewport.narrow,
+    computation: (narrow, previous): boolean => !narrow && (previous?.value ?? false),
   });
 
   /** The source pane's element, for the code-view portal. */
@@ -143,6 +274,95 @@ export class Compose {
   protected sourcePane = viewChild.required(HtmlEmailCompose);
   protected emailPane = viewChild.required(EmailCompose);
 
+  /** The copy rows, for putting the caret in one the moment it opens. They
+      exist only while shown. */
+  protected ccField = viewChild<AddressInput>('ccField');
+  protected bccField = viewChild<AddressInput>('bccField');
+
+  /** The To row: where a message starts, so the caret lands there on
+      arrival. */
+  protected toField = viewChild.required<AddressInput>('toField');
+
+  constructor() {
+    afterNextRender(() => this.toField().focus());
+  }
+
+  /**
+   * Cc and Bcc the way Gmail does them: two text buttons at the end of the
+   * To row, each opening its own row (focused) and stepping aside; a row
+   * that is left empty when focus moves elsewhere folds back into its
+   * button. A row with addresses in it stays whatever the button state, so
+   * a message seeded with a Cc shows it from the start.
+   */
+  protected readonly ccOpen = signal(false);
+  protected readonly bccOpen = signal(false);
+  protected readonly showCc = computed(() => this.ccOpen() || this.message().cc.length > 0);
+  protected readonly showBcc = computed(() => this.bccOpen() || this.message().bcc.length > 0);
+
+  protected openCopy(which: 'cc' | 'bcc'): void {
+    (which === 'cc' ? this.ccOpen : this.bccOpen).set(true);
+    afterNextRender(() => (which === 'cc' ? this.ccField() : this.bccField())?.focus(), {
+      injector: this.#injector,
+    });
+  }
+
+  /**
+   * The recipients merge the way Gmail's do: while focus is anywhere else,
+   * To, Cc and Bcc show as one line — the names, the copies after their
+   * label — and focus coming back into any of them opens the rows again.
+   * The rows are never unmounted, only visually hidden: Tab still lands in
+   * them, and the form's focus-on-invalid still finds its control, and
+   * either way the focus is what opens them. The line itself is a pointer
+   * shortcut to To, hidden from assistive tech, which reaches the rows.
+   */
+  protected readonly recipientsActive = signal(false);
+
+  /** Merged only while there is something to merge: a copy row beside To.
+      A lone To row already reads as a line when it is not focused, and
+      swapping it for a lookalike would only move its placeholder. */
+  protected readonly recipientsMerged = computed(
+    () => !this.recipientsActive() && (this.showCc() || this.showBcc()),
+  );
+
+  /** The merged line's groups, To first; empty groups left out. The first
+      group's label is the row's label, the rest are inline. */
+  protected readonly recipientSummary = computed(() => {
+    const { to, cc, bcc } = this.message();
+    const person = (raw: string) => {
+      const mailbox = parseMailbox(raw);
+      return { raw, text: mailbox.name ?? mailbox.address, valid: isEmailAddress(mailbox.address) };
+    };
+    return [
+      { label: 'To', people: to.map(person) },
+      { label: 'Cc', people: cc.map(person) },
+      { label: 'Bcc', people: bcc.map(person) },
+    ].filter((group) => group.people.length);
+  });
+
+  /** Focus left the recipients — To, Cc and Bcc together — for somewhere
+      else: the rows merge into one line, and the empty copy rows fold.
+      Moving between the three never does. */
+  /** A press on a row anywhere but on a control — the label, the padding —
+      leaves focus where it is; the row's click puts the caret in its
+      control. Without this the press would take focus to the body for an
+      instant, and an address row would drop from chips to text and back in
+      a flash. */
+  protected keepCaret(event: MouseEvent): void {
+    if (!(event.target as Element).closest('input, button, textarea')) event.preventDefault();
+  }
+
+  protected leaveRecipients(event: FocusEvent): void {
+    const group = event.currentTarget as HTMLElement;
+    // Only a real destination outside the group counts: focus going nowhere
+    // (the window losing focus, a focused element removed) folds nothing.
+    const destination = event.relatedTarget as Node | null;
+    if (!destination || group.contains(destination)) return;
+    this.recipientsActive.set(false);
+    const { cc, bcc } = this.message();
+    if (!cc.length) this.ccOpen.set(false);
+    if (!bcc.length) this.bccOpen.set(false);
+  }
+
   /** Live word/line counter, measured mathematically by the email pane. */
   protected metrics = computed(() => this.emailPane().bodyMetrics());
 
@@ -153,6 +373,7 @@ export class Compose {
       this.diagnostics().filter((d) => d.severity === 'error').length +
       this.emailPane().expressionDiagnostics().length,
   );
+
   protected warnings = computed(
     () => this.diagnostics().filter((d) => d.severity === 'warning').length,
   );
@@ -163,6 +384,15 @@ export class Compose {
     () =>
       `${(this.size().bytes / 1024).toFixed(1)} kB of ${Math.round(this.size().limit / 1024)} kB`,
   );
+
+  /** The form's first complaint, for the status strip — once the user has
+      been through a row or has tried to send (the form is touched), never
+      before: a sheet that shouts on arrival is not a sheet anyone writes on. */
+  protected problem = computed(() => {
+    const state = this.envelope();
+    if (!state.touched() || !state.invalid()) return null;
+    return state.errorSummary()[0]?.message ?? null;
+  });
 
   /** Jumps to the first diagnostic of the given severity: the source pane
       for a lint finding, the editor pane for an expression problem. */
@@ -225,17 +455,28 @@ export class Compose {
    */
   protected onAttachmentDrop(event: FileDropEvent): void {
     const dropped = event.files.map(({ file }) => file);
-    if (!dropped.length) return;
-    // A `File` already satisfies `Attachment` (name + type), so it goes in
-    // as it is — the strip needs no adapter and the bytes stay reachable for
-    // whatever eventually sends them.
-    this.attachments.update((current) => [...current, ...dropped]);
+    if (dropped.length) this.#attach(dropped);
   }
 
-  /** A chip asked to go. Identity, not name: two files may share a name,
-      and removing one must not take the other with it. */
-  protected removeAttachment(attachment: Attachment): void {
-    this.attachments.update((current) => current.filter((a) => a !== attachment));
+  /** Hands files to the store and keeps only their references — upload on
+      drop, as a real host does. Each reference gets its id when its transfer
+      settles; a chip removed before then has taken its reference with it,
+      and the id has nowhere to land. */
+  #attach(files: readonly Attachment[]): void {
+    const refs = files.map((file) => this.uploads.start(file));
+    this.message.update((m) => ({ ...m, attachments: [...m.attachments, ...refs] }));
+    for (const ref of refs) {
+      void this.uploads.whenDone(ref.key).then((id) =>
+        this.message.update((m) =>
+          m.attachments.some((a) => a.key === ref.key)
+            ? {
+                ...m,
+                attachments: m.attachments.map((a) => (a.key === ref.key ? { ...a, id } : a)),
+              }
+            : m,
+        ),
+      );
+    }
   }
 
   protected async onEmlDrop(event: FileDropEvent): Promise<void> {
@@ -277,7 +518,11 @@ export class Compose {
         );
         inlineParts++;
       }
-      this.attachments.set(attached);
+      // The imported message's attachments replace what was attached: the
+      // transfers still running for the old ones are stopped with them.
+      for (const attachment of this.message().attachments) this.uploads.cancel(attachment.key);
+      this.message.update((m) => ({ ...m, attachments: [] }));
+      this.#attach(attached);
       (document.activeElement as HTMLElement | null)?.blur?.();
       this.html.set(importedDocument(inbound));
 
@@ -312,27 +557,74 @@ export class Compose {
     }
   }
 
-  /** Demo stand-in for a transport: the example app has nowhere to send to,
-      so the footer shows what a real host would hand its mailer — envelope
-      and body alike. */
+  /** The editor's own ways in — Mod-Enter, /send — submit the form exactly
+      as the Send button does: one path, validated. */
+  protected send(): void {
+    void submit(this.envelope);
+  }
+
+  /** What the transport accepted, for the footer: the receipt, and what a
+      real host would have handed its mailer — envelope and body alike. */
   readonly #lastSend = signal<StatusNote | null>(null);
   protected lastSend = computed(() => this.#current(this.#lastSend()));
 
-  protected onSend(message: EmailMessage): void {
-    const kb = (new TextEncoder().encode(message.html).length / 1024).toFixed(1);
-    const parts = message.inlineImages.length;
-    const recipients = message.to.length;
+  /** The submit action: the validated message goes to the transport. A
+      rejection the server pins on an address comes back as an error on the
+      To row — the round trip a real backend's answer takes. */
+  async #deliver(field: FieldTree<Envelope>): Promise<TreeValidationResult> {
+    const intent = this.emailPane().intent();
+    if (!intent) return { kind: 'editor.unready', message: 'The editor is still loading' };
+    const { from, to, cc, bcc, subject, attachments } = field().value();
+    try {
+      const receipt = await this.#transport.send({
+        ...intent,
+        from,
+        to,
+        cc,
+        bcc,
+        subject,
+        attachments,
+      });
+      const kb = (new TextEncoder().encode(intent.html).length / 1024).toFixed(1);
+      const parts = intent.inlineImages.length;
+      this.#lastSend.set({
+        html: this.html(),
+        text:
+          `Sent ${receipt.id} · to ${to.length} recipient${to.length === 1 ? '' : 's'}` +
+          (subject ? ` · “${subject}”` : ' · no subject') +
+          ` · ${kb} kB HTML · ${intent.text.length} chars text` +
+          (parts
+            ? ` · ${parts} inline image${parts === 1 ? '' : 's'} as cid: part${parts === 1 ? '' : 's'}`
+            : '') +
+          (attachments.length
+            ? ` · ${attachments.length} attachment${attachments.length === 1 ? '' : 's'}`
+            : ''),
+      });
+      return null;
+    } catch (error) {
+      if (error instanceof SendRejected) {
+        // Pinned on the row that holds the address the server refused.
+        const { cc, bcc } = field().value();
+        const row = cc.includes(error.address)
+          ? field.cc
+          : bcc.includes(error.address)
+            ? field.bcc
+            : field.to;
+        return { kind: 'send.rejected', message: error.message, fieldTree: row };
+      }
+      throw error;
+    }
+  }
 
-    this.#lastSend.set({
-      html: this.html(),
-      text:
-        `Send intent · to ${recipients} recipient${recipients === 1 ? '' : 's'}` +
-        (message.subject ? ` · “${message.subject}”` : ' · no subject') +
-        ` · ${kb} kB HTML · ${message.text.length} chars text` +
-        (parts
-          ? ` · ${parts} inline image${parts === 1 ? '' : 's'} as cid: part${parts === 1 ? '' : 's'}`
-          : ''),
-    });
+  /** A submit that failed validation: the caret goes to the control bound
+      to the first field with an error — the form's own order is the sheet's
+      reading order, and every control knows how to take focus (a native
+      input natively, the address input and the editor pane through their
+      `focus()`; the editor pane also steps out of code view for it). The
+      strip says what for (`problem`). An attachment still uploading has no
+      control to focus — the note is the whole answer. */
+  #revealInvalid(field: FieldTree<Envelope>): void {
+    field().errorSummary()[0]?.fieldTree().focusBoundControl();
   }
 
   /** Demo-only example cycler, one set per scenario: reply seeds (the split

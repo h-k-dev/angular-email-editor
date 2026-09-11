@@ -1,50 +1,109 @@
+import { Component, WritableSignal, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { form } from '@angular/forms/signals';
 import { EmailWriter } from './email-writer';
+import { Viewport } from '../../viewport';
+
+/** A host the way the composer uses the writer: a form over a model, with
+    an action the test settles by hand, and the fields projected in. */
+@Component({
+  imports: [EmailWriter],
+  template: `<form email-writer [formRoot]="envelope">
+    <button type="button" class="action" actions>Discard</button>
+    <p class="field">projected</p>
+  </form>`,
+})
+class Host {
+  readonly model = signal({ subject: '' });
+  submissions = 0;
+  settle!: () => void;
+  readonly envelope = form(this.model, {
+    submission: {
+      action: () => {
+        this.submissions++;
+        return new Promise<null>((resolve) => (this.settle = () => resolve(null)));
+      },
+    },
+  });
+}
 
 describe('EmailWriter', () => {
-  let component: EmailWriter;
-  let fixture: ComponentFixture<EmailWriter>;
+  let fixture: ComponentFixture<Host>;
+  let host: Host;
+  let root: HTMLElement;
+  let compact: WritableSignal<boolean>;
+
+  const send = () => root.querySelector('.writer-bar__send') as HTMLButtonElement;
+  const bar = () => root.querySelector('.writer-bar') as HTMLElement;
+  const field = () => root.querySelector('.field') as HTMLElement;
+  const follows = (a: Node, b: Node) =>
+    !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
 
   beforeEach(async () => {
+    compact = signal(false);
     await TestBed.configureTestingModule({
-      imports: [EmailWriter],
+      imports: [Host],
+      providers: [
+        { provide: Viewport, useValue: { narrow: signal(false), compact: compact.asReadonly() } },
+      ],
     }).compileComponents();
-
-    fixture = TestBed.createComponent(EmailWriter);
-    component = fixture.componentInstance;
+    fixture = TestBed.createComponent(Host);
+    host = fixture.componentInstance;
     await fixture.whenStable();
+    root = fixture.nativeElement as HTMLElement;
   });
 
-  it('should create', () => {
-    expect(component).toBeTruthy();
-  });
-
-  it('puts Send on the right of its top bar, and sending without an editor is a no-op', () => {
-    const bar = fixture.nativeElement.querySelector('.writer-bar') as HTMLElement;
-    const send = bar.querySelector('.writer-bar__send') as HTMLButtonElement;
+  it('is the form, with Send as its submit button on the right of the bar, after the actions', () => {
+    const writer = root.querySelector('form[email-writer]')!;
+    expect(writer.getAttribute('novalidate')).not.toBeNull(); // the form root's
     // Icon-only, so the name lives on the label, not in the text.
-    expect(send.getAttribute('aria-label')).toBe('Send');
-    expect(send.querySelector('mat-icon')?.textContent?.trim()).toBe('send');
-    expect(bar.lastElementChild).toBe(send);
-    expect(() => send.click()).not.toThrow();
+    expect(send().type).toBe('submit');
+    expect(send().getAttribute('aria-label')).toBe('Send');
+    expect(send().querySelector('mat-icon')?.textContent?.trim()).toBe('send');
+    expect(bar().lastElementChild).toBe(send());
+    expect(send().previousElementSibling).toBe(root.querySelector('.action'));
   });
 
-  it('lays the envelope out as From, To, Subject rows under the bar', () => {
-    const root = fixture.nativeElement as HTMLElement;
-    const labels = [
-      ...root.querySelectorAll(
-        '.writer-envelope .field-label, .writer-envelope .writer-field__label',
-      ),
-    ].map((el) => el.textContent?.trim());
-    expect(labels).toEqual(['From', 'To', 'Subject']);
+  it('closes the sheet with the bar, under the fields, where there is room', () => {
+    expect(bar().tagName).toBe('FOOTER');
+    expect(follows(field(), bar())).toBe(true);
+    expect(root.querySelectorAll('.writer-bar')).toHaveLength(1);
   });
 
-  it('binds the subject two-way', async () => {
-    const root = fixture.nativeElement as HTMLElement;
-    const input = root.querySelector('.writer-field__input') as HTMLInputElement;
-    input.value = 'Quarterly numbers';
-    input.dispatchEvent(new Event('input'));
+  it('heads the sheet with the bar on a phone — the same buttons, moved', async () => {
+    const action = root.querySelector('.action');
+    compact.set(true);
     await fixture.whenStable();
-    expect(component.subject()).toBe('Quarterly numbers');
+    expect(bar().tagName).toBe('HEADER');
+    expect(follows(bar(), field())).toBe(true);
+    expect(root.querySelectorAll('.writer-bar')).toHaveLength(1);
+    // The host's action is its own node, carried along rather than re-created.
+    expect(root.querySelector('.action')).toBe(action);
+  });
+
+  it("Send submits the host's form, and shows progress — never disabled — until the action settles", async () => {
+    const spinner = () => send().querySelector('mat-progress-spinner');
+    expect(spinner()).toBeNull();
+
+    send().click();
+    await fixture.whenStable();
+    expect(host.submissions).toBe(1);
+    expect(host.envelope().submitting()).toBe(true);
+    expect(spinner()).not.toBeNull();
+    expect(send().getAttribute('aria-label')).toBe('Sending');
+    // Still live: not disabled, not even aria-disabled — and a second press
+    // while the first is out does not send twice.
+    expect(send().disabled).toBe(false);
+    expect(send().getAttribute('aria-disabled')).toBeNull();
+    send().click();
+    await fixture.whenStable();
+    expect(host.submissions).toBe(1);
+
+    host.settle();
+    await new Promise((resolve) => setTimeout(resolve, 0)); // the submit's own microtasks
+    await fixture.whenStable();
+    expect(host.envelope().submitting()).toBe(false);
+    expect(spinner()).toBeNull();
+    expect(send().getAttribute('aria-label')).toBe('Send');
   });
 });

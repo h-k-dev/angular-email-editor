@@ -3,7 +3,7 @@
        · the page — everything outside the message — *imports*: an .eml
          dropped here is parsed and rendered into the editor;
        · the writer — the message, address rows to toolbar — *attaches*,
-         whatever the file (the zone is on the writer section below);
+         whatever the file (the zone is on the writer form below);
        · the editing surface inside it, the text, *embeds* a drop of nothing
          but images and attaches anything else (email-compose.html).
 
@@ -40,7 +40,11 @@
     [html]="html()"
     aria-label="Email preview"
   ></section>
-  <!-- The writer frames the editor: Send on top, the editor below.
+  <!-- The writer is the form: Send on top, and under it every field of the
+     one message — the envelope rows, the editor, the attachment strip — each
+     bound to the same `envelope` with `[formField]`, on this one template.
+     The writer carries `[formRoot]`, so its Send button, Enter in the
+     subject and the editor's own gestures all submit the same form.
      The editor, or — via the portal — the source in its place; the toolbar's
      </> and detach buttons switch.
      The writer is the *attachment* zone: a file dropped anywhere on the
@@ -56,8 +60,9 @@
      the surface is an attachment like everywhere else on the message — the
      composer's own zone takes it and carries it out as `fileDrop`.
      clickable=false — clicking the message must never open a file picker. -->
-  <section
+  <form
     email-writer
+    [formRoot]="envelope"
     aria-label="Email writer"
     dropZone
     #writerZone="dropZone"
@@ -66,15 +71,148 @@
     [directory]="false"
     [multiple]="true"
     (fileDrop)="onAttachmentDrop($event)"
-    [(from)]="from"
-    [(to)]="to"
-    [(subject)]="subject"
-    (send)="onSend($event)"
   >
+    <!-- The envelope, as Gmail lays it out: one hairline row per field, each
+         marked `envelope` for the writer's envelope block. From takes a
+         single address; To takes many; Subject is plain text, and Enter
+         there sends — the address rows swallow theirs. -->
+    <!-- The address rows are this template's, label and all, exactly like
+           the Subject row: the control owns no label and draws no row. The
+           row is a div holding a label and the control — a label may not
+           wrap the control's list — so the label names the control's input
+           by id, and the row forwards its clicks. -->
+    <div class="writer-field" envelope (mousedown)="keepCaret($event)" (click)="fromField.focus()">
+      <label class="writer-field__label" [for]="fromField.id">From</label>
+      <div
+        email-address-input
+        #fromField
+        limit="1"
+        placeholder="you@example.com"
+        [formField]="envelope.from"
+      ></div>
+    </div>
+    <!-- The recipients, one group for focus: while focus is elsewhere and
+           a copy row is open, the rows merge into one line, and an empty Cc
+           or Bcc row folds —
+           only when focus leaves all three rows, never when it moves between
+           them. Focus arriving in any of them opens them again. -->
+    <div
+      class="writer-recipients"
+      envelope
+      [class.writer-recipients--merged]="recipientsMerged()"
+      (focusin)="recipientsActive.set(true)"
+      (focusout)="leaveRecipients($event)"
+    >
+      <!-- The merged line: a picture of the rows below, for the pointer.
+             Hidden from assistive tech — the rows are still there, only
+             visually hidden, and Tab reaches them. -->
+      @if (recipientsMerged()) {
+        @let groups = recipientSummary();
+        <div
+          class="writer-field writer-summary"
+          aria-hidden="true"
+          (mousedown)="keepCaret($event)"
+          (click)="toField.focus()"
+        >
+          <span class="writer-summary__label">{{ groups.at(0)?.label ?? 'To' }}</span>
+          <span class="writer-summary__line">
+            @for (group of groups; track group.label; let first = $first) {
+              @if (!first) {
+                <span class="writer-summary__kind">{{ group.label }}</span>
+              }
+              @for (person of group.people; track person.raw; let last = $last) {
+                <span
+                  class="writer-summary__person"
+                  [class.writer-summary__person--invalid]="!person.valid"
+                  [title]="person.raw"
+                  >{{ person.text }}</span
+                >{{ last ? '' : ', ' }}
+              }
+            } @empty {
+              <span class="writer-summary__placeholder">Recipients</span>
+            }
+          </span>
+        </div>
+      }
+
+      <div class="writer-field" (mousedown)="keepCaret($event)" (click)="toField.focus()">
+        <label class="writer-field__label" [for]="toField.id">To</label>
+        <!-- Gmail's Cc and Bcc: text buttons drawn at the row's end (CSS order),
+             each opening its row and stepping aside. They come before the
+             control in the source, so the tab order runs From, Cc, Bcc, To,
+             Subject: Tab out of To, done with addresses, lands on Subject.
+             The click must not reach the row, whose own handler would put
+             the caret back in To — and the mousedown must not take focus:
+             the button is removed the moment its row opens, and a focused
+             element removed leaves focus nowhere. -->
+        @if (!showCc() || !showBcc()) {
+          <span class="writer-field__actions">
+            @if (!showCc()) {
+              <button
+                type="button"
+                class="writer-field__action"
+                (mousedown)="$event.preventDefault()"
+                (click)="openCopy('cc'); $event.stopPropagation()"
+              >
+                Cc
+              </button>
+            }
+            @if (!showBcc()) {
+              <button
+                type="button"
+                class="writer-field__action"
+                (mousedown)="$event.preventDefault()"
+                (click)="openCopy('bcc'); $event.stopPropagation()"
+              >
+                Bcc
+              </button>
+            }
+          </span>
+        }
+        <div email-address-input #toField placeholder="Recipients" [formField]="envelope.to"></div>
+      </div>
+      <!-- Each copy row lives only while open or filled. -->
+      @if (showCc()) {
+        <div class="writer-field" (mousedown)="keepCaret($event)" (click)="ccField.focus()">
+          <label class="writer-field__label" [for]="ccField.id">Cc</label>
+          <div email-address-input #ccField [formField]="envelope.cc"></div>
+        </div>
+      }
+
+      @if (showBcc()) {
+        <div class="writer-field" (mousedown)="keepCaret($event)" (click)="bccField.focus()">
+          <label class="writer-field__label" [for]="bccField.id">Bcc</label>
+          <div email-address-input #bccField [formField]="envelope.bcc"></div>
+        </div>
+      }
+    </div>
+
+    <!-- Every row is the same shape: a row that forwards its clicks, a
+           label naming the control by id, the control. -->
+    <div
+      class="writer-field"
+      envelope
+      (mousedown)="keepCaret($event)"
+      (click)="subjectField.focus()"
+    >
+      <label class="writer-field__label" for="subject-field">Subject</label>
+      <input
+        #subjectField
+        id="subject-field"
+        class="writer-field__input"
+        type="text"
+        autocomplete="off"
+        [formField]="envelope.subject"
+      />
+    </div>
+    <!-- The editor is the body field's control: the form drives its value
+         and hears its canonical HTML back. Its own send gestures (Mod-Enter,
+         /send) submit the form. -->
     <section
       email-compose
+      [formField]="envelope.html"
+      (send)="send()"
       (fileDrop)="onAttachmentDrop($event)"
-      [(html)]="html"
       [(sourceView)]="sourceView"
       [(preview)]="previewOpen"
       [dockable]="!viewport.narrow()"
@@ -83,21 +221,32 @@
       aria-label="Email editor"
     >
       <!-- The attachment strip, projected into the composer's below-body slot
-         so it lands between the message and the toolbar. The list is the
-         host's (a drop or an .eml import fills it); the container only lays
-         the chips out, and a chip only asks to be removed. -->
-      <ul email-attachment-chips below-body>
-        @for (attachment of attachments(); track attachment) {
-          <!-- The demo already holds every file it shows, so it has nothing
-               real to report — simulateProgress plays the attaching moment. -->
+           so it lands between the message and the toolbar — and a field of
+           the form: the container is the control, its value the references
+           (a drop or an .eml import adds them); the chips are rendered here,
+           one per reference, each with its transfer's stage and progress
+           from the store, and a chip's removal takes its reference out of the value
+           (the container's doing) and stops its transfer (ours). -->
+      <ul email-attachment-chips below-body [formField]="envelope.attachments">
+        @for (attachment of envelope.attachments().value(); track attachment.key) {
           <li
             email-attachment-chip
             [attachment]="attachment"
-            simulateProgress
+            [status]="uploads.status(attachment.key)()"
+            [progress]="uploads.progress(attachment.key)()"
+            [aria-disabled]="envelope.attachments().disabled()"
             animate.enter="email-attachment-chip-enter"
             animate.leave="email-attachment-chip-leave"
-            (removed)="removeAttachment(attachment)"
-          ></li>
+            (removed)="uploads.cancel(attachment.key)"
+          >
+            <!-- The chip's own glyphs would do; this fills its icon slot
+                 with the app's Material icons instead, as a host with an
+                 icon set of its own would. inline: the chip's box sets
+                 the size. -->
+            <mat-icon *emailAttachmentIcon="let kind = kind" inline>
+              {{ attachmentIcons[kind] }}
+            </mat-icon>
+          </li>
         }
       </ul>
     </section>
@@ -113,7 +262,7 @@
       text="Anything dropped on the message is attached, images included. To place an image in the text instead, drop it where you write."
       [active]="writerZone.isDragOver()"
     ></div>
-  </section>
+  </form>
   <!-- The HTML source pane. Its home is this right column (the detached view);
      in code view a DOM portal moves the very same node into the composer's
      editing surface and back — the editor inside is never re-created, so
@@ -148,12 +297,19 @@
       >
         {{ warnings() }} {{ warnings() === 1 ? 'warning' : 'warnings' }}
       </button>
-      @if (lastSend(); as note) {
-        <span class="status__send" aria-label="Last send intent">{{ note }}</span>
+
+      @if (problem(); as note) {
+        <span class="status__send status__send--problem" aria-label="Form problem">{{ note }}</span>
       }
+
+      @if (lastSend(); as note) {
+        <span class="status__send" aria-label="Last send">{{ note }}</span>
+      }
+
       @if (importNote(); as note) {
         <span class="status__send" aria-label="Last import">{{ note }}</span>
       }
+
       <!-- Demo-only: seeds the composer with example documents. Split button —
        the main half cycles the active set, the caret picks a set (reply
        seeds, AngularJS-expression templates, Handlebars templates). -->

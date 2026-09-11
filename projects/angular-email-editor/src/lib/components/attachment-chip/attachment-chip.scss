@@ -1,15 +1,21 @@
-// Unencapsulated on purpose. Parts are addressed by data-slot, and a slot
-// can be projected by the host — encapsulated styles would never reach a
-// projected icon. Every rule is scoped under the chip's attribute and holds
-// its specificity to that one attribute (`:where` around the part), so:
-//   - a consumer's `[email-attachment-chip] [data-slot='name']` always wins,
-//     from any stylesheet, without ::ng-deep;
-//   - a bare element rule in the app (`button { … }`) still loses.
+// The chip's own styles, encapsulated. Parts are addressed by data-slot and
+// held to one attribute of specificity (`:where` around the part), so a
+// bare element rule in the app (`button { … }`) still loses and a consumer
+// who must restyle a part reaches it with two attributes
+// (`[email-attachment-chip] [data-slot='name'][data-slot]`). Nothing here
+// reaches outside the view: the icon and progress slots are boxes of the
+// chip's own that a host's template fills, so the box is what gets sized
+// and the host's markup is never styled from here.
 //
-// Colours and sizes are --email-attachment-chip-* tokens with neutral
-// fallbacks: finished with no theme, and themed by mapping the tokens.
+// Every value is a three-step cascade: the chip's own --email-attachment-chip-*
+// token, then Material's system token of the same meaning (so a Material
+// host is themed with no mapping at all), then a hardcoded light-dark()
+// pair — finished on a page with no theme, in both colour schemes. Type is
+// Material's roles spelled out in full (family, size, weight, line-height,
+// tracking): the name is label-large, the size line body-small.
 
-[email-attachment-chip] {
+:host {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -17,34 +23,118 @@
   min-width: 0;
   min-height: 40px;
   margin: 0;
-  padding: 4px 4px 4px 8px;
+  // Two lines of type (20px + 16px) in 2px of block padding make the 40px row.
+  padding: 2px 4px 2px 8px;
   box-sizing: border-box;
 
-  background-color: var(--email-attachment-chip-background, #f1f3f4);
-  color: var(--email-attachment-chip-color, #1f1f1f);
-  border: 1px solid var(--email-attachment-chip-border-color, rgba(0, 0, 0, 0.12));
-  border-radius: var(--email-attachment-chip-corner, 8px);
-  font: inherit;
-  font-size: var(--email-attachment-chip-font-size, 13px);
-  line-height: 16px;
-  transition: opacity 150ms ease;
+  background-color: var(
+    --email-attachment-chip-background,
+    var(--mat-sys-surface-container, light-dark(#f1f3f4, #303134))
+  );
+  color: var(
+    --email-attachment-chip-color,
+    var(--mat-sys-on-surface, light-dark(#1f1f1f, #e3e3e3))
+  );
+  border: 1px solid
+    var(
+      --email-attachment-chip-border-color,
+      var(--mat-sys-outline-variant, light-dark(#dadce0, #444746))
+    );
+  border-radius: var(--email-attachment-chip-corner, var(--mat-sys-corner-small, 8px));
+
+  font-family: var(
+    --email-attachment-chip-font-family,
+    var(--mat-sys-label-large-font, system-ui, sans-serif)
+  );
+  font-size: var(--email-attachment-chip-font-size, var(--mat-sys-label-large-size, 0.875rem));
+  font-weight: var(--email-attachment-chip-font-weight, var(--mat-sys-label-large-weight, 500));
+  line-height: var(
+    --email-attachment-chip-line-height,
+    var(--mat-sys-label-large-line-height, 1.25rem)
+  );
+  letter-spacing: var(
+    --email-attachment-chip-letter-spacing,
+    var(--mat-sys-label-large-tracking, 0.006rem)
+  );
+  transition: opacity 150ms cubic-bezier(0.645, 0.045, 0.355, 1);
 }
 
-[email-attachment-chip][aria-disabled='true'] {
+:host([aria-disabled='true']) {
   opacity: 0.6;
 }
 
-// ── icon ────────────────────────────────────────────────────────────────
-// Sized for any element in the slot, default or projected; the stroke
-// settings only for the default SVG.
-[email-attachment-chip] :where([data-slot='icon']) {
-  flex: none;
-  width: 20px;
-  height: 20px;
-  color: var(--email-attachment-chip-icon-color, #5f6368);
+// ── scanning ────────────────────────────────────────────────────────────
+// Busy with no number: a band of light passes over the whole chip, the way
+// a scanner passes over a page. A pseudo-element over everything, so no
+// part of the chip has to know about it; the gradient is three chips wide
+// and its position is what moves, so the band enters at the left edge and
+// leaves at the right. The host keeps data-scanning on for a moment after
+// the number arrives ('leaving'): the sweep runs on, and an exit animation
+// stacked after the fade takes the band's opacity to nothing from wherever
+// the fade had it — so it fades out on its way instead of vanishing.
+:host([data-scanning])::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background-image: linear-gradient(
+    100deg,
+    transparent 35%,
+    var(
+        --email-attachment-chip-scan-color,
+        color-mix(
+          in srgb,
+          var(
+              --email-attachment-chip-progress-color,
+              var(--mat-sys-primary, light-dark(#0b57d0, #a8c7fa))
+            )
+            14%,
+          transparent
+        )
+      )
+      50%,
+    transparent 65%
+  );
+  background-size: 300% 100%;
+  background-repeat: no-repeat;
+  animation:
+    email-attachment-chip-scan 2.2s linear infinite,
+    email-attachment-chip-scan-fade 2.2s linear infinite;
 }
 
-[email-attachment-chip] :where(svg[data-slot='icon']) {
+// Same names first, so the running sweep and fade carry on untouched; the
+// exit is a third animation on top. 300ms here is SCAN_EXIT in the chip.
+:host([data-scanning='leaving'])::after {
+  animation:
+    email-attachment-chip-scan 2.2s linear infinite,
+    email-attachment-chip-scan-fade 2.2s linear infinite,
+    email-attachment-chip-scan-exit 300ms ease-out forwards;
+}
+
+// ── icon ────────────────────────────────────────────────────────────────
+// A square box the chip owns, holding the default glyph or the host's
+// template. Its size is one token, and font-size and color follow it, so a
+// mat-icon with `inline`, a font icon or an SVG drawn at 1em fills it with no
+// rule of its own. The stroke settings are only for the default SVG.
+:host :where([data-slot='icon']) {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--email-attachment-chip-icon-size, 20px);
+  height: var(--email-attachment-chip-icon-size, 20px);
+  font-size: var(--email-attachment-chip-icon-size, 20px);
+  line-height: 1;
+  color: var(
+    --email-attachment-chip-icon-color,
+    var(--mat-sys-on-surface-variant, light-dark(#5f6368, #9aa0a6))
+  );
+}
+
+:host :where([data-slot='icon'] > svg) {
+  width: 100%;
+  height: 100%;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.2;
@@ -55,71 +145,140 @@
 // ── label: name over size ───────────────────────────────────────────────
 // The label takes the slack and gives it back: `min-width: 0` is what lets
 // a long filename ellipsize instead of pushing the trailing slots out.
-[email-attachment-chip] :where([data-slot='label']) {
+:host :where([data-slot='label']) {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
   min-width: 0;
 }
 
-[email-attachment-chip] :where([data-slot='name'], [data-slot='size']) {
+:host :where([data-slot='name'], [data-slot='size']) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-[email-attachment-chip] :where([data-slot='size']) {
-  font-size: 0.85em;
-  line-height: 14px;
-  color: var(--email-attachment-chip-secondary-color, #5f6368);
+:host :where([data-slot='size']) {
+  font-family: var(
+    --email-attachment-chip-secondary-font-family,
+    var(--mat-sys-body-small-font, system-ui, sans-serif)
+  );
+  font-size: var(
+    --email-attachment-chip-secondary-font-size,
+    var(--mat-sys-body-small-size, 0.75rem)
+  );
+  font-weight: var(
+    --email-attachment-chip-secondary-font-weight,
+    var(--mat-sys-body-small-weight, 400)
+  );
+  line-height: var(
+    --email-attachment-chip-secondary-line-height,
+    var(--mat-sys-body-small-line-height, 1rem)
+  );
+  letter-spacing: var(
+    --email-attachment-chip-secondary-letter-spacing,
+    var(--mat-sys-body-small-tracking, 0.025rem)
+  );
+  color: var(
+    --email-attachment-chip-secondary-color,
+    var(--mat-sys-on-surface-variant, light-dark(#5f6368, #9aa0a6))
+  );
+}
+
+// ── trailing: the readout and the × share one square ────────────────────
+// A grid with a single cell, so the two stack without positioning — the
+// bar below is positioned against the chip, and a positioned wrapper here
+// would capture it.
+:host :where([data-slot='trailing']) {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+}
+
+:host :where([data-slot='trailing'] > *) {
+  grid-area: 1 / 1;
 }
 
 // ── progress ────────────────────────────────────────────────────────────
-// One ring, three modes: determinate (the host's number, eased between
-// updates), indeterminate (a spinning arc) and simulated (a CSS fill whose
-// duration the chip binds from the attachment's size). Rotated so a fill
-// starts at twelve o'clock.
-[email-attachment-chip] :where([data-slot='progress']) {
-  flex: none;
-  width: 18px;
-  height: 18px;
+// A bar along the chip's bottom edge, three modes: determinate (the host's
+// number, eased between updates), indeterminate (an empty track — the
+// scanning sweep above is the signal) and simulated (a CSS fill whose
+// duration the chip binds from the attachment's size). The readout in the
+// trailing square is the number — or the host's template — and nothing
+// while there is none. The box sets font-size and color like the icon box
+// does, so a template's glyph fits at 1em.
+:host :where([data-slot='progress']) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  font-size: var(--email-attachment-chip-progress-size, 1rem);
+  line-height: 1;
+  color: var(
+    --email-attachment-chip-secondary-color,
+    var(--mat-sys-on-surface-variant, light-dark(#5f6368, #9aa0a6))
+  );
 }
 
-[email-attachment-chip] :where(svg[data-slot='progress']) {
-  fill: none;
-  stroke-width: 2;
-  transform: rotate(-90deg);
+:host :where([data-slot='progress-value']) {
+  font-family: var(
+    --email-attachment-chip-secondary-font-family,
+    var(--mat-sys-body-small-font, system-ui, sans-serif)
+  );
+  font-size: 0.625rem;
+  font-weight: var(
+    --email-attachment-chip-secondary-font-weight,
+    var(--mat-sys-body-small-weight, 400)
+  );
+  line-height: 1;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
 }
 
-[email-attachment-chip] :where([data-slot='progress-track']) {
-  stroke: var(--email-attachment-chip-progress-track, rgba(0, 0, 0, 0.12));
+// The track hugs the bottom edge, inset by the corner radius so it never
+// runs into the curve.
+:host :where([data-slot='progress-track']) {
+  position: absolute;
+  bottom: 0;
+  inset-inline: var(--email-attachment-chip-corner, var(--mat-sys-corner-small, 8px));
+  height: 2px;
+  overflow: hidden;
+  border-radius: 1px;
+  background-color: var(
+    --email-attachment-chip-progress-track,
+    var(--mat-sys-outline-variant, light-dark(#dadce0, #444746))
+  );
 }
 
-[email-attachment-chip] :where([data-slot='progress-indicator']) {
-  stroke: var(--email-attachment-chip-progress-color, #0b57d0);
-  stroke-linecap: round;
-  stroke-dasharray: 100;
-  transition: stroke-dashoffset 150ms linear;
+:host :where([data-slot='progress-indicator']) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background-color: var(
+    --email-attachment-chip-progress-color,
+    var(--mat-sys-primary, light-dark(#0b57d0, #a8c7fa))
+  );
+  transform-origin: left;
+  transition: transform 150ms linear;
 }
 
-[email-attachment-chip] :where(svg[data-mode='indeterminate']) {
-  animation: email-attachment-chip-spin 900ms linear infinite;
-}
-
-[email-attachment-chip] :where(svg[data-mode='indeterminate'] [data-slot='progress-indicator']) {
-  stroke-dasharray: 25 75;
+:host :where([data-mode='indeterminate'] [data-slot='progress-indicator']) {
+  transform: scaleX(0);
 }
 
 // The duration here is a placeholder — the chip binds the real one inline.
-[email-attachment-chip] :where(svg[data-mode='simulated'] [data-slot='progress-indicator']) {
+:host :where([data-mode='simulated'] [data-slot='progress-indicator']) {
   animation: email-attachment-chip-fill 1s cubic-bezier(0.2, 0.6, 0.35, 1) forwards;
 }
 
 // ── remove ──────────────────────────────────────────────────────────────
 // A bare button sized to the glyph it holds — a 40px row has no room for a
-// full touch-target button next to a progress ring.
-[email-attachment-chip] :where([data-slot='remove']) {
-  flex: none;
+// full touch-target button next to a readout.
+:host :where([data-slot='remove']) {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -131,10 +290,16 @@
   cursor: pointer;
 
   background: none;
-  color: var(--email-attachment-chip-icon-color, #5f6368);
+  color: var(
+    --email-attachment-chip-icon-color,
+    var(--mat-sys-on-surface-variant, light-dark(#5f6368, #9aa0a6))
+  );
+  transition:
+    opacity 120ms ease,
+    background-color 120ms ease;
 }
 
-[email-attachment-chip] :where([data-slot='remove'] svg) {
+:host :where([data-slot='remove'] svg) {
   width: 14px;
   height: 14px;
   fill: none;
@@ -143,53 +308,149 @@
   stroke-linecap: round;
 }
 
-[email-attachment-chip] :where([data-slot='remove']:hover:not(:disabled), [data-slot='remove']:focus-visible) {
-  background-color: var(--email-attachment-chip-hover-background, rgba(0, 0, 0, 0.08));
-  color: var(--email-attachment-chip-color, #1f1f1f);
+// While busy the readout has the square: the × is there, unseen, until the
+// pointer or focus arrives — and then it paints over the readout on the
+// chip's own surface, so the number never shows through.
+:host([aria-busy='true']) :where([data-slot='remove']) {
+  opacity: 0;
 }
 
-[email-attachment-chip] :where([data-slot='remove']:focus-visible) {
-  outline: 2px solid var(--email-attachment-chip-focus-ring, #0b57d0);
+:host([aria-busy='true']:is(:hover, :focus-within)) :where([data-slot='remove']) {
+  opacity: 1;
+  background-color: var(
+    --email-attachment-chip-background,
+    var(--mat-sys-surface-container, light-dark(#f1f3f4, #303134))
+  );
+}
+
+// No pointer to hover with: the × is always there, and the bar alone
+// tells how far the work is.
+@media (hover: none) {
+  :host([aria-busy='true']) :where([data-slot='remove']) {
+    opacity: 1;
+    background-color: var(
+      --email-attachment-chip-background,
+      var(--mat-sys-surface-container, light-dark(#f1f3f4, #303134))
+    );
+  }
+}
+
+:host :where([data-slot='remove']:hover:not(:disabled), [data-slot='remove']:focus-visible) {
+  background-color: var(
+    --email-attachment-chip-hover-background,
+    var(--mat-sys-surface-container-highest, light-dark(#e3e3e3, #444746))
+  );
+  color: var(
+    --email-attachment-chip-color,
+    var(--mat-sys-on-surface, light-dark(#1f1f1f, #e3e3e3))
+  );
+}
+
+:host :where([data-slot='remove']:focus-visible) {
+  outline: 2px solid
+    var(--email-attachment-chip-focus-ring, var(--mat-sys-primary, light-dark(#0b57d0, #a8c7fa)));
   outline-offset: 1px;
 }
 
-[email-attachment-chip] :where([data-slot='remove']:disabled) {
+:host :where([data-slot='remove']:disabled) {
   cursor: default;
 }
 
 // ── enter / leave ───────────────────────────────────────────────────────
 // Opt-in, driven by Angular's animate.enter / animate.leave on the chip's
 // element — the host decides, per list, whether chips animate at all.
-[email-attachment-chip].email-attachment-chip-enter {
+:host(.email-attachment-chip-enter) {
   animation: email-attachment-chip-enter 160ms ease-out;
 }
 
-[email-attachment-chip].email-attachment-chip-leave {
+:host(.email-attachment-chip-leave) {
   animation: email-attachment-chip-leave 120ms ease-in forwards;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [email-attachment-chip].email-attachment-chip-enter,
-  [email-attachment-chip].email-attachment-chip-leave {
+  :host(.email-attachment-chip-enter),
+  :host(.email-attachment-chip-leave) {
     animation: none;
+  }
+
+  // Nothing sweeps: the scanning chip wears a still, faint tint instead —
+  // busy, but quiet about it.
+  :host([data-scanning])::after {
+    animation: none;
+    background-image: none;
+    background-color: var(
+      --email-attachment-chip-scan-color,
+      color-mix(
+        in srgb,
+        var(
+            --email-attachment-chip-progress-color,
+            var(--mat-sys-primary, light-dark(#0b57d0, #a8c7fa))
+          )
+          8%,
+        transparent
+      )
+    );
   }
 }
 
-@keyframes email-attachment-chip-spin {
-  from {
-    transform: rotate(-90deg);
+// The band is the middle third of a gradient three chips wide; the window
+// at 100% sits just past its right end, at 0% just past its left, and its
+// soft tail already shows at 92% and 10%. One cycle with no rest in it: a
+// full slide across, a visible turn at the far edge, and a shorter return
+// that fades to nothing around the middle — the jump back to the start
+// happens while it is invisible, and the next slide begins with the tail
+// already in view. The animation is linear; each leg carries its own curve.
+// The turn is where a smooth reversal must pass through standstill, so the
+// curves on both sides of it are steep — fast until late, then over quickly
+// — and the two return legs meet at matching velocity so nothing parks.
+@keyframes email-attachment-chip-scan {
+  0% {
+    background-position: 92% 0;
+    animation-timing-function: cubic-bezier(0.35, 0, 0.85, 1);
   }
+  55% {
+    background-position: 10% 0;
+    animation-timing-function: cubic-bezier(0.15, 0, 0.9, 0.9);
+  }
+  75% {
+    background-position: 30% 0;
+    animation-timing-function: cubic-bezier(0.1, 0.1, 0.3, 1);
+  }
+  100% {
+    background-position: 55% 0;
+  }
+}
+
+// The fade rides the return: whole through the turn, thinning as the band
+// comes back, gone before the jump — ease-in, so the faint tail is short.
+@keyframes email-attachment-chip-scan-fade {
+  0%,
+  55% {
+    opacity: 1;
+  }
+  75% {
+    opacity: 0.85;
+    animation-timing-function: cubic-bezier(0.5, 0, 0.75, 0.5);
+  }
+  96%,
+  100% {
+    opacity: 0;
+  }
+}
+
+// No 'from': it starts at whatever the fade beneath it has, and ends gone.
+@keyframes email-attachment-chip-scan-exit {
   to {
-    transform: rotate(270deg);
+    opacity: 0;
   }
 }
 
 @keyframes email-attachment-chip-fill {
   from {
-    stroke-dashoffset: 100;
+    transform: scaleX(0);
   }
   to {
-    stroke-dashoffset: 0;
+    transform: scaleX(1);
   }
 }
 

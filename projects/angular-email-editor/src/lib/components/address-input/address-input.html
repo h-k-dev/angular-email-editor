@@ -1,0 +1,65 @@
+<!-- No label here: the row around this control names it, through
+     aria-labelledby or aria-label, both passed down to the text input. -->
+<ul data-slot="chips" role="list">
+  <!-- One chip, rendered on either side of the entry: the entry is a fixed
+       element the chips are laid around, so an edit in place moves chips,
+       never the focused input. -->
+  <ng-template #chip let-address let-index="index">
+    <li
+      email-address-chip
+      [id]="chipId(index)"
+      [address]="address"
+      [removable]="!locked()"
+      [inline]="!focused()"
+      [aria-current]="active() === index"
+      [removeTabbable]="closed()"
+      [removeLabel]="removeLabel()"
+      [removeTemplate]="removeSlot()?.template ?? null"
+      [invalidLabel]="invalidLabel()"
+      [aria-disabled]="disabled()"
+      (removed)="removeChip(address)"
+      (click)="onChipClick($event, index, field)"
+    ></li>
+  </ng-template>
+
+  @for (address of before(); track address) {
+    <ng-container *ngTemplateOutlet="chip; context: { $implicit: address, index: $index }" />
+  }
+  <!-- The entry is a list item too, so the chips and the typing sit in one
+       wrapping row. Hidden once the field is full (From takes one address)
+       with nothing to fix: the chips say everything, and a second address
+       would only be refused. -->
+  <li data-slot="entry" [hidden]="closed()">
+    <input
+      #field
+      data-slot="input"
+      type="text"
+      inputmode="email"
+      autocomplete="off"
+      autocapitalize="off"
+      spellcheck="false"
+      [id]="id"
+      [attr.name]="name() || null"
+      [disabled]="disabled()"
+      [readOnly]="readonly()"
+      [placeholder]="value().length ? '' : placeholder()"
+      [attr.aria-labelledby]="ariaLabelledby()"
+      [attr.aria-label]="ariaLabel()"
+      [attr.aria-required]="required() || null"
+      [attr.aria-invalid]="flagged() || refused() || null"
+      [attr.aria-activedescendant]="activeId()"
+      [attr.data-refused]="refused() || null"
+      (keydown)="onKeydown($event, field)"
+      (paste)="onPaste($event, field)"
+      (input)="onInput()"
+      (mousedown)="active.set(null)"
+      (focus)="onFocus(field)"
+      (blur)="onBlur($event, field)"
+    />
+  </li>
+  @for (address of after(); track address) {
+    <ng-container
+      *ngTemplateOutlet="chip; context: { $implicit: address, index: entryAt() + $index }"
+    />
+  }
+</ul>

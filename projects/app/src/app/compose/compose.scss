@@ -68,7 +68,10 @@
   // email-compose.scss) — the paper, not the desk.
 }
 
-section {
+// The panes, and the writer — a form, not a section, since it is the one the
+// message is sent with.
+section,
+form[email-writer] {
   min-width: 0;
   min-height: 0;
 }
@@ -83,8 +86,11 @@ section {
 
 // Explicit columns: a hidden pane is display:none, and auto-placement would
 // otherwise slide the composer into the empty flank. Row 1 is the panes,
-// row 2 the status strip (grid-column: 1 / -1 below).
-section[email-preview] {
+// row 2 the status strip (grid-column: 1 / -1 below). Scoped to the page's
+// own children: the source pane leaves the page for the composer's code
+// slot (a grid too), and a placement that followed it there would make
+// that slot three columns wide with the source in the last.
+.page > section[email-preview] {
   grid-column: 1;
 }
 
@@ -97,23 +103,26 @@ section[email-preview] {
 :host(.compose--compact) .page {
   grid-template-columns: minmax(0, 1fr);
 
-  section[email-writer] {
+  form[email-writer] {
     grid-column: 1;
   }
 }
 
-section[email-writer] {
+form[email-writer] {
   grid-column: 2;
 }
 
 // Projected into the writer's column: the editor takes what the top bar
-// leaves (the writer cannot style projected content itself).
+// leaves (the writer cannot style projected content itself). The room the
+// text keeps from the Subject hairline above and the strip below is this
+// layout's call, not the pane's — the pane pads nothing on the block axis
+// unless told to here.
 section[email-compose] {
   flex: 1 1 auto;
   min-height: 0;
 }
 
-section[html-email-compose] {
+.page > section[html-email-compose] {
   grid-column: 3;
 }
 
@@ -122,7 +131,7 @@ section[html-email-compose] {
 // gone from the grid: each pane's own :host display rule would otherwise
 // outrank the UA [hidden] rule and leave it occupying its column, invisible
 // only in name.
-section[email-preview] {
+.page > section[email-preview] {
   justify-self: end;
 }
 
@@ -134,22 +143,150 @@ section[html-email-compose][hidden] {
   display: none;
 }
 
+// The envelope rows, projected into the writer's envelope block under its
+// bar. Every row is this template's — label, hairline, inset — with its
+// control inside: a plain input for the Subject, the library's address
+// control for From and To. Top-aligned on one 24px line box in 8px of block
+// padding: a single line is a 40px row, and when a row's chips wrap its
+// label stays on the first line, as Gmail keeps it.
+.writer-field {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px var(--mat-sys-inner-spacing, 16px);
+  box-sizing: border-box;
+  // The hairline is painted, not laid out: the row is exactly 40px.
+  box-shadow: inset 0 -1px var(--mat-sys-outline-variant);
+  cursor: text;
+}
 
-// The library's chips know nothing of Material; this is where the demo hands
-// them its theme. Custom properties inherit, so setting them on the strip
-// themes every chip inside it.
+.writer-field__label {
+  flex: none;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+  letter-spacing: var(--mat-sys-body-medium-tracking);
+  line-height: 24px;
+}
+
+// The control takes what the label leaves — the address control wraps its
+// chips inside that, the Subject input just fills it.
+.writer-field__input,
+.writer-field > [email-address-input] {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.writer-field__input {
+  border: none;
+  outline: none;
+  padding: 2px 0;
+  background: none;
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
+  letter-spacing: var(--mat-sys-body-medium-tracking);
+  line-height: 20px;
+}
+
+// The recipients group only groups focus; it adds no box of its own.
+.writer-recipients {
+  display: contents;
+}
+
+// Merged: the real rows are hidden the way a screen-reader-only label is —
+// out of sight and out of the flow, but still focusable, so Tab and the
+// form's focus-on-invalid reach them, and that focus opens them again.
+.writer-recipients--merged > .writer-field:not(.writer-summary) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+// The merged line: one row, the row's own label, the people on one line
+// that ellipsizes. Copies follow their label, in the label's colour.
+.writer-summary {
+  align-items: center;
+}
+
+.writer-summary__label,
+.writer-summary__kind {
+  flex: none;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+  letter-spacing: var(--mat-sys-body-medium-tracking);
+  line-height: 24px;
+}
+
+.writer-summary__line {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
+  letter-spacing: var(--mat-sys-body-medium-tracking);
+  line-height: 24px;
+}
+
+.writer-summary__kind {
+  margin-inline: 12px 8px;
+}
+
+// A malformed address reads the way its chip does: error text.
+.writer-summary__person--invalid {
+  color: var(--mat-sys-error);
+}
+
+.writer-summary__placeholder {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+// Cc / Bcc: quiet text buttons on the To row's first line, Gmail's.
+// Drawn last in the row, ahead of the control in the source: the tab order
+// is the source's, the picture is Gmail's.
+.writer-field__actions {
+  order: 1;
+  flex: none;
+  display: flex;
+  gap: 2px;
+}
+
+.writer-field__action {
+  height: 24px;
+  padding: 0 6px;
+  border: none;
+  border-radius: var(--mat-sys-corner-extra-small, 4px);
+  background: none;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+  letter-spacing: var(--mat-sys-body-medium-tracking);
+  line-height: 24px;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--mat-sys-surface-container-highest);
+    color: var(--mat-sys-on-surface);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: 1px;
+  }
+}
+
+// The library's components read the Material system tokens on their own
+// (--email-* -> --mat-sys-* -> a light-dark() fallback), so the demo maps
+// nothing but its own spacing token, which is not Material's.
 ul[email-attachment-chips] {
   --email-attachment-chips-inset: var(--mat-sys-inner-spacing, 16px);
-  --email-attachment-chip-background: var(--mat-sys-surface-container);
-  --email-attachment-chip-color: var(--mat-sys-on-surface);
-  --email-attachment-chip-icon-color: var(--mat-sys-on-surface-variant);
-  --email-attachment-chip-border-color: var(--mat-sys-outline-variant);
-  --email-attachment-chip-hover-background: var(--mat-sys-surface-container-highest);
-  --email-attachment-chip-focus-ring: var(--mat-sys-primary);
-  --email-attachment-chip-corner: var(--mat-sys-corner-small);
-  --email-attachment-chip-secondary-color: var(--mat-sys-on-surface-variant);
-  --email-attachment-chip-progress-color: var(--mat-sys-primary);
-  --email-attachment-chip-progress-track: var(--mat-sys-outline-variant);
 }
 
 // The problems strip: counts jump to the first offender in the source pane,
@@ -188,6 +325,12 @@ ul[email-attachment-chips] {
     color: var(--email-compose-status-warning, var(--mat-sys-aee-lint-warning, #b06000));
     font-weight: 600;
   }
+}
+
+// The form's complaint reads as an error: it is the one note that blocks.
+.status__send--problem {
+  color: var(--email-compose-status-error, var(--mat-sys-error, #b3261e));
+  font-weight: 600;
 
   &:not(:disabled):hover {
     background-color: var(--mat-sys-surface-container, #eeeeee);

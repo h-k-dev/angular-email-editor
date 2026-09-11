@@ -1,0 +1,126 @@
+// The control alone: chips and the typing after them in one wrapping row.
+// No label, no hairline, no inset, no row height — the row is the host's
+// (the template that holds the form draws it, as it does for a plain
+// input), and this sits in it like an input would: give it the room
+// (`flex: 1 1 0; min-width: 0`) and it wraps its chips inside that.
+//
+// Every value is a three-step cascade: the control's own
+// --email-address-input-* token, then Material's system token of the same
+// meaning, then a hardcoded light-dark() pair. Type is Material's
+// body-medium spelled out in full.
+
+:host {
+  display: flex;
+  min-width: 0;
+  color: var(--email-address-input-color, var(--mat-sys-on-surface, light-dark(#1f1f1f, #e3e3e3)));
+
+  font-family: var(
+    --email-address-input-font-family,
+    var(--mat-sys-body-medium-font, system-ui, sans-serif)
+  );
+  font-size: var(--email-address-input-font-size, var(--mat-sys-body-medium-size, 0.875rem));
+  font-weight: var(--email-address-input-font-weight, var(--mat-sys-body-medium-weight, 400));
+  line-height: var(
+    --email-address-input-line-height,
+    var(--mat-sys-body-medium-line-height, 1.25rem)
+  );
+  letter-spacing: var(
+    --email-address-input-letter-spacing,
+    var(--mat-sys-body-medium-tracking, 0.016rem)
+  );
+  cursor: text;
+}
+
+:host([aria-disabled='true']) {
+  cursor: default;
+  opacity: 0.6;
+}
+
+// ── chips + entry: one wrapping row ─────────────────────────────────────
+// Each line is a chip's height (24px); the type's 20px line sits in it.
+// Lines sit 8px apart — with the 24px chip that is 32px a line, the remove
+// button's touch target, so targets on two lines never overlap.
+:host :where([data-slot='chips']) {
+  flex: 1 1 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--email-address-input-row-gap, 8px) var(--email-address-input-column-gap, 4px);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+// Not focused: the chips are a line of text — each address but the last
+// followed by a comma, a word space between them, no buttons — starting
+// where the caret starts.
+:host(:not([data-focused])) :where([data-slot='chips']) {
+  column-gap: var(--email-address-input-inline-gap, 0.3em);
+}
+
+:host(:not([data-focused])) :where([email-address-chip]:has(+ [email-address-chip]))::after {
+  content: ',';
+}
+
+// The entry takes the slack, and at least a few characters of it, so a
+// long list wraps the typing onto its own line rather than squeezing it.
+:host :where([data-slot='entry']) {
+  flex: 1 1 8ch;
+  min-width: 8ch;
+  display: flex;
+}
+
+:host :where([data-slot='entry'][hidden]) {
+  display: none;
+}
+
+// Not focused, there is no caret to make room for: the entry asks for no
+// width of its own and takes only what the last line leaves (the
+// placeholder still has the whole line when there are no chips). The row
+// is exactly its chips — a full line never wraps an empty input onto a
+// line of its own, and a typo turning into a chip on blur, or back into
+// typing on focus, cannot change how the lines fall.
+:host(:not([data-focused])) :where([data-slot='entry']) {
+  flex-basis: 0;
+  min-width: 0;
+}
+
+// The input is exactly a chip's height, no padding: a browser centres an
+// input's text in its box, so the typing and the placeholder sit on the
+// same centre line as the chips beside them — and as a host label given
+// the same line box.
+:host :where([data-slot='input']) {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  height: var(--email-address-chip-height, 24px);
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  border: none;
+  outline: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  // The line box is the chip's height, as the chip's name has it: the
+  // typing sits on the same baseline as the chips beside it.
+  line-height: var(--email-address-chip-height, 24px);
+}
+
+// Text a commit left behind — not an address yet — reads the way an
+// invalid chip does: in the error colour.
+:host :where([data-slot='input'][data-refused]) {
+  color: var(
+    --email-address-chip-invalid-color,
+    var(--mat-sys-error, light-dark(#b3261e, #f2b8b5))
+  );
+}
+
+:host :where([data-slot='input'])::placeholder {
+  color: var(
+    --email-address-input-placeholder-color,
+    var(--mat-sys-on-surface-variant, light-dark(#5f6368, #9aa0a6))
+  );
+}

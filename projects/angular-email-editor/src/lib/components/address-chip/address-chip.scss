@@ -1,0 +1,286 @@
+// The chip's own styles, encapsulated like the attachment chip's: parts are
+// addressed by data-slot and held to one attribute of specificity (`:where`
+// around the part), so a bare element rule in the app (`button { … }`)
+// still loses, and a consumer who must restyle a part reaches it with two
+// attributes (`[email-address-chip] [data-slot='name'][data-slot]`).
+//
+// Every value is a three-step cascade: the chip's own --email-address-chip-*
+// token, then Material's system token of the same meaning, then a hardcoded
+// light-dark() pair. Type is Material's body-medium spelled out in full —
+// the chip reads as the row's text, as Gmail's does.
+//
+// The chip is a pill — a quiet surface around the address, the × after it —
+// while its list has focus, and, marked `inline`, a run of text before
+// that: no surface, no ×, no padding, the address and a separator. The
+// surface is painted by ::before over the chip's own padding, which the
+// pill brings with it when it appears.
+
+:host {
+  position: relative;
+  // The surface's z-index stays inside the chip, under its text.
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--email-address-chip-gap, 4px);
+  max-width: var(--email-address-chip-max-width, 100%);
+  min-width: 0;
+  height: var(--email-address-chip-height, 24px);
+  margin: 0;
+  padding-block: 0;
+  padding-inline: var(--email-address-chip-padding-start, 8px)
+    var(--email-address-chip-padding-end, 2px);
+  box-sizing: border-box;
+  // The box's own corner, for the active ring to follow.
+  border-radius: var(--email-address-chip-corner, var(--mat-sys-corner-full, 12px));
+
+  color: var(--email-address-chip-color, var(--mat-sys-on-surface, light-dark(#1f1f1f, #e3e3e3)));
+
+  font-family: var(
+    --email-address-chip-font-family,
+    var(--mat-sys-body-medium-font, system-ui, sans-serif)
+  );
+  font-size: var(--email-address-chip-font-size, var(--mat-sys-body-medium-size, 0.875rem));
+  font-weight: var(--email-address-chip-font-weight, var(--mat-sys-body-medium-weight, 400));
+  line-height: var(
+    --email-address-chip-line-height,
+    var(--mat-sys-body-medium-line-height, 1.25rem)
+  );
+  letter-spacing: var(
+    --email-address-chip-letter-spacing,
+    var(--mat-sys-body-medium-tracking, 0.016rem)
+  );
+  cursor: default;
+  // A hold is the chip's gesture: no text selection under a mouse held
+  // down, no callout under a thumb, no double-tap zoom on a phone.
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+  transition: opacity 150ms ease;
+}
+
+// A chip with no remove control keeps its padding symmetric.
+:host(:not(:has([data-slot='trailing']))) {
+  padding-inline-end: var(--email-address-chip-padding-start, 8px);
+}
+
+// ── surface: painted, not laid out ──────────────────────────────────────
+:host::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  box-sizing: border-box;
+  pointer-events: none;
+
+  background-color: var(
+    --email-address-chip-background,
+    var(--mat-sys-surface-container, light-dark(#f1f3f4, #303134))
+  );
+  border: 1px solid var(--email-address-chip-border-color, transparent);
+  border-radius: var(--email-address-chip-corner, var(--mat-sys-corner-full, 12px));
+}
+
+// A chip that is not an address: flagged, kept — and flagged quietly. It is
+// a typo, not an alarm: the chip keeps its surface, and only the text says
+// so, in the error colour; the spoken note says it in words. The remove
+// button keeps its own colours.
+:host([data-invalid]) {
+  color: var(
+    --email-address-chip-invalid-color,
+    var(--mat-sys-error, light-dark(#b3261e, #f2b8b5))
+  );
+}
+
+:host([data-invalid])::before {
+  background-color: var(
+    --email-address-chip-invalid-background,
+    var(
+      --email-address-chip-background,
+      var(--mat-sys-surface-container, light-dark(#f1f3f4, #303134))
+    )
+  );
+  border-color: var(
+    --email-address-chip-invalid-border-color,
+    var(--email-address-chip-border-color, transparent)
+  );
+}
+
+:host([aria-disabled='true']) {
+  opacity: 0.6;
+}
+
+// Current: the list's highlight is here while its input keeps the caret —
+// drawn as the focus ring the remove button would show, so it reads as
+// "the keys act on this one".
+:host([aria-current='true']) {
+  outline: 2px solid
+    var(--email-address-chip-focus-ring, var(--mat-sys-primary, light-dark(#0b57d0, #a8c7fa)));
+  outline-offset: 1px;
+}
+
+:host([aria-current='true'])::before {
+  background-color: var(
+    --email-address-chip-active-background,
+    var(--mat-sys-surface-container-highest, light-dark(#e3e3e3, #444746))
+  );
+}
+
+// ── inline: the address as text in a line ───────────────────────────────
+// A chip is a chip only while its list has focus. Before that it is text:
+// no surface, no padding, no room kept after the address, and the remove
+// control out of the flow and out of sight — hidden the way a
+// screen-reader-only label is, so it is still focusable: Tab reaches it,
+// and the list turns back into chips when it does.
+:host([data-inline]) {
+  gap: 0;
+  padding-inline: 0;
+}
+
+:host([data-inline])::before {
+  content: none;
+}
+
+:host([data-inline]) :where([data-slot='trailing']) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+// A separator the list draws after the chip (`::after` — the address
+// input's comma) follows the address directly, on the name's own line box,
+// so the two share a baseline to the pixel at any zoom.
+:host([data-inline])::after {
+  flex: none;
+  line-height: var(--email-address-chip-height, 24px);
+  white-space: nowrap;
+}
+
+// ── name ────────────────────────────────────────────────────────────────
+// The name's line box is the chip's height, not the type's line-height: the
+// text sits on the chip's centre line, the same line the input's text sits
+// on beside it, and any decoration a host adds has room inside the box,
+// which is clipped here for the ellipsis.
+:host :where([data-slot='name']) {
+  min-width: 0;
+  line-height: var(--email-address-chip-height, 24px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// ── copied: a hold put the address on the clipboard ─────────────────────
+// Said for a moment in the primary colour, on the pill's tinted surface.
+:host([data-copied]) {
+  color: var(
+    --email-address-chip-copied-color,
+    var(--mat-sys-on-primary-container, light-dark(#041e49, #d3e3fd))
+  );
+}
+
+:host([data-copied][data-inline]) {
+  color: var(
+    --email-address-chip-copied-color,
+    var(--mat-sys-primary, light-dark(#0b57d0, #a8c7fa))
+  );
+}
+
+:host([data-copied])::before {
+  background-color: var(
+    --email-address-chip-copied-background,
+    var(--mat-sys-primary-container, light-dark(#d3e3fd, #0842a0))
+  );
+}
+
+// ── note, status: spoken, not shown ─────────────────────────────────────
+:host :where([data-slot='note'], [data-slot='status']) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+// ── trailing: the remove control's box ──────────────────────────────
+:host :where([data-slot='trailing']) {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+// ── remove: the default button ──────────────────────────────────────────
+// Gmail's ×: a bare glyph in the pill, a circle under it on hover — drawn at
+// --email-address-chip-remove-size, hit at
+// --email-address-chip-remove-target-size: a pseudo-element centred on the
+// button carries the pointer target past the circle, so a finger finds it
+// without the row growing. The address input spaces its lines so two
+// targets never overlap.
+:host :where([data-slot='remove']) {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--email-address-chip-remove-size, 18px);
+  height: var(--email-address-chip-remove-size, 18px);
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--email-address-chip-remove-corner, var(--mat-sys-corner-full, 50%));
+  cursor: pointer;
+
+  background-color: var(--email-address-chip-remove-background, transparent);
+  color: var(
+    --email-address-chip-remove-color,
+    var(--mat-sys-on-surface-variant, light-dark(#444746, #c4c7c5))
+  );
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+:host :where([data-slot='remove'])::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--email-address-chip-remove-target-size, 32px);
+  height: var(--email-address-chip-remove-target-size, 32px);
+  transform: translate(-50%, -50%);
+}
+
+:host :where([data-slot='remove'] svg) {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+}
+
+// Hover and focus draw the circle.
+:host :where([data-slot='remove']:hover:not(:disabled), [data-slot='remove']:focus-visible) {
+  background-color: var(
+    --email-address-chip-remove-hover-background,
+    var(--mat-sys-surface-container-highest, light-dark(#e3e3e3, #444746))
+  );
+  color: var(
+    --email-address-chip-remove-hover-color,
+    var(--mat-sys-on-surface, light-dark(#1f1f1f, #e3e3e3))
+  );
+}
+
+:host :where([data-slot='remove']:focus-visible) {
+  outline: 2px solid
+    var(--email-address-chip-focus-ring, var(--mat-sys-primary, light-dark(#0b57d0, #a8c7fa)));
+  outline-offset: 1px;
+}
+
+:host :where([data-slot='remove']:disabled) {
+  cursor: default;
+}

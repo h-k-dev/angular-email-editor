@@ -222,11 +222,14 @@
   // Inline, that inset doubles as the surface margin the layout blocks'
   // editorial gutters hang into (their wrappers pull themselves back onto the
   // text column with negative inline margins — Tiptap's model, at a calmer
-  // scale), which is why the block gutter reads the same token: the hang can
-  // never outgrow the room, whatever the token is set to.
-  padding: var(--mat-sys-inner-spacing);
+  // scale).
+  padding-inline: var(--mat-sys-inner-spacing);
+  // No block padding of its own: the room above and below the text is the
+  // employer's to set — the form layout that places this pane between the
+  // envelope rows and whatever follows — through this token. It stays inside
+  // the scroller, so the inset scrolls with the text.
+  padding-block: var(--email-compose-surface-padding-block, 0);
 }
-
 
 // Code view: the projected source pane takes the editing surface's place.
 // A grid cell so the projected section stretches on both axes without the

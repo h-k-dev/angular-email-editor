@@ -1,42 +1,54 @@
-<header class="writer-bar">
+<!-- The bar's content, drawn once and placed by the viewport: on a phone it
+     heads the sheet, on anything wider it closes it, under the composer's
+     formatting toolbar. The node moves rather than being restyled, so the
+     reading and Tab order always follow what is on screen. -->
+<ng-template #bar>
   <span class="writer-bar__spacer"></span>
-  <!-- An icon button like every other in the writer: the app's global
-       icon-button override gives it the 32px state layer and 40px touch
-       target (styles.scss), so nothing is restated here. The label moves to
-       aria-label and the title, which is where a lone icon carries it. -->
+  <!-- The host's own actions, beside Send. -->
+  <ng-content select="[actions]" />
+  <!-- The form's submit button — an icon button like every other in the
+       writer: the app's global icon-button override gives it the 32px state
+       layer and 40px touch target (styles.scss), so nothing is restated
+       here. The label moves to aria-label and the title, which is where a
+       lone icon carries it.
+       While the submission runs the button stays live — focusable, and its
+       tooltip still reachable — and shows a spinner in the icon's place
+       instead of greying out. Pressing it again is harmless: the form
+       ignores a submit while one is running, whichever gesture it comes
+       from. -->
   <button
     mat-icon-button
-    type="button"
+    type="submit"
     class="writer-bar__send"
-    aria-label="Send"
     title="Send (Ctrl+Enter)"
-    (click)="requestSend()"
+    [attr.aria-label]="submitting() ? 'Sending' : 'Send'"
+    [showProgress]="submitting()"
   >
     <mat-icon>send</mat-icon>
+    <!-- The glyph's size (--mat-icon-size, styles.scss): Material sizes only
+         the spinner's svg, and the element keeps its diameter as an inline
+         size — left at the default 100px it hangs out of the bar. -->
+    <mat-progress-spinner progressIndicator mode="indeterminate" [diameter]="16" />
   </button>
-</header>
+</ng-template>
 
-<!-- The envelope, as Gmail lays it out: one hairline row per field. From
-     takes a single address; To takes many; Subject is plain text. -->
+@if (viewport.compact()) {
+  <header class="writer-bar">
+    <ng-container [ngTemplateOutlet]="bar" />
+  </header>
+}
+
+<!-- The envelope: the rows the host marks `envelope` — From, To, Subject —
+     stacked flush, hairline to hairline, as one block of the column. -->
 <div class="writer-envelope">
-  <div
-    email-address-input
-    label="From"
-    [max]="1"
-    placeholder="you@example.com"
-    [(addresses)]="from"
-  ></div>
-  <div email-address-input label="To" placeholder="Recipients" [(addresses)]="to"></div>
-  <label class="writer-field">
-    <span class="writer-field__label">Subject</span>
-    <input
-      class="writer-field__input"
-      type="text"
-      autocomplete="off"
-      [value]="subject()"
-      (input)="subject.set($any($event.target).value)"
-    />
-  </label>
+  <ng-content select="[envelope]" />
 </div>
 
+<!-- The body: everything else the host projects, the editor first. -->
 <ng-content />
+
+@if (!viewport.compact()) {
+  <footer class="writer-bar">
+    <ng-container [ngTemplateOutlet]="bar" />
+  </footer>
+}

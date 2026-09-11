@@ -4,6 +4,7 @@
   "peerDependencies": {
     "@angular/common": "^21.2.0",
     "@angular/core": "^21.2.0",
+    "@angular/forms": "^21.2.0",
     "@chenglou/pretext": "^0.0.8",
     "@h-k-dev/angular-file-drop": "^2.0.0",
     "prosemirror-commands": "^1.7.1",

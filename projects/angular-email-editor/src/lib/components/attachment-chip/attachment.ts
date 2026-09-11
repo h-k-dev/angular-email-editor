@@ -15,6 +15,35 @@ export interface Attachment {
   readonly size?: number;
 }
 
+/**
+ * Where an attachment's transfer is, in the stages uploaders agree on —
+ * Uppy, tus and their kin name them the same way. `preprocessing` is the
+ * work before the bytes move (a fingerprint, a virus scan) and has no
+ * number; `queued` is accepted and waiting for a connection, with nothing
+ * happening yet; `uploading` is the bytes moving, with a number;
+ * `postprocessing` is the work after (a transcode, a scan on the far side),
+ * again with none; `complete` is done. A chip draws a sweep for the stages
+ * where work runs without a number, a bar for the one with, and keeps
+ * quiet while a transfer only waits.
+ *
+ * The set is a vocabulary, not a sequence: which stages a pipeline has, and
+ * in what order, is the host's — a store that scans on the far side queues
+ * before it preprocesses, one that caps its connections queues after.
+ */
+export type AttachmentStatus =
+  'preprocessing' | 'queued' | 'uploading' | 'postprocessing' | 'complete';
+
+/** The stages during which the transfer is not done — a waiting one
+    included, since the message is no more sendable for it. */
+export function attachmentInFlight(status: AttachmentStatus | null | undefined): boolean {
+  return (
+    status === 'preprocessing' ||
+    status === 'queued' ||
+    status === 'uploading' ||
+    status === 'postprocessing'
+  );
+}
+
 /** The families a chip draws a distinct icon for. */
 export type AttachmentKind =
   | 'image'

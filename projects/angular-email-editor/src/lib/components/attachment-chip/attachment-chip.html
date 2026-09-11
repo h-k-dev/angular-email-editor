@@ -1,11 +1,18 @@
-<!-- Every part carries data-slot: that is its styling hook, and for icon and
-     progress also its projection selector — project an element with the same
-     data-slot into the chip to replace the default. -->
-<ng-content select="[data-slot=icon]">
-  <svg data-slot="icon" viewBox="0 0 16 16" aria-hidden="true">
-    <path [attr.d]="icon()" />
-  </svg>
-</ng-content>
+<!-- Every part carries data-slot: that is its styling hook. The icon box
+     and the progress readout are also template slots: each has a default
+     the chip draws, and a host replaces it by marking an ng-template with
+     emailAttachmentIcon or emailAttachmentProgress — the chip renders it
+     inside the box it already sizes, so the stylesheet never has to reach
+     into the host's markup. -->
+<span data-slot="icon">
+  @if (iconTemplate(); as slot) {
+    <ng-container *ngTemplateOutlet="slot.template; context: iconContext()" />
+  } @else {
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path [attr.d]="icon()" />
+    </svg>
+  }
+</span>
 
 <span data-slot="label">
   <!-- title, not a tooltip component: the name is truncated in CSS, and the
@@ -16,44 +23,54 @@
   }
 </span>
 
-<ng-content select="[data-slot=progress]">
+<!-- One square at the end that the progress readout and the remove button
+     share: while work is in flight the readout has it, and the × paints over
+     it on hover or focus (always on a touch screen). The bar under the chip
+     is the progress itself; the readout is only its number — or the host's
+     template. With no number the square stays empty and the chip itself is
+     swept by a band of light (a host pseudo-element, keyed off data-mode). -->
+<span data-slot="trailing">
   @if (mode(); as m) {
     <!-- A simulated run is announced as busy, never with a number: the
          fake is for the eye, not for assistive tech. -->
-    <svg
+    <span
       data-slot="progress"
       [attr.data-mode]="m"
-      viewBox="0 0 20 20"
       role="progressbar"
-      [attr.aria-label]="progressLabel() + ' ' + attachment().name"
+      [attr.aria-label]="label() + ' ' + attachment().name"
       [attr.aria-valuenow]="m === 'determinate' ? percent() : null"
       aria-valuemin="0"
       aria-valuemax="100"
     >
-      <circle data-slot="progress-track" cx="10" cy="10" r="7.5" />
-      <circle
-        data-slot="progress-indicator"
-        cx="10"
-        cy="10"
-        r="7.5"
-        pathLength="100"
-        [style.stroke-dashoffset]="m === 'determinate' ? 100 - percent() : null"
-        [style.animation-duration.ms]="m === 'simulated' ? duration() : null"
-      />
-    </svg>
+      @if (progressTemplate(); as slot) {
+        <ng-container *ngTemplateOutlet="slot.template; context: progressContext()" />
+      } @else if (m === 'determinate') {
+        <span data-slot="progress-value" aria-hidden="true">{{ percent() }}%</span>
+      }
+    </span>
+    <!-- A waiting transfer has no bar: nothing is moving yet. -->
+    @if (m !== 'queued') {
+      <span data-slot="progress-track" [attr.data-mode]="m" aria-hidden="true">
+        <span
+          data-slot="progress-indicator"
+          [style.transform]="m === 'determinate' ? 'scaleX(' + percent() / 100 + ')' : null"
+          [style.animation-duration.ms]="m === 'simulated' ? duration() : null"
+        ></span>
+      </span>
+    }
   }
-</ng-content>
 
-@if (removable()) {
-  <button
-    type="button"
-    data-slot="remove"
-    [disabled]="ariaDisabled()"
-    [attr.aria-label]="removeLabel() + ' ' + attachment().name"
-    (click)="removed.emit()"
-  >
-    <svg viewBox="0 0 16 16" aria-hidden="true">
-      <path d="M4.5 4.5l7 7 M11.5 4.5l-7 7" />
-    </svg>
-  </button>
-}
+  @if (removable()) {
+    <button
+      type="button"
+      data-slot="remove"
+      [disabled]="ariaDisabled()"
+      [attr.aria-label]="removeLabel() + ' ' + attachment().name"
+      (click)="removed.emit()"
+    >
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M4.5 4.5l7 7 M11.5 4.5l-7 7" />
+      </svg>
+    </button>
+  }
+</span>

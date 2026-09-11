@@ -1,8 +1,10 @@
 // The writer is one sheet: the editorial area's surface is the writer's
 // background — bar, editor and formatting toolbar sit on the same paper, so
-// neither toolbar needs a strip of its own. A column: the bar on top, the
-// projected editor filling the rest (the host gives the editor flex: 1 —
-// projected content is the host's to style).
+// neither toolbar needs a strip of its own. A column of blocks: the envelope,
+// then the editor filling the rest (the host gives the editor flex: 1 —
+// projected content is the host's to style, and the rows are styled in
+// compose.scss), with the bar above the envelope on a phone and under the
+// editor anywhere wider.
 :host {
   display: flex;
   flex-direction: column;
@@ -33,12 +35,17 @@
   box-shadow: var(--mat-sys-level1);
 }
 
-// No chrome of its own: only the Send button is.
+// No chrome of its own: only its buttons are. The same box in both places —
+// the column's gap already parts it from the envelope or the toolbar.
 .writer-bar {
   flex: none;
   display: flex;
   align-items: center;
   gap: 8px;
+  // Exactly the icon button's touch target (styles.scss): the 32px state
+  // layer centres in it, and whatever joins Send never changes the bar's
+  // height — a row that grows with its content would shift the sheet.
+  block-size: 40px;
   // Optical, not geometric: the bar holds icon buttons, whose 32px state
   // layer sits 8px clear of the 16px glyph inside it. Inset the box by that
   // much less and the glyph — the only part anyone sees — lands on the same
@@ -50,37 +57,10 @@
   flex: 1 1 auto;
 }
 
-// The envelope rows stack flush; each address field draws its own hairline
-// (address-input.scss) and the Subject row matches it here.
+// The envelope block: the host's rows, marked `envelope`, stacked flush —
+// the column's gap falls between blocks, never between two rows.
 .writer-envelope {
   flex: none;
   display: flex;
   flex-direction: column;
-}
-
-.writer-field {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 40px;
-  padding-inline: var(--mat-sys-inner-spacing, 16px);
-  border-block-end: 1px solid var(--mat-sys-outline-variant);
-  cursor: text;
-}
-
-.writer-field__label {
-  flex: none;
-  color: var(--mat-sys-on-surface-variant);
-  font: var(--mat-sys-body-medium);
-}
-
-.writer-field__input {
-  flex: 1 1 auto;
-  min-width: 0;
-  border: none;
-  outline: none;
-  padding: 4px 0;
-  background: none;
-  color: var(--mat-sys-on-surface);
-  font: var(--mat-sys-body-medium);
 }

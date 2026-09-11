@@ -27,6 +27,7 @@ import { ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
 import { Portal, PortalModule } from '@angular/cdk/portal';
 
 import { AngularFileDrop, FileDropEvent } from '@h-k-dev/angular-file-drop';
+import type { FormValueControl } from '@angular/forms/signals';
 
 import { DropHint, DropHintArt } from '../drop-hint/drop-hint';
 
@@ -92,15 +93,19 @@ export type SourceView = 'hidden' | 'code' | 'detached';
   templateUrl: './email-compose.html',
   styleUrl: './email-compose.scss',
 })
-export class EmailCompose {
+export class EmailCompose implements FormValueControl<string> {
   #destroyRef = inject(DestroyRef);
   /** The composer's inline image registry — provided by the composer. */
   readonly #images = inject(InlineImages);
 
-  /** Canonical email HTML, two-way bound by the parent composer. This editor
-      owns the canonical form: whatever comes in is parsed through the email
-      schema and re-published as what survived. */
-  html = model('');
+  /** Canonical email HTML — the form's `html` field, bound with
+      `[formField]` (this pane is a `FormValueControl<string>`), or two-way
+      as `[(value)]`. This editor owns the canonical form: whatever comes in
+      is parsed through the email schema and re-published as what survived. */
+  value = model('');
+
+  /** Focus left the editor — the form marks the body field touched on it. */
+  touch = output<void>();
 
   /** How the HTML source shows, driven by the toolbar's two buttons. Two-way
       so the composer can flip it too (revealing a lint finding lands in the
@@ -175,11 +180,25 @@ export class EmailCompose {
       the whole send API. */
   send = output<SendIntent>();
 
-  /** Asks for the send intent — the writer's Send button. Always the email
-      editor: its send-intent extension builds the payload, and in code view
-      its document is already the source's (it syncs while unfocused). */
-  requestSend(): void {
-    this.editor()?.commands['requestSend']();
+  #capturing = false;
+  #captured: SendIntent | undefined;
+
+  /** The send payload, built now and handed back — for the host's submit
+      action. Always the email editor: its send-intent extension builds it,
+      and in code view its document is already the source's (it syncs while
+      unfocused). Nothing is emitted; `send` is for the user's own gestures.
+      Undefined before the editor has mounted. */
+  intent(): SendIntent | undefined {
+    const editor = this.editor();
+    if (!editor) return undefined;
+    this.#capturing = true;
+    this.#captured = undefined;
+    try {
+      editor.commands['requestSend']();
+      return this.#captured;
+    } finally {
+      this.#capturing = false;
+    }
   }
 
   editorHost = viewChild.required<ElementRef<HTMLElement>>('editorHost');
@@ -359,7 +378,7 @@ export class EmailCompose {
     // the signal value, not a consumer. `setContent` dispatches no
     // transaction, so applying can't echo through `onUpdate`.
     effect(() => {
-      this.html(); // track: any external write re-runs this
+      this.value(); // track: any external write re-runs this
       const editor = this.editor();
       if (!editor || editor.view.hasFocus()) return;
       this.#applyIncoming(editor);
@@ -369,10 +388,10 @@ export class EmailCompose {
   /** Applies the signal's current value to the editor and re-publishes the
       canonical form (what survived the schema round-trip). */
   #applyIncoming(editor: Editor): void {
-    const incoming = this.html();
+    const incoming = this.value();
     if (incoming === editor.getHTML()) return;
     editor.setContent(incoming);
-    this.html.set(editor.getHTML());
+    this.value.set(editor.getHTML());
   }
 
   #mountEditor(): void {
@@ -404,20 +423,30 @@ export class EmailCompose {
         createTextMetrics({ onMetrics: (metrics) => this.bodyMetrics.set(metrics) }),
         createInlineImages({ registry: this.#images }),
         createImageDrag({ onChange: (over) => this.imageDrag.set(over) }),
-        createSendIntent({ onSend: (intent) => this.send.emit(intent) }),
+        // A user's gesture (Mod-Enter, /send) goes out as the send output; a
+        // host asking for the payload (`intent()`) gets it handed back instead.
+        createSendIntent({
+          onSend: (intent) => {
+            if (this.#capturing) this.#captured = intent;
+            else this.send.emit(intent);
+          },
+        }),
         this.#angularSync,
       ],
       attributes: { role: 'textbox', 'aria-label': 'Message body' },
-      onUpdate: (editor) => this.html.set(editor.getHTML()),
+      onUpdate: (editor) => this.value.set(editor.getHTML()),
     });
     // External writes must survive focus: the sync effect skips while this
     // editor is focused — so on blur, catch up with whatever the signal says
     // *now*. Last writer wins: if our own typing published after the external
     // write, the values already agree and this is a no-op. Without this, an
     // async draft restore or import landing mid-edit would be dropped forever.
-    editor.view.dom.addEventListener('blur', () => this.#applyIncoming(editor));
+    editor.view.dom.addEventListener('blur', () => {
+      this.#applyIncoming(editor);
+      this.touch.emit();
+    });
     this.editor.set(editor);
-    this.html.set(editor.getHTML());
+    this.value.set(editor.getHTML());
     editor.focus();
   }
 
@@ -427,6 +456,19 @@ export class EmailCompose {
 
   focusEditor(): void {
     this.#target()?.focus();
+  }
+
+  /** The form's way in (`focusBoundControl` on the body field): the caret
+      goes to the email editor — leaving code view first if the source is
+      standing in its place, since a hidden editor cannot take focus. */
+  focus(): void {
+    if (!this.codeView()) {
+      this.editor()?.focus();
+      return;
+    }
+    (document.activeElement as HTMLElement | null)?.blur?.();
+    this.sourceView.set('hidden');
+    afterNextRender(() => this.editor()?.focus(), { injector: this.#injector });
   }
 
   /** Flips code view. Whatever surface is focused is about to be hidden —
@@ -495,7 +537,7 @@ export class EmailCompose {
       the shared html on every doc change, which is when its undo depth moves. */
   #tracked(): Editor | undefined {
     this.#editorTick();
-    this.html();
+    this.value();
     return this.#target();
   }
 

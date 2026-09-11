@@ -1,0 +1,38 @@
+<!-- The name when there is one, the address otherwise; the header form is
+     the host's title, which is where a lone name recovers its address. -->
+<span data-slot="name">{{ mailbox().name ?? mailbox().address }}</span>
+
+@if (!valid()) {
+  <!-- Spoken, not shown: the flag is drawn by data-invalid on the host, and
+       a list item may not say aria-invalid — so the note says it. -->
+  <span data-slot="note">({{ invalidLabel() }})</span>
+}
+
+<!-- Spoken, not shown: a hold copied the address. The region is always
+     there, so the text arriving in it is announced. -->
+<span data-slot="status" role="status">{{
+  justCopied() ? copiedLabel() + ' ' + address() : ''
+}}</span>
+
+@if (removable()) {
+  <!-- The box at the chip's end: the host's remove template when it gave
+       one, the chip's own button otherwise. -->
+  <span data-slot="trailing">
+    @if (removeOutlet(); as template) {
+      <ng-container *ngTemplateOutlet="template; context: removeContext()" />
+    } @else {
+      <button
+        type="button"
+        data-slot="remove"
+        [disabled]="ariaDisabled()"
+        [attr.tabindex]="removeTabbable() ? null : -1"
+        [attr.aria-label]="removeName()"
+        (click)="remove()"
+      >
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M4.5 4.5l7 7 M11.5 4.5l-7 7" />
+        </svg>
+      </button>
+    }
+  </span>
+}
