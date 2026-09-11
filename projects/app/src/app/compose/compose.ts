@@ -322,6 +322,7 @@ export class Compose {
     const kb = (new TextEncoder().encode(message.html).length / 1024).toFixed(1);
     const parts = message.inlineImages.length;
     const recipients = message.to.length;
+
     this.#lastSend.set({
       html: this.html(),
       text:
