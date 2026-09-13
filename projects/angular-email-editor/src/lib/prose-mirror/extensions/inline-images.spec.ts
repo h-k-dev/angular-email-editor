@@ -4,6 +4,7 @@ import { emailExtensions } from './kits';
 import {
   InlineImageStore,
   decodeDataUrl,
+  inlineImageCids,
   promoteInlineImages,
   rewriteInlineImageSources,
 } from './inline-images';
@@ -100,14 +101,30 @@ describe('InlineImageStore', () => {
     const { options } = fakeUrls();
     const store = new InlineImageStore(options);
     const a = new Blob(['a'], { type: 'image/png' });
-    expect(store.add(a)).toBe('image-1@aee');
+    const first = store.add(a);
+    expect(first).toMatch(/^image-1\.[0-9a-z]{8}@aee$/);
+    const scope = first.slice('image-1.'.length, -'@aee'.length);
     expect(store.add(a, 'part1@mail')).toBe('part1@mail');
-    expect(store.add(a, 'image-2@aee')).toBe('image-2@aee');
-    expect(store.add(a)).toBe('image-3@aee');
-    expect(store.cids()).toEqual(['image-1@aee', 'part1@mail', 'image-2@aee', 'image-3@aee']);
-    expect(store.resolve('image-1@aee')).toBe('blob:fake/1');
+    expect(store.add(a, `image-2.${scope}@aee`)).toBe(`image-2.${scope}@aee`);
+    expect(store.add(a)).toBe(`image-3.${scope}@aee`);
+    expect(store.cids()).toEqual([
+      first,
+      'part1@mail',
+      `image-2.${scope}@aee`,
+      `image-3.${scope}@aee`,
+    ]);
+    expect(store.resolve(first)).toBe('blob:fake/1');
     expect(store.blob('part1@mail')).toBe(a);
     expect(store.resolve('nope')).toBeUndefined();
+  });
+
+  it("generates ids no other store generates — a persisted draft's part never meets a new one under its id", () => {
+    const { options } = fakeUrls();
+    const blob = new Blob(['a'], { type: 'image/png' });
+    // Two tabs, or one tab before and after a reload: both start counting at 1.
+    const before = new InlineImageStore(options).add(blob);
+    const after = new InlineImageStore(options).add(blob);
+    expect(before).not.toBe(after);
   });
 
   it('notifies subscribers, replaces bytes under a re-registered cid, and revokes on release', () => {
@@ -142,6 +159,16 @@ describe('rewriteInlineImageSources', () => {
     ).toBe(
       '<div><img src="data:image/png;base64,AA" alt="x"> <img alt="y" src="cid:b"> <img src="https://x/y.png"></div>',
     );
+  });
+});
+
+describe('inlineImageCids', () => {
+  it('lists the cids the images reference, once each, in document order — nothing else', () => {
+    const html =
+      '<div><img alt="y" src="cid:b@x"> <img src="cid:a@x" alt="x"> <img src="cid:b@x">' +
+      '<img src="https://x/y.png"> <img src="data:image/png;base64,AA"> <a href="cid:c@x">c</a></div>';
+    expect(inlineImageCids(html)).toEqual(['b@x', 'a@x']);
+    expect(inlineImageCids('<div>no images</div>')).toEqual([]);
   });
 });
 

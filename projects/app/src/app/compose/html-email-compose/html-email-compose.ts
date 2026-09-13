@@ -27,6 +27,7 @@ import {
   formatHTML,
   htmlSourceExtensions,
 } from 'angular-email-editor';
+import { isTyping } from '../is-typing';
 
 /**
  * The HTML side of the composer: a ProseMirror editor over the source kit
@@ -66,7 +67,7 @@ export class HtmlEmailCompose {
     effect(() => {
       this.html(); // track: any external write re-runs this
       const editor = this.editor();
-      if (!editor || editor.view.hasFocus()) return;
+      if (!editor || isTyping(editor.view)) return;
       this.#applyIncoming(editor);
     });
   }
@@ -97,6 +98,7 @@ export class HtmlEmailCompose {
     // External writes must survive focus (see the email pane's twin listener):
     // on blur, catch up with the signal's current value — last writer wins.
     editor.view.dom.addEventListener('blur', () => this.#applyIncoming(editor));
+    editor.view.dom.addEventListener('focus', () => this.#applyIncoming(editor));
     this.editor.set(editor);
   }
 

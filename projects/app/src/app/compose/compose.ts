@@ -1,14 +1,19 @@
 import {
   Component,
+  DOCUMENT,
+  DestroyRef,
   ElementRef,
   Injector,
 
-  // Singals
+  // Signals
   afterNextRender,
   computed,
+  debounced,
+  effect,
   inject,
   linkedSignal,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 
@@ -49,6 +54,7 @@ import {
   replyDocument,
   toInboundMessage,
 } from 'angular-email-editor';
+import { MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { EmailCompose, SourceView } from './email-compose/email-compose';
 import { DropHint } from './drop-hint/drop-hint';
@@ -56,6 +62,13 @@ import { EmailWriter } from './email-writer/email-writer';
 import { Viewport } from '../viewport';
 import { AttachmentRef, AttachmentUploads } from '../../services/attachment-uploads';
 import { EmailSend, SendRejected } from '../../services/email-send';
+import {
+  DRAFT_SAVE_DELAY,
+  Draft,
+  DraftContent,
+  SaveOptions,
+  serializeDraft,
+} from '../../services/draft';
 
 /** A dropped file that is a message rather than an attachment. The MIME type
     is what a mail client sets; the extension is what survives a trip through
@@ -89,6 +102,18 @@ export interface Envelope {
   html: string;
   attachments: AttachmentRef[];
 }
+
+/** The message a composer starts from, and starts over from after a send
+    or a discard. */
+const BLANK: Envelope = {
+  from: ['you@example.com'],
+  to: [],
+  cc: [],
+  bcc: [],
+  subject: '',
+  html: '',
+  attachments: [],
+};
 
 /** Whether a body has anything to send: some text, or an image. An empty
     editor still serializes to a paragraph, so `required` cannot tell. */
@@ -126,6 +151,7 @@ interface ExampleSet {
     AttachmentChip,
     AttachmentChipIcon,
     MatIcon,
+    MatIconButton,
     DropHint,
     HtmlEmailCompose,
     EmailPreview,
@@ -162,19 +188,14 @@ export class Compose {
     message: 'mail',
   };
   readonly #transport = inject(EmailSend);
+  readonly #draft = inject(Draft);
 
   /** The message — one model, owned here as a real host would own it
       (seeded from an account, a reply's headers, a draft). Every row on the
-      sheet binds to a field of it through the form below. */
-  protected readonly message = signal<Envelope>({
-    from: ['you@example.com'],
-    to: [],
-    cc: [],
-    bcc: [],
-    subject: '',
-    html: '',
-    attachments: [],
-  });
+      sheet binds to a field of it through the form below. It opens as the
+      stored draft, when there is one: storage reads synchronously, so the
+      sheet never shows empty first. */
+  protected readonly message = signal<Envelope>(this.#fromDraft(this.#draft.incoming().content));
 
   /**
    * The form over the message. The rules are the ones a mail client
@@ -285,7 +306,151 @@ export class Compose {
 
   constructor() {
     afterNextRender(() => this.toField().focus());
+    this.#keepDraft();
   }
+
+  /**
+   * The draft, kept the way a mail client keeps one — without a Save button:
+   *
+   * - **Saved once the message rests** — half a second after the last change,
+   *   not on every keystroke — and at once when the page may be going away
+   *   (hidden, or unloading) or the composer is left for another page: text
+   *   first then, without waiting for a pasted image to reach the store.
+   * - **Only while there is something to keep.** A composer nobody has
+   *   written in has no draft, and emptying the message removes it.
+   * - **Shared with every tab.** A draft saved elsewhere replaces this
+   *   message as soon as it lands (the editor defers it while someone types
+   *   in it); an attachment this tab is still uploading stays, as no other
+   *   tab can know of it. Last writer wins.
+   * - **Gone after a send, or a discard** — in every tab.
+   */
+  #keepDraft(): void {
+    // The restored body's images come from the blob store; until they have,
+    // the editor shows them as missing.
+    void this.#draft.loadParts(this.message().html, this.#images);
+
+    // The debounce only paces: what is saved is the message as it is when
+    // the save runs — never the snapshot that started the wait, which a
+    // draft taken in from another tab may have replaced since.
+    const resting = debounced(() => this.message(), inject(DRAFT_SAVE_DELAY));
+    effect(() => {
+      resting.value();
+      untracked(() => this.#saveDraft(this.message()));
+    });
+
+    effect(() => {
+      const { content } = this.#draft.incoming();
+      untracked(() => this.#takeDraft(content));
+    });
+
+    const document = inject(DOCUMENT);
+    const window = document.defaultView;
+    const flush = () => this.#saveDraft(this.message(), { now: true });
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    // pagehide, not beforeunload: it fires where beforeunload does not (a
+    // mobile tab discarded in the background) and keeps the page eligible
+    // for the back/forward cache.
+    document.addEventListener('visibilitychange', onVisibility);
+    window?.addEventListener('pagehide', flush);
+    inject(DestroyRef).onDestroy(() => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window?.removeEventListener('pagehide', flush);
+      flush();
+    });
+  }
+
+  #saveDraft(message: Envelope, options?: SaveOptions): void {
+    this.#draft.save(this.#toDraft(message), this.#images, options);
+  }
+
+  /** Takes in a draft another tab saved — or its absence, once that tab has
+      sent or discarded it. The first run sees the draft this message was
+      opened with, and changes nothing. */
+  #takeDraft(content: DraftContent | null): void {
+    const current = this.message();
+    if (serializeDraft(content) === serializeDraft(this.#toDraft(current))) return;
+    const next = this.#fromDraft(content, current);
+    for (const attachment of current.attachments) {
+      if (!next.attachments.includes(attachment)) this.uploads.cancel(attachment.key);
+    }
+    this.message.set(next);
+    if (content) void this.#draft.loadParts(content.html, this.#images);
+  }
+
+  /** What of the message a draft keeps — `null` when there is nothing to
+      keep. An attachment still uploading is left out: it has no id yet. */
+  #toDraft(message: Envelope): DraftContent | null {
+    const { from, to, cc, bcc, subject, html } = message;
+    const attachments = message.attachments.flatMap(({ id, name, type, size }) =>
+      id === null ? [] : [{ id, name, type, size }],
+    );
+    const untouched =
+      !to.length &&
+      !cc.length &&
+      !bcc.length &&
+      !subject.trim() &&
+      !attachments.length &&
+      from.join() === BLANK.from.join() &&
+      !hasContent(html);
+    return untouched ? null : { from, to, cc, bcc, subject, html, attachments };
+  }
+
+  /** The message a draft makes. Attachments this message already holds keep
+      their references — their chips stay put — and the rest are adopted
+      from the store under keys of this session; the uploads still under way
+      here come along. */
+  #fromDraft(content: DraftContent | null, current?: Envelope): Envelope {
+    if (!content) return BLANK;
+    const held = new Map(
+      current?.attachments.flatMap((ref) => (ref.id === null ? [] : [[ref.id, ref] as const])),
+    );
+    return {
+      from: [...content.from],
+      to: [...content.to],
+      cc: [...content.cc],
+      bcc: [...content.bcc],
+      subject: content.subject,
+      html: content.html,
+      attachments: [
+        ...content.attachments.map(
+          (attachment) => held.get(attachment.id) ?? this.uploads.adopt(attachment),
+        ),
+        ...(current?.attachments.filter((ref) => ref.id === null) ?? []),
+      ],
+    };
+  }
+
+  /** The bar's Discard: the draft goes, in every tab, and the sheet starts
+      over. No confirmation — an empty sheet is one click from a new draft,
+      and a dialog in front of every discard is a tax on the common case. */
+  protected discard(): void {
+    this.#startOver();
+  }
+
+  /** A fresh message: the rows and the body cleared, the form untouched
+      again, the draft gone, and the caret back in To. */
+  #startOver(): void {
+    for (const attachment of this.message().attachments) this.uploads.cancel(attachment.key);
+    // An editor being typed in defers an external write until it is left —
+    // after Mod-Enter the body is: leave it, so the sheet clears now.
+    (document.activeElement as HTMLElement | null)?.blur?.();
+    this.envelope().reset(BLANK);
+    this.ccOpen.set(false);
+    this.bccOpen.set(false);
+    this.#draft.discard();
+    afterNextRender(() => this.toField().focus(), { injector: this.#injector });
+  }
+
+  /** The draft's state, for the status strip. */
+  protected draftNote = computed(() => {
+    if (this.#draft.failed()) return 'Draft not saved — this browser is not keeping it';
+    const at = this.#draft.savedAt();
+    return at
+      ? `Draft saved · ${at.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`
+      : null;
+  });
 
   /**
    * Cc and Bcc the way Gmail does them: two text buttons at the end of the
@@ -564,9 +729,14 @@ export class Compose {
   }
 
   /** What the transport accepted, for the footer: the receipt, and what a
-      real host would have handed its mailer — envelope and body alike. */
-  readonly #lastSend = signal<StatusNote | null>(null);
-  protected lastSend = computed(() => this.#current(this.#lastSend()));
+      real host would have handed its mailer — envelope and body alike. A
+      send clears the sheet, so the note stays until the next message is
+      under way. */
+  readonly #lastSend = signal<string | null>(null);
+  protected lastSend = computed(() => {
+    const note = this.#lastSend();
+    return note && this.#toDraft(this.message()) === null ? note : null;
+  });
 
   /** The submit action: the validated message goes to the transport. A
       rejection the server pins on an address comes back as an error on the
@@ -587,10 +757,8 @@ export class Compose {
       });
       const kb = (new TextEncoder().encode(intent.html).length / 1024).toFixed(1);
       const parts = intent.inlineImages.length;
-      this.#lastSend.set({
-        html: this.html(),
-        text:
-          `Sent ${receipt.id} · to ${to.length} recipient${to.length === 1 ? '' : 's'}` +
+      this.#lastSend.set(
+        `Sent ${receipt.id} · to ${to.length} recipient${to.length === 1 ? '' : 's'}` +
           (subject ? ` · “${subject}”` : ' · no subject') +
           ` · ${kb} kB HTML · ${intent.text.length} chars text` +
           (parts
@@ -599,7 +767,9 @@ export class Compose {
           (attachments.length
             ? ` · ${attachments.length} attachment${attachments.length === 1 ? '' : 's'}`
             : ''),
-      });
+      );
+      // Sent: the draft has done its job.
+      this.#startOver();
       return null;
     } catch (error) {
       if (error instanceof SendRejected) {

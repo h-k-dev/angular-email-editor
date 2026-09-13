@@ -85,7 +85,23 @@ describe('AttachmentUploads', () => {
     // Complete, and the id lands.
     await vi.advanceTimersByTimeAsync(LINGER);
     expect(status()).toBe('complete');
-    expect(id).toBe('att_1');
+    expect(id).toMatch(/^att_/);
+  });
+
+  it('adopts an attachment the store already holds: a fresh key, complete, its id kept', async () => {
+    const started = service.start({ name: 'new.pdf', size: 1024 });
+    const adopted = service.adopt({ id: 'att_kept', name: 'old.pdf', type: 'application/pdf' });
+    expect(adopted).toEqual({
+      key: 'upload-2',
+      id: 'att_kept',
+      name: 'old.pdf',
+      type: 'application/pdf',
+      size: undefined,
+    });
+    expect(adopted.key).not.toBe(started.key);
+    expect(service.status(adopted.key)()).toBe('complete');
+    expect(service.progress(adopted.key)()).toBe(1);
+    await expect(service.whenDone(adopted.key)).resolves.toBe('att_kept');
   });
 
   it('preprocesses every file at once, then uploads over its connections in order', async () => {

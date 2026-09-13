@@ -768,6 +768,31 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
       (Test-env note: jsdom needs ResizeObserver + canvas-context stubs
       before the email pane can mount at all — without them, `createEditor`
       threw mid-mount and app specs silently exercised nothing.)
+- [x] **The example app keeps a real draft** (2026-09-13) — the host half
+      above, built the way a mail client does it, with no server: the
+      message in localStorage (`LocalStorage.pairSignal(key)`, live across
+      tabs through the `storage` event), its inline parts in IndexedDB by
+      cid (`BlobStore`), one `Draft` service between them. Saved once the
+      message rests and at once on hide/pagehide/leaving the page; no draft
+      for an untouched sheet; parts put before the body that references
+      them; a tab's own write never mistaken for news, and no save written
+      over a draft another tab saved that has not been taken in yet; gone
+      after a send or a Discard, in every tab. What it made load-bearing:
+  - [x] **Generated Content-IDs are unique across stores** —
+        `image-{n}.{random}@aee`. A counter alone is only unique within one
+        registry: a restored draft's part met a new image under its cid (after
+        a reload, or in a second tab), and a host keying parts by cid
+        overwrote one with the other. Plus `inlineImageCids(html)`, the parts
+        a draft has to keep.
+  - [x] **Focus means the window's too.** ProseMirror's `hasFocus()` stays
+        true for a background tab's editor, so a pane skipped another tab's
+        save and waited for a blur that had already happened; the panes now
+        ask `isTyping(view)` (the view *and* its document) and also catch up
+        on focus.
+  - [x] **Mount takes the value before publishing.** The email pane
+        published its empty mount document over a value that was already
+        there — a synchronous draft restore was wiped and the empty draft
+        saved over it.
 - [x] **Reply/forward seed constructors** — `replyDocument(inbound)` /
       `forwardDocument(inbound)`: pure functions (inbound data → canonical
       HTML) that the host feeds through the one `html` signal it already

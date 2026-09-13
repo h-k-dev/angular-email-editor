@@ -155,6 +155,24 @@ export class AttachmentUploads {
     };
   }
 
+  /** Takes back an attachment the store already holds — one a restored
+      draft refers to by id — and returns a reference to it under a key of
+      this session: keys are local identity and never persisted, so a
+      reference from before a reload, or from another tab, cannot collide
+      with a transfer started here. Its transfer is complete from the start. */
+  adopt(attachment: Attachment & { readonly id: string }): AttachmentRef {
+    const key = `upload-${++this.#next}`;
+    this.#transfers.set(key, signal<Transfer>({ status: 'complete', progress: 1 }));
+    this.#done.set(key, Promise.resolve(attachment.id));
+    return {
+      key,
+      id: attachment.id,
+      name: attachment.name,
+      type: attachment.type,
+      size: attachment.size,
+    };
+  }
+
   /** Which stage a transfer is in; `null` for a key this store never saw. */
   status(key: string): Signal<AttachmentStatus | null> {
     const transfer = this.#transfers.get(key) ?? NONE;
@@ -215,7 +233,9 @@ export class AttachmentUploads {
       this.#stop.delete(key);
       this.#uploading.delete(key);
       transfer.set({ status: 'complete', progress: 1 });
-      this.#settled.get(key)?.(`att_${key.slice('upload-'.length)}`);
+      // The store's id, unique the way a server's is: a draft keeps it
+      // across reloads and tabs, where this session's counter restarts.
+      this.#settled.get(key)?.(`att_${crypto.randomUUID()}`);
       this.#pump();
     }, this.#options.tick);
     this.#stop.set(key, () => clearInterval(timer));

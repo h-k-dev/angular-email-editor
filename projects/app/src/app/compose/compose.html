@@ -72,6 +72,18 @@
     [multiple]="true"
     (fileDrop)="onAttachmentDrop($event)"
   >
+    <!-- Beside Send in the writer's bar: the draft saves itself, so the one
+         thing left to do with it by hand is throw it away. -->
+    <button
+      mat-icon-button
+      type="button"
+      actions
+      aria-label="Discard draft"
+      title="Discard draft"
+      (click)="discard()"
+    >
+      <mat-icon>delete</mat-icon>
+    </button>
     <!-- The envelope, as Gmail lays it out: one hairline row per field, each
          marked `envelope` for the writer's envelope block. From takes a
          single address; To takes many; Subject is plain text, and Enter
@@ -304,6 +316,10 @@
 
       @if (lastSend(); as note) {
         <span class="status__send" aria-label="Last send">{{ note }}</span>
+      }
+
+      @if (draftNote(); as note) {
+        <span class="status__send" aria-label="Draft">{{ note }}</span>
       }
 
       @if (importNote(); as note) {

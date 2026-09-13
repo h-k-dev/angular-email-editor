@@ -141,8 +141,8 @@ export function promoteInlineImages(
  */
 export interface InlineImageRegistry {
   /** Registers bytes and returns their Content-ID — a supplied one is kept
-      (an import's part), otherwise one is generated, unique within this
-      registry. Re-registering a cid replaces its bytes. */
+      (an import's part), otherwise one is generated. Re-registering a cid
+      replaces its bytes. */
   add(blob: Blob, cid?: string): string;
   /** The display URL for the editor (an object URL); undefined for a part
       the registry does not hold. */
@@ -168,6 +168,13 @@ export class InlineImageStore implements InlineImageRegistry {
   readonly #parts = new Map<string, { blob: Blob; url: string }>();
   readonly #listeners = new Set<() => void>();
   #counter = 0;
+  /** What sets this store's generated ids apart from every other store's.
+      A Content-ID is meant to be unique worldwide (RFC 2392), and a counter
+      alone is only unique in its registry: a draft persisted by one tab and
+      restored by another — or by the same tab after a reload — would meet a
+      new image under the same id, and a host keying the parts by cid would
+      overwrite one with the other. */
+  readonly #scope = randomToken();
 
   constructor(private readonly options: InlineImageStoreOptions = {}) {}
 
@@ -211,7 +218,7 @@ export class InlineImageStore implements InlineImageRegistry {
 
   #nextId(): string {
     let id: string;
-    do id = `image-${++this.#counter}@aee`;
+    do id = `image-${++this.#counter}.${this.#scope}@aee`;
     while (this.#parts.has(id));
     return id;
   }
@@ -284,6 +291,21 @@ export const createInlineImages = (options: {
       }),
     ],
   });
+
+/** Eight base-36 characters from the platform's CSPRNG. */
+function randomToken(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(8));
+  return Array.from(bytes, (byte) => (byte % 36).toString(36)).join('');
+}
+
+/** Every Content-ID the html's images reference, once each, in document
+    order — the parts a draft has to keep (the registry holds more: a
+    deleted image's part stays for undo). Pure. */
+export function inlineImageCids(html: string): string[] {
+  const cids = new Set<string>();
+  for (const [, cid] of html.matchAll(/<img\b[^>]*?\bsrc="cid:([^"]*)"/gi)) cids.add(cid.trim());
+  return [...cids];
+}
 
 /** Rewrites every `cid:` image source the resolver knows — the preview's
     projection (a sandboxed, opaque-origin frame cannot load the editor's

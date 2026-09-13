@@ -30,6 +30,7 @@ import { AngularFileDrop, FileDropEvent } from '@h-k-dev/angular-file-drop';
 import type { FormValueControl } from '@angular/forms/signals';
 
 import { DropHint, DropHintArt } from '../drop-hint/drop-hint';
+import { isTyping } from '../is-typing';
 
 // ProseMirror
 import { Plugin } from 'prosemirror-state';
@@ -373,14 +374,14 @@ export class EmailCompose implements FormValueControl<string> {
 
     this.#destroyRef.onDestroy(() => this.editor()?.destroy());
 
-    // Incoming html (the source pane's edits) parses through the email
-    // schema. Skipped while this editor has focus: then it is the origin of
-    // the signal value, not a consumer. `setContent` dispatches no
-    // transaction, so applying can't echo through `onUpdate`.
+    // Incoming html (the source pane's edits, a draft from another tab)
+    // parses through the email schema. Skipped while this editor has focus:
+    // then it is the origin of the signal value, not a consumer. `setContent`
+    // dispatches no transaction, so applying can't echo through `onUpdate`.
     effect(() => {
       this.value(); // track: any external write re-runs this
       const editor = this.editor();
-      if (!editor || editor.view.hasFocus()) return;
+      if (!editor || isTyping(editor.view)) return;
       this.#applyIncoming(editor);
     });
   }
@@ -445,7 +446,17 @@ export class EmailCompose implements FormValueControl<string> {
       this.#applyIncoming(editor);
       this.touch.emit();
     });
+    // …and on the way back in: a window switch keeps the editor the active
+    // element, so a write that landed while the tab was in the background
+    // (`isTyping` let it through, but a blur can have come first) is taken
+    // before the first keystroke rather than typed over.
+    editor.view.dom.addEventListener('focus', () => this.#applyIncoming(editor));
     this.editor.set(editor);
+    // Whatever the value already is — a restored draft is there before the
+    // editor is — goes in first; only then does the editor publish its
+    // canonical form. Publishing the empty document it mounted with would
+    // write over the value it was given.
+    this.#applyIncoming(editor);
     this.value.set(editor.getHTML());
     editor.focus();
   }

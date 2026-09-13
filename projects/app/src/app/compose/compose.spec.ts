@@ -4,6 +4,13 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Compose } from './compose';
 import { Viewport } from '../viewport';
 import { EMAIL_SEND_LATENCY } from '../../services/email-send';
+import {
+  DRAFT_KEY,
+  DRAFT_SAVE_DELAY,
+  DraftContent,
+  parseDraft,
+  serializeDraft,
+} from '../../services/draft';
 
 /** Lets the mock transport's (zero-latency) timer and the submit settle. */
 const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
@@ -24,6 +31,9 @@ const context2dStub = {
   measureText: (text: string) => ({ width: text.length * 7 }),
 };
 HTMLCanvasElement.prototype.getContext = (() => context2dStub) as never;
+
+// Every composer saves its draft when it goes: start each spec without one.
+beforeEach(() => localStorage.clear());
 
 describe('Compose', () => {
   let component: Compose;
@@ -64,6 +74,23 @@ describe('Compose', () => {
     // …but the value is not lost: leaving the editor catches up.
     pm.blur();
     expect(pm.textContent).toContain('restored draft');
+  });
+
+  it('a write landing while the tab is in the background applies at once, though the editor is still the active element', async () => {
+    const pm = fixture.nativeElement.querySelector('[aria-label="Message body"]') as HTMLElement;
+    pm.focus();
+    expect(document.activeElement).toBe(pm);
+
+    // The window lost focus (another tab is in front); the editor did not
+    // lose its place as the document's active element.
+    const hasFocus = vi.spyOn(document, 'hasFocus').mockReturnValue(false);
+    try {
+      (component as any).emailPane().value.set('<div>saved in another tab</div>');
+      await fixture.whenStable();
+      expect(pm.textContent).toContain('saved in another tab');
+    } finally {
+      hasFocus.mockRestore();
+    }
   });
 
   it("the toolbar's </> moves the HTML source into the editing surface's place and back", async () => {
@@ -439,5 +466,167 @@ describe('Compose below the docking breakpoint', () => {
     expect(btn('Preview')).not.toBeNull();
     expect(root.classList.contains('compose--preview')).toBe(false);
     expect(root.querySelector('footer.status')).not.toBeNull();
+  });
+});
+
+describe('Compose drafts', () => {
+  const draft = (overrides: Partial<DraftContent> = {}): DraftContent => ({
+    from: ['you@example.com'],
+    to: ['ada@example.com'],
+    cc: [],
+    bcc: [],
+    subject: 'Plans',
+    html: '<div>restored body</div>',
+    attachments: [],
+    ...overrides,
+  });
+  const stored = () => parseDraft(localStorage.getItem(DRAFT_KEY));
+
+  const start = async (saveDelay = 0) => {
+    await TestBed.configureTestingModule({
+      imports: [Compose],
+      providers: [
+        { provide: EMAIL_SEND_LATENCY, useValue: 0 },
+        { provide: DRAFT_SAVE_DELAY, useValue: saveDelay },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(Compose);
+    await fixture.whenStable();
+    return {
+      fixture,
+      component: fixture.componentInstance as any,
+      root: fixture.nativeElement as HTMLElement,
+    };
+  };
+
+  /** Another tab saving (or removing) the draft. */
+  const otherTab = (content: DraftContent | null) => {
+    const value = serializeDraft(content);
+    if (value === null) localStorage.removeItem(DRAFT_KEY);
+    else localStorage.setItem(DRAFT_KEY, value);
+    window.dispatchEvent(
+      new StorageEvent('storage', { key: DRAFT_KEY, newValue: value, storageArea: localStorage }),
+    );
+  };
+
+  it('opens with the stored draft: rows, body and attachments — and keeps it', async () => {
+    localStorage.setItem(
+      DRAFT_KEY,
+      serializeDraft(draft({ attachments: [{ id: 'att_kept', name: 'plan.pdf', size: 12 }] }))!,
+    );
+    const { component, root } = await start();
+    await settle();
+
+    const message = component.message();
+    expect(message.to).toEqual(['ada@example.com']);
+    expect((root.querySelector('#subject-field') as HTMLInputElement).value).toBe('Plans');
+    expect(root.querySelector('[aria-label="Message body"]')?.textContent).toContain(
+      'restored body',
+    );
+    expect(message.attachments).toEqual([
+      expect.objectContaining({ id: 'att_kept', name: 'plan.pdf' }),
+    ]);
+    expect(component.uploads.status(message.attachments[0].key)()).toBe('complete');
+    // Mounting the editor must not have published an empty body over it.
+    expect(stored()?.html).toBe(message.html);
+    expect(stored()?.html).toContain('restored body');
+  });
+
+  it('saves the message once it rests, and removes the draft once there is nothing left to keep', async () => {
+    const { fixture, component, root } = await start();
+    expect(stored()).toBeNull();
+
+    component.message.update((m: object) => ({ ...m, subject: 'Hello' }));
+    await vi.waitFor(() => expect(stored()?.subject).toBe('Hello'));
+    await fixture.whenStable();
+    expect(root.querySelector('[aria-label="Draft"]')?.textContent).toContain('Draft saved');
+
+    component.message.update((m: object) => ({ ...m, subject: '' }));
+    await vi.waitFor(() => expect(stored()).toBeNull());
+    await fixture.whenStable();
+    expect(root.querySelector('[aria-label="Draft"]')).toBeNull();
+  });
+
+  it('leaves an attachment still uploading out of the draft', async () => {
+    const { component } = await start();
+    const pending = component.uploads.start({ name: 'big.zip', size: 1024 });
+    component.message.update((m: object) => ({
+      ...m,
+      subject: 'With files',
+      attachments: [pending],
+    }));
+    await vi.waitFor(() => expect(stored()?.subject).toBe('With files'));
+    expect(stored()?.attachments).toEqual([]);
+  });
+
+  it('saves at once when the composer goes, without waiting for the message to rest', async () => {
+    const { fixture, component } = await start(60_000);
+    component.message.update((m: object) => ({ ...m, subject: 'Leaving' }));
+    await fixture.whenStable();
+    expect(stored()).toBeNull();
+    fixture.destroy();
+    expect(stored()?.subject).toBe('Leaving');
+  });
+
+  it('takes in a draft another tab saved, keeping the uploads still under way here', async () => {
+    const { fixture, component, root } = await start();
+    const pending = component.uploads.start({ name: 'big.zip', size: 1024 });
+    component.message.update((m: object) => ({ ...m, attachments: [pending] }));
+    await fixture.whenStable();
+
+    otherTab(draft({ subject: 'From the other tab' }));
+    await fixture.whenStable();
+    expect(component.message().subject).toBe('From the other tab');
+    expect(component.message().attachments).toEqual([pending]);
+    expect(root.querySelector('[aria-label="Message body"]')?.textContent).toContain(
+      'restored body',
+    );
+
+    // That tab sent it: this sheet clears too.
+    otherTab(null);
+    await fixture.whenStable();
+    expect(component.message().subject).toBe('');
+    expect(component.message().to).toEqual([]);
+  });
+
+  it('a send clears the sheet and the draft; the receipt stays until the next message starts', async () => {
+    const { fixture, component, root } = await start();
+    const pm = root.querySelector('[aria-label="Message body"]') as HTMLElement;
+    pm.focus();
+    component.emailPane().value.set('<div>hello</div>');
+    pm.blur();
+    component.message.update((m: object) => ({ ...m, to: ['ada@example.com'] }));
+    await vi.waitFor(() => expect(stored()?.to).toEqual(['ada@example.com']));
+
+    (root.querySelector('.writer-bar__send') as HTMLButtonElement).click();
+    await vi.waitFor(() => expect(stored()).toBeNull());
+    await fixture.whenStable();
+    expect(component.message().to).toEqual([]);
+    expect(pm.textContent?.trim()).toBe('');
+    expect(root.querySelector('[aria-label="Form problem"]')).toBeNull();
+    expect(root.querySelector('[aria-label="Last send"]')?.textContent).toContain('Sent msg_1');
+
+    component.message.update((m: object) => ({ ...m, subject: 'Next one' }));
+    await fixture.whenStable();
+    expect(root.querySelector('[aria-label="Last send"]')).toBeNull();
+  });
+
+  it('Discard throws the draft away and starts over', async () => {
+    localStorage.setItem(DRAFT_KEY, serializeDraft(draft())!);
+    const { fixture, component, root } = await start();
+    const discard = root.querySelector('[aria-label="Discard draft"]') as HTMLButtonElement;
+    // In the writer's bar, beside Send.
+    expect(discard.closest('.writer-bar')).toBe(
+      root.querySelector('.writer-bar__send')?.closest('.writer-bar'),
+    );
+
+    discard.click();
+    await settle();
+    await fixture.whenStable();
+    expect(stored()).toBeNull();
+    expect(component.message().subject).toBe('');
+    expect(root.querySelector('[aria-label="Message body"]')?.textContent).not.toContain(
+      'restored body',
+    );
   });
 });
