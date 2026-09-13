@@ -1,0 +1,59 @@
+<!-- The anchor: the block's own box, fixed, for the overlay to attach to. -->
+<span
+  cdkOverlayOrigin
+  #origin="cdkOverlayOrigin"
+  class="block-menu__origin"
+  [style.left.px]="state().boundingBox?.left || 0"
+  [style.top.px]="state().boundingBox?.top || 0"
+  [style.width.px]="state().boundingBox?.width || 0"
+  [style.height.px]="state().boundingBox?.height || 0"
+></span>
+
+<!-- disableClose: the CDK otherwise detaches the overlay itself on Escape,
+     which strands it — `isOpen` stays true, so the binding never toggles and
+     the overlay never re-attaches. Escape is ours: it returns focus to the
+     text and leaves the menu open, because the cursor is still in the block. -->
+<ng-template
+  cdkConnectedOverlay
+  [cdkConnectedOverlayOrigin]="origin"
+  [cdkConnectedOverlayOpen]="state().isOpen && state().block === 'columns'"
+  [cdkConnectedOverlayPositions]="positions"
+  [cdkConnectedOverlayHasBackdrop]="false"
+  [cdkConnectedOverlayDisableClose]="true"
+  [cdkConnectedOverlayPush]="true"
+  [cdkConnectedOverlayViewportMargin]="8"
+>
+  <div
+    class="block-menu"
+    #menu
+    role="toolbar"
+    aria-label="Columns"
+    (mousedown)="$event.preventDefault()"
+    (keydown.escape)="leave()"
+  >
+    @if (state().block === 'columns') {
+      <button mat-icon-button type="button" aria-label="Add column" (click)="run('addColumn')">
+        <mat-icon>add</mat-icon>
+      </button>
+      <button
+        mat-icon-button
+        type="button"
+        aria-label="Remove column"
+        (click)="run('removeColumn')"
+      >
+        <mat-icon>remove</mat-icon>
+      </button>
+
+      <mat-divider [vertical]="true" />
+
+      <button
+        mat-icon-button
+        type="button"
+        aria-label="Delete columns"
+        (click)="run('deleteColumns')"
+      >
+        <mat-icon>delete_outline</mat-icon>
+      </button>
+    }
+  </div>
+</ng-template>

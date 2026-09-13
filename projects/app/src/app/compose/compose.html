@@ -33,7 +33,7 @@
     [active]="emlZone.isDragOver()"
   ></div>
 
-  <!-- The preview, docked to the left when the toolbar's preview button is on. -->
+  <!-- The preview, docked to the left when the writer bar's preview button is on. -->
   <section
     email-preview
     [hidden]="!previewOpen()"
@@ -45,7 +45,7 @@
      bound to the same `envelope` with `[formField]`, on this one template.
      The writer carries `[formRoot]`, so its Send button, Enter in the
      subject and the editor's own gestures all submit the same form.
-     The editor, or — via the portal — the source in its place; the toolbar's
+     The editor, or — via the portal — the source in its place; the bar's
      </> and detach buttons switch.
      The writer is the *attachment* zone: a file dropped anywhere on the
      message — the address rows, the toolbar, the strip — joins the strip
@@ -72,6 +72,76 @@
     [multiple]="true"
     (fileDrop)="onAttachmentDrop($event)"
   >
+    <!-- The bar's leading controls, none of them on a phone: there the
+         toolbar is the bar on the keyboard and always stays (`toolbarShown`),
+         and the views below fold (compose.ts).
+         First, the formatting toolbar, shown or hidden (Gmail's formatting
+         options). The composer keeps the toolbar; this page only decides
+         whether it shows. -->
+    @if (!viewport.compact()) {
+      <ng-container leading>
+        <button
+          mat-icon-button
+          type="button"
+          aria-label="Formatting options"
+          title="Formatting options"
+          [attr.aria-pressed]="formattingOpen()"
+          (click)="formattingOpen.set(!formattingOpen())"
+        >
+          <mat-icon>text_format</mat-icon>
+        </button>
+        <!-- Then the views of the message — the preview docked to the sheet's
+           left, the HTML source in the editor's place (code view,
+           Summernote's </>), the source docked to its right — the buttons
+           in the same order as the panes on screen. They change what shows,
+           not the message, so they are neither formatting (the composer's
+           toolbar) nor actions (beside Send). The docked ones only where a
+           second pane fits: below the docking breakpoint they go, and a
+           docked pane folds. Code view is in place and stays down to a
+           phone. -->
+        <span class="writer-panes" role="group" aria-label="Views">
+          @if (!viewport.narrow()) {
+            <button
+              mat-icon-button
+              type="button"
+              aria-label="Preview"
+              title="Show the preview beside the editor"
+              [attr.aria-pressed]="previewOpen()"
+              (click)="previewOpen.set(!previewOpen())"
+            >
+              <mat-icon>dock_to_left</mat-icon>
+            </button>
+          }
+          <!-- Code view: marks and history keep working on the source (its
+             kit mirrors every mark command, so the toolbar routes to
+             whichever editor shows); block commands have no source-side
+             twin and lock. Pressed while the source is docked, it moves in;
+             detach pressed while in code view moves it back out. -->
+          <button
+            mat-icon-button
+            type="button"
+            aria-label="HTML source"
+            title="Edit the HTML source"
+            [attr.aria-pressed]="sourceView() === 'code'"
+            (click)="toggleCodeView()"
+          >
+            <mat-icon>code</mat-icon>
+          </button>
+          @if (!viewport.narrow()) {
+            <button
+              mat-icon-button
+              type="button"
+              aria-label="Detach HTML source"
+              title="Show the HTML source beside the editor"
+              [attr.aria-pressed]="sourceView() === 'detached'"
+              (click)="toggleDetached()"
+            >
+              <mat-icon>dock_to_right</mat-icon>
+            </button>
+          }
+        </span>
+      </ng-container>
+    }
     <!-- Beside Send in the writer's bar: the draft saves itself, so the one
          thing left to do with it by hand is throw it away. -->
     <button
@@ -226,8 +296,7 @@
       (send)="send()"
       (fileDrop)="onAttachmentDrop($event)"
       [(sourceView)]="sourceView"
-      [(preview)]="previewOpen"
-      [dockable]="!viewport.narrow()"
+      [toolbar]="toolbarShown()"
       [codePortal]="codePortal()"
       [codeEditor]="sourcePane().editor()"
       aria-label="Email editor"

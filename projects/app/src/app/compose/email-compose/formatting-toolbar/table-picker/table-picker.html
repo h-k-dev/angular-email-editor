@@ -1,0 +1,26 @@
+<div class="table-picker__grid" role="group" aria-label="Table size">
+  @for (row of steps; track row) {
+    @for (col of steps; track col) {
+      <button
+        type="button"
+        class="table-picker__cell"
+        [class.is-selected]="col < pick().cols && row < pick().rows"
+        [attr.aria-label]="col + 1 + ' by ' + (row + 1) + ' table'"
+        (mouseenter)="pick.set({ cols: col + 1, rows: row + 1 })"
+        (focus)="pick.set({ cols: col + 1, rows: row + 1 })"
+        (click)="picked.emit({ cols: col + 1, rows: row + 1 })"
+      ></button>
+    }
+  }
+</div>
+<div class="table-picker__size" aria-hidden="true">
+  <span class="table-picker__count">
+    <mat-icon>view_column</mat-icon>
+    {{ pick().cols }}
+  </span>
+  <span>x</span>
+  <span class="table-picker__count">
+    <mat-icon>table_rows</mat-icon>
+    {{ pick().rows }}
+  </span>
+</div>

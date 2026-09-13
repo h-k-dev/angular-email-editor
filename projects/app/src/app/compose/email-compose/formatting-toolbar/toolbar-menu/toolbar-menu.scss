@@ -1,0 +1,76 @@
+// Only where the overlay is declared: no box, so no gap in the row.
+:host {
+  display: contents;
+}
+
+// Token cascade: --email-* → --mat-sys-* → fallback.
+.toolbar-menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 11rem;
+  padding: 4px;
+  outline: none;
+
+  background-color: var(--email-compose-menu-background, var(--mat-sys-surface-container, #f3f3f3));
+  border-radius: var(--email-compose-menu-corner, var(--mat-sys-corner-medium, 8px));
+  box-shadow: var(--mat-sys-level2);
+  color: var(--mat-sys-on-surface, inherit);
+  font: var(--mat-sys-body-medium);
+}
+
+.toolbar-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px 6px 8px;
+  border-radius: var(--mat-sys-corner-small, 4px);
+  outline: none;
+  cursor: pointer;
+  user-select: none;
+
+  mat-icon {
+    --mat-icon-size: 20px;
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  // Hover and the keyboard's active item look the same.
+  &:hover,
+  &[data-active='true'] {
+    background-color: var(--email-compose-menu-hover, var(--mat-sys-surface-container-high, #e8e8e8));
+  }
+
+  &[aria-checked='true'] {
+    color: var(--mat-sys-primary);
+
+    mat-icon {
+      color: var(--mat-sys-primary);
+    }
+  }
+
+  &[aria-disabled='true'] {
+    opacity: 0.38;
+    cursor: default;
+  }
+}
+
+// A radio item: the label first, the tick at the item's end. The tick holds
+// its room when unchecked, so every item is as wide as a ticked one; the
+// label starts where the menu's text does, with no icon before it.
+.toolbar-menu__item[role='menuitemradio'] {
+  padding-inline: 12px 8px;
+}
+
+.toolbar-menu__check {
+  margin-inline-start: auto;
+  visibility: hidden;
+
+  [aria-checked='true'] > & {
+    visibility: visible;
+  }
+}
+
+.toolbar-menu__separator {
+  block-size: 1px;
+  margin-block: 4px;
+  background-color: var(--mat-sys-outline-variant);
+}

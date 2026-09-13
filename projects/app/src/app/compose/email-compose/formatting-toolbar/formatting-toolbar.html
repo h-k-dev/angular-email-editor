@@ -1,0 +1,173 @@
+<!-- Everything but the ⋯ and history: the row. Wide, it clips at its end and
+     the buttons past it are made invisible (`data-overflow`); on a phone it
+     scrolls. -->
+<div
+  class="toolbar__scroll"
+  [toolbarOverflow]="wide() && shown()"
+  [toolbarOverflowMore]="moreTrigger.element"
+  #row="toolbarOverflow"
+>
+  <!-- Font family and size: text dropdowns showing the value in effect at
+       the caret (see font-state.ts). Wide screens only: a phone's toolbar
+       has no room for a text dropdown. -->
+  <button
+    type="button"
+    class="toolbar__select toolbar__select--family toolbar__wide"
+    title="Font"
+    [attr.aria-label]="'Font: ' + font.familyLabel()"
+    ngMenuTrigger
+    #familyTrigger="ngMenuTrigger"
+    [menu]="familyMenu.menu()"
+  >
+    <span class="toolbar__select-value">{{ font.familyLabel() }}</span>
+    <mat-icon>arrow_drop_down</mat-icon>
+  </button>
+  <div
+    toolbar-menu
+    #familyMenu
+    label="Font"
+    [trigger]="familyTrigger"
+    [items]="font.familyItems()"
+    (selected)="commands.applyFontFamily($event)"
+  ></div>
+
+  <button
+    type="button"
+    class="toolbar__select toolbar__select--size toolbar__wide"
+    title="Font size"
+    [attr.aria-label]="'Font size: ' + (font.size() ?? '')"
+    ngMenuTrigger
+    #sizeTrigger="ngMenuTrigger"
+    [menu]="sizeMenu.menu()"
+  >
+    <span class="toolbar__select-value">{{ font.size() }}</span>
+    <mat-icon>arrow_drop_down</mat-icon>
+  </button>
+  <div
+    toolbar-menu
+    #sizeMenu
+    label="Font size"
+    [trigger]="sizeTrigger"
+    [items]="font.sizeItems()"
+    (selected)="commands.applyFontSize($event)"
+  ></div>
+
+  <mat-divider class="toolbar__wide" [vertical]="true" />
+
+  <!-- The buttons, from LAYOUT. A divider opens every group but the first;
+       it moves with the group's first button, and a phone drops it with a
+       group that is wide-only through and through. -->
+  @for (entry of entries; track entry.item.id; let i = $index) {
+    @let item = entry.item;
+    @if (entry.separated) {
+      <mat-divider
+        [vertical]="true"
+        [class.toolbar__wide]="entry.groupWide"
+        [attr.data-overflow]="row.movedAt(i) || null"
+      />
+    }
+    <button
+      mat-icon-button
+      type="button"
+      toolbarOverflowItem
+      #button="toolbarOverflowItem"
+      [class.toolbar__wide]="item.wide"
+      [attr.aria-label]="item.label"
+      [attr.aria-pressed]="item.pressed ? item.pressed() : null"
+      [attr.aria-expanded]="item.picker ? picker() === item.picker : null"
+      [attr.data-applied]="item.applied?.() || null"
+      [disabled]="item.disabled?.() ?? false"
+      (click)="press(item, button.element)"
+    >
+      <mat-icon>{{ item.icon }}</mat-icon>
+    </button>
+  }
+</div>
+
+<!-- The buttons that no longer fit the line, as an Aria menu: shown only
+     once something has moved. Never on a phone, where the row scrolls. -->
+<button
+  mat-icon-button
+  type="button"
+  class="toolbar__more"
+  aria-label="More formatting"
+  title="More formatting"
+  [hidden]="row.overflowFrom() === null"
+  ngMenuTrigger
+  #moreTrigger="ngMenuTrigger"
+  [menu]="moreMenu.menu()"
+>
+  <mat-icon>more_horiz</mat-icon>
+</button>
+<div
+  toolbar-menu
+  #moreMenu
+  label="More formatting"
+  align="end"
+  [trigger]="moreTrigger"
+  [items]="moreItems()"
+  (selected)="pressById($event, moreTrigger.element)"
+></div>
+
+<!-- History, pinned to the line's end: outside the row, so it never
+     scrolls away on a phone and never moves into the ⋯ on a wide screen. -->
+<div class="toolbar__history">
+  <mat-divider [vertical]="true" />
+  <button
+    mat-icon-button
+    type="button"
+    aria-label="Undo"
+    [disabled]="!commands.canUndo()"
+    (click)="commands.run('undo')"
+  >
+    <mat-icon>undo</mat-icon>
+  </button>
+  <button
+    mat-icon-button
+    type="button"
+    aria-label="Redo"
+    [disabled]="!commands.canRedo()"
+    (click)="commands.run('redo')"
+  >
+    <mat-icon>redo</mat-icon>
+  </button>
+</div>
+
+<!-- The open picker, at its button — or at the ⋯, when the button has moved
+     there. One overlay for all three; (detach) keeps `picker` in step when
+     the CDK closes it by itself on Escape. -->
+<ng-template
+  cdkConnectedOverlay
+  [cdkConnectedOverlayOrigin]="pickerOrigin()"
+  [cdkConnectedOverlayOpen]="picker() !== null"
+  [cdkConnectedOverlayHasBackdrop]="true"
+  cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop"
+  (backdropClick)="picker.set(null)"
+  (detach)="picker.set(null)"
+  [cdkConnectedOverlayPush]="true"
+  [cdkConnectedOverlayViewportMargin]="8"
+>
+  @switch (picker()) {
+    @case ('textColor') {
+      <div
+        color-palette
+        aria-label="Text color"
+        resetLabel="Automatic"
+        [colors]="textPalette"
+        (picked)="applyColor($event)"
+      ></div>
+    }
+    @case ('highlight') {
+      <div
+        color-palette
+        aria-label="Highlight color"
+        resetLabel="None"
+        [colors]="backgroundPalette"
+        (picked)="applyBackground($event)"
+      ></div>
+    }
+    @case ('table') {
+      <div table-picker (picked)="insertTable($event)"></div>
+    }
+  }
+</ng-template>

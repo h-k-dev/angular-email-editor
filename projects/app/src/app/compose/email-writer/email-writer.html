@@ -3,12 +3,18 @@
      formatting toolbar. The node moves rather than being restyled, so the
      reading and Tab order always follow what is on screen. -->
 <ng-template #bar>
+  <!-- The host's view controls, at the bar's start — away from the actions
+       that do something to the message. -->
+  <ng-content select="[leading]" />
+
   <span class="writer-bar__spacer"></span>
+
   <!-- The host's own actions, beside Send. -->
   <ng-content select="[actions]" />
+
   <!-- The form's submit button — an icon button like every other in the
-       writer: the app's global icon-button override gives it the 32px state
-       layer and 40px touch target (styles.scss), so nothing is restated
+       writer: the app's global icon-button override gives it the 40px state
+       layer and 48px touch target (styles.scss), so nothing is restated
        here. The label moves to aria-label and the title, which is where a
        lone icon carries it.
        While the submission runs the button stays live — focusable, and its
@@ -25,10 +31,10 @@
     [showProgress]="submitting()"
   >
     <mat-icon>send</mat-icon>
-    <!-- The glyph's size (--mat-icon-size, styles.scss): Material sizes only
-         the spinner's svg, and the element keeps its diameter as an inline
-         size — left at the default 100px it hangs out of the bar. -->
-    <mat-progress-spinner progressIndicator mode="indeterminate" [diameter]="16" />
+    <!-- The glyph's size (the icon button's 20px, styles.scss): Material sizes
+         only the spinner's svg, and the element keeps its diameter as an
+         inline size — left at the default 100px it hangs out of the bar. -->
+    <mat-progress-spinner progressIndicator mode="indeterminate" [diameter]="20" />
   </button>
 </ng-template>
 

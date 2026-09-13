@@ -1,0 +1,42 @@
+<!-- (detach): the CDK detaches an overlay by itself on Escape; closing the
+     trigger keeps `expanded()` — the overlay's open binding — in step. -->
+<ng-template
+  cdkConnectedOverlay
+  [cdkConnectedOverlayOrigin]="trigger().element"
+  [cdkConnectedOverlayOpen]="trigger().expanded()"
+  [cdkConnectedOverlayPositions]="positions()"
+  [cdkConnectedOverlayPush]="true"
+  [cdkConnectedOverlayViewportMargin]="8"
+  (overlayOutsideClick)="dismiss($event)"
+  (detach)="trigger().close()"
+>
+  <div ngMenu class="toolbar-menu" [attr.aria-label]="label()" (itemSelected)="selected.emit($event)">
+    @for (item of items(); track item.value) {
+      @if (item.separated) {
+        <div class="toolbar-menu__separator" role="separator"></div>
+      }
+      <div
+        ngMenuItem
+        class="toolbar-menu__item"
+        [value]="item.value"
+        [role]="
+          item.kind === 'radio'
+            ? 'menuitemradio'
+            : item.kind === 'checkbox'
+              ? 'menuitemcheckbox'
+              : 'menuitem'
+        "
+        [attr.aria-checked]="item.kind ? !!item.checked : null"
+        [disabled]="item.disabled ?? false"
+      >
+        @if (item.icon) {
+          <mat-icon>{{ item.icon }}</mat-icon>
+        }
+        <span [style.font-family]="item.font">{{ item.label }}</span>
+        @if (item.kind === 'radio') {
+          <mat-icon class="toolbar-menu__check">check</mat-icon>
+        }
+      </div>
+    }
+  </div>
+</ng-template>

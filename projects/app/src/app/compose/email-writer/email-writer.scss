@@ -1,3 +1,5 @@
+@use '../../../styles/breakpoints' as bp;
+
 // The writer is one sheet: the editorial area's surface is the writer's
 // background — bar, editor and formatting toolbar sit on the same paper, so
 // neither toolbar needs a strip of its own. A column of blocks: the envelope,
@@ -17,7 +19,12 @@
   // section below sets its own from the shared spacing token, so the editing
   // surface can reserve the room its layout blocks need without that room
   // becoming an indent every other row has to live with.
-  padding-block: 8px;
+  // No end padding at the full-width breakpoint and below: the sheet is the
+  // screen there, and its last block — the formatting toolbar — sits right on
+  // the virtual keyboard, the way a keyboard's own accessory bar does. Its
+  // 48px touch targets carry their own clearance. The same steep clamp as the
+  // corners below, so the two snap together at the breakpoint.
+  padding-block: 8px clamp(0px, (100vw - #{bp.$full-width-max}) * 100, 8px);
   box-sizing: border-box;
 
   background-color: var(--mat-sys-surface-bright);
@@ -29,7 +36,7 @@
   // border-radius resolves against the box's *height* on the vertical axis,
   // and this sheet is taller than the viewport is wide on any tablet held
   // portrait — it would drop its corners while still centred.
-  border-radius: clamp(0px, (100vw - 768px) * 100, var(--mat-sys-corner-medium, 8px));
+  border-radius: clamp(0px, (100vw - #{bp.$full-width-max}) * 100, var(--mat-sys-corner-medium, 8px));
   // Lifted just off the page — the lowest system elevation, so it reads as
   // a sheet on a desk rather than a panel.
   box-shadow: var(--mat-sys-level1);
@@ -42,15 +49,18 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  // Exactly the icon button's touch target (styles.scss): the 32px state
-  // layer centres in it, and whatever joins Send never changes the bar's
-  // height — a row that grows with its content would shift the sheet.
+  // Exactly the icon button's 40px state layer (styles.scss): the visible
+  // box, and the line the glyphs centre on. The 48px touch target overhangs
+  // it by 4px above and below — invisible, into the column's 8px gap and
+  // the sheet's padding, where nothing else is tappable. Whatever joins
+  // Send never changes the bar's height — a row that grows with its
+  // content would shift the sheet.
   block-size: 40px;
-  // Optical, not geometric: the bar holds icon buttons, whose 32px state
-  // layer sits 8px clear of the 16px glyph inside it. Inset the box by that
+  // Optical, not geometric: the bar holds icon buttons, whose 40px state
+  // layer sits 10px clear of the 20px glyph inside it. Inset the box by that
   // much less and the glyph — the only part anyone sees — lands on the same
   // edge as the address labels and the body text.
-  padding-inline: calc(var(--mat-sys-inner-spacing, 16px) - 8px);
+  padding-inline: calc(var(--mat-sys-inner-spacing, 16px) - 10px);
 }
 
 .writer-bar__spacer {

@@ -1,0 +1,40 @@
+@use '../formatting-toolbar' as toolbar;
+
+// Only where the overlay is declared: no box in the composer's column.
+:host {
+  display: contents;
+}
+
+.link-editor__origin {
+  position: fixed;
+  width: 0;
+  pointer-events: none;
+}
+
+// The popover: a floating row like the bubble menu's, with the field
+// first — on its own tokens, ahead of the shared ones (styling.ts).
+.link-editor {
+  @include toolbar.floating-toolbar;
+  background-color: var(--email-compose-link-background, var(--mat-sys-surface-container, #f3f3f3));
+  border-radius: var(--email-compose-link-corner, var(--mat-sys-corner-medium, 8px));
+}
+
+.link-editor__input {
+  width: 260px;
+  padding: 6px 10px;
+  border: none;
+  outline: none;
+
+  background-color: var(
+    --email-compose-link-input-background,
+    var(--mat-sys-surface-bright, #ffffff)
+  );
+  color: var(--mat-sys-on-surface, inherit);
+  border-radius: var(--mat-sys-corner-small, 4px);
+  font: var(--mat-sys-body-medium);
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary, #0056b3);
+    outline-offset: -2px;
+  }
+}

@@ -18,33 +18,29 @@ import {
 } from '@angular/core';
 
 // Material
-import { MatButtonModule } from '@angular/material/button';
-import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
 
 // CDK
-import { ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
 import { Portal, PortalModule } from '@angular/cdk/portal';
 
 import { AngularFileDrop, FileDropEvent } from '@h-k-dev/angular-file-drop';
 import type { FormValueControl } from '@angular/forms/signals';
 
 import { DropHint, DropHintArt } from '../drop-hint/drop-hint';
-import { isTyping } from '../is-typing';
-
-// ProseMirror
-import { Plugin } from 'prosemirror-state';
-import { redo, undo } from 'prosemirror-history';
+import { isTyping, releaseEditingSurface } from '../is-typing';
+import { BlockMenu } from './block-menu/block-menu';
+import { BubbleMenu } from './bubble-menu/bubble-menu';
+import { FormattingCommands } from './formatting-commands';
+import { FormattingToolbar } from './formatting-toolbar/formatting-toolbar';
+import { LinkEditor } from './link-editor/link-editor';
+import { fetchMergeTags } from './merge-tag-catalogue';
 
 // Library
 import {
   BlockMenuState,
   BubbleMenuState,
   Editor,
-  MergeTagItem,
   MergeTagMenuState,
-  MergeTagPage,
-  MergeTagRequest,
   SendIntent,
   SlashMenuState,
   TextMetrics,
@@ -61,41 +57,45 @@ import {
   ExpressionDiagnostic,
   InlineImages,
   mergeTagAt,
-  defineExtension,
-  emailBackgroundPalette,
   emailExtensions,
-  emailFontFamilies,
-  emailFontSizes,
-  emailTextPalette,
-  findColumnContext,
-  findTableContext,
-  linkRangeAt,
 } from 'angular-email-editor';
 
 /** Where the HTML source shows: nowhere, in the editing surface's place
     (code view), or beside the editor in its own column (detached). */
 export type SourceView = 'hidden' | 'code' | 'detached';
 
+/**
+ * The composer: the editing surface with the editor mounted on it, and the
+ * chrome that formats what is in it — the toolbar below, the bubble and
+ * block menus and the link editor floating over the text, the slash and
+ * `{{` menus the extensions place. One `FormattingCommands` binds them all
+ * to this editor.
+ */
 @Component({
   selector: 'section[email-compose]',
   imports: [
     // Material
-    MatButtonModule,
-    MatDividerModule,
     MatIconModule,
 
     // CDK
-    OverlayModule,
     PortalModule,
 
     AngularFileDrop,
+    BlockMenu,
+    BubbleMenu,
     DropHint,
+    FormattingToolbar,
+    LinkEditor,
   ],
+  // The formatting commands this composer's toolbar, bubble menu and ⋯ menu
+  // share — one per composer, bound to its editor and code view.
+  providers: [FormattingCommands],
   templateUrl: './email-compose.html',
   styleUrl: './email-compose.scss',
 })
 export class EmailCompose implements FormValueControl<string> {
   #destroyRef = inject(DestroyRef);
+  readonly #commands = inject(FormattingCommands);
   /** The composer's inline image registry — provided by the composer. */
   readonly #images = inject(InlineImages);
 
@@ -108,25 +108,17 @@ export class EmailCompose implements FormValueControl<string> {
   /** Focus left the editor — the form marks the body field touched on it. */
   touch = output<void>();
 
-  /** How the HTML source shows, driven by the toolbar's two buttons. Two-way
-      so the composer can flip it too (revealing a lint finding lands in the
-      source). The composer owns the pane; this component only knows the
-      slot it can offer (see `codePortal`). */
+  /** How the HTML source shows. Driven from outside — the composer's writer
+      bar holds the toggles (in this surface's place, or beside it), and
+      revealing a lint finding lands in the source — and two-way, because
+      this pane leaves code view by itself when the form asks it for focus.
+      The composer owns the pane; this component only knows the slot it can
+      offer (see `codePortal`). */
   sourceView = model<SourceView>('hidden');
 
   /** Code view (Summernote's </>): the source stands in the editing surface's
       place and the toolbar targets it. */
   codeView = computed(() => this.sourceView() === 'code');
-
-  /** Whether the composer's preview pane shows (docked to the left — the
-      only place it goes). The toolbar hosts the toggle; the composer owns
-      the pane. */
-  preview = model(false);
-
-  /** Whether a pane can dock beside the editor at all. Off, the two dock-out
-      buttons leave the toolbar — code view (in place) stays. The composer
-      decides from the viewport. */
-  dockable = input(true);
 
   /** The source pane as a DOM portal, attached into the code-view slot while
       `sourceView` is 'code' — the composer builds it, since it owns the
@@ -137,6 +129,11 @@ export class EmailCompose implements FormValueControl<string> {
       history, so in code view the toolbar's mark buttons act on *it* — the
       same command, on the visible text. */
   codeEditor = input<Editor | undefined>();
+
+  /** Whether the formatting toolbar shows. The host's to switch (the
+      writer bar's formatting button); hidden, the text keeps its keyboard
+      shortcuts, the slash menu and the bubble menu. */
+  toolbar = input(true);
 
   /** Files let go over the editing surface that the editor did not take for
       itself — attachments, by the host's reading. The surface is the
@@ -203,135 +200,35 @@ export class EmailCompose implements FormValueControl<string> {
   }
 
   editorHost = viewChild.required<ElementRef<HTMLElement>>('editorHost');
-  bubbleMenu = viewChild.required<ElementRef<HTMLElement>>('bubbleMenu');
-  /** Only exists while the block menu is open (it renders in a CDK overlay). */
-  blockMenu = viewChild<ElementRef<HTMLElement>>('blockMenu');
   slashMenu = viewChild.required<ElementRef<HTMLElement>>('slashMenu');
   mergeTagMenu = viewChild.required<ElementRef<HTMLElement>>('mergeTagMenu');
-  editor = signal<Editor | undefined>(undefined);
+  /** The floating menus and the link editor: the extensions place the
+      first two through their state, the link items open the third. */
+  protected readonly blockMenu = viewChild.required(BlockMenu);
+  protected readonly linkEditor = viewChild.required(LinkEditor);
+
+  /** The email editor, once mounted — the formatting commands' own. */
+  readonly editor = this.#commands.editor;
   slashState = signal<SlashMenuState | undefined>(undefined);
 
-  // Our source of truth powered by the PM plugin
-  menuState = signal<BubbleMenuState>({ isOpen: false, boundingBox: null });
+  /** The bubble menu's state, from its extension: open on a selection. */
+  protected readonly bubbleMenuState = signal<BubbleMenuState>({
+    isOpen: false,
+    boundingBox: null,
+  });
 
-  /** The layout-block toolbar (tables/columns) — the bubble menu's sibling,
-      anchored to the block instead of the selection. Mutually exclusive with
-      the bubble menu: it only opens on a bare cursor. */
-  blockMenuState = signal<BlockMenuState>({ isOpen: false, boundingBox: null, block: null });
-
-  /** Curated dual-contrast text colors — the picker offers only these;
-      arbitrary hex lives solely in the HTML source pane, on purpose. */
-  palette = emailTextPalette;
-  colorMenuOpen = signal(false);
-
-  /** Curated dual-safe background fills; the picker routes them to the right
-      scope (text highlight / table cell / column) based on the cursor. */
-  backgroundPalette = emailBackgroundPalette;
-  bgMenuOpen = signal(false);
-
-  /** Curated, email-safe font stacks and phone-safe sizes — the pickers offer
-      only these; free-form fonts/sizes live solely in the HTML source pane. */
-  fontFamilies = emailFontFamilies;
-  fontSizes = emailFontSizes;
-  fontMenuOpen = signal(false);
-  sizeMenuOpen = signal(false);
-
-  /** Table-size picker: an 8×8 hover grid — sweep to preview, click to insert.
-      The picked size reads columns × rows, the way the grid is swept. */
-  tableSteps = Array.from({ length: 8 }, (_, i) => i);
-  tableMenuOpen = signal(false);
-  tablePick = signal({ cols: 2, rows: 2 });
+  /** The block menu's state, from its extension: open on a bare cursor in
+      a layout block — never together with the bubble menu. */
+  protected readonly blockMenuState = signal<BlockMenuState>({
+    isOpen: false,
+    boundingBox: null,
+    block: null,
+  });
 
   /** The `{{` autocomplete's live state — the app renders the listbox rows
       from it (items, highlight, loading rows) and calls `loadMore` from the
       scroll handler. Opening, filtering and paging live in the extension. */
   mergeMenuState = signal<MergeTagMenuState | undefined>(undefined);
-
-  /** Stands in for the variable-catalogue backend: a labelled core plus
-      enough generated custom fields to need paging, filtered server-side
-      (the source owns matching) and answered a page at a time after a small
-      latency. A real host swaps this for an HTTP call with the same shape. */
-  #mergeTagCatalogue: MergeTagItem[] = [
-    { path: 'firstName', label: 'First name' },
-    { path: 'lastName', label: 'Last name' },
-    { path: 'email', label: 'Email address' },
-    { path: 'company.name', label: 'Company' },
-    { path: 'unsubscribeUrl', label: 'Unsubscribe URL' },
-    ...Array.from({ length: 80 }, (_, i) => ({
-      path: `custom.field${i + 1}`,
-      label: `Custom field ${i + 1}`,
-    })),
-  ];
-
-  #fetchMergeTags = ({ query, cursor }: MergeTagRequest): Promise<MergeTagPage> =>
-    new Promise((resolve) =>
-      setTimeout(() => {
-        const q = query.toLowerCase();
-        const matches = this.#mergeTagCatalogue.filter(
-          (tag) => tag.path.toLowerCase().includes(q) || tag.label?.toLowerCase().includes(q),
-        );
-        const start = cursor ? Number(cursor) : 0;
-        const items = matches.slice(start, start + 20);
-        const end = start + items.length;
-        resolve({ items, nextCursor: end < matches.length ? String(end) : null });
-      }, 150),
-    );
-
-  // Link editor popover, anchored at the selection.
-  linkInput = viewChild<ElementRef<HTMLInputElement>>('linkInput');
-  linkMenuOpen = signal(false);
-  linkHref = signal('');
-  linkExisting = signal(false);
-  linkAnchor = signal<{ left: number; top: number; height: number } | null>(null);
-
-  // CDK allows us to pass a custom element that implements getBoundingClientRect()
-  // Change virtualOrigin to a simple object with a method
-  virtualOrigin = {
-    getBoundingClientRect: () => {
-      const box = this.menuState().boundingBox;
-      if (!box) return new DOMRect(0, 0, 0, 0);
-
-      return box;
-    },
-  };
-
-  overlayPositions: ConnectedPosition[] = [
-    {
-      originX: 'center',
-      originY: 'top',
-      overlayX: 'center',
-      overlayY: 'bottom',
-      offsetY: -8, // The gap between text and menu
-    },
-    // Fallback: If no room on top, flip to the bottom
-    {
-      originX: 'center',
-      originY: 'bottom',
-      overlayX: 'center',
-      overlayY: 'top',
-      offsetY: 8,
-    },
-  ];
-
-  /** The block menu sits *below* its block — it describes the whole structure,
-      not the line being typed, and under the block it never covers the first
-      row while writing. Flips above only when the bottom has no room. */
-  blockMenuPositions: ConnectedPosition[] = [
-    {
-      originX: 'center',
-      originY: 'bottom',
-      overlayX: 'center',
-      overlayY: 'top',
-      offsetY: 8,
-    },
-    {
-      originX: 'center',
-      originY: 'top',
-      overlayX: 'center',
-      overlayY: 'bottom',
-      offsetY: -8,
-    },
-  ];
 
   /** Body stats measured mathematically via pretext — no DOM reads. */
   bodyMetrics = signal<TextMetrics | undefined>(undefined);
@@ -356,21 +253,15 @@ export class EmailCompose implements FormValueControl<string> {
     editor.view.focus();
   }
 
-  /** Bumped on every ProseMirror transaction so toolbar bindings recompute. */
-  #editorTick = signal(0);
-
-  /** Bridges ProseMirror state updates into Angular's reactivity. */
-  #angularSync = defineExtension({
-    name: 'angularSync',
-    plugins: () => [
-      new Plugin({
-        view: () => ({ update: () => this.#editorTick.update((tick) => tick + 1) }),
-      }),
-    ],
-  });
-
   constructor() {
     afterNextRender(() => this.#mountEditor());
+
+    this.#commands.connect({
+      codeView: this.codeView,
+      codeEditor: this.codeEditor,
+      html: this.value,
+      openLink: () => this.linkEditor().show(),
+    });
 
     this.#destroyRef.onDestroy(() => this.editor()?.destroy());
 
@@ -402,11 +293,11 @@ export class EmailCompose implements FormValueControl<string> {
         ...emailExtensions,
         createBubbleMenu({
           updateDelay: 150,
-          onStateChange: (state) => this.menuState.set(state),
+          onStateChange: (state) => this.bubbleMenuState.set(state),
         }),
         createBlockMenu({
           onStateChange: (state) => this.blockMenuState.set(state),
-          menuElement: () => this.blockMenu()?.nativeElement,
+          menuElement: () => this.blockMenu().element()?.nativeElement,
         }),
         createSlashMenu({
           element: this.slashMenu().nativeElement,
@@ -414,7 +305,7 @@ export class EmailCompose implements FormValueControl<string> {
         }),
         createMergeTagMenu({
           element: this.mergeTagMenu().nativeElement,
-          getTags: this.#fetchMergeTags,
+          getTags: fetchMergeTags,
           debounce: 150,
           onChange: (state) => this.mergeMenuState.set(state),
         }),
@@ -432,7 +323,7 @@ export class EmailCompose implements FormValueControl<string> {
             else this.send.emit(intent);
           },
         }),
-        this.#angularSync,
+        this.#commands.sync,
       ],
       attributes: { role: 'textbox', 'aria-label': 'Message body' },
       onUpdate: (editor) => this.value.set(editor.getHTML()),
@@ -451,7 +342,7 @@ export class EmailCompose implements FormValueControl<string> {
     // (`isTyping` let it through, but a blur can have come first) is taken
     // before the first keystroke rather than typed over.
     editor.view.dom.addEventListener('focus', () => this.#applyIncoming(editor));
-    this.editor.set(editor);
+    this.#commands.mount(editor);
     // Whatever the value already is — a restored draft is there before the
     // editor is — goes in first; only then does the editor publish its
     // canonical form. Publishing the empty document it mounted with would
@@ -461,12 +352,8 @@ export class EmailCompose implements FormValueControl<string> {
     editor.focus();
   }
 
-  closeMenu() {
-    this.menuState.update((s) => ({ ...s, isOpen: false }));
-  }
-
   focusEditor(): void {
-    this.#target()?.focus();
+    this.#commands.focus();
   }
 
   /** The form's way in (`focusBoundControl` on the body field): the caret
@@ -477,148 +364,9 @@ export class EmailCompose implements FormValueControl<string> {
       this.editor()?.focus();
       return;
     }
-    (document.activeElement as HTMLElement | null)?.blur?.();
+    releaseEditingSurface();
     this.sourceView.set('hidden');
     afterNextRender(() => this.editor()?.focus(), { injector: this.#injector });
-  }
-
-  /** Flips code view. Whatever surface is focused is about to be hidden —
-      release it first, so its blur catch-up publishes to the shared signal
-      before the other view reads it. The editor regains the caret only once
-      it is rendered again: focusing a hidden element is a no-op. */
-  toggleSourceView(view: 'code' | 'detached'): void {
-    (document.activeElement as HTMLElement | null)?.blur?.();
-    this.sourceView.update((current) => (current === view ? 'hidden' : view));
-    afterNextRender(() => this.focusEditor(), { injector: this.#injector });
-  }
-
-  /** The editor the toolbar acts on: the source pane while code view is up,
-      the email editor otherwise. Node-level commands (lists, tables, …) never
-      route here — the source kit has no twin for them, so their buttons lock. */
-  #target(): Editor | undefined {
-    return this.codeView() ? this.codeEditor() : this.editor();
-  }
-
-  isActive(name: string, attrs?: Record<string, unknown>): boolean {
-    this.#editorTick();
-    return this.editor()?.isActive(name, attrs) ?? false;
-  }
-
-  /** Runs a block command from the block menu. */
-  runBlock(command: string): void {
-    const editor = this.editor();
-    if (!editor) return;
-    editor.commands[command]();
-    this.#restoreFocus();
-  }
-
-  /**
-   * Where focus belongs after a block-menu action. A mouse user never left the
-   * editor (the menu suppresses mousedown), so refocusing is a no-op. A keyboard
-   * user is standing *in* the menu — yanking them back to the editor after every
-   * button would make the menu unusable, so leave them there. Unless the action
-   * dissolved the menu (delete table), where the button they were on is gone.
-   */
-  #restoreFocus(): void {
-    const menu = this.blockMenu()?.nativeElement;
-    if (this.blockMenuState().isOpen && menu?.contains(document.activeElement)) return;
-    this.editor()?.focus();
-  }
-
-  /** Paragraph alignment; `null` restores the default (left). */
-  align(align: 'center' | 'right' | null): void {
-    const editor = this.editor();
-    if (!editor) return;
-    editor.commands['setAlignment'](align);
-    editor.focus();
-  }
-
-  canUndo(): boolean {
-    const editor = this.#tracked();
-    return !!editor && undo(editor.state);
-  }
-
-  canRedo(): boolean {
-    const editor = this.#tracked();
-    return !!editor && redo(editor.state);
-  }
-
-  /** The target editor, read so the binding recomputes when it changes: the
-      email editor ticks on every transaction; the source pane publishes into
-      the shared html on every doc change, which is when its undo depth moves. */
-  #tracked(): Editor | undefined {
-    this.#editorTick();
-    this.value();
-    return this.#target();
-  }
-
-  /** Runs a named command on the visible editor — a mark or history command
-      exists on both kits; a block command only on the email editor, and its
-      button is locked in code view. */
-  run(command: string) {
-    const editor = this.#target();
-    if (!editor) return;
-    editor.commands[command]?.();
-    editor.focus();
-  }
-
-  /** Applies a palette swatch to the selection, or `null` for automatic
-      (unset). The palette popover prevents mousedown defaults, so the
-      editor's selection survives the click; we refocus afterwards. */
-  applyColor(color: string | null): void {
-    this.colorMenuOpen.set(false);
-    const editor = this.#target();
-    if (!editor) return;
-
-    if (color) editor.commands['setColor'](color);
-    else editor.commands['unsetColor']();
-    editor.focus();
-  }
-
-  /** Applies a background fill to the most relevant scope: selected text gets an
-      inline highlight; a bare cursor in a table cell or column fills that
-      container; otherwise it's an inline highlight (stored, so it continues as
-      you type). `null` clears whichever scope applies. */
-  applyBackground(color: string | null): void {
-    this.bgMenuOpen.set(false);
-    const editor = this.#target();
-    if (!editor) return;
-    const { state } = editor;
-
-    // The container scopes are the email editor's: the source has no cells.
-    const bare = state.selection.empty && !this.codeView();
-    if (bare && findTableContext(state)) {
-      editor.commands['setCellBackground'](color);
-    } else if (bare && findColumnContext(state)) {
-      editor.commands['setColumnBackground'](color);
-    } else if (color) {
-      editor.commands['setBackgroundColor'](color);
-    } else {
-      editor.commands['unsetBackgroundColor']();
-    }
-    editor.focus();
-  }
-
-  /** Applies a curated font stack to the selection, or `null` to clear it. */
-  applyFontFamily(stack: string | null): void {
-    this.fontMenuOpen.set(false);
-    const editor = this.#target();
-    if (!editor) return;
-
-    if (stack) editor.commands['setFontFamily'](stack);
-    else editor.commands['unsetFontFamily']();
-    editor.focus();
-  }
-
-  /** Applies a curated font size to the selection, or `null` to clear it. */
-  applyFontSize(size: number | null): void {
-    this.sizeMenuOpen.set(false);
-    const editor = this.#target();
-    if (!editor) return;
-
-    if (size) editor.commands['setFontSize'](size);
-    else editor.commands['unsetFontSize']();
-    editor.focus();
   }
 
   /** Infinite scroll: nearing the listbox's end fetches the next page. The
@@ -628,92 +376,5 @@ export class EmailCompose implements FormValueControl<string> {
     if (el.scrollTop + el.clientHeight >= el.scrollHeight - 48) {
       this.mergeMenuState()?.loadMore();
     }
-  }
-
-  /** Opens the picker at the command's default size, so the preview never
-      starts from a stale sweep of the previous open. */
-  toggleTableMenu(): void {
-    this.tablePick.set({ cols: 2, rows: 2 });
-    this.tableMenuOpen.update((open) => !open);
-  }
-
-  /** Inserts the picked table. The picker speaks columns × rows;
-      `insertTable` takes rows first. */
-  insertTable(cols: number, rows: number): void {
-    this.tableMenuOpen.set(false);
-    const editor = this.editor();
-    if (!editor) return;
-
-    editor.commands['insertTable'](rows, cols);
-    editor.focus();
-  }
-
-  /** Opens the link popover at the selection: prefilled when the cursor sits
-      in an existing link, a no-op when there is neither selection nor link. */
-  openLinkEditor(): void {
-    const editor = this.#target();
-    if (!editor) return;
-
-    const { from, empty } = editor.state.selection;
-    // The source pane has no link mark to read back: there it is insert-only,
-    // on a selection.
-    const range = this.codeView() ? undefined : linkRangeAt(editor.state, from);
-    if (empty && !range) {
-      editor.focus();
-      return;
-    }
-
-    this.linkHref.set(range?.attrs.href ?? '');
-    this.linkExisting.set(!!range);
-    const coords = editor.view.coordsAtPos(from);
-    this.linkAnchor.set({ left: coords.left, top: coords.top, height: coords.bottom - coords.top });
-    this.linkMenuOpen.set(true);
-    setTimeout(() => this.linkInput()?.nativeElement.select());
-  }
-
-  closeLinkEditor(): void {
-    this.linkMenuOpen.set(false);
-    this.focusEditor();
-  }
-
-  /** Applies the entered URL; a scheme-less value gets https:// prepended,
-      an emptied value unlinks — matching what the field visibly says. */
-  applyLink(): void {
-    const editor = this.#target();
-    const raw = this.linkHref().trim();
-    this.linkMenuOpen.set(false);
-    if (!editor) return;
-
-    if (raw) {
-      const href = /^[a-z][\w+.-]*:/i.test(raw) ? raw : `https://${raw}`;
-      editor.commands['setLink']({ href });
-    } else {
-      editor.commands['unsetLink']();
-    }
-    editor.focus();
-  }
-
-  removeLink(): void {
-    this.linkMenuOpen.set(false);
-    const editor = this.#target();
-    editor?.commands['unsetLink']();
-    editor?.focus();
-  }
-
-  visitLink(): void {
-    const href = this.linkHref();
-    if (href) window.open(href, '_blank', 'noopener,noreferrer');
-  }
-
-  toggleBlockquote(): void {
-    const editor = this.editor();
-    if (!editor) return;
-
-    if (editor.isActive('blockquote')) {
-      editor.commands['liftBlock']();
-    } else {
-      editor.commands['wrapInBlockquote']();
-    }
-    editor.focus();
   }
 }

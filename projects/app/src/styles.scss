@@ -47,16 +47,38 @@ body.dark-mode {
  * toolbar's icon buttons live outside the editor surface, and the picker
  * menus render in the CDK overlay container on <body> — a narrower scope
  * would miss them. `--mat-icon-size` is read by the Material Symbols font
- * class (see styles/fonts), which defaults to 24px without it. */
+ * class (see styles/fonts), which defaults to 24px without it.
+ *
+ * Icon buttons are one size everywhere, desktop included: a 40px state layer
+ * in a 48px touch target — Material's own geometry, and a thumb's on a phone,
+ * where the formatting toolbar sits on the keyboard. The glyph is 20px rather
+ * than Material's 24: the buttons are tools in a dense row, not actions. A
+ * row of them needs 8px between state layers, or the 48px targets overlap
+ * and a tap lands on the neighbour. */
 html {
   --mat-icon-size: 16px;
   @include mat.icon-button-overrides(
     (
-      icon-size: var(--mat-icon-size),
-      state-layer-size: 32px,
-      touch-target-size: 40px,
+      icon-size: 20px,
+      state-layer-size: 40px,
+      touch-target-size: 48px,
     )
   );
+}
+
+/* The glyph inside an icon button follows the button's icon size, not the
+ * app-wide one. */
+.mat-mdc-icon-button {
+  --mat-icon-size: var(--mat-icon-button-icon-size);
+}
+
+/* A pressed icon button, wherever it stands — the formatting toolbar, the
+ * bubble menu, the writer bar's toggles. State is ARIA: a toggle that is on
+ * (aria-pressed), or a picker whose value the selection already carries
+ * (data-applied — aria-pressed would misname a button that opens a popup). */
+.mat-mdc-icon-button:is([aria-pressed='true'], [data-applied]) {
+  color: var(--mat-sys-primary);
+  background-color: var(--mat-sys-secondary-container);
 }
 
 :root {

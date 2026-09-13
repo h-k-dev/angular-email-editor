@@ -16,7 +16,8 @@ import { Viewport } from '../../viewport';
  * The email writer: the sheet a message is written on, and the form it is
  * sent with. It declares the sheet's regions — the bar with Send, the
  * envelope block, the body filling the rest — and the host fills them: the
- * bar's extra buttons marked `actions`, rows marked `envelope` land in the envelope block, everything else
+ * bar's extra buttons marked `actions` (beside Send) or `leading` (the bar's
+ * start), rows marked `envelope` land in the envelope block, everything else
  * (the editor, with the attachment strip inside it) in the body, each a
  * `[formField]` of the one `[formRoot]` this element carries. The root is a
  * host directive, so the host binds `[formRoot]="envelope"` right on the
@@ -35,7 +36,14 @@ import { Viewport } from '../../viewport';
  */
 @Component({
   selector: 'form[email-writer]',
-  imports: [NgTemplateOutlet, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [
+    NgTemplateOutlet,
+
+    // Material
+    MatButtonModule,
+    MatIconModule,
+    MatProgressSpinnerModule,
+  ],
   hostDirectives: [{ directive: FormRoot, inputs: ['formRoot'] }],
   templateUrl: './email-writer.html',
   styleUrl: './email-writer.scss',

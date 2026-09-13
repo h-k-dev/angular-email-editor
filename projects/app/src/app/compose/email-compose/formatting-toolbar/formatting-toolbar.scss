@@ -1,0 +1,253 @@
+@use '../../../../styles/breakpoints' as bp;
+@use '../formatting-toolbar' as toolbar;
+
+// The scroll edges' fades, animated by the row's own scroll position — see
+// the phone rules below.
+@property --toolbar-fade-start {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --toolbar-fade-end {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+@keyframes toolbar-fade {
+  from {
+    --toolbar-fade-start: 0px;
+    --toolbar-fade-end: 24px;
+  }
+  8%,
+  92% {
+    --toolbar-fade-start: 24px;
+    --toolbar-fade-end: 24px;
+  }
+  to {
+    --toolbar-fade-start: 24px;
+    --toolbar-fade-end: 0px;
+  }
+}
+
+:host {
+  @include toolbar.formatting-toolbar;
+  flex: none;
+  // One line at every width: the row inside clips (wide) or scrolls (phone).
+  flex-wrap: nowrap;
+  // The pane's grid column is content-sized to the 600px editor box; the
+  // toolbar must not widen it with its row — size containment keeps its
+  // intrinsic width out of the column.
+  contain: inline-size;
+
+  // Wide: a dense line of tools, not a bar of actions — 28px state layers in
+  // 32px touch targets and 16px glyphs, in place of the app's 40/48/20
+  // (styles.scss), with 4px between them so the targets never overlap. The
+  // line is exactly one target tall. Inline, the glyphs land on the text
+  // edge: 8px here, 2px of row padding and 6px of state layer at the start;
+  // 10px and the 6px of state layer at the end.
+  @include bp.wide {
+    --mat-icon-button-state-layer-size: 28px;
+    --mat-icon-button-touch-target-size: 32px;
+    --mat-icon-button-icon-size: 16px;
+    gap: 4px;
+    padding-block: 0;
+    padding-inline: calc(var(--mat-sys-inner-spacing, 16px) - 8px)
+      calc(var(--mat-sys-inner-spacing, 16px) - 6px);
+
+    mat-divider {
+      height: 16px;
+    }
+  }
+
+  // Phone: the toolbar is the bar on the keyboard (the shell gives up the
+  // keyboard's height, app.scss, and the sheet ends flush under this row,
+  // email-writer.scss). One row, always 48px: the formatting scrolls
+  // sideways, history holds the end — a second row would take another 48px
+  // of the little screen the keyboard leaves.
+  @include bp.phone {
+    // The block padding moves into the parts, and 4px of the start inset
+    // into the scroller: a scroll container clips its content's hit areas at
+    // its padding edge, so the 48px targets need the room inside it. 2px +
+    // 4px + the 10px of state layer keeps the glyph on the text edge.
+    padding-block: 0;
+    padding-inline: calc(var(--mat-sys-inner-spacing, 16px) - 14px)
+      calc(var(--mat-sys-inner-spacing, 16px) - 10px);
+  }
+}
+
+// A rule on the host beats the UA's [hidden]: restate it.
+:host([hidden]) {
+  display: none;
+}
+
+// The row: everything but the ⋯ and history.
+.toolbar__scroll {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  // Takes the line and gives way: history and the ⋯ keep their width.
+  flex: 1 1 auto;
+  min-width: 0;
+
+  // Nothing in the row shrinks: every item keeps its width — and so its
+  // place — whether it shows or has moved into the ⋯ menu, which is what
+  // lets the overflow be measured without re-laying anything out.
+  > * {
+    flex: none;
+  }
+
+  // Wide: the row clips at its end, and what has moved into the ⋯ menu is
+  // invisible — out of the tab order and the accessibility tree too, while
+  // keeping its box. 2px of padding holds the 32px targets inside the clip.
+  @include bp.wide {
+    gap: 4px;
+    padding: 2px;
+    overflow: hidden;
+
+    > [data-overflow] {
+      visibility: hidden;
+    }
+  }
+
+  @include bp.phone {
+    padding: 4px;
+    overflow-x: auto;
+    // A fling at the end must not scroll the page or trigger back-navigation.
+    overscroll-behavior-x: contain;
+    // No scrollbar: the cut-off button at the edge, and the fade over it, are
+    // the affordance.
+    scrollbar-width: none;
+    // A fling settles with a whole button at the start edge, glyph on the
+    // text edge — the padding is the snap line.
+    scroll-snap-type: x proximity;
+    scroll-padding-inline: 4px;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    > button {
+      scroll-snap-align: start;
+    }
+
+    // What a phone does without (`FormattingItem.wide`). Gone, not just
+    // hidden: out of the tab order and the accessibility tree with the
+    // picture.
+    > .toolbar__wide {
+      display: none;
+    }
+
+    // Fade whichever edge has more to scroll to, driven by the row's own
+    // scroll position — no listener, no measuring. The end fade lands just
+    // before history, which sits outside the row and never fades. Where
+    // everything fits the timeline is inactive, the animation does not
+    // apply, and both fades stay at their 0px initial value. Browsers
+    // without scroll-driven animations simply get no fade.
+    @supports (animation-timeline: scroll()) {
+      mask-image: linear-gradient(
+        to right,
+        transparent,
+        #000 var(--toolbar-fade-start),
+        #000 calc(100% - var(--toolbar-fade-end)),
+        transparent
+      );
+      animation: toolbar-fade linear both;
+      animation-timeline: scroll(self inline);
+    }
+  }
+}
+
+// The ⋯: only while something has moved, and never on a phone.
+.toolbar__more {
+  flex: none;
+
+  &[hidden] {
+    display: none;
+  }
+
+  @include bp.phone {
+    display: none;
+  }
+}
+
+// Undo and Redo, pinned to the line's end.
+.toolbar__history {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+
+  @include bp.wide {
+    gap: 4px;
+  }
+
+  @include bp.phone {
+    padding-block: 4px;
+  }
+}
+
+// Font family and size: a text dropdown, one state layer tall, showing the
+// value at the selection. Fixed widths, so the line never shifts as the caret
+// moves through differently styled text — and the overflow never re-flows
+// with it. Token cascade: --email-* → --mat-sys-* → fallback.
+.toolbar__select {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  block-size: var(--mat-icon-button-state-layer-size, 28px);
+  // 6px: the same inset as an icon button's state layer, so the value's
+  // first letter lands on the text edge where a glyph would.
+  padding-inline: 6px 2px;
+  border: none;
+  border-radius: var(--email-compose-select-corner, var(--mat-sys-corner-small, 4px));
+  background: none;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+  letter-spacing: var(--mat-sys-body-medium-tracking);
+  cursor: pointer;
+
+  // The same 32px touch target as the icon buttons beside it.
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -2px 0;
+  }
+
+  mat-icon {
+    --mat-icon-size: 20px;
+  }
+
+  &:hover {
+    background-color: color-mix(in srgb, currentColor 8%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: -2px;
+  }
+
+  &[aria-expanded='true'] {
+    background-color: var(--mat-sys-secondary-container);
+    color: var(--mat-sys-on-secondary-container);
+  }
+}
+
+.toolbar__select--family {
+  inline-size: 7.5rem;
+}
+
+.toolbar__select--size {
+  inline-size: 5rem;
+}
+
+.toolbar__select-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

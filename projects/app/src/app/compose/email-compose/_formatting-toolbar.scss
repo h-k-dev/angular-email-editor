@@ -1,0 +1,29 @@
+// A row of icon buttons at the app's one size (styles.scss): 40px state
+// layers in 48px touch targets. The 8px gap is exactly what keeps
+// neighbouring targets from overlapping, and the 4px block padding is half
+// of it — so one row is 48px tall, every target inside the box, and wrapped
+// rows stack on the same 48px pitch. The formatting toolbar and the floating
+// menus share it; a pressed button is styled app-wide (styles.scss).
+@mixin formatting-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+
+  // The gap already parts the groups; the divider adds only the line.
+  mat-divider {
+    height: 20px;
+  }
+}
+
+// A toolbar that floats over the text (the bubble menu, the block menu, the
+// link editor): the row above, on a surface of its own — unlike the
+// formatting toolbar, which sits on the writer's sheet. Token cascade:
+// --email-* → --mat-sys-* → fallback.
+@mixin floating-toolbar {
+  @include formatting-toolbar;
+  z-index: 2;
+  background-color: var(--email-compose-menu-background, var(--mat-sys-surface-container, #f3f3f3));
+  border-radius: var(--email-compose-menu-corner, var(--mat-sys-corner-medium, 8px));
+  box-shadow: var(--mat-sys-level2);
+}

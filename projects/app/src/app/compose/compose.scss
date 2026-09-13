@@ -1,3 +1,5 @@
+@use '../../styles/breakpoints' as bp;
+
 // The host is only a box for the page to fill. The layout lives on `.page`
 // below, which is also the import dropzone: the zone has to *contain* the
 // panes for `selfOnly` to route drops to the writer's attachment zone, and a
@@ -60,9 +62,9 @@
   // media query: the step lands in the same paint as the layout it goes with
   // (the .compose--compact class is a BreakpointObserver round-trip behind),
   // and the ramp — 16px of padding gained over 0.16px of screen — is a snap
-  // in everything but name. 768px mirrors FULL_WIDTH_MAX_WIDTH (viewport.ts),
-  // and both are inclusive of 768 so the class and the clamp agree there.
-  padding: clamp(0px, (100vw - 768px) * 100, var(--mat-sys-inner-spacing, 16px));
+  // in everything but name. $full-width-max mirrors FULL_WIDTH_MAX_WIDTH
+  // (viewport.ts), and both are inclusive so the class and the clamp agree.
+  padding: clamp(0px, (100vw - #{bp.$full-width-max}) * 100, var(--mat-sys-inner-spacing, 16px));
   // No background of its own: the page shows the shell's surface through.
   // The lifted surface-bright is the editorial area's alone (`.editor` in
   // email-compose.scss) — the paper, not the desk.
@@ -280,6 +282,15 @@ section[html-email-compose][hidden] {
     outline: 2px solid var(--mat-sys-primary);
     outline-offset: 1px;
   }
+}
+
+// The pane toggles at the start of the writer's bar: one item of the bar,
+// spaced inside the way the bar spaces its own — 8px, which keeps the 48px
+// touch targets apart. Pressed toggles are styled app-wide (styles.scss).
+.writer-panes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 // The library's components read the Material system tokens on their own

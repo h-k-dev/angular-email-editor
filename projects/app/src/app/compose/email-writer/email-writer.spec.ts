@@ -9,6 +9,7 @@ import { Viewport } from '../../viewport';
 @Component({
   imports: [EmailWriter],
   template: `<form email-writer [formRoot]="envelope">
+    <button type="button" class="lead" leading>Panes</button>
     <button type="button" class="action" actions>Discard</button>
     <p class="field">projected</p>
   </form>`,
@@ -62,6 +63,11 @@ describe('EmailWriter', () => {
     expect(send().querySelector('mat-icon')?.textContent?.trim()).toBe('send');
     expect(bar().lastElementChild).toBe(send());
     expect(send().previousElementSibling).toBe(root.querySelector('.action'));
+  });
+
+  it('opens the bar with the leading controls, the spacer between them and the actions', () => {
+    expect(bar().firstElementChild).toBe(root.querySelector('.lead'));
+    expect(bar().firstElementChild?.nextElementSibling?.classList).toContain('writer-bar__spacer');
   });
 
   it('closes the sheet with the bar, under the fields, where there is room', () => {

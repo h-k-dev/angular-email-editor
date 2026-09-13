@@ -1,0 +1,22 @@
+// The viewport's breakpoints, for stylesheets — the twins of viewport.ts,
+// which every script reads (`Viewport`). Change one, change the other.
+
+// FULL_WIDTH_MAX_WIDTH: at this width and below the writer takes the whole
+// screen and the formatting toolbar becomes the bar on the keyboard.
+// Inclusive, like the `compact` query.
+$full-width-max: 768px;
+
+// A phone: no wider than $full-width-max.
+@mixin phone {
+  @media (max-width: $full-width-max) {
+    @content;
+  }
+}
+
+// Anything wider — the exact inverse of `phone`, so no width is both or
+// neither.
+@mixin wide {
+  @media not all and (max-width: $full-width-max) {
+    @content;
+  }
+}

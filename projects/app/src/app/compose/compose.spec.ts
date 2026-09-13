@@ -1,4 +1,5 @@
 import { signal } from '@angular/core';
+import { TextSelection } from 'prosemirror-state';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { Compose } from './compose';
@@ -93,7 +94,7 @@ describe('Compose', () => {
     }
   });
 
-  it("the toolbar's </> moves the HTML source into the editing surface's place and back", async () => {
+  it("the writer bar's </> moves the HTML source into the editing surface's place and back", async () => {
     const root = fixture.nativeElement as HTMLElement;
     // The pane's home is the page wrapper, which is also the .eml import
     // dropzone (compose.html) — not the component host.
@@ -102,7 +103,7 @@ describe('Compose', () => {
     const code = root.querySelector('.code') as HTMLElement;
     const source = root.querySelector('section[html-email-compose]') as HTMLElement;
     const sourceEditor = source.querySelector('[aria-label="Email HTML source"]');
-    const toggle = root.querySelector('[aria-label="HTML source"]') as HTMLButtonElement;
+    const toggle = root.querySelector('.writer-bar [aria-label="HTML source"]') as HTMLButtonElement;
     const bold = root.querySelector('.toolbar [aria-label="Bold"]') as HTMLButtonElement;
     const quote = root.querySelector('.toolbar [aria-label="Quote"]') as HTMLButtonElement;
     const send = root.querySelector('.writer-bar__send') as HTMLButtonElement;
@@ -138,6 +139,114 @@ describe('Compose', () => {
     expect(editor.hidden).toBe(false);
     expect(code.hidden).toBe(true);
     expect(quote.disabled).toBe(false);
+  });
+
+  it("the writer bar's formatting options button shows and hides the toolbar", async () => {
+    const root = fixture.nativeElement as HTMLElement;
+    const button = root.querySelector('.writer-bar [aria-label="Formatting options"]') as HTMLButtonElement;
+    const toolbar = root.querySelector('.toolbar') as HTMLElement;
+
+    // Shown by default, pressed.
+    expect(toolbar.hidden).toBe(false);
+    expect(button.getAttribute('aria-pressed')).toBe('true');
+
+    button.click();
+    await fixture.whenStable();
+    expect(toolbar.hidden).toBe(true);
+    expect(button.getAttribute('aria-pressed')).toBe('false');
+
+    button.click();
+    await fixture.whenStable();
+    expect(toolbar.hidden).toBe(false);
+  });
+
+  it('the font dropdowns lead the toolbar and apply the curated choice from their Aria menu', async () => {
+    const root = fixture.nativeElement as HTMLElement;
+    const row = root.querySelector('.toolbar__scroll') as HTMLElement;
+    const family = row.querySelector('.toolbar__select--family') as HTMLButtonElement;
+    const size = row.querySelector('.toolbar__select--size') as HTMLButtonElement;
+    expect(row.firstElementChild).toBe(family);
+    // Never a "default": the value in effect, or nothing yet.
+    expect(family.textContent).not.toContain('Default');
+    expect(size.getAttribute('aria-haspopup')).toBe('true');
+
+    // Opens the menu from its trigger and picks the item — the menus render
+    // in the CDK overlay container, outside the component.
+    const choose = async (trigger: HTMLButtonElement, label: string) => {
+      trigger.click();
+      await fixture.whenStable();
+      expect(trigger.getAttribute('aria-expanded')).toBe('true');
+      const item = [...document.querySelectorAll<HTMLElement>('[role="menuitemradio"]')].find(
+        (el) => el.textContent?.trim().startsWith(label),
+      );
+      expect(item).toBeDefined();
+      item!.click();
+      await fixture.whenStable();
+    };
+
+    await choose(size, '18px');
+    expect(size.textContent).toContain('18');
+    expect(size.getAttribute('aria-expanded')).toBe('false');
+    await choose(family, 'Serif');
+    expect(family.textContent).toContain('Serif');
+  });
+
+  it('the text colour button reads as applied for a colour, not for the font or size that share its mark', async () => {
+    const root = fixture.nativeElement as HTMLElement;
+    const color = root.querySelector('.toolbar [aria-label="Text color"]') as HTMLButtonElement;
+    const size = root.querySelector('.toolbar__select--size') as HTMLButtonElement;
+
+    // A size at the caret: the same textStyle mark, without a colour.
+    size.click();
+    await fixture.whenStable();
+    const item = [...document.querySelectorAll<HTMLElement>('[role="menuitemradio"]')].find(
+      (el) => el.textContent?.trim().startsWith('18px'),
+    );
+    item!.click();
+    await fixture.whenStable();
+    expect(size.textContent).toContain('18');
+    expect(color.hasAttribute('data-applied')).toBe(false);
+
+    // A swatch from its palette: now the colour is on.
+    color.click();
+    await fixture.whenStable();
+    expect(color.getAttribute('aria-expanded')).toBe('true');
+    const swatch = document.querySelector('[color-palette] [aria-label="Red"]') as HTMLButtonElement;
+    swatch.click();
+    await fixture.whenStable();
+    expect(color.hasAttribute('data-applied')).toBe(true);
+    expect(color.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('the link buttons open the link editor at the selection, through the shared commands', async () => {
+    const root = fixture.nativeElement as HTMLElement;
+    const pane = (component as any).emailPane();
+    pane.value.set('<p>see the docs</p>');
+    await fixture.whenStable();
+    const editor = pane.editor();
+    // jsdom has no layout: the anchor at the selection is measured from a
+    // rect the test supplies.
+    vi.spyOn(editor.view, 'coordsAtPos').mockReturnValue({ left: 40, right: 40, top: 100, bottom: 120 });
+    // Select "docs": the link editor opens only on a selection or in a link.
+    editor.view.dispatch(
+      editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 9, 13)),
+    );
+    await fixture.whenStable();
+
+    const dialog = () => document.querySelector('[role="dialog"][aria-label="Edit link"]');
+    expect(dialog()).toBeNull();
+    (root.querySelector('.toolbar [aria-label="Link"]') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    expect(dialog()).not.toBeNull();
+
+    // Applying a scheme-less URL links the selection with https.
+    const input = dialog()!.querySelector('input') as HTMLInputElement;
+    input.value = 'example.com';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    (dialog()!.querySelector('[aria-label="Apply link"]') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    expect(dialog()).toBeNull();
+    expect(pane.value()).toContain('href="https://example.com"');
   });
 
   it('detach shows the HTML source beside the editor; the two buttons switch each other', async () => {
@@ -403,7 +512,13 @@ describe('Compose', () => {
     const root = fixture.nativeElement as HTMLElement;
     const preview = root.querySelector('section[email-preview]') as HTMLElement;
     const composer = root.querySelector('section[email-compose]') as HTMLElement;
-    const toggle = root.querySelector('.toolbar [aria-label="Preview"]') as HTMLButtonElement;
+    const toggle = root.querySelector('.writer-bar [aria-label="Preview"]') as HTMLButtonElement;
+    // The page's controls, not the editor's: the formatting toolbar holds
+    // formatting alone — no view toggles.
+    const toolbar = root.querySelector('.toolbar') as HTMLElement;
+    for (const label of ['Preview', 'HTML source', 'Detach HTML source']) {
+      expect(toolbar.querySelector(`[aria-label="${label}"]`)).toBeNull();
+    }
 
     expect(preview.hidden).toBe(true);
     expect(toggle.getAttribute('aria-pressed')).toBe('false');
@@ -424,7 +539,7 @@ describe('Compose', () => {
 });
 
 describe('Compose below the docking breakpoint', () => {
-  it('drops the dock-out buttons from the toolbar and collapses a docked pane', async () => {
+  it('drops the pane toggles from the writer bar and collapses a docked pane', async () => {
     const narrow = signal(false);
     await TestBed.configureTestingModule({
       imports: [Compose],
@@ -439,7 +554,7 @@ describe('Compose below the docking breakpoint', () => {
     await fixture.whenStable();
     const root = fixture.nativeElement as HTMLElement;
     const btn = (label: string) =>
-      root.querySelector(`.toolbar [aria-label="${label}"]`) as HTMLButtonElement | null;
+      root.querySelector(`[aria-label="${label}"]`) as HTMLButtonElement | null;
 
     // Wide: dock the preview and the source.
     btn('Preview')!.click();
@@ -466,6 +581,69 @@ describe('Compose below the docking breakpoint', () => {
     expect(btn('Preview')).not.toBeNull();
     expect(root.classList.contains('compose--preview')).toBe(false);
     expect(root.querySelector('footer.status')).not.toBeNull();
+  });
+
+  it('folds code view at a phone width, where the bar offers no </> to leave it', async () => {
+    const compact = signal(false);
+    await TestBed.configureTestingModule({
+      imports: [Compose],
+      providers: [
+        {
+          provide: Viewport,
+          useValue: { narrow: compact.asReadonly(), compact: compact.asReadonly() },
+        },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(Compose);
+    await fixture.whenStable();
+    const root = fixture.nativeElement as HTMLElement;
+    const editor = root.querySelector('.editor') as HTMLElement;
+
+    (root.querySelector('.writer-bar [aria-label="HTML source"]') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    expect(editor.hidden).toBe(true);
+
+    compact.set(true);
+    await fixture.whenStable();
+    expect(editor.hidden).toBe(false);
+    expect(root.querySelector('section[html-email-compose]')?.hasAttribute('hidden')).toBe(true);
+    expect(root.querySelector('[aria-label="HTML source"]')).toBeNull();
+  });
+
+  it('keeps the formatting toolbar on a phone, with no switch to hide it', async () => {
+    const compact = signal(false);
+    await TestBed.configureTestingModule({
+      imports: [Compose],
+      providers: [
+        {
+          provide: Viewport,
+          useValue: { narrow: compact.asReadonly(), compact: compact.asReadonly() },
+        },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(Compose);
+    await fixture.whenStable();
+    const root = fixture.nativeElement as HTMLElement;
+    const toolbar = root.querySelector('.toolbar') as HTMLElement;
+    const toggle = () =>
+      root.querySelector('.writer-bar [aria-label="Formatting options"]') as HTMLButtonElement | null;
+
+    // Wide: switched off.
+    toggle()!.click();
+    await fixture.whenStable();
+    expect(toolbar.hidden).toBe(true);
+
+    // Phone: the toolbar is back and the switch is gone.
+    compact.set(true);
+    await fixture.whenStable();
+    expect(toolbar.hidden).toBe(false);
+    expect(toggle()).toBeNull();
+
+    // Wide again: the choice made there still holds.
+    compact.set(false);
+    await fixture.whenStable();
+    expect(toolbar.hidden).toBe(true);
+    expect(toggle()!.getAttribute('aria-pressed')).toBe('false');
   });
 });
 

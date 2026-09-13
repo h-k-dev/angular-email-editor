@@ -1,0 +1,21 @@
+<button
+  type="button"
+  class="color-palette__swatch color-palette__swatch--auto"
+  role="option"
+  [title]="resetLabel()"
+  [attr.aria-label]="resetLabel()"
+  (click)="picked.emit(null)"
+>
+  <mat-icon>format_color_reset</mat-icon>
+</button>
+@for (color of colors(); track color.value) {
+  <button
+    type="button"
+    class="color-palette__swatch"
+    role="option"
+    [title]="color.name"
+    [attr.aria-label]="color.name"
+    [style.--email-swatch]="color.value"
+    (click)="picked.emit(color.value)"
+  ></button>
+}

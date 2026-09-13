@@ -1,0 +1,44 @@
+<!-- The anchor: the selection's box, fixed, for the overlay to attach to. -->
+<span
+  cdkOverlayOrigin
+  #origin="cdkOverlayOrigin"
+  class="bubble-menu__origin"
+  [style.left.px]="state().boundingBox?.left || 0"
+  [style.top.px]="state().boundingBox?.top || 0"
+  [style.width.px]="state().boundingBox?.width || 0"
+  [style.height.px]="state().boundingBox?.height || 0"
+></span>
+
+<ng-template
+  cdkConnectedOverlay
+  [cdkConnectedOverlayOrigin]="origin"
+  [cdkConnectedOverlayOpen]="state().isOpen"
+  [cdkConnectedOverlayPositions]="positions"
+  [cdkConnectedOverlayHasBackdrop]="false"
+  [cdkConnectedOverlayPush]="true"
+  [cdkConnectedOverlayViewportMargin]="8"
+>
+  <div
+    class="bubble-menu"
+    role="toolbar"
+    aria-label="Selection formatting"
+    (mousedown)="$event.preventDefault()"
+  >
+    @for (entry of entries; track entry.item.id) {
+      @let item = entry.item;
+      @if (entry.separated) {
+        <mat-divider [vertical]="true" />
+      }
+      <button
+        mat-icon-button
+        type="button"
+        [attr.aria-label]="item.label"
+        [attr.aria-pressed]="item.pressed ? item.pressed() : null"
+        [disabled]="item.disabled?.() ?? false"
+        (click)="item.run?.()"
+      >
+        <mat-icon>{{ item.icon }}</mat-icon>
+      </button>
+    }
+  </div>
+</ng-template>

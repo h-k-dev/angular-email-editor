@@ -57,6 +57,7 @@ import {
 import { MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { EmailCompose, SourceView } from './email-compose/email-compose';
+import { releaseEditingSurface } from './is-typing';
 import { DropHint } from './drop-hint/drop-hint';
 import { EmailWriter } from './email-writer/email-writer';
 import { Viewport } from '../viewport';
@@ -254,31 +255,61 @@ export class Compose {
   protected diagnostics = signal<HtmlDiagnostic[]>([]);
 
   /** Below the docking breakpoint the composer shows one pane at a time: the
-      dock-out buttons leave the toolbar, and a pane already docked beside the
-      editor collapses. Code view is in place, so it stays. The two pane
-      signals below are linked to the breakpoint for it: state that resets
-      when its source changes, not an effect writing into a signal. */
+      dock toggles leave the writer bar, and a pane already docked beside the
+      editor collapses. Code view is in place, so it stays — down to a
+      phone's width, where the bar has no </> and code view folds too.
+      The two pane signals below are linked to the breakpoints for it: state
+      that resets when its source changes, not an effect writing into a
+      signal. */
   protected readonly viewport = inject(Viewport);
 
-  /** Where the HTML source shows (the toolbar's </> and detach buttons).
-      Owned here because revealing a finding has to switch to a view that can
-      show it. Going narrow folds a detached pane back to hidden; going wide
-      again leaves whatever the user has. */
+  /** Where the HTML source shows (the writer bar's </> and detach
+      buttons). Owned here because revealing a finding has to
+      switch to a view that can show it. Going narrow folds a detached pane
+      back to hidden, going compact folds code view as well — neither has a
+      button left to leave it by; going wide again leaves whatever the user
+      has. */
   protected sourceView = linkedSignal({
-    source: this.viewport.narrow,
-    computation: (narrow, previous): SourceView => {
+    source: () => ({ narrow: this.viewport.narrow(), compact: this.viewport.compact() }),
+    computation: ({ narrow, compact }, previous): SourceView => {
       const view = previous?.value ?? 'hidden';
-      return narrow && view === 'detached' ? 'hidden' : view;
+      if (narrow && view === 'detached') return 'hidden';
+      if (compact && view === 'code') return 'hidden';
+      return view;
     },
   });
 
-  /** Whether the preview pane shows, docked to the left (the toolbar's
+  /** Whether the preview pane shows, docked to the left (the writer bar's
       preview button). Hidden by default, like the source, and closed by the
       breakpoint going narrow. */
   protected previewOpen = linkedSignal({
     source: this.viewport.narrow,
     computation: (narrow, previous): boolean => !narrow && (previous?.value ?? false),
   });
+
+  /** Whether the formatting toolbar is switched on (the writer bar's
+      formatting options button). Shown by default. */
+  protected formattingOpen = signal(true);
+
+  /** Whether the composer's formatting toolbar shows. Always on a phone:
+      there it is the bar on the keyboard, and the bar has no switch for it.
+      A choice made on a wide screen is kept for when the screen is wide
+      again. */
+  protected toolbarShown = computed(() => this.viewport.compact() || this.formattingOpen());
+
+  /** The writer bar's </>: the source in the editor's place, or gone. From
+      the docked view it moves the source in. */
+  protected toggleCodeView(): void {
+    releaseEditingSurface();
+    this.sourceView.update((view) => (view === 'code' ? 'hidden' : 'code'));
+  }
+
+  /** The writer bar's detach button: the source beside the editor, or gone.
+      From code view it moves the source out of the editor's place. */
+  protected toggleDetached(): void {
+    releaseEditingSurface();
+    this.sourceView.update((view) => (view === 'detached' ? 'hidden' : 'detached'));
+  }
 
   /** The source pane's element, for the code-view portal. */
   protected sourceEl = viewChild.required('sourceEl', { read: ElementRef });

@@ -1,0 +1,17 @@
+@use '../formatting-toolbar' as toolbar;
+
+// Only where the overlay is declared: no box in the composer's column.
+:host {
+  display: contents;
+}
+
+.bubble-menu__origin {
+  position: fixed;
+  pointer-events: none;
+}
+
+// Placed by the CDK from the extension's box; floats over the text, so it
+// carries its own surface.
+.bubble-menu {
+  @include toolbar.floating-toolbar;
+}

@@ -292,7 +292,7 @@ export class Styling {
           system: null,
           fallback: '16px (this app defines it)',
           alters:
-            'Icon size app-wide, including the menus that render in the CDK overlay container',
+            'Icon size app-wide, including the menus that render in the CDK overlay container; icon buttons size their own glyph (20px)',
         },
       ],
     },

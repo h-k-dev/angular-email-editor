@@ -1,0 +1,47 @@
+<!-- The anchor: a fixed, sizeless box at the selection's coordinates, for
+     the overlay to attach to. -->
+<span
+  cdkOverlayOrigin
+  #origin="cdkOverlayOrigin"
+  class="link-editor__origin"
+  [style.left.px]="anchor()?.left || 0"
+  [style.top.px]="anchor()?.top || 0"
+  [style.height.px]="anchor()?.height || 0"
+></span>
+
+<ng-template
+  cdkConnectedOverlay
+  [cdkConnectedOverlayOrigin]="origin"
+  [cdkConnectedOverlayOpen]="open()"
+  [cdkConnectedOverlayPositions]="positions"
+  [cdkConnectedOverlayHasBackdrop]="true"
+  cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop"
+  (backdropClick)="close()"
+  [cdkConnectedOverlayPush]="true"
+  [cdkConnectedOverlayViewportMargin]="8"
+>
+  <div class="link-editor" role="dialog" aria-label="Edit link">
+    <input
+      #input
+      class="link-editor__input"
+      type="url"
+      placeholder="Link URL"
+      spellcheck="false"
+      [value]="href()"
+      (input)="href.set($any($event.target).value)"
+      (keydown.enter)="apply()"
+      (keydown.escape)="close()"
+    />
+    <button mat-icon-button type="button" aria-label="Apply link" (click)="apply()">
+      <mat-icon>check</mat-icon>
+    </button>
+    @if (existing()) {
+      <button mat-icon-button type="button" aria-label="Open link" (click)="visit()">
+        <mat-icon>open_in_new</mat-icon>
+      </button>
+      <button mat-icon-button type="button" aria-label="Remove link" (click)="remove()">
+        <mat-icon>link_off</mat-icon>
+      </button>
+    }
+  </div>
+</ng-template>
