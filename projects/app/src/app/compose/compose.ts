@@ -336,7 +336,9 @@ export class Compose {
   protected toField = viewChild.required<AddressInput>('toField');
 
   constructor() {
-    afterNextRender(() => this.toField().focus());
+    // Focus is a DOM write: the write phase, batched ahead of the reads of
+    // the same pass (the toolbar measuring itself).
+    afterNextRender({ write: () => this.toField().focus() });
     this.#keepDraft();
   }
 
@@ -471,7 +473,7 @@ export class Compose {
     this.ccOpen.set(false);
     this.bccOpen.set(false);
     this.#draft.discard();
-    afterNextRender(() => this.toField().focus(), { injector: this.#injector });
+    afterNextRender({ write: () => this.toField().focus() }, { injector: this.#injector });
   }
 
   /** The draft's state, for the status strip. */
@@ -497,9 +499,10 @@ export class Compose {
 
   protected openCopy(which: 'cc' | 'bcc'): void {
     (which === 'cc' ? this.ccOpen : this.bccOpen).set(true);
-    afterNextRender(() => (which === 'cc' ? this.ccField() : this.bccField())?.focus(), {
-      injector: this.#injector,
-    });
+    afterNextRender(
+      { write: () => (which === 'cc' ? this.ccField() : this.bccField())?.focus() },
+      { injector: this.#injector },
+    );
   }
 
   /**
@@ -618,6 +621,8 @@ export class Compose {
     }
     (document.activeElement as HTMLElement | null)?.blur?.();
     this.sourceView.set(source ? 'code' : 'hidden');
+    // No phase: `show` selects and focuses inside ProseMirror, which reads
+    // and writes the DOM in one go.
     afterNextRender(show, { injector: this.#injector });
   }
 

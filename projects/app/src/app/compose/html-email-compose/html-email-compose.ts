@@ -56,6 +56,8 @@ export class HtmlEmailCompose {
   completions = signal<AutocompleteState | undefined>(undefined);
 
   constructor() {
+    // No phase: mounting ProseMirror writes the DOM and reads it back in
+    // one go.
     afterNextRender(() => this.#mountEditor());
 
     this.#destroyRef.onDestroy(() => this.editor()?.destroy());

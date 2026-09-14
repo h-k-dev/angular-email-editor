@@ -254,6 +254,8 @@ export class EmailCompose implements FormValueControl<string> {
   }
 
   constructor() {
+    // No phase: mounting ProseMirror writes the DOM and reads it back (the
+    // selection, the caret's coordinates) in one go.
     afterNextRender(() => this.#mountEditor());
 
     this.#commands.connect({
@@ -349,7 +351,10 @@ export class EmailCompose implements FormValueControl<string> {
     // write over the value it was given.
     this.#applyIncoming(editor);
     this.value.set(editor.getHTML());
-    editor.focus();
+    // No focus of its own: where the caret starts is the page's decision
+    // (the composer puts it in To), and the form's way in is `focus()`.
+    // Mounting runs in the mixed render phase, after the page's focus write
+    // — taking focus here would take it back.
   }
 
   focusEditor(): void {
@@ -366,7 +371,7 @@ export class EmailCompose implements FormValueControl<string> {
     }
     releaseEditingSurface();
     this.sourceView.set('hidden');
-    afterNextRender(() => this.editor()?.focus(), { injector: this.#injector });
+    afterNextRender({ write: () => this.editor()?.focus() }, { injector: this.#injector });
   }
 
   /** Infinite scroll: nearing the listbox's end fetches the next page. The

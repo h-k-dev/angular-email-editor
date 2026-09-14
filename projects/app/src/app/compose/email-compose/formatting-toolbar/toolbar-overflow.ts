@@ -66,11 +66,16 @@ export class ToolbarOverflow {
       observer.observe(this.#row);
       destroyRef.onDestroy(() => observer.disconnect());
     });
-    // …and whenever it is switched on, or its items change.
-    afterRenderEffect(() => {
-      this.enabled();
-      this.items();
-      untracked(() => this.#measure());
+    // …and whenever it is switched on, or its items change. Measuring is
+    // layout reading, so the read phase: after every write of the pass (a
+    // field taking focus), one layout for all of them. The signal it sets
+    // renders on the next pass, which is a write in its own right.
+    afterRenderEffect({
+      read: () => {
+        this.enabled();
+        this.items();
+        untracked(() => this.#measure());
+      },
     });
   }
 
