@@ -15,6 +15,8 @@ export type FormattingItemId =
   | 'link'
   | 'bulletList'
   | 'orderedList'
+  | 'outdent'
+  | 'indent'
   | 'quote'
   | 'alignLeft'
   | 'alignCenter'
@@ -128,6 +130,25 @@ export function formattingItems(
       pressed: () => commands.isActive('orderedList'),
       disabled: blockLocked,
       run: () => commands.run('toggleOrderedList'),
+    },
+    // Gmail's pair: a paragraph moves by a step of margin, a list item nests
+    // or lifts. In a list the first item cannot nest and a top-level one
+    // cannot lift, but that is the moment's state, not the button's.
+    outdent: {
+      id: 'outdent',
+      label: 'Indent less',
+      icon: 'format_indent_decrease',
+      wide: true,
+      disabled: blockLocked,
+      run: () => commands.run('outdent'),
+    },
+    indent: {
+      id: 'indent',
+      label: 'Indent more',
+      icon: 'format_indent_increase',
+      wide: true,
+      disabled: blockLocked,
+      run: () => commands.run('indent'),
     },
     quote: {
       id: 'quote',

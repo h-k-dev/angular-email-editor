@@ -84,7 +84,7 @@ describe('FormattingToolbar', () => {
   });
 
   it('moves the tail that no longer fits into the ⋯, from the end, and stays put once it shows', async () => {
-    // 15 tools of 40px in a 300px row: the ⋯ needs one tool's room, so the
+    // 17 tools of 40px in a 300px row: the ⋯ needs one tool's room, so the
     // line keeps six (240px) and the seventh — Bulleted list — moves.
     expect(more().hidden).toBe(false);
     expect(button('Link').hasAttribute('data-overflow')).toBe(false);
@@ -106,6 +106,8 @@ describe('FormattingToolbar', () => {
     expect(items.map((item) => item.textContent?.trim())).toEqual([
       'format_list_bulletedBulleted list',
       'format_list_numberedNumbered list',
+      'format_indent_decreaseIndent less',
+      'format_indent_increaseIndent more',
       'format_quoteQuote',
       'format_align_leftAlign left',
       'format_align_centerAlign center',

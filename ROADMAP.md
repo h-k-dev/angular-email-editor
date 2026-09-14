@@ -298,6 +298,14 @@ height:auto` for everyone else), caps widths at 600px on parse and on
       meaningful for RTL). Justify is refused: Outlook's Word engine mangles
       it. Toolbar group + Gmail keybindings (Mod-Shift-L/E/R); empty lines
       keep their alignment through the `<div><br></div>` serialization.
+- [x] **Indent & outdent** (2026-09-14): paragraphs carry an `indent` attr in
+      steps of 40px — Gmail's step, so its indented mail round-trips — that
+      serializes as inline `margin-left` and canonicalizes to nothing at 0;
+      capped at 8 steps. Toolbar pair beside the lists + Gmail keybindings
+      (Mod-] / Mod-[). In a list the same gesture nests or lifts the item
+      instead (Tab / Shift-Tab already did). Enter at a line's end now keeps
+      the line's indent _and_ alignment on the new line, as Gmail does. The
+      text/plain projection indents four spaces a step.
 - [x] **Clear formatting** (`Mod-\`, toolbar): strips every mark from the
       selection; block structure (lists, quotes, alignment) is layout, not
       formatting, and stays. Note: not yet mirrored into the source pane —

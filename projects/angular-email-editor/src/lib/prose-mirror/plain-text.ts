@@ -36,10 +36,19 @@ function renderBlock(element: Element, lines: string[], prefix: string): void {
   }
 
   // div, p, headings — one line each, more via <br>. A single trailing <br>
-  // is the empty-line marker (<div><br></div>), not an extra line.
+  // is the empty-line marker (<div><br></div>), not an extra line. An
+  // indented line (Gmail's margin-left, 40px a step) indents in text too,
+  // four spaces a step.
+  const indent = '    '.repeat(indentSteps(element));
   const raw = inlineText(element);
   const text = raw.endsWith('\n') ? raw.slice(0, -1) : raw;
-  for (const line of text.split('\n')) lines.push(prefix + line);
+  for (const line of text.split('\n')) lines.push(prefix + (line ? indent + line : line));
+}
+
+function indentSteps(element: Element): number {
+  const margin = (element as HTMLElement).style?.marginLeft ?? '';
+  const px = /^(\d+(?:\.\d+)?)px$/.exec(margin.trim());
+  return px ? Math.max(0, Math.round(parseFloat(px[1]) / 40)) : 0;
 }
 
 function renderList(list: Element, lines: string[], prefix: string, ordered: boolean): void {

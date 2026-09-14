@@ -10,7 +10,7 @@ import { NodeType, ResolvedPos } from 'prosemirror-model';
 import { defineNode } from '../../extension';
 
 /** Depth of the innermost list wrapping the selection start, or null. */
-const findListDepth = ($from: ResolvedPos): number | null => {
+export const findListDepth = ($from: ResolvedPos): number | null => {
   for (let depth = $from.depth; depth > 0; depth--) {
     if ($from.node(depth).type.spec.content?.startsWith('listItem')) return depth;
   }

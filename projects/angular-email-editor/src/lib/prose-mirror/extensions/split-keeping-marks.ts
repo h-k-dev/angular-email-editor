@@ -3,10 +3,10 @@ import {
   createParagraphNear,
   liftEmptyBlock,
   newlineInCode,
-  splitBlock,
+  splitBlockAs,
 } from 'prosemirror-commands';
 import { Command, EditorState } from 'prosemirror-state';
-import { Mark } from 'prosemirror-model';
+import { Mark, Node } from 'prosemirror-model';
 import { defineExtension } from '../extension';
 
 /**
@@ -29,13 +29,24 @@ export function marksAcrossBreak(state: EditorState): readonly Mark[] | 0 {
 }
 
 /**
+ * The block Enter at the *end* of a line starts: ProseMirror's default is a
+ * bare default block, which drops the line's alignment and indent. Gmail
+ * and Docs keep both — a centred or indented passage stays so as you type
+ * on — so a paragraph continues as a paragraph with its own attrs. Any other
+ * block (a heading) still ends in a plain line, and a split mid-line keeps
+ * the attrs on both halves by itself.
+ */
+const continueParagraph = (node: Node, atEnd: boolean) =>
+  atEnd && node.type.name === 'paragraph' ? { type: node.type, attrs: node.attrs } : null;
+
+/**
  * `splitBlock` that carries the surviving marks onto the new block — the
  * `splittable`-aware sibling of prosemirror-commands' `splitBlockKeepMarks`.
  * Without this, ProseMirror's default `splitBlock` drops every mark on Enter,
  * so a font/colour set on the cursor vanishes the moment you start a new line.
  */
 const splitBlockKeepingMarks: Command = (state, dispatch) =>
-  splitBlock(
+  splitBlockAs(continueParagraph)(
     state,
     dispatch &&
       ((tr) => {

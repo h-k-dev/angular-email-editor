@@ -29,6 +29,15 @@ describe('plain-text projection', () => {
     expect(emailPlainText('<img src="x.png" alt="chart">')).toBe('[chart]');
   });
 
+  it('indents an indented line four spaces a step, and never an empty one', () => {
+    expect(
+      emailPlainText(
+        '<div style="margin-left: 40px;">one</div><div style="margin-left: 80px;">a<br>b</div>' +
+          '<div style="margin-left: 40px;"><br></div><div>flat</div>',
+      ),
+    ).toBe('    one\n        a\n        b\n\nflat');
+  });
+
   it('turns hard breaks into lines without doubling the empty-line marker', () => {
     expect(emailPlainText('<div>a<br>b</div>')).toBe('a\nb');
     expect(emailPlainText('<div><br></div>')).toBe('');

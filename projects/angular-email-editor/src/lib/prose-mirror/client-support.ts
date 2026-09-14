@@ -147,6 +147,7 @@ export const EMAIL_SAFE_STYLE_PROPERTIES: string[] = [
   'font-weight',
   'height',
   'letter-spacing',
+  'margin-left',
   'max-width',
   'padding',
   'text-align',

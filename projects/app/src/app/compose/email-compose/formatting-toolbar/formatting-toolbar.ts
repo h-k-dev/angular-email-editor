@@ -39,13 +39,13 @@ import { ToolbarKeys } from './toolbar-keys';
 import { ToolbarMenu, ToolbarMenuItem } from './toolbar-menu/toolbar-menu';
 import { ToolbarOverflow, ToolbarOverflowItem } from './toolbar-overflow';
 
-/** The buttons in the order people reach for them — marks, colour, then link
-    and lists, the paragraph's shape, the rarer marks, the table — and so the
+/** The buttons in the order people reach for them — marks, colour, then link,
+    lists and their indent, the paragraph's shape, the rarer marks, the table — and so the
     order they move into the ⋯ menu, from the end, when the line runs out. */
 const LAYOUT: FormattingLayout = [
   ['bold', 'italic', 'underline'],
   ['textColor', 'highlight'],
-  ['link', 'bulletList', 'orderedList'],
+  ['link', 'bulletList', 'orderedList', 'outdent', 'indent'],
   ['quote', 'alignLeft', 'alignCenter', 'alignRight'],
   ['strike', 'clearFormatting'],
   ['table'],
