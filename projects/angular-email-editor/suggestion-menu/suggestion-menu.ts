@@ -14,9 +14,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
-import { SuggestionItem } from '../../prose-mirror/extension';
-import { measureMenuPlacement } from '../../prose-mirror/extensions/menu-position';
-import { SuggestionMenuState } from '../../prose-mirror/extensions/suggestion-menu';
+import { SuggestionItem, SuggestionMenuState, measureMenuPlacement } from 'angular-email-editor';
 import { SuggestionMenuHeader, SuggestionMenuHeaderContext } from './suggestion-menu.slots';
 
 /**

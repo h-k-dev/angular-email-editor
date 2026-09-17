@@ -1,17 +1,16 @@
 import { Component, ElementRef, afterNextRender, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Editor, createEditor } from '../../prose-mirror/editor';
 import {
+  Editor,
   SuggestionCommandItem,
   SuggestionGroup,
-  SuggestionPage,
-  extensionSuggestions,
-} from '../../prose-mirror/extension';
-import { richTextExtensions } from '../../prose-mirror/extensions/kits';
-import {
   SuggestionMenuState,
+  SuggestionPage,
+  createEditor,
   createSuggestionMenu,
-} from '../../prose-mirror/extensions/suggestion-menu';
+  extensionSuggestions,
+  richTextExtensions,
+} from 'angular-email-editor';
 import { SuggestionMenu } from './suggestion-menu';
 import { SuggestionMenuItem } from './suggestion-menu-item';
 import { SuggestionMenuHeader } from './suggestion-menu.slots';

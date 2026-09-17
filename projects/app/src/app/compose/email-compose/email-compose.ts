@@ -44,8 +44,6 @@ import {
   BubbleMenuState,
   Editor,
   SendIntent,
-  SuggestionMenu,
-  SuggestionMenuItem,
   SuggestionMenuState,
   TextMetrics,
   caretInsideMergeTag,
@@ -64,6 +62,7 @@ import {
   mergeTagAt,
   emailExtensions,
 } from 'angular-email-editor';
+import { SuggestionMenu, SuggestionMenuItem } from 'angular-email-editor/suggestion-menu';
 
 /** Where the HTML source shows: nowhere, in the editing surface's place
     (code view), or beside the editor in its own column (detached). */

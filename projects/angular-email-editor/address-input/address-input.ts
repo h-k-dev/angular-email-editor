@@ -17,9 +17,12 @@ import {
   viewChildren,
 } from '@angular/core';
 import type { FormValueControl } from '@angular/forms/signals';
-import { isMailbox, splitAddresses } from '../address-chip/address';
-import { AddressChip } from '../address-chip/address-chip';
-import { AddressChipRemove } from '../address-chip/address-chip.slots';
+import {
+  AddressChip,
+  AddressChipRemove,
+  isMailbox,
+  splitAddresses,
+} from 'angular-email-editor/address-chip';
 
 let nextId = 0;
 

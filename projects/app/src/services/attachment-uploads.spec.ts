@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { simulatedDuration } from 'angular-email-editor';
+import { simulatedDuration } from 'angular-email-editor/attachment-chip';
 import { ATTACHMENT_UPLOAD_OPTIONS, AttachmentUploads } from './attachment-uploads';
 
 const PREPROCESS = 100;

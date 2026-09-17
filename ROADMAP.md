@@ -1147,6 +1147,34 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   in the kit.
 - New capability = new extension. If it needs UI, it exposes state through a
   callback and the app renders it (see bubble/slash menus, diagnostics).
+- **One entry point per UI piece (2026-09-17).** The main entry,
+  `angular-email-editor`, is the engine and its Angular glue (the editor,
+  every extension, `InlineImages`). Each UI piece is a secondary entry of
+  its own, Material-style — `angular-email-editor/address-chip`,
+  `/address-input`, `/attachment-chip`, `/attachment-chips`,
+  `/suggestion-menu` — a folder beside `src/` with its `ng-package.json`
+  and `public-api.ts`. Smallest bundle and smallest install: an entry
+  brings only its own peers (`@angular/forms` is optional — only the two
+  form controls need it). Entries reach each other through the package
+  name, never a relative path; specs resolve those names to the sources
+  (`tsconfig.spec.json`), the app to `dist/`. A new UI piece, or a
+  behaviour directive, starts as its own entry; the library never imports
+  a UI kit — a framework that needs code gets an entry of its own
+  (`/primeng`), after a recipe in the demo has shown it must.
+  **Names are flat, as Angular's are** (`@angular/material/button`,
+  `@angular/cdk/overlay`) — no `components/…` or `directives/…` segment:
+  - one level, `angular-email-editor/<name>`; the only nesting is
+    `<name>/testing`, for harnesses, the way Material and Aria do it;
+  - a component entry is named for the thing (`address-input`), a
+    directive entry for the behaviour it gives (`focus`, `anchor`,
+    `keyboard`) — so the two never want the same name;
+  - a directive entry is a *topic* that ships its directives together, as
+    `@angular/cdk/overlay` does — not one entry per directive: tree-shaking
+    already drops the classes nobody uses, entries are for peers and chunks;
+  - never a catch-all entry (`/components`, `/directives`): it would pool
+    every piece's peers again;
+  - kits stay in the main entry until the extensions themselves are
+    entries — a kit entry alone would save nothing.
 - **One suggestion menu, configured by its trigger (2026-09-15).** Every
   trigger-at-the-caret menu is `createSuggestionMenu({ trigger, … })`, the
   way Tiptap's Suggestion and Lexical's typeahead do it — and since

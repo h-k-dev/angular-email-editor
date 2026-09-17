@@ -37,23 +37,23 @@ import { AngularFileDrop, FileDropEvent } from '@h-k-dev/angular-file-drop';
 
 // Angular Email Editor
 import {
-  AddressInput,
-  Attachment,
-  AttachmentChip,
-  AttachmentChipIcon,
-  AttachmentChips,
-  AttachmentKind,
   HtmlDiagnostic,
   InlineImages,
-  addressList,
   emailSizeBudget,
   importLoss,
   importedDocument,
-  isEmailAddress,
-  parseMailbox,
   replyDocument,
   toInboundMessage,
 } from 'angular-email-editor';
+import { isEmailAddress, parseMailbox } from 'angular-email-editor/address-chip';
+import { AddressInput, addressList } from 'angular-email-editor/address-input';
+import {
+  Attachment,
+  AttachmentChip,
+  AttachmentChipIcon,
+  AttachmentKind,
+} from 'angular-email-editor/attachment-chip';
+import { AttachmentChips } from 'angular-email-editor/attachment-chips';
 import { MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { EmailCompose, SourceView } from './email-compose/email-compose';

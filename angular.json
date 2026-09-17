@@ -28,6 +28,7 @@
           "builder": "@angular/build:unit-test",
           "options": {
             "tsConfig": "projects/angular-email-editor/tsconfig.spec.json",
+            "include": ["**/*.spec.ts", "../*/**/*.spec.ts"],
             "setupFiles": ["projects/angular-email-editor/src/test-setup.ts"]
           }
         }

@@ -2,7 +2,7 @@ import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormField, form } from '@angular/forms/signals';
 import { By } from '@angular/platform-browser';
-import { AddressChipRemove } from '../address-chip/address-chip.slots';
+import { AddressChipRemove } from 'angular-email-editor/address-chip';
 import { AddressInput } from './address-input';
 import {
   ADDRESS_LIST_EMPTY,

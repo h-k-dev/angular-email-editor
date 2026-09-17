@@ -1,5 +1,5 @@
 import { Directive, TemplateRef, inject } from '@angular/core';
-import { SuggestionGroup } from '../../prose-mirror/extension';
+import { SuggestionGroup } from 'angular-email-editor';
 
 /**
  * A suggestion menu's header slot, shown on level 2 above the group's

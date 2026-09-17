@@ -14,7 +14,7 @@ import {
   AttachmentChipOptions,
   AttachmentStatus,
   simulatedDuration,
-} from 'angular-email-editor';
+} from 'angular-email-editor/attachment-chip';
 
 /** The pacing of a simulated transfer: the line's speed and the bounds on
     how long one runs — the library's own pacing shape, so the store and

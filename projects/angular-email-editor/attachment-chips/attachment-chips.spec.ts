@@ -1,8 +1,7 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormField, form } from '@angular/forms/signals';
-import { Attachment } from '../attachment-chip/attachment';
-import { AttachmentChip } from '../attachment-chip/attachment-chip';
+import { Attachment, AttachmentChip } from 'angular-email-editor/attachment-chip';
 import { AttachmentChips } from './attachment-chips';
 
 /** A host the way a composer without a form uses the pair: it holds the

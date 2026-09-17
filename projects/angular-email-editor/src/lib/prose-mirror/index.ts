@@ -32,6 +32,7 @@ export * from './extensions/nodes/lists';
 export * from './extensions/bubble-menu';
 export * from './extensions/block-menu';
 export * from './extensions/suggestion-menu';
+export * from './extensions/menu-position';
 export * from './extensions/dialects/dialect';
 export * from './extensions/dialects/angular-expressions';
 export * from './extensions/text-metrics';
