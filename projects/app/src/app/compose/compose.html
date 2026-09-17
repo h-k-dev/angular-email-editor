@@ -37,6 +37,7 @@
   <section
     email-preview
     [hidden]="!previewOpen()"
+    [active]="previewOpen()"
     [html]="html()"
     aria-label="Email preview"
   ></section>
@@ -353,6 +354,7 @@
     #sourceEl
     class="scroll-container"
     [hidden]="sourceView() === 'hidden'"
+    [active]="sourceView() !== 'hidden'"
     [(html)]="html"
     [(diagnostics)]="diagnostics"
     aria-label="Email HTML source"

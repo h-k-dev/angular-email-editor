@@ -352,6 +352,19 @@ html {
   box-decoration-break: clone;
 }
 
+/* A suggestion menu's session — the trigger and the query being typed — is
+ * marked while it lasts (a decoration: nothing of it serializes). Only the
+ * placeholder is painted: after the bare trigger, until a query is typed.
+ * The text itself stays as it is — a `/` that turns out to be no command
+ * must not flash a colour on its way. */
+.aee-editor .aee-suggestion-empty[data-placeholder]::after {
+  content: attr(data-placeholder);
+  // The text's own colour at half its alpha — relative colour syntax, so it
+  // is muted on any paper, in any theme.
+  color: var(--email-suggestion-placeholder-color, oklch(from currentColor l c h / 0.5));
+  pointer-events: none;
+}
+
 /* The caret's cell: the selection rectangle without its tint, so the cell
  * being typed in is always visible. Same border token, same radius. */
 .aee-editor td.aee-cell-active::after {

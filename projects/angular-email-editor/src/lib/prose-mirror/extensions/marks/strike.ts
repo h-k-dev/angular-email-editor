@@ -29,8 +29,9 @@ export const Strike = defineMark({
     unsetStrike: () => unsetMark(schema.marks['strike']),
     toggleStrike: () => toggleMark(schema.marks['strike']),
   }),
-  slashItems: ({ schema }) => [
+  suggestions: ({ schema }) => [
     {
+      id: 'strike',
       title: 'Strike',
       keywords: ['strike', 'strikethrough'],
       icon: 'format_strikethrough',

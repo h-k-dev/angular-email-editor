@@ -1,0 +1,166 @@
+// A suggestion menu's box. Parts are addressed by data-slot and held to one
+// attribute of specificity (`:where` around the part), like the chips'.
+//
+// Every value is a three-step cascade: the menu's own --email-suggestion-menu-*
+// token, then Material's system token of the same meaning, then a hardcoded
+// fallback. Type is Material's body-medium spelled out in full.
+//
+// `top`, `left` and `visibility` are written inline by the component once
+// its rows are rendered and measured; hidden here until then.
+
+:host {
+  position: absolute;
+  visibility: hidden;
+  z-index: var(--email-suggestion-menu-z-index, 2);
+  display: flex;
+  flex-direction: column;
+  min-width: var(--email-suggestion-menu-min-width, 220px);
+  max-width: var(--email-suggestion-menu-max-width, 360px);
+  max-height: var(--email-suggestion-menu-max-height, 320px);
+  padding: var(--email-suggestion-menu-padding, 4px);
+  box-sizing: border-box;
+
+  color: var(
+    --email-suggestion-menu-color,
+    var(--mat-sys-on-surface, light-dark(#1f1f1f, #e3e3e3))
+  );
+  background-color: var(
+    --email-suggestion-menu-background,
+    var(--mat-sys-surface-container, light-dark(#f0f4f9, #1e1f20))
+  );
+  border-radius: var(--email-suggestion-menu-corner, var(--mat-sys-corner-medium, 12px));
+  box-shadow: var(
+    --email-suggestion-menu-shadow,
+    var(--mat-sys-level2, 0 2px 6px 2px rgb(0 0 0 / 15%), 0 1px 2px rgb(0 0 0 / 30%))
+  );
+
+  font-family: var(
+    --email-suggestion-menu-font-family,
+    var(--mat-sys-body-medium-font, system-ui, sans-serif)
+  );
+  font-size: var(--email-suggestion-menu-font-size, var(--mat-sys-body-medium-size, 0.875rem));
+  font-weight: var(--email-suggestion-menu-font-weight, var(--mat-sys-body-medium-weight, 400));
+  line-height: var(
+    --email-suggestion-menu-line-height,
+    var(--mat-sys-body-medium-line-height, 1.25rem)
+  );
+  letter-spacing: var(
+    --email-suggestion-menu-letter-spacing,
+    var(--mat-sys-body-medium-tracking, 0.016rem)
+  );
+}
+
+// Level 2: the back control and the group's title, pinned over the list.
+:host :where([data-slot='header']) {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--email-suggestion-menu-header-gap, 4px);
+  min-height: var(--email-suggestion-menu-header-height, 32px);
+  padding-block-end: 4px;
+  margin-block-end: 4px;
+  border-block-end: 1px solid
+    var(
+      --email-suggestion-menu-divider-color,
+      var(--mat-sys-outline-variant, light-dark(#c7c7c7, #444746))
+    );
+
+  color: var(
+    --email-suggestion-menu-header-color,
+    var(--mat-sys-on-surface-variant, light-dark(#444746, #c4c7c5))
+  );
+  font-family: var(--mat-sys-label-large-font, inherit);
+  font-size: var(--mat-sys-label-large-size, 0.875rem);
+  font-weight: var(--mat-sys-label-large-weight, 500);
+  line-height: var(--mat-sys-label-large-line-height, 1.25rem);
+  letter-spacing: var(--mat-sys-label-large-tracking, 0.006rem);
+}
+
+:host :where([data-slot='back']) {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--email-suggestion-menu-back-size, 32px);
+  height: var(--email-suggestion-menu-back-size, 32px);
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--email-suggestion-menu-back-corner, var(--mat-sys-corner-full, 50%));
+  background: none;
+  color: inherit;
+  cursor: pointer;
+
+  svg {
+    width: var(--email-suggestion-menu-back-icon-size, 20px);
+    height: var(--email-suggestion-menu-back-icon-size, 20px);
+    fill: currentColor;
+  }
+
+  &:hover {
+    background-color: var(
+      --email-suggestion-menu-item-hover-background,
+      var(--mat-sys-surface-container-high, light-dark(#e9eef6, #282a2c))
+    );
+  }
+}
+
+:host :where([data-slot='title']) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// The scroller — the header stays put above it. `position: relative` makes
+// it the rows' offsetParent, which keeping the active row in view measures by.
+:host :where([data-slot='listbox']) {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  transition: opacity 150ms ease;
+}
+
+// The rows answer the previous query while the new one is on its way: still
+// there (nothing jumps), but quieter until they are current again.
+:host :where([data-slot='listbox'][data-stale]) {
+  opacity: var(--email-suggestion-menu-stale-opacity, 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host :where([data-slot='listbox']) {
+    transition: none;
+  }
+}
+
+:host :where([data-slot='status']) {
+  flex: none;
+  padding-block: 6px;
+  padding-inline: 8px;
+  color: var(
+    --email-suggestion-menu-status-color,
+    var(--mat-sys-on-surface-variant, light-dark(#444746, #c4c7c5))
+  );
+}
+
+:host :where([data-slot='status'][data-empty]) {
+  padding-block: 0;
+}
+
+// The live region: never seen, always there. `visibility: visible` lifts it
+// out of the hidden box — a region that enters the accessibility tree with
+// its words already in it is not announced.
+:host :where([data-slot='announcer']) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  visibility: visible;
+}

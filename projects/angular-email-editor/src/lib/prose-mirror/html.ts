@@ -4,7 +4,9 @@ import {
   DOMSerializer,
   Node,
   Schema,
+  Slice,
 } from 'prosemirror-model';
+import { Command } from 'prosemirror-state';
 import { repairTables } from './extensions/nodes/table';
 import { promoteMergeTags } from './extensions/nodes/merge-tag';
 
@@ -85,3 +87,17 @@ export function parseHTML(html: string, schema: Schema): Node {
   const parsed = ProseMirrorDOMParser.fromSchema(schema).parse(dom.body);
   return promoteMergeTags(repairTables(parsed, schema), schema);
 }
+
+/**
+ * A command inserting an HTML fragment at the selection — a template, a
+ * snippet — parsed exactly as {@link parseHTML} parses a whole document, so
+ * tables are repaired and merge tags promoted on the way in. Block content
+ * dropped into an empty paragraph takes its place.
+ */
+export const insertHTML =
+  (html: string): Command =>
+  (state, dispatch) => {
+    const doc = parseHTML(html, state.schema);
+    dispatch?.(state.tr.replaceSelection(new Slice(doc.content, 0, 0)).scrollIntoView());
+    return true;
+  };

@@ -29,8 +29,9 @@ export const Blockquote = defineNode({
     // `> ` at the start of a block wraps it in a blockquote.
     wrappingInputRule(/^\s*>\s$/, schema.nodes['blockquote']),
   ],
-  slashItems: ({ schema }) => [
+  suggestions: ({ schema }) => [
     {
+      id: 'quote',
       title: 'Quote',
       keywords: ['blockquote', 'citation'],
       icon: 'format_quote',

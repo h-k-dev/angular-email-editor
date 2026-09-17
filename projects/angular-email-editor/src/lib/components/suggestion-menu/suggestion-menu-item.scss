@@ -1,0 +1,31 @@
+// A row of a suggestion menu. The host fills it (an icon, a title); the row
+// only lays it out and paints the highlight — one, which the keyboard and
+// the pointer both move, so there is no hover paint to disagree with it. Tokens are the menu's (--email-suggestion-menu-item-*), so one
+// place themes the pair.
+
+:host {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--email-suggestion-menu-item-gap, 8px);
+  min-height: var(--email-suggestion-menu-item-height, 32px);
+  padding-block: var(--email-suggestion-menu-item-padding-block, 6px);
+  padding-inline: var(--email-suggestion-menu-item-padding-inline, 8px);
+  box-sizing: border-box;
+  border-radius: var(--email-suggestion-menu-item-corner, var(--mat-sys-corner-small, 8px));
+  color: inherit;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+:host([data-active]) {
+  color: var(
+    --email-suggestion-menu-item-active-color,
+    var(--mat-sys-primary, light-dark(#0b57d0, #a8c7fa))
+  );
+  background-color: var(
+    --email-suggestion-menu-item-active-background,
+    var(--mat-sys-secondary-container, light-dark(#c2e7ff, #004a77))
+  );
+}

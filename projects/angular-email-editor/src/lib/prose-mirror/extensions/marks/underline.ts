@@ -25,8 +25,9 @@ export const Underline = defineMark({
     'Mod-u': toggleMark(schema.marks['underline']),
     'Mod-U': toggleMark(schema.marks['underline']),
   }),
-  slashItems: ({ schema }) => [
+  suggestions: ({ schema }) => [
     {
+      id: 'underline',
       title: 'Underline',
       keywords: ['underline'],
       icon: 'format_underlined',

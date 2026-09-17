@@ -97,6 +97,14 @@ HTML is allowed to be.
   too nice and simple to pass on.
   - [ ] Migrate the composer UI (toolbar, menus) from Material components to
         headless Aria/CDK primitives styled purely by the token cascade.
+  - **Our own where Aria's pattern does not fit — never both in one widget.**
+    Aria's combobox assumes an `<input>` (it reads `value`, sets the
+    selection range) and its toolbar focuses a tool on click; an editor-bound
+    menu has ProseMirror's editable as its text field and must never take
+    focus from it. So the suggestion menus (`/`, `{{`) are the library's own
+    pair (`email-suggestion-menu`, 2026-09-15), shaped like Aria's (listbox,
+    options, ids for `aria-activedescendant`) but with no Aria in it. Aria
+    stays fine for app chrome (the toolbar's ⋯ menu).
 - **One token cascade, always.** Every visual knob resolves in this exact
   sequence: `--email-*` / `--html-email-*` (our component tokens) →
   `--mat-sys-*` (Material system tokens) → hard fallback value. Host apps
@@ -1139,20 +1147,93 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   in the kit.
 - New capability = new extension. If it needs UI, it exposes state through a
   callback and the app renders it (see bubble/slash menus, diagnostics).
-- **The slash menu is an extensibility surface, and its search grows over
-  time.** Three ways in: extensions declare `slashItems` (kit-level), hosts
-  pass `options.items` (static app-level), and hosts pass
-  `options.getItems(query)` — a per-query **dynamic source**, sync or async
-  (built for an Angular `resource()` keyed on the query: templates, snippets,
-  backend search). Async results merge when they land, stale responses are
-  discarded internally (newer query / dismissal / destroy — hosts never
-  race-guard), and `SlashMenuState.loading` drives a "Searching…" row. Static
-  matches rank **title-first** (exact > prefix > includes > keyword-only, kit
-  order as tiebreak — "/columns" must highlight Columns, not the table whose
-  keywords include it); source items append after them, unfiltered — the
-  source owns its own matching. An item's `command` is just a ProseMirror
-  `Command`, which may act without dispatching (see `/send`) — so slash items
-  can insert content _or_ perform actions.
+- **One suggestion menu, configured by its trigger (2026-09-15).** Every
+  trigger-at-the-caret menu is `createSuggestionMenu({ trigger, … })`, the
+  way Tiptap's Suggestion and Lexical's typeahead do it — and since
+  2026-09-17 one call takes several: `createSuggestionMenu({ element,
+  onChange, triggers: [{ trigger: '/', … }, { trigger: '{{', … }] })`. The
+  triggers never open together, so they share one element and one stream of
+  states (the state names its `trigger`, `label` and `listboxId`); a new
+  one — `@`, `||`, any string — is one more entry, no new markup. There is no
+  `createSlashMenu` / `createMergeTagMenu` any more (no compatibility kept,
+  pre-release). What differs is options: `trigger`, `startOfWord` (default
+  true; `{{` sets false), `query` (a RegExp the text after the trigger must
+  match — `{{` narrows it to a path, `/^ ?[\w.]*$/`), `items` and `source`.
+  A trigger right after its own first character never opens (`//`, `{{{`).
+  Items are one shape for every menu: `{ id, title, keywords?, detail?, icon?,
+  command }` — what picking does is the item's `command`
+  (`insertMergeTag(path)`, `insertHTML(html)`, a kit command), run after the
+  trigger and query are deleted. Extensions offer theirs as `suggestions`;
+  `extensionSuggestions(ctx)` gathers them for a `/` menu.
+  - **Search grows over time.** `items` (a list, or a function of the
+    extensions) are filtered and ranked **title-first** (exact > prefix >
+    includes > keyword-only, given order as tiebreak — "/columns" must
+    highlight Columns, not the table whose keywords include it). `source` is
+    the dynamic side: `{ query, cursor, signal } → items | { items,
+    nextCursor }`, sync or async, appended unfiltered (the source owns its
+    matching). `debounce` (default 300ms, 0 = at once) holds a new query's
+    request, never a page's. A
+    newer query, a dismissal or a destroyed editor **aborts** what is out
+    (`signal`) and drops its answer; a failed answer is `error` in the state,
+    and the menu stays open to say so.
+  - **Two levels, and the document is the only state.** A `SuggestionGroup`
+    (`children` instead of `command`: a list, or a source) is entered by
+    rewriting the query to `<word> ` — its title lowercased, spaces as
+    hyphens. `<trigger><word> <rest>` whose word names a group (title, id or
+    keyword) *is* level 2, so Backspace over the space, undo and a pasted
+    query all land right. Two levels by type: a group's children are
+    `SuggestionCommandItem`s. Level 2 stays open with no matches ("No
+    results") and keeps Enter/Tab/arrows. Every item has a stable `id`;
+    `i18n` (by id) replaces a title and adds keywords — the original title
+    and keywords stay searchable, and both words enter a group.
+  - **One at a time.** Menus on one editor register with each other; where
+    sessions overlap (`/templates zz{{`) the trigger nearest the caret opens
+    and owns the keys, and the outer one comes back once the inner session is
+    gone. ARIA attributes on the editor are only ever cleared by the menu
+    that set them.
+  - The editor is the combobox: while open it carries `aria-controls`,
+    `aria-autocomplete="list"` and `aria-activedescendant`, written on the
+    element directly (ProseMirror only patches attributes it was given).
+    Rows are `role=option`, never focusable.
+  - **Paging.** The state carries `hasMore` / `loadingMore` / `loadMore()`.
+    Keyboard: arrows stop at the ends and emit nothing there — except
+    ArrowDown on the last row with more pages, which fetches once however long
+    it is held and steps onto the new first row when it lands. Pointer: the
+    component watches an end marker inside the listbox with an
+    IntersectionObserver (root = listbox, 64px ahead), armed only while a page
+    can load — no scroll listener, and a page too short to fill the box asks
+    for the next at once. The demo backs `/templates` (12 a page) and `{{`
+    (20 a page) with the app's `Templates` and `MergeTags` services, both
+    `find(filter, { signal })` on one LoopBack 3 filter mock
+    (`loopback-filter.ts`: `like`/`ilike`/`inq`/`and`/`or`, `order` with
+    German, numeric collation, `skip`/`limit`, backslash-escaped wildcards,
+    AbortError on cancel).
+  - **DOM economy (measured 2026-09-15, in the composer).** The engine never
+    writes to the menu element: it hands the renderer `range` and a lazy
+    `clientRect()`, and `email-suggestion-menu` places itself in its own
+    render phases (`measureMenuPlacement` in earlyRead, left/top/visibility in
+    write) after its rows are in, re-measuring only when rows, level, query
+    or status change — an arrow press measures nothing. A new query keeps the
+    previous rows on screen as `stale` (listbox `data-stale`, dimmed;
+    `aria-busy`) until the answer replaces them, so the list is diffed by id
+    instead of rebuilt: typing that narrows 20 rows to 1 went from ~80 node
+    mutations to 21, an unchanged result set from 82 to 2. Enter/Tab wait on a
+    stale row rather than applying the last query's pick. Editor aria-*
+    attributes are written only when their value changes (an arrow press:
+    3 writes → 1); a transaction that leaves the session as it was emits
+    nothing; rows find their index from one per-state map, not `indexOf`.
+    App side: the preview (`active` input, a linkedSignal holding the last
+    shown html) and the source pane (`active`; hidden it lints the text with
+    `lintHTML(formatHTML(html))` so the status strip stays live) no longer
+    touch the DOM per keystroke while hidden, and catch up when shown.
+  - **No virtualization (decided 2026-09-15).** Paged search keeps the DOM to
+    a few pages of rows; virtual scrolling would unrender the option
+    `aria-activedescendant` points at and fight the host-rendered
+    `@for` rows. Revisit only if a list really holds hundreds of loaded
+    rows — then CDK's fixed-size virtual scroll, not our own.
+  - [ ] Phone: a full-height sheet for the menu (Slack-style). Typing still
+        goes into the covered editor, so the sheet must echo the query and
+        the extension needs a mode that skips its own positioning.
 - Anything both panes must agree on lives in the **email schema**, never in
   either pane. The source pane consumes it via `createSourceMarks`-style
   round-trips.

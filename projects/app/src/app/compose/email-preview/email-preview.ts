@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, signal } from '@angular/core';
+import { Component, computed, inject, input, linkedSignal, signal } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 // Library
@@ -40,6 +40,19 @@ export class EmailPreview {
   /** Canonical email HTML — input only; a preview never talks back. */
   html = input('');
 
+  /** Whether the preview is on screen. While it is not, it holds still: a
+      hidden frame's `srcdoc` would still be parsed and laid out on every
+      keystroke, for nobody. */
+  active = input(true);
+
+  /** The html the preview shows: `html` while active, and the last one it
+      showed while hidden — the source reads `html` only when active, so a
+      hidden preview does not even depend on it. Catches up when shown. */
+  readonly #shown = linkedSignal<string | null, string>({
+    source: () => (this.active() ? this.html() : null),
+    computation: (html, previous) => html ?? previous?.value ?? '',
+  });
+
   view = signal<'html' | 'text'>('html');
   mode = signal<'light' | 'dark'>('light');
   protected readonly PHONE_WIDTH = PHONE_WIDTH;
@@ -54,10 +67,10 @@ export class EmailPreview {
     this.#sanitizer.bypassSecurityTrustHtml(
       `<!doctype html><html><head><meta charset="utf-8"><style>${CLIENT_SURFACE}${
         this.mode() === 'dark' ? FORCED_INVERSION : ''
-      }</style></head><body>${this.#images.previewHtml(this.html())}</body></html>`,
+      }</style></head><body>${this.#images.previewHtml(this.#shown())}</body></html>`,
     ),
   );
 
   /** The text/plain alternative of the same signal. */
-  text = computed(() => emailPlainText(this.html()));
+  text = computed(() => emailPlainText(this.#shown()));
 }

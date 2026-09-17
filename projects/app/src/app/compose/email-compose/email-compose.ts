@@ -33,26 +33,31 @@ import { BubbleMenu } from './bubble-menu/bubble-menu';
 import { FormattingCommands } from './formatting-commands';
 import { FormattingToolbar } from './formatting-toolbar/formatting-toolbar';
 import { LinkEditor } from './link-editor/link-editor';
-import { fetchMergeTags } from './merge-tag-catalogue';
+import { Templates } from '../../../services/templates';
+import { MergeTags } from '../../../services/merge-tags';
+import { mergeTagSource } from './merge-tag-source';
+import { templateGroup } from './template-group';
 
 // Library
 import {
   BlockMenuState,
   BubbleMenuState,
   Editor,
-  MergeTagMenuState,
   SendIntent,
-  SlashMenuState,
+  SuggestionMenu,
+  SuggestionMenuItem,
+  SuggestionMenuState,
   TextMetrics,
+  caretInsideMergeTag,
   createBlockMenu,
   createBubbleMenu,
   createEditor,
-  createMergeTagMenu,
   createAngularExpressions,
   createImageDrag,
   createInlineImages,
   createSendIntent,
-  createSlashMenu,
+  createSuggestionMenu,
+  extensionSuggestions,
   createTextMetrics,
   ExpressionDiagnostic,
   InlineImages,
@@ -67,8 +72,8 @@ export type SourceView = 'hidden' | 'code' | 'detached';
 /**
  * The composer: the editing surface with the editor mounted on it, and the
  * chrome that formats what is in it — the toolbar below, the bubble and
- * block menus and the link editor floating over the text, the slash and
- * `{{` menus the extensions place. One `FormattingCommands` binds them all
+ * block menus and the link editor floating over the text, the suggestion
+ * menu (`/`, `{{`) under the caret. One `FormattingCommands` binds them all
  * to this editor.
  */
 @Component({
@@ -86,6 +91,8 @@ export type SourceView = 'hidden' | 'code' | 'detached';
     DropHint,
     FormattingToolbar,
     LinkEditor,
+    SuggestionMenu,
+    SuggestionMenuItem,
   ],
   // The formatting commands this composer's toolbar, bubble menu and ⋯ menu
   // share — one per composer, bound to its editor and code view.
@@ -98,6 +105,10 @@ export class EmailCompose implements FormValueControl<string> {
   readonly #commands = inject(FormattingCommands);
   /** The composer's inline image registry — provided by the composer. */
   readonly #images = inject(InlineImages);
+  /** The template store the slash menu's /templates group searches. */
+  readonly #templates = inject(Templates);
+  /** The variable catalogue the `{{` menu searches. */
+  readonly #mergeTags = inject(MergeTags);
 
   /** Canonical email HTML — the form's `html` field, bound with
       `[formField]` (this pane is a `FormValueControl<string>`), or two-way
@@ -200,8 +211,11 @@ export class EmailCompose implements FormValueControl<string> {
   }
 
   editorHost = viewChild.required<ElementRef<HTMLElement>>('editorHost');
-  slashMenu = viewChild.required<ElementRef<HTMLElement>>('slashMenu');
-  mergeTagMenu = viewChild.required<ElementRef<HTMLElement>>('mergeTagMenu');
+  /** The suggestion menu's box, handed to its extension — one for every
+      trigger: they never open together. */
+  suggestionMenu = viewChild.required<SuggestionMenu, ElementRef<HTMLElement>>('suggestionMenu', {
+    read: ElementRef,
+  });
   /** The floating menus and the link editor: the extensions place the
       first two through their state, the link items open the third. */
   protected readonly blockMenu = viewChild.required(BlockMenu);
@@ -209,7 +223,10 @@ export class EmailCompose implements FormValueControl<string> {
 
   /** The email editor, once mounted — the formatting commands' own. */
   readonly editor = this.#commands.editor;
-  slashState = signal<SlashMenuState | undefined>(undefined);
+  /** The suggestion menu's live state — of whichever trigger is open: `/`
+      (the kit's commands and the Templates group) or `{{` (the variable
+      catalogue, a page at a time). */
+  suggestionState = signal<SuggestionMenuState | undefined>(undefined);
 
   /** The bubble menu's state, from its extension: open on a selection. */
   protected readonly bubbleMenuState = signal<BubbleMenuState>({
@@ -224,11 +241,6 @@ export class EmailCompose implements FormValueControl<string> {
     boundingBox: null,
     block: null,
   });
-
-  /** The `{{` autocomplete's live state — the app renders the listbox rows
-      from it (items, highlight, loading rows) and calls `loadMore` from the
-      scroll handler. Opening, filtering and paging live in the extension. */
-  mergeMenuState = signal<MergeTagMenuState | undefined>(undefined);
 
   /** Body stats measured mathematically via pretext — no DOM reads. */
   bodyMetrics = signal<TextMetrics | undefined>(undefined);
@@ -301,15 +313,35 @@ export class EmailCompose implements FormValueControl<string> {
           onStateChange: (state) => this.blockMenuState.set(state),
           menuElement: () => this.blockMenu().element()?.nativeElement,
         }),
-        createSlashMenu({
-          element: this.slashMenu().nativeElement,
-          onChange: (state) => this.slashState.set(state),
-        }),
-        createMergeTagMenu({
-          element: this.mergeTagMenu().nativeElement,
-          getTags: fetchMergeTags,
-          debounce: 150,
-          onChange: (state) => this.mergeMenuState.set(state),
+        // One suggestion menu, a trigger per list: `/` for the kit's commands
+        // and the Templates group, `{{` for the variable catalogue — and any
+        // further one (`@`, `||`) is another entry here, nothing else. Both
+        // sources are server-backed and keep the default 300ms debounce;
+        // where their sessions overlap, the trigger nearest the caret opens.
+        createSuggestionMenu({
+          element: this.suggestionMenu().nativeElement,
+          onChange: (state) => this.suggestionState.set(state),
+          triggers: [
+            {
+              trigger: '/',
+              label: 'Insert block',
+              placeholder: 'Type to filter…',
+              items: (ctx) => [...extensionSuggestions(ctx), templateGroup(this.#templates)],
+            },
+            {
+              trigger: '{{',
+              label: 'Personalization tokens',
+              placeholder: 'Search tokens…',
+              // Right after any character, and only a path: one optional
+              // space, then letters, digits, `_` and `.`.
+              startOfWord: false,
+              query: /^ ?[\w.]*$/,
+              // Not for a caret inside a token already written: those
+              // braces are the token's, and a pick would land inside it.
+              allow: ({ state }) => !caretInsideMergeTag(state),
+              source: mergeTagSource(this.#mergeTags),
+            },
+          ],
         }),
         // The dialect is the sponsor's: AngularJS expressions. Opt-in — a
         // Handlebars host installs its own dialect here instead.
@@ -327,7 +359,7 @@ export class EmailCompose implements FormValueControl<string> {
         }),
         this.#commands.sync,
       ],
-      attributes: { role: 'textbox', 'aria-label': 'Message body' },
+      attributes: { role: 'textbox', 'aria-multiline': 'true', 'aria-label': 'Message body' },
       onUpdate: (editor) => this.value.set(editor.getHTML()),
     });
     // External writes must survive focus: the sync effect skips while this
@@ -372,14 +404,5 @@ export class EmailCompose implements FormValueControl<string> {
     releaseEditingSurface();
     this.sourceView.set('hidden');
     afterNextRender({ write: () => this.editor()?.focus() }, { injector: this.#injector });
-  }
-
-  /** Infinite scroll: nearing the listbox's end fetches the next page. The
-      extension makes `loadMore` a safe no-op while loading or exhausted. */
-  onMergeMenuScroll(): void {
-    const el = this.mergeTagMenu().nativeElement;
-    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 48) {
-      this.mergeMenuState()?.loadMore();
-    }
   }
 }

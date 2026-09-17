@@ -33,8 +33,9 @@ export const Divider = defineNode({
       return true;
     },
   }),
-  slashItems: ({ schema }) => [
+  suggestions: ({ schema }) => [
     {
+      id: 'divider',
       title: 'Divider',
       keywords: ['divider', 'separator', 'rule', 'hr', 'line'],
       icon: 'horizontal_rule',

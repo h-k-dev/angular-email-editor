@@ -76,8 +76,9 @@ export const createSendIntent = (options: SendIntentOptions): FunctionalExtensio
     name: 'sendIntent',
     keymap: () => ({ 'Mod-Enter': requestSend }),
     commands: () => ({ requestSend: (): Command => requestSend }),
-    slashItems: () => [
+    suggestions: () => [
       {
+        id: 'send',
         title: 'Send',
         keywords: ['send', 'mail', 'deliver', 'submit'],
         icon: 'send',

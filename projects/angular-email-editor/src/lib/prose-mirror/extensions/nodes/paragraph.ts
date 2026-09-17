@@ -26,8 +26,9 @@ export const Paragraph = defineNode({
   keymap: ({ schema }) => ({
     'Mod-Alt-0': setBlockType(schema.nodes['paragraph']),
   }),
-  slashItems: ({ schema }) => [
+  suggestions: ({ schema }) => [
     {
+      id: 'text',
       title: 'Text',
       keywords: ['paragraph', 'plain'],
       icon: 'notes',

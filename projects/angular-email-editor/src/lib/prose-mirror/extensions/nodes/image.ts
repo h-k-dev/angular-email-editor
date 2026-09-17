@@ -618,8 +618,9 @@ export const Image = defineNode({
       return true;
     },
   }),
-  slashItems: ({ schema }) => [
+  suggestions: ({ schema }) => [
     {
+      id: 'image',
       title: 'Image',
       keywords: ['image', 'picture', 'photo', 'img'],
       icon: 'image',
@@ -630,6 +631,7 @@ export const Image = defineNode({
     },
     {
       // The slide-deck model: size the frame first, click it to fill it.
+      id: 'image-placeholder',
       title: 'Image placeholder',
       keywords: ['placeholder', 'image', 'frame', 'slot', 'picture'],
       icon: 'add_photo_alternate',

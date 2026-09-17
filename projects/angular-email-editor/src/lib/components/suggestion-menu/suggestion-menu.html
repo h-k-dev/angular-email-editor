@@ -1,0 +1,50 @@
+@if (parent(); as group) {
+  <div data-slot="header">
+    @if (header(); as slot) {
+      <ng-container *ngTemplateOutlet="slot.template; context: headerContext()" />
+    } @else {
+      <!-- The pointer's way back; the keyboard's is Backspace in the editor,
+           which keeps the focus — so this never joins the tab order. -->
+      <button
+        type="button"
+        data-slot="back"
+        tabindex="-1"
+        [attr.aria-label]="backLabel()"
+        (click)="back()"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
+        </svg>
+      </button>
+      <span data-slot="title">{{ group.title }}</span>
+    }
+  </div>
+}
+
+<div
+  #listbox
+  role="listbox"
+  data-slot="listbox"
+  [attr.id]="state()?.listboxId"
+  [attr.aria-label]="listLabel()"
+  [attr.aria-busy]="state()?.loading || state()?.loadingMore || null"
+  [attr.data-stale]="state()?.stale || null"
+>
+  <ng-content />
+  <!-- The end of the list, watched for the next page (never an option). -->
+  <div #end data-slot="end" role="none" aria-hidden="true"></div>
+</div>
+
+<!-- What is going on, for the eye: at once, collapsed while there is nothing
+     to say. -->
+<div
+  data-slot="status"
+  aria-hidden="true"
+  [attr.data-empty]="!status() || null"
+  [textContent]="status()"
+></div>
+
+<!-- …and for a screen reader: settled, and with the result count. Always in
+     the accessibility tree — visible while the box around it is hidden — so
+     the first words of an opening menu are heard too. -->
+<div role="status" data-slot="announcer">{{ announced.value() }}</div>

@@ -66,8 +66,9 @@ export const Bold = defineMark({
     'Mod-b': toggleMark(schema.marks['bold']),
     'Mod-B': toggleMark(schema.marks['bold']),
   }),
-  slashItems: ({ schema }) => [
+  suggestions: ({ schema }) => [
     {
+      id: 'bold',
       title: 'Bold',
       keywords: ['bold'],
       icon: 'format_bold',

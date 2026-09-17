@@ -25,55 +25,27 @@
     (fileDrop)="fileDrop.emit($event)"
     [hidden]="codeView()"
   >
-    <!-- {{ autocomplete: the slash menu's sibling for personalization tokens.
-         Items stream in pages from the host's source; scrolling near the end
-         (or ArrowDown on the last row) fetches the next page. -->
-    <div
-      class="slash-menu merge-tag-menu"
-      #mergeTagMenu
-      role="listbox"
-      aria-label="Personalization tokens"
-      (scroll)="onMergeMenuScroll()"
-    >
-      @if (mergeMenuState(); as tags) {
-        @for (item of tags.items; track item.path; let i = $index) {
-          <button
-            type="button"
-            role="option"
-            class="slash-item"
-            [class.is-active]="i === tags.activeIndex"
-            [attr.aria-selected]="i === tags.activeIndex"
-            (click)="tags.select(item)"
-          >
-            {{ item.label || item.path }}
-            <span class="merge-menu__path">{{ '{{' + item.path + '}}' }}</span>
-          </button>
-        }
-        @if (tags.loading || tags.loadingMore) {
-          <div class="merge-menu__status" role="status">
-            {{ tags.loading ? 'Searching…' : 'Loading more…' }}
-          </div>
-        }
-      }
-    </div>
-
-    <div class="slash-menu" #slashMenu role="listbox" aria-label="Insert block">
-      @if (slashState(); as slash) {
-        @for (item of slash.items; track item.title; let i = $index) {
-          <button
-            type="button"
-            role="option"
-            class="slash-item"
-            [class.is-active]="i === slash.activeIndex"
-            [attr.aria-selected]="i === slash.activeIndex"
-            (click)="slash.select(item)"
-          >
-            @if (item.icon) {
-              <mat-icon>{{ item.icon }}</mat-icon>
-            }
-            {{ item.title }}
-          </button>
-        }
+    <!-- The suggestion menu: the library's pair, fed by its extension — one
+         box for every trigger, since they never open together. Rows are
+         options the editor points at — the caret never leaves it; the next
+         page comes as the list scrolls. A row shows what its item has: an
+         icon (`/`: the kit's commands), a detail (`{{`: the token beside its
+         label), a chevron (a group — Templates — opens a second level,
+         searched by what follows it). -->
+    <div email-suggestion-menu #suggestionMenu [state]="suggestionState()">
+      @for (item of suggestionState()?.items; track item.id) {
+        <div email-suggestion-menu-item [item]="item">
+          @if (item.icon) {
+            <mat-icon>{{ item.icon }}</mat-icon>
+          }
+          <span class="suggestion__title">{{ item.title }}</span>
+          @if (item.detail) {
+            <span class="suggestion__detail">{{ item.detail }}</span>
+          }
+          @if (item.children) {
+            <mat-icon class="suggestion__more">chevron_right</mat-icon>
+          }
+        </div>
       }
     </div>
   </div>

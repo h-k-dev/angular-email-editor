@@ -167,11 +167,31 @@ export function mergeTagAt(doc: Node, pos: number): MergeTagRange | undefined {
   return textblockTags($pos.parent, $pos.start()).find((tag) => tag.from <= pos && pos <= tag.to);
 }
 
+/** A command inserting the token for `path` at the selection — what a `{{`
+    suggestion runs. The token is text; the pill follows from the mark's
+    invariants. */
+export const insertMergeTag =
+  (path: string): Command =>
+  (state, dispatch) => {
+    dispatch?.(state.tr.insertText(`{{ ${path} }}`).scrollIntoView());
+    return true;
+  };
+
 /** Whether a selection lies within one token — the bubble menu stays away
     then (formatting still works from the keyboard, on the whole token). */
 export function selectionInsideMergeTag(state: EditorState): boolean {
   const tag = mergeTagAt(state.doc, state.selection.from);
   return !!tag && state.selection.to <= tag.to;
+}
+
+/** Whether the caret stands strictly inside a token — between its braces,
+    at neither edge. What a `{{` suggestion menu's `allow` turns down: there
+    the braces before the caret open a token that is already written, and
+    picking a row would write a second one into it. */
+export function caretInsideMergeTag(state: EditorState): boolean {
+  const { empty, from } = state.selection;
+  const tag = empty ? mergeTagAt(state.doc, from) : undefined;
+  return !!tag && tag.from < from && from < tag.to;
 }
 
 // ---------------------------------------------------------------------------

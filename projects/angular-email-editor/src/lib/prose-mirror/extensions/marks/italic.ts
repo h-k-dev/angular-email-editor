@@ -35,8 +35,9 @@ export const Italic = defineMark({
     'Mod-i': toggleMark(schema.marks['italic']),
     'Mod-I': toggleMark(schema.marks['italic']),
   }),
-  slashItems: ({ schema }) => [
+  suggestions: ({ schema }) => [
     {
+      id: 'italic',
       title: 'Italic',
       keywords: ['italic'],
       icon: 'format_italic',

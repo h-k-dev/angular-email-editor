@@ -473,14 +473,16 @@ export const Table = defineNode({
   // The editor-only grid shown while editing is not the table's own business:
   // `LayoutGuides` marks whichever layout block (table *or* columns) holds the
   // cursor, so both structures reveal themselves identically.
-  slashItems: ({ schema }) => [
+  suggestions: ({ schema }) => [
     {
+      id: 'table',
       title: 'Table',
       keywords: ['table', 'grid', 'rows', 'columns'],
       icon: 'table_chart',
       command: insertTableFocused(schema, 2, 2),
     },
     {
+      id: 'bordered-table',
       title: 'Bordered table',
       keywords: ['bordered-table', 'table', 'borders', 'grid', 'excel', 'lines'],
       icon: 'grid_on',

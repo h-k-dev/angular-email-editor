@@ -106,14 +106,20 @@ export class ApiReference {
         'its own kit instead of taking one whole.',
       entries: [
         {
-          name: 'createBubbleMenu / createBlockMenu / createSlashMenu',
+          name: 'createBubbleMenu / createBlockMenu',
           signature: '(options) => FunctionalExtension',
-          does: 'The three menus, as state plus a render callback: selection formatting, the block handle, and the slash inserter. The library owns positioning and keyboard behaviour; the host owns the markup.',
+          does: 'Selection formatting and the block handle, as state plus a render callback. The library owns positioning and keyboard behaviour; the host owns the markup.',
         },
         {
-          name: 'createMergeTagMenu',
-          signature: '(options: MergeTagMenuOptions) => FunctionalExtension',
-          does: 'The personalization picker: the host resolves a MergeTagRequest to a MergeTagPage, so the field list can come from anywhere — and page.',
+          name: 'createSuggestionMenu',
+          signature: '(options: SuggestionMenuOptions) => FunctionalExtension',
+          does: 'Every trigger-at-the-caret menu from one factory — the / command menu, the {{ merge-tag picker, an @ mention list: a trigger, the items (a list, or a paged { query, cursor, signal } → { items, nextCursor } source, debounced, aborted when stale), and what picking does (each item’s command). Groups open a second level read from the text; ids key i18n. One menu takes several triggers ({ element, onChange, triggers: [{ trigger: "/", … }, { trigger: "{{", … }, { trigger: "||", … }] }): they never open together — the trigger nearest the caret wins — so they share one element and one state, which names the open trigger, its label and its listbox id.',
+        },
+        {
+          name: 'email-suggestion-menu · extensionSuggestions · insertMergeTag',
+          signature:
+            '[email-suggestion-menu] + [email-suggestion-menu-item] · (ctx) => SuggestionItem[] · (path) => Command',
+          does: 'The component pair renders any suggestion menu’s state as a listbox whose options the editor points at (aria-activedescendant), loads the next page as it scrolls, and says searching / loading more / no results / failed. extensionSuggestions gathers the kit’s / commands; insertMergeTag is what a {{ item runs.',
         },
         {
           name: 'createAngularExpressions',

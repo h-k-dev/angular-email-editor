@@ -214,8 +214,9 @@ export const EmailParagraph = defineNode({
     'Mod-[': shiftIndent(-1),
   }),
 
-  slashItems: ({ schema }) => [
+  suggestions: ({ schema }) => [
     {
+      id: 'text',
       title: 'Text',
       keywords: ['paragraph', 'plain'],
       icon: 'notes',

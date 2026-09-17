@@ -261,14 +261,16 @@ export const Columns = defineNode({
       'Mod-a': selectColumnContent,
     }),
   ],
-  slashItems: ({ schema }) => [
+  suggestions: ({ schema }) => [
     {
+      id: 'columns',
       title: 'Columns',
       keywords: ['columns', 'column', 'layout', 'grid', 'side by side'],
       icon: 'view_column',
       command: insertColumns(schema, 2),
     },
     {
+      id: '3-columns',
       title: '3 columns',
       keywords: ['columns', 'three', 'layout'],
       icon: 'view_column',

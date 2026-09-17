@@ -197,10 +197,10 @@ describe('table editing', () => {
   });
 
   it('/bordered-table inserts the Excel grid, and new cells inherit it', () => {
-    const item = Table.slashItems!({ schema: editor.schema, extensions: [] }).find(
+    const item = Table.suggestions!({ schema: editor.schema, extensions: [] }).find(
       (entry) => entry.title === 'Bordered table',
     )!;
-    editor.exec(item.command);
+    editor.exec(item.command!);
     let html = editor.getHTML();
     expect((html.match(/border: 1px solid rgb\(208, 215, 229\);/g) || []).length).toBe(4);
     expect(canonical(html)).toBe(html);

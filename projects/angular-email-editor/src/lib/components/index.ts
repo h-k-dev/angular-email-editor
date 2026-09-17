@@ -7,3 +7,6 @@ export * from './address-chip/address-chip';
 export * from './address-chip/address-chip.slots';
 export * from './address-input/address-input';
 export * from './address-input/address-rules';
+export * from './suggestion-menu/suggestion-menu';
+export * from './suggestion-menu/suggestion-menu-item';
+export * from './suggestion-menu/suggestion-menu.slots';

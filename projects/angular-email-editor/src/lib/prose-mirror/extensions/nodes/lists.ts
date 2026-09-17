@@ -95,8 +95,9 @@ export const BulletList = defineNode({
     // `- `, `* ` or `+ ` at the start of a block becomes a bullet list.
     wrappingInputRule(/^\s*([-+*])\s$/, schema.nodes['bulletList']),
   ],
-  slashItems: ({ schema }) => [
+  suggestions: ({ schema }) => [
     {
+      id: 'bulleted-list',
       title: 'Bulleted list',
       keywords: ['ul', 'unordered', 'list'],
       icon: 'format_list_bulleted',
@@ -139,8 +140,9 @@ export const OrderedList = defineNode({
       (match, node) => node.childCount + node.attrs['order'] === +match[1],
     ),
   ],
-  slashItems: ({ schema }) => [
+  suggestions: ({ schema }) => [
     {
+      id: 'numbered-list',
       title: 'Numbered list',
       keywords: ['ol', 'ordered', 'list'],
       icon: 'format_list_numbered',

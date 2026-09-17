@@ -30,6 +30,15 @@ export const createBubbleMenu = (options: BubbleMenuOptions): FunctionalExtensio
           let showTimer: ReturnType<typeof setTimeout> | undefined;
           let mouseSelecting = false;
           let destroyed = false;
+          let open = false;
+
+          // Closed is said once: a caret moving through the text, or a press
+          // elsewhere on the page, is no news to a host that already knows.
+          const close = () => {
+            if (!open) return;
+            open = false;
+            options.onStateChange({ isOpen: false, boundingBox: null });
+          };
 
           const refresh = () => {
             if (destroyed) return;
@@ -43,7 +52,7 @@ export const createBubbleMenu = (options: BubbleMenuOptions): FunctionalExtensio
               view.hasFocus();
 
             if (!canShow) {
-              options.onStateChange({ isOpen: false, boundingBox: null });
+              close();
               return;
             }
 
@@ -74,6 +83,7 @@ export const createBubbleMenu = (options: BubbleMenuOptions): FunctionalExtensio
                 toJSON: () => '',
               } as DOMRect;
 
+              open = true;
               options.onStateChange({ isOpen: true, boundingBox });
             }, options.updateDelay ?? 150);
           };
@@ -88,7 +98,9 @@ export const createBubbleMenu = (options: BubbleMenuOptions): FunctionalExtensio
             mouseSelecting = true;
             refresh();
           };
+          // Only the release of a drag that began in the editor ends one.
           const onMouseup = () => {
+            if (!mouseSelecting) return;
             mouseSelecting = false;
             refresh();
           };
@@ -120,8 +132,7 @@ export const createBubbleMenu = (options: BubbleMenuOptions): FunctionalExtensio
               view.dom.removeEventListener('blur', onBlur);
               view.dom.removeEventListener('focus', onFocus);
 
-              // Close menu
-              options.onStateChange({ isOpen: false, boundingBox: null });
+              close();
             },
           };
         },

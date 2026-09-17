@@ -7,6 +7,7 @@ import {
 
   // Signals
   effect,
+  input,
   model,
   signal,
   viewChild,
@@ -26,6 +27,7 @@ import {
   createOffsetMapper,
   formatHTML,
   htmlSourceExtensions,
+  lintHTML,
 } from 'angular-email-editor';
 import { isTyping } from '../is-typing';
 
@@ -51,6 +53,13 @@ export class HtmlEmailCompose {
   /** Live lint results, published upward for the composer's problems strip. */
   diagnostics = model<HtmlDiagnostic[]>([]);
 
+  /** Whether the pane is on screen. While it is not, incoming html is not
+      applied to the editor — no DOM for a pane nobody sees — and the
+      diagnostics are linted from the text alone, exactly as the editor would
+      lint it (the same formatted source), so the problems strip stays live.
+      Shown again, the editor catches up and lints itself. */
+  active = input(true);
+
   menu = viewChild.required<ElementRef<HTMLElement>>('menu');
   editor = signal<Editor | undefined>(undefined);
   completions = signal<AutocompleteState | undefined>(undefined);
@@ -66,10 +75,15 @@ export class HtmlEmailCompose {
     // Skipped while this editor has focus: then it is the origin of the
     // signal value — rewriting would yank the cursor mid-keystroke. `setText`
     // dispatches no transaction, so applying can't echo through `onUpdate`.
+    // Hidden, the editor is left alone and only the lint follows the text.
     effect(() => {
-      this.html(); // track: any external write re-runs this
+      const html = this.html(); // track: any external write re-runs this
       const editor = this.editor();
       if (!editor || isTyping(editor.view)) return;
+      if (!this.active()) {
+        this.diagnostics.set(lintHTML(formatHTML(html)));
+        return;
+      }
       this.#applyIncoming(editor);
     });
   }

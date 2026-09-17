@@ -1,5 +1,6 @@
 import { AllSelection, TextSelection } from 'prosemirror-state';
 import { createEditor, Editor } from './editor';
+import { insertHTML } from './html';
 import { richTextExtensions } from './extensions/kits';
 import { BubbleMenuState, createBubbleMenu } from './extensions/bubble-menu';
 
@@ -29,6 +30,18 @@ describe('createEditor', () => {
   it('mounts an editable view with the initial content', () => {
     expect(host.querySelector('[role="textbox"]')).toBeTruthy();
     expect(editor.getHTML()).toBe('<p dir="auto">Hello world</p>');
+  });
+
+  it('inserts an HTML fragment at the cursor, blocks taking an empty paragraph’s place', () => {
+    editor.setContent('<p>Hello world</p><p></p>');
+    const end = editor.state.doc.content.size - 1;
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, end)));
+
+    editor.exec(insertHTML('<h1>Welcome</h1><p>Hi {{name}}</p>'));
+    // The merge tag came in as a pill: its canonical form is spaced.
+    expect(editor.getHTML()).toBe(
+      '<p dir="auto">Hello world</p><h1 style="margin: 0px; font-size: 24px;">Welcome</h1><p dir="auto">Hi {{ name }}</p>',
+    );
   });
 
   it('stamps aee-editor on the root — styling scopes to it, never to bare .ProseMirror', () => {
@@ -206,6 +219,33 @@ describe('createBubbleMenu', () => {
     select(1);
     expect(menuState.isOpen).toBe(false);
     expect(menuState.boundingBox).toBeNull();
+  });
+
+  it('says closed once: not per caret move, not per mouseup elsewhere', async () => {
+    const onStateChange = vi.fn();
+    const other = document.createElement('div');
+    document.body.appendChild(other);
+    const quiet = createEditor({
+      parent: other,
+      extensions: [...richTextExtensions, createBubbleMenu({ updateDelay: 0, onStateChange })],
+      content: '<p>Hello world</p>',
+    });
+    vi.spyOn(quiet.view, 'hasFocus').mockReturnValue(true);
+    const move = (pos: number) =>
+      quiet.exec((state, dispatch) => {
+        dispatch?.(state.tr.setSelection(TextSelection.create(state.doc, pos)));
+        return true;
+      });
+
+    move(2);
+    move(3);
+    window.dispatchEvent(new MouseEvent('mouseup'));
+    await flushShowTimer();
+    expect(onStateChange).not.toHaveBeenCalled();
+
+    quiet.destroy();
+    other.remove();
+    expect(onStateChange).not.toHaveBeenCalled();
   });
 
   it('waits for mouseup while the mouse is laying out a selection', async () => {

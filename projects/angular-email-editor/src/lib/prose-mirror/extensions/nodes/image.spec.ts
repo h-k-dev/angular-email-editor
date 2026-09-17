@@ -335,9 +335,9 @@ describe('image node', () => {
     it('the slash item inserts a placeholder at the phone width, inline at the caret', () => {
       const { editor, unmount } = mount('<div>before</div>');
       editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 7)));
-      const items = Image.slashItems!({ schema: editor.schema, extensions: [] });
+      const items = Image.suggestions!({ schema: editor.schema, extensions: [] });
       const item = items.find((candidate) => candidate.title === 'Image placeholder')!;
-      expect(item.command(editor.state, editor.view.dispatch, editor.view)).toBe(true);
+      expect(item.command!(editor.state, editor.view.dispatch, editor.view)).toBe(true);
       expect(editor.getHTML()).toBe(
         `<div>before<img width="${PLACEHOLDER_WIDTH}" style="width: 100%; max-width: ${PLACEHOLDER_WIDTH}px; height: auto;"></div>`,
       );
