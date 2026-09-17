@@ -17,9 +17,14 @@
   [cdkConnectedOverlayHasBackdrop]="false"
   [cdkConnectedOverlayPush]="true"
   [cdkConnectedOverlayViewportMargin]="8"
+  cdkConnectedOverlayTransformOriginOn=".bubble-menu"
 >
+  <!-- Lands softly (`animate.enter`, see the stylesheet), growing out of the
+       side that faces the selection — the CDK sets the transform origin for
+       whichever position it chose. -->
   <div
     class="bubble-menu"
+    animate.enter="bubble-menu--landing"
     role="toolbar"
     aria-label="Selection formatting"
     (mousedown)="$event.preventDefault()"
