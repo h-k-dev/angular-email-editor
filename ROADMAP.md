@@ -274,8 +274,8 @@ schema extensions first, toolbar second.
       the pixels through one token, `--email-drop-line` → `--mat-sys-primary`
       → fallback. Shown only for drags the editor would claim — a mixed drag
       draws nothing here, the host's zone lights up instead.
-- [x] **Image placeholder (2026-09-02) — the slide-deck model.** `/image
-  placeholder` inserts a _sized frame awaiting its file_: an Image node
+- [x] **Image placeholder (2026-09-02) — the slide-deck model.**
+      `/image placeholder` inserts a _sized frame awaiting its file_: an Image node
       with no `src`, no new node type — one schema rule, one serialization
       (`<img width="320" style="…">`, honest: nothing pretends to be a
       picture), the same resize pads for free. In the editor it is a dashed
@@ -803,7 +803,7 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
   - [x] **Focus means the window's too.** ProseMirror's `hasFocus()` stays
         true for a background tab's editor, so a pane skipped another tab's
         save and waited for a blur that had already happened; the panes now
-        ask `isTyping(view)` (the view *and* its document) and also catch up
+        ask `isTyping(view)` (the view _and_ its document) and also catch up
         on focus.
   - [x] **Mount takes the value before publishing.** The email pane
         published its empty mount document over a value that was already
@@ -870,8 +870,9 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
       contract, and `toInboundMessage(parsed)` — a zero-dependency,
       duck-typed adapter over the shape modern parsers return (postal-mime's
       `Email`, front- or backend-parsed alike, every field null-tolerant) —
-      is the whole bridge: `importedDocument(toInboundMessage(await
-  PostalMime.parse(file)))` imports a dropped file (a `File` is a `Blob`,
+      is the whole bridge:
+      `importedDocument(toInboundMessage(await PostalMime.parse(file)))`
+      imports a dropped file (a `File` is a `Blob`,
       so the parser gets raw bytes — correct charsets, no lossy `.text()`
       step); `replyDocument(...)` answers it. `importedDocument` is the law:
       the body parses through the schema (full strip = sanitization) and
@@ -1161,6 +1162,43 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   behaviour directive, starts as its own entry; the library never imports
   a UI kit — a framework that needs code gets an entry of its own
   (`/primeng`), after a recipe in the demo has shown it must.
+  Behaviour directives so far (2026-09-17), each proven by the demo's own
+  glue before it was written: `/focus` — `emailKeepFocus`, which replaced
+  nine hand-written `mousedown` handlers; `/anchor` — `emailAnchor`, which
+  replaced three copies of a fixed origin `<span>`. Generated bare with
+  `ng g directive <name> --project angular-email-editor --path projects/angular-email-editor/<topic> --prefix email`.
+  **Actions (2026-09-17).** An extension declares what it can do once, as
+  `actions` (it was `suggestions`): id, title, icon, keywords, `command`,
+  and — new — `isActive(state)` and `isEnabled(state)`, pure functions;
+  `isEnabled` defaults to asking the command without a dispatch. The same
+  list is a `/` menu's rows (`extensionSuggestions` is a view of
+  `extensionActions`) and a toolbar's buttons: an _action_ is permanent and
+  named, a _suggestion_ in the narrow sense is a source's answer to a
+  moment; both end in the same row. Ids are kebab-case and are the contract
+  with a host's translation files. `editor.actions` lists them;
+  `editor.subscribe(listener)` tells of every state change and can be asked
+  of an editor that already exists — it replaced the demo's `angularSync`
+  extension. `/actions` is the Angular side: `injectActions`,
+  `editorState`, `[emailAction]`. Host-only concerns stay the host's: order
+  and grouping, responsive `wide`, labels shown (translated by id in the
+  template), and items that open host UI (link, pickers) — to come in as
+  `injectActions(editor, { host, override })`: a `HostAction` has a `run`,
+  never a `command` — a command is _asked_ (called without a dispatch) on
+  every transaction, and what opens a dialog must never be called to ask;
+  `host` stands alone (the demo's Link), `override` exists only over a
+  kit's action. The demo's toolbar reads every item by id (lists, indent,
+  quote — now a toggle —, `align-left/center/right`, `clear-formatting`
+  are actions in their extensions since 2026-09-17, under the same
+  kebab-case ids the demo's layout now uses); its bubble menu is
+  `[emailAction]` on Material buttons. Two rules that came out of it:
+  `isEnabled` lives on the suggestion row, and a `/` menu leaves out a row
+  whose explicit `isEnabled` says no (Clear formatting at a caret) but
+  never asks a plain command; and **every extension command answers a dry
+  run before it builds anything** — `editor.spec.ts` asks every action of
+  every kit and checks nothing is dispatched, nothing sent. Not actions:
+  undo/redo (a `/undo` row would undo its own trigger's deletion) and the
+  demo's colour and table pickers (overlays with an "applied" state, the
+  toolbar's own).
   **Names are flat, as Angular's are** (`@angular/material/button`,
   `@angular/cdk/overlay`) — no `components/…` or `directives/…` segment:
   - one level, `angular-email-editor/<name>`; the only nesting is
@@ -1168,18 +1206,19 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   - a component entry is named for the thing (`address-input`), a
     directive entry for the behaviour it gives (`focus`, `anchor`,
     `keyboard`) — so the two never want the same name;
-  - a directive entry is a *topic* that ships its directives together, as
+  - a directive entry is a _topic_ that ships its directives together, as
     `@angular/cdk/overlay` does — not one entry per directive: tree-shaking
     already drops the classes nobody uses, entries are for peers and chunks;
   - never a catch-all entry (`/components`, `/directives`): it would pool
     every piece's peers again;
   - kits stay in the main entry until the extensions themselves are
     entries — a kit entry alone would save nothing.
+
 - **One suggestion menu, configured by its trigger (2026-09-15).** Every
   trigger-at-the-caret menu is `createSuggestionMenu({ trigger, … })`, the
   way Tiptap's Suggestion and Lexical's typeahead do it — and since
-  2026-09-17 one call takes several: `createSuggestionMenu({ element,
-  onChange, triggers: [{ trigger: '/', … }, { trigger: '{{', … }] })`. The
+  2026-09-17 one call takes several:
+  `createSuggestionMenu({ element, onChange, triggers: [{ trigger: '/', … }, { trigger: '{{', … }] })`. The
   triggers never open together, so they share one element and one stream of
   states (the state names its `trigger`, `label` and `listboxId`); a new
   one — `@`, `||`, any string — is one more entry, no new markup. There is no
@@ -1188,8 +1227,8 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   true; `{{` sets false), `query` (a RegExp the text after the trigger must
   match — `{{` narrows it to a path, `/^ ?[\w.]*$/`), `items` and `source`.
   A trigger right after its own first character never opens (`//`, `{{{`).
-  Items are one shape for every menu: `{ id, title, keywords?, detail?, icon?,
-  command }` — what picking does is the item's `command`
+  Items are one shape for every menu:
+  `{ id, title, keywords?, detail?, icon?, command }` — what picking does is the item's `command`
   (`insertMergeTag(path)`, `insertHTML(html)`, a kit command), run after the
   trigger and query are deleted. Extensions offer theirs as `suggestions`;
   `extensionSuggestions(ctx)` gathers them for a `/` menu.
@@ -1197,8 +1236,8 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
     extensions) are filtered and ranked **title-first** (exact > prefix >
     includes > keyword-only, given order as tiebreak — "/columns" must
     highlight Columns, not the table whose keywords include it). `source` is
-    the dynamic side: `{ query, cursor, signal } → items | { items,
-    nextCursor }`, sync or async, appended unfiltered (the source owns its
+    the dynamic side:
+    `{ query, cursor, signal } → items | { items, nextCursor }`, sync or async, appended unfiltered (the source owns its
     matching). `debounce` (default 300ms, 0 = at once) holds a new query's
     request, never a page's. A
     newer query, a dismissal or a destroyed editor **aborts** what is out
@@ -1208,7 +1247,7 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
     (`children` instead of `command`: a list, or a source) is entered by
     rewriting the query to `<word> ` — its title lowercased, spaces as
     hyphens. `<trigger><word> <rest>` whose word names a group (title, id or
-    keyword) *is* level 2, so Backspace over the space, undo and a pasted
+    keyword) _is_ level 2, so Backspace over the space, undo and a pasted
     query all land right. Two levels by type: a group's children are
     `SuggestionCommandItem`s. Level 2 stays open with no matches ("No
     results") and keeps Enter/Tab/arrows. Every item has a stable `id`;

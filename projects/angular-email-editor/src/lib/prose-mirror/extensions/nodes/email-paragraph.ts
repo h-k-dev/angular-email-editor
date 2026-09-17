@@ -1,7 +1,8 @@
 import { setBlockType } from 'prosemirror-commands';
 import { liftListItem, sinkListItem } from 'prosemirror-schema-list';
-import { Command } from 'prosemirror-state';
+import { Command, EditorState } from 'prosemirror-state';
 import { Fragment } from 'prosemirror-model';
+import { isNodeActive } from '../../editor';
 import { defineNode } from '../../extension';
 import { findListDepth } from './lists';
 
@@ -214,13 +215,43 @@ export const EmailParagraph = defineNode({
     'Mod-[': shiftIndent(-1),
   }),
 
-  suggestions: ({ schema }) => [
+  actions: ({ schema }) => [
     {
       id: 'text',
       title: 'Text',
       keywords: ['paragraph', 'plain'],
       icon: 'notes',
       command: setBlockType(schema.nodes['paragraph']),
+    },
+    ...(
+      [
+        ['align-left', 'Align left', 'format_align_left', null],
+        ['align-center', 'Align center', 'format_align_center', 'center'],
+        ['align-right', 'Align right', 'format_align_right', 'right'],
+      ] as const
+    ).map(([id, title, icon, align]) => ({
+      id,
+      title,
+      keywords: ['align', 'alignment'],
+      icon,
+      command: setAlignment(align),
+      isActive: (state: EditorState) => isNodeActive(state, schema.nodes['paragraph'], { align }),
+    })),
+    // Gmail's pair: a paragraph moves by a step of margin, a list item nests
+    // or lifts. Whether one can move right now is the command's own answer.
+    {
+      id: 'indent',
+      title: 'Indent more',
+      keywords: ['indent', 'nest', 'tab'],
+      icon: 'format_indent_increase',
+      command: shiftIndent(1),
+    },
+    {
+      id: 'outdent',
+      title: 'Indent less',
+      keywords: ['outdent', 'unindent', 'lift'],
+      icon: 'format_indent_decrease',
+      command: shiftIndent(-1),
     },
   ],
 });

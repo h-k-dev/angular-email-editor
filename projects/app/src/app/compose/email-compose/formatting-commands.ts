@@ -1,11 +1,11 @@
 import { Service, Signal, computed, signal } from '@angular/core';
 
 // ProseMirror
-import { Plugin } from 'prosemirror-state';
 import { redo, undo } from 'prosemirror-history';
 
 // Library
-import { Editor, defineExtension, findColumnContext, findTableContext } from 'angular-email-editor';
+import { Editor, findColumnContext, findTableContext, isMarkActive } from 'angular-email-editor';
+import { editorState, injectActions } from 'angular-email-editor/actions';
 
 import { formattingItems } from './formatting-items';
 
@@ -15,9 +15,6 @@ import { formattingItems } from './formatting-items';
 export interface FormattingHost {
   codeView: Signal<boolean>;
   codeEditor: Signal<Editor | undefined>;
-  /** Moves on every doc change of either editor — the source pane has no
-      transaction bridge of its own, and its undo depth moves with it. */
-  html: Signal<string>;
   /** Opens the link editor, anchored at the text — the one formatting item
       that is a dialog, not a command. */
   openLink: () => void;
@@ -44,21 +41,26 @@ export class FormattingCommands {
 
   readonly #host = signal<FormattingHost | undefined>(undefined);
 
-  /** Bumped on every ProseMirror transaction so bindings recompute. */
-  readonly #tick = signal(0);
-
   /** Every formatting button, bound to these commands — defined once; a
       surface picks a layout of them (`layoutEntries`). */
-  readonly items = formattingItems(this, { link: () => this.#host()?.openLink() });
+  readonly items = formattingItems(this);
 
-  /** Bridges the email editor's state updates into Angular's reactivity —
-      the composer installs it with the editor's extensions. */
-  readonly sync = defineExtension({
-    name: 'angularSync',
-    plugins: () => [
-      new Plugin({
-        view: () => ({ update: () => this.#tick.update((tick) => tick + 1) }),
-      }),
+  /** The actions of the visible editor — the source pane while code view is
+      up, the email editor otherwise — bound and live. What an extension
+      declares needs no entry of its own here: the items read it by id. */
+  readonly actions = injectActions(() => this.target(), {
+    // The one formatting item that is a dialog, not a command: the composer's
+    // own action. "On" where the caret stands in a link — in an editor that
+    // has links at all.
+    host: [
+      {
+        id: 'link',
+        run: () => this.#host()?.openLink(),
+        isActive: (state) => {
+          const link = state.schema.marks['link'];
+          return !!link && isMarkActive(state, link);
+        },
+      },
     ],
   });
 
@@ -76,11 +78,9 @@ export class FormattingCommands {
   /** Code view: the source stands in the editing surface's place. */
   readonly codeView = computed(() => this.#host()?.codeView() ?? false);
 
-  /** The email editor, read so a binding recomputes on its transactions. */
-  readonly state = computed(() => {
-    this.#tick();
-    return this.editor()?.state;
-  });
+  /** The email editor's state, as a signal — a binding that reads it
+      recomputes on every transaction. */
+  readonly state = editorState(() => this.editor());
 
   /** The editor the toolbar acts on: the source pane while code view is up,
       the email editor otherwise. */
@@ -91,7 +91,7 @@ export class FormattingCommands {
   /** Whether a mark or node is on at the email editor's selection. A mark
       matches by type alone; for one attribute of it, see `markAttrs`. */
   isActive(name: string, attrs?: Record<string, unknown>): boolean {
-    this.#tick();
+    this.state();
     return this.editor()?.isActive(name, attrs) ?? false;
   }
 
@@ -107,12 +107,10 @@ export class FormattingCommands {
     return marks.find((mark) => mark.type.name === name)?.attrs ?? null;
   }
 
-  /** The target editor, read so a binding recomputes when it changes: the
-      email editor ticks on every transaction; the source pane publishes into
-      the shared html on every doc change, which is when its undo depth moves. */
+  /** The target editor, read so a binding recomputes on its transactions —
+      whichever editor it is: the actions watch the visible one. */
   #tracked(): Editor | undefined {
-    this.#tick();
-    this.#host()?.html();
+    this.actions.state();
     return this.target();
   }
 
@@ -130,6 +128,17 @@ export class FormattingCommands {
     this.target()?.focus();
   }
 
+  /** Runs the action of that id on the visible editor, and hands the caret
+      back to it. Nothing happens for an action the visible editor's kit does
+      not have. */
+  act(id: string): void {
+    const action = this.actions.get(id);
+    if (!action) return;
+    action.run();
+    // What the composer's own action opened has the focus now.
+    if (!action.external) action.focus();
+  }
+
   /** Runs a named command on the visible editor — a mark or history command
       exists on both kits; a block command only on the email editor, and its
       button is locked in code view. */
@@ -137,22 +146,6 @@ export class FormattingCommands {
     const editor = this.target();
     if (!editor) return;
     editor.commands[command]?.();
-    editor.focus();
-  }
-
-  /** Paragraph alignment; `null` restores the default (left). */
-  align(align: 'center' | 'right' | null): void {
-    const editor = this.editor();
-    if (!editor) return;
-    editor.commands['setAlignment'](align);
-    editor.focus();
-  }
-
-  toggleBlockquote(): void {
-    const editor = this.editor();
-    if (!editor) return;
-    if (editor.isActive('blockquote')) editor.commands['liftBlock']();
-    else editor.commands['wrapInBlockquote']();
     editor.focus();
   }
 

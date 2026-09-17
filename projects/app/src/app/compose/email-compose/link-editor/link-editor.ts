@@ -11,6 +11,7 @@ import { ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
 import { linkRangeAt } from 'angular-email-editor';
 
 import { FormattingCommands } from '../formatting-commands';
+import { Anchor } from 'angular-email-editor/anchor';
 
 /**
  * The link popover: a URL field with apply, open and unlink, anchored at
@@ -31,6 +32,9 @@ import { FormattingCommands } from '../formatting-commands';
 
     // CDK
     OverlayModule,
+
+    // Library
+    Anchor,
   ],
   templateUrl: './link-editor.html',
   styleUrl: './link-editor.scss',

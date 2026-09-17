@@ -12,6 +12,8 @@ import { ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
 import { BlockMenuState } from 'angular-email-editor';
 
 import { FormattingCommands } from '../formatting-commands';
+import { Anchor } from 'angular-email-editor/anchor';
+import { KeepFocus } from 'angular-email-editor/focus';
 
 /**
  * The layout-block toolbar — the bubble menu's sibling, anchored to the
@@ -39,6 +41,10 @@ import { FormattingCommands } from '../formatting-commands';
 
     // CDK
     OverlayModule,
+
+    // Library
+    Anchor,
+    KeepFocus,
   ],
   templateUrl: './block-menu.html',
   styleUrl: './block-menu.scss',

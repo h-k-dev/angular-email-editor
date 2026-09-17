@@ -1,13 +1,6 @@
-<!-- The anchor: a fixed, sizeless box at the selection's coordinates, for
-     the overlay to attach to. -->
-<span
-  cdkOverlayOrigin
-  #origin="cdkOverlayOrigin"
-  class="link-editor__origin"
-  [style.left.px]="anchor()?.left || 0"
-  [style.top.px]="anchor()?.top || 0"
-  [style.height.px]="anchor()?.height || 0"
-></span>
+<!-- The anchor: an element kept at the selection's coordinates — a line, no
+     width — for the overlay to attach to. -->
+<span [emailAnchor]="anchor()" cdkOverlayOrigin #origin="cdkOverlayOrigin"></span>
 
 <ng-template
   cdkConnectedOverlay

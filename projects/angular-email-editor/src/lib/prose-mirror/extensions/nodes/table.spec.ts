@@ -197,7 +197,7 @@ describe('table editing', () => {
   });
 
   it('/bordered-table inserts the Excel grid, and new cells inherit it', () => {
-    const item = Table.suggestions!({ schema: editor.schema, extensions: [] }).find(
+    const item = Table.actions!({ schema: editor.schema, extensions: [] }).find(
       (entry) => entry.title === 'Bordered table',
     )!;
     editor.exec(item.command!);

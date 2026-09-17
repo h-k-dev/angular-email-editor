@@ -2,6 +2,7 @@ import { Component, output, signal } from '@angular/core';
 
 // Material
 import { MatIconModule } from '@angular/material/icon';
+import { KeepFocus } from 'angular-email-editor/focus';
 
 /**
  * The table-size picker: an 8×8 grid — sweep it to preview columns × rows,
@@ -15,7 +16,7 @@ import { MatIconModule } from '@angular/material/icon';
   imports: [MatIconModule],
   templateUrl: './table-picker.html',
   styleUrl: './table-picker.scss',
-  host: { '(mousedown)': '$event.preventDefault()' },
+  hostDirectives: [KeepFocus],
 })
 export class TablePicker {
   /** A size was picked, columns × rows — the way the grid is swept. */

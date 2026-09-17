@@ -7,6 +7,7 @@ import {
 import { wrappingInputRule } from 'prosemirror-inputrules';
 import { Command } from 'prosemirror-state';
 import { NodeType, ResolvedPos } from 'prosemirror-model';
+import { isNodeActive } from '../../editor';
 import { defineNode } from '../../extension';
 
 /** Depth of the innermost list wrapping the selection start, or null. */
@@ -95,13 +96,14 @@ export const BulletList = defineNode({
     // `- `, `* ` or `+ ` at the start of a block becomes a bullet list.
     wrappingInputRule(/^\s*([-+*])\s$/, schema.nodes['bulletList']),
   ],
-  suggestions: ({ schema }) => [
+  actions: ({ schema }) => [
     {
       id: 'bulleted-list',
       title: 'Bulleted list',
       keywords: ['ul', 'unordered', 'list'],
       icon: 'format_list_bulleted',
       command: toggleList(schema.nodes['bulletList'], schema.nodes['listItem']),
+      isActive: (state) => isNodeActive(state, schema.nodes['bulletList']),
     },
   ],
 });
@@ -140,13 +142,14 @@ export const OrderedList = defineNode({
       (match, node) => node.childCount + node.attrs['order'] === +match[1],
     ),
   ],
-  suggestions: ({ schema }) => [
+  actions: ({ schema }) => [
     {
       id: 'numbered-list',
       title: 'Numbered list',
       keywords: ['ol', 'ordered', 'list'],
       icon: 'format_list_numbered',
       command: toggleList(schema.nodes['orderedList'], schema.nodes['listItem']),
+      isActive: (state) => isNodeActive(state, schema.nodes['orderedList']),
     },
   ],
 });

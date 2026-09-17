@@ -222,6 +222,7 @@ export class EmailCompose implements FormValueControl<string> {
 
   /** The email editor, once mounted — the formatting commands' own. */
   readonly editor = this.#commands.editor;
+
   /** The suggestion menu's live state — of whichever trigger is open: `/`
       (the kit's commands and the Templates group) or `{{` (the variable
       catalogue, a page at a time). */
@@ -272,7 +273,6 @@ export class EmailCompose implements FormValueControl<string> {
     this.#commands.connect({
       codeView: this.codeView,
       codeEditor: this.codeEditor,
-      html: this.value,
       openLink: () => this.linkEditor().show(),
     });
 
@@ -356,7 +356,6 @@ export class EmailCompose implements FormValueControl<string> {
             else this.send.emit(intent);
           },
         }),
-        this.#commands.sync,
       ],
       attributes: { role: 'textbox', 'aria-multiline': 'true', 'aria-label': 'Message body' },
       onUpdate: (editor) => this.value.set(editor.getHTML()),

@@ -38,16 +38,17 @@ import { TablePicker } from './table-picker/table-picker';
 import { ToolbarKeys } from './toolbar-keys';
 import { ToolbarMenu, ToolbarMenuItem } from './toolbar-menu/toolbar-menu';
 import { ToolbarOverflow, ToolbarOverflowItem } from './toolbar-overflow';
+import { KeepFocus } from 'angular-email-editor/focus';
 
 /** The buttons in the order people reach for them — marks, colour, then link,
     lists and their indent, the paragraph's shape, the rarer marks, the table — and so the
     order they move into the ⋯ menu, from the end, when the line runs out. */
 const LAYOUT: FormattingLayout = [
   ['bold', 'italic', 'underline'],
-  ['textColor', 'highlight'],
-  ['link', 'bulletList', 'orderedList', 'outdent', 'indent'],
-  ['quote', 'alignLeft', 'alignCenter', 'alignRight'],
-  ['strike', 'clearFormatting'],
+  ['text-color', 'highlight'],
+  ['link', 'bulleted-list', 'numbered-list', 'outdent', 'indent'],
+  ['quote', 'align-left', 'align-center', 'align-right'],
+  ['strike', 'clear-formatting'],
   ['table'],
 ];
 
@@ -87,15 +88,14 @@ const LAYOUT: FormattingLayout = [
     ToolbarOverflow,
     ToolbarOverflowItem,
   ],
-  hostDirectives: [ToolbarKeys],
+  // Every tool keeps focus where it is, so the editor keeps its caret.
+  hostDirectives: [ToolbarKeys, KeepFocus],
   templateUrl: './formatting-toolbar.html',
   styleUrl: './formatting-toolbar.scss',
   host: {
     class: 'toolbar',
     role: 'toolbar',
     '[hidden]': '!shown()',
-    // Every tool keeps focus where it is, so the editor keeps its caret.
-    '(mousedown)': '$event.preventDefault()',
   },
 })
 export class FormattingToolbar {

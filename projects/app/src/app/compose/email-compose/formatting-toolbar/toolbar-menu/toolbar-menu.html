@@ -10,7 +10,12 @@
   (overlayOutsideClick)="dismiss($event)"
   (detach)="trigger().close()"
 >
-  <div ngMenu class="toolbar-menu" [attr.aria-label]="label()" (itemSelected)="selected.emit($event)">
+  <div
+    ngMenu
+    class="toolbar-menu"
+    [attr.aria-label]="label()"
+    (itemSelected)="selected.emit($event)"
+  >
     @for (item of items(); track item.value) {
       @if (item.separated) {
         <div class="toolbar-menu__separator" role="separator"></div>

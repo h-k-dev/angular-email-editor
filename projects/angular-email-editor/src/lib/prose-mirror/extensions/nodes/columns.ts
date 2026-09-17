@@ -261,7 +261,7 @@ export const Columns = defineNode({
       'Mod-a': selectColumnContent,
     }),
   ],
-  suggestions: ({ schema }) => [
+  actions: ({ schema }) => [
     {
       id: 'columns',
       title: 'Columns',
@@ -294,12 +294,14 @@ function hasColumnChildren(dom: HTMLElement): boolean {
 /** Inserts an n-column block and drops the cursor into the first column. */
 function insertColumns(schema: Schema, count: number): Command {
   return (state, dispatch) => {
+    // Asked, not told: answer before building anything — a toolbar asks on
+    // every transaction.
+    if (!dispatch) return true;
     const colType = schema.nodes['column'];
     const columnsType = schema.nodes['columns'];
     const maxWidth = columnMaxWidth(count);
     const columns = Array.from({ length: count }, () => colType.createAndFill({ maxWidth })!);
     const node = columnsType.create(null, columns);
-    if (!dispatch) return true;
 
     const from = state.selection.from;
     const tr = state.tr.replaceSelectionWith(node);

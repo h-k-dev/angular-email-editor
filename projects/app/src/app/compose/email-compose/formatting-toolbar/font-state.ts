@@ -115,7 +115,14 @@ export function createFontState(commands: FormattingCommands, enabled: Signal<bo
     const current = size();
     return [
       ...(own !== null
-        ? [{ value: null, label: `${own}px`, kind: 'radio' as const, checked: font().size === null }]
+        ? [
+            {
+              value: null,
+              label: `${own}px`,
+              kind: 'radio' as const,
+              checked: font().size === null,
+            },
+          ]
         : []),
       ...emailFontSizes.map((s, i) => ({
         value: s as number,

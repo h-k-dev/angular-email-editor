@@ -1,5 +1,6 @@
 import { lift, wrapIn } from 'prosemirror-commands';
 import { wrappingInputRule } from 'prosemirror-inputrules';
+import { isNodeActive } from '../../editor';
 import { defineNode } from '../../extension';
 
 /** The ledger's answer to reply chains whose margins stack until text is one
@@ -29,13 +30,19 @@ export const Blockquote = defineNode({
     // `> ` at the start of a block wraps it in a blockquote.
     wrappingInputRule(/^\s*>\s$/, schema.nodes['blockquote']),
   ],
-  suggestions: ({ schema }) => [
+  actions: ({ schema }) => [
     {
       id: 'quote',
       title: 'Quote',
       keywords: ['blockquote', 'citation'],
       icon: 'format_quote',
-      command: wrapIn(schema.nodes['blockquote']),
+      // A toggle: on a quote it lifts the text back out, anywhere else it
+      // wraps — what a button does, and what a second "/quote" should.
+      command: (state, dispatch, view) =>
+        isNodeActive(state, schema.nodes['blockquote'])
+          ? lift(state, dispatch)
+          : wrapIn(schema.nodes['blockquote'])(state, dispatch, view),
+      isActive: (state) => isNodeActive(state, schema.nodes['blockquote']),
     },
   ],
 });

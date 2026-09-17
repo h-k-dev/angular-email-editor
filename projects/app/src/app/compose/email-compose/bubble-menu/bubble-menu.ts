@@ -10,6 +10,9 @@ import { ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
 
 // Library
 import { BubbleMenuState } from 'angular-email-editor';
+import { ActionTrigger } from 'angular-email-editor/actions';
+import { Anchor } from 'angular-email-editor/anchor';
+import { KeepFocus } from 'angular-email-editor/focus';
 
 import { FormattingCommands } from '../formatting-commands';
 import { FormattingLayout, layoutEntries } from '../formatting-items';
@@ -39,6 +42,11 @@ const LAYOUT: FormattingLayout = [
 
     // CDK
     OverlayModule,
+
+    // Library
+    ActionTrigger,
+    Anchor,
+    KeepFocus,
   ],
   templateUrl: './bubble-menu.html',
   styleUrl: './bubble-menu.scss',
@@ -48,7 +56,12 @@ export class BubbleMenu {
       in viewport coordinates, which the anchor takes. */
   readonly state = input.required<BubbleMenuState>();
 
-  protected readonly entries = layoutEntries(inject(FormattingCommands).items, LAYOUT);
+  readonly #commands = inject(FormattingCommands);
+
+  protected readonly entries = layoutEntries(this.#commands.items, LAYOUT);
+
+  /** The visible editor's actions, which the buttons trigger by id. */
+  protected readonly actions = this.#commands.actions;
 
   protected readonly positions: ConnectedPosition[] = [
     { originX: 'center', originY: 'top', overlayX: 'center', overlayY: 'bottom', offsetY: -8 },

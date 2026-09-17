@@ -473,7 +473,7 @@ export const Table = defineNode({
   // The editor-only grid shown while editing is not the table's own business:
   // `LayoutGuides` marks whichever layout block (table *or* columns) holds the
   // cursor, so both structures reveal themselves identically.
-  suggestions: ({ schema }) => [
+  actions: ({ schema }) => [
     {
       id: 'table',
       title: 'Table',
@@ -521,8 +521,10 @@ function insertTableFocused(
   border: string | null = null,
 ): Command {
   return (state, dispatch) => {
-    const table = buildTable(schema, rows, cols, border);
+    // Asked, not told: answer before building anything — a toolbar asks on
+    // every transaction.
     if (!dispatch) return true;
+    const table = buildTable(schema, rows, cols, border);
 
     const from = state.selection.from;
     const tr = state.tr.replaceSelectionWith(table);

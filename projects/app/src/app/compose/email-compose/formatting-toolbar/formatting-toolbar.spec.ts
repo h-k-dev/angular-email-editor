@@ -24,9 +24,7 @@ function stubLayout(): void {
     if (isMore(this)) return this.hidden ? 0 : TOOL;
     return isItem(this) ? TOOL : 1;
   });
-  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
-    this: Element,
-  ) {
+  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
     let right = 0;
     if (this.classList.contains('toolbar__scroll')) {
       right = ROW_END - (moreShown() ? TOOL : 0);
@@ -138,13 +136,26 @@ describe('FormattingToolbar', () => {
     const phone = [...root.querySelectorAll<HTMLElement>('.toolbar__scroll > button')]
       .filter((el) => !el.classList.contains('toolbar__wide'))
       .map((el) => el.getAttribute('aria-label'));
-    expect(phone).toEqual(['Bold', 'Italic', 'Underline', 'Link', 'Strikethrough', 'Clear formatting']);
+    expect(phone).toEqual([
+      'Bold',
+      'Italic',
+      'Underline',
+      'Link',
+      'Strikethrough',
+      'Clear formatting',
+    ]);
     // The colour group goes whole on a phone, so its divider goes with it.
     const dividers = [...root.querySelectorAll('.toolbar__scroll > mat-divider')];
     expect(dividers.filter((el) => !el.classList.contains('toolbar__wide')).length).toBe(2);
   });
 
-  it("arrow keys walk the tools on the line — skipping what moved into the ⋯ and what is disabled — and wrap", () => {
+  it('says pressed only for what can be on: a toggle, never a plain command', () => {
+    expect(button('Bold').hasAttribute('aria-pressed')).toBe(true);
+    expect(button('Link').hasAttribute('aria-pressed')).toBe(true);
+    expect(button('Clear formatting').hasAttribute('aria-pressed')).toBe(false);
+  });
+
+  it('arrow keys walk the tools on the line — skipping what moved into the ⋯ and what is disabled — and wrap', () => {
     const press = (el: HTMLElement, key: string) => {
       el.focus();
       el.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));

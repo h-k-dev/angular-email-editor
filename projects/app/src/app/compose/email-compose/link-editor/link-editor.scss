@@ -5,12 +5,6 @@
   display: contents;
 }
 
-.link-editor__origin {
-  position: fixed;
-  width: 0;
-  pointer-events: none;
-}
-
 // The popover: a floating row like the bubble menu's, with the field
 // first — on its own tokens, ahead of the shared ones (styling.ts).
 .link-editor {

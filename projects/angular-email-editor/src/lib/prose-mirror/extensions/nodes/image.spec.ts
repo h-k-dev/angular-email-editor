@@ -335,7 +335,7 @@ describe('image node', () => {
     it('the slash item inserts a placeholder at the phone width, inline at the caret', () => {
       const { editor, unmount } = mount('<div>before</div>');
       editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 7)));
-      const items = Image.suggestions!({ schema: editor.schema, extensions: [] });
+      const items = Image.actions!({ schema: editor.schema, extensions: [] });
       const item = items.find((candidate) => candidate.title === 'Image placeholder')!;
       expect(item.command!(editor.state, editor.view.dispatch, editor.view)).toBe(true);
       expect(editor.getHTML()).toBe(
@@ -465,7 +465,10 @@ describe('image node', () => {
       const reported: boolean[] = [];
       const editor = createEditor({
         parent: host,
-        extensions: [...emailExtensions, createImageDrag({ onChange: (over) => reported.push(over) })],
+        extensions: [
+          ...emailExtensions,
+          createImageDrag({ onChange: (over) => reported.push(over) }),
+        ],
         content: '<div>one</div>',
       });
       editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 2)));

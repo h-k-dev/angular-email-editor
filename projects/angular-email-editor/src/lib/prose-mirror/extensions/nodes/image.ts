@@ -618,7 +618,7 @@ export const Image = defineNode({
       return true;
     },
   }),
-  suggestions: ({ schema }) => [
+  actions: ({ schema }) => [
     {
       id: 'image',
       title: 'Image',

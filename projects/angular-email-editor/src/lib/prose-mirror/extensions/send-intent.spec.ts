@@ -90,7 +90,7 @@ describe('send intent', () => {
 
   it('exposes a /send slash item whose payload never contains the query text', () => {
     const factory = createSendIntent({ onSend: (intent) => sent.push(intent) });
-    const items = factory.suggestions!({ schema: editor.schema, extensions: [] });
+    const items = factory.actions!({ schema: editor.schema, extensions: [] });
     expect(items).toHaveLength(1);
     expect(items[0].title).toBe('Send');
     // The slash menu deletes the "/send" text before running the command; the

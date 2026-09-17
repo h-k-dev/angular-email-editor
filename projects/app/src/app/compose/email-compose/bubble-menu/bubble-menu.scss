@@ -5,11 +5,6 @@
   display: contents;
 }
 
-.bubble-menu__origin {
-  position: fixed;
-  pointer-events: none;
-}
-
 // Placed by the CDK from the extension's box; floats over the text, so it
 // carries its own surface.
 .bubble-menu {

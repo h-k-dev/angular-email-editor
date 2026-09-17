@@ -518,13 +518,23 @@ function createSuggestionMenuPlugin(
     if (activeIndex >= filtered.length) activeIndex = Math.max(0, filtered.length - 1);
   };
 
+  /** An action that *says* it cannot run right now is not offered: "Clear
+      formatting" needs a selection a caret's menu never has. Only an explicit
+      `isEnabled` counts — a plain command is never asked, since a host's may
+      not keep to the dry-run convention and would act on every keystroke. */
+  const offered = <T extends SuggestionItem>(items: readonly T[]): readonly T[] => {
+    const state = view?.state;
+    if (!state) return items;
+    return items.filter((item) => item.children || (item.isEnabled?.(state) ?? true));
+  };
+
   /** Level 1 matches the menu's items; level 2 a group's list. */
   const matchStatic = (): SuggestionItem[] => {
     const { parent, query } = scope;
-    if (!parent) return rankItems(filterItems(allItems, query), query);
+    if (!parent) return rankItems(filterItems(offered(allItems), query), query);
     if (typeof parent.children === 'function') return [];
     const children = parent.children.map((child) => localize(child, i18n));
-    return rankItems(filterItems(children, query), query);
+    return rankItems(filterItems(offered(children), query), query);
   };
 
   /** The current level's source: the menu's own, or the group's. */

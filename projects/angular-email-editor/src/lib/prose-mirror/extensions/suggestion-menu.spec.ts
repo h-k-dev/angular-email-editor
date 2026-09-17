@@ -1879,3 +1879,75 @@ describe('createSuggestionMenu — the session in the text and in the state', ()
     });
   });
 });
+
+describe('createSuggestionMenu — what cannot run is not offered', () => {
+  let host: HTMLElement;
+  let menu: HTMLElement;
+  let editor: Editor;
+  let state: SuggestionMenuState | undefined;
+
+  const type = (text: string) =>
+    editor.exec((editorState, dispatch) => {
+      dispatch?.(editorState.tr.insertText(text));
+      return true;
+    });
+
+  const mount = (items: SuggestionMenuOptions['items']) => {
+    editor = createEditor({
+      parent: host,
+      extensions: [
+        ...emailExtensions,
+        createSuggestionMenu({ trigger: '/', element: menu, items, onChange: (s) => (state = s) }),
+      ],
+    });
+    vi.spyOn(editor.view, 'coordsAtPos').mockReturnValue({ left: 0, right: 0, top: 0, bottom: 0 });
+  };
+
+  beforeEach(() => {
+    host = document.createElement('div');
+    menu = document.createElement('div');
+    host.appendChild(menu);
+    document.body.appendChild(host);
+    state = undefined;
+    document.elementFromPoint ??= () => null;
+  });
+
+  afterEach(() => {
+    editor.destroy();
+    host.remove();
+  });
+
+  it('leaves out an action that says it cannot run — a caret has no selection to clear', () => {
+    mount(extensionSuggestions);
+    type('/clear');
+    expect(state?.items.map((item) => item.id) ?? []).not.toContain('clear-formatting');
+  });
+
+  it('offers what the kit declares for a toolbar just as well: /align', () => {
+    mount(extensionSuggestions);
+    type('/align');
+    expect(state?.items.map((item) => item.id)).toEqual([
+      'align-left',
+      'align-center',
+      'align-right',
+    ]);
+  });
+
+  it('never asks a plain command whether it would run: a host’s may act when called', () => {
+    const command = vi.fn(() => true);
+    mount([{ id: 'dialog', title: 'Open dialog', command }]);
+    type('/open');
+    expect(state?.items.map((item) => item.id)).toEqual(['dialog']);
+    expect(command).not.toHaveBeenCalled();
+  });
+
+  it('asks again as the state moves: offered once it can run', () => {
+    let allowed = false;
+    mount([{ id: 'gated', title: 'Gated', command: () => true, isEnabled: () => allowed }]);
+    type('/gat');
+    expect(state?.open ?? false).toBe(false);
+    allowed = true;
+    type('e');
+    expect(state?.items.map((item) => item.id)).toEqual(['gated']);
+  });
+});

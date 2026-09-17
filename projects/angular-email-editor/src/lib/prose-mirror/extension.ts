@@ -1,5 +1,5 @@
 import { MarkSpec, NodeSpec, Schema } from 'prosemirror-model';
-import { Command, Plugin } from 'prosemirror-state';
+import { Command, EditorState, Plugin } from 'prosemirror-state';
 import { InputRule } from 'prosemirror-inputrules';
 
 /** Passed to every extension factory once the schema has been built. */
@@ -36,8 +36,38 @@ interface SuggestionItemBase {
 export interface SuggestionCommandItem extends SuggestionItemBase {
   /** Runs after the trigger and query text have been deleted. */
   command: Command;
+  /** Whether it can run right now, when the item wants to say. A menu does
+      not offer a row that says no; a button for it shows disabled. Absent,
+      a menu always offers the row — it never asks a plain command, which a
+      host may not have written to the dry-run convention — and a button
+      asks the command itself (see {@link isActionEnabled}). */
+  isEnabled?: (state: EditorState) => boolean;
   children?: never;
 }
+
+/**
+ * Something an extension can do, declared once and shown wherever a host
+ * wants it: a row of a `/` menu, a toolbar button, a bubble menu, a menu
+ * item. It is a {@link SuggestionCommandItem} — the same id, words, icon and
+ * command — that also knows its state, so a button can show it.
+ *
+ * An action is permanent and named; a *suggestion* in the narrower sense (a
+ * merge tag for `{{fi`, a template, a correction) is an answer to a moment
+ * and comes from a {@link SuggestionSource}. Both end in the same row.
+ */
+export interface EditorAction extends SuggestionCommandItem {
+  /** Whether it is on at the selection — a toggle's pressed state. Absent
+      for what has no "on": inserting a table, sending. */
+  isActive?: (state: EditorState) => boolean;
+}
+
+/** Whether `action` can run on `state`: its own `isEnabled` when it has
+    one, else the command is asked the ProseMirror way — run without a
+    dispatch, it only says whether it would apply. An extension's commands
+    keep to that; declare `isEnabled` where the answer is too costly to ask
+    on every transaction. */
+export const isActionEnabled = (action: EditorAction, state: EditorState): boolean =>
+  action.isEnabled ? action.isEnabled(state) : action.command(state);
 
 /** What a {@link SuggestionSource} is asked for. */
 export interface SuggestionRequest {
@@ -97,9 +127,9 @@ interface BaseExtension {
   inputRules?: (ctx: ExtensionContext) => InputRule[];
   /** Arbitrary ProseMirror plugins (decorations, paste handling, ...). */
   plugins?: (ctx: ExtensionContext) => Plugin[];
-  /** Commands this extension offers a suggestion menu — what a `/` menu
-      lists, gathered by {@link extensionSuggestions}. */
-  suggestions?: (ctx: ExtensionContext) => SuggestionItem[];
+  /** What this extension can do, for every surface that shows it — a `/`
+      menu's rows, a toolbar's buttons. Gathered by {@link extensionActions}. */
+  actions?: (ctx: ExtensionContext) => EditorAction[];
 }
 
 export interface NodeExtension extends BaseExtension {
@@ -138,7 +168,11 @@ export const defineExtension = (
   ...extension,
 });
 
-/** Every suggestion the editor's extensions offer, in kit order — the usual
-    items of a `/` menu: `createSuggestionMenu({ trigger: '/', items: extensionSuggestions })`. */
+/** Every action the editor's extensions declare, in kit order. */
+export const extensionActions = (ctx: ExtensionContext): EditorAction[] =>
+  ctx.extensions.flatMap((extension) => extension.actions?.(ctx) ?? []);
+
+/** The extensions' actions as the rows of a `/` menu — the same list, seen as
+    suggestions: `createSuggestionMenu({ trigger: '/', items: extensionSuggestions })`. */
 export const extensionSuggestions = (ctx: ExtensionContext): SuggestionItem[] =>
-  ctx.extensions.flatMap((extension) => extension.suggestions?.(ctx) ?? []);
+  extensionActions(ctx);

@@ -5,11 +5,6 @@
   display: contents;
 }
 
-.block-menu__origin {
-  position: fixed;
-  pointer-events: none;
-}
-
 .block-menu {
   @include toolbar.floating-toolbar;
 }

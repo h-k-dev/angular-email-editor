@@ -36,7 +36,10 @@
   // Hover and the keyboard's active item look the same.
   &:hover,
   &[data-active='true'] {
-    background-color: var(--email-compose-menu-hover, var(--mat-sys-surface-container-high, #e8e8e8));
+    background-color: var(
+      --email-compose-menu-hover,
+      var(--mat-sys-surface-container-high, #e8e8e8)
+    );
   }
 
   &[aria-checked='true'] {

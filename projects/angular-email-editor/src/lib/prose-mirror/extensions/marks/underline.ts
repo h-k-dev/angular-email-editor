@@ -1,3 +1,4 @@
+import { isMarkActive } from '../../editor';
 import { defineMark } from '../../extension';
 import { setMark } from './set.utils';
 import { toggleMark } from './toggle.utils';
@@ -25,13 +26,14 @@ export const Underline = defineMark({
     'Mod-u': toggleMark(schema.marks['underline']),
     'Mod-U': toggleMark(schema.marks['underline']),
   }),
-  suggestions: ({ schema }) => [
+  actions: ({ schema }) => [
     {
       id: 'underline',
       title: 'Underline',
       keywords: ['underline'],
       icon: 'format_underlined',
       command: toggleMark(schema.marks['underline']),
+      isActive: (state) => isMarkActive(state, schema.marks['underline']),
     },
   ],
 });

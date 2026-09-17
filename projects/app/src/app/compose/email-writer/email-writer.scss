@@ -36,7 +36,11 @@
   // border-radius resolves against the box's *height* on the vertical axis,
   // and this sheet is taller than the viewport is wide on any tablet held
   // portrait — it would drop its corners while still centred.
-  border-radius: clamp(0px, (100vw - #{bp.$full-width-max}) * 100, var(--mat-sys-corner-medium, 8px));
+  border-radius: clamp(
+    0px,
+    (100vw - #{bp.$full-width-max}) * 100,
+    var(--mat-sys-corner-medium, 8px)
+  );
   // Lifted just off the page — the lowest system elevation, so it reads as
   // a sheet on a desk rather than a panel.
   box-shadow: var(--mat-sys-level1);

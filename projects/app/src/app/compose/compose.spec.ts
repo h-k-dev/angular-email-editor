@@ -103,7 +103,9 @@ describe('Compose', () => {
     const code = root.querySelector('.code') as HTMLElement;
     const source = root.querySelector('section[html-email-compose]') as HTMLElement;
     const sourceEditor = source.querySelector('[aria-label="Email HTML source"]');
-    const toggle = root.querySelector('.writer-bar [aria-label="HTML source"]') as HTMLButtonElement;
+    const toggle = root.querySelector(
+      '.writer-bar [aria-label="HTML source"]',
+    ) as HTMLButtonElement;
     const bold = root.querySelector('.toolbar [aria-label="Bold"]') as HTMLButtonElement;
     const quote = root.querySelector('.toolbar [aria-label="Quote"]') as HTMLButtonElement;
     const send = root.querySelector('.writer-bar__send') as HTMLButtonElement;
@@ -143,7 +145,9 @@ describe('Compose', () => {
 
   it("the writer bar's formatting options button shows and hides the toolbar", async () => {
     const root = fixture.nativeElement as HTMLElement;
-    const button = root.querySelector('.writer-bar [aria-label="Formatting options"]') as HTMLButtonElement;
+    const button = root.querySelector(
+      '.writer-bar [aria-label="Formatting options"]',
+    ) as HTMLButtonElement;
     const toolbar = root.querySelector('.toolbar') as HTMLElement;
 
     // Shown by default, pressed.
@@ -199,8 +203,8 @@ describe('Compose', () => {
     // A size at the caret: the same textStyle mark, without a colour.
     size.click();
     await fixture.whenStable();
-    const item = [...document.querySelectorAll<HTMLElement>('[role="menuitemradio"]')].find(
-      (el) => el.textContent?.trim().startsWith('18px'),
+    const item = [...document.querySelectorAll<HTMLElement>('[role="menuitemradio"]')].find((el) =>
+      el.textContent?.trim().startsWith('18px'),
     );
     item!.click();
     await fixture.whenStable();
@@ -211,7 +215,9 @@ describe('Compose', () => {
     color.click();
     await fixture.whenStable();
     expect(color.getAttribute('aria-expanded')).toBe('true');
-    const swatch = document.querySelector('[color-palette] [aria-label="Red"]') as HTMLButtonElement;
+    const swatch = document.querySelector(
+      '[color-palette] [aria-label="Red"]',
+    ) as HTMLButtonElement;
     swatch.click();
     await fixture.whenStable();
     expect(color.hasAttribute('data-applied')).toBe(true);
@@ -226,7 +232,12 @@ describe('Compose', () => {
     const editor = pane.editor();
     // jsdom has no layout: the anchor at the selection is measured from a
     // rect the test supplies.
-    vi.spyOn(editor.view, 'coordsAtPos').mockReturnValue({ left: 40, right: 40, top: 100, bottom: 120 });
+    vi.spyOn(editor.view, 'coordsAtPos').mockReturnValue({
+      left: 40,
+      right: 40,
+      top: 100,
+      bottom: 120,
+    });
     // Select "docs": the link editor opens only on a selection or in a link.
     editor.view.dispatch(
       editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 9, 13)),
@@ -626,7 +637,9 @@ describe('Compose below the docking breakpoint', () => {
     const root = fixture.nativeElement as HTMLElement;
     const toolbar = root.querySelector('.toolbar') as HTMLElement;
     const toggle = () =>
-      root.querySelector('.writer-bar [aria-label="Formatting options"]') as HTMLButtonElement | null;
+      root.querySelector(
+        '.writer-bar [aria-label="Formatting options"]',
+      ) as HTMLButtonElement | null;
 
     // Wide: switched off.
     toggle()!.click();

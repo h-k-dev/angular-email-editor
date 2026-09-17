@@ -164,7 +164,13 @@
            row is a div holding a label and the control — a label may not
            wrap the control's list — so the label names the control's input
            by id, and the row forwards its clicks. -->
-    <div class="writer-field" envelope (mousedown)="keepCaret($event)" (click)="fromField.focus()">
+    <div
+      class="writer-field"
+      envelope
+      emailKeepFocus
+      [emailKeepFocusExcept]="rowControls"
+      (click)="fromField.focus()"
+    >
       <label class="writer-field__label" [for]="fromField.id">From</label>
       <div
         email-address-input
@@ -194,7 +200,8 @@
         <div
           class="writer-field writer-summary"
           aria-hidden="true"
-          (mousedown)="keepCaret($event)"
+          emailKeepFocus
+          [emailKeepFocusExcept]="rowControls"
           (click)="toField.focus()"
         >
           <span class="writer-summary__label">{{ groups.at(0)?.label ?? 'To' }}</span>
@@ -218,7 +225,12 @@
         </div>
       }
 
-      <div class="writer-field" (mousedown)="keepCaret($event)" (click)="toField.focus()">
+      <div
+        class="writer-field"
+        emailKeepFocus
+        [emailKeepFocusExcept]="rowControls"
+        (click)="toField.focus()"
+      >
         <label class="writer-field__label" [for]="toField.id">To</label>
         <!-- Gmail's Cc and Bcc: text buttons drawn at the row's end (CSS order),
              each opening its row and stepping aside. They come before the
@@ -234,7 +246,7 @@
               <button
                 type="button"
                 class="writer-field__action"
-                (mousedown)="$event.preventDefault()"
+                emailKeepFocus
                 (click)="openCopy('cc'); $event.stopPropagation()"
               >
                 Cc
@@ -244,7 +256,7 @@
               <button
                 type="button"
                 class="writer-field__action"
-                (mousedown)="$event.preventDefault()"
+                emailKeepFocus
                 (click)="openCopy('bcc'); $event.stopPropagation()"
               >
                 Bcc
@@ -256,14 +268,24 @@
       </div>
       <!-- Each copy row lives only while open or filled. -->
       @if (showCc()) {
-        <div class="writer-field" (mousedown)="keepCaret($event)" (click)="ccField.focus()">
+        <div
+          class="writer-field"
+          emailKeepFocus
+          [emailKeepFocusExcept]="rowControls"
+          (click)="ccField.focus()"
+        >
           <label class="writer-field__label" [for]="ccField.id">Cc</label>
           <div email-address-input #ccField [formField]="envelope.cc"></div>
         </div>
       }
 
       @if (showBcc()) {
-        <div class="writer-field" (mousedown)="keepCaret($event)" (click)="bccField.focus()">
+        <div
+          class="writer-field"
+          emailKeepFocus
+          [emailKeepFocusExcept]="rowControls"
+          (click)="bccField.focus()"
+        >
           <label class="writer-field__label" [for]="bccField.id">Bcc</label>
           <div email-address-input #bccField [formField]="envelope.bcc"></div>
         </div>
@@ -275,7 +297,8 @@
     <div
       class="writer-field"
       envelope
-      (mousedown)="keepCaret($event)"
+      emailKeepFocus
+      [emailKeepFocusExcept]="rowControls"
       (click)="subjectField.focus()"
     >
       <label class="writer-field__label" for="subject-field">Subject</label>

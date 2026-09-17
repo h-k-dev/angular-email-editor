@@ -45,7 +45,7 @@ export const Heading = defineNode({
       level: match[1].length,
     })),
   ],
-  suggestions: ({ schema }) =>
+  actions: ({ schema }) =>
     [1, 2, 3].map((level) => ({
       id: `heading-${level}`,
       title: `Heading ${level}`,

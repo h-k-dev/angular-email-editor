@@ -1,8 +1,10 @@
 import { AllSelection, TextSelection } from 'prosemirror-state';
 import { createEditor, Editor } from './editor';
 import { insertHTML } from './html';
-import { richTextExtensions } from './extensions/kits';
+import { emailExtensions, htmlSourceExtensions, richTextExtensions } from './extensions/kits';
+import { extensionActions, extensionSuggestions, isActionEnabled } from './extension';
 import { BubbleMenuState, createBubbleMenu } from './extensions/bubble-menu';
+import { createSendIntent } from './extensions/send-intent';
 
 describe('createEditor', () => {
   let host: HTMLElement;
@@ -358,5 +360,272 @@ describe('createBubbleMenu', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('actions and watching the editor', () => {
+  let host: HTMLElement;
+  let editor: Editor;
+
+  const select = (from: number, to?: number) =>
+    editor.exec((state, dispatch) => {
+      dispatch?.(state.tr.setSelection(TextSelection.create(state.doc, from, to)));
+      return true;
+    });
+
+  const action = (id: string) => editor.actions.find((candidate) => candidate.id === id)!;
+
+  beforeEach(() => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    editor = createEditor({
+      parent: host,
+      extensions: richTextExtensions,
+      content: '<p>Hello <strong>bold</strong> world</p>',
+    });
+  });
+
+  afterEach(() => {
+    editor.destroy();
+    host.remove();
+  });
+
+  describe('editor.actions', () => {
+    it('lists what the kit’s extensions declare, in kit order, by stable ids', () => {
+      const ids = editor.actions.map((candidate) => candidate.id);
+      expect(ids).toEqual(
+        expect.arrayContaining(['bold', 'italic', 'underline', 'strike', 'table']),
+      );
+      expect(new Set(ids).size).toBe(ids.length);
+    });
+
+    it('is the list a / menu shows: the same objects, seen as suggestions', () => {
+      const ctx = { schema: editor.schema, extensions: richTextExtensions };
+      expect(extensionSuggestions(ctx).map((row) => row.id)).toEqual(
+        extensionActions(ctx).map((candidate) => candidate.id),
+      );
+    });
+
+    it('knows when a mark is on at the selection — and at a caret about to type it', () => {
+      select(3);
+      expect(action('bold').isActive!(editor.state)).toBe(false);
+      select(9);
+      expect(action('bold').isActive!(editor.state)).toBe(true);
+      expect(action('italic').isActive!(editor.state)).toBe(false);
+
+      select(3);
+      editor.exec(action('italic').command);
+      expect(action('italic').isActive!(editor.state)).toBe(true);
+    });
+
+    it('asks the command itself whether it can run, unless the action says', () => {
+      expect(isActionEnabled(action('bold'), editor.state)).toBe(true);
+      const never = { ...action('bold'), isEnabled: () => false };
+      expect(isActionEnabled(never, editor.state)).toBe(false);
+      // Asking changes nothing.
+      expect(editor.getHTML()).toContain('<strong');
+      expect(action('bold').isActive!(editor.state)).toBe(false);
+    });
+
+    it('leaves what has no "on" without a pressed state', () => {
+      expect(action('table').isActive).toBeUndefined();
+    });
+  });
+
+  describe('editor.subscribe', () => {
+    it('tells of every change of state — the selection too, which onUpdate never did', () => {
+      const seen = vi.fn();
+      editor.subscribe(seen);
+      select(3);
+      expect(seen).toHaveBeenCalledTimes(1);
+      expect(seen).toHaveBeenLastCalledWith(editor);
+
+      editor.exec(action('bold').command);
+      expect(seen).toHaveBeenCalledTimes(2);
+    });
+
+    it('hears an external sync as well', () => {
+      const seen = vi.fn();
+      editor.subscribe(seen);
+      editor.setContent('<p>Replaced</p>');
+      expect(seen).toHaveBeenCalled();
+    });
+
+    it('stops when asked', () => {
+      const seen = vi.fn();
+      const stop = editor.subscribe(seen);
+      stop();
+      select(3);
+      expect(seen).not.toHaveBeenCalled();
+    });
+
+    it('can be asked of an editor that already exists — no place in the kit needed', () => {
+      const late = vi.fn();
+      select(2);
+      editor.subscribe(late);
+      select(4);
+      expect(late).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('the source kit', () => {
+    it('mirrors the marks’ actions as it mirrors their commands, and only those', () => {
+      const source = createEditor({ parent: host, extensions: htmlSourceExtensions });
+      const markIds = emailExtensions
+        .filter((extension) => extension.type === 'mark')
+        .flatMap((extension) =>
+          (extension.actions?.({ schema: editor.schema, extensions: emailExtensions }) ?? []).map(
+            (candidate) => candidate.id,
+          ),
+        );
+      expect(source.actions.map((candidate) => candidate.id)).toEqual(markIds);
+      expect(markIds).toEqual(expect.arrayContaining(['bold', 'italic', 'underline', 'strike']));
+
+      const bold = source.actions.find((candidate) => candidate.id === 'bold')!;
+      // Source text cannot say whether bold is on, and asking the command
+      // would parse it on every transaction: there, the action is simply on offer.
+      expect(bold.isActive).toBeUndefined();
+      expect(isActionEnabled(bold, source.state)).toBe(true);
+      source.destroy();
+    });
+  });
+});
+
+describe('the email kit’s block actions', () => {
+  let host: HTMLElement;
+  let editor: Editor;
+
+  const caret = (pos: number, to?: number) =>
+    editor.exec((state, dispatch) => {
+      dispatch?.(state.tr.setSelection(TextSelection.create(state.doc, pos, to)));
+      return true;
+    });
+
+  const action = (id: string) => editor.actions.find((candidate) => candidate.id === id)!;
+  const on = (id: string) => action(id).isActive!(editor.state);
+  const can = (id: string) => isActionEnabled(action(id), editor.state);
+  const run = (id: string) => editor.exec(action(id).command);
+
+  beforeEach(() => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    editor = createEditor({
+      parent: host,
+      extensions: emailExtensions,
+      content: '<div>First line</div><div>Second line</div>',
+    });
+    caret(3);
+  });
+
+  afterEach(() => {
+    editor.destroy();
+    host.remove();
+  });
+
+  it('declares them under the ids a toolbar and a translation file share', () => {
+    expect(editor.actions.map((candidate) => candidate.id)).toEqual(
+      expect.arrayContaining([
+        'bulleted-list',
+        'numbered-list',
+        'quote',
+        'align-left',
+        'align-center',
+        'align-right',
+        'indent',
+        'outdent',
+        'clear-formatting',
+      ]),
+    );
+  });
+
+  it('quote is a toggle: it wraps, says it is on, and lifts back out', () => {
+    expect(on('quote')).toBe(false);
+    run('quote');
+    expect(on('quote')).toBe(true);
+    expect(editor.getHTML()).toContain('<blockquote');
+    run('quote');
+    expect(on('quote')).toBe(false);
+    expect(editor.getHTML()).not.toContain('<blockquote');
+  });
+
+  it('a list says which kind the caret is in', () => {
+    run('bulleted-list');
+    expect(on('bulleted-list')).toBe(true);
+    expect(on('numbered-list')).toBe(false);
+    run('bulleted-list');
+    expect(on('bulleted-list')).toBe(false);
+  });
+
+  it('alignment is three actions, exactly one of them on', () => {
+    const state = () => ['align-left', 'align-center', 'align-right'].map(on);
+    expect(state()).toEqual([true, false, false]);
+    run('align-center');
+    expect(state()).toEqual([false, true, false]);
+    run('align-right');
+    expect(state()).toEqual([false, false, true]);
+    run('align-left');
+    expect(state()).toEqual([true, false, false]);
+    // The other line was never touched.
+    caret(editor.state.doc.content.size - 2);
+    expect(state()).toEqual([true, false, false]);
+  });
+
+  it('indent and outdent answer for the moment through the command itself', () => {
+    expect(can('indent')).toBe(true);
+    expect(can('outdent')).toBe(false); // already at the margin
+    run('indent');
+    expect(can('outdent')).toBe(true);
+    run('outdent');
+    expect(can('outdent')).toBe(false);
+  });
+
+  it('clear formatting says it needs a selection', () => {
+    expect(can('clear-formatting')).toBe(false);
+    caret(1, 6);
+    expect(can('clear-formatting')).toBe(true);
+  });
+});
+
+describe('asking an action whether it can run', () => {
+  it.each([
+    ['the rich-text kit', richTextExtensions],
+    ['the email kit', emailExtensions],
+    ['the source kit', htmlSourceExtensions],
+  ])('changes nothing and dispatches nothing — %s', (_name, extensions) => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const editor = createEditor({ parent: host, extensions });
+    editor.exec((state, dispatch) => {
+      dispatch?.(state.tr.insertText('Some text to stand in'));
+      return true;
+    });
+    const dispatch = vi.spyOn(editor.view, 'dispatch');
+    const before = editor.state;
+
+    // A toolbar asks every action, on every transaction.
+    for (const action of editor.actions) {
+      expect(typeof isActionEnabled(action, editor.state)).toBe('boolean');
+      action.isActive?.(editor.state);
+    }
+
+    expect(dispatch).not.toHaveBeenCalled();
+    expect(editor.state).toBe(before);
+    editor.destroy();
+    host.remove();
+  });
+
+  it('does not send: the send action answers without acting', () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const onSend = vi.fn();
+    const editor = createEditor({
+      parent: host,
+      extensions: [...emailExtensions, createSendIntent({ onSend })],
+    });
+    const send = editor.actions.find((action) => action.id === 'send')!;
+    expect(isActionEnabled(send, editor.state)).toBe(true);
+    expect(onSend).not.toHaveBeenCalled();
+    editor.destroy();
+    host.remove();
   });
 });

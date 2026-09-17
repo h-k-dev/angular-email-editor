@@ -341,5 +341,32 @@ export class ApiReference {
         },
       ],
     },
+    {
+      title: 'Integration directives',
+      hint:
+        'Behaviour only — no template, no styles, no UI kit — so they go onto a host’s own ' +
+        'elements (a Material button, an Aria toolbar, a CDK overlay) or into its own components ' +
+        'through hostDirectives. Each topic is an entry point of its own.',
+      entries: [
+        {
+          name: 'emailKeepFocus',
+          signature:
+            '[emailKeepFocus] · [emailKeepFocusExcept]="selector" — angular-email-editor/focus',
+          does: 'A press on the element never takes focus from wherever it is: the editor keeps its caret and selection through a click on a tool, and the menus that depend on its focus stay open. One on a container covers everything in it; text entry inside is the default exception; the keyboard still reaches every tool.',
+        },
+        {
+          name: 'injectActions · editorState · emailAction',
+          signature:
+            '(editor: () => Editor | undefined) => EditorActions · => Signal<EditorState> · [emailAction]="actions.get(id)" — angular-email-editor/actions',
+          does: 'What the extensions declare as actions (editor.actions — id, title, icon, command, isActive, isEnabled), bound to a live editor as signals: pressed, disabled, run. The editor is read reactively, so a code view is one computed — the visible editor’s kit decides what exists. emailAction makes a host’s own control the trigger: aria-pressed and aria-disabled unless told not to, never the native disabled or a style; the caret returns to the editor after running. It listens through editor.subscribe, so nothing has to be in the kit before the editor is made. A host’s own buttons come in as HostAction — a run, never a command, because a command is asked on every transaction: host for what stands alone (a link dialog), override for a run over a kit’s action (a table size picker).',
+        },
+        {
+          name: 'emailAnchor',
+          signature:
+            '[emailAnchor]="rect | null" · exportAs emailAnchor — angular-email-editor/anchor',
+          does: 'A real element kept over a box the editor reports (a selection, a caret, a block), for everything that floats from an element: cdkOverlayOrigin, matMenuTriggerFor, an Aria menu trigger, CSS anchor positioning, Floating UI. Holds its last place while the box is null, so what it carries closes in place.',
+        },
+      ],
+    },
   ];
 }

@@ -1,3 +1,4 @@
+import { isMarkActive } from '../../editor';
 import { defineMark } from '../../extension';
 
 import { setMark } from './set.utils';
@@ -66,13 +67,14 @@ export const Bold = defineMark({
     'Mod-b': toggleMark(schema.marks['bold']),
     'Mod-B': toggleMark(schema.marks['bold']),
   }),
-  suggestions: ({ schema }) => [
+  actions: ({ schema }) => [
     {
       id: 'bold',
       title: 'Bold',
       keywords: ['bold'],
       icon: 'format_bold',
       command: toggleMark(schema.marks['bold']),
+      isActive: (state) => isMarkActive(state, schema.marks['bold']),
     },
   ],
 });

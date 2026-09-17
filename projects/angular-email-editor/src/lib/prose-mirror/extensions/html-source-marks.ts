@@ -2,6 +2,7 @@ import { Command, EditorState, TextSelection } from 'prosemirror-state';
 import { Node, Schema } from 'prosemirror-model';
 import {
   CommandFactory,
+  EditorAction,
   Extension,
   ExtensionContext,
   FunctionalExtension,
@@ -40,8 +41,20 @@ export const createSourceMarks = ({ extensions }: SourceMarksOptions): Functiona
 
   const keymap: Record<string, Command> = {};
   const commands: Record<string, CommandFactory> = {};
+  const actions: EditorAction[] = [];
   for (const extension of extensions) {
     if (extension.type !== 'mark') continue;
+    // The same action, run through the rich schema. Whether it is on cannot
+    // be read off source text, and asking the command would parse the source
+    // on every transaction: on the source side a mark action is simply there.
+    for (const action of extension.actions?.(ctx) ?? []) {
+      actions.push({
+        ...action,
+        command: throughRichSchema(schema, action.command),
+        isActive: undefined,
+        isEnabled: () => true,
+      });
+    }
     for (const [key, command] of Object.entries(extension.keymap?.(ctx) ?? {})) {
       keymap[key] = throughRichSchema(schema, command);
     }
@@ -54,6 +67,7 @@ export const createSourceMarks = ({ extensions }: SourceMarksOptions): Functiona
     name: 'sourceMarks',
     keymap: () => keymap,
     commands: () => commands,
+    actions: () => actions,
   });
 };
 

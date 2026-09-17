@@ -1,13 +1,6 @@
-<!-- The anchor: the block's own box, fixed, for the overlay to attach to. -->
-<span
-  cdkOverlayOrigin
-  #origin="cdkOverlayOrigin"
-  class="block-menu__origin"
-  [style.left.px]="state().boundingBox?.left || 0"
-  [style.top.px]="state().boundingBox?.top || 0"
-  [style.width.px]="state().boundingBox?.width || 0"
-  [style.height.px]="state().boundingBox?.height || 0"
-></span>
+<!-- The anchor: an element kept over the block's own box, for the overlay to
+     attach to. -->
+<span [emailAnchor]="state().boundingBox" cdkOverlayOrigin #origin="cdkOverlayOrigin"></span>
 
 <!-- disableClose: the CDK otherwise detaches the overlay itself on Escape,
      which strands it — `isOpen` stays true, so the binding never toggles and
@@ -28,7 +21,7 @@
     #menu
     role="toolbar"
     aria-label="Columns"
-    (mousedown)="$event.preventDefault()"
+    emailKeepFocus
     (keydown.escape)="leave()"
   >
     @if (state().block === 'columns') {

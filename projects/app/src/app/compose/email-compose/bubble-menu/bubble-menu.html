@@ -1,13 +1,6 @@
-<!-- The anchor: the selection's box, fixed, for the overlay to attach to. -->
-<span
-  cdkOverlayOrigin
-  #origin="cdkOverlayOrigin"
-  class="bubble-menu__origin"
-  [style.left.px]="state().boundingBox?.left || 0"
-  [style.top.px]="state().boundingBox?.top || 0"
-  [style.width.px]="state().boundingBox?.width || 0"
-  [style.height.px]="state().boundingBox?.height || 0"
-></span>
+<!-- The anchor: an element kept over the selection's box, for the overlay to
+     attach to. -->
+<span [emailAnchor]="state().boundingBox" cdkOverlayOrigin #origin="cdkOverlayOrigin"></span>
 
 <ng-template
   cdkConnectedOverlay
@@ -27,20 +20,24 @@
     animate.enter="bubble-menu--landing"
     role="toolbar"
     aria-label="Selection formatting"
-    (mousedown)="$event.preventDefault()"
+    emailKeepFocus
   >
     @for (entry of entries; track entry.item.id) {
       @let item = entry.item;
       @if (entry.separated) {
         <mat-divider [vertical]="true" />
       }
+      <!-- Every button here is an action — the kit's marks and quote, the
+           composer's own link — so the library's directive does the work on
+           Material's button: it runs on click, says pressed, hands the caret
+           back; how disabled looks stays Material's, bound from its state. -->
       <button
         mat-icon-button
         type="button"
         [attr.aria-label]="item.label"
-        [attr.aria-pressed]="item.pressed ? item.pressed() : null"
-        [disabled]="item.disabled?.() ?? false"
-        (click)="item.run?.()"
+        [emailAction]="actions.get(item.id)"
+        #trigger="emailAction"
+        [disabled]="trigger.disabled()"
       >
         <mat-icon>{{ item.icon }}</mat-icon>
       </button>

@@ -61,7 +61,7 @@ export const Button = defineNode({
   commands: ({ schema }) => ({
     insertButton: (): Command => insertButton(schema),
   }),
-  suggestions: ({ schema }) => [
+  actions: ({ schema }) => [
     {
       id: 'button',
       title: 'Button',

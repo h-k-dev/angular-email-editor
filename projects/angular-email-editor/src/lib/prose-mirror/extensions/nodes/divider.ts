@@ -33,7 +33,7 @@ export const Divider = defineNode({
       return true;
     },
   }),
-  suggestions: ({ schema }) => [
+  actions: ({ schema }) => [
     {
       id: 'divider',
       title: 'Divider',

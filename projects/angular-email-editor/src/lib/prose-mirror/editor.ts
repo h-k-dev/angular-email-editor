@@ -3,7 +3,13 @@ import { EditorView } from 'prosemirror-view';
 import { MarkType, Node, NodeType, Schema } from 'prosemirror-model';
 import { keymap } from 'prosemirror-keymap';
 import { InputRule, inputRules } from 'prosemirror-inputrules';
-import { CommandFactory, Extension, ExtensionContext } from './extension';
+import {
+  CommandFactory,
+  EditorAction,
+  Extension,
+  ExtensionContext,
+  extensionActions,
+} from './extension';
 import { createSchema } from './schema';
 import { parseHTML, serializeToHTML } from './html';
 
@@ -28,8 +34,18 @@ export interface Editor {
    * `editor.commands.toggleBold()` runs immediately and returns whether it applied.
    */
   commands: Record<string, (...args: any[]) => boolean>;
+  /** Every action the editor's extensions declare, in kit order — what a
+      toolbar, a bubble menu or a `/` menu shows. */
+  readonly actions: readonly EditorAction[];
   /** Runs a raw ProseMirror command against the current state. */
   exec(command: Command): boolean;
+  /**
+   * Calls `listener` after every change of the editor's state — the text,
+   * the selection, a stored mark — and returns the way to stop. Unlike
+   * `onUpdate` (document changes, given at creation) it can be asked of an
+   * editor that already exists, which is what lets a toolbar bind to one.
+   */
+  subscribe(listener: (editor: Editor) => void): () => void;
   /** Whether a node or mark with the given name (and attrs) is active at the selection. */
   isActive(name: string, attrs?: Record<string, any>): boolean;
   getHTML(): string;
@@ -92,6 +108,7 @@ export function createEditor(options: EditorOptions): Editor {
       // them, or the html signal falls behind the editor.
       const { state, transactions } = view.state.applyTransaction(transaction);
       view.updateState(state);
+      for (const listener of listeners) listener(editor);
       if (
         transactions.some((applied) => applied.docChanged) &&
         !transaction.getMeta('externalSync')
@@ -102,6 +119,7 @@ export function createEditor(options: EditorOptions): Editor {
   });
 
   const exec = (command: Command) => command(view.state, view.dispatch, view);
+  const listeners = new Set<(editor: Editor) => void>();
 
   const commands: Editor['commands'] = {};
   for (const [name, factory] of Object.entries(commandFactories)) {
@@ -115,7 +133,12 @@ export function createEditor(options: EditorOptions): Editor {
       return view.state;
     },
     commands,
+    actions: extensionActions(ctx),
     exec,
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
     isActive(name, attrs) {
       const nodeType = schema.nodes[name];
       if (nodeType) return isNodeActive(view.state, nodeType, attrs);
@@ -141,7 +164,10 @@ export function createEditor(options: EditorOptions): Editor {
       syncDoc(view, schema.topNodeType.create(null, lines));
     },
     focus: () => view.focus(),
-    destroy: () => view.destroy(),
+    destroy: () => {
+      listeners.clear();
+      view.destroy();
+    },
   };
 
   return editor;

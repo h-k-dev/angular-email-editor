@@ -1,4 +1,5 @@
 import { toggleMark } from 'prosemirror-commands';
+import { isMarkActive } from '../../editor';
 import { defineMark } from '../../extension';
 import { setMark } from './set.utils';
 import { unsetMark } from './unset.utils';
@@ -29,13 +30,14 @@ export const Strike = defineMark({
     unsetStrike: () => unsetMark(schema.marks['strike']),
     toggleStrike: () => toggleMark(schema.marks['strike']),
   }),
-  suggestions: ({ schema }) => [
+  actions: ({ schema }) => [
     {
       id: 'strike',
       title: 'Strike',
       keywords: ['strike', 'strikethrough'],
       icon: 'format_strikethrough',
       command: toggleMark(schema.marks['strike']),
+      isActive: (state) => isMarkActive(state, schema.marks['strike']),
     },
   ],
 });

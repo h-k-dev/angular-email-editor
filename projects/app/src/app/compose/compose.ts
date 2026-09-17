@@ -54,6 +54,7 @@ import {
   AttachmentKind,
 } from 'angular-email-editor/attachment-chip';
 import { AttachmentChips } from 'angular-email-editor/attachment-chips';
+import { KeepFocus } from 'angular-email-editor/focus';
 import { MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { EmailCompose, SourceView } from './email-compose/email-compose';
@@ -157,6 +158,7 @@ interface ExampleSet {
     HtmlEmailCompose,
     EmailPreview,
     AngularFileDrop,
+    KeepFocus,
   ],
   // One inline image registry per composer — the editor pane hands it to the
   // editor, the preview resolves from it, an import feeds it. Never in root.
@@ -546,9 +548,7 @@ export class Compose {
       control. Without this the press would take focus to the body for an
       instant, and an address row would drop from chips to text and back in
       a flash. */
-  protected keepCaret(event: MouseEvent): void {
-    if (!(event.target as Element).closest('input, button, textarea')) event.preventDefault();
-  }
+  protected readonly rowControls = 'input, button, textarea';
 
   protected leaveRecipients(event: FocusEvent): void {
     const group = event.currentTarget as HTMLElement;

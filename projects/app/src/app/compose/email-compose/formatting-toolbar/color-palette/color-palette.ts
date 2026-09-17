@@ -2,6 +2,7 @@ import { Component, input, output } from '@angular/core';
 
 // Material
 import { MatIconModule } from '@angular/material/icon';
+import { KeepFocus } from 'angular-email-editor/focus';
 
 /**
  * A curated swatch picker: the text palette (dual-contrast — every swatch
@@ -18,10 +19,8 @@ import { MatIconModule } from '@angular/material/icon';
   imports: [MatIconModule],
   templateUrl: './color-palette.html',
   styleUrl: './color-palette.scss',
-  host: {
-    role: 'listbox',
-    '(mousedown)': '$event.preventDefault()',
-  },
+  hostDirectives: [KeepFocus],
+  host: { role: 'listbox' },
 })
 export class ColorPalette {
   readonly colors = input.required<readonly { name: string; value: string }[]>();

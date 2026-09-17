@@ -111,7 +111,9 @@ describe('indent and outdent commands', () => {
     // In the second item: nest under the first…
     caretIn('two');
     expect(editor.commands['indent']()).toBe(true);
-    expect(editor.getHTML()).toMatch(/<li><div>one<\/div><ul[^>]*><li><div>two<\/div><\/li><\/ul><\/li>/);
+    expect(editor.getHTML()).toMatch(
+      /<li><div>one<\/div><ul[^>]*><li><div>two<\/div><\/li><\/ul><\/li>/,
+    );
     expect(editor.getHTML()).not.toContain('margin-left');
 
     // …and out again.

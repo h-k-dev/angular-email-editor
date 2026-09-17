@@ -1,3 +1,4 @@
+import { isMarkActive } from '../../editor';
 import { defineMark } from '../../extension';
 import { setMark } from './set.utils';
 import { unsetMark } from './unset.utils';
@@ -35,13 +36,14 @@ export const Italic = defineMark({
     'Mod-i': toggleMark(schema.marks['italic']),
     'Mod-I': toggleMark(schema.marks['italic']),
   }),
-  suggestions: ({ schema }) => [
+  actions: ({ schema }) => [
     {
       id: 'italic',
       title: 'Italic',
       keywords: ['italic'],
       icon: 'format_italic',
       command: toggleMark(schema.marks['italic']),
+      isActive: (state) => isMarkActive(state, schema.marks['italic']),
     },
   ],
 });
