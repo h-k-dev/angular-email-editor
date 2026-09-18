@@ -1,4 +1,4 @@
-import { Service, Signal, computed, signal } from '@angular/core';
+import { Service, Signal, computed, inject, signal } from '@angular/core';
 
 // ProseMirror
 import { redo, undo } from 'prosemirror-history';
@@ -7,7 +7,8 @@ import { redo, undo } from 'prosemirror-history';
 import { Editor, findColumnContext, findTableContext, isMarkActive } from 'angular-email-editor';
 import { editorState, injectActions } from 'angular-email-editor/actions';
 
-import { formattingItems } from './formatting-items';
+import { I18n } from '../../../services/i18n';
+import { FormattingItem, formattingItems } from './formatting-items';
 
 /** What the composer hands the commands: the source pane's editor and
     whether it stands in the email editor's place (code view), the html both
@@ -40,6 +41,18 @@ export class FormattingCommands {
   readonly editor = this.#editor.asReadonly();
 
   readonly #host = signal<FormattingHost | undefined>(undefined);
+
+  readonly #i18n = inject(I18n);
+
+  /** A button's words in the language in use: the bar's own where they
+      differ from the row's ("Insert table" / "Table"), else the action's
+      title, else the English the item carries. Reactive. */
+  label(item: FormattingItem): string {
+    return this.#i18n.t(
+      `editor.toolbar.${item.id}`,
+      this.#i18n.t(`editor.actions.${item.id}.title`, item.label),
+    );
+  }
 
   /** Every formatting button, bound to these commands — defined once; a
       surface picks a layout of them (`layoutEntries`). */

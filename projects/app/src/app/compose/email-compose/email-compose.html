@@ -32,7 +32,17 @@
          icon (`/`: the kit's commands), a detail (`{{`: the token beside its
          label), a chevron (a group — Templates — opens a second level,
          searched by what follows it). -->
-    <div email-suggestion-menu #suggestionMenu [state]="suggestionState()">
+    <div
+      email-suggestion-menu
+      #suggestionMenu
+      [state]="suggestionState()"
+      [backLabel]="i18n.t('editor.menu.back', 'Back')"
+      [loadingLabel]="i18n.t('editor.menu.loading', 'Searching…')"
+      [loadingMoreLabel]="i18n.t('editor.menu.loadingMore', 'Loading more…')"
+      [emptyLabel]="i18n.t('editor.menu.empty', 'No results')"
+      [errorLabel]="i18n.t('editor.menu.error', 'Couldn’t load suggestions')"
+      [resultsLabel]="resultsLabel"
+    >
       @for (item of suggestionState()?.items; track item.id) {
         <div email-suggestion-menu-item [item]="item">
           @if (item.icon) {

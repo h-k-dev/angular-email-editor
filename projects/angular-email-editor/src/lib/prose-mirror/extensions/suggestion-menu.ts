@@ -121,10 +121,12 @@ export interface SuggestionTrigger {
   trigger: string;
   /** What this trigger's list is called — "Insert block", "Personalization
       tokens". Handed on as {@link SuggestionMenuState.label}: the listbox's
-      accessible name. */
-  label?: string;
+      accessible name. A function is asked afresh whenever the menu opens,
+      like `i18n`: the words of the language in use. */
+  label?: string | (() => string);
   /** Only at the start of a line or after whitespace — `/` in a URL stays
-      text. Default true. Either way a trigger right after its own first
+      text. In a script that writes no spaces (Japanese, Chinese) every
+      character counts as one: `/` opens right after こんにちは. Default true. Either way a trigger right after its own first
       character never opens: not `//`, not Handlebars' `{{{`. */
   startOfWord?: boolean;
   /** What the text between the trigger and the caret may be. Default: not
@@ -153,8 +155,9 @@ export interface SuggestionTrigger {
       `data-placeholder`; the host's stylesheet shows it (see
       {@link createSuggestionMenu}, "Marked in the text"). Inside a group the
       group's own takes its place: `/templates ` shows
-      {@link SuggestionGroup.placeholder}. */
-  placeholder?: string;
+      {@link SuggestionGroup.placeholder}. A function is asked afresh whenever
+      the menu opens. */
+  placeholder?: string | (() => string);
   /**
    * The host's veto: asked for every session the text would open, and the
    * menu stays shut — for this trigger; one further back may still open —
@@ -174,8 +177,17 @@ export interface SuggestionTrigger {
       Default 300; 0 asks at once (an in-memory source). Static matches never
       wait, and neither does a further page. */
   debounce?: number;
-  /** Translations by item id, at either level: a title, extra keywords. */
-  i18n?: Readonly<Record<string, SuggestionItemLabel>>;
+  /**
+   * Translations by item id, at either level: a title, extra keywords, a
+   * group's placeholder. A map — or a function of the id, which is asked
+   * afresh every time the menu opens: hand it a translation service's lookup
+   * and a language switch reaches the menu, its search included, with
+   * nothing to re-create. Whatever it answers is *added* to the item's own
+   * words, so the original language keeps matching beside the chosen one.
+   */
+  i18n?:
+    | Readonly<Record<string, SuggestionItemLabel>>
+    | ((id: string) => SuggestionItemLabel | undefined);
   /** The listbox id ({@link SuggestionMenuState.listboxId}); unique by default. */
   id?: string;
 }
@@ -257,6 +269,12 @@ let nextListboxId = 0;
     for a state — so that only the one nearest the caret opens. */
 const menusOf = new WeakMap<EditorView, Set<(state: EditorState) => number | null>>();
 
+/** What may stand right before a trigger that wants the start of a word:
+    whitespace — or a character of a script that writes no spaces between its
+    words (kana, CJK ideographs and their punctuation, full-width forms), where
+    every character is a place a word may start. */
+const WORD_BREAK = /[\s\u3000-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uff00-\uffef]/;
+
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** The word a title becomes in the query: lowercased, spaces as hyphens. */
@@ -268,7 +286,7 @@ const groupWords = (group: SuggestionGroup): string[] =>
   [group.id, group.title, ...(group.keywords ?? [])].map(commandWord);
 
 function localize<T extends SuggestionItem>(item: T, i18n: SuggestionTrigger['i18n']): T {
-  const label = i18n?.[item.id];
+  const label = typeof i18n === 'function' ? i18n(item.id) : i18n?.[item.id];
   if (!label) return item;
   const keywords = [...(item.keywords ?? []), ...(label.keywords ?? [])];
   if (label.title && label.title !== item.title) keywords.push(item.title);
@@ -399,23 +417,28 @@ function createSuggestionMenuPlugin(
   host: SuggestionMenuHost,
 ): Plugin {
   const { element } = host;
-  const {
-    trigger,
-    i18n,
-    label = null,
-    placeholder,
-    startOfWord = true,
-    maxLength = 100,
-    debounce = 300,
-  } = options;
+  const { trigger, i18n, startOfWord = true, maxLength = 100, debounce = 300 } = options;
   const key = new PluginKey<SessionState>('suggestionMenu');
 
   const first = escapeRegExp(trigger[0]);
   const queryPattern = options.query ?? new RegExp(`^(?:[^\\s${first}][^${first}]*)?$`);
 
   const given = typeof options.items === 'function' ? options.items(ctx) : (options.items ?? []);
-  const allItems = given.map((item) => localize(item, i18n));
-  const groups = allItems.filter((item): item is SuggestionGroup => !!item.children);
+  /** The menu's items in the words of the moment — relabelled whenever a
+      session starts, so an `i18n` function is heard after a language switch. */
+  let allItems: SuggestionItem[] = [];
+  let groups: SuggestionGroup[] = [];
+  let label: string | null = null;
+  let placeholder: string | undefined;
+  const words = (given: string | (() => string) | undefined) =>
+    typeof given === 'function' ? given() : given;
+  const relabel = () => {
+    label = words(options.label) ?? null;
+    placeholder = words(options.placeholder);
+    allItems = given.map((item) => localize(item, i18n));
+    groups = allItems.filter((item): item is SuggestionGroup => !!item.children);
+  };
+  relabel();
 
   const listboxId = options.id ?? `email-suggestion-menu-${nextListboxId++}`;
   const optionId = (index: number) => `${listboxId}-option-${index}`;
@@ -445,7 +468,7 @@ function createSuggestionMenuPlugin(
     if (raw.length > maxLength || !queryPattern.test(raw)) return null;
     const prefix = at > 0 ? textBefore[at - 1] : null;
     if (prefix === trigger[0]) return null;
-    if (startOfWord && prefix !== null && !/\s/.test(prefix)) return null;
+    if (startOfWord && prefix !== null && !WORD_BREAK.test(prefix)) return null;
     const match = { from: $from.start() + windowStart + at, to: $from.pos, text: raw.trimStart() };
     const range = { from: match.from, to: match.to };
     if (options.allow && !options.allow({ state, range, query: match.text })) return null;
@@ -486,7 +509,8 @@ function createSuggestionMenuPlugin(
 
   /** Level 2 when the text is `<word> <rest>` and the word names a group. */
   const scopeOf = (text: string): Scope => {
-    const space = text.indexOf(' ');
+    // Any space: an input method for Japanese types a full-width one.
+    const space = text.search(/\s/);
     if (space > 0) {
       const word = commandWord(text.slice(0, space));
       const parent = groups.find((group) => groupWords(group).includes(word));
@@ -911,6 +935,11 @@ function createSuggestionMenuPlugin(
         let dismissed = place === null ? null : tr.mapping.map(place, 1);
         if (dismissed !== null && next?.from !== dismissed) dismissed = null;
         const session = next && next.from !== dismissed ? next : null;
+        // Before anything reads the labels: the level a text is on (and with
+        // it the decoration) depends on what the groups are called now.
+        // A new session is one that starts somewhere else — also straight
+        // after one that found nothing and so never showed.
+        if (session && session.from !== previous.session?.from) relabel();
 
         return sameSession(session, previous.session) && dismissed === previous.dismissed
           ? previous

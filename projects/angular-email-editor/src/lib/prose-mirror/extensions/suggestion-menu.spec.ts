@@ -1951,3 +1951,231 @@ describe('createSuggestionMenu — what cannot run is not offered', () => {
     expect(state?.items.map((item) => item.id)).toEqual(['gated']);
   });
 });
+
+describe('createSuggestionMenu — a translation looked up when the menu opens', () => {
+  let host: HTMLElement;
+  let menu: HTMLElement;
+  let editor: Editor;
+  let state: SuggestionMenuState | undefined;
+  let language: 'en' | 'de';
+
+  const german: Record<string, { title: string; keywords?: string[]; placeholder?: string }> = {
+    bold: { title: 'Fett', keywords: ['hervorheben'] },
+    templates: { title: 'Vorlagen', placeholder: 'Vorlagen durchsuchen…' },
+  };
+
+  const type = (text: string) =>
+    editor.exec((editorState, dispatch) => {
+      dispatch?.(editorState.tr.insertText(text));
+      return true;
+    });
+
+  const reopen = (text: string) => {
+    keydown(editor, 'Escape');
+    type(' ' + text);
+  };
+
+  beforeEach(() => {
+    host = document.createElement('div');
+    menu = document.createElement('div');
+    host.appendChild(menu);
+    document.body.appendChild(host);
+    state = undefined;
+    language = 'en';
+    document.elementFromPoint ??= () => null;
+    editor = createEditor({
+      parent: host,
+      extensions: [
+        ...richTextExtensions,
+        createSuggestionMenu({
+          trigger: '/',
+          element: menu,
+          items: (ctx) => [
+            ...extensionSuggestions(ctx),
+            {
+              id: 'templates',
+              title: 'Templates',
+              placeholder: 'Search templates…',
+              children: [{ id: 'welcome', title: 'Welcome mail', command: () => true }],
+            },
+          ],
+          // A translation service's lookup, in one line.
+          i18n: (id) => (language === 'de' ? german[id] : undefined),
+          onChange: (s) => (state = s),
+        }),
+      ],
+    });
+    vi.spyOn(editor.view, 'coordsAtPos').mockReturnValue({ left: 0, right: 0, top: 0, bottom: 0 });
+  });
+
+  afterEach(() => {
+    editor.destroy();
+    host.remove();
+  });
+
+  it('hears a language switch the next time it opens — nothing is re-created', () => {
+    type('/bol');
+    expect(state?.items.map((item) => item.title)).toEqual(['Bold']);
+
+    language = 'de';
+    reopen('/fet');
+    expect(state?.items.map((item) => item.title)).toEqual(['Fett']);
+
+    language = 'en';
+    reopen('/fet');
+    expect(state?.open ?? false).toBe(false);
+  });
+
+  it('hears it after a session that found nothing, too — that one never closed', () => {
+    type('/zzzz');
+    expect(state?.open ?? false).toBe(false);
+    language = 'de';
+    // No Escape in between: the next trigger simply starts a new session.
+    type(' /fet');
+    expect(state?.items.map((item) => item.title)).toEqual(['Fett']);
+  });
+
+  it('searches both languages at once: the original words always match', () => {
+    language = 'de';
+    type('/bold');
+    expect(state?.items.map((item) => item.title)).toEqual(['Fett']);
+    reopen('/hervor');
+    expect(state?.items.map((item) => item.title)).toEqual(['Fett']);
+  });
+
+  it('enters a group by its translated name as well, with its translated placeholder', () => {
+    language = 'de';
+    type('/vorlagen ');
+    expect(state).toMatchObject({ level: 2, parent: { title: 'Vorlagen' } });
+    const marked = editor.view.dom.querySelector('.aee-suggestion');
+    expect(marked?.getAttribute('data-placeholder')).toBe('Vorlagen durchsuchen…');
+
+    reopen('/templates ');
+    expect(state?.level).toBe(2);
+  });
+
+  it('asks a trigger’s own label and placeholder afresh too, when they are functions', () => {
+    editor.destroy();
+    editor = createEditor({
+      parent: host,
+      extensions: [
+        ...richTextExtensions,
+        createSuggestionMenu({
+          trigger: '/',
+          element: menu,
+          items: extensionSuggestions,
+          label: () => (language === 'de' ? 'Block einfügen' : 'Insert block'),
+          placeholder: () => (language === 'de' ? 'Tippen zum Filtern…' : 'Type to filter…'),
+          onChange: (s) => (state = s),
+        }),
+      ],
+    });
+    const marked = () => editor.view.dom.querySelector('.aee-suggestion');
+    type('/');
+    expect(state?.label).toBe('Insert block');
+    expect(marked()?.getAttribute('data-placeholder')).toBe('Type to filter…');
+
+    language = 'de';
+    reopen('/');
+    expect(state?.label).toBe('Block einfügen');
+    expect(marked()?.getAttribute('data-placeholder')).toBe('Tippen zum Filtern…');
+  });
+
+  it('does not look anything up while the menu is only being typed in', () => {
+    const lookup = vi.fn(() => undefined);
+    editor.destroy();
+    editor = createEditor({
+      parent: host,
+      extensions: [
+        ...richTextExtensions,
+        createSuggestionMenu({
+          trigger: '/',
+          element: menu,
+          items: extensionSuggestions,
+          i18n: lookup,
+          onChange: (s) => (state = s),
+        }),
+      ],
+    });
+    lookup.mockClear();
+    type('/');
+    const perOpen = lookup.mock.calls.length;
+    expect(perOpen).toBeGreaterThan(0);
+    type('bo');
+    type('ld');
+    expect(lookup.mock.calls.length).toBe(perOpen);
+  });
+});
+
+describe('createSuggestionMenu — scripts that write no spaces', () => {
+  let host: HTMLElement;
+  let menu: HTMLElement;
+  let editor: Editor;
+  let state: SuggestionMenuState | undefined;
+
+  const type = (text: string) =>
+    editor.exec((editorState, dispatch) => {
+      dispatch?.(editorState.tr.insertText(text));
+      return true;
+    });
+
+  beforeEach(() => {
+    host = document.createElement('div');
+    menu = document.createElement('div');
+    host.appendChild(menu);
+    document.body.appendChild(host);
+    state = undefined;
+    document.elementFromPoint ??= () => null;
+    editor = createEditor({
+      parent: host,
+      extensions: [
+        ...richTextExtensions,
+        createSuggestionMenu({
+          trigger: '/',
+          element: menu,
+          items: (ctx) => [
+            ...extensionSuggestions(ctx),
+            {
+              id: 'templates',
+              title: 'Templates',
+              children: [{ id: 'welcome', title: 'Welcome mail', command: () => true }],
+            },
+          ],
+          i18n: {
+            bold: { title: '太字', keywords: ['ふとじ'] },
+            templates: { title: 'テンプレート' },
+          },
+          onChange: (s) => (state = s),
+        }),
+      ],
+    });
+    vi.spyOn(editor.view, 'coordsAtPos').mockReturnValue({ left: 0, right: 0, top: 0, bottom: 0 });
+  });
+
+  afterEach(() => {
+    editor.destroy();
+    host.remove();
+  });
+
+  it('opens right after a Japanese character: there, every character starts a word', () => {
+    type('こんにちは/');
+    expect(state?.open).toBe(true);
+  });
+
+  it('still leaves a / inside Latin text alone', () => {
+    type('and/');
+    expect(state?.open ?? false).toBe(false);
+  });
+
+  it('finds a row by its reading, before the input method has converted it', () => {
+    type('/ふと');
+    expect(state?.items.map((item) => item.title)).toEqual(['太字']);
+  });
+
+  it('enters a group over a full-width space, as an input method types it', () => {
+    type('/テンプレート\u3000');
+    expect(state).toMatchObject({ level: 2, parent: { title: 'テンプレート' } });
+    type('wel');
+    expect(state?.items.map((item) => item.title)).toEqual(['Welcome mail']);
+  });
+});

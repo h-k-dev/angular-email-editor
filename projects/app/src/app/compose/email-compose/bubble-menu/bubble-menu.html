@@ -19,7 +19,7 @@
     class="bubble-menu"
     animate.enter="bubble-menu--landing"
     role="toolbar"
-    aria-label="Selection formatting"
+    [attr.aria-label]="i18n.t('editor.menu.selection', 'Selection formatting')"
     emailKeepFocus
   >
     @for (entry of entries; track entry.item.id) {
@@ -34,7 +34,7 @@
       <button
         mat-icon-button
         type="button"
-        [attr.aria-label]="item.label"
+        [attr.aria-label]="label(item)"
         [emailAction]="actions.get(item.id)"
         #trigger="emailAction"
         [disabled]="trigger.disabled()"

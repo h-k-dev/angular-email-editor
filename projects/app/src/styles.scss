@@ -365,6 +365,90 @@ html {
   pointer-events: none;
 }
 
+/* Where content is streaming in (the library's content stream puts a widget
+ * there and paints nothing): a soft, pulsing bar after the last word — a
+ * second caret, in the accent colour, that is plainly not the writer's. */
+.aee-editor .aee-stream-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-inline-start: 1px;
+  vertical-align: text-bottom;
+  border-radius: 1px;
+  background-color: var(--email-stream-caret-color, var(--mat-sys-primary, #4c6ef5));
+  animation: aee-stream-caret 900ms ease-in-out infinite;
+}
+
+@keyframes aee-stream-caret {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+/* What has just streamed in. The library reveals it a *block* at a time — a
+ * paragraph, a list item, whole, once all of it is in — and marks that block
+ * itself fresh for as long as --email-stream-fade-in says. Nothing types: the
+ * block fades in behind a soft edge that rolls across it, and settles the
+ * last few pixels into place. Blocks that land together come a beat apart,
+ * so an answer arrives as a gentle cascade.
+ *
+ * The edge is a mask whose stop is a registered property, so it can be
+ * animated; it ends fully open, where no mask is — nothing jumps when the
+ * library takes the class away. */
+@property --aee-stream-wipe {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 100%;
+}
+
+.aee-editor .aee-stream-fresh {
+  animation: aee-stream-fade var(--email-stream-fade-in, 600ms) cubic-bezier(0.22, 0.61, 0.36, 1)
+    both;
+}
+
+/* A list item keeps to the fade and the settle: its marker hangs outside its
+ * box, where a mask would cut it off. So does text that joins a line already
+ * there — a span, which the library marks instead of the block. */
+.aee-editor .aee-stream-fresh:not(span, li) {
+  mask-image: linear-gradient(
+    100deg,
+    #000 calc(var(--aee-stream-wipe) * 1.5 - 50%),
+    transparent calc(var(--aee-stream-wipe) * 1.5)
+  );
+  animation-name: aee-stream-fade, aee-stream-wipe;
+}
+
+@keyframes aee-stream-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@keyframes aee-stream-wipe {
+  from {
+    --aee-stream-wipe: 0%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aee-editor .aee-stream-caret {
+    animation: none;
+  }
+
+  // A fade is not motion; the roll and the settle are left out.
+  .aee-editor .aee-stream-fresh.aee-stream-fresh {
+    mask-image: none;
+    animation-name: aee-stream-fresh-plain;
+  }
+}
+
+@keyframes aee-stream-fresh-plain {
+  from {
+    opacity: 0;
+  }
+}
+
 /* The caret's cell: the selection rectangle without its tint, so the cell
  * being typed in is always visible. Same border token, same radius. */
 .aee-editor td.aee-cell-active::after {

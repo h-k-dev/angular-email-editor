@@ -1199,6 +1199,72 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   undo/redo (a `/undo` row would undo its own trigger's deletion) and the
   demo's colour and table pickers (overlays with an "applied" state, the
   toolbar's own).
+  **Translations and a writing assistant, in the demo (2026-09-18).** Built
+  on the library as it was, to find where it pinches. Library changes it
+  needed: a trigger's `i18n` may be a function of the item id, and its
+  `label` and `placeholder` functions too — all asked afresh whenever a new
+  session starts (one that starts somewhere else, also straight after one
+  that found nothing), so a language switch reaches the rows, the search and
+  the placeholders with nothing re-created. What `i18n` answers is _added_ to
+  the item's own words: the menu searches English and the chosen language at
+  once — and English alone in English, where `i18n` answers nothing. For
+  scripts that write no spaces (Japanese, Chinese) a trigger that wants the
+  start of a word opens after any such character, and a full-width space
+  enters a group. The demo uses `@ngx-translate/core` with one lazily
+  imported TypeScript module per language (`src/i18n/`: German, Japanese;
+  readings like ふとじ are keywords, so the menu filters before an input
+  method converts); English is what the code says — `I18n.t(key, fallback)` —
+  so a spec that provides nothing reads English. The language picker is an
+  Angular Aria menu of radio items (`language-menu`, over the app's one
+  `toolbar-menu`). The assistant is **one action, not a level**: the demo's
+  own extension `createAiWriter` declares `ai` — first in the kit, so first
+  in the `/` menu — and streams the service's words in at the caret like
+  someone typing: the place it writes at lives in plugin state and moves
+  with the text, a marker shows it, the editor says `aria-busy`, Escape
+  stops it mid-sentence, and the words undo as one. Nothing about AI is in
+  the library. Still out of reach, the agenda for making this easier: an
+  action cannot take an argument (`/ai shorter` — the command never sees
+  its query), a list cannot be opened from a button or for a selection
+  ("rewrite this"), a source is not told the editor state or its own range,
+  rows cannot carry host data, and a source answers once (no streaming
+  rows).
+  **Content streams (2026-09-18).** `createContentStream()` +
+  `streamContent(view, target, async ({ write, getWritableStream, signal }) => …, { format, transform })`
+  — the shape of Tiptap's `streamContent`, in the main entry (no Angular).
+  The host supplies the pieces; the library owns the rest: the range written
+  so far lives in plugin state and moves with the text (someone else's edit
+  right at either edge stays theirs — the range closes in, never out), a
+  caret widget `span.aee-stream-caret` for the host's stylesheet, `aria-busy`
+  on the editor, Escape to stop, the abort signal, `done`. `target` is a
+  position, or a range the first piece replaces ("rewrite this selection").
+  `'text'` is appended; `'html'` is _re-read as a whole_ on every write —
+  the buffer is parsed through the schema as an open slice and replaces what
+  was written — so a list or a bold word forms as it streams and a tag cut in
+  two never shows; the space an answer opens with is kept. `done` settles on
+  a stop even if the callback never returns. One stream per editor. Pieces
+  are ordinary transactions: close together they undo as one. Known limits:
+  streamed tables are not repaired mid-stream; an edit _inside_ the streamed
+  range is rewritten by the next HTML write. The demo's `ai-writer` shrank to
+  an action that asks its service and calls `write`. The feel (same day):
+  `smooth` (default) reveals what has come in at an adaptive pace — a
+  grapheme or a few a frame (`Intl.Segmenter`), closing the gap with a
+  180 ms time constant, never slower than 45 chars/s — and `done` waits
+  until all of it shows; `html` cuts the read back to what shows, so a
+  block appears with its first character. `fadeIn` (400 ms) marks what each
+  frame reveals `span.aee-stream-fresh` (inline decorations, rebuilt from
+  offsets because a re-read replaces the range) with
+  `--email-stream-fade-in`; the demo rises it into focus with `top` on the
+  inline span — not a transform, whose inline-block would break wrapping.
+  Reworked 2026-09-19 — typing read as a gimmick next to the chat
+  assistants, which fade whole chunks in: `smooth` became `reveal`,
+  `'block'` (default) | `'character'` (the above) | `'instant'`. A block —
+  paragraph, list item, line of plain text — shows whole once the next one
+  starts or the stream ends, blocks that land together 110 ms apart; the
+  caret waits after the last. Fresh is then a *node* decoration on the block
+  (the `li` when the stream wrote it; a span only where text joins a line
+  already there), `fadeIn` 600 ms, so the demo can fade it behind a rolling
+  mask edge (`@property --aee-stream-wipe`) and settle it 4 px — list items
+  without the mask, which would cut off their marker.
   **Names are flat, as Angular's are** (`@angular/material/button`,
   `@angular/cdk/overlay`) — no `components/…` or `directives/…` segment:
   - one level, `angular-email-editor/<name>`; the only nesting is

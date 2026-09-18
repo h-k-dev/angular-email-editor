@@ -1,0 +1,22 @@
+<button
+  matButton
+  type="button"
+  class="language-menu__trigger"
+  [attr.aria-label]="i18n.t('app.language', 'Language') + ': ' + current()"
+  ngMenuTrigger
+  #trigger="ngMenuTrigger"
+  [menu]="languages.menu()"
+>
+  <mat-icon>translate</mat-icon>
+  <span>{{ current() }}</span>
+  <mat-icon iconPositionEnd>arrow_drop_down</mat-icon>
+</button>
+<div
+  toolbar-menu
+  #languages
+  align="end"
+  [label]="i18n.t('app.language', 'Language')"
+  [trigger]="trigger"
+  [items]="items()"
+  (selected)="use($event)"
+></div>

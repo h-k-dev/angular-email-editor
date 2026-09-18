@@ -113,13 +113,19 @@ export class ApiReference {
         {
           name: 'createSuggestionMenu',
           signature: '(options: SuggestionMenuOptions) => FunctionalExtension',
-          does: 'Every trigger-at-the-caret menu from one factory — the / command menu, the {{ merge-tag picker, an @ mention list: a trigger, the items (a list, or a paged { query, cursor, signal } → { items, nextCursor } source, debounced, aborted when stale), and what picking does (each item’s command). Groups open a second level read from the text; ids key i18n. One menu takes several triggers ({ element, onChange, triggers: [{ trigger: "/", … }, { trigger: "{{", … }, { trigger: "||", … }] }): they never open together — the trigger nearest the caret wins — so they share one element and one state, which names the open trigger, its label and its listbox id.',
+          does: 'Every trigger-at-the-caret menu from one factory — the / command menu, the {{ merge-tag picker, an @ mention list: a trigger, the items (a list, or a paged { query, cursor, signal } → { items, nextCursor } source, debounced, aborted when stale), and what picking does (each item’s command). Groups open a second level read from the text; ids key i18n. One menu takes several triggers ({ element, onChange, triggers: [{ trigger: "/", … }, { trigger: "{{", … }, { trigger: "||", … }] }): they never open together — the trigger nearest the caret wins — so they share one element and one state, which names the open trigger, its label and its listbox id. A trigger’s i18n (a map, or a function of the item id), label and placeholder may be functions, asked whenever the menu opens: a translation service’s lookup makes a language switch reach the menu, and what i18n answers is added to the item’s own words, so it searches both languages.',
         },
         {
           name: 'email-suggestion-menu · extensionSuggestions · insertMergeTag',
           signature:
             '[email-suggestion-menu] + [email-suggestion-menu-item] · (ctx) => SuggestionItem[] · (path) => Command',
           does: 'The component pair renders any suggestion menu’s state as a listbox whose options the editor points at (aria-activedescendant), loads the next page as it scrolls, and says searching / loading more / no results / failed. extensionSuggestions gathers the kit’s / commands; insertMergeTag is what a {{ item runs.',
+        },
+        {
+          name: 'createContentStream · streamContent · isStreaming',
+          signature:
+            '(options?) => FunctionalExtension · (view, target, async ({ write, getWritableStream, signal }) => …, { format?, transform? }) => { stop, done }',
+          does: 'Streams content into the document — a model’s answer — and owns what surrounds that: the place the next piece goes while the writer keeps typing, how it shows (reveal: "block", the default — a paragraph, a list item shows whole once all of it is in, blocks that land together a beat apart, nothing types; "character" — a grapheme or a few a frame, catching up when behind; "instant"; the stream ends once all of it shows), what was just revealed marked fresh (aee-stream-fresh on the block itself — p, li — or on a span where text joins a line; --email-stream-fade-in, for fadeIn ms) for the host to fade in, a caret widget (span.aee-stream-caret), aria-busy, Escape to stop, the abort signal. target is a position, or a range the first piece replaces. format "html" re-reads the whole buffer through the schema on every write, so a list or a bold word forms as it streams and a tag cut in two never shows; transform rewrites the buffer first (strip a code fence, Markdown to HTML).',
         },
         {
           name: 'createAngularExpressions',

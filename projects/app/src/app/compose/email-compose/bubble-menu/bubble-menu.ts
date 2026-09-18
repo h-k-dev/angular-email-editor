@@ -14,8 +14,9 @@ import { ActionTrigger } from 'angular-email-editor/actions';
 import { Anchor } from 'angular-email-editor/anchor';
 import { KeepFocus } from 'angular-email-editor/focus';
 
+import { I18n } from '../../../../services/i18n';
 import { FormattingCommands } from '../formatting-commands';
-import { FormattingLayout, layoutEntries } from '../formatting-items';
+import { FormattingItem, FormattingLayout, layoutEntries } from '../formatting-items';
 
 /** The bubble menu's groups: the marks, then what wraps the selection. */
 const LAYOUT: FormattingLayout = [
@@ -59,6 +60,10 @@ export class BubbleMenu {
   readonly #commands = inject(FormattingCommands);
 
   protected readonly entries = layoutEntries(this.#commands.items, LAYOUT);
+
+  protected readonly i18n = inject(I18n);
+
+  protected readonly label = (item: FormattingItem): string => this.#commands.label(item);
 
   /** The visible editor's actions, which the buttons trigger by id. */
   protected readonly actions = this.#commands.actions;

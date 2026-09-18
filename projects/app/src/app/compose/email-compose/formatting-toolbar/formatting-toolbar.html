@@ -72,7 +72,7 @@
       toolbarOverflowItem
       #button="toolbarOverflowItem"
       [class.toolbar__wide]="item.wide"
-      [attr.aria-label]="item.label"
+      [attr.aria-label]="commands.label(item)"
       [attr.aria-pressed]="item.pressed ? item.pressed() : null"
       [attr.aria-expanded]="item.picker ? picker() === item.picker : null"
       [attr.data-applied]="item.applied?.() || null"

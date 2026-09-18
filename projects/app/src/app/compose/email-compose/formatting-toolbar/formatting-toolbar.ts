@@ -134,7 +134,7 @@ export class FormattingToolbar {
     if (from === null) return [];
     return this.entries.slice(from).map(({ item, separated }, i) => ({
       value: item.id,
-      label: item.label,
+      label: this.commands.label(item),
       icon: item.icon,
       kind: item.pressed ? 'checkbox' : undefined,
       checked: item.pressed?.(),

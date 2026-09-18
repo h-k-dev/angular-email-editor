@@ -3,6 +3,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule, MatIconRegistry } from '@angular/material/icon';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { I18n } from '../services/i18n';
+import { LanguageMenu } from './language-menu/language-menu';
 import { Viewport } from './viewport';
 
 /** App shell: a top bar (page nav + theme) and the routed page below it.
@@ -12,6 +14,7 @@ import { Viewport } from './viewport';
   // the viewport and the layout.
   selector: '[app-root]',
   imports: [
+    LanguageMenu,
     MatButtonModule,
     MatIconModule,
     MatToolbarModule,
@@ -32,12 +35,13 @@ export class App {
   readonly #window = this.#document.defaultView;
   readonly #destroyRef = inject(DestroyRef);
   protected readonly viewport = inject(Viewport);
+  protected readonly i18n = inject(I18n);
 
   /** The top bar's pages, in reading order. */
   protected readonly pages = [
-    { path: '/', icon: 'edit_note', label: 'Composer' },
-    { path: '/api', icon: 'api', label: 'API' },
-    { path: '/styling', icon: 'palette', label: 'Styling' },
+    { path: '/', icon: 'edit_note', key: 'app.nav.composer', label: 'Composer' },
+    { path: '/api', icon: 'api', key: 'app.nav.api', label: 'API' },
+    { path: '/styling', icon: 'palette', key: 'app.nav.styling', label: 'Styling' },
   ];
 
   /** Starts at the system preference; the toggle takes over from there. */
@@ -46,7 +50,9 @@ export class App {
   );
 
   protected readonly themeLabel = computed(() =>
-    this.theme() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode',
+    this.theme() === 'dark'
+      ? this.i18n.t('app.theme.light', 'Switch to light mode')
+      : this.i18n.t('app.theme.dark', 'Switch to dark mode'),
   );
 
   constructor() {

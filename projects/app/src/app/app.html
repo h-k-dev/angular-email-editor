@@ -8,12 +8,14 @@
         [routerLinkActiveOptions]="{ exact: true }"
       >
         <mat-icon class="app-nav-icon">{{ page.icon }}</mat-icon>
-        <span>{{ page.label }}</span>
+        <span>{{ i18n.t(page.key, page.label) }}</span>
       </a>
     }
   </nav>
 
   <span class="app-spacer"></span>
+
+  <div language-menu></div>
 
   <button matIconButton type="button" [attr.aria-label]="themeLabel()" (click)="toggleTheme()">
     <mat-icon>{{ theme() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>

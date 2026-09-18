@@ -35,6 +35,9 @@ import { FormattingToolbar } from './formatting-toolbar/formatting-toolbar';
 import { LinkEditor } from './link-editor/link-editor';
 import { Templates } from '../../../services/templates';
 import { MergeTags } from '../../../services/merge-tags';
+import { Ai } from '../../../services/ai';
+import { I18n } from '../../../services/i18n';
+import { createAiWriter } from './ai-writer';
 import { mergeTagSource } from './merge-tag-source';
 import { templateGroup } from './template-group';
 
@@ -49,6 +52,7 @@ import {
   caretInsideMergeTag,
   createBlockMenu,
   createBubbleMenu,
+  createContentStream,
   createEditor,
   createAngularExpressions,
   createImageDrag,
@@ -56,6 +60,7 @@ import {
   createSendIntent,
   createSuggestionMenu,
   extensionSuggestions,
+  isStreaming,
   createTextMetrics,
   ExpressionDiagnostic,
   InlineImages,
@@ -108,6 +113,17 @@ export class EmailCompose implements FormValueControl<string> {
   readonly #templates = inject(Templates);
   /** The variable catalogue the `{{` menu searches. */
   readonly #mergeTags = inject(MergeTags);
+  /** The writing assistant behind the `ai` action. */
+  readonly #ai = inject(Ai);
+  /** The words of the language in use — the menu asks when it opens. */
+  protected readonly i18n = inject(I18n);
+
+  /** How many rows a list has, for a screen reader — a function the menu
+      calls, so it is one instance and reads the language when called. */
+  protected readonly resultsLabel = (count: number): string =>
+    count === 1
+      ? this.i18n.t('editor.menu.results.one', '1 result')
+      : this.i18n.t('editor.menu.results.other', `${count} results`, { count });
 
   /** Canonical email HTML — the form's `html` field, bound with
       `[formField]` (this pane is a `FormValueControl<string>`), or two-way
@@ -303,6 +319,12 @@ export class EmailCompose implements FormValueControl<string> {
     const editor = createEditor({
       parent: this.editorHost().nativeElement,
       extensions: [
+        // The writing assistant: an extension of the composer's own. It
+        // declares one action, `ai` — first in the kit, so first in the `/`
+        // menu — and streams its answer in at the caret, through the
+        // library's content stream (the caret, Escape, the abort are its).
+        createAiWriter({ ai: this.#ai, language: () => this.i18n.lang() }),
+        createContentStream(),
         ...emailExtensions,
         createBubbleMenu({
           updateDelay: 150,
@@ -323,21 +345,29 @@ export class EmailCompose implements FormValueControl<string> {
           triggers: [
             {
               trigger: '/',
-              label: 'Insert block',
-              placeholder: 'Type to filter…',
+              // Functions: asked whenever the menu opens, so a language
+              // switch is heard without re-creating anything.
+              label: () => this.i18n.t('editor.menu.slash.label', 'Insert block'),
+              placeholder: () => this.i18n.t('editor.menu.slash.placeholder', 'Type to filter…'),
+              // Rows by id — the kit's actions and the two groups below —
+              // in the language in use, searched in it *and* in English.
+              i18n: this.i18n.suggestionLabel,
+              // Not while an answer streams in: the caret rides along behind
+              // text nobody typed, and a trigger in it is not a request.
+              allow: ({ state }) => !isStreaming(state),
               items: (ctx) => [...extensionSuggestions(ctx), templateGroup(this.#templates)],
             },
             {
               trigger: '{{',
-              label: 'Personalization tokens',
-              placeholder: 'Search tokens…',
+              label: () => this.i18n.t('editor.menu.tokens.label', 'Personalization tokens'),
+              placeholder: () => this.i18n.t('editor.menu.tokens.placeholder', 'Search tokens…'),
               // Right after any character, and only a path: one optional
               // space, then letters, digits, `_` and `.`.
               startOfWord: false,
               query: /^ ?[\w.]*$/,
               // Not for a caret inside a token already written: those
               // braces are the token's, and a pick would land inside it.
-              allow: ({ state }) => !caretInsideMergeTag(state),
+              allow: ({ state }) => !caretInsideMergeTag(state) && !isStreaming(state),
               source: mergeTagSource(this.#mergeTags),
             },
           ],
