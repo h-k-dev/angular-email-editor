@@ -17,6 +17,42 @@
   flex-direction: column;
 }
 
+// The soft edges of the text, grown and shrunk by the surface's own scroll
+// position — the same two lengths the phone toolbar's row uses sideways
+// (formatting-toolbar.scss), here on the block axis.
+@property --editor-fade-start {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --editor-fade-end {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+// Each edge over the first (or last) 24px of scroll, by distance rather
+// than by a share of the document: a long message must not need half a
+// screen of scrolling before its edge is soft.
+@keyframes editor-fade-start {
+  from {
+    --editor-fade-start: 0px;
+  }
+  to {
+    --editor-fade-start: 24px;
+  }
+}
+
+@keyframes editor-fade-end {
+  from {
+    --editor-fade-end: 24px;
+  }
+  to {
+    --editor-fade-end: 0px;
+  }
+}
+
 .editor {
   position: relative;
   flex: 1;
@@ -33,6 +69,31 @@
   // text column with negative inline margins — Tiptap's model, at a calmer
   // scale).
   padding-inline: var(--mat-sys-inner-spacing);
+  // The text itself goes soft where it runs under the chrome above and
+  // below it — the envelope's last hairline, the formatting toolbar — and
+  // only on the side that still has text to give: nothing is painted over
+  // the words, they simply fade out as they leave. The whole thing is the
+  // surface's own scroll position, no listener and no measuring; where
+  // nothing scrolls the timeline is inactive, both lengths stay 0 and the
+  // mask is a plain rectangle. Browsers without scroll-driven animations
+  // get that same plain rectangle.
+  @supports (animation-timeline: scroll()) {
+    mask-image: linear-gradient(
+      to bottom,
+      transparent,
+      #000 var(--editor-fade-start),
+      #000 calc(100% - var(--editor-fade-end)),
+      transparent
+    );
+    animation:
+      editor-fade-start linear both,
+      editor-fade-end linear both;
+    animation-timeline: scroll(self block), scroll(self block);
+    animation-range:
+      0 24px,
+      calc(100% - 24px) 100%;
+  }
+
   // No block padding of its own: the room above and below the text is the
   // employer's to set — the form layout that places this pane between the
   // envelope rows and whatever follows — through this token. It stays inside
