@@ -19,6 +19,15 @@ import {
       one at a time. */
 export type ComposeWindowMode = 'docked' | 'minimized' | 'expanded';
 
+/** How a window shows on a phone, where it is the whole screen either way:
+    - `page`: as the page itself — no title bar, and no control of its own
+      to leave by, the way Gmail and ProtonMail open a message on a phone.
+      The phone's back button is the way out, as it is out of any other
+      page there (see BackButton); Discard is still on the message's bar.
+    - `window`: with its title bar, as on a desk. For a host that wants
+      the same chrome everywhere. */
+export type ComposeWindowMobile = 'page' | 'window';
+
 /** One open compose window. */
 export interface ComposeWindow {
   readonly id: number;
@@ -35,6 +44,8 @@ export interface ComposeWindow {
       its own place. A patch over {@link slotPosition}, and the window
       returns to it after the dialog as it does to its place. */
   readonly pin: number | null;
+  /** How this window shows on a phone. */
+  readonly mobile: ComposeWindowMobile;
   /** Where focus was when the window opened: it goes back there when the
       window closes. */
   readonly opener: HTMLElement | null;
@@ -133,11 +144,15 @@ export class ComposeWindows {
    * Opens a new message in the first free place on the edge and brings it
    * to the front. Resolves to its id once the dock is on the page.
    *
+   * `mobile` says how it shows on a phone, where it is the screen: as the
+   * page itself (the default — no title bar; the back button closes it) or
+   * as a window with its own bar.
+   *
    * With every place taken there is nothing new to open: the oldest window
    * comes back instead — restored if it was minimized, in front, with the
    * caret in it.
    */
-  async open(): Promise<number> {
+  async open(options?: { mobile?: ComposeWindowMobile }): Promise<number> {
     await this.#mount();
     const open = this.#windows();
     const slot = this.#freeSlot();
@@ -150,7 +165,7 @@ export class ComposeWindows {
     const opener = this.#document.activeElement as HTMLElement | null;
     this.#windows.update((windows) => [
       ...windows,
-      { id, slot, mode: 'docked', pin: null, opener },
+      { id, slot, mode: 'docked', pin: null, mobile: options?.mobile ?? 'page', opener },
     ]);
     this.#front.set(id);
     return id;

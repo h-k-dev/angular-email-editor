@@ -14,5 +14,5 @@
      node and moves none — and a moved node would blur the editor inside it
      and re-measure its toolbar. -->
 @for (window of windows.windows(); track window.id) {
-  <section compose-window [window]="window"></section>
+  <section compose-window [window]="window" [mobile]="window.mobile"></section>
 }

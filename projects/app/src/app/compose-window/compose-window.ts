@@ -27,8 +27,10 @@ import { InlineImages } from 'angular-email-editor';
 import { MessageForm } from '../compose/message-form/message-form';
 import { Viewport } from '../../services/viewport';
 import { I18n } from '../../services/i18n';
+import { BackButton } from '../../services/back-button';
 import {
   ComposeWindow,
+  ComposeWindowMobile,
   ComposeWindows,
   DOCK_GAP,
   slotPosition,
@@ -79,9 +81,11 @@ interface Grab {
   styleUrl: './compose-window.scss',
   host: {
     role: 'dialog',
-    '[attr.aria-labelledby]': 'titleId()',
+    '[attr.aria-labelledby]': 'bare() ? null : titleId()',
+    '[attr.aria-label]': 'bare() ? label() : null',
     '[attr.aria-modal]': 'expanded() || null',
     '[attr.data-mode]': 'window().mode',
+    '[attr.data-bare]': 'bare() || null',
     '[class.compose-window--front]': 'front()',
     '[class.compose-window--full]': 'full()',
     '[attr.data-slot]': 'window().slot',
@@ -101,6 +105,11 @@ export class ComposeWindowFrame {
   /** The window's state, from the service. */
   readonly window = input.required<ComposeWindow>();
 
+  /** How the window shows on a phone: as the page (no title bar of its
+      own) or as a window with its bar. The service carries what the opener
+      asked for; a host embedding this component sets it directly. */
+  readonly mobile = input<ComposeWindowMobile>('page');
+
   protected readonly titleId = computed(() => `compose-window-title-${this.window().id}`);
   protected readonly minimized = computed(() => this.window().mode === 'minimized');
   protected readonly expanded = computed(
@@ -111,6 +120,10 @@ export class ComposeWindowFrame {
   /** On a phone an open window is the screen: there is no edge to sit on,
       and no room beside it. */
   protected readonly full = computed(() => this.viewport.compact() && !this.minimized());
+
+  /** The phone's page: the screen, and no title bar of its own. The way
+      out is the message bar's arrow, and the back button. */
+  protected readonly bare = computed(() => this.full() && this.mobile() === 'page');
 
   /** On the edge, where a drag can move it. */
   protected readonly movable = computed(() => !this.expanded() && !this.full());
@@ -123,7 +136,14 @@ export class ComposeWindowFrame {
   protected readonly x = computed(() => this.window().pin ?? slotPosition(this.window().slot));
 
   /** The message this window holds. */
-  protected readonly sheet = viewChild.required(MessageForm);
+  protected readonly sheet = viewChild(MessageForm);
+
+  /** What the window is called: the message's subject, or what an unnamed
+      message is called. The title bar shows it; a page, which has no title
+      bar, says it to assistive tech instead. */
+  protected readonly label = computed(
+    () => this.sheet()?.message().subject.trim() || this.i18n.t('composeWindow.new', 'New message'),
+  );
 
   #grab: Grab | null = null;
 
@@ -131,6 +151,17 @@ export class ComposeWindowFrame {
     // The dialog keeps focus inside; on the edge, Tab moves on to the page.
     const trap = inject(CdkTrapFocus);
     effect(() => (trap.enabled = this.expanded()));
+
+    // The phone's back button closes the window instead of leaving the
+    // page — whatever it shows there (a page has no close button of its
+    // own but its bar's arrow; a window has both). Only while it IS the
+    // screen: on a desk, back is the page's.
+    const back = inject(BackButton);
+    effect((onCleanup) => {
+      if (!this.full()) return;
+      const release = back.guard(() => this.close());
+      onCleanup(release);
+    });
 
     // Asked for by name — Compose with three windows already open hands
     // back the oldest. The caret goes in after the window has been drawn
@@ -142,7 +173,7 @@ export class ComposeWindowFrame {
       const wanted = this.windows.wanted();
       untracked(() => {
         if (wanted?.id !== this.window().id) return;
-        afterNextRender({ write: () => this.sheet().focus() }, { injector });
+        afterNextRender({ write: () => this.sheet()?.focus() }, { injector });
       });
     });
   }

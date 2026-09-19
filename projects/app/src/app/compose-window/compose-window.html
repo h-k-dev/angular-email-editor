@@ -1,72 +1,80 @@
 <!-- The title bar: the handle a window is dragged by along the edge, and —
-     its title is a button — the switch between minimized and open. -->
-<header
-  class="compose-window__bar"
-  [class.compose-window__bar--movable]="movable()"
-  (pointerdown)="grab($event)"
-  (pointermove)="drag($event)"
-  (pointerup)="drop($event)"
-  (pointercancel)="drop($event)"
->
-  <button
-    type="button"
-    class="compose-window__title"
-    [id]="titleId()"
-    [attr.aria-expanded]="!minimized()"
-    (click)="toggleMinimized()"
+     its title is a button — the switch between minimized and open. Gone
+     where the window IS the page (a phone, unless its opener asked for a
+     window there): the message needs no name over itself, and its own bar
+     carries the way back. -->
+@if (!bare()) {
+  <header
+    class="compose-window__bar"
+    [class.compose-window__bar--movable]="movable()"
+    (pointerdown)="grab($event)"
+    (pointermove)="drag($event)"
+    (pointerup)="drop($event)"
+    (pointercancel)="drop($event)"
   >
-    {{ sheet.message().subject.trim() || i18n.t('composeWindow.new', 'New message') }}
-  </button>
-
-  <span class="compose-window__controls" data-slot="controls">
     <button
-      mat-icon-button
       type="button"
-      [attr.aria-label]="
-        minimized()
-          ? i18n.t('composeWindow.restore', 'Restore')
-          : i18n.t('composeWindow.minimize', 'Minimize')
-      "
-      [title]="
-        minimized()
-          ? i18n.t('composeWindow.restore', 'Restore')
-          : i18n.t('composeWindow.minimize', 'Minimize')
-      "
+      class="compose-window__title"
+      [id]="titleId()"
+      [attr.aria-expanded]="!minimized()"
       (click)="toggleMinimized()"
     >
-      <mat-icon>{{ minimized() ? 'expand_less' : 'minimize' }}</mat-icon>
+      {{ sheet.message().subject.trim() || i18n.t('composeWindow.new', 'New message') }}
     </button>
-    @if (!viewport.compact()) {
+
+    <span class="compose-window__controls" data-slot="controls">
       <button
         mat-icon-button
         type="button"
         [attr.aria-label]="
-          expanded()
-            ? i18n.t('composeWindow.collapse', 'Exit full screen')
-            : i18n.t('composeWindow.expand', 'Full screen')
+          minimized()
+            ? i18n.t('composeWindow.restore', 'Restore')
+            : i18n.t('composeWindow.minimize', 'Minimize')
         "
         [title]="
-          expanded()
-            ? i18n.t('composeWindow.collapse', 'Exit full screen')
-            : i18n.t('composeWindow.expand', 'Full screen')
+          minimized()
+            ? i18n.t('composeWindow.restore', 'Restore')
+            : i18n.t('composeWindow.minimize', 'Minimize')
         "
-        (click)="toggleExpanded()"
+        (click)="toggleMinimized()"
       >
-        <mat-icon>{{ expanded() ? 'close_fullscreen' : 'open_in_full' }}</mat-icon>
+        <mat-icon>{{ minimized() ? 'expand_less' : 'minimize' }}</mat-icon>
       </button>
-    }
-    <button
-      mat-icon-button
-      type="button"
-      [attr.aria-label]="i18n.t('composeWindow.close', 'Close')"
-      [title]="i18n.t('composeWindow.close', 'Close')"
-      (click)="close()"
-    >
-      <mat-icon>close</mat-icon>
-    </button>
-  </span>
-</header>
+      @if (!viewport.compact()) {
+        <button
+          mat-icon-button
+          type="button"
+          [attr.aria-label]="
+            expanded()
+              ? i18n.t('composeWindow.collapse', 'Exit full screen')
+              : i18n.t('composeWindow.expand', 'Full screen')
+          "
+          [title]="
+            expanded()
+              ? i18n.t('composeWindow.collapse', 'Exit full screen')
+              : i18n.t('composeWindow.expand', 'Full screen')
+          "
+          (click)="toggleExpanded()"
+        >
+          <mat-icon>{{ expanded() ? 'close_fullscreen' : 'open_in_full' }}</mat-icon>
+        </button>
+      }
+      <button
+        mat-icon-button
+        type="button"
+        [attr.aria-label]="i18n.t('composeWindow.close', 'Close')"
+        [title]="i18n.t('composeWindow.close', 'Close')"
+        (click)="close()"
+      >
+        <mat-icon>close</mat-icon>
+      </button>
+    </span>
+  </header>
+}
 
 <!-- The message: a sheet of its own, no draft kept (the page's draft is
-     the page's), no source pane beside it. -->
+     the page's), no source pane beside it. As a page it has no control of
+     its own to leave by — the phone's back button is the way out (the
+     window guards it), which is the one every other page there is left by,
+     and the sheet keeps its own Discard for throwing the message away. -->
 <div message-form #sheet class="compose-window__sheet" (sent)="sent()" (discarded)="close()"></div>

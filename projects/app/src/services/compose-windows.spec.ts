@@ -1,7 +1,8 @@
-import { ApplicationRef } from '@angular/core';
+import { ApplicationRef, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 
 import { ComposeWindows } from './compose-windows';
+import { Viewport } from './viewport';
 import { EMAIL_SEND_LATENCY } from './email-send';
 
 // jsdom lacks what the editor's text metrics need at mount (see
@@ -301,5 +302,101 @@ describe('ComposeWindows', () => {
     frames()[0].querySelector<HTMLButtonElement>('[aria-label="Discard draft"]')!.click();
     await settle();
     expect(windows.windows()).toEqual([]);
+  });
+});
+
+describe('ComposeWindows on a phone', () => {
+  const compact = signal(true);
+  let windows: ComposeWindows;
+  let app: ApplicationRef;
+
+  const frame = () => document.querySelector<HTMLElement>('section[compose-window]');
+  const settle = () => app.whenStable();
+  /** The phone's back button. */
+  const pressBack = async () => {
+    history.back();
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    await settle();
+  };
+
+  beforeEach(() => {
+    compact.set(true);
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: EMAIL_SEND_LATENCY, useValue: 0 },
+        {
+          provide: Viewport,
+          useValue: {
+            compact: compact.asReadonly(),
+            narrow: compact.asReadonly(),
+            keyboardInset: signal(0),
+          },
+        },
+      ],
+    });
+    windows = TestBed.inject(ComposeWindows);
+    app = TestBed.inject(ApplicationRef);
+  });
+
+  // Every window takes a history entry while it is open (the back guard):
+  // close them all and let the browser rewind before the next spec, or the
+  // entries pile up between them.
+  afterEach(async () => {
+    for (const open of [...windows.windows()]) windows.close(open.id);
+    await settle();
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    document.querySelector('[compose-dock]')?.remove();
+  });
+
+  it("opens as the page: no title bar, and none of a window's own controls", async () => {
+    await windows.open();
+    await settle();
+
+    expect(frame()!.hasAttribute('data-bare')).toBe(true);
+    expect(frame()!.querySelector('.compose-window__bar')).toBeNull();
+    // Nothing names the window over itself any more, so it says its name.
+    expect(frame()!.getAttribute('aria-label')).toBe('New message');
+    expect(frame()!.getAttribute('aria-labelledby')).toBeNull();
+    // No close, no minimize, no expand: the back button is the way out and
+    // Discard is the way to throw the message away.
+    expect(frame()!.querySelector('[aria-label="Close"]')).toBeNull();
+    expect(frame()!.querySelector('[aria-label="Discard draft"]')).not.toBeNull();
+  });
+
+  it('a window asked for keeps its title bar, phone or not', async () => {
+    await windows.open({ mobile: 'window' });
+    await settle();
+
+    expect(frame()!.hasAttribute('data-bare')).toBe(false);
+    expect(frame()!.querySelector('.compose-window__bar')).not.toBeNull();
+    expect(frame()!.querySelector('[aria-label="Close"]')).not.toBeNull();
+  });
+
+  it('the back button closes the window instead of leaving the page', async () => {
+    const here = location.href;
+    await windows.open();
+    await settle();
+
+    await pressBack();
+    expect(windows.windows()).toEqual([]);
+    expect(location.href).toBe(here);
+
+    // Closed some other way instead — Discard here: the guard goes with the
+    // window, so the next press is the page's own again.
+    await windows.open();
+    await settle();
+    frame()!.querySelector<HTMLButtonElement>('[aria-label="Discard draft"]')!.click();
+    await settle();
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(windows.windows()).toEqual([]);
+    expect(history.state?.__backGuard).toBeUndefined();
+  });
+
+  it("on a desk the back button stays the page's own: no guard, no entry", async () => {
+    compact.set(false);
+    const entries = history.length;
+    await windows.open();
+    await settle();
+    expect(history.length).toBe(entries);
   });
 });
