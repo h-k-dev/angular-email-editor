@@ -1,0 +1,18 @@
+@if (windows.expanded()) {
+  <!-- The dialog's scrim: the page behind it is out of reach until the
+       window goes back to the edge — which a click here does. -->
+  <div
+    class="compose-dock__scrim"
+    aria-hidden="true"
+    animate.enter="compose-dock__scrim--enter"
+    (click)="windows.collapse()"
+  ></div>
+}
+
+<!-- Every window places itself (its own slot, or where a drag pinned it),
+     so this lists them in the order they were opened: opening one appends a
+     node and moves none — and a moved node would blur the editor inside it
+     and re-measure its toolbar. -->
+@for (window of windows.windows(); track window.id) {
+  <section compose-window [window]="window"></section>
+}

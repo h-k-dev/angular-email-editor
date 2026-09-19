@@ -12,7 +12,17 @@ export default {
   app: {
     nav: { composer: 'Editor', api: 'API', styling: 'Gestaltung' },
     language: 'Sprache',
+    compose: 'Verfassen',
     theme: { light: 'Zum hellen Design wechseln', dark: 'Zum dunklen Design wechseln' },
+  },
+  composeWindow: {
+    new: 'Neue Nachricht',
+    minimize: 'Minimieren',
+    restore: 'Wiederherstellen',
+    expand: 'Vollbild',
+    collapse: 'Vollbild beenden',
+    close: 'Schließen',
+    sent: 'Nachricht gesendet',
   },
   editor: {
     actions: {

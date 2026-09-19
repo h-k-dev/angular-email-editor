@@ -3,7 +3,7 @@ import { TextSelection } from 'prosemirror-state';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { Compose } from './compose';
-import { Viewport } from '../viewport';
+import { Viewport } from '../../services/viewport';
 import { EMAIL_SEND_LATENCY } from '../../services/email-send';
 import {
   DRAFT_KEY,
@@ -65,7 +65,7 @@ describe('Compose', () => {
 
     // A draft restore (or import) lands while the user is "in" the editor —
     // written to the pane's model, the exact surface a host binds against.
-    const pane = (component as any).emailPane();
+    const pane = (component as any).sheet().emailPane();
     pane.value.set('<div>restored draft</div>');
     await fixture.whenStable(); // flush the pane's sync effect
     expect(pane.value()).toBe('<div>restored draft</div>');
@@ -86,7 +86,7 @@ describe('Compose', () => {
     // lose its place as the document's active element.
     const hasFocus = vi.spyOn(document, 'hasFocus').mockReturnValue(false);
     try {
-      (component as any).emailPane().value.set('<div>saved in another tab</div>');
+      (component as any).sheet().emailPane().value.set('<div>saved in another tab</div>');
       await fixture.whenStable();
       expect(pm.textContent).toContain('saved in another tab');
     } finally {
@@ -226,7 +226,7 @@ describe('Compose', () => {
 
   it('the link buttons open the link editor at the selection, through the shared commands', async () => {
     const root = fixture.nativeElement as HTMLElement;
-    const pane = (component as any).emailPane();
+    const pane = (component as any).sheet().emailPane();
     pane.value.set('<p>see the docs</p>');
     await fixture.whenStable();
     const editor = pane.editor();
@@ -307,7 +307,7 @@ describe('Compose', () => {
     const toRow = root.querySelectorAll('[email-address-input]')[1];
     // A body, so the only thing missing is a recipient.
     pm.focus();
-    (component as any).emailPane().value.set('<div>hello</div>');
+    (component as any).sheet().emailPane().value.set('<div>hello</div>');
     pm.blur();
     await fixture.whenStable();
     expect(send.type).toBe('submit');
@@ -325,7 +325,7 @@ describe('Compose', () => {
     // first field with an error.
     expect(document.activeElement).toBe(toRow.querySelector('[data-slot=input]'));
 
-    (component as any).message.update((m: object) => ({ ...m, to: ['ada@example.com'] }));
+    (component as any).sheet().message.update((m: object) => ({ ...m, to: ['ada@example.com'] }));
     await fixture.whenStable();
     expect(root.querySelector('[aria-label="Form problem"]')).toBeNull();
 
@@ -400,7 +400,7 @@ describe('Compose', () => {
     await fixture.whenStable();
     expect(labels()).toEqual(['From', 'To', 'Bcc', 'Subject']);
     expect(actions()).toEqual(['Cc']);
-    expect((component as any).message().bcc).toEqual(['grace@example.com']);
+    expect((component as any).sheet().message().bcc).toEqual(['grace@example.com']);
   });
 
   it('starts with the caret in To, and tabs From, Cc, Bcc, To, Subject', async () => {
@@ -438,7 +438,7 @@ describe('Compose', () => {
 
     // The caret starts in To: take focus elsewhere, then give the message a Bcc.
     subject.focus();
-    (component as any).message.update((m: object) => ({
+    (component as any).sheet().message.update((m: object) => ({
       ...m,
       to: ['Ada Lovelace <ada@example.com>', 'hong@iusta'],
       bcc: ['grace@example.com'],
@@ -482,7 +482,7 @@ describe('Compose', () => {
 
   it('a body problem focuses the editor, out of code view if need be', async () => {
     const root = fixture.nativeElement as HTMLElement;
-    (component as any).message.update((m: object) => ({ ...m, to: ['ada@example.com'] }));
+    (component as any).sheet().message.update((m: object) => ({ ...m, to: ['ada@example.com'] }));
     await fixture.whenStable();
     (root.querySelector('[aria-label="HTML source"]') as HTMLButtonElement).click();
     await fixture.whenStable();
@@ -502,9 +502,11 @@ describe('Compose', () => {
     const root = fixture.nativeElement as HTMLElement;
     const pm = root.querySelector('[aria-label="Message body"]') as HTMLElement;
     pm.focus();
-    (component as any).emailPane().value.set('<div>hello</div>');
+    (component as any).sheet().emailPane().value.set('<div>hello</div>');
     pm.blur();
-    (component as any).message.update((m: object) => ({ ...m, to: ['bounce@example.com'] }));
+    (component as any)
+      .sheet()
+      .message.update((m: object) => ({ ...m, to: ['bounce@example.com'] }));
     await fixture.whenStable();
 
     (root.querySelector('.writer-bar__send') as HTMLButtonElement).click();
@@ -685,7 +687,7 @@ describe('Compose drafts', () => {
     await fixture.whenStable();
     return {
       fixture,
-      component: fixture.componentInstance as any,
+      component: (fixture.componentInstance as any).sheet(),
       root: fixture.nativeElement as HTMLElement,
     };
   };
@@ -710,7 +712,9 @@ describe('Compose drafts', () => {
 
     const message = component.message();
     expect(message.to).toEqual(['ada@example.com']);
-    expect((root.querySelector('#subject-field') as HTMLInputElement).value).toBe('Plans');
+    expect((root.querySelector('input[id^="message-subject-"]') as HTMLInputElement).value).toBe(
+      'Plans',
+    );
     expect(root.querySelector('[aria-label="Message body"]')?.textContent).toContain(
       'restored body',
     );

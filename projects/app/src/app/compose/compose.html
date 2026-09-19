@@ -38,336 +38,75 @@
     email-preview
     [hidden]="!previewOpen()"
     [active]="previewOpen()"
-    [html]="html()"
+    [html]="sheet.html()"
     aria-label="Email preview"
   ></section>
-  <!-- The writer is the form: Send on top, and under it every field of the
-     one message — the envelope rows, the editor, the attachment strip — each
-     bound to the same `envelope` with `[formField]`, on this one template.
-     The writer carries `[formRoot]`, so its Send button, Enter in the
-     subject and the editor's own gestures all submit the same form.
-     The editor, or — via the portal — the source in its place; the bar's
-     </> and detach buttons switch.
-     The writer is the *attachment* zone: a file dropped anywhere on the
-     message — the address rows, the toolbar, the strip — joins the strip
-     under the body. Always: no accept filter, because the place decides, not
-     the type, and an .eml dropped on the message means "send it along", not
-     "open it". selfOnly, so the surface's zone inside is not this one's.
-     The editing surface nested in the composer is the one exception, and
-     only for a drop of nothing but images: the editor claims such a drag as
-     it comes over the text and takes the drop (`claimedImageFiles`),
-     embedding them inline, and every zone stands down for a claimed drag.
-     Anything else dropped on
-     the surface is an attachment like everywhere else on the message — the
-     composer's own zone takes it and carries it out as `fileDrop`.
-     clickable=false — clicking the message must never open a file picker. -->
-  <form
-    email-writer
-    [formRoot]="envelope"
-    aria-label="Email writer"
-    dropZone
-    #writerZone="dropZone"
-    selfOnly
-    [clickable]="false"
-    [directory]="false"
-    [multiple]="true"
-    (fileDrop)="onAttachmentDrop($event)"
+  <!-- The message: the sheet every message in the app is written on (the
+     compose windows hold one each). This page keeps it as the draft and
+     docks the panes around it; the writer inside is the *attachment* zone,
+     selfOnly, so a drop on the message is never this page's import.
+     The page adds only its views to the writer's bar: the preview docked
+     to the sheet's left, the HTML source in the editor's place (code view,
+     Summernote's </>), the source docked to its right — the buttons in the
+     same order as the panes on screen. They change what shows, not the
+     message, so they are neither formatting (the composer's toolbar) nor
+     actions (beside Send). None of them on a phone, and the docked ones
+     only where a second pane fits: below the docking breakpoint they go,
+     and a docked pane folds (compose.ts). -->
+  <div
+    message-form
+    keepDraft
+    #sheet
+    #draft="keepDraft"
+    [(sourceView)]="sourceView"
+    [codePortal]="codePortal()"
+    [codeEditor]="sourcePane().editor()"
+    (sent)="sentNote.set($event)"
   >
-    <!-- The bar's leading controls, none of them on a phone: there the
-         toolbar is the bar on the keyboard and always stays (`toolbarShown`),
-         and the views below fold (compose.ts).
-         First, the formatting toolbar, shown or hidden (Gmail's formatting
-         options). The composer keeps the toolbar; this page only decides
-         whether it shows. -->
     @if (!viewport.compact()) {
-      <ng-container leading>
-        <button
-          mat-icon-button
-          type="button"
-          aria-label="Formatting options"
-          title="Formatting options"
-          [attr.aria-pressed]="formattingOpen()"
-          (click)="formattingOpen.set(!formattingOpen())"
-        >
-          <mat-icon>text_format</mat-icon>
-        </button>
-        <!-- Then the views of the message — the preview docked to the sheet's
-           left, the HTML source in the editor's place (code view,
-           Summernote's </>), the source docked to its right — the buttons
-           in the same order as the panes on screen. They change what shows,
-           not the message, so they are neither formatting (the composer's
-           toolbar) nor actions (beside Send). The docked ones only where a
-           second pane fits: below the docking breakpoint they go, and a
-           docked pane folds. Code view is in place and stays down to a
-           phone. -->
-        <span class="writer-panes" role="group" aria-label="Views">
-          @if (!viewport.narrow()) {
-            <button
-              mat-icon-button
-              type="button"
-              aria-label="Preview"
-              title="Show the preview beside the editor"
-              [attr.aria-pressed]="previewOpen()"
-              (click)="previewOpen.set(!previewOpen())"
-            >
-              <mat-icon>dock_to_left</mat-icon>
-            </button>
-          }
-          <!-- Code view: marks and history keep working on the source (its
-             kit mirrors every mark command, so the toolbar routes to
-             whichever editor shows); block commands have no source-side
-             twin and lock. Pressed while the source is docked, it moves in;
-             detach pressed while in code view moves it back out. -->
+      <span leading class="writer-panes" role="group" aria-label="Views">
+        @if (!viewport.narrow()) {
           <button
             mat-icon-button
             type="button"
-            aria-label="HTML source"
-            title="Edit the HTML source"
-            [attr.aria-pressed]="sourceView() === 'code'"
-            (click)="toggleCodeView()"
+            aria-label="Preview"
+            title="Show the preview beside the editor"
+            [attr.aria-pressed]="previewOpen()"
+            (click)="previewOpen.set(!previewOpen())"
           >
-            <mat-icon>code</mat-icon>
+            <mat-icon>dock_to_left</mat-icon>
           </button>
-          @if (!viewport.narrow()) {
-            <button
-              mat-icon-button
-              type="button"
-              aria-label="Detach HTML source"
-              title="Show the HTML source beside the editor"
-              [attr.aria-pressed]="sourceView() === 'detached'"
-              (click)="toggleDetached()"
-            >
-              <mat-icon>dock_to_right</mat-icon>
-            </button>
-          }
-        </span>
-      </ng-container>
-    }
-    <!-- Beside Send in the writer's bar: the draft saves itself, so the one
-         thing left to do with it by hand is throw it away. -->
-    <button
-      mat-icon-button
-      type="button"
-      actions
-      aria-label="Discard draft"
-      title="Discard draft"
-      (click)="discard()"
-    >
-      <mat-icon>delete</mat-icon>
-    </button>
-    <!-- The envelope, as Gmail lays it out: one hairline row per field, each
-         marked `envelope` for the writer's envelope block. From takes a
-         single address; To takes many; Subject is plain text, and Enter
-         there sends — the address rows swallow theirs. -->
-    <!-- The address rows are this template's, label and all, exactly like
-           the Subject row: the control owns no label and draws no row. The
-           row is a div holding a label and the control — a label may not
-           wrap the control's list — so the label names the control's input
-           by id, and the row forwards its clicks. -->
-    <div
-      class="writer-field"
-      envelope
-      emailKeepFocus
-      [emailKeepFocusExcept]="rowControls"
-      (click)="fromField.focus()"
-    >
-      <label class="writer-field__label" [for]="fromField.id">From</label>
-      <div
-        email-address-input
-        #fromField
-        limit="1"
-        placeholder="you@example.com"
-        [formField]="envelope.from"
-      ></div>
-    </div>
-    <!-- The recipients, one group for focus: while focus is elsewhere and
-           a copy row is open, the rows merge into one line, and an empty Cc
-           or Bcc row folds —
-           only when focus leaves all three rows, never when it moves between
-           them. Focus arriving in any of them opens them again. -->
-    <div
-      class="writer-recipients"
-      envelope
-      [class.writer-recipients--merged]="recipientsMerged()"
-      (focusin)="recipientsActive.set(true)"
-      (focusout)="leaveRecipients($event)"
-    >
-      <!-- The merged line: a picture of the rows below, for the pointer.
-             Hidden from assistive tech — the rows are still there, only
-             visually hidden, and Tab reaches them. -->
-      @if (recipientsMerged()) {
-        @let groups = recipientSummary();
-        <div
-          class="writer-field writer-summary"
-          aria-hidden="true"
-          emailKeepFocus
-          [emailKeepFocusExcept]="rowControls"
-          (click)="toField.focus()"
-        >
-          <span class="writer-summary__label">{{ groups.at(0)?.label ?? 'To' }}</span>
-          <span class="writer-summary__line">
-            @for (group of groups; track group.label; let first = $first) {
-              @if (!first) {
-                <span class="writer-summary__kind">{{ group.label }}</span>
-              }
-              @for (person of group.people; track person.raw; let last = $last) {
-                <span
-                  class="writer-summary__person"
-                  [class.writer-summary__person--invalid]="!person.valid"
-                  [title]="person.raw"
-                  >{{ person.text }}</span
-                >{{ last ? '' : ', ' }}
-              }
-            } @empty {
-              <span class="writer-summary__placeholder">Recipients</span>
-            }
-          </span>
-        </div>
-      }
-
-      <div
-        class="writer-field"
-        emailKeepFocus
-        [emailKeepFocusExcept]="rowControls"
-        (click)="toField.focus()"
-      >
-        <label class="writer-field__label" [for]="toField.id">To</label>
-        <!-- Gmail's Cc and Bcc: text buttons drawn at the row's end (CSS order),
-             each opening its row and stepping aside. They come before the
-             control in the source, so the tab order runs From, Cc, Bcc, To,
-             Subject: Tab out of To, done with addresses, lands on Subject.
-             The click must not reach the row, whose own handler would put
-             the caret back in To — and the mousedown must not take focus:
-             the button is removed the moment its row opens, and a focused
-             element removed leaves focus nowhere. -->
-        @if (!showCc() || !showBcc()) {
-          <span class="writer-field__actions">
-            @if (!showCc()) {
-              <button
-                type="button"
-                class="writer-field__action"
-                emailKeepFocus
-                (click)="openCopy('cc'); $event.stopPropagation()"
-              >
-                Cc
-              </button>
-            }
-            @if (!showBcc()) {
-              <button
-                type="button"
-                class="writer-field__action"
-                emailKeepFocus
-                (click)="openCopy('bcc'); $event.stopPropagation()"
-              >
-                Bcc
-              </button>
-            }
-          </span>
         }
-        <div email-address-input #toField placeholder="Recipients" [formField]="envelope.to"></div>
-      </div>
-      <!-- Each copy row lives only while open or filled. -->
-      @if (showCc()) {
-        <div
-          class="writer-field"
-          emailKeepFocus
-          [emailKeepFocusExcept]="rowControls"
-          (click)="ccField.focus()"
+        <!-- Code view: marks and history keep working on the source (its
+           kit mirrors every mark command, so the toolbar routes to
+           whichever editor shows); block commands have no source-side
+           twin and lock. Pressed while the source is docked, it moves in;
+           detach pressed while in code view moves it back out. -->
+        <button
+          mat-icon-button
+          type="button"
+          aria-label="HTML source"
+          title="Edit the HTML source"
+          [attr.aria-pressed]="sourceView() === 'code'"
+          (click)="toggleCodeView()"
         >
-          <label class="writer-field__label" [for]="ccField.id">Cc</label>
-          <div email-address-input #ccField [formField]="envelope.cc"></div>
-        </div>
-      }
-
-      @if (showBcc()) {
-        <div
-          class="writer-field"
-          emailKeepFocus
-          [emailKeepFocusExcept]="rowControls"
-          (click)="bccField.focus()"
-        >
-          <label class="writer-field__label" [for]="bccField.id">Bcc</label>
-          <div email-address-input #bccField [formField]="envelope.bcc"></div>
-        </div>
-      }
-    </div>
-
-    <!-- Every row is the same shape: a row that forwards its clicks, a
-           label naming the control by id, the control. -->
-    <div
-      class="writer-field"
-      envelope
-      emailKeepFocus
-      [emailKeepFocusExcept]="rowControls"
-      (click)="subjectField.focus()"
-    >
-      <label class="writer-field__label" for="subject-field">Subject</label>
-      <input
-        #subjectField
-        id="subject-field"
-        class="writer-field__input"
-        type="text"
-        autocomplete="off"
-        [formField]="envelope.subject"
-      />
-    </div>
-    <!-- The editor is the body field's control: the form drives its value
-         and hears its canonical HTML back. Its own send gestures (Mod-Enter,
-         /send) submit the form. -->
-    <section
-      email-compose
-      [formField]="envelope.html"
-      (send)="send()"
-      (fileDrop)="onAttachmentDrop($event)"
-      [(sourceView)]="sourceView"
-      [toolbar]="toolbarShown()"
-      [codePortal]="codePortal()"
-      [codeEditor]="sourcePane().editor()"
-      aria-label="Email editor"
-    >
-      <!-- The attachment strip, projected into the composer's below-body slot
-           so it lands between the message and the toolbar — and a field of
-           the form: the container is the control, its value the references
-           (a drop or an .eml import adds them); the chips are rendered here,
-           one per reference, each with its transfer's stage and progress
-           from the store, and a chip's removal takes its reference out of the value
-           (the container's doing) and stops its transfer (ours). -->
-      <ul email-attachment-chips below-body [formField]="envelope.attachments">
-        @for (attachment of envelope.attachments().value(); track attachment.key) {
-          <li
-            email-attachment-chip
-            [attachment]="attachment"
-            [status]="uploads.status(attachment.key)()"
-            [progress]="uploads.progress(attachment.key)()"
-            [aria-disabled]="envelope.attachments().disabled()"
-            animate.enter="email-attachment-chip-enter"
-            animate.leave="email-attachment-chip-leave"
-            (removed)="uploads.cancel(attachment.key)"
+          <mat-icon>code</mat-icon>
+        </button>
+        @if (!viewport.narrow()) {
+          <button
+            mat-icon-button
+            type="button"
+            aria-label="Detach HTML source"
+            title="Show the HTML source beside the editor"
+            [attr.aria-pressed]="sourceView() === 'detached'"
+            (click)="toggleDetached()"
           >
-            <!-- The chip's own glyphs would do; this fills its icon slot
-                 with the app's Material icons instead, as a host with an
-                 icon set of its own would. inline: the chip's box sets
-                 the size. -->
-            <mat-icon *emailAttachmentIcon="let kind = kind" inline>
-              {{ attachmentIcons[kind] }}
-            </mat-icon>
-          </li>
+            <mat-icon>dock_to_right</mat-icon>
+          </button>
         }
-      </ul>
-    </section>
-    <!-- The writer's hint, projected last so it overlays the composer:
-         click-through, so the surface's zone underneath still gets its
-         drags. Off while the drag is over the surface — selfOnly resets this
-         zone the moment a drag enters a nested one — so the two hints never
-         stack. -->
-    <div
-      drop-hint
-      art="attach"
-      heading="Drop to attach"
-      text="Anything dropped on the message is attached, images included. To place an image in the text instead, drop it where you write."
-      [active]="writerZone.isDragOver()"
-    ></div>
-  </form>
+      </span>
+    }
+  </div>
   <!-- The HTML source pane. Its home is this right column (the detached view);
      in code view a DOM portal moves the very same node into the composer's
      editing surface and back — the editor inside is never re-created, so
@@ -378,7 +117,7 @@
     class="scroll-container"
     [hidden]="sourceView() === 'hidden'"
     [active]="sourceView() !== 'hidden'"
-    [(html)]="html"
+    [(html)]="sheet.html"
     [(diagnostics)]="diagnostics"
     aria-label="Email HTML source"
   ></section>
@@ -412,7 +151,7 @@
         <span class="status__send" aria-label="Last send">{{ note }}</span>
       }
 
-      @if (draftNote(); as note) {
+      @if (draft.note(); as note) {
         <span class="status__send" aria-label="Draft">{{ note }}</span>
       }
 

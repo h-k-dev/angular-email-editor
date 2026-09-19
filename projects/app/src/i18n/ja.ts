@@ -11,7 +11,17 @@ export default {
   app: {
     nav: { composer: '作成', api: 'API', styling: 'スタイル' },
     language: '言語',
+    compose: '作成',
     theme: { light: 'ライトモードに切り替え', dark: 'ダークモードに切り替え' },
+  },
+  composeWindow: {
+    new: '新規メッセージ',
+    minimize: '最小化',
+    restore: '元に戻す',
+    expand: '全画面表示',
+    collapse: '全画面表示を終了',
+    close: '閉じる',
+    sent: 'メッセージを送信しました',
   },
   editor: {
     actions: {

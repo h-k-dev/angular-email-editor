@@ -2,7 +2,7 @@ import { Component, WritableSignal, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { form } from '@angular/forms/signals';
 import { EmailWriter } from './email-writer';
-import { Viewport } from '../../viewport';
+import { Viewport } from '../../../services/viewport';
 
 /** A host the way the composer uses the writer: a form over a model, with
     an action the test settles by hand, and the fields projected in. */

@@ -3,11 +3,12 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule, MatIconRegistry } from '@angular/material/icon';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { ComposeWindows } from '../services/compose-windows';
 import { I18n } from '../services/i18n';
 import { LanguageMenu } from './language-menu/language-menu';
-import { Viewport } from './viewport';
+import { Viewport } from '../services/viewport';
 
-/** App shell: a top bar (page nav + theme) and the routed page below it.
+/** App shell: a top bar (page nav, Compose, language, theme) and the routed page below it.
     Pages own everything inside — their inset, their scrolling, their cards. */
 @Component({
   // The shell *is* the <body> (see index.html) — no wrapper element between
@@ -36,6 +37,7 @@ export class App {
   readonly #destroyRef = inject(DestroyRef);
   protected readonly viewport = inject(Viewport);
   protected readonly i18n = inject(I18n);
+  readonly #composeWindows = inject(ComposeWindows);
 
   /** The top bar's pages, in reading order. */
   protected readonly pages = [
@@ -71,6 +73,11 @@ export class App {
       query.addEventListener('change', onChange);
       this.#destroyRef.onDestroy(() => query.removeEventListener('change', onChange));
     }
+  }
+
+  /** Compose: a new message in a window, whatever page is open. */
+  protected compose(): void {
+    void this.#composeWindows.open();
   }
 
   protected toggleTheme(): void {

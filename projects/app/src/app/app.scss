@@ -65,6 +65,10 @@
   flex: 1 1 auto;
 }
 
+.app-compose {
+  flex: none;
+}
+
 // A stretched flex cross size is definite, so the composer's `height: 100%`
 // resolves against it (no scroll); the reference pages are taller than the
 // shell and scroll here instead.
@@ -87,6 +91,17 @@
   }
 
   .app-nav-icon {
+    display: none;
+  }
+
+  // The pencil alone says Compose on a phone; the button keeps its name
+  // for assistive tech (aria-label).
+  .app-compose {
+    min-inline-size: 40px;
+    padding-inline: 8px;
+  }
+
+  .app-compose__label {
     display: none;
   }
 }

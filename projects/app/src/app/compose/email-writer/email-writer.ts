@@ -10,7 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 // Global
-import { Viewport } from '../../viewport';
+import { Viewport } from '../../../services/viewport';
 
 /**
  * The email writer: the sheet a message is written on, and the form it is

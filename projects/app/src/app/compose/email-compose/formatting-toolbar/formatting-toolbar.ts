@@ -23,7 +23,7 @@ import { OverlayModule } from '@angular/cdk/overlay';
 // Library
 import { emailBackgroundPalette, emailTextPalette } from 'angular-email-editor';
 
-import { Viewport } from '../../../viewport';
+import { Viewport } from '../../../../services/viewport';
 import { FormattingCommands } from '../formatting-commands';
 import {
   FormattingItem,

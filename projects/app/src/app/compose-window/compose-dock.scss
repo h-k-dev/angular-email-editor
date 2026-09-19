@@ -1,0 +1,37 @@
+// Over the whole page, and click-through: only the windows (and the scrim,
+// while there is a dialog) take the pointer. Under the CDK overlay
+// container (z-index 1000), so the menus a window opens — the formatting
+// toolbar's, the `/` menu — draw over it.
+:host {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  pointer-events: none;
+}
+
+.compose-dock__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  pointer-events: auto;
+  background: color-mix(in srgb, var(--mat-sys-scrim, #000000) 32%, transparent);
+}
+
+// Fading in only: a leave animation would hold the scrim on screen for as
+// long as it runs — and a tab whose animation timeline is frozen (a
+// background tab, a preview) would keep it there, over a page it blocks.
+.compose-dock__scrim--enter {
+  animation: compose-dock-fade 150ms ease-out;
+}
+
+@keyframes compose-dock-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .compose-dock__scrim--enter {
+    animation: none;
+  }
+}

@@ -1,7 +1,7 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { Viewport } from '../../../viewport';
+import { Viewport } from '../../../../services/viewport';
 import { FormattingCommands } from '../formatting-commands';
 import { FormattingToolbar } from './formatting-toolbar';
 
