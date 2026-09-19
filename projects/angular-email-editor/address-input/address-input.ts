@@ -1,4 +1,3 @@
-import { NgTemplateOutlet } from '@angular/common';
 import {
   Component,
   ElementRef,
@@ -40,14 +39,12 @@ let nextId = 0;
  * and flags it; and focus coming back hands the malformed entries at the
  * end of the list straight back to the input, as plain typing again.
  *
- * **Editing is in place.** A chip taken back for editing does not move:
- * the input goes to where the chip was, holds its address, and what is
- * committed there — Enter, Tab, a comma — takes the chip's place, with the
- * chips after it staying after. The input stays in that place, so more can
- * be added there, until focus leaves; then it returns to the end. Leaving
- * with an address commits it in place; leaving with a typo commits the typo
- * at the end of the list, the pending error, where the next focus hands it
- * back.
+ * **The input is always at the end, and editing happens there.** A chip
+ * taken back for editing — a double click, Enter on a picked chip,
+ * Backspace, `edit()` — leaves its place: its address goes into the input,
+ * after the last chip, exactly like a typo the field handed back — and what
+ * is committed from it joins the end of the list. There is one place where
+ * text is typed, and it never moves.
  *
  * **One pending edit at a time.** There is only ever one thing being fixed,
  * and it is what the caret is on. Starting another edit — `edit()`, Enter
@@ -60,10 +57,10 @@ let nextId = 0;
  * focus in the input turns them into chips.
  *
  * **The arrow keys rove the chips; the caret stays in the input.** With
- * the caret at the start of the typing, ← puts a highlight on the chip
- * before it and walks back along the list; from the end of the typing, →
- * reaches the chip after it and walks forward. Walking back onto the
- * caret's own place returns to the caret. Enter edits the highlighted chip,
+ * the caret at the start of the typing, ← puts a highlight on the last chip
+ * and walks back along the list; → walks forward, and past the last chip
+ * returns to the caret. Enter — or a double click on
+ * any chip — edits it,
  * Backspace or Delete removes it, Escape drops the highlight, and so does
  * typing. A click on a chip highlights it. Reaching a chip either way is
  * being done with the typing: an address in the input becomes a chip first,
@@ -127,7 +124,7 @@ let nextId = 0;
  */
 @Component({
   selector: '[email-address-input]',
-  imports: [AddressChip, NgTemplateOutlet],
+  imports: [AddressChip],
   templateUrl: './address-input.html',
   styleUrl: './address-input.scss',
   host: {
@@ -196,25 +193,6 @@ export class AddressInput implements FormValueControl<string[]> {
   /** The input holds text a commit left behind: not an address yet. */
   protected readonly refused = signal(false);
 
-  /** Where the input sits among the chips while an edit is in place: the
-      index the next committed address takes, the chips from there on
-      standing after the input. Null is the end — where the input starts,
-      and where it returns when focus leaves. */
-  protected readonly editAt = signal<number | null>(null);
-
-  /** The input's slot in the list: `editAt`, or after the last chip. */
-  protected readonly entryAt = computed(() => {
-    const editAt = this.editAt();
-    const length = this.value().length;
-    return editAt === null ? length : Math.min(editAt, length);
-  });
-
-  /** The chips before the input, and the chips after it. Two lists so the
-      input's element never moves in the DOM — a focused element moved is
-      a focused element blurred. */
-  protected readonly before = computed(() => this.value().slice(0, this.entryAt()));
-  protected readonly after = computed(() => this.value().slice(this.entryAt()));
-
   /** The chip the arrow keys or a click picked, by index in the value — the
       one Enter, Backspace and Delete act on while the caret stays in the
       input. */
@@ -270,8 +248,8 @@ export class AddressInput implements FormValueControl<string[]> {
   /** Invalid *and* touched — the moment the state becomes the user's business. */
   protected readonly flagged = computed(() => this.invalid() && this.touched());
 
-  /** Splits a run into addresses and adds the new ones where the input is,
-      up to `limit`. Duplicates are dropped; a malformed one is kept and
+  /** Splits a run into addresses and adds the new ones to the end of the
+      list, up to `limit`. Duplicates are dropped; a malformed one is kept and
       flagged — this is the host's way in, and the host decides what it
       holds. */
   commit(raw: string): void {
@@ -286,8 +264,6 @@ export class AddressInput implements FormValueControl<string[]> {
     this.active.set(null);
     const index = this.value().indexOf(address);
     if (index < 0) return;
-    const editAt = this.editAt();
-    if (editAt !== null && index < editAt) this.editAt.set(editAt - 1);
     this.value.update((current) => current.filter((a) => a !== address));
   }
 
@@ -300,10 +276,10 @@ export class AddressInput implements FormValueControl<string[]> {
     this.focus();
   }
 
-  /** Takes a chip — the picked one by default — back for editing, in its
-      place: the input moves to where the chip was and holds its address,
-      caret at the end. The edit pending until now ends first. A locked list
-      edits nothing. */
+  /** Takes a chip — the picked one by default — back for editing: it
+      leaves the list and the input, at the end, holds its address, caret at
+      the end. The edit pending until now ends first. A locked list edits
+      nothing. */
   edit(
     address: string | null = this.current(),
     input: HTMLInputElement = this.field().nativeElement,
@@ -311,17 +287,15 @@ export class AddressInput implements FormValueControl<string[]> {
     if (this.locked() || address === null) return;
     this.active.set(null);
     this.#endPending(input, address);
-    const index = this.value().indexOf(address);
-    if (index < 0) return;
+    if (!this.value().includes(address)) return;
     this.remove(address);
-    this.editAt.set(index);
     input.value = address;
     input.focus();
     input.setSelectionRange(input.value.length, input.value.length);
   }
 
   /** Ends the pending edit so another can start: the addresses typed so far
-      become chips where the input is, the rest of the typing goes, and so
+      become chips, the rest of the typing goes, and so
       does every chip that is not an address — but `keep`, the one about to
       be edited. */
   #endPending(input: HTMLInputElement, keep?: string): void {
@@ -329,14 +303,8 @@ export class AddressInput implements FormValueControl<string[]> {
     input.value = '';
     this.refused.set(false);
     const value = this.value();
-    const dropped = value.filter((address) => !isMailbox(address) && address !== keep);
-    if (!dropped.length) return;
-    const editAt = this.editAt();
-    if (editAt !== null) {
-      const ahead = value.slice(0, editAt).filter((address) => dropped.includes(address)).length;
-      this.editAt.set(editAt - ahead);
-    }
-    this.value.set(value.filter((address) => !dropped.includes(address)));
+    const kept = value.filter((address) => isMailbox(address) || address === keep);
+    if (kept.length !== value.length) this.value.set(kept);
   }
 
   /** Puts the caret in the input — the whole control is the field, and a
@@ -384,6 +352,13 @@ export class AddressInput implements FormValueControl<string[]> {
     input.focus();
   }
 
+  /** A double click on a chip — not on its remove control — takes it back
+      for editing. */
+  protected onChipDblclick(event: MouseEvent, address: string, input: HTMLInputElement): void {
+    if ((event.target as Element).closest('[data-slot=trailing]')) return;
+    this.edit(address, input);
+  }
+
   /** Copies a chip's address — the picked one by default — to the
       clipboard, as a hold on the chip does; the chip shows and says so.
       Resolves to whether the copy went. */
@@ -394,8 +369,7 @@ export class AddressInput implements FormValueControl<string[]> {
 
   /** Picking a chip is being done with the typing: the addresses in it
       become chips first, as Enter would make them, and what is not an
-      address stays behind, flagged. The picked chip is found again after,
-      since chips committed ahead of it move it along. */
+      address stays behind, flagged. */
   #pick(index: number, input: HTMLInputElement): void {
     const address = this.value()[index];
     this.#settle(input, input.value);
@@ -411,24 +385,15 @@ export class AddressInput implements FormValueControl<string[]> {
     const active = this.active();
     if (active !== null && this.#onActiveKey(event, active, input)) return;
     switch (event.key) {
-      case 'ArrowLeft':
-      case 'ArrowRight': {
-        // From the start of the typing, ← reaches the chip before the caret;
-        // from its end, → the chip after it — the typing becoming chips
-        // first, when it holds an address.
-        const left = event.key === 'ArrowLeft';
-        const edge = left ? 0 : input.value.length;
-        if (input.selectionStart !== edge || input.selectionEnd !== edge || this.locked()) return;
+      case 'ArrowLeft': {
+        // From the start of the typing, ← reaches the last chip — the
+        // typing becoming chips first, when it holds an address.
+        if (input.selectionStart !== 0 || input.selectionEnd !== 0 || this.locked()) return;
         const typed = splitAddresses(input.value).some((token) => isMailbox(token));
         if (typed) this.#settle(input, input.value);
-        const entry = this.entryAt();
-        const target = left ? entry - 1 : entry;
-        if (target < 0 || target >= this.value().length) {
-          if (typed) event.preventDefault();
-          return;
-        }
-        event.preventDefault();
-        this.active.set(target);
+        const last = this.value().length - 1;
+        if (typed || last >= 0) event.preventDefault();
+        if (last >= 0) this.active.set(last);
         return;
       }
       case 'Enter':
@@ -452,10 +417,10 @@ export class AddressInput implements FormValueControl<string[]> {
         this.#settle(input, input.value);
         return;
       case 'Backspace': {
-        // On nothing typed, the chip before the caret comes back to be
-        // edited — the one pending edit.
+        // On nothing typed, the last chip comes back to be edited — the one
+        // pending edit.
         if (input.value) return;
-        const previous = this.value()[this.entryAt() - 1];
+        const previous = this.value().at(-1);
         if (previous === undefined || this.locked()) return;
         event.preventDefault();
         this.edit(previous, input);
@@ -465,26 +430,22 @@ export class AddressInput implements FormValueControl<string[]> {
   }
 
   /** The keys that act on the highlighted chip. True when one did. The
-      arrows walk the list's slots — every chip, and the caret's own place
-      among them — and stop at either end. */
+      arrows walk the chips: ← stops at the first, → past the last returns
+      to the caret. */
   #onActiveKey(event: KeyboardEvent, active: number, input: HTMLInputElement): boolean {
     const chips = this.value();
-    const entry = this.entryAt();
-    const slotOf = (index: number) => (index < entry ? index : index + 1);
-    const chipAt = (slot: number) => (slot === entry ? null : slot < entry ? slot : slot - 1);
     switch (event.key) {
-      case 'ArrowLeft': {
-        const slot = Math.max(0, slotOf(active) - 1);
-        this.active.set(chipAt(slot));
-        if (slot === entry) input.setSelectionRange(input.value.length, input.value.length);
+      case 'ArrowLeft':
+        this.active.set(Math.max(0, active - 1));
         break;
-      }
-      case 'ArrowRight': {
-        const slot = Math.min(chips.length, slotOf(active) + 1);
-        this.active.set(chipAt(slot));
-        if (slot === entry) input.setSelectionRange(0, 0);
+      case 'ArrowRight':
+        if (active + 1 < chips.length) {
+          this.active.set(active + 1);
+        } else {
+          this.active.set(null);
+          input.setSelectionRange(0, 0);
+        }
         break;
-      }
       case 'Escape':
         this.active.set(null);
         break;
@@ -526,15 +487,14 @@ export class AddressInput implements FormValueControl<string[]> {
     this.refused.set(false);
   }
 
-  /** Leaving the field commits everything typed — the addresses where the
-      caret was, a typo at the end of the list, so the form sees it and the
-      next focus hands it back — and is the touch. The input returns to the
-      end. Moving to a chip's remove button is not leaving. */
+  /** Leaving the field commits everything typed — the addresses, then a
+      typo at the end of the list, so the form sees it and the next focus
+      hands it back — and is the touch. Moving to a chip's remove button is
+      not leaving. */
   protected onBlur(event: FocusEvent, input: HTMLInputElement): void {
     if (this.#within(event)) return;
     const tokens = splitAddresses(input.value);
     this.#insert(tokens.filter((token) => isMailbox(token)));
-    this.editAt.set(null);
     this.#insert(tokens.filter((token) => !isMailbox(token)));
     input.value = '';
     this.refused.set(false);
@@ -545,11 +505,9 @@ export class AddressInput implements FormValueControl<string[]> {
     if (this.#within(event)) return;
     this.focused.set(false);
     this.active.set(null);
-    this.editAt.set(null);
   }
 
-  /** Commits the addresses in a run where the input is and leaves the rest
-      in it. */
+  /** Commits the addresses in a run and leaves the rest in the input. */
   #settle(input: HTMLInputElement, raw: string): void {
     const tokens = splitAddresses(raw);
     this.#insert(tokens.filter((token) => isMailbox(token)));
@@ -557,26 +515,17 @@ export class AddressInput implements FormValueControl<string[]> {
     this.refused.set(!!input.value);
   }
 
-  /** Adds addresses at the input's slot — the end, or the place of an edit,
-      which moves along past them so the caret stays after what it made. */
+  /** Adds the new addresses to the end of the list, up to `limit`. */
   #insert(incoming: readonly string[]): void {
     if (!incoming.length) return;
-    const editAt = this.editAt();
-    let added = 0;
     this.value.update((current) => {
       const next = [...current];
-      let at = editAt === null ? next.length : Math.min(editAt, next.length);
       for (const address of incoming) {
         if (next.length >= this.limit()) break;
-        if (next.includes(address)) continue;
-        next.splice(at, 0, address);
-        at++;
-        added++;
+        if (!next.includes(address)) next.push(address);
       }
       return next;
     });
-    if (editAt !== null && added)
-      this.editAt.set(Math.min(editAt, this.value().length - added) + added);
   }
 
   /** Whether focus is moving to somewhere else inside the control. */

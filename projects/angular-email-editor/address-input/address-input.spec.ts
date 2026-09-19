@@ -380,71 +380,66 @@ describe('AddressInput', () => {
     expect(host.addresses()).toEqual(['grace@example.com']);
   });
 
-  it('edits a chip in place: the input takes its spot, and a commit fills it; a typo leaves for the end on blur', async () => {
+  it('edits a chip at the end: it leaves its place for the input, like a typo handed back', async () => {
     host.addresses.set(['ada@example.com', 'bob@example.com', 'carol@example.com']);
     await fixture.whenStable();
     part.input().focus();
     const entry = () => part.input().closest('li')!;
-    const chipBefore = () =>
-      entry().previousElementSibling?.querySelector('[data-slot=name]')?.textContent;
-    const chipAfter = () =>
-      entry().nextElementSibling?.querySelector('[data-slot=name]')?.textContent;
-    expect(chipAfter()).toBeUndefined();
+    const names = () => part.chips().map((chip) => chip.querySelector('[data-slot=name]')?.textContent);
+    // The input is after the last chip — and never anywhere else.
+    const atEnd = () => entry().nextElementSibling === null;
 
-    editChip(part.chips()[1]);
+    // A double click takes the first chip back: into the input, at the end.
+    part.chips()[0].dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
     await fixture.whenStable();
-    expect(host.addresses()).toEqual(['ada@example.com', 'carol@example.com']);
-    expect(part.input().value).toBe('bob@example.com');
+    expect(host.addresses()).toEqual(['bob@example.com', 'carol@example.com']);
+    expect(part.input().value).toBe('ada@example.com');
     expect(document.activeElement).toBe(part.input());
-    expect(chipBefore()).toBe('ada@example.com');
-    expect(chipAfter()).toBe('carol@example.com');
+    expect(names()).toEqual(['bob@example.com', 'carol@example.com']);
+    expect(atEnd()).toBe(true);
 
-    // A commit takes the chip's place; the input stays there for more.
-    type(part.input(), 'bobby@example.com');
+    // A commit that leaves a typo keeps it in the input, flagged.
+    type(part.input(), 'ada@');
     key(part.input(), 'Enter');
     await fixture.whenStable();
-    expect(host.addresses()).toEqual(['ada@example.com', 'bobby@example.com', 'carol@example.com']);
-    expect(chipBefore()).toBe('bobby@example.com');
-    expect(chipAfter()).toBe('carol@example.com');
-    type(part.input(), 'dan@example.com');
-    key(part.input(), 'Tab');
-    await fixture.whenStable();
-    expect(host.addresses()).toEqual([
-      'ada@example.com',
-      'bobby@example.com',
-      'dan@example.com',
-      'carol@example.com',
-    ]);
+    expect(part.input().value).toBe('ada@');
+    expect(part.input().hasAttribute('data-refused')).toBe(true);
 
-    // Leaving with an address commits it in place and the input returns to
-    // the end; leaving with a typo sends the typo to the end.
-    type(part.input(), 'erin@example.com');
-    part.input().blur();
+    // What is committed joins the end of the list.
+    type(part.input(), 'adah@example.com');
+    key(part.input(), 'Enter');
     await fixture.whenStable();
-    expect(host.addresses()).toEqual([
-      'ada@example.com',
-      'bobby@example.com',
-      'dan@example.com',
-      'erin@example.com',
-      'carol@example.com',
-    ]);
-    expect(chipAfter()).toBeUndefined();
-    part.input().focus();
+    expect(host.addresses()).toEqual(['bob@example.com', 'carol@example.com', 'adah@example.com']);
+    expect(part.input().value).toBe('');
+    expect(atEnd()).toBe(true);
+    expect(document.activeElement).toBe(part.input());
+
+    // Enter on a picked chip does the same.
+    editChip(part.chips()[1]);
+    await fixture.whenStable();
+    expect(host.addresses()).toEqual(['bob@example.com', 'adah@example.com']);
+    expect(part.input().value).toBe('carol@example.com');
+    expect(atEnd()).toBe(true);
+
+    // A double click on the remove control is the control's, not an edit.
+    type(part.input(), '');
+    part
+      .chips()[0]
+      .querySelector('[data-slot=remove]')!
+      .dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    await fixture.whenStable();
+    expect(part.input().value).toBe('');
+
+    // Leaving with a typo commits it at the end, flagged.
     editChip(part.chips()[0]);
     await fixture.whenStable();
-    expect(part.input().value).toBe('ada@example.com');
-    type(part.input(), 'ada@');
+    expect(part.input().value).toBe('bob@example.com');
+    type(part.input(), 'bob@');
     part.input().blur();
     await fixture.whenStable();
-    expect(host.addresses()).toEqual([
-      'bobby@example.com',
-      'dan@example.com',
-      'erin@example.com',
-      'carol@example.com',
-      'ada@',
-    ]);
-    expect(part.chips()[4].getAttribute('data-invalid')).toBe('true');
-    expect(chipAfter()).toBeUndefined();
+    expect(host.addresses()).toEqual(['adah@example.com', 'bob@']);
+    expect(part.chips()[1].getAttribute('data-invalid')).toBe('true');
+    expect(atEnd()).toBe(true);
   });
 
   it('roves the chips with the arrow keys while the caret stays in the input', async () => {

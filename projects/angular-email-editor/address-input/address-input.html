@@ -1,32 +1,26 @@
 <!-- No label here: the row around this control names it, through
      aria-labelledby or aria-label, both passed down to the text input. -->
 <ul data-slot="chips" role="list">
-  <!-- One chip, rendered on either side of the entry: the entry is a fixed
-       element the chips are laid around, so an edit in place moves chips,
-       never the focused input. -->
-  <ng-template #chip let-address let-index="index">
+  @for (address of value(); track address) {
     <li
       email-address-chip
-      [id]="chipId(index)"
+      [id]="chipId($index)"
       [address]="address"
       [removable]="!locked()"
       [inline]="!focused()"
-      [aria-current]="active() === index"
+      [aria-current]="active() === $index"
       [removeTabbable]="closed()"
       [removeLabel]="removeLabel()"
       [removeTemplate]="removeSlot()?.template ?? null"
       [invalidLabel]="invalidLabel()"
       [aria-disabled]="disabled()"
       (removed)="removeChip(address)"
-      (click)="onChipClick($event, index, field)"
+      (click)="onChipClick($event, $index, field)"
+      (dblclick)="onChipDblclick($event, address, field)"
     ></li>
-  </ng-template>
-
-  @for (address of before(); track address) {
-    <ng-container *ngTemplateOutlet="chip; context: { $implicit: address, index: $index }" />
   }
   <!-- The entry is a list item too, so the chips and the typing sit in one
-       wrapping row. Hidden once the field is full (From takes one address)
+       wrapping row — always after the last chip. Hidden once the field is full (From takes one address)
        with nothing to fix: the chips say everything, and a second address
        would only be refused. -->
   <li data-slot="entry" [hidden]="closed()">
@@ -57,9 +51,4 @@
       (blur)="onBlur($event, field)"
     />
   </li>
-  @for (address of after(); track address) {
-    <ng-container
-      *ngTemplateOutlet="chip; context: { $implicit: address, index: entryAt() + $index }"
-    />
-  }
 </ul>
