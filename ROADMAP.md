@@ -925,6 +925,15 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
         from the body and it leaves `inlineImages`. No Proton-style prompt —
         a host that wants one puts its own zone around the editor and calls
         `readImageFile` + `insertImage` for the inline choice.
+        **No dropzone is a dependency (2026-09-19).** The drag-phase claim was
+        a static import of `claimDragEvent` from `@h-k-dev/angular-file-drop/core`
+        — one `WeakSet.add` that forced the package on every consumer as a
+        peer. Now the host says how a drag is claimed:
+        `createImageDrag({ claim })`, called on `dragenter`/`dragover` of an
+        image-only drag and on the drop the editor takes. angular-file-drop:
+        `claim: claimDragEvent`; dropzone.js, ngx-file-drop, a hand-written
+        zone: `claim: (event) => event.stopPropagation()`. No `claim`, no
+        zone, no difference. The peer dependency is gone.
   - [x] **A `cid:` resolver input** (`cid → object URL`), display-only —
         shipped 2026-09-02 as the _registry_, see the shipped note below. An
         imported `cid:` image renders broken today: the MIME parts went to the

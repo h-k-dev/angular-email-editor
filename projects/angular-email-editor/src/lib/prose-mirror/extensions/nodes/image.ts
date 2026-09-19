@@ -1,7 +1,6 @@
 import { NodeSelection, Plugin, PluginKey } from 'prosemirror-state';
 import { EditorView, NodeView } from 'prosemirror-view';
 import { DOMSerializer, Node, Schema } from 'prosemirror-model';
-import { claimDragEvent } from '@h-k-dev/angular-file-drop/core';
 import { FunctionalExtension, defineExtension, defineNode } from '../../extension';
 import { isSafeUrl } from '../marks/link';
 import { InlineImageRegistry, inlineImageRegistry } from '../inline-images';
@@ -108,19 +107,21 @@ function isFileDrag(data: DataTransfer | null): boolean {
  * The drag phase of the claim rule, as a `handleDOMEvents` hook: an image
  * drag is claimed the moment it comes over the editor, not only at the drop.
  *
- * A dropzone wrapping the editor (angular-file-drop) highlights for every
- * file drag over it and stands down for one a nested handler has claimed.
- * `handleDrop` claims image drops — but by then the zone has been promising
+ * A dropzone wrapping the editor highlights for every file drag over it.
+ * `handleDrop` takes image drops — but by then the zone has been promising
  * an attachment for the whole drag. Saying it here, on `dragenter` and
  * `dragover`, keeps the zone's word honest: it lights over the text for a
- * PDF, which it will get, and not for an image, which the editor keeps. The
- * claim is a mark on the event and nothing else — ProseMirror still accepts
- * the drag as it always has (false: its own handler runs), and a host with
- * no such zone sees no difference at all. Mixed drags and anything that is
- * not a file drag are left unmarked: the zone's, or nobody's.
+ * PDF, which it will get, and not for an image, which the editor keeps.
+ *
+ * *How* a drag is claimed is the host's, because only the host knows what
+ * zone is around the editor: the library calls {@link ImageDragOptions.claim}
+ * and does nothing else — ProseMirror still accepts the drag as it always
+ * has (false: its own handler runs), and a host with no zone configures
+ * nothing and sees no difference at all. Mixed drags and anything that is
+ * not a file drag are never claimed: the zone's, or nobody's.
  */
-function claimImageDrag(_view: EditorView, event: DragEvent): boolean {
-  if (isImageDrag(event.dataTransfer)) claimDragEvent(event);
+function claimImageDrag(view: EditorView, event: DragEvent): boolean {
+  if (isImageDrag(event.dataTransfer)) imageDragKey.getState(view.state)?.claim?.(event);
   return false;
 }
 
@@ -137,10 +138,18 @@ function claimImageDrag(_view: EditorView, event: DragEvent): boolean {
  * surface, off when it leaves, drops, or turns out to be mixed. Reported on
  * change only. The drop line (`ImageDropLine`) is what tracks it — this is
  * the same state, spoken.
+ *
+ * And it is where the host says how the editor tells that zone "this one is
+ * mine" — `claim`. The library depends on no dropzone; any of them fits:
+ *
+ *     // @h-k-dev/angular-file-drop: a mark the zone reads.
+ *     createImageDrag({ claim: claimDragEvent, onChange })
+ *
+ *     // dropzone.js, ngx-file-drop, a hand-written zone — anything that
+ *     // listens for the drag events bubbling up to it: they never get there.
+ *     createImageDrag({ claim: (event) => event.stopPropagation(), onChange })
  */
-export const createImageDrag = (options: {
-  onChange: (over: boolean) => void;
-}): FunctionalExtension =>
+export const createImageDrag = (options: ImageDragOptions): FunctionalExtension =>
   defineExtension({
     name: 'imageDrag',
     plugins: () => [
@@ -151,8 +160,19 @@ export const createImageDrag = (options: {
     ],
   });
 
-interface ImageDragOptions {
-  onChange: (over: boolean) => void;
+export interface ImageDragOptions {
+  /** Told when an image-only drag comes over the editing surface, and when
+      it is gone. */
+  onChange?: (over: boolean) => void;
+  /**
+   * Claims a drag event for the editor, so a dropzone around it stands
+   * down: called on every `dragenter` and `dragover` of an image-only drag,
+   * and on the `drop` the editor takes (after its `preventDefault()`).
+   * Never for a mixed drag or a file the editor will not embed — those stay
+   * the zone's. What it does is the zone's protocol: mark the event, stop
+   * it bubbling, flip a flag the zone checks.
+   */
+  claim?: (event: DragEvent) => void;
 }
 
 /** The host's listener, if one is configured — plugin state, like the
@@ -241,7 +261,7 @@ class ImageDropLine {
   private report(over: boolean): void {
     if (this.over === over) return;
     this.over = over;
-    imageDragKey.getState(this.view.state)?.onChange(over);
+    imageDragKey.getState(this.view.state)?.onChange?.(over);
   }
 
   private show(target: ImageDropTarget): void {
@@ -657,6 +677,7 @@ export const Image = defineNode({
           const files = imageFiles(event.dataTransfer);
           if (!files.length) return false;
           event.preventDefault();
+          imageDragKey.getState(view.state)?.claim?.(event);
           void insertImageFiles(view, schema, files, imageDropTarget(view).pos);
           return true;
         },

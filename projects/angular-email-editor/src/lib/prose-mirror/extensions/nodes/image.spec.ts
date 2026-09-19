@@ -15,7 +15,6 @@ import { NodeSelection, TextSelection } from 'prosemirror-state';
 import { Transform } from 'prosemirror-transform';
 import { InlineImageStore, createInlineImages } from '../inline-images';
 import { SendIntent, createSendIntent } from '../send-intent';
-import { isDragEventClaimed } from '@h-k-dev/angular-file-drop/core';
 
 const schema = createSchema(emailExtensions);
 const roundTrip = (html: string) => serializeToHTML(parseHTML(html, schema), schema);
@@ -112,9 +111,12 @@ describe('image node', () => {
     it('claims an image drag as it comes over the text, and leaves any other file drag unclaimed', () => {
       const host = document.createElement('div');
       document.body.appendChild(host);
+      // How a drag is claimed is the host's — whatever its dropzone reads.
+      const claims = new WeakSet<Event>();
+      const isDragEventClaimed = (event: Event) => claims.has(event);
       const editor = createEditor({
         parent: host,
-        extensions: emailExtensions,
+        extensions: [...emailExtensions, createImageDrag({ claim: (event) => claims.add(event) })],
         content: '<div>x</div>',
       });
       // A dropzone wrapping the editor stands down for a claimed drag: this

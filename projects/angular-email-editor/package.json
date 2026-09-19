@@ -6,7 +6,6 @@
     "@angular/core": "^22.0.0",
     "@angular/forms": "^22.0.0",
     "@chenglou/pretext": "^0.0.8",
-    "@h-k-dev/angular-file-drop": "^2.0.0",
     "prosemirror-commands": "^1.7.1",
     "prosemirror-gapcursor": "^1.4.1",
     "prosemirror-history": "^1.5.0",

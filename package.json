@@ -20,7 +20,7 @@
     "@angular/material": "^22.1.6",
     "@angular/platform-browser": "^22.1.6",
     "@angular/router": "^22.1.6",
-    "@chenglou/pretext": "^0.0.8",
+    "@chenglou/pretext": "^0.0.9",
     "@h-k-dev/angular-file-drop": "^2.0.0",
     "@ngx-translate/core": "^18.0.0",
     "postal-mime": "^3.0.0",

@@ -23,7 +23,7 @@ import { MatIconModule } from '@angular/material/icon';
 // CDK
 import { Portal, PortalModule } from '@angular/cdk/portal';
 
-import { AngularFileDrop, FileDropEvent } from '@h-k-dev/angular-file-drop';
+import { AngularFileDrop, FileDropEvent, claimDragEvent } from '@h-k-dev/angular-file-drop';
 import type { FormValueControl } from '@angular/forms/signals';
 
 import { DropHint, DropHintArt } from '../drop-hint/drop-hint';
@@ -174,7 +174,7 @@ export class EmailCompose implements FormValueControl<string> {
 
   /** An image-only drag over the text: the editor's, to embed — the one
       drag the surface's dropzone never reports, since the editor claims it
-      as it comes over (`claimDragEvent` on its drag events) and the zone
+      as it comes over (`claim: claimDragEvent`, handed to it below) and the zone
       stands down. Told by the editor itself, through `createImageDrag`. */
   protected readonly imageDrag = signal(false);
 
@@ -377,7 +377,11 @@ export class EmailCompose implements FormValueControl<string> {
         createAngularExpressions({ onDiagnostics: (d) => this.expressionDiagnostics.set(d) }),
         createTextMetrics({ onMetrics: (metrics) => this.bodyMetrics.set(metrics) }),
         createInlineImages({ registry: this.#images }),
-        createImageDrag({ onChange: (over) => this.imageDrag.set(over) }),
+        createImageDrag({
+          // How the editor tells *this* zone an image drag is its own.
+          claim: claimDragEvent,
+          onChange: (over) => this.imageDrag.set(over),
+        }),
         // A user's gesture (Mod-Enter, /send) goes out as the send output; a
         // host asking for the payload (`intent()`) gets it handed back instead.
         createSendIntent({
