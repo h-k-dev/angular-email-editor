@@ -5,6 +5,8 @@ import { createSchema } from '../../schema';
 import { parseHTML, serializeToHTML } from '../../html';
 import { lintHTML } from '../../html-source';
 import { emailExtensions } from '../kits';
+import { isActionEnabled } from '../../extension';
+import { EmailParagraph } from './email-paragraph';
 import { TABLE_BORDER_COLOR, Table, findTableContext } from './table';
 
 const schema = createSchema(emailExtensions);
@@ -105,6 +107,26 @@ describe('table serialization', () => {
     // Non-px padding is the responsiveness trap and repairs away.
     const pct = canonical('<table><tbody><tr><td style="padding: 5%;">a</td></tr></tbody></table>');
     expect(pct).not.toContain('padding');
+  });
+
+  it('keeps the alignment an imported cell was written with, style or legacy attribute', () => {
+    const written =
+      '<table><tbody><tr>' +
+      '<td align="center" valign="middle">a</td>' +
+      '<td style="text-align: right; vertical-align: bottom;">b</td>' +
+      '<td align="justify">c</td>' +
+      '</tr></tbody></table>';
+    const html = canonical(written);
+    // The legacy attributes are read and re-stated as the style every client
+    // honours; what the schema does not sell (justify) repairs to the default.
+    expect(html).toContain(
+      '<td style="vertical-align: middle; overflow-wrap: break-word; text-align: center;">a</td>',
+    );
+    expect(html).toContain(
+      '<td style="vertical-align: bottom; overflow-wrap: break-word; text-align: right;">b</td>',
+    );
+    expect(html).toContain('<td style="vertical-align: top; overflow-wrap: break-word;">c</td>');
+    expect(canonical(html)).toBe(html);
   });
 
   it('keeps an authored cell border, normalized to 1px solid', () => {
@@ -368,6 +390,69 @@ describe('table editing', () => {
     editor.commands['splitCell']();
     expect(editor.getHTML()).not.toContain('colspan');
     expect(editor.getHTML()).toBe(editor.getHTML().trim());
+  });
+
+  it('the Align buttons align the cell the cursor is in', () => {
+    editor.commands['insertTable'](); // cursor is in cell (0,0)
+    editor.commands['setAlignment']('center');
+    expect(editor.getHTML()).toContain(
+      '<td style="vertical-align: top; overflow-wrap: break-word; text-align: center;">',
+    );
+    // One cell, not the row, and still a fixpoint.
+    expect((editor.getHTML().match(/text-align/g) || []).length).toBe(1);
+    expect(canonical(editor.getHTML())).toBe(editor.getHTML());
+
+    // Left is the default: it says nothing rather than saying "left".
+    editor.commands['setAlignment'](null);
+    expect(editor.getHTML()).not.toContain('text-align');
+  });
+
+  it("the Align button shows the cell's own alignment as its pressed state", () => {
+    // The toolbar drives the *actions* (command + isActive), not the bare
+    // command: this is the button, asked exactly as a toolbar asks it.
+    const align = (id: string) =>
+      EmailParagraph.actions!({ schema: editor.schema, extensions: [] }).find(
+        (action) => action.id === id,
+      )!;
+    editor.commands['insertTable']();
+
+    // A fresh cell is unaligned, which is what "left" means.
+    expect(align('align-left').isActive!(editor.state)).toBe(true);
+    expect(align('align-center').isActive!(editor.state)).toBe(false);
+    // And the button can run: in a cell it used to have nothing to align.
+    expect(isActionEnabled(align('align-center'), editor.state)).toBe(true);
+
+    editor.exec(align('align-center').command);
+    expect(align('align-center').isActive!(editor.state)).toBe(true);
+    expect(align('align-left').isActive!(editor.state)).toBe(false);
+  });
+
+  it('aligns every cell of a cell selection, and none it only reaches across', () => {
+    editor.commands['insertTable'](2, 3);
+    const cells = cellPositions();
+    // The two ends of the top row's first two cells: the third is between
+    // them in the document, but outside the selected rectangle.
+    selectCells(cells[0], cells[1]);
+    editor.commands['setAlignment']('right');
+    expect((editor.getHTML().match(/text-align: right/g) || []).length).toBe(2);
+  });
+
+  it('setCellVerticalAlign writes the valign every client reads', () => {
+    editor.commands['insertTable']();
+    editor.commands['setCellVerticalAlign']('middle');
+    expect(editor.getHTML()).toContain('<td style="vertical-align: middle;');
+    expect(canonical(editor.getHTML())).toBe(editor.getHTML());
+    expect(lintHTML(editor.getHTML())).toEqual([]);
+  });
+
+  it('mergeOrSplit does whichever the selection asks for', () => {
+    editor.commands['insertTable']();
+    const [first, second] = cellPositions();
+    selectCells(first, second);
+    editor.commands['mergeOrSplit']();
+    expect(editor.getHTML()).toContain('colspan="2"');
+    editor.commands['mergeOrSplit']();
+    expect(editor.getHTML()).not.toContain('colspan');
   });
 
   it('setCellBackground fills every cell of a cell selection', () => {

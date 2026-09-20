@@ -1,7 +1,7 @@
 import { setBlockType } from 'prosemirror-commands';
 import { liftListItem, sinkListItem } from 'prosemirror-schema-list';
 import { Command, EditorState } from 'prosemirror-state';
-import { Fragment } from 'prosemirror-model';
+import { Fragment, ResolvedPos } from 'prosemirror-model';
 import { isNodeActive } from '../../editor';
 import { defineNode } from '../../extension';
 import { findListDepth } from './lists';
@@ -88,26 +88,82 @@ function styleOf(attrs: Record<string, any>): { style: string } | Record<never, 
   return declarations.length ? { style: declarations.join(' ') } : {};
 }
 
-/** Applies an alignment to every paragraph the selection touches. */
+/**
+ * The table cell the position sits in, if any — by the schema's own
+ * `tableRole`, which is how prosemirror-tables marks its nodes, so nothing
+ * here has to know that extension exists (a schema without tables never
+ * matches, and never pays for the check).
+ */
+function cellAround($pos: ResolvedPos): number | null {
+  for (let depth = $pos.depth; depth > 0; depth--) {
+    if ($pos.node(depth).type.spec['tableRole'] === 'cell') return $pos.before(depth);
+  }
+  return null;
+}
+
+/**
+ * Applies an alignment to every paragraph the selection touches — and to
+ * every table cell it touches that holds no paragraph to take it.
+ *
+ * A cell in this schema holds inline content directly (see the table node),
+ * so there is no line inside it to align: the alignment belongs to the
+ * `<td>`, which is where a mail client expects to read one anyway. That makes
+ * one set of Align buttons do the obvious thing everywhere — a line, a
+ * selection of lines, a cell, or a shift-dragged rectangle of them — instead
+ * of going dead the moment the cursor enters a table.
+ *
+ * The selection's own `ranges` are what is walked, not one `from`–`to` span:
+ * a cell selection carries one range per selected cell, so a rectangle
+ * aligns exactly the cells in it and none of the ones it reaches across.
+ */
 const setAlignment =
   (align: ParagraphAlignment): Command =>
   (state, dispatch) => {
-    const { from, to } = state.selection;
     const paragraph = state.schema.nodes['paragraph'];
     const tr = state.tr;
+    const cells = new Set<number>();
     let applied = false;
 
-    state.doc.nodesBetween(from, to, (node, pos) => {
-      if (node.type !== paragraph) return true;
-      tr.setNodeMarkup(pos, undefined, { ...node.attrs, align });
+    for (const range of state.selection.ranges) {
+      const { $from, $to } = range;
+      let lines = false;
+      state.doc.nodesBetween($from.pos, $to.pos, (node, pos) => {
+        if (node.type !== paragraph) return true;
+        tr.setNodeMarkup(pos, undefined, { ...node.attrs, align });
+        lines = true;
+        applied = true;
+        return false;
+      });
+      // Only where the range has no line of its own: a cell that does holds
+      // its alignment on those, the way the rest of the document does.
+      if (lines) continue;
+      const cell = cellAround($from);
+      if (cell !== null) cells.add(cell);
+    }
+
+    // Positions hold: `setNodeMarkup` swaps a node for one of the same size.
+    for (const pos of cells) {
+      const cell = tr.doc.nodeAt(pos);
+      if (!cell) continue;
+      tr.setNodeMarkup(pos, undefined, { ...cell.attrs, align });
       applied = true;
-      return false;
-    });
+    }
 
     if (!applied) return false;
     dispatch?.(tr.scrollIntoView());
     return true;
   };
+
+/** Whether the selection is aligned that way. A line answers for itself
+    wherever there is one — inside a cell too, for a host whose cells hold
+    paragraphs; only where there is none does the cell answer. */
+const isAligned = (state: EditorState, align: ParagraphAlignment): boolean => {
+  const paragraph = state.schema.nodes['paragraph'];
+  if (isNodeActive(state, paragraph)) return isNodeActive(state, paragraph, { align });
+  const pos = cellAround(state.selection.$from);
+  const cell = pos === null ? null : state.doc.nodeAt(pos);
+  return !!cell && 'align' in cell.attrs && cell.attrs['align'] === align;
+};
 
 /**
  * Moves every paragraph the selection touches one step in (+1) or out (-1),
@@ -235,7 +291,7 @@ export const EmailParagraph = defineNode({
       keywords: ['align', 'alignment'],
       icon,
       command: setAlignment(align),
-      isActive: (state: EditorState) => isNodeActive(state, schema.nodes['paragraph'], { align }),
+      isActive: (state: EditorState) => isAligned(state, align),
     })),
     // Gmail's pair: a paragraph moves by a step of margin, a list item nests
     // or lifts. Whether one can move right now is the command's own answer.

@@ -104,7 +104,39 @@ export const tableStyle = (width: number, offset: number): string =>
 // attr, parsed off user markup). The comfortable default spacing seen while
 // composing is editorial — an `.aee-editor` CSS rule the serializer never
 // sees — so it can also reserve the room the block affordances live in.
-const CELL_STYLE = 'vertical-align: top; overflow-wrap: break-word;';
+const cellStyle = (valign: CellVerticalAlignment): string =>
+  `vertical-align: ${valign}; overflow-wrap: break-word;`;
+
+/** How a cell's content sits across its width. The same three the rest of the
+    editor aligns by (a paragraph's `align`), so one set of buttons drives
+    both — and `left` is the default, which canonicalizes to `null` and
+    serializes nothing. */
+export type CellAlignment = 'center' | 'right' | null;
+
+/** How a cell's content sits down its height. `top` is the default and *is*
+    serialized: a cell with no `vertical-align` reads as `middle` in enough
+    clients (it is the HTML default) that leaving it out would make the email
+    disagree with the editor. */
+export type CellVerticalAlignment = 'top' | 'middle' | 'bottom';
+
+/** A cell's horizontal alignment off parsed markup: the inline style first,
+    then the legacy `align` attribute — the pair real mail is written with,
+    and Outlook's own composer emits both. Anything else (`justify`, an
+    inherited `start`) is not a look this schema sells, and repairs to the
+    default. */
+function parseCellAlign(dom: HTMLElement): CellAlignment {
+  const align = (dom.style?.textAlign || dom.getAttribute('align') || '').trim().toLowerCase();
+  return align === 'center' || align === 'right' ? align : null;
+}
+
+/** The vertical half, the same way: `vertical-align` then the legacy
+    `valign`. `baseline` — what a stripped cell reports — is the HTML default
+    and means "top" here, which is what every mail client renders it as in a
+    single-line cell. */
+function parseCellVerticalAlign(dom: HTMLElement): CellVerticalAlignment {
+  const align = (dom.style?.verticalAlign || dom.getAttribute('valign') || '').trim().toLowerCase();
+  return align === 'middle' || align === 'bottom' ? align : 'top';
+}
 
 /**
  * A px-only padding (the shorthand, or any set of longhands) off parsed
@@ -229,6 +261,8 @@ function cellAttrs(dom: HTMLElement): Record<string, unknown> {
     padding: parsePadding(dom),
     border: parseCellBorder(dom),
     background: isSafeColor(raw) ? raw : null,
+    align: parseCellAlign(dom),
+    valign: parseCellVerticalAlign(dom),
   };
 }
 
@@ -236,15 +270,21 @@ function cellAttrs(dom: HTMLElement): Record<string, unknown> {
     so there is nothing to hide from either side. Attribute order is fixed
     (spans, then style) to keep serialize → parse → serialize a fixpoint. */
 function cellDOM(node: { attrs: Record<string, any> }): [string, Record<string, string>, 0] {
-  const { colspan, rowspan, colwidth, padding, border, background } = node.attrs;
+  const { colspan, rowspan, colwidth, padding, border, background, align, valign } = node.attrs;
   const attrs: Record<string, string> = {};
   if (colspan > 1) attrs['colspan'] = String(colspan);
   if (rowspan > 1) attrs['rowspan'] = String(rowspan);
-  // Style order is fixed — padding (authored only), base, width, border,
-  // fill — to keep the round trip a fixpoint. A span serializes the *sum* of
-  // its entries: that is the width the cell actually occupies, and parse
-  // splits it back evenly.
-  let style = (padding ? `padding: ${padding}; ` : '') + CELL_STYLE;
+  // Style order is fixed — padding (authored only), base, alignment, width,
+  // border, fill — to keep the round trip a fixpoint. A span serializes the
+  // *sum* of its entries: that is the width the cell actually occupies, and
+  // parse splits it back evenly.
+  let style = (padding ? `padding: ${padding}; ` : '') + cellStyle(valign);
+  // Inline `text-align`, not the legacy `align` attribute: the style is what
+  // every client reads (the attribute is obsolete HTML that only some still
+  // honour), and it is the one declaration a paragraph aligns with too, so a
+  // centred cell and a centred line are the same thing in the markup. Left is
+  // the default and says nothing.
+  if (align) style += ` text-align: ${align};`;
   const width = Array.isArray(colwidth)
     ? colwidth.reduce((total: number, entry: number | null) => total + (entry ?? 0), 0)
     : 0;
@@ -293,6 +333,16 @@ export const TableCell = defineNode({
       // dual-safe palette via `setCellBackground`; longhand rgb() keeps it a
       // canonical fixpoint like every other style.
       background: { default: null },
+      // Where the content sits in the cell. Both are the cell's own business,
+      // not a line's: our cells hold inline content directly (there is no
+      // paragraph inside to carry an alignment), and a `<td>` is where mail
+      // clients expect to read one anyway — `align`/`valign` on the cell is
+      // the oldest, most bulletproof layout instruction in email, which is
+      // why real messages are full of them. Parsing keeps what they say
+      // (`parseCellAlign`, `parseCellVerticalAlign`) instead of flattening
+      // every imported table to top-left.
+      align: { default: null },
+      valign: { default: 'top' },
     },
     parseDOM: [
       { tag: 'td', getAttrs: cellAttrs },
@@ -363,6 +413,9 @@ export const Table = defineNode({
     mergeCells: (): Command => mergeCells,
     /** Split a merged cell back into its grid positions. */
     splitCell: (): Command => splitCell,
+    /** Whichever of the two applies — one button for both, which is how a
+        cell toolbar wants to show it (Tiptap's `mergeOrSplit`). */
+    mergeOrSplit: (): Command => chainCommands(mergeCells, splitCell),
     // Index-addressed variants for the hover controls (a handle targets a
     // specific row/column, independent of where the cursor sits).
     addRowAt: (index: number): Command =>
@@ -390,6 +443,13 @@ export const Table = defineNode({
       }),
     /** Fill the cell the cursor is in — or every cell of a cell selection. */
     setCellBackground: (color: string | null): Command => setCellBackground(color),
+    /** Align the cell's content across its width — the cell the cursor is in,
+        or every cell of a cell selection. The editor's own Align buttons
+        reach this without asking for it: `setAlignment` aligns the cell when
+        there is no paragraph to align (see email-paragraph.ts). */
+    setCellAlignment: (align: CellAlignment): Command => setCellAttr('align', align),
+    /** Align it down the cell's height — top, middle or bottom. */
+    setCellVerticalAlign: (valign: CellVerticalAlignment): Command => setCellAttr('valign', valign),
   }),
   keymap: () => ({
     Tab: tabToCell(1),
