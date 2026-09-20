@@ -307,7 +307,9 @@ async function insertImageFiles(
     if (view.isDestroyed) return;
     const node = schema.nodes['image'].create(attrs);
     const tr = view.state.tr.insert(Math.min(pos, view.state.doc.content.size), node);
-    view.dispatch(tr);
+    // A tall image can push the caret below the fold; bring it back the same
+    // way `insertImage` does, so a drop is not a caret that vanished.
+    view.dispatch(tr.scrollIntoView());
     // Past whatever was inserted: at a block boundary the transform wraps the
     // inline image into a line of its own, so the growth is not the node's size.
     pos = tr.mapping.map(pos);

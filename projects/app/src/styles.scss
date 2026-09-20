@@ -1052,16 +1052,37 @@ section[html-email-compose] .aee-editor {
  * serialized): a box to paint on. A node selection lands
  * `ProseMirror-selectednode` on it — the tint overlay and the outline say
  * "selected" the way a text highlight would; the resize pads will hang on
- * the same box. The block <img> inside an inline-block span sits on the
- * baseline exactly as the bare inline <img> does in the sent email. */
+ * the same box.
+ *
+ * The <img> stays inline — Gmail's model — so the caret is the image's
+ * height and sits on its edge. `display: block` pulled it out of the
+ * inline formatting context: Chrome then drew a text-sized caret on the
+ * image (usually its bottom corner) instead of beside it. `line-height: 0`
+ * and `vertical-align: bottom` kill the descender gap that `display: block`
+ * was covering, without taking the image out of line layout. */
 .aee-editor .aee-image {
   position: relative;
   display: inline-block;
   max-width: 100%;
+  line-height: 0;
+  vertical-align: bottom;
 }
 
 .aee-editor .aee-image img {
-  display: block;
+  vertical-align: bottom;
+}
+
+/* After a trailing inline atom ProseMirror inserts a 0×0
+ * `img.ProseMirror-separator` so the caret can sit past it. A zero-wide
+ * mark still fits on the same line as a `max-width: 100%` image, so the
+ * caret paints at the picture's bottom-right corner — on the image.
+ * A 1px mark cannot fit and wraps; the caret sits on the next line, as
+ * it does in Gmail after a full-width inline image. After a smaller
+ * image the mark stays on the line, 1px to its right. */
+.aee-editor img.ProseMirror-separator {
+  width: 1px;
+  height: 1em;
+  vertical-align: bottom;
 }
 
 .aee-editor .aee-image.ProseMirror-selectednode {
