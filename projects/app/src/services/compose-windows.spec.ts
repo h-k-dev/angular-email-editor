@@ -318,6 +318,12 @@ describe('ComposeWindows on a phone', () => {
     await new Promise((resolve) => setTimeout(resolve, 40));
     await settle();
   };
+  /** Its forward button, which undoes that press. */
+  const pressForward = async () => {
+    history.forward();
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    await settle();
+  };
 
   beforeEach(() => {
     compact.set(true);
@@ -357,8 +363,9 @@ describe('ComposeWindows on a phone', () => {
     // Nothing names the window over itself any more, so it says its name.
     expect(frame()!.getAttribute('aria-label')).toBe('New message');
     expect(frame()!.getAttribute('aria-labelledby')).toBeNull();
-    // No close, no minimize, no expand: the back button is the way out and
-    // Discard is the way to throw the message away.
+    // No close, no minimize, no expand, and nothing on the message's bar
+    // either: the back button is the way out and Discard is the way to throw
+    // the message away.
     expect(frame()!.querySelector('[aria-label="Close"]')).toBeNull();
     expect(frame()!.querySelector('[aria-label="Discard draft"]')).not.toBeNull();
   });
@@ -390,6 +397,64 @@ describe('ComposeWindows on a phone', () => {
     await new Promise((resolve) => setTimeout(resolve, 40));
     expect(windows.windows()).toEqual([]);
     expect(history.state?.__backGuard).toBeUndefined();
+  });
+
+  it('a refresh over an open window leaves no mark to swallow the next press', async () => {
+    // What a hard refresh on top of a window leaves behind: the entry still
+    // claims a guard, of a page that is gone (see BackButton). The window
+    // opened after it must still close on the first press.
+    const entry = history.state;
+    history.replaceState({ ...entry, __backGuard: 9, __backGuardLife: 'before the refresh' }, '');
+    try {
+      await windows.open();
+      await settle();
+
+      await pressBack();
+      expect(windows.windows()).toEqual([]);
+    } finally {
+      // The entry every spec here starts from: leave it as found.
+      history.replaceState(entry, '');
+    }
+  });
+
+  it('the forward button brings the window back, with what was written in it', async () => {
+    const id = await windows.open();
+    await settle();
+    const subject = () =>
+      frame()!.querySelector<HTMLInputElement>('input[id^="message-subject-"]')!;
+    subject().value = 'Lunch?';
+    subject().dispatchEvent(new Event('input'));
+    await settle();
+
+    await pressBack();
+    expect(windows.windows()).toEqual([]);
+
+    // The same message, in the same place, under the same name: a back
+    // press is a step away from it, and the step is taken back.
+    await pressForward();
+    expect(windows.windows().map((w) => [w.id, w.slot])).toEqual([[id, 0]]);
+    expect(subject().value).toBe('Lunch?');
+
+    // And it is guarded again, on the very entry it came back on — no
+    // second entry for the same window.
+    const entries = history.length;
+    await pressBack();
+    expect(windows.windows()).toEqual([]);
+    expect(history.length).toBe(entries);
+  });
+
+  it('closed by hand, the forward button has nothing to bring back', async () => {
+    await windows.open();
+    await settle();
+
+    // Discard is closing it on purpose: the guard's entry goes with the
+    // window, and the press that follows walks into nothing of ours.
+    frame()!.querySelector<HTMLButtonElement>('[aria-label="Discard draft"]')!.click();
+    await settle();
+    await new Promise((resolve) => setTimeout(resolve, 40));
+
+    await pressForward();
+    expect(windows.windows()).toEqual([]);
   });
 
   it("on a desk the back button stays the page's own: no guard, no entry", async () => {

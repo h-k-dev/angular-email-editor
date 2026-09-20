@@ -33,6 +33,7 @@ import {
   ComposeWindowMobile,
   ComposeWindows,
   DOCK_GAP,
+  InlinePart,
   slotPosition,
 } from '../../services/compose-windows';
 
@@ -101,6 +102,10 @@ export class ComposeWindowFrame {
   protected readonly viewport = inject(Viewport);
   readonly #host = inject<ElementRef<HTMLElement>>(ElementRef);
   readonly #snackBar = inject(MatSnackBar);
+  /** This window's inline image registry — the one provided above, so the
+      parts of a message put back go in here, and the parts of one closing
+      come out of here before it takes them with it. */
+  readonly #images = inject(InlineImages);
 
   /** The window's state, from the service. */
   readonly window = input.required<ComposeWindow>();
@@ -122,7 +127,7 @@ export class ComposeWindowFrame {
   protected readonly full = computed(() => this.viewport.compact() && !this.minimized());
 
   /** The phone's page: the screen, and no title bar of its own. The way
-      out is the message bar's arrow, and the back button. */
+      out is the phone's back button, as it is out of any other page. */
   protected readonly bare = computed(() => this.full() && this.mobile() === 'page');
 
   /** On the edge, where a drag can move it. */
@@ -153,14 +158,48 @@ export class ComposeWindowFrame {
     effect(() => (trap.enabled = this.expanded()));
 
     // The phone's back button closes the window instead of leaving the
-    // page — whatever it shows there (a page has no close button of its
-    // own but its bar's arrow; a window has both). Only while it IS the
-    // screen: on a desk, back is the page's.
+    // page — whatever it shows there (a page has nothing of its own to
+    // leave by; a window has its title bar's close) — and the forward
+    // button brings it back, message and all: a back press is a step away
+    // from the message, not a decision about it, and the step is taken back
+    // the way every other one on a phone is. Closing it by hand is the
+    // decision, and the forward button has nothing to give back then (the
+    // guard's entry goes with it). Only while the window IS the screen: on
+    // a desk, back is the page's.
     const back = inject(BackButton);
     effect((onCleanup) => {
       if (!this.full()) return;
-      const release = back.guard(() => this.close());
-      onCleanup(release);
+      // Taken as the press closes the window, while the sheet is still
+      // there to be read; the forward press comes long after it is gone.
+      let closed: ComposeWindow | null = null;
+      const held = back.guard({
+        // The entry this window came back on, where it did: its guard is
+        // still standing there and is taken over, so a message closed and
+        // brought back never leaves an entry behind.
+        adopt: this.window().guard,
+        dismiss: () => {
+          closed = this.#snapshot(held.key);
+          this.close();
+        },
+        restore: () => closed && this.windows.reopen(closed),
+      });
+      onCleanup(held.release);
+    });
+
+    // A window the forward button put back comes back with what was
+    // written in it. The parts go into this window's registry — a new one,
+    // the old one's object URLs died with its window — before the message
+    // that names them, so every `cid:` resolves as its node view mounts.
+    // Once, as soon as the sheet is there: from then on the message is the
+    // sheet's own.
+    let seeded = false;
+    effect(() => {
+      const restored = this.window().restored;
+      const sheet = this.sheet();
+      if (seeded || !restored || !sheet) return;
+      seeded = true;
+      for (const part of restored.images) this.#images.add(part.blob, part.cid);
+      sheet.message.set(restored.message);
     });
 
     // Asked for by name — Compose with three windows already open hands
@@ -192,6 +231,20 @@ export class ComposeWindowFrame {
 
   protected close(): void {
     this.windows.close(this.window().id);
+  }
+
+  /** The window as it would have to come back: its own state, on the entry
+      `guard` sits on, with what is written in it — the message as the sheet
+      holds it, and the bytes of the inline parts its HTML names, which the
+      registry would otherwise take with it. */
+  #snapshot(guard: number): ComposeWindow {
+    const message = this.sheet()?.message() ?? null;
+    if (!message) return { ...this.window(), guard, restored: null };
+    const images = this.#images
+      .cids()
+      .map((cid) => ({ cid, blob: this.#images.blob(cid) }))
+      .filter((part): part is InlinePart => part.blob !== undefined);
+    return { ...this.window(), guard, restored: { message, images } };
   }
 
   /** The sheet sent its message: the window has done its job. */

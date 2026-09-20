@@ -12,6 +12,8 @@ import {
   signal,
 } from '@angular/core';
 
+import type { Envelope } from '../app/compose/message-form/envelope';
+
 /** How a compose window shows, Gmail's three states:
     - `docked`: a window in its place on the bottom edge of the screen;
     - `minimized`: only its title bar, in that same place;
@@ -23,10 +25,28 @@ export type ComposeWindowMode = 'docked' | 'minimized' | 'expanded';
     - `page`: as the page itself — no title bar, and no control of its own
       to leave by, the way Gmail and ProtonMail open a message on a phone.
       The phone's back button is the way out, as it is out of any other
-      page there (see BackButton); Discard is still on the message's bar.
+      page there, and its forward button brings the message back (see
+      BackButton); Discard is still on the message's bar.
     - `window`: with its title bar, as on a desk. For a host that wants
       the same chrome everywhere. */
 export type ComposeWindowMobile = 'page' | 'window';
+
+/** An inline part of a message being put back: its Content-ID and its
+    bytes. The registry a window holds goes with the window (its object URLs
+    are revoked with it), so the bytes come back to the new one under the
+    same ids and every `cid:` in the HTML resolves again. */
+export interface InlinePart {
+  readonly cid: string;
+  readonly blob: Blob;
+}
+
+/** What was written in a window that closed, kept whole so it can come
+    back: the message as the sheet held it, and the inline parts its HTML
+    names. */
+export interface ComposeWindowContent {
+  readonly message: Envelope;
+  readonly images: readonly InlinePart[];
+}
 
 /** One open compose window. */
 export interface ComposeWindow {
@@ -49,6 +69,15 @@ export interface ComposeWindow {
   /** Where focus was when the window opened: it goes back there when the
       window closes. */
   readonly opener: HTMLElement | null;
+  /** What the window opens with, where it is not a new message: a window
+      the forward button put back comes back with what was written in it.
+      The sheet takes it once, as it mounts. */
+  readonly restored: ComposeWindowContent | null;
+  /** The history entry the window's way out sits on, where it has one (a
+      phone's back button, see BackButton): a window put back comes back on
+      the very entry it was closed from, and its new guard takes that over
+      rather than adding another. */
+  readonly guard: number | null;
 }
 
 /** A docked window's width, px: exactly the sheet's own measure — the
@@ -165,10 +194,40 @@ export class ComposeWindows {
     const opener = this.#document.activeElement as HTMLElement | null;
     this.#windows.update((windows) => [
       ...windows,
-      { id, slot, mode: 'docked', pin: null, mobile: options?.mobile ?? 'page', opener },
+      {
+        id,
+        slot,
+        mode: 'docked',
+        pin: null,
+        mobile: options?.mobile ?? 'page',
+        opener,
+        restored: null,
+        guard: null,
+      },
     ]);
     this.#front.set(id);
     return id;
+  }
+
+  /**
+   * Puts a closed window back as it was — its message, the inline parts its
+   * HTML names, its place on the edge and the id it went by — which is what
+   * the browser's forward button does after a back press closed it (see
+   * BackButton). Its own place if that is still free, the first free one
+   * otherwise; with every place taken there is nowhere to put it back, and
+   * the press does nothing rather than push a window off the edge.
+   *
+   * Never minimized, whatever it was: a window the browser is handing back
+   * is one the user is being shown again.
+   */
+  reopen(window: ComposeWindow): void {
+    if (this.#find(window.id)) return;
+    const taken = new Set(this.#windows().map((w) => w.slot));
+    const slot = taken.has(window.slot) ? this.#freeSlot() : window.slot;
+    if (slot >= this.capacity()) return;
+    const mode = window.mode === 'minimized' ? 'docked' : window.mode;
+    this.#windows.update((windows) => [...windows, { ...window, slot, mode }]);
+    this.#front.set(window.id);
   }
 
   /** The place nearest the corner that no window holds. */
@@ -189,9 +248,10 @@ export class ComposeWindows {
     this.#wanted.set({ id, seq: ++this.#seq });
   }
 
-  /** Closes the window — its message goes with it — and hands focus back to
-      where it was when the window opened. Its place on the edge is free for
-      the next window; the windows still open stay where they are. */
+  /** Closes the window — its message goes with it, unless something took a
+      copy of it first ({@link reopen}) — and hands focus back to where it
+      was when the window opened. Its place on the edge is free for the next
+      window; the windows still open stay where they are. */
   close(id: number): void {
     const closing = this.#find(id);
     if (!closing) return;
