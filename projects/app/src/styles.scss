@@ -553,9 +553,38 @@ html {
   transition: opacity 140ms ease-out;
 }
 
+/* The table's own two edges: the grab strip tucks fully inside (set by the
+ * NodeView, which knows whether the table sits on the container's edge), so
+ * the line inside it can no longer be centred on the strip — that is 4.5px
+ * *inside* the table, which reads as a line that missed its edge. Pinned to
+ * the tucked side instead, and straddling it exactly as an interior boundary
+ * straddles its own: the 1.5px that hangs out lands in the wrapper's gutter,
+ * where there is nothing to overflow. */
+.aee-editor .aee-col-line--tuck-start {
+  transform: translateX(0);
+}
+
+.aee-editor .aee-col-line--tuck-start::after {
+  left: 0;
+}
+
+.aee-editor .aee-col-line--tuck-end {
+  transform: translateX(-100%);
+}
+
+.aee-editor .aee-col-line--tuck-end::after {
+  left: 100%;
+}
+
 .aee-editor .aee-col-line:hover::after,
 .aee-editor .aee-col-line--drag::after {
   opacity: 1;
+}
+
+/* Isolate the moving line onto its own compositor layer for the drag, so a
+ * pointer frame cannot force the table's text to relayout beside it. */
+.aee-editor .aee-table-wrap--resizing .aee-col-line--drag {
+  will-change: left;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -564,11 +593,183 @@ html {
   }
 }
 
+/* The row and column grips (the `TableHandles` extension): a handle on each
+ * row's flank and above each column. Each one is a widget decoration *inside*
+ * that band's first cell, so the cell's own box gives it its length — a row
+ * grip is exactly as tall as its row, a column grip exactly as wide as its
+ * column — and nothing here measures anything. The cell is the containing
+ * block for it, which is the one thing the table has to lend: editor-only, so
+ * the email never sees it. */
+.aee-editor td {
+  position: relative;
+}
+
+/* Always hit-testable, only sometimes seen: a grip that took no pointer
+ * until something else revealed it could never be reached from *outside* the
+ * table — the pointer coming in from the flank or from above would meet
+ * nothing, which is exactly how the add-row pill used to fail. Hovering the
+ * grip itself is therefore one of the ways it appears (below), and a click
+ * can only land on one the pointer is already on, which is to say a visible
+ * one. */
+.aee-editor .aee-grip {
+  position: absolute;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--mat-sys-corner-extra-small, 4px);
+  background-color: var(--mat-sys-surface-container-high, #e2e2e2);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 140ms ease-out;
+  pointer-events: auto;
+}
+
+/* Three dots, the face a handle wears everywhere: ⋮ on a row's flank, ⋯ over
+ * a column. Drawn rather than typed — a glyph would inherit the cell's font
+ * and ride its line box. The element is the middle dot and its two
+ * pseudo-elements are the others, set along the grip's own axis. */
+.aee-editor .aee-grip > i {
+  position: relative;
+  display: block;
+  inline-size: 3px;
+  block-size: 3px;
+  border-radius: 50%;
+  background-color: var(--mat-sys-on-surface-variant, #555555);
+}
+
+.aee-editor .aee-grip > i::before,
+.aee-editor .aee-grip > i::after {
+  content: '';
+  position: absolute;
+  inline-size: 3px;
+  block-size: 3px;
+  border-radius: inherit;
+  background-color: inherit;
+}
+
+/* On the flank, in the wrapper's own gutter — clear of the table's left
+ * edge handle, which keeps the first 9px inside the grid. */
+.aee-editor .aee-grip--row {
+  inset-block: 0;
+  inset-inline-start: -14px;
+  inline-size: 10px;
+}
+
+.aee-editor .aee-grip--row > i::before {
+  inset-block-start: -5px;
+}
+
+.aee-editor .aee-grip--row > i::after {
+  inset-block-start: 5px;
+}
+
+/* Above the column, in the wrapper's top gutter. */
+.aee-editor .aee-grip--column {
+  inset-inline: 0;
+  inset-block-start: -14px;
+  block-size: 10px;
+}
+
+.aee-editor .aee-grip--column > i::before {
+  inset-inline-start: -5px;
+}
+
+.aee-editor .aee-grip--column > i::after {
+  inset-inline-start: 5px;
+}
+
+/* The approach: a strip of hit area on either side of the grip — inward, to
+ * bridge the gap to its own band so the hover cannot drop while the pointer
+ * crosses it; outward, into the margin, so a pointer arriving from off the
+ * table meets the grip a few px early rather than having to land on 10px
+ * exactly. Both are the grip's own, and invisible. */
+.aee-editor .aee-grip::before,
+.aee-editor .aee-grip::after {
+  content: '';
+  position: absolute;
+}
+
+.aee-editor .aee-grip--row::after {
+  inset-block: 0;
+  inset-inline-start: 100%;
+  inline-size: 4px;
+}
+
+.aee-editor .aee-grip--row::before {
+  inset-block: 0;
+  inset-inline-end: 100%;
+  inline-size: 8px;
+}
+
+.aee-editor .aee-grip--column::after {
+  inset-inline: 0;
+  inset-block-start: 100%;
+  block-size: 4px;
+}
+
+.aee-editor .aee-grip--column::before {
+  inset-inline: 0;
+  inset-block-end: 100%;
+  block-size: 8px;
+}
+
+/* Revealed by the band under the pointer, and only that one. A row hovers
+ * itself; a column has no element to hover — it is one cell per row — so each
+ * cell says which column it stands in (`data-col`, a node decoration that
+ * counts the grid through merges) and the NodeView writes that index onto
+ * the wrap (`data-hover-col`). Attribute equality is a cheap match; the
+ * previous `:has(td[data-col]:hover)` form forced a style recalc of the
+ * whole grid on every pointer move, which is the one thing a Notion-class
+ * table never does on hover. Twenty-four is far past any table an email is
+ * written with, and a wider one simply has no grip past it. */
+/* Hover only, never the caret — the same rule the add pills follow: typing in
+ * a row with the mouse parked elsewhere must not leave a handle on screen. */
+.aee-editor tr:hover .aee-grip--row {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@for $col from 0 through 23 {
+  .aee-editor .aee-table-wrap[data-hover-col='#{$col}'] .aee-grip--column[data-index='#{$col}'] {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+/* Pointing at the grip itself shows it — the way in from outside the table,
+ * and what keeps it under the pointer on the way from its band.
+ *
+ * `aria-expanded` is the other way: the grip whose menu is open stays put
+ * until the menu is done with it, however far the pointer has wandered. The
+ * state is the attribute a screen reader is told it by (the extension sets
+ * it from the selection — a grip's press selects its band), so there is no
+ * second copy of the truth in a class. */
+.aee-editor .aee-grip:hover,
+.aee-editor .aee-grip[aria-expanded='true'] {
+  opacity: 1;
+}
+
+.aee-editor .aee-grip:hover,
+.aee-editor .aee-grip[aria-expanded='true'] {
+  background-color: var(--email-column-resize, var(--mat-sys-primary, #4c6ef5));
+}
+
+.aee-editor .aee-grip:hover > i,
+.aee-editor .aee-grip[aria-expanded='true'] > i {
+  background-color: var(--mat-sys-on-primary, #ffffff);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aee-editor .aee-grip {
+    transition: none;
+  }
+}
+
 /* The add pills (the `ColumnResize` NodeView): a `+` on the table's right
- * flank appends a column, a `+` straddling the bottom edge appends a row.
- * Revealed with the rest of the table's affordances; positioned inline by
- * the NodeView (model-derived, the column pill `min()`-clamped into the
- * wrapper) — these are only the pixels. */
+ * flank appends a column, a `+` under the bottom edge appends a row.
+ * Revealed with the rest of the table's affordances; both zones are
+ * positioned by the NodeView (model-derived percentages of the box). */
 .aee-editor .aee-add-pill {
   position: absolute;
   z-index: 5;
@@ -593,61 +794,57 @@ html {
  * the zone and the pill reveals; the pointer never crosses dead space on the
  * way to it. Only non-editable ground is covered, so it stays hit-testable
  * at all times; the zone itself takes no clicks — only the pill does. */
-/* Reaches from the table's right edge out to the far side of the gutter,
- * where the pill sits. `pointer-events` is re-enabled because the layer it
- * lives in switches them off. */
+/* `pointer-events` is re-enabled because the layer the column zone lives in
+ * switches them off; the row zone is a child of the wrapper itself and only
+ * inherits. */
 .aee-editor .aee-add-zone {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  right: calc(var(--aee-block-gutter-x) * -1);
   z-index: 3;
   pointer-events: auto;
 }
 
-/* The pill spans every row, pinned at the zone's far end — a fixed, learnable
- * spot that never chases the table and never covers the grid. Outside the
- * grid there is also nothing to collide with: the edge-drag handle keeps the
- * whole table edge. */
+/* Reaches from the table's right edge (inline `left`, model-derived) out to
+ * the far side of the gutter, where the pill sits. */
+.aee-editor .aee-add-zone--column {
+  top: 0;
+  bottom: 0;
+  right: calc(var(--aee-block-gutter-x) * -1);
+}
+
+/* The row twin: hangs off the box into the wrapper's bottom gutter, and
+ * spans only the table (inline `left` / `width`, model-derived). Approaching
+ * from below still wakes the pill; nothing editable is covered. A right-edge
+ * drag restamps the width on release, so the strip matches the new box. */
+.aee-editor .aee-add-zone--row {
+  top: 100%;
+  height: var(--aee-block-gutter-y);
+}
+
+/* The pill sits on the table's right flank — the zone's *near* end — so a
+ * right-edge drag takes it with the edge. 6px past the start clears the
+ * 9px handle's outer half; the rest of the zone is still the approach
+ * from the gutter. */
 .aee-editor .aee-add-pill--column {
   top: 0;
   bottom: 0;
-  right: 2px;
+  left: 6px;
   width: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-/* The row twin, mirrored: full-width and latched to the wrapper (as the
- * column pill spans all rows, this one spans all columns), sitting fully
- * *below* the bottom edge with a small gap so the last row's edge stays
- * clearly visible. That puts it over the following block's ground — but only
- * while revealed (pointer-events are gated), and full width makes the pill
- * its own sensor: from any cell of the last row, straight down lands on it.
- * The ::before lip bridges the 3px gap so the hover can't drop mid-crossing. */
-/* `100%` is the padded box, so the table's bottom edge is one gutter above
- * it — the pill hangs 3px under that, inside the gutter, clear of the text
- * that follows. Inline it spans the *table*, not the padded box: the wrapper
- * overhangs one gutter into the surface margin on each side, and a pill
- * reaching into that empty space reads as a stray extension. */
+/* The row twin, mirrored: it spans the table as the column pill spans
+ * every row, 3px under the bottom edge so the last row stays visible.
+ * Its length is the zone's, which is the table's. */
 .aee-editor .aee-add-pill--row {
-  top: calc(100% - var(--aee-block-gutter-y) + 3px);
-  left: var(--aee-block-gutter-x);
-  right: var(--aee-block-gutter-x);
+  top: 3px;
+  left: 0;
+  right: 0;
   height: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.aee-editor .aee-add-pill--row::before {
-  content: '';
-  position: absolute;
-  top: -4px;
-  left: 0;
-  right: 0;
-  height: 4px;
 }
 
 /* Both pills reveal on *hover only* — the last column / last row, or the
@@ -655,13 +852,13 @@ html {
  * decoration classes still land, unused): typing in the last row with the
  * mouse parked elsewhere must not keep a button permanently on screen. */
 .aee-editor .aee-table-wrap:has(tr > td:last-child:hover) .aee-add-pill--column,
-.aee-editor .aee-add-zone:hover .aee-add-pill--column {
+.aee-editor .aee-add-zone--column:hover .aee-add-pill--column {
   opacity: 1;
   pointer-events: auto;
 }
 
 .aee-editor .aee-table-wrap:has(tr:last-child:hover) .aee-add-pill--row,
-.aee-editor .aee-add-pill--row:hover {
+.aee-editor .aee-add-zone--row:hover .aee-add-pill--row {
   opacity: 1;
   pointer-events: auto;
 }

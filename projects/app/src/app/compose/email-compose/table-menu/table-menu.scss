@@ -1,0 +1,18 @@
+@use '../../../../styles/menu' as menu;
+
+/* The grip's menu wears the app's one menu look (see styles/_menu.scss): the
+ * same box, rows and hairline as the editor's suggestion menu and the
+ * toolbar's ⋯ dropdown. Only what is this menu's own lives here. */
+.table-menu {
+  @include menu.panel;
+
+  min-inline-size: 208px;
+}
+
+.table-menu__item {
+  @include menu.item;
+}
+
+.table-menu__separator {
+  @include menu.separator;
+}

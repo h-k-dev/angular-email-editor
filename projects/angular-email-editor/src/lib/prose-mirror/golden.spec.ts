@@ -34,7 +34,9 @@ const GOLDEN: string[] = [
   // A placeholder: a sized frame with no source yet (linted, never a lie).
   '<div><img width="320" style="width: 100%; max-width: 320px; height: auto;"></div>',
   '<hr style="height: 1px; width: 100%; background-color: rgb(224, 224, 224); margin-top: 12px; margin-bottom: 12px;">',
-  '<a href="https://x.io" style="display: inline-block; background-color: rgb(26, 115, 232); color: rgb(255, 255, 255); font-weight: bold; text-decoration: none; border-width: 14px 28px; border-style: solid; border-color: rgb(26, 115, 232);">Shop now</a>',
+  // Button is inline (so a cell can hold one). On a line of its own it
+  // wraps in a div, like an image; a stored bare `<a>` repairs the same way.
+  '<div><a href="https://x.io" style="display: inline-block; background-color: rgb(26, 115, 232); color: rgb(255, 255, 255); font-weight: bold; text-decoration: none; border-width: 14px 28px; border-style: solid; border-color: rgb(26, 115, 232);">Shop now</a></div>',
 ];
 
 /** Foreign markup: no exact expectation, but the round trip must be a

@@ -28,11 +28,23 @@ describe('divider block', () => {
   });
 });
 
-describe('button block', () => {
+describe('button', () => {
   it('serializes as a bordered inline-block anchor — the Outlook-safe button', () => {
     expect(roundTrip(`<a href="https://x.io" style="${BUTTON_STYLE}">Shop now</a>`)).toBe(
-      `<a href="https://x.io" style="${BUTTON_STYLE}">Shop now</a>`,
+      `<div><a href="https://x.io" style="${BUTTON_STYLE}">Shop now</a></div>`,
     );
+  });
+
+  it('sits on a line of text, or in a table cell', () => {
+    expect(
+      roundTrip(`<div>Click <a href="https://x.io" style="${BUTTON_STYLE}">here</a></div>`),
+    ).toBe(`<div>Click <a href="https://x.io" style="${BUTTON_STYLE}">here</a></div>`);
+    const inCell = roundTrip(
+      `<table><tbody><tr><td><a href="https://x.io" style="${BUTTON_STYLE}">Shop</a></td></tr></tbody></table>`,
+    );
+    expect(inCell).toContain(`<a href="https://x.io" style="${BUTTON_STYLE}">Shop</a>`);
+    expect(inCell).toContain('<td');
+    expect(roundTrip(inCell)).toBe(inCell);
   });
 
   it('is distinct from a plain link — no display:inline-block, stays a link', () => {
@@ -48,7 +60,7 @@ describe('button block', () => {
 
   it('flattens the label to plain text (atom reads textContent)', () => {
     expect(roundTrip(`<a href="#" style="${BUTTON_STYLE}"><strong>bold?</strong></a>`)).toBe(
-      `<a href="#" style="${BUTTON_STYLE}">bold?</a>`,
+      `<div><a href="#" style="${BUTTON_STYLE}">bold?</a></div>`,
     );
   });
 
@@ -79,7 +91,37 @@ describe('button block', () => {
         return true;
       });
       editor.commands['insertButton']();
-      expect(editor.getHTML()).toBe(`<div>hi</div><a href="#" style="${BUTTON_STYLE}">Button</a>`);
+      expect(editor.getHTML()).toBe(`<div>hi<a href="#" style="${BUTTON_STYLE}">Button</a></div>`);
+    } finally {
+      editor.destroy();
+      host.remove();
+    }
+  });
+
+  it('insertButton drops a button into a table cell', () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const editor = createEditor({
+      parent: host,
+      extensions: emailExtensions,
+      content: '<table><tbody><tr><td></td></tr></tbody></table>',
+    });
+    try {
+      editor.exec((state, dispatch) => {
+        let cell = 0;
+        state.doc.descendants((node, pos) => {
+          if (node.type.name === 'tableCell') cell = pos;
+          return true;
+        });
+        dispatch?.(state.tr.setSelection(TextSelection.create(state.doc, cell + 1)));
+        return true;
+      });
+      expect(editor.commands['insertButton']()).toBe(true);
+      const html = editor.getHTML();
+      expect(html).toContain(`<a href="#" style="${BUTTON_STYLE}">Button</a>`);
+      expect(html).toContain('<td');
+      expect(html).not.toContain('</table><a');
+      expect(roundTrip(html)).toBe(html);
     } finally {
       editor.destroy();
       host.remove();

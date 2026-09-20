@@ -1,4 +1,6 @@
+import { Node, Schema } from 'prosemirror-model';
 import { Command } from 'prosemirror-state';
+import { Transform } from 'prosemirror-transform';
 import { defineNode } from '../../extension';
 
 /** The button's canonical styling — the *border-based* bulletproof button:
@@ -19,26 +21,31 @@ export const BUTTON_STYLE =
   'border-width: 14px 28px; border-style: solid; border-color: rgb(26, 115, 232);';
 
 /**
- * A call-to-action button: a block that serializes to a bordered
+ * A call-to-action button: an inline atom that serializes to a bordered
  * `inline-block` anchor — the email-safe "fake button" every client,
  * Outlook included, renders as a tappable coloured box. `display: inline-block` in the style is also the parse
  * discriminator: it is what tells a button apart from an ordinary link, so the
  * two never collide on the round trip.
  *
- * It is an **atom** (label and href are attributes, not editable inline
- * content): a block node rendered as an inline `<a>` cannot hold editable
- * content safely — the browser's contentEditable ignores the node boundary and
- * unwraps it when you type. As an atom the node is an inert island; its label
- * and href are edited in the HTML source pane, the same way image alt/width
- * are. A dedicated inline editor is a future polish item.
+ * Inline, like an image, so it sits in a paragraph *or* a table cell
+ * (`inline*`) — cells stay textblocks; they do not open to headings or
+ * nested tables. It is an **atom** (label and href are attributes, not
+ * editable content): a contentEditable `<a>` would ignore the node
+ * boundary and unwrap when you type. The label and href are edited in
+ * the HTML source pane, the same way image alt/width are. A dedicated
+ * inline editor is a future polish item.
  */
 export const Button = defineNode({
   name: 'button',
   spec: {
-    group: 'block',
+    inline: true,
+    group: 'inline',
     atom: true,
     selectable: true,
     draggable: true,
+    // The box already paints bold (and colour) on the `<a>`. Allowing marks
+    // would re-parse that `font-weight: bold` as a wrapping `<strong>`.
+    marks: '',
     attrs: { href: { default: '#' }, label: { default: 'Button' } },
     parseDOM: [
       {
@@ -72,10 +79,28 @@ export const Button = defineNode({
   ],
 });
 
-function insertButton(schema: import('prosemirror-model').Schema): Command {
+function insertButton(schema: Schema): Command {
   return (state, dispatch) => {
     const node = schema.nodes['button'].create({ href: '#', label: 'Button' });
-    dispatch?.(state.tr.replaceSelectionWith(node).scrollIntoView());
+    dispatch?.(state.tr.replaceSelectionWith(node, false).scrollIntoView());
     return true;
   };
+}
+
+/**
+ * The parser paints `font-weight: bold` from {@link BUTTON_STYLE} onto the
+ * atom as a wrapping mark — it asks the parent, not the node, whether bold
+ * is allowed. The box already is bold; those marks would re-serialize as a
+ * `<strong>` around every button. Strip them so parse stays a fixpoint.
+ */
+export function bareButtons(doc: Node, schema: Schema): Node {
+  if (!schema.nodes['button']) return doc;
+  const tr = new Transform(doc);
+  doc.descendants((node, pos) => {
+    if (node.type.name === 'button' && node.marks.length) {
+      tr.removeMark(pos, pos + node.nodeSize);
+    }
+    return true;
+  });
+  return tr.doc;
 }

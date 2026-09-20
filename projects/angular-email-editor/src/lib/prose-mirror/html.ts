@@ -9,6 +9,7 @@ import {
 import { Command } from 'prosemirror-state';
 import { repairTables } from './extensions/nodes/table';
 import { promoteMergeTags } from './extensions/nodes/merge-tag';
+import { bareButtons } from './extensions/nodes/button';
 
 const serializerCache = new WeakMap<Schema, DOMSerializer>();
 
@@ -80,12 +81,14 @@ export function serializeToHTML(doc: Node, schema: Schema): string {
  *
  * The same principle promotes `{{path}}` tokens in running text into
  * `mergeTag` pills (`promoteMergeTags`): the serialized email carries the raw
- * Handlebars-flavoured text, and parse restores the structured form.
+ * Handlebars-flavoured text, and parse restores the structured form. Button
+ * atoms lose marks the parser painted from their own `font-weight`
+ * (`bareButtons`) — the box is already bold.
  */
 export function parseHTML(html: string, schema: Schema): Node {
   const dom = new window.DOMParser().parseFromString(html, 'text/html');
   const parsed = ProseMirrorDOMParser.fromSchema(schema).parse(dom.body);
-  return promoteMergeTags(repairTables(parsed, schema), schema);
+  return bareButtons(promoteMergeTags(repairTables(parsed, schema), schema), schema);
 }
 
 /**

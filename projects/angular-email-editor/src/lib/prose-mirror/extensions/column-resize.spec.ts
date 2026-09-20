@@ -257,14 +257,17 @@ describe('column resize', () => {
   it('the pills track the table box and never serialize', () => {
     editor.commands['insertTable'](2, 2);
     editor.exec(setTableBox(tablePos(), 10, 60));
-    const zone = host.querySelector<HTMLElement>('.aee-add-zone')!;
+    const columnZone = host.querySelector<HTMLElement>('.aee-add-zone--column')!;
+    const rowZone = host.querySelector<HTMLElement>('.aee-add-zone--row')!;
     const column = host.querySelector<HTMLElement>('.aee-add-pill--column')!;
     const row = host.querySelector<HTMLElement>('.aee-add-pill--row')!;
-    // The sensor zone starts on the table's right edge (10 + 60); the pill
-    // lives inside it. The row pill is wrapper-latched: no inline position.
-    expect(zone.style.left).toBe('70%');
-    expect(zone.contains(column)).toBe(true);
-    expect(row.style.left).toBe('');
+    // Column zone starts on the table's right edge (10 + 60); the row zone
+    // is the table's own box, restamped whenever that box commits.
+    expect(columnZone.style.left).toBe('70%');
+    expect(columnZone.contains(column)).toBe(true);
+    expect(rowZone.style.left).toBe('10%');
+    expect(rowZone.style.width).toBe('60%');
+    expect(rowZone.contains(row)).toBe(true);
     const html = editor.getHTML();
     expect(html).not.toContain('aee-add-pill');
     expect(html).not.toContain('aee-add-zone');
@@ -410,6 +413,22 @@ describe('column resize', () => {
     );
     const line = host.querySelector<HTMLElement>('.aee-col-line')!;
     expect(line.style.display).toBe('');
+  });
+
+  it('does not rewrite column chrome while typing in a cell', () => {
+    editor.commands['insertTable'](2, 2);
+    editor.exec(setColumnBoundary(tablePos(), 0, 30));
+    const col = host.querySelector<HTMLElement>('colgroup > col')!;
+    const line = host.querySelector<HTMLElement>('.aee-col-boundaries > div')!;
+    const left = line.style.left;
+    editor.exec((state, dispatch) => {
+      dispatch?.(state.tr.insertText('hello'));
+      return true;
+    });
+    expect(host.querySelector('colgroup > col')).toBe(col);
+    expect(host.querySelector('.aee-col-boundaries > div')).toBe(line);
+    expect(col.style.width).toBe('30%');
+    expect(line.style.left).toBe(left);
   });
 
   it('keeps cells textually clean and everything out of the serialization', () => {

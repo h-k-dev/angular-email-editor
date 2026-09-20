@@ -1,0 +1,153 @@
+// One menu look, in one place.
+//
+// The editor's suggestion menu (the `/` and `{{` lists) is the app's menu:
+// the library ships it fully tokenized (--email-suggestion-menu-*, each
+// falling back to Material's system token of the same meaning), and every
+// other menu here — the toolbar's ⋯ dropdown, a table grip's row and column
+// menu — is the same box with different rows in it. So they all read from
+// that one family of tokens rather than each carrying its own surface: theme
+// the suggestion menu and every menu in the app moves with it.
+//
+// Only the *look* lives here. What a menu is (a listbox the caret drives, an
+// Aria menu, a CDK overlay) stays with the menu, because those are different
+// things wearing the same clothes.
+
+/// The floating box. A menu with `aria-orientation="horizontal"` lays its
+/// rows out in a line, because that is what it told assistive tech it does.
+@mixin panel {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: var(--email-suggestion-menu-min-width, 220px);
+  padding: var(--email-suggestion-menu-padding, 4px);
+  box-sizing: border-box;
+  outline: none;
+
+  color: var(
+    --email-suggestion-menu-color,
+    var(--mat-sys-on-surface, light-dark(#1f1f1f, #e3e3e3))
+  );
+  background-color: var(
+    --email-suggestion-menu-background,
+    var(--mat-sys-surface-container, light-dark(#f0f4f9, #1e1f20))
+  );
+  border-radius: var(--email-suggestion-menu-corner, var(--mat-sys-corner-medium, 12px));
+  box-shadow: var(
+    --email-suggestion-menu-shadow,
+    var(--mat-sys-level2, 0 2px 6px 2px rgb(0 0 0 / 15%), 0 1px 2px rgb(0 0 0 / 30%))
+  );
+
+  font-family: var(
+    --email-suggestion-menu-font-family,
+    var(--mat-sys-body-medium-font, system-ui, sans-serif)
+  );
+  font-size: var(--email-suggestion-menu-font-size, var(--mat-sys-body-medium-size, 0.875rem));
+  font-weight: var(--email-suggestion-menu-font-weight, var(--mat-sys-body-medium-weight, 400));
+  line-height: var(
+    --email-suggestion-menu-line-height,
+    var(--mat-sys-body-medium-line-height, 1.25rem)
+  );
+  letter-spacing: var(
+    --email-suggestion-menu-letter-spacing,
+    var(--mat-sys-body-medium-tracking, 0.016rem)
+  );
+
+  // A menu that told assistive tech it runs across lays its rows out that way.
+  &[aria-orientation='horizontal'] {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
+/// A row: an icon, then the words.
+///
+/// **Every state is read off the row's own ARIA**, never off a class the
+/// template remembers to add — the attribute a screen reader is told the
+/// state by is the attribute the pixels come from, so the two cannot drift
+/// apart. `aria-disabled` dims it, `aria-checked`/`aria-selected` mark it
+/// chosen, `aria-expanded` holds a submenu's trigger lit while its child is
+/// open, `aria-haspopup` earns the trailing chevron, `aria-current` (and the
+/// `data-active` hook Angular Aria writes for `aria-activedescendant`, which
+/// lives on the *menu*, so the row has nothing of its own to show) is the
+/// keyboard's place in the list. Hover paints that same highlight, so the
+/// pointer and the keyboard can never disagree on screen.
+@mixin item {
+  display: flex;
+  align-items: center;
+  gap: var(--email-suggestion-menu-item-gap, 8px);
+  min-block-size: var(--email-suggestion-menu-item-height, 32px);
+  padding-block: var(--email-suggestion-menu-item-padding-block, 6px);
+  padding-inline: var(--email-suggestion-menu-item-padding-inline, 8px);
+  box-sizing: border-box;
+  border: none;
+  border-radius: var(--email-suggestion-menu-item-corner, var(--mat-sys-corner-small, 8px));
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+
+  mat-icon {
+    --mat-icon-size: 20px;
+    flex: none;
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  // Where the keyboard is, where the pointer is, and a submenu's open
+  // trigger: one highlight, three ways of being the row in question.
+  &:where(:hover, [aria-current='true'], [aria-expanded='true'], [data-active='true']) {
+    background-color: var(
+      --email-suggestion-menu-item-hover-background,
+      var(--mat-sys-surface-container-high, light-dark(#e9eef6, #282a2c))
+    );
+  }
+
+  // Focus is its own thing: it can sit on a row the pointer is not on.
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: -2px;
+  }
+
+  // Chosen — a menuitemradio/checkbox that is on, or a selected option.
+  &:where([aria-checked='true'], [aria-selected='true']) {
+    color: var(--mat-sys-primary);
+
+    mat-icon {
+      color: var(--mat-sys-primary);
+    }
+  }
+
+  // Says there is more behind it, because it says so to assistive tech.
+  &:where([aria-haspopup='menu'], [aria-haspopup='true'])::after {
+    content: '';
+    flex: none;
+    margin-inline-start: auto;
+    inline-size: 0;
+    block-size: 0;
+    border-block: 4px solid transparent;
+    border-inline-start: 5px solid currentColor;
+    opacity: 0.6;
+  }
+
+  // `disabled` is the DOM's, `aria-disabled` the one a focusable-but-inert
+  // row carries; both look the same and neither takes a pointer.
+  &:where(:disabled, [aria-disabled='true']) {
+    opacity: 0.38;
+    cursor: default;
+  }
+
+  &:where(:disabled, [aria-disabled='true']):hover {
+    background-color: transparent;
+  }
+}
+
+/// The hairline between groups — the suggestion menu's own divider.
+@mixin separator {
+  block-size: 1px;
+  margin-block: 4px;
+  background-color: var(
+    --email-suggestion-menu-divider-color,
+    var(--mat-sys-outline-variant, light-dark(#c7c7c7, #444746))
+  );
+}

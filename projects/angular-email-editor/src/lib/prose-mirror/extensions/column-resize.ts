@@ -53,28 +53,36 @@ import {
  * directly off it), and release applies one rounded transaction — the table
  * lays out exactly once, and the drag is one undo step.
  */
+const columnResizeKey = new PluginKey<DecorationSet>('columnResize');
+
 export const ColumnResize = defineExtension({
   name: 'columnResize',
   plugins: () => [
-    new Plugin({
-      key: new PluginKey('columnResize'),
+    new Plugin<DecorationSet>({
+      key: columnResizeKey,
+      state: {
+        init: (_, state) => selectionDecorations(state),
+        apply: (tr, decorations, _old, state) => {
+          // Selection chrome is a handful of node decorations. Typing maps
+          // them; a caret or cell-selection change rebuilds them. Building
+          // a new set on every keystroke is the thing Tiptap's table view
+          // refuses to do, and so do we.
+          if (!tr.docChanged && !tr.selectionSet) return decorations;
+          if (tr.docChanged && !tr.selectionSet) {
+            const mapped = decorations.map(tr.mapping, state.doc);
+            // A resize rewrites cell markup and mapping drops the node
+            // decorations that sat on those cells (the selection rectangle,
+            // the last-row/column classes). Rebuild when the set shrank.
+            if (mapped.find().length === decorations.find().length) return mapped;
+          }
+          return selectionDecorations(state);
+        },
+      },
       props: {
         nodeViews: {
           table: (node, view, getPos) => new TableView(node, view, getPos as () => number),
         },
-        // The add pills reveal when the caret stands in the last column /
-        // last row; the classes land on the table's NodeView wrapper. The
-        // hover half of each reveal is pure CSS (`:has(td:last-child:hover)`,
-        // `:has(tr:last-child:hover)`) — this is only the focus half, derived
-        // from the selection like everything else.
-        decorations: (state) => {
-          const decorations = selectionEdgeDecorations(state);
-          const marked = tableEdgeDecoration(state);
-          if (marked) decorations.push(marked);
-          const active = activeCellDecoration(state);
-          if (active) decorations.push(active);
-          return decorations.length ? DecorationSet.create(state.doc, decorations) : null;
-        },
+        decorations: (state) => columnResizeKey.getState(state),
       },
     }),
   ],
@@ -261,6 +269,15 @@ export function setTableWidth(tablePos: number, widthPct: number): Command {
  * cell knows from the model alone which of its edges lie on the boundary,
  * and per-cell border segments assemble into the rectangle by themselves.
  */
+function selectionDecorations(state: EditorState): DecorationSet {
+  const decorations = selectionEdgeDecorations(state);
+  const marked = tableEdgeDecoration(state);
+  if (marked) decorations.push(marked);
+  const active = activeCellDecoration(state);
+  if (active) decorations.push(active);
+  return decorations.length ? DecorationSet.create(state.doc, decorations) : DecorationSet.empty;
+}
+
 function selectionEdgeDecorations(state: EditorState): Decoration[] {
   const selection = state.selection;
   if (!(selection instanceof CellSelection)) return [];
@@ -360,6 +377,7 @@ class TableView {
   #edges: { left: HTMLElement; right: HTMLElement };
   #addColumnZone: HTMLElement;
   #addColumn: HTMLElement;
+  #addRowZone: HTMLElement;
   #addRow: HTMLElement;
   #node: Node;
   #view: EditorView;
@@ -434,18 +452,39 @@ class TableView {
     // hit-testable at all times; clicks on the zone itself do nothing — only
     // the pill acts.
     this.#addColumnZone = this.#lines.appendChild(document.createElement('div'));
-    this.#addColumnZone.className = 'aee-add-zone';
+    this.#addColumnZone.className = 'aee-add-zone aee-add-zone--column';
     this.#addColumnZone.contentEditable = 'false';
     this.#addColumnZone.setAttribute('aria-hidden', 'true');
     this.#addColumnZone.appendChild(this.#addColumn);
+    // The row twin lives on the box, not the wrapper: its `left` / `width`
+    // are then the same table-relative percentages the column zone and the
+    // edge handles already speak, and a right-edge drag can restamp them
+    // on release without measuring. It hangs into the wrapper's bottom
+    // gutter (`top: 100%`), so approaching from below still wakes the
+    // pill and nothing editable is covered.
+    this.#addRowZone = this.#box.appendChild(document.createElement('div'));
+    this.#addRowZone.className = 'aee-add-zone aee-add-zone--row';
+    this.#addRowZone.contentEditable = 'false';
+    this.#addRowZone.setAttribute('aria-hidden', 'true');
     this.#addRow = pill('aee-add-pill--row', 'Add row', addRowAtEnd);
+    this.#addRowZone.appendChild(this.#addRow);
+    // Column-grip hover is a data attribute on this wrap, not 24 `:has()`
+    // rules walking the grid on every pointer move — same reveal, none of
+    // the style-recalc tax those selectors levy on a hovered table.
+    this.dom.addEventListener('pointerover', (event) => this.#hoverColumn(event));
+    this.dom.addEventListener('pointerleave', () => this.#clearHoverColumn());
     this.#render(node);
   }
 
   update(node: Node): boolean {
     if (node.type.name !== 'table') return false;
+    // Typing in a cell produces a new table node. The chrome (widths, lines,
+    // edges) has not moved, and rewriting it every keystroke is what makes a
+    // table feel like it is flying apart — Tiptap's TableView skips this
+    // path for the same reason. Persistent node identity makes the compare
+    // a handful of pointer checks on the rows that did not change.
+    if (!sameTableChrome(this.#node, node)) this.#render(node);
     this.#node = node;
-    this.#render(node);
     return true;
   }
 
@@ -454,20 +493,29 @@ class TableView {
     // ours; ProseMirror owns only what happens inside the tbody.
     const target = record.target;
     return (
-      target === this.dom ||
-      target === this.#box ||
-      target === this.#table ||
-      target === this.#colgroup ||
-      this.#colgroup.contains(target) ||
-      this.#lines.contains(target) ||
-      target === this.#lines ||
-      target === this.#edges.left ||
-      target === this.#edges.right ||
-      target === this.#addColumnZone ||
-      this.#addColumnZone.contains(target) ||
-      target === this.#addRow ||
-      this.#addRow.contains(target)
+      target !== this.contentDOM && !this.contentDOM.contains(target) && this.dom.contains(target)
     );
+  }
+
+  #hoverColumn(event: PointerEvent): void {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    // A row grip lives inside that row's first cell. Reading `data-col`
+    // off that cell would light column 0's grip for a pointer that is
+    // only asking for the row. Clear instead, so only the row handle
+    // shows; a later cell hover writes the column back.
+    if (target.closest('.aee-grip--row')) {
+      this.#clearHoverColumn();
+      return;
+    }
+    const col = target.closest('td')?.getAttribute('data-col') ?? '';
+    if (this.dom.dataset['hoverCol'] === col) return;
+    if (col) this.dom.dataset['hoverCol'] = col;
+    else delete this.dom.dataset['hoverCol'];
+  }
+
+  #clearHoverColumn(): void {
+    delete this.dom.dataset['hoverCol'];
   }
 
   #render(node: Node): void {
@@ -484,16 +532,16 @@ class TableView {
     this.#table.setAttribute('style', tableStyle(tableWidth, offset));
     this.#edges.left.style.left = `${offset}%`;
     this.#edges.right.style.left = `${offset + tableWidth}%`;
-    // At the container's own edges the handles tuck fully inside — a strip
-    // hanging half out of the wrapper is phantom overflow (a scrollbar with
-    // nothing visibly overflowing). Anywhere else they straddle their edge.
-    this.#edges.left.style.transform = offset === 0 ? 'translateX(0)' : 'translateX(-50%)';
-    this.#edges.right.style.transform =
-      offset + tableWidth >= 100 ? 'translateX(-100%)' : 'translateX(-50%)';
-    // The sensor zone starts exactly at the table's right edge (its far end,
-    // holding the pill, is pinned to the gutter in CSS). The row pill needs
-    // no positioning at all: it is latched full-width to the wrapper.
-    this.#addColumnZone.style.left = `${offset + tableWidth}%`;
+    // At the container's own edges the *grab strip* tucks fully inside — a
+    // 9px strip hanging half out is phantom overflow (a scrollbar with
+    // nothing visibly overflowing), and it would reach into the flank where
+    // the row affordances live. Anywhere else the strip straddles its edge.
+    // The class says which, because the line drawn inside the strip has to
+    // know: a tucked strip's line sits at the tucked side, on the table's
+    // edge, not in the middle of the strip 4.5px inside it (styles.scss).
+    this.#edges.left.classList.toggle('aee-col-line--tuck-start', offset === 0);
+    this.#edges.right.classList.toggle('aee-col-line--tuck-end', offset + tableWidth >= 100);
+    this.#placeAddOns(offset, tableWidth);
 
     // The display colgroup: declared widths verbatim, the rest left to the
     // browser — the same input the email gives a mail client.
@@ -518,6 +566,15 @@ class TableView {
       line.style.left = `${this.#toBoxPct(cumulative)}%`;
       line.style.display = isDraggable(map, boundary) ? '' : 'none';
     }
+  }
+
+  /** The add-on zones: column strip starts on the table's right edge, row
+      strip is the table's own width under it. Model percentages, same
+      language as the edge handles — a right-edge drag restamps both. */
+  #placeAddOns(offset: number, width: number): void {
+    this.#addColumnZone.style.left = `${offset + width}%`;
+    this.#addRowZone.style.left = `${offset}%`;
+    this.#addRowZone.style.width = `${width}%`;
   }
 
   /** A share of the *table* (what the model speaks) as a share of the
@@ -564,17 +621,16 @@ class TableView {
       line.style.left = `${this.#toBoxPct(startLeft - effective[boundary] + leftAt(ev))}%`;
     };
     const finish = (ev: PointerEvent) => {
-      window.removeEventListener('pointermove', preview);
-      window.removeEventListener('pointerup', finish);
-      window.removeEventListener('pointercancel', finish);
-      line.classList.remove('aee-col-line--drag');
-      this.dom.classList.remove('aee-table-wrap--resizing');
       document.body.style.cursor = bodyCursor;
       setColumnBoundary(
         this.#getPos(),
         boundary,
         leftAt(ev),
       )(this.#view.state, this.#view.dispatch);
+      // Chrome stays hidden until the commit has restamped it — otherwise
+      // the pills flash one frame at the pre-drag box.
+      line.classList.remove('aee-col-line--drag');
+      this.dom.classList.remove('aee-table-wrap--resizing');
     };
 
     line.classList.add('aee-col-line--drag');
@@ -587,12 +643,12 @@ class TableView {
     // a text caret mid-drag. It stays col-resize until release.
     const bodyCursor = document.body.style.cursor;
     document.body.style.cursor = 'col-resize';
-    // Window-level listeners for the drag's lifetime: the pointer can move
-    // faster than layout follows, and a handle-bound listener would lose the
-    // stream and stutter. `window` never loses it.
-    window.addEventListener('pointermove', preview);
-    window.addEventListener('pointerup', finish);
-    window.addEventListener('pointercancel', finish);
+    // Window-level, animation-frame coalesced: the pointer can move faster
+    // than a frame (and faster than layout follows), and a handle-bound
+    // listener would lose the stream and stutter. `window` never loses it;
+    // rAF writes the line at most once per frame, the way Notion and Tiptap
+    // keep a drag on the compositor.
+    trackPointer(preview, finish);
   }
 
   /** The table's own resize: drag either outer edge, same deferred-commit
@@ -624,14 +680,14 @@ class TableView {
         : clamp(pctAt(ev), offset + minWidth, 100);
 
     const preview = (ev: PointerEvent) => {
-      handle.style.left = `${edgeAt(ev)}%`;
+      const edge = edgeAt(ev);
+      handle.style.left = `${edge}%`;
+      // The column `+` rides the moving edge so it is already at the new
+      // flank when the drag ends. The row `+` waits for release: resizing
+      // it every frame would be a live reflow of a strip we then hide.
+      if (side === 'right') this.#addColumnZone.style.left = `${edge}%`;
     };
     const finish = (ev: PointerEvent) => {
-      window.removeEventListener('pointermove', preview);
-      window.removeEventListener('pointerup', finish);
-      window.removeEventListener('pointercancel', finish);
-      handle.classList.remove('aee-col-line--drag');
-      this.dom.classList.remove('aee-table-wrap--resizing');
       document.body.style.cursor = bodyCursor;
       const edge = edgeAt(ev);
       const box: [number, number] =
@@ -641,19 +697,90 @@ class TableView {
         ...box,
         side === 'left' ? 'first' : 'last',
       )(this.#view.state, this.#view.dispatch);
-      // Commit re-renders the handles onto the model; if it was a no-op
-      // (clamped to the same values), snap this one back explicitly.
+      // Commit restamps the handles *and* both add-ons onto the model.
+      // The row `+` picks up the new width here, once, on release. If the
+      // commit was a no-op (clamped to the same values), this snaps the
+      // previewed column zone back too.
       this.#render(this.#node);
+      handle.classList.remove('aee-col-line--drag');
+      this.dom.classList.remove('aee-table-wrap--resizing');
     };
 
     handle.classList.add('aee-col-line--drag');
     this.dom.classList.add('aee-table-wrap--resizing');
     const bodyCursor = document.body.style.cursor;
     document.body.style.cursor = 'col-resize';
-    window.addEventListener('pointermove', preview);
-    window.addEventListener('pointerup', finish);
-    window.addEventListener('pointercancel', finish);
+    trackPointer(preview, finish);
   }
+}
+
+/** Whether the table chrome (box, column widths, grid) is the same — the
+    question `TableView.update` asks before it touches the DOM. Unchanged
+    rows are the same object (ProseMirror's persistent tree), so a keystroke
+    is one new cell and a handful of identity compares. */
+function sameTableChrome(a: Node, b: Node): boolean {
+  if (a.attrs['width'] !== b.attrs['width'] || a.attrs['offset'] !== b.attrs['offset']) {
+    return false;
+  }
+  if (a.childCount !== b.childCount) return false;
+  for (let row = 0; row < a.childCount; row++) {
+    const left = a.child(row);
+    const right = b.child(row);
+    if (left === right) continue;
+    if (left.childCount !== right.childCount) return false;
+    for (let column = 0; column < left.childCount; column++) {
+      const from = left.child(column);
+      const to = right.child(column);
+      if (from === to) continue;
+      if (from.attrs['colspan'] !== to.attrs['colspan']) return false;
+      if (from.attrs['rowspan'] !== to.attrs['rowspan']) return false;
+      if (
+        !sameWidthList(
+          from.attrs['colwidth'] as number[] | null,
+          to.attrs['colwidth'] as number[] | null,
+        )
+      ) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+function sameWidthList(a: number[] | null, b: number[] | null): boolean {
+  if (a === b) return true;
+  if (!a || !b || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+/** Window-level pointer tracking for the life of a drag: move is coalesced
+    to animation frames so a 120 Hz stream cannot write the line more than
+    once per paint; up/cancel apply the last event immediately. */
+function trackPointer(
+  preview: (event: PointerEvent) => void,
+  finish: (event: PointerEvent) => void,
+): void {
+  let frame = 0;
+  let last: PointerEvent | null = null;
+  const onMove = (event: PointerEvent) => {
+    last = event;
+    if (frame) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      if (last) preview(last);
+    });
+  };
+  const onUp = (event: PointerEvent) => {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', onUp);
+    if (frame) cancelAnimationFrame(frame);
+    finish(event);
+  };
+  window.addEventListener('pointermove', onMove, { passive: true });
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
 }
 
 /** Grows or shrinks `parent` to exactly `count` children of `tag`, reusing

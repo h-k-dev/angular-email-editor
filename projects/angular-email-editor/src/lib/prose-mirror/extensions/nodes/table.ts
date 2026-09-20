@@ -7,7 +7,7 @@ import {
   TextSelection,
   Transaction,
 } from 'prosemirror-state';
-import { Node, ResolvedPos, Schema } from 'prosemirror-model';
+import { Fragment, Node, ResolvedPos, Schema } from 'prosemirror-model';
 import { EditorView } from 'prosemirror-view';
 import { keymap } from 'prosemirror-keymap';
 import { chainCommands } from 'prosemirror-commands';
@@ -393,7 +393,8 @@ export const Table = defineNode({
     ],
   },
   commands: ({ schema }) => ({
-    insertTable: (rows = 2, cols = 2): Command => insertTableFocused(schema, rows, cols),
+    /** The default shape is the one /table inserts — three rows by two. */
+    insertTable: (rows = 3, cols = 2): Command => insertTableFocused(schema, rows, cols),
     // Selection-relative structure edits, straight from the library: each one
     // understands merged cells and multi-cell selections for free. The
     // add-column pair is wrapped: on a table with declared widths, the library
@@ -448,6 +449,14 @@ export const Table = defineNode({
         reach this without asking for it: `setAlignment` aligns the cell when
         there is no paragraph to align (see email-paragraph.ts). */
     setCellAlignment: (align: CellAlignment): Command => setCellAttr('align', align),
+    /** Move the selected row(s) one place up or down — the row grip's menu.
+        Refuses where a merged cell crosses the boundary it would pass. */
+    moveRow: (offset: number): Command => moveRow(offset),
+    /** Move the selected column(s) one place left or right. */
+    moveColumn: (offset: number): Command => moveColumn(offset),
+    /** Copy the selected row(s) directly below, the column(s) to the right. */
+    duplicateRow: (): Command => duplicateRow(),
+    duplicateColumn: (): Command => duplicateColumn(),
     /** Align it down the cell's height — top, middle or bottom. */
     setCellVerticalAlign: (valign: CellVerticalAlignment): Command => setCellAttr('valign', valign),
   }),
@@ -487,7 +496,13 @@ export const Table = defineNode({
       // ancestor — the row — and Enter grows the table. Both bindings live
       // here (not on the extensions that own them) because the cell is
       // isolating, which makes the generic handlers refuse it.
-      Enter: breakInCell,
+      // Yield to a slash / token menu when one is open: these bindings live
+      // in `plugins` so they beat `tableEditing`, which also puts them
+      // *ahead* of later extension plugins (the menu). A single-line cell
+      // is always `endOfTextblock` up and down, so without the yield the
+      // table would steal ArrowDown and walk to the next cell. Enter would
+      // insert a break instead of applying the highlighted row.
+      Enter: yieldToSuggestion(breakInCell),
       'Shift-Enter': breakInCell,
       // Select-all is scoped to the unit being edited: from inside a cell it
       // selects that cell's text, never the whole document. An *empty* cell
@@ -497,8 +512,8 @@ export const Table = defineNode({
       'Mod-a': selectCellContent,
       ArrowLeft: cellArrow('horiz', -1),
       ArrowRight: cellArrow('horiz', 1),
-      ArrowUp: cellArrow('vert', -1),
-      ArrowDown: chainCommands(escapeTableDown, cellArrow('vert', 1)),
+      ArrowUp: yieldToSuggestion(cellArrow('vert', -1)),
+      ArrowDown: yieldToSuggestion(chainCommands(escapeTableDown, cellArrow('vert', 1))),
       'Shift-ArrowLeft': cellShiftArrow('horiz', -1),
       'Shift-ArrowRight': cellShiftArrow('horiz', 1),
       'Shift-ArrowUp': cellShiftArrow('vert', -1),
@@ -533,20 +548,24 @@ export const Table = defineNode({
   // The editor-only grid shown while editing is not the table's own business:
   // `LayoutGuides` marks whichever layout block (table *or* columns) holds the
   // cursor, so both structures reveal themselves identically.
+  // Three rows by two: a table asked for by name starts with somewhere to
+  // write a heading line and two entries under it, which is what an email
+  // table almost always turns out to be. A picker (the app's grid) says its
+  // own size; this is only what `/table` means on its own.
   actions: ({ schema }) => [
     {
       id: 'table',
       title: 'Table',
       keywords: ['table', 'grid', 'rows', 'columns'],
       icon: 'table_chart',
-      command: insertTableFocused(schema, 2, 2),
+      command: insertTableFocused(schema, 3, 2),
     },
     {
       id: 'bordered-table',
       title: 'Bordered table',
       keywords: ['bordered-table', 'table', 'borders', 'grid', 'excel', 'lines'],
       icon: 'grid_on',
-      command: insertTableFocused(schema, 2, 2, TABLE_BORDER_COLOR),
+      command: insertTableFocused(schema, 3, 2, TABLE_BORDER_COLOR),
     },
   ],
 });
@@ -749,6 +768,208 @@ export function addRowAtEnd(tablePos: number): Command {
   };
 }
 
+/**
+ * Selects a whole row (or column) of the table at `tablePos` — what a grip
+ * on the row's flank does when it is pressed.
+ *
+ * The selection is the handle's whole trick: once the row is a
+ * {@link CellSelection}, every command the menu offers is the ordinary
+ * selection-relative one — insert, delete, fill, align — and the row lights
+ * up while its menu is open, which is the feedback the gesture needs. The
+ * library builds the selection out of the two cells at the row's ends, which
+ * is also how a shift-drag across the row ends up.
+ */
+export function selectRow(tablePos: number, index: number): Command {
+  return selectBand(tablePos, index, 'row');
+}
+
+/** The column twin. */
+export function selectColumn(tablePos: number, index: number): Command {
+  return selectBand(tablePos, index, 'column');
+}
+
+function selectBand(tablePos: number, index: number, kind: 'row' | 'column'): Command {
+  return (state, dispatch) => {
+    const table = state.doc.nodeAt(tablePos);
+    if (!table || table.type.name !== 'table') return false;
+    const map = TableMap.get(table);
+    const last = kind === 'row' ? map.height : map.width;
+    if (index < 0 || index >= last) return false;
+    const start = tablePos + 1;
+    const first = kind === 'row' ? map.map[index * map.width] : map.map[index];
+    const end =
+      kind === 'row'
+        ? map.map[index * map.width + map.width - 1]
+        : map.map[(map.height - 1) * map.width + index];
+    if (dispatch) {
+      const $anchor = state.doc.resolve(start + first);
+      const $head = state.doc.resolve(start + end);
+      const selection =
+        kind === 'row'
+          ? CellSelection.rowSelection($anchor, $head)
+          : CellSelection.colSelection($anchor, $head);
+      dispatch(state.tr.setSelection(selection).scrollIntoView());
+    }
+    return true;
+  };
+}
+
+/**
+ * Moves the selected row one place up or down (`offset` −1 or 1) — the
+ * menu's Move row up/down, and the gesture a grip exists for.
+ *
+ * Rows move as whole nodes: the table's children are reordered and written
+ * back in one transaction, so nothing is re-derived and the move is one undo
+ * step. A merged cell reaching across either boundary makes the move a lie —
+ * the grid would have to be rebuilt around it, and "move" is not a promise
+ * to restructure — so the command refuses, and the menu item shows disabled.
+ */
+export function moveRow(offset: number): Command {
+  return (state, dispatch) => {
+    if (!isInTable(state)) return false;
+    const rect = selectedRect(state);
+    const { map, table, tableStart } = rect;
+    const from = rect.top;
+    const to = rect.bottom - 1 + offset;
+    if (to < 0 || to >= map.height || from + offset < 0) return false;
+    // Every boundary the block crosses, and its own two, must be clean.
+    for (const row of [rect.top, rect.bottom, offset < 0 ? from + offset : to + 1]) {
+      if (!isRowBoundaryClean(map, row)) return false;
+    }
+    if (dispatch) {
+      const rows: Node[] = [];
+      table.forEach((row) => rows.push(row));
+      const block = rows.splice(rect.top, rect.bottom - rect.top);
+      rows.splice(rect.top + offset, 0, ...block);
+      const tr = state.tr.replaceWith(tableStart, tableStart + table.content.size, rows);
+      // The band travels with its selection: it stays lit where it landed,
+      // and the next press on Move moves the same rows again.
+      reselectBand(tr, tableStart, 'row', rect.top + offset, rect.bottom - rect.top);
+      dispatch(tr.scrollIntoView());
+    }
+    return true;
+  };
+}
+
+/** Puts the selection back over a band of rows or columns after its table's
+    content has been rewritten — the moved block, at its new index. */
+function reselectBand(
+  tr: Transaction,
+  tableStart: number,
+  kind: 'row' | 'column',
+  start: number,
+  length: number,
+): void {
+  const table = tr.doc.nodeAt(tableStart - 1);
+  if (!table) return;
+  const map = TableMap.get(table);
+  const end = start + length - 1;
+  const first = kind === 'row' ? map.map[start * map.width] : map.map[start];
+  const last =
+    kind === 'row'
+      ? map.map[end * map.width + map.width - 1]
+      : map.map[(map.height - 1) * map.width + end];
+  const $anchor = tr.doc.resolve(tableStart + first);
+  const $head = tr.doc.resolve(tableStart + last);
+  tr.setSelection(
+    kind === 'row'
+      ? CellSelection.rowSelection($anchor, $head)
+      : CellSelection.colSelection($anchor, $head),
+  );
+}
+
+/** Duplicates the selected row (or rows) straight below — the menu's
+    Duplicate row. Refused where a merged cell crosses the block's edges, for
+    the same reason a move is. */
+export function duplicateRow(): Command {
+  return (state, dispatch) => {
+    if (!isInTable(state)) return false;
+    const rect = selectedRect(state);
+    const { map, table, tableStart } = rect;
+    if (!isRowBoundaryClean(map, rect.top) || !isRowBoundaryClean(map, rect.bottom)) return false;
+    if (dispatch) {
+      const rows: Node[] = [];
+      table.forEach((row) => rows.push(row));
+      const copy = rows.slice(rect.top, rect.bottom).map((row) => row.copy(row.content));
+      rows.splice(rect.bottom, 0, ...copy);
+      dispatch(
+        state.tr.replaceWith(tableStart, tableStart + table.content.size, rows).scrollIntoView(),
+      );
+    }
+    return true;
+  };
+}
+
+/** The column twins. A column is not a node — it is one cell per row — so
+    these rebuild every row with its cells reordered (or copied), which is
+    exactly what the browser's own column-less table model forces. The same
+    span rule applies: a cell spanning a boundary the column crosses refuses
+    the move. */
+export function moveColumn(offset: number): Command {
+  return columnEdit((cells, rect) => {
+    const block = cells.splice(rect.left, rect.right - rect.left);
+    cells.splice(rect.left + offset, 0, ...block);
+  }, offset);
+}
+
+export function duplicateColumn(): Command {
+  return columnEdit((cells, rect) => {
+    const copy = cells.slice(rect.left, rect.right).map((cell) => cell.copy(cell.content));
+    cells.splice(rect.right, 0, ...copy);
+  }, 0);
+}
+
+function columnEdit(edit: (cells: Node[], rect: TableRect) => void, offset: number): Command {
+  return (state, dispatch) => {
+    if (!isInTable(state)) return false;
+    const rect = selectedRect(state);
+    const { map, table, tableStart } = rect;
+    const target = offset < 0 ? rect.left + offset : rect.right - 1 + offset;
+    if (target < 0 || target >= map.width) return false;
+    // Cleanliness is per column boundary, checked across every row — and a
+    // row whose cells do not simply line up one per column (a rowspan from
+    // above) has no cell of its own to move.
+    for (const col of [rect.left, rect.right, offset < 0 ? rect.left + offset : target + 1]) {
+      if (!isColumnBoundaryClean(map, col)) return false;
+    }
+    for (let row = 0; row < map.height; row++) {
+      if (table.child(row).childCount !== map.width) return false;
+    }
+    if (dispatch) {
+      const rows: Node[] = [];
+      table.forEach((row) => {
+        const cells: Node[] = [];
+        row.forEach((cell) => cells.push(cell));
+        edit(cells, rect);
+        rows.push(row.copy(Fragment.fromArray(cells)));
+      });
+      const tr = state.tr.replaceWith(tableStart, tableStart + table.content.size, rows);
+      reselectBand(tr, tableStart, 'column', rect.left + offset, rect.right - rect.left);
+      dispatch(tr.scrollIntoView());
+    }
+    return true;
+  };
+}
+
+/** Whether the horizontal line above row `index` cuts no merged cell — the
+    table's own top and bottom edges always do. */
+function isRowBoundaryClean(map: TableMap, index: number): boolean {
+  if (index <= 0 || index >= map.height) return true;
+  for (let col = 0; col < map.width; col++) {
+    if (map.map[(index - 1) * map.width + col] === map.map[index * map.width + col]) return false;
+  }
+  return true;
+}
+
+/** The vertical twin. */
+function isColumnBoundaryClean(map: TableMap, index: number): boolean {
+  if (index <= 0 || index >= map.width) return true;
+  for (let row = 0; row < map.height; row++) {
+    if (map.map[row * map.width + index - 1] === map.map[row * map.width + index]) return false;
+  }
+  return true;
+}
+
 function buildTable(schema: Schema, rows: number, cols: number, border: string | null): Node {
   const cellType = schema.nodes['tableCell'];
   const rowType = schema.nodes['tableRow'];
@@ -826,6 +1047,22 @@ export const deleteFullySelected: Command = (state, dispatch) => {
   if (fullHeight) return deleteColumn(state, dispatch);
   return false;
 };
+
+/** A suggestion menu (slash, tokens, …) is open at the caret — its plugin
+    state carries a `session`. Those keys are the menu's, not the table's. */
+function suggestionMenuIsOpen(state: EditorState): boolean {
+  for (const plugin of state.plugins) {
+    const value = plugin.getState(state) as { session?: unknown } | undefined;
+    if (value?.session) return true;
+  }
+  return false;
+}
+
+/** Runs `command` only when no suggestion menu is claiming the key. */
+function yieldToSuggestion(command: Command): Command {
+  return (state, dispatch, view) =>
+    suggestionMenuIsOpen(state) ? false : command(state, dispatch, view);
+}
 
 type Axis = 'horiz' | 'vert';
 

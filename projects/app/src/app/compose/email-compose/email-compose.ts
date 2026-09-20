@@ -29,6 +29,7 @@ import type { FormValueControl } from '@angular/forms/signals';
 import { DropHint, DropHintArt } from '../drop-hint/drop-hint';
 import { isTyping, releaseEditingSurface } from '../is-typing';
 import { BlockMenu } from './block-menu/block-menu';
+import { TableMenu } from './table-menu/table-menu';
 import { BubbleMenu } from './bubble-menu/bubble-menu';
 import { FormattingCommands } from './formatting-commands';
 import { FormattingToolbar } from './formatting-toolbar/formatting-toolbar';
@@ -44,6 +45,7 @@ import { templateGroup } from './template-group';
 // Library
 import {
   BlockMenuState,
+  TableHandleTarget,
   BubbleMenuState,
   Editor,
   SendIntent,
@@ -51,6 +53,7 @@ import {
   TextMetrics,
   caretInsideMergeTag,
   createBlockMenu,
+  createTableHandles,
   createBubbleMenu,
   createContentStream,
   createEditor,
@@ -91,6 +94,7 @@ export type SourceView = 'hidden' | 'code' | 'detached';
 
     AngularFileDrop,
     BlockMenu,
+    TableMenu,
     BubbleMenu,
     DropHint,
     FormattingToolbar,
@@ -234,6 +238,7 @@ export class EmailCompose implements FormValueControl<string> {
   /** The floating menus and the link editor: the extensions place the
       first two through their state, the link items open the third. */
   protected readonly blockMenu = viewChild.required(BlockMenu);
+  protected readonly tableMenu = viewChild.required(TableMenu);
   protected readonly linkEditor = viewChild.required(LinkEditor);
 
   /** The email editor, once mounted — the formatting commands' own. */
@@ -257,6 +262,11 @@ export class EmailCompose implements FormValueControl<string> {
     boundingBox: null,
     block: null,
   });
+
+  /** Which table grip was pressed, and where it sits: the row or column
+      menu opens on it, and clears when the menu closes. Its band stays
+      selected either way. */
+  protected readonly tableHandle = signal<TableHandleTarget | null>(null);
 
   /** Body stats measured mathematically via pretext — no DOM reads. */
   bodyMetrics = signal<TextMetrics | undefined>(undefined);
@@ -333,6 +343,19 @@ export class EmailCompose implements FormValueControl<string> {
         createBlockMenu({
           onStateChange: (state) => this.blockMenuState.set(state),
           menuElement: () => this.blockMenu().element()?.nativeElement,
+        }),
+        // The grips on each row's flank and above each column: pressing one
+        // selects that band and hands the menu its target. Every command the
+        // menu then runs is selection-relative, which is why the two halves
+        // need nothing of each other.
+        createTableHandles({
+          onOpen: (target) => this.tableHandle.set(target),
+          label: (kind, number) =>
+            this.i18n.t(
+              `editor.table.${kind}Options`,
+              kind === 'row' ? `Row ${number} options` : `Column ${number} options`,
+              { number },
+            ),
         }),
         // One suggestion menu, a trigger per list: `/` for the kit's commands
         // and the Templates group, `{{` for the variable catalogue — and any

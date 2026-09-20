@@ -1,0 +1,52 @@
+<!-- The anchor: an element kept over the grip that was pressed, for the
+     overlay to attach to. -->
+<span
+  [emailAnchor]="target()?.boundingBox ?? null"
+  cdkOverlayOrigin
+  #origin="cdkOverlayOrigin"
+></span>
+
+<!-- disableClose, as the block menu does: Escape is ours (it closes the menu
+     *and* hands the caret back), and a CDK detach would strand the open
+     state. A click outside closes it — the band stays selected, so nothing
+     is lost by the menu going away. -->
+<ng-template
+  cdkConnectedOverlay
+  [cdkConnectedOverlayOrigin]="origin"
+  [cdkConnectedOverlayOpen]="!!target()"
+  [cdkConnectedOverlayPositions]="positions()"
+  [cdkConnectedOverlayHasBackdrop]="false"
+  [cdkConnectedOverlayDisableClose]="true"
+  [cdkConnectedOverlayPush]="true"
+  [cdkConnectedOverlayViewportMargin]="8"
+  (overlayOutsideClick)="closed.emit()"
+>
+  <div
+    class="table-menu"
+    #menu
+    role="menu"
+    [attr.aria-label]="isRow() ? 'Row options' : 'Column options'"
+    emailKeepFocus
+    (keydown.escape)="leave()"
+  >
+    <button class="table-menu__item" type="button" role="menuitem" (click)="insert('before')">
+      <mat-icon>{{ isRow() ? 'vertical_align_top' : 'first_page' }}</mat-icon>
+      <span>{{ isRow() ? 'Insert row above' : 'Insert column left' }}</span>
+    </button>
+    <button class="table-menu__item" type="button" role="menuitem" (click)="insert('after')">
+      <mat-icon>{{ isRow() ? 'vertical_align_bottom' : 'last_page' }}</mat-icon>
+      <span>{{ isRow() ? 'Insert row below' : 'Insert column right' }}</span>
+    </button>
+
+    <div class="table-menu__separator" role="separator"></div>
+
+    <button class="table-menu__item" type="button" role="menuitem" (click)="duplicate()">
+      <mat-icon>content_copy</mat-icon>
+      <span>{{ isRow() ? 'Duplicate row' : 'Duplicate column' }}</span>
+    </button>
+    <button class="table-menu__item" type="button" role="menuitem" (click)="remove()">
+      <mat-icon>delete_outline</mat-icon>
+      <span>{{ isRow() ? 'Delete row' : 'Delete column' }}</span>
+    </button>
+  </div>
+</ng-template>

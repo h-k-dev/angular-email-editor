@@ -6,6 +6,7 @@
 <div link-editor></div>
 <div bubble-menu [state]="bubbleMenuState()"></div>
 <div block-menu [state]="blockMenuState()"></div>
+<div table-menu [target]="tableHandle()" (closed)="tableHandle.set(null)"></div>
 
 <!-- The body: the editing surface, or the source in its place, and the hint
      that overlays whichever shows. A wrapper because the hint has to cover

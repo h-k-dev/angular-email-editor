@@ -7,7 +7,7 @@ import { lintHTML } from '../../html-source';
 import { emailExtensions } from '../kits';
 import { isActionEnabled } from '../../extension';
 import { EmailParagraph } from './email-paragraph';
-import { TABLE_BORDER_COLOR, Table, findTableContext } from './table';
+import { TABLE_BORDER_COLOR, Table, findTableContext, selectColumn, selectRow } from './table';
 
 const schema = createSchema(emailExtensions);
 const canonical = (html: string) => serializeToHTML(parseHTML(html, schema), schema);
@@ -172,22 +172,23 @@ describe('table editing', () => {
     return ctx ? { rows: ctx.rows, cols: ctx.cols } : null;
   };
 
-  it('inserts a 2x2 table with the cursor inside the first cell', () => {
+  it('inserts a table with the cursor inside the first cell', () => {
     editor.commands['insertTable']();
-    expect(dims()).toEqual({ rows: 2, cols: 2 });
+    // Three rows by two, the shape a table asked for by name starts with.
+    expect(dims()).toEqual({ rows: 3, cols: 2 });
     expect(editor.state.selection.$from.parent.type.name).toBe('tableCell');
   });
 
   it('adds and deletes columns and rows', () => {
-    editor.commands['insertTable']();
+    editor.commands['insertTable'](); // 3 x 2
     editor.commands['addColumnAfter']();
-    expect(dims()).toEqual({ rows: 2, cols: 3 });
-    editor.commands['addRowAfter']();
     expect(dims()).toEqual({ rows: 3, cols: 3 });
+    editor.commands['addRowAfter']();
+    expect(dims()).toEqual({ rows: 4, cols: 3 });
     editor.commands['deleteColumn']();
-    expect(dims()).toEqual({ rows: 3, cols: 2 });
+    expect(dims()).toEqual({ rows: 4, cols: 2 });
     editor.commands['deleteRow']();
-    expect(dims()).toEqual({ rows: 2, cols: 2 });
+    expect(dims()).toEqual({ rows: 3, cols: 2 });
   });
 
   it('setCellBackground fills only the current cell with a canonical rgb() bg', () => {
@@ -224,7 +225,9 @@ describe('table editing', () => {
     )!;
     editor.exec(item.command!);
     let html = editor.getHTML();
-    expect((html.match(/border: 1px solid rgb\(208, 215, 229\);/g) || []).length).toBe(4);
+    // Asked for by name, a table starts three rows by two.
+    expect(dims()).toEqual({ rows: 3, cols: 2 });
+    expect((html.match(/border: 1px solid rgb\(208, 215, 229\);/g) || []).length).toBe(6);
     expect(canonical(html)).toBe(html);
     expect(lintHTML(html)).toEqual([]);
 
@@ -233,8 +236,8 @@ describe('table editing', () => {
     editor.commands['addRowAfter']();
     editor.commands['addColumnAfter']();
     html = editor.getHTML();
-    expect(dims()).toEqual({ rows: 3, cols: 3 });
-    expect((html.match(/border: 1px solid rgb\(208, 215, 229\);/g) || []).length).toBe(9);
+    expect(dims()).toEqual({ rows: 4, cols: 3 });
+    expect((html.match(/border: 1px solid rgb\(208, 215, 229\);/g) || []).length).toBe(12);
     expect(html).toContain(TABLE_BORDER_COLOR);
   });
 
@@ -377,6 +380,88 @@ describe('table editing', () => {
       return true;
     });
 
+  /** A table whose cells say where they are, so a move can be read off the
+      serialized row order. */
+  const lettered = (rows: number, cols: number) => {
+    const cells = (r: number) =>
+      Array.from({ length: cols }, (_, c) => `<td>${'abc'[r]}${c + 1}</td>`).join('');
+    const body = Array.from({ length: rows }, (_, r) => `<tr>${cells(r)}</tr>`).join('');
+    editor.setContent(`<table><tbody>${body}</tbody></table>`);
+  };
+  const text = () => (editor.getHTML().match(/>([a-c]\d)</g) || []).map((m) => m.slice(1, -1));
+  /** Where the document's first table sits. */
+  const tableAt = () => {
+    let found = -1;
+    editor.state.doc.descendants((node, pos) => {
+      if (found < 0 && node.type.name === 'table') found = pos;
+      return found < 0;
+    });
+    return found;
+  };
+
+  it('a grip selects its whole row, and its whole column', () => {
+    lettered(3, 3);
+    editor.exec(selectRow(tableAt(), 1));
+    let cells: string[] = [];
+    (editor.state.selection as CellSelection).forEachCell((cell) => cells.push(cell.textContent));
+    expect(cells).toEqual(['b1', 'b2', 'b3']);
+
+    cells = [];
+    editor.exec(selectColumn(tableAt(), 2));
+    (editor.state.selection as CellSelection).forEachCell((cell) => cells.push(cell.textContent));
+    expect(cells).toEqual(['a3', 'b3', 'c3']);
+  });
+
+  it('moves the selected row up and down, and stops at the ends', () => {
+    lettered(3, 2);
+    editor.exec(selectRow(tableAt(), 1));
+    expect(editor.commands['moveRow'](-1)).toBe(true);
+    expect(text()).toEqual(['b1', 'b2', 'a1', 'a2', 'c1', 'c2']);
+
+    // The moved row keeps the selection, so the next press moves it again —
+    // and the first row has nowhere further to go.
+    expect(editor.commands['moveRow'](-1)).toBe(false);
+    expect(editor.commands['moveRow'](1)).toBe(true);
+    expect(text()).toEqual(['a1', 'a2', 'b1', 'b2', 'c1', 'c2']);
+  });
+
+  it('moves the selected column, and duplicates rows and columns', () => {
+    lettered(2, 3);
+    editor.exec(selectColumn(tableAt(), 0));
+    expect(editor.commands['moveColumn'](1)).toBe(true);
+    expect(text()).toEqual(['a2', 'a1', 'a3', 'b2', 'b1', 'b3']);
+
+    editor.exec(selectRow(tableAt(), 0));
+    expect(editor.commands['duplicateRow']()).toBe(true);
+    expect(text()).toEqual(['a2', 'a1', 'a3', 'a2', 'a1', 'a3', 'b2', 'b1', 'b3']);
+
+    editor.exec(selectColumn(tableAt(), 0));
+    expect(editor.commands['duplicateColumn']()).toBe(true);
+    expect(text().slice(0, 4)).toEqual(['a2', 'a2', 'a1', 'a3']);
+  });
+
+  it('moves a merged block whole, and never into the middle of one', () => {
+    // A rowspan tying the first two rows together. Grabbing either of them
+    // grabs the pair — a cell selection covers whole cells — so the pair is
+    // what moves, and the grid comes through intact.
+    editor.setContent(
+      '<table><tbody><tr><td rowspan="2">tall</td><td>a2</td></tr>' +
+        '<tr><td>b2</td></tr><tr><td>c1</td><td>c2</td></tr></tbody></table>',
+    );
+    editor.exec(selectRow(tableAt(), 1));
+    expect(editor.commands['moveRow'](1)).toBe(true);
+    // The last row is now first, the pair below it, still tied together.
+    expect(text()).toEqual(['c1', 'c2', 'a2', 'b2']);
+    expect(editor.getHTML()).toContain('rowspan="2"');
+    expect(editor.getHTML().indexOf('c1')).toBeLessThan(editor.getHTML().indexOf('tall'));
+
+    // The single row, moved back up, would land inside the pair: that
+    // boundary cuts a cell, and there is no honest move across it.
+    editor.exec(selectRow(tableAt(), 0));
+    expect(editor.commands['moveRow'](1)).toBe(false);
+    expect(editor.getHTML()).toContain('rowspan="2"');
+  });
+
   it('merges a cell selection into one cell and splits it back', () => {
     editor.commands['insertTable']();
     const [first, second] = cellPositions();
@@ -384,8 +469,8 @@ describe('table editing', () => {
 
     editor.commands['mergeCells']();
     expect(editor.getHTML()).toContain('colspan="2"');
-    // The grid is still 2x2 — a merged cell spans it, it does not shrink it.
-    expect(dims()).toEqual({ rows: 2, cols: 2 });
+    // The grid is unchanged — a merged cell spans it, it does not shrink it.
+    expect(dims()).toEqual({ rows: 3, cols: 2 });
 
     editor.commands['splitCell']();
     expect(editor.getHTML()).not.toContain('colspan');

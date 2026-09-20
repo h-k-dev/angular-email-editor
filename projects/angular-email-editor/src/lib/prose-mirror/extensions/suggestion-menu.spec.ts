@@ -109,6 +109,18 @@ describe('createSuggestionMenu — the / menu', () => {
     expect(menu.hasAttribute('style')).toBe(false);
   });
 
+  it('keeps the arrows inside a table cell — the menu wins, not the next cell', () => {
+    editor.commands['insertTable'](3, 2);
+    type('/');
+    expect(state?.open).toBe(true);
+    const from = editor.state.selection.from;
+
+    keydown('ArrowDown');
+    expect(state?.open).toBe(true);
+    expect(state?.activeIndex).toBe(1);
+    expect(editor.state.selection.from).toBe(from);
+  });
+
   it('navigates with arrows and applies with Enter, removing the query text', () => {
     type('/head');
     keydown('ArrowDown');

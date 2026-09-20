@@ -328,8 +328,9 @@ describe('html-source formatter — 80 characters', () => {
     );
     expect(canonicalEmail(formatHTML(columns))).toBe(canonicalEmail(columns));
 
-    // The button: a block-level anchor whose label lands on its own line — and
-    // whose parse collapses it back (parsing is repair).
+    // The button: a wide-style anchor whose label lands on its own line — and
+    // whose parse collapses it back (parsing is repair). Canonical wraps a
+    // lone button in a div: the node is inline, like an image.
     const button =
       '<a href="https://x.io" style="display: inline-block; background-color: rgb(26, 115, 232); color: rgb(255, 255, 255); font-weight: bold; text-decoration: none; border-width: 14px 28px; border-style: solid; border-color: rgb(26, 115, 232);">Shop now</a>';
     const formatted = formatHTML(button);
@@ -350,7 +351,7 @@ describe('html-source formatter — 80 characters', () => {
       '  Shop now',
       '</a>',
     ]);
-    expect(canonicalEmail(formatted)).toBe(button);
+    expect(canonicalEmail(formatted)).toBe(canonicalEmail(button));
   });
 
   it('keeps content that fits on one line, and honours a custom width', () => {
