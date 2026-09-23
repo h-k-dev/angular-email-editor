@@ -12,16 +12,20 @@ import { Directive, ElementRef, inject } from '@angular/core';
  * attribute is a fight nobody wins. This keeps to the keys, and leaves the
  * attributes to the tools. Every tool stays a Tab stop.
  *
- * Applied as a host directive of the toolbar. A menu trigger's own keys
- * (Down, Enter, Space open it) are not among these, so the two never meet.
+ * Applied as a host directive of the toolbar, or as `appToolbarKeys` on a
+ * toolbar element of a template (the bubble menu's). A menu trigger's own
+ * keys (Down, Enter, Space open it) are not among these, so the two never
+ * meet. Left and Right follow the reading direction: in a right-to-left
+ * toolbar, Left is the next tool.
  */
-@Directive({ host: { '(keydown)': 'onKeydown($event)' } })
+@Directive({ selector: '[appToolbarKeys]', host: { '(keydown)': 'onKeydown($event)' } })
 export class ToolbarKeys {
   readonly #host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
   protected onKeydown(event: KeyboardEvent): void {
-    const step = STEPS[event.key];
+    let step = STEPS[event.key];
     if (step === undefined || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (typeof step === 'number' && getComputedStyle(this.#host).direction === 'rtl') step = -step as 1 | -1;
     const tools = this.#tools();
     const at = tools.indexOf(event.target as HTMLButtonElement);
     if (at < 0 || tools.length < 2) return;

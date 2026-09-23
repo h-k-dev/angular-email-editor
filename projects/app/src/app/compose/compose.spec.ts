@@ -260,6 +260,54 @@ describe('Compose', () => {
     expect(pane.value()).toContain('href="https://example.com"');
   });
 
+  it('the link editor selects its field as it opens; Escape closes from any of it, never an IME’s', async () => {
+    const root = fixture.nativeElement as HTMLElement;
+    const pane = (component as any).sheet().emailPane();
+    pane.value.set('<p>see the docs</p>');
+    await fixture.whenStable();
+    const editor = pane.editor();
+    vi.spyOn(editor.view, 'coordsAtPos').mockReturnValue({
+      left: 40,
+      right: 40,
+      top: 100,
+      bottom: 120,
+    });
+    editor.view.dispatch(
+      editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 9, 13)),
+    );
+    await fixture.whenStable();
+
+    const dialog = () => document.querySelector('[role="dialog"][aria-label="Edit link"]');
+    const openIt = async () => {
+      (root.querySelector('.toolbar [aria-label="Link"]') as HTMLButtonElement).click();
+      await fixture.whenStable();
+    };
+    const key = (target: Element, key: string, init: KeyboardEventInit = {}) =>
+      target.dispatchEvent(
+        new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init }),
+      );
+
+    await openIt();
+    const input = dialog()!.querySelector('input') as HTMLInputElement;
+    expect(document.activeElement).toBe(input);
+    expect(input.getAttribute('dir')).toBe('ltr');
+
+    // An IME's Enter confirms its text; it neither applies nor closes.
+    input.value = 'example.com';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    key(input, 'Enter', { isComposing: true });
+    key(input, 'Escape', { isComposing: true });
+    await fixture.whenStable();
+    expect(dialog()).not.toBeNull();
+    expect(pane.value()).not.toContain('href=');
+
+    // Escape on the Apply button closes too, and applies nothing.
+    key(dialog()!.querySelector('[aria-label="Apply link"]')!, 'Escape');
+    await fixture.whenStable();
+    expect(dialog()).toBeNull();
+    expect(pane.value()).not.toContain('href=');
+  });
+
   it('detach shows the HTML source beside the editor; the two buttons switch each other', async () => {
     const root = fixture.nativeElement as HTMLElement;
     // The pane's home is the page wrapper, which is also the .eml import

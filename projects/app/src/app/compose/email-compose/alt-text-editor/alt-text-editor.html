@@ -1,0 +1,44 @@
+<!-- The anchor: an element kept over the image's box, for the overlay to
+     attach to. -->
+<span [emailAnchor]="anchor()" cdkOverlayOrigin #origin="cdkOverlayOrigin"></span>
+
+<ng-template
+  cdkConnectedOverlay
+  [cdkConnectedOverlayOrigin]="origin"
+  [cdkConnectedOverlayOpen]="open()"
+  [cdkConnectedOverlayPositions]="positions"
+  [cdkConnectedOverlayHasBackdrop]="true"
+  cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop"
+  (backdropClick)="close()"
+  (overlayKeydown)="onKeydown($event)"
+  [cdkConnectedOverlayPush]="true"
+  [cdkConnectedOverlayViewportMargin]="8"
+>
+  <div
+    class="alt-text-editor"
+    role="dialog"
+    [attr.aria-label]="i18n.t('editor.image.altLabel', 'Alt text')"
+  >
+    <!-- The library does the rest: the alt in the field, Enter and Escape,
+         the caret back to the editor. `dir="auto"`: an alt in a
+         right-to-left script reads the right way round. -->
+    <input
+      class="alt-text-editor__input"
+      type="text"
+      dir="auto"
+      [attr.aria-label]="i18n.t('editor.image.altLabel', 'Alt text')"
+      [placeholder]="i18n.t('editor.image.altPlaceholder', 'Describe the image')"
+      [emailImageAlt]="editor()"
+      #alt="emailImageAlt"
+      (emailImageAltClosed)="open.set(false)"
+    />
+    <button
+      mat-icon-button
+      type="button"
+      [attr.aria-label]="i18n.t('editor.image.applyAlt', 'Apply alt text')"
+      (click)="alt.apply()"
+    >
+      <mat-icon>check</mat-icon>
+    </button>
+  </div>
+</ng-template>

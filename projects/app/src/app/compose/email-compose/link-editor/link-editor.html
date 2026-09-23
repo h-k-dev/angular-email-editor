@@ -10,29 +10,53 @@
   [cdkConnectedOverlayHasBackdrop]="true"
   cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop"
   (backdropClick)="close()"
+  (overlayKeydown)="onKeydown($event)"
   [cdkConnectedOverlayPush]="true"
   [cdkConnectedOverlayViewportMargin]="8"
 >
-  <div class="link-editor" role="dialog" aria-label="Edit link">
+  <div
+    class="link-editor"
+    role="dialog"
+    [attr.aria-label]="i18n.t('editor.link.dialog', 'Edit link')"
+  >
+    <!-- A URL reads left to right in every language: `dir="ltr"`, so an
+         address in a right-to-left interface keeps its order. The
+         placeholder is a hint, not a name — the label is its own. -->
     <input
       #input
       class="link-editor__input"
       type="url"
-      placeholder="Link URL"
+      dir="ltr"
       spellcheck="false"
+      [attr.aria-label]="i18n.t('editor.link.url', 'Link URL')"
+      [placeholder]="i18n.t('editor.link.url', 'Link URL')"
       [value]="href()"
       (input)="href.set($any($event.target).value)"
-      (keydown.enter)="apply()"
-      (keydown.escape)="close()"
+      (keydown.enter)="onEnter($event)"
     />
-    <button mat-icon-button type="button" aria-label="Apply link" (click)="apply()">
+    <button
+      mat-icon-button
+      type="button"
+      [attr.aria-label]="i18n.t('editor.link.apply', 'Apply link')"
+      (click)="apply()"
+    >
       <mat-icon>check</mat-icon>
     </button>
     @if (existing()) {
-      <button mat-icon-button type="button" aria-label="Open link" (click)="visit()">
+      <button
+        mat-icon-button
+        type="button"
+        [attr.aria-label]="i18n.t('editor.link.open', 'Open link')"
+        (click)="visit()"
+      >
         <mat-icon>open_in_new</mat-icon>
       </button>
-      <button mat-icon-button type="button" aria-label="Remove link" (click)="remove()">
+      <button
+        mat-icon-button
+        type="button"
+        [attr.aria-label]="i18n.t('editor.link.remove', 'Remove link')"
+        (click)="remove()"
+      >
         <mat-icon>link_off</mat-icon>
       </button>
     }

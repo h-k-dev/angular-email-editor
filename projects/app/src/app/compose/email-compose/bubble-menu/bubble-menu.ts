@@ -1,4 +1,5 @@
-import { Component, inject, input } from '@angular/core';
+import { Component, computed, inject, input } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 
 // Material
 import { MatButtonModule } from '@angular/material/button';
@@ -9,7 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
 
 // Library
-import { BubbleMenuState } from 'angular-email-editor';
+import { BubbleMenuState, selectedImageAlt } from 'angular-email-editor';
 import { ActionTrigger } from 'angular-email-editor/actions';
 import { Anchor } from 'angular-email-editor/anchor';
 import { KeepFocus } from 'angular-email-editor/focus';
@@ -17,11 +18,21 @@ import { KeepFocus } from 'angular-email-editor/focus';
 import { I18n } from '../../../../services/i18n';
 import { FormattingCommands } from '../formatting-commands';
 import { FormattingItem, FormattingLayout, layoutEntries } from '../formatting-items';
+import { ToolbarKeys } from '../formatting-toolbar/toolbar-keys';
 
 /** The bubble menu's groups: the marks, then what wraps the selection. */
 const LAYOUT: FormattingLayout = [
   ['bold', 'italic', 'underline', 'strike'],
   ['link', 'quote'],
+];
+
+/** An image alone gets its own tools instead: where it sits on its line
+    (the line's alignment — the image is inline), then swapping the file
+    and taking it out. The alt text leads, as a text button (see the
+    template). */
+const IMAGE_LAYOUT: FormattingLayout = [
+  ['align-left', 'align-center', 'align-right'],
+  ['replace-image', 'remove-image'],
 ];
 
 /**
@@ -36,6 +47,8 @@ const LAYOUT: FormattingLayout = [
 @Component({
   selector: 'div[bubble-menu]',
   imports: [
+    NgTemplateOutlet,
+
     // Material
     MatButtonModule,
     MatDividerModule,
@@ -48,6 +61,8 @@ const LAYOUT: FormattingLayout = [
     ActionTrigger,
     Anchor,
     KeepFocus,
+
+    ToolbarKeys,
   ],
   templateUrl: './bubble-menu.html',
   styleUrl: './bubble-menu.scss',
@@ -60,6 +75,26 @@ export class BubbleMenu {
   readonly #commands = inject(FormattingCommands);
 
   protected readonly entries = layoutEntries(this.#commands.items, LAYOUT);
+
+  protected readonly imageEntries = layoutEntries(this.#commands.items, IMAGE_LAYOUT);
+
+  protected readonly altItem = this.#commands.items['image-alt'];
+
+  /** The selected image's alt, shown on its button — so a missing one is
+      seen, not just editable. */
+  protected readonly alt = computed(() => {
+    const state = this.#commands.state();
+    return state ? selectedImageAlt(state) : null;
+  });
+
+  /** The alt button's name when it shows an alt: what the button is, then
+      what it says — one translatable phrase, so each language places the
+      two (and its own colon). Without an alt, the visible "Add alt text"
+      is the name. */
+  protected readonly altLabel = computed(() => {
+    const alt = this.alt();
+    return alt ? this.i18n.t('editor.image.altWithValue', `Alt text: ${alt}`, { alt }) : null;
+  });
 
   protected readonly i18n = inject(I18n);
 

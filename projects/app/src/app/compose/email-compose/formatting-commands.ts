@@ -4,7 +4,13 @@ import { Service, Signal, computed, inject, signal } from '@angular/core';
 import { redo, undo } from 'prosemirror-history';
 
 // Library
-import { Editor, findColumnContext, findTableContext, isMarkActive } from 'angular-email-editor';
+import {
+  Editor,
+  findColumnContext,
+  findTableContext,
+  isMarkActive,
+  selectedImage,
+} from 'angular-email-editor';
 import { editorState, injectActions } from 'angular-email-editor/actions';
 
 import { I18n } from '../../../services/i18n';
@@ -19,6 +25,8 @@ export interface FormattingHost {
   /** Opens the link editor, anchored at the text — the one formatting item
       that is a dialog, not a command. */
   openLink: () => void;
+  /** Opens the alt-text editor over the selected image. */
+  openAltText: () => void;
 }
 
 /**
@@ -73,6 +81,13 @@ export class FormattingCommands {
           const link = state.schema.marks['link'];
           return !!link && isMarkActive(state, link);
         },
+      },
+      // The image's alt, in the composer's own popover — only while an image
+      // is the whole selection.
+      {
+        id: 'image-alt',
+        run: () => this.#host()?.openAltText(),
+        isEnabled: (state) => !!selectedImage(state),
       },
     ],
   });

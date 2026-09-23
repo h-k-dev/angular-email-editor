@@ -34,6 +34,7 @@ import { BubbleMenu } from './bubble-menu/bubble-menu';
 import { FormattingCommands } from './formatting-commands';
 import { FormattingToolbar } from './formatting-toolbar/formatting-toolbar';
 import { LinkEditor } from './link-editor/link-editor';
+import { AltTextEditor } from './alt-text-editor/alt-text-editor';
 import { Templates } from '../../../services/templates';
 import { MergeTags } from '../../../services/merge-tags';
 import { Ai } from '../../../services/ai';
@@ -99,6 +100,7 @@ export type SourceView = 'hidden' | 'code' | 'detached';
     DropHint,
     FormattingToolbar,
     LinkEditor,
+    AltTextEditor,
     SuggestionMenu,
     SuggestionMenuItem,
   ],
@@ -240,6 +242,7 @@ export class EmailCompose implements FormValueControl<string> {
   protected readonly blockMenu = viewChild.required(BlockMenu);
   protected readonly tableMenu = viewChild.required(TableMenu);
   protected readonly linkEditor = viewChild.required(LinkEditor);
+  protected readonly altTextEditor = viewChild.required(AltTextEditor);
 
   /** The email editor, once mounted — the formatting commands' own. */
   readonly editor = this.#commands.editor;
@@ -300,6 +303,9 @@ export class EmailCompose implements FormValueControl<string> {
       codeView: this.codeView,
       codeEditor: this.codeEditor,
       openLink: () => this.linkEditor().show(),
+      // The bubble menu is open over the image when its alt button is
+      // pressed: its box is where the popover goes.
+      openAltText: () => this.altTextEditor().show(this.bubbleMenuState().boundingBox),
     });
 
     this.#destroyRef.onDestroy(() => this.editor()?.destroy());

@@ -1,5 +1,13 @@
-import { NodeSelection, Plugin, PluginKey } from 'prosemirror-state';
-import { EditorView, NodeView } from 'prosemirror-view';
+import {
+  Command,
+  EditorState,
+  NodeSelection,
+  Plugin,
+  PluginKey,
+  TextSelection,
+  Transaction,
+} from 'prosemirror-state';
+import { Decoration, DecorationSet, EditorView, NodeView } from 'prosemirror-view';
 import { DOMSerializer, Node, Schema } from 'prosemirror-model';
 import { FunctionalExtension, defineExtension, defineNode } from '../../extension';
 import { isSafeUrl } from '../marks/link';
@@ -568,6 +576,100 @@ class ImageView implements NodeView {
 }
 
 /**
+ * The image a selection holds and nothing else, or null: a click's node
+ * selection, or a range that covers the image alone — a drag from right
+ * beside it to right beside it, with no character, token or line break
+ * caught along the way. What an image's own chrome (a bubble menu, its
+ * actions) keys on; a range with text in it is a text selection.
+ */
+export function selectedImage(state: EditorState): { pos: number; node: Node } | null {
+  const { selection, doc } = state;
+  if (selection instanceof NodeSelection) {
+    return selection.node.type.name === 'image' ? { pos: selection.from, node: selection.node } : null;
+  }
+  if (selection.empty || !(selection instanceof TextSelection)) return null;
+  let image: { pos: number; node: Node } | null = null;
+  let other = false;
+  doc.nodesBetween(selection.from, selection.to, (node, pos) => {
+    if (other) return false;
+    if (node.type.name === 'image' && !image) image = { pos, node };
+    else if (node.isInline) other = true;
+    return !node.isInline;
+  });
+  return other ? null : image;
+}
+
+/** The selected image's alt text: `''` when it has none, `null` when no
+    image is the selection (see {@link selectedImage}). */
+export function selectedImageAlt(state: EditorState): string | null {
+  const image = selectedImage(state);
+  return image ? ((image.node.attrs['alt'] as string | null) ?? '') : null;
+}
+
+/** Keeps the selection an image edit started from: the node selection a
+    click made, or the range a drag made. A node replaced in place does not
+    map a node selection over itself, so it is set again. */
+function reselect(tr: Transaction, state: EditorState, pos: number): Transaction {
+  return state.selection instanceof NodeSelection
+    ? tr.setSelection(NodeSelection.create(tr.doc, pos))
+    : tr.setSelection(TextSelection.create(tr.doc, state.selection.from, state.selection.to));
+}
+
+/** Sets the selected image's alt text; empty or null takes it off. */
+const setImageAlt =
+  (alt: string | null): Command =>
+  (state, dispatch) => {
+    const image = selectedImage(state);
+    if (!image) return false;
+    const tr = state.tr.setNodeMarkup(image.pos, undefined, {
+      ...image.node.attrs,
+      alt: alt?.trim() || null,
+    });
+    dispatch?.(reselect(tr, state, image.pos));
+    return true;
+  };
+
+/** Deletes the selected image. */
+const removeImage: Command = (state, dispatch) => {
+  const image = selectedImage(state);
+  if (!image) return false;
+  dispatch?.(state.tr.delete(image.pos, image.pos + image.node.nodeSize).scrollIntoView());
+  return true;
+};
+
+/** Opens the picker and swaps the selected image's file, in place. The
+    frame stays the author's: a width they set is kept (the new picture
+    takes it, at its own ratio). The alt goes with the old picture, so the
+    new one's is the file's name — rewrite it after. Nothing happens if the
+    image has gone or moved by the time the file is read. */
+function replaceSelectedImage(view: EditorView): void {
+  const image = selectedImage(view.state);
+  if (!image) return;
+  void pickImageFiles(false).then(async ([file]) => {
+    if (!file || view.isDestroyed) return;
+    const picked = await readImageFile(file, inlineImageRegistry(view.state));
+    const { state } = view;
+    if (view.isDestroyed || state.doc.nodeAt(image.pos) !== image.node) return;
+    const tr = state.tr.setNodeMarkup(image.pos, undefined, {
+      ...image.node.attrs,
+      src: picked.src,
+      alt: picked.alt ?? null,
+      width: image.node.attrs['width'] ?? picked.width ?? null,
+    });
+    view.dispatch(reselect(tr, state, image.pos));
+  });
+}
+
+/** The position of the image whose wrapper holds a DOM point, or null. */
+function imageAt(view: EditorView, node: globalThis.Node): number | null {
+  const element = node.nodeType === 1 ? (node as Element) : node.parentElement;
+  const wrapper = element?.closest('.aee-image');
+  if (!wrapper || !view.dom.contains(wrapper)) return null;
+  const pos = view.posAtDOM(wrapper, 0);
+  return view.state.doc.nodeAt(pos)?.type.name === 'image' ? pos : null;
+}
+
+/**
  * Inline image — Gmail's and Proton's model (decided 2026-09-02): the image
  * sits in the text line like a character, so the caret can stand right
  * beside it at the image's height and typing continues next to it. The
@@ -639,6 +741,8 @@ export const Image = defineNode({
       );
       return true;
     },
+    setImageAlt,
+    removeImage: () => removeImage,
   }),
   actions: ({ schema }) => [
     {
@@ -665,6 +769,28 @@ export const Image = defineNode({
         );
         return true;
       },
+    },
+    // The selected image's own: enabled only while an image is the whole
+    // selection, so a `/` menu (a caret) never offers them.
+    {
+      id: 'replace-image',
+      title: 'Replace image',
+      keywords: ['replace', 'image', 'swap', 'change'],
+      icon: 'swap_horiz',
+      isEnabled: (state) => !!selectedImage(state),
+      command: (state, _dispatch, view) => {
+        if (!selectedImage(state)) return false;
+        if (view) replaceSelectedImage(view);
+        return true;
+      },
+    },
+    {
+      id: 'remove-image',
+      title: 'Remove image',
+      keywords: ['remove', 'delete', 'image'],
+      icon: 'delete',
+      isEnabled: (state) => !!selectedImage(state),
+      command: removeImage,
     },
   ],
   plugins: ({ schema }) => [
@@ -698,6 +824,52 @@ export const Image = defineNode({
     new Plugin({
       key: new PluginKey('imageView'),
       props: { nodeViews: { image: (node, view, getPos) => new ImageView(node, view, getPos) } },
+    }),
+    new Plugin({
+      // A drag-select that covers the image is a TextSelection (it already
+      // copies and deletes as a character). The wrapper is contenteditable
+      // false, so the browser never paints ::selection on it — this class
+      // is the highlight the app draws instead. A click on the image alone
+      // is still a NodeSelection; ProseMirror-selectednode covers that.
+      key: new PluginKey('imageTextSelection'),
+      props: {
+        // A drag-select that ends on the image — or past it at the line's
+        // end, where Chrome snaps the point into the nearest content — puts
+        // the DOM endpoint *inside* the non-editable wrapper, and ProseMirror
+        // reads any such point as "before the image". The range then stops
+        // short of it (empty, when it started right beside it). An endpoint
+        // in the image covers it: it resolves to the image's far side from
+        // the other end.
+        createSelectionBetween(view, $anchor, $head) {
+          // The view's own root: inside a shadow root the document's
+          // selection does not reach into it.
+          const root = view.root as Document | (ShadowRoot & { getSelection?: () => Selection });
+          const dom = root.getSelection?.() ?? view.dom.ownerDocument.getSelection();
+          if (!dom?.anchorNode || !dom.focusNode) return null;
+          const anchorImage = imageAt(view, dom.anchorNode);
+          const headImage = imageAt(view, dom.focusNode);
+          if (anchorImage === null && headImage === null) return null;
+          if (anchorImage !== null && anchorImage === headImage) return null;
+          let anchor = $anchor.pos;
+          let head = $head.pos;
+          if (headImage !== null) head = anchor <= headImage ? headImage + 1 : headImage;
+          if (anchorImage !== null) anchor = head > anchorImage ? anchorImage : anchorImage + 1;
+          return TextSelection.create(view.state.doc, anchor, head);
+        },
+        decorations(state) {
+          const { selection } = state;
+          if (selection.empty || selection instanceof NodeSelection) return null;
+          const decorations: Decoration[] = [];
+          state.doc.nodesBetween(selection.from, selection.to, (node, pos) => {
+            if (node.type === schema.nodes['image']) {
+              decorations.push(
+                Decoration.node(pos, pos + node.nodeSize, { class: 'aee-image--in-selection' }),
+              );
+            }
+          });
+          return decorations.length ? DecorationSet.create(state.doc, decorations) : null;
+        },
+      },
     }),
   ],
 });

@@ -10,8 +10,12 @@ import {
   createImageDrag,
   filledPlaceholderAttrs,
   imageDropTarget,
+  selectedImage,
+  selectedImageAlt,
 } from './image';
-import { NodeSelection, TextSelection } from 'prosemirror-state';
+import { NodeSelection, Selection, TextSelection } from 'prosemirror-state';
+import { extensionActions, isActionEnabled } from '../../extension';
+import { BubbleMenuState, createBubbleMenu } from '../bubble-menu';
 import { Transform } from 'prosemirror-transform';
 import { InlineImageStore, createInlineImages } from '../inline-images';
 import { SendIntent, createSendIntent } from '../send-intent';
@@ -181,7 +185,138 @@ describe('image node', () => {
       );
       const wrapper = editor.view.nodeDOM(imagePos) as HTMLElement;
       expect(wrapper.classList.contains('ProseMirror-selectednode')).toBe(true);
+      expect(wrapper.classList.contains('aee-image--in-selection')).toBe(false);
       unmount();
+    });
+
+    it('a text range that covers the image tints it as a highlight, not a node selection', () => {
+      const { editor, unmount } = mount();
+      editor.view.dispatch(
+        editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 14)),
+      );
+      const wrapper = editor.view.nodeDOM(imagePos) as HTMLElement;
+      expect(wrapper.classList.contains('aee-image--in-selection')).toBe(true);
+      expect(wrapper.classList.contains('ProseMirror-selectednode')).toBe(false);
+      unmount();
+    });
+
+    it('a drag that ends inside the image covers it, from either side', () => {
+      const { editor, unmount } = mount();
+      const { view } = editor;
+      const wrapper = view.nodeDOM(imagePos) as HTMLElement;
+      const [before, after] = [wrapper.previousSibling!, wrapper.nextSibling!];
+      // What ProseMirror reads off the DOM selection, through the prop.
+      const read = (anchor: [Node, number], head: [Node, number]) => {
+        document.getSelection()!.setBaseAndExtent(...anchor, ...head);
+        const $anchor = view.state.doc.resolve(view.posAtDOM(...anchor));
+        const $head = view.state.doc.resolve(view.posAtDOM(...head));
+        const selection = view.someProp('createSelectionBetween', (f) => f(view, $anchor, $head));
+        return selection ? [selection.anchor, selection.head] : null;
+      };
+      // Forward from right beside it — ProseMirror alone reads this as empty.
+      expect(read([before, 6], [wrapper, 0])).toEqual([imagePos, imagePos + 1]);
+      expect(read([before, 2], [wrapper.querySelector('img')!, 0])).toEqual([3, imagePos + 1]);
+      // Backward, and a drag that starts on it.
+      expect(read([after, 0], [wrapper, 0])).toEqual([imagePos + 1, imagePos]);
+      expect(read([wrapper, 0], [after, 3])).toEqual([imagePos, 11]);
+      // Nothing to do when neither end is in an image.
+      expect(read([before, 1], [after, 1])).toBeNull();
+      unmount();
+    });
+
+    it('an image alone is the selected image — clicked, or dragged over with nothing beside it', () => {
+      const { editor, unmount } = mount();
+      const select = (selection: Selection) =>
+        editor.view.dispatch(editor.state.tr.setSelection(selection));
+      const { doc } = editor.state;
+
+      select(NodeSelection.create(doc, imagePos));
+      expect(selectedImage(editor.state)?.pos).toBe(imagePos);
+      expect(selectedImageAlt(editor.state)).toBe('dot');
+      select(TextSelection.create(doc, imagePos, imagePos + 1));
+      expect(selectedImage(editor.state)?.pos).toBe(imagePos);
+      // A character on either side makes it a text selection.
+      select(TextSelection.create(doc, imagePos - 1, imagePos + 1));
+      expect(selectedImage(editor.state)).toBeNull();
+      select(TextSelection.create(doc, imagePos, imagePos + 2));
+      expect(selectedImage(editor.state)).toBeNull();
+      select(TextSelection.create(doc, imagePos));
+      expect(selectedImage(editor.state)).toBeNull();
+      expect(selectedImageAlt(editor.state)).toBeNull();
+      // An image without alt says so with '' — not null, which is "no image".
+      const tr = editor.state.tr.setNodeMarkup(imagePos, undefined, { src: 'x.png', alt: null });
+      editor.view.dispatch(tr.setSelection(NodeSelection.create(tr.doc, imagePos)));
+      expect(selectedImageAlt(editor.state)).toBe('');
+      unmount();
+    });
+
+    it('sets and clears the alt of the selected image, keeping it selected', () => {
+      const { editor, unmount } = mount();
+      editor.view.dispatch(
+        editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, imagePos)),
+      );
+      expect(editor.commands['setImageAlt']('  A red square ')).toBe(true);
+      expect(editor.state.doc.nodeAt(imagePos)?.attrs['alt']).toBe('A red square');
+      expect(editor.state.selection).toBeInstanceOf(NodeSelection);
+      expect(editor.commands['setImageAlt']('')).toBe(true);
+      expect(editor.state.doc.nodeAt(imagePos)?.attrs['alt']).toBeNull();
+      // Nothing to do with the caret in the text.
+      editor.view.dispatch(
+        editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 2)),
+      );
+      expect(editor.commands['setImageAlt']('x')).toBe(false);
+      unmount();
+    });
+
+    it('removes the selected image — its actions are enabled only while it is the selection', () => {
+      const { editor, unmount } = mount();
+      const actions = extensionActions({ schema: editor.state.schema, extensions: emailExtensions });
+      const enabled = (id: string) =>
+        isActionEnabled(actions.find((action) => action.id === id)!, editor.state);
+      expect(enabled('remove-image')).toBe(false);
+      expect(enabled('replace-image')).toBe(false);
+      editor.view.dispatch(
+        editor.state.tr.setSelection(
+          TextSelection.create(editor.state.doc, imagePos, imagePos + 1),
+        ),
+      );
+      expect(enabled('remove-image')).toBe(true);
+      expect(enabled('replace-image')).toBe(true);
+      expect(editor.commands['removeImage']()).toBe(true);
+      expect(editor.getHTML()).toBe('<div>hello  world</div>');
+      unmount();
+    });
+
+    it('the bubble menu opens for the image alone, over the picture, as an image menu', () => {
+      vi.useFakeTimers();
+      const host = document.createElement('div');
+      document.body.appendChild(host);
+      const states: BubbleMenuState[] = [];
+      const editor = createEditor({
+        parent: host,
+        extensions: [
+          ...emailExtensions,
+          createBubbleMenu({ updateDelay: 0, onStateChange: (state) => states.push(state) }),
+        ],
+        content: '<div>hello <img src="x.png" alt="dot"> world</div>',
+      });
+      editor.view.hasFocus = () => true;
+      const last = () => states[states.length - 1];
+
+      editor.view.dispatch(
+        editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, imagePos)),
+      );
+      vi.runAllTimers();
+      expect(last()).toMatchObject({ isOpen: true, kind: 'image' });
+      editor.view.dispatch(
+        editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, imagePos + 1)),
+      );
+      vi.runAllTimers();
+      expect(last()).toMatchObject({ isOpen: true, kind: 'text' });
+
+      vi.useRealTimers();
+      editor.destroy();
+      host.remove();
     });
 
     it('an attribute change updates the <img> in place — the wrapper survives', () => {

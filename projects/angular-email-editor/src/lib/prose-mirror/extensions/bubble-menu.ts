@@ -1,10 +1,17 @@
 import { EditorState, Plugin, PluginKey, TextSelection, AllSelection } from 'prosemirror-state';
 import { FunctionalExtension, defineExtension } from '../extension'; // Adjust path if needed
 import { selectionInsideMergeTag } from './nodes/merge-tag';
+import { selectedImage } from './nodes/image';
 
 export interface BubbleMenuState {
   isOpen: boolean;
   boundingBox: DOMRect | null;
+  /** What the menu is for: `'image'` when an image is the whole selection
+      — clicked, or dragged over with nothing beside it (`selectedImage`),
+      and the box is the image's — `'text'` otherwise. A host shows the
+      image's own tools for the one, the marks for the other. Absent while
+      closed. */
+  kind?: 'text' | 'image';
 }
 
 export interface BubbleMenuOptions {
@@ -15,10 +22,12 @@ export interface BubbleMenuOptions {
 
 // Inside a merge tag the menu stays away: the token is text, but formatting
 // it is all-or-nothing and lives on the keyboard (Ctrl-B bolds the whole).
+// An image alone is the other thing it opens for — clicked or dragged over.
 const defaultShouldShow = (state: EditorState) =>
-  !state.selection.empty &&
-  (state.selection instanceof TextSelection || state.selection instanceof AllSelection) &&
-  !selectionInsideMergeTag(state);
+  !!selectedImage(state) ||
+  (!state.selection.empty &&
+    (state.selection instanceof TextSelection || state.selection instanceof AllSelection) &&
+    !selectionInsideMergeTag(state));
 
 export const createBubbleMenu = (options: BubbleMenuOptions): FunctionalExtension =>
   defineExtension({
@@ -57,6 +66,19 @@ export const createBubbleMenu = (options: BubbleMenuOptions): FunctionalExtensio
             }
 
             showTimer = setTimeout(() => {
+              // An image alone: the menu stands over the picture itself.
+              const image = selectedImage(view.state);
+              const dom = image && (view.nodeDOM(image.pos) as HTMLElement | null);
+              if (dom && typeof dom.getBoundingClientRect === 'function') {
+                open = true;
+                options.onStateChange({
+                  isOpen: true,
+                  boundingBox: dom.getBoundingClientRect(),
+                  kind: 'image',
+                });
+                return;
+              }
+
               const { from, to } = view.state.selection;
 
               // Get coordinates of the selection boundaries
@@ -84,7 +106,7 @@ export const createBubbleMenu = (options: BubbleMenuOptions): FunctionalExtensio
               } as DOMRect;
 
               open = true;
-              options.onStateChange({ isOpen: true, boundingBox });
+              options.onStateChange({ isOpen: true, boundingBox, kind: 'text' });
             }, options.updateDelay ?? 150);
           };
 

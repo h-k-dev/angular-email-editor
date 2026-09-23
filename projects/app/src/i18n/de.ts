@@ -45,6 +45,8 @@ export default {
       italic: { title: 'Kursiv', keywords: 'kursiv, schräg' },
       underline: { title: 'Unterstrichen', keywords: 'unterstreichen' },
       strike: { title: 'Durchgestrichen', keywords: 'durchstreichen' },
+      'replace-image': { title: 'Bild ersetzen', keywords: 'bild, ersetzen, austauschen' },
+      'remove-image': { title: 'Bild entfernen', keywords: 'bild, entfernen, löschen' },
       'align-left': { title: 'Linksbündig', keywords: 'ausrichten, links' },
       'align-center': { title: 'Zentriert', keywords: 'ausrichten, mitte, zentrieren' },
       'align-right': { title: 'Rechtsbündig', keywords: 'ausrichten, rechts' },
@@ -65,11 +67,27 @@ export default {
     // A button's words, where they differ from the row's: "Insert table"
     // on a bar, "Table" in a list.
     toolbar: {
+      'image-alt': 'Alternativtext',
       'text-color': 'Textfarbe',
       highlight: 'Hervorhebungsfarbe',
       link: 'Link',
       strike: 'Durchgestrichen',
       table: 'Tabelle einfügen',
+    },
+    link: {
+      dialog: 'Link bearbeiten',
+      url: 'Link-URL',
+      apply: 'Link übernehmen',
+      open: 'Link öffnen',
+      remove: 'Link entfernen',
+    },
+    image: {
+      menu: 'Bildoptionen',
+      addAlt: 'Alternativtext hinzufügen',
+      altLabel: 'Alternativtext',
+      altPlaceholder: 'Bild beschreiben',
+      altWithValue: 'Alternativtext: {{alt}}',
+      applyAlt: 'Alternativtext übernehmen',
     },
     menu: {
       slash: { label: 'Block einfügen', placeholder: 'Tippen zum Filtern…' },

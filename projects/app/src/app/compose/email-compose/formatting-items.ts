@@ -24,7 +24,10 @@ export type FormattingItemId =
   | 'align-center'
   | 'align-right'
   | 'clear-formatting'
-  | 'table';
+  | 'table'
+  | 'image-alt'
+  | 'replace-image'
+  | 'remove-image';
 
 /** One formatting button, whatever renders it: the toolbar, the ⋯ menu it
     moves into, the bubble menu. Defined once, here — a surface only decides
@@ -191,6 +194,27 @@ export function formattingItems(
       wide: true,
       disabled: action('table').disabled,
       picker: 'table',
+    },
+    // The selected image's own — enabled only while an image is the whole
+    // selection. Alt text is the composer's (it opens the alt editor, as
+    // link opens the link editor); replace and remove are the kit's.
+    'image-alt': {
+      id: 'image-alt',
+      label: 'Alt text',
+      icon: 'short_text',
+      ...action('image-alt', { toggle: false }),
+    },
+    'replace-image': {
+      id: 'replace-image',
+      label: 'Replace image',
+      icon: 'swap_horiz',
+      ...action('replace-image', { toggle: false }),
+    },
+    'remove-image': {
+      id: 'remove-image',
+      label: 'Remove image',
+      icon: 'delete',
+      ...action('remove-image', { toggle: false }),
     },
   };
 }

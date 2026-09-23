@@ -1,4 +1,12 @@
-import { Component, ElementRef, inject, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  Injector,
+  afterNextRender,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 
 // Material
 import { MatButtonModule } from '@angular/material/button';
@@ -10,6 +18,7 @@ import { ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
 // Library
 import { linkRangeAt } from 'angular-email-editor';
 
+import { I18n } from '../../../../services/i18n';
 import { FormattingCommands } from '../formatting-commands';
 import { Anchor } from 'angular-email-editor/anchor';
 
@@ -41,6 +50,10 @@ import { Anchor } from 'angular-email-editor/anchor';
 })
 export class LinkEditor {
   readonly #commands = inject(FormattingCommands);
+
+  readonly #injector = inject(Injector);
+
+  protected readonly i18n = inject(I18n);
 
   protected readonly input = viewChild<ElementRef<HTMLInputElement>>('input');
   protected readonly open = signal(false);
@@ -74,12 +87,38 @@ export class LinkEditor {
     const coords = editor.view.coordsAtPos(from);
     this.anchor.set({ left: coords.left, top: coords.top, height: coords.bottom - coords.top });
     this.open.set(true);
-    setTimeout(() => this.input()?.nativeElement.select());
+    // The field exists once the render that opens the overlay has run:
+    // selecting it is a DOM write after that render.
+    afterNextRender(
+      {
+        write: () => {
+          const input = this.input()?.nativeElement;
+          input?.focus();
+          input?.select();
+        },
+      },
+      { injector: this.#injector },
+    );
   }
 
   protected close(): void {
     this.open.set(false);
     this.#commands.focus();
+  }
+
+  /** Escape closes from anywhere in the popover — the field and every
+      button; an IME's own Escape stays the IME's. */
+  protected onKeydown(event: KeyboardEvent): void {
+    if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing) return;
+    event.preventDefault();
+    this.close();
+  }
+
+  /** Enter applies — but not the Enter that confirms an IME's text. */
+  protected onEnter(event: Event): void {
+    if ((event as KeyboardEvent).isComposing) return;
+    event.preventDefault();
+    this.apply();
   }
 
   /** Applies the entered URL; a scheme-less value gets https:// prepended,

@@ -102,7 +102,13 @@ export class Styling {
           name: '--email-image-selection',
           system: '--mat-sys-primary',
           fallback: 'color-mix over the primary',
-          alters: 'Tint over a selected inline image',
+          alters: 'Tint over an image selected on its own (clicked)',
+        },
+        {
+          name: '--email-text-selection',
+          system: '--mat-sys-primary',
+          fallback: 'color-mix over the primary',
+          alters: 'The text highlight — and the tint over an image a text range covers, so both read as one',
         },
         {
           name: '--email-image-resize-frame',
@@ -306,9 +312,9 @@ export class Styling {
         'The identity class on every editable root the library mounts. Scope editor styles to it, never to bare .ProseMirror — a ProseMirror instance the host runs for something else must be left alone.',
     },
     {
-      name: '.aee-image, .aee-image--placeholder, .aee-image--resizing',
+      name: '.aee-image, .aee-image--placeholder, .aee-image--resizing, .aee-image--in-selection',
       applies:
-        'The inline image’s editor-only wrapper (span.aee-image > img), the empty placeholder, and the resize state.',
+        'The inline image’s editor-only wrapper (span.aee-image > img), the empty placeholder, the resize state, and a text range that covers the image.',
     },
     {
       name: '.aee-table-wrap, .aee-columns-wrap, .aee-columns-box, .aee-column',

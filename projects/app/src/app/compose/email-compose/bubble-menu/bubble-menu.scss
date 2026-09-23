@@ -11,6 +11,23 @@
   @include toolbar.floating-toolbar;
 }
 
+// The image's alt, as words: a long one is cut, a missing one is said in
+// the error colour — screen readers and image-blocking clients get nothing.
+.bubble-menu__alt {
+  max-width: 200px;
+}
+
+.bubble-menu__alt-text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bubble-menu__alt--missing {
+  color: var(--mat-sys-error, #b3261e);
+}
+
 // The landing. A spring, not a curve: a damped spring (perceptual duration
 // 300ms, bounce 0.25 — damping ratio 0.75) sampled into `linear()` stops over
 // the 440ms it takes to settle within 0.1%. It passes the mark by under 3%
