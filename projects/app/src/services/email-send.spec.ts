@@ -8,6 +8,7 @@ const message = (to: string[]): EmailMessage => ({
   bcc: [],
   subject: 'Hello',
   html: '<p>Hi</p>',
+  document: '<!doctype html><html><body><p>Hi</p></body></html>',
   text: 'Hi',
   inlineImages: [],
   requiredFields: [],

@@ -171,6 +171,11 @@ export class ApiReference {
           does: 'The text/plain projection of the canonical HTML — the other half of a well-formed multipart/alternative body.',
         },
         {
+          name: 'emailDocument',
+          signature: '(html: string, options?: { lang?, dir?, title?, previewText? }) => string',
+          does: 'The full document a transport sends: the Outlook DPI fix, iOS text-size and Apple reformatting guards, an article wrapper with lang/dir, and hidden inbox preview text. All inline, no <style> block.',
+        },
+        {
           name: 'scanHTML / lintHTML',
           signature: '(source) => HtmlScan · (source, scan?) => HtmlDiagnostic[]',
           does: 'Tokenizes the source, then reports what will not survive a mail client: tags outside EMAIL_SAFE_TAGS, unsupported CSS, fonts below MIN_FONT_SIZE, unbroken runs past MAX_UNBROKEN_RUN.',

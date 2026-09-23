@@ -7,10 +7,9 @@
   [cdkConnectedOverlayOrigin]="origin"
   [cdkConnectedOverlayOpen]="open()"
   [cdkConnectedOverlayPositions]="positions"
-  [cdkConnectedOverlayHasBackdrop]="true"
-  cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop"
-  (backdropClick)="close()"
+  [cdkConnectedOverlayDisableClose]="true"
   (overlayKeydown)="onKeydown($event)"
+  (detach)="closed()"
   [cdkConnectedOverlayPush]="true"
   [cdkConnectedOverlayViewportMargin]="8"
 >
@@ -19,30 +18,33 @@
     role="dialog"
     [attr.aria-label]="i18n.t('editor.link.dialog', 'Edit link')"
   >
-    <!-- A URL reads left to right in every language: `dir="ltr"`, so an
-         address in a right-to-left interface keeps its order. The
-         placeholder is a hint, not a name — the label is its own. -->
-    <input
-      #input
-      class="link-editor__input"
-      type="url"
-      dir="ltr"
-      spellcheck="false"
-      [attr.aria-label]="i18n.t('editor.link.url', 'Link URL')"
-      [placeholder]="i18n.t('editor.link.url', 'Link URL')"
-      [value]="href()"
-      (input)="href.set($any($event.target).value)"
-      (keydown.enter)="onEnter($event)"
-    />
-    <button
-      mat-icon-button
-      type="button"
-      [attr.aria-label]="i18n.t('editor.link.apply', 'Apply link')"
-      (click)="apply()"
-    >
-      <mat-icon>check</mat-icon>
-    </button>
-    @if (existing()) {
+    <!-- The field and Apply are one signal form: Apply is its submit. -->
+    <form class="link-editor__form" [formRoot]="linkForm" novalidate>
+      <!-- A URL reads left to right in every language: `dir="ltr"`, so an
+           address in a right-to-left interface keeps its order. The
+           placeholder is a hint, not a name — the label is its own. -->
+      <input
+        #input
+        class="link-editor__input"
+        type="text"
+        inputmode="url"
+        dir="ltr"
+        spellcheck="false"
+        autocomplete="off"
+        [formField]="linkForm.href"
+        [attr.aria-label]="i18n.t('editor.link.url', 'Link URL')"
+        [attr.aria-invalid]="refused() ? true : null"
+        [placeholder]="i18n.t('editor.link.url', 'Link URL')"
+        (keydown.enter)="onEnter($event)"
+      />
+      <!-- The three actions, always: apply, go to the link, take it off. -->
+      <button
+        mat-icon-button
+        type="submit"
+        [attr.aria-label]="i18n.t('editor.link.apply', 'Apply link')"
+      >
+        <mat-icon>check</mat-icon>
+      </button>
       <button
         mat-icon-button
         type="button"
@@ -59,6 +61,25 @@
       >
         <mat-icon>link_off</mat-icon>
       </button>
+    </form>
+    <!-- A button's one menu is this popover (its bubble stands aside), so
+         where it sits on its line is set here too — the paragraph's
+         alignment, as the toolbar sets it. The kit's actions, pressed where
+         they are on. -->
+    @if (forButton()) {
+      <mat-divider [vertical]="true" />
+      @for (item of alignItems; track item.id) {
+        <button
+          mat-icon-button
+          type="button"
+          [attr.aria-label]="label(item)"
+          [emailAction]="actions.get(item.id)"
+          #align="emailAction"
+          [disabled]="align.disabled()"
+        >
+          <mat-icon>{{ item.icon }}</mat-icon>
+        </button>
+      }
     }
   </div>
 </ng-template>

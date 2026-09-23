@@ -7,7 +7,7 @@ import {
   TextSelection,
   Transaction,
 } from 'prosemirror-state';
-import { Decoration, DecorationSet, EditorView, NodeView } from 'prosemirror-view';
+import { EditorView, NodeView } from 'prosemirror-view';
 import { DOMSerializer, Node, Schema } from 'prosemirror-model';
 import { FunctionalExtension, defineExtension, defineNode } from '../../extension';
 import { isSafeUrl } from '../marks/link';
@@ -660,15 +660,6 @@ function replaceSelectedImage(view: EditorView): void {
   });
 }
 
-/** The position of the image whose wrapper holds a DOM point, or null. */
-function imageAt(view: EditorView, node: globalThis.Node): number | null {
-  const element = node.nodeType === 1 ? (node as Element) : node.parentElement;
-  const wrapper = element?.closest('.aee-image');
-  if (!wrapper || !view.dom.contains(wrapper)) return null;
-  const pos = view.posAtDOM(wrapper, 0);
-  return view.state.doc.nodeAt(pos)?.type.name === 'image' ? pos : null;
-}
-
 /**
  * Inline image — Gmail's and Proton's model (decided 2026-09-02): the image
  * sits in the text line like a character, so the caret can stand right
@@ -824,52 +815,6 @@ export const Image = defineNode({
     new Plugin({
       key: new PluginKey('imageView'),
       props: { nodeViews: { image: (node, view, getPos) => new ImageView(node, view, getPos) } },
-    }),
-    new Plugin({
-      // A drag-select that covers the image is a TextSelection (it already
-      // copies and deletes as a character). The wrapper is contenteditable
-      // false, so the browser never paints ::selection on it — this class
-      // is the highlight the app draws instead. A click on the image alone
-      // is still a NodeSelection; ProseMirror-selectednode covers that.
-      key: new PluginKey('imageTextSelection'),
-      props: {
-        // A drag-select that ends on the image — or past it at the line's
-        // end, where Chrome snaps the point into the nearest content — puts
-        // the DOM endpoint *inside* the non-editable wrapper, and ProseMirror
-        // reads any such point as "before the image". The range then stops
-        // short of it (empty, when it started right beside it). An endpoint
-        // in the image covers it: it resolves to the image's far side from
-        // the other end.
-        createSelectionBetween(view, $anchor, $head) {
-          // The view's own root: inside a shadow root the document's
-          // selection does not reach into it.
-          const root = view.root as Document | (ShadowRoot & { getSelection?: () => Selection });
-          const dom = root.getSelection?.() ?? view.dom.ownerDocument.getSelection();
-          if (!dom?.anchorNode || !dom.focusNode) return null;
-          const anchorImage = imageAt(view, dom.anchorNode);
-          const headImage = imageAt(view, dom.focusNode);
-          if (anchorImage === null && headImage === null) return null;
-          if (anchorImage !== null && anchorImage === headImage) return null;
-          let anchor = $anchor.pos;
-          let head = $head.pos;
-          if (headImage !== null) head = anchor <= headImage ? headImage + 1 : headImage;
-          if (anchorImage !== null) anchor = head > anchorImage ? anchorImage : anchorImage + 1;
-          return TextSelection.create(view.state.doc, anchor, head);
-        },
-        decorations(state) {
-          const { selection } = state;
-          if (selection.empty || selection instanceof NodeSelection) return null;
-          const decorations: Decoration[] = [];
-          state.doc.nodesBetween(selection.from, selection.to, (node, pos) => {
-            if (node.type === schema.nodes['image']) {
-              decorations.push(
-                Decoration.node(pos, pos + node.nodeSize, { class: 'aee-image--in-selection' }),
-              );
-            }
-          });
-          return decorations.length ? DecorationSet.create(state.doc, decorations) : null;
-        },
-      },
     }),
   ],
 });

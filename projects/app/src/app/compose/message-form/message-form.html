@@ -222,7 +222,47 @@
       [id]="subjectId"
       [formField]="envelope.subject"
     />
+    <!-- Preview text opens the way Cc and Bcc do: a text button at the
+         row's end that steps aside while its row is shown. Unlike theirs it
+         comes *after* its control in the source, so Tab runs To, Subject,
+         Preview — the subject first, the snippet as its follow-up. -->
+    @if (!showPreview()) {
+      <span class="writer-field__actions">
+        <button
+          type="button"
+          class="writer-field__action"
+          title="Text shown after the subject in the inbox"
+          emailKeepFocus
+          (click)="openPreview(); $event.stopPropagation()"
+        >
+          Preview
+        </button>
+      </span>
+    }
   </div>
+  <!-- The inbox snippet: lives only while open or filled, and folds when
+       left empty. -->
+  @if (showPreview()) {
+    <div
+      class="writer-field"
+      envelope
+      emailKeepFocus
+      [emailKeepFocusExcept]="rowControls"
+      (click)="previewField.focus()"
+      (focusout)="leavePreview()"
+    >
+      <label class="writer-field__label" [for]="previewId">Preview</label>
+      <input
+        #previewField
+        class="writer-field__input"
+        type="text"
+        autocomplete="off"
+        placeholder="Shown after the subject in the inbox"
+        [id]="previewId"
+        [formField]="envelope.previewText"
+      />
+    </div>
+  }
   <!-- The editor is the body field's control: the form drives its value
        and hears its canonical HTML back. Its own send gestures (Mod-Enter,
        /send) submit the form. -->

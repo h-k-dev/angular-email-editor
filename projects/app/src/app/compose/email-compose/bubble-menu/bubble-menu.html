@@ -15,8 +15,9 @@
   <!-- Lands softly (`animate.enter`, see the stylesheet), growing out of the
        side that faces the selection — the CDK sets the transform origin for
        whichever position it chose. -->
-  <!-- One menu, two sets of tools: an image alone gets its own (the
-       extension says which, `kind`), anything else the marks. -->
+  <!-- One menu, a set of tools per thing selected: an image alone and a
+       button get their own (the extension says which, `kind`), anything
+       else the marks. -->
   @if (state().kind === 'image') {
     <div
       class="bubble-menu"
@@ -43,6 +44,19 @@
         }}</span>
       </button>
       <ng-container *ngTemplateOutlet="buttons; context: { $implicit: imageEntries, lead: true }" />
+    </div>
+  } @else if (state().kind === 'button') {
+    <div
+      class="bubble-menu"
+      animate.enter="bubble-menu--landing"
+      role="toolbar"
+      appToolbarKeys
+      [attr.aria-label]="i18n.t('editor.button.menu', 'Button options')"
+      emailKeepFocus
+    >
+      <ng-container
+        *ngTemplateOutlet="buttons; context: { $implicit: buttonEntries, lead: false }"
+      />
     </div>
   } @else {
     <div

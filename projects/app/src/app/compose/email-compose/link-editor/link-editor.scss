@@ -13,6 +13,12 @@
   border-radius: var(--email-compose-link-corner, var(--mat-sys-corner-medium, 8px));
 }
 
+// The form is only the field and its submit: it lays out as the row does.
+.link-editor__form {
+  display: contents;
+}
+
+
 .link-editor__input {
   width: 260px;
   padding: 6px 10px;
@@ -29,6 +35,14 @@
 
   &:focus-visible {
     outline: 2px solid var(--mat-sys-primary, #0056b3);
+    outline-offset: -2px;
+  }
+
+  // Refused: no words about it — the field turns the error colour, and
+  // says `aria-invalid` to a screen reader.
+  &[aria-invalid='true'],
+  &[aria-invalid='true']:focus-visible {
+    outline: 2px solid var(--mat-sys-error, #b3261e);
     outline-offset: -2px;
   }
 }

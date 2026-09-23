@@ -36,7 +36,7 @@ const GOLDEN: string[] = [
   '<hr style="height: 1px; width: 100%; background-color: rgb(224, 224, 224); margin-top: 12px; margin-bottom: 12px;">',
   // Button is inline (so a cell can hold one). On a line of its own it
   // wraps in a div, like an image; a stored bare `<a>` repairs the same way.
-  '<div><a href="https://x.io" style="display: inline-block; background-color: rgb(26, 115, 232); color: rgb(255, 255, 255); font-weight: bold; text-decoration: none; border-width: 14px 28px; border-style: solid; border-color: rgb(26, 115, 232);">Shop now</a></div>',
+  '<div><a href="https://x.io" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: rgb(26, 115, 232); color: rgb(255, 255, 255); font-weight: bold; text-decoration: none; border-width: 14px 28px; border-style: solid; border-color: rgb(26, 115, 232);">Shop now</a></div>',
 ];
 
 /** Foreign markup: no exact expectation, but the round trip must be a

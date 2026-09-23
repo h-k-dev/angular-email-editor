@@ -14,6 +14,7 @@ import { BulletList, ListItem, OrderedList } from './nodes/lists';
 import { Image } from './nodes/image';
 import { Divider } from './nodes/divider';
 import { Button } from './nodes/button';
+import { InlineAtomSelection } from './inline-atom-selection';
 import { Table, TableRow, TableCell } from './nodes/table';
 import { Columns, Column } from './nodes/columns';
 import { Bold } from './marks/bold';
@@ -51,6 +52,8 @@ const withParagraph = (paragraph: NodeExtension): Extension[] => [
   Image,
   Divider,
   Button,
+  // Images and buttons selected like characters: a drag covers them.
+  InlineAtomSelection,
   Table,
   TableRow,
   TableCell,

@@ -185,7 +185,7 @@ describe('image node', () => {
       );
       const wrapper = editor.view.nodeDOM(imagePos) as HTMLElement;
       expect(wrapper.classList.contains('ProseMirror-selectednode')).toBe(true);
-      expect(wrapper.classList.contains('aee-image--in-selection')).toBe(false);
+      expect(wrapper.classList.contains('aee-atom--in-selection')).toBe(false);
       unmount();
     });
 
@@ -195,7 +195,7 @@ describe('image node', () => {
         editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 14)),
       );
       const wrapper = editor.view.nodeDOM(imagePos) as HTMLElement;
-      expect(wrapper.classList.contains('aee-image--in-selection')).toBe(true);
+      expect(wrapper.classList.contains('aee-atom--in-selection')).toBe(true);
       expect(wrapper.classList.contains('ProseMirror-selectednode')).toBe(false);
       unmount();
     });

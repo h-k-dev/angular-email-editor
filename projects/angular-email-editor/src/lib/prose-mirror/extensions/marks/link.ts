@@ -59,6 +59,52 @@ export function isSafeUrl(url: string | null): boolean {
   return !isMalicious;
 }
 
+/**
+ * What a person typed into a link field → the href it means: a scheme or a
+ * `#fragment` as written, an address `mailto:`, a `{{ token }}` untouched
+ * (it becomes a URL at send), anything else `https://`. Empty stays empty.
+ */
+export function normalizeHref(raw: string): string {
+  const value = raw.trim();
+  if (!value) return '';
+  if (/^[a-z][\w+.-]*:/i.test(value) || value.startsWith('#') || value.startsWith('{{')) {
+    return value;
+  }
+  if (/^[^\s@/]+@[^\s@/]+\.[^\s@/]+$/.test(value)) return `mailto:${value}`;
+  return `https://${value}`;
+}
+
+/** Why a typed link cannot be applied — see {@link hrefProblem}. */
+export type HrefProblem = 'required' | 'unsafe' | 'invalid';
+
+/** The schemes a link in an email may use. */
+const LINK_SCHEMES = /^(https?|mailto|tel):$/i;
+
+/**
+ * Whether what was typed into a link field can be a link in an email, after
+ * {@link normalizeHref}: `'required'` for nothing (or a bare `#`),
+ * `'unsafe'` for a script or `data:` URL — refused like `isSafeUrl`, plus
+ * `data:`, the phishing favourite no mail client should be handed —
+ * `'invalid'` for what is no URL at all (no host, a scheme mail cannot
+ * use, a host without a dot), null when it is fine. A link holding a
+ * `{{ token }}` passes: its shape is known only once it is filled in.
+ */
+export function hrefProblem(raw: string): HrefProblem | null {
+  const href = normalizeHref(raw);
+  if (!href || href === '#') return 'required';
+  if (!isSafeUrl(href) || /^\s*data:/i.test(href)) return 'unsafe';
+  if (href.includes('{{') || href.startsWith('#')) return null;
+  let url: URL;
+  try {
+    url = new URL(href);
+  } catch {
+    return 'invalid';
+  }
+  if (!LINK_SCHEMES.test(url.protocol)) return 'invalid';
+  if (/^https?:$/.test(url.protocol) && !url.hostname.includes('.')) return 'invalid';
+  return null;
+}
+
 /** A single URL from pasted text → an href (prepending https:// for `www.`).
     Returns null when the text isn't one bare URL (has spaces, or isn't a
     recognised scheme), so ordinary text still pastes normally. */
@@ -150,6 +196,7 @@ export const Link = defineMark({
     toDOM: (mark) => {
       const { href, title, target, rel } = mark.attrs;
       // Editor-view styling only — see emitDOM for what the email carries.
+      // No stop in the page's Tab order: in the editor a link is text.
       return [
         'a',
         {
@@ -157,6 +204,7 @@ export const Link = defineMark({
           title,
           target,
           rel,
+          tabindex: '-1',
           style: 'color: var(--mat-sys-primary,#0056b3); text-decoration: underline;',
         },
         0,

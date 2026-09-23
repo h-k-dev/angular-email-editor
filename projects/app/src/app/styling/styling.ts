@@ -312,9 +312,14 @@ export class Styling {
         'The identity class on every editable root the library mounts. Scope editor styles to it, never to bare .ProseMirror — a ProseMirror instance the host runs for something else must be left alone.',
     },
     {
-      name: '.aee-image, .aee-image--placeholder, .aee-image--resizing, .aee-image--in-selection',
+      name: '.aee-image, .aee-image--placeholder, .aee-image--resizing',
       applies:
-        'The inline image’s editor-only wrapper (span.aee-image > img), the empty placeholder, the resize state, and a text range that covers the image.',
+        'The inline image’s editor-only wrapper (span.aee-image > img), the empty placeholder, and the resize state.',
+    },
+    {
+      name: '.aee-atom--in-selection',
+      applies:
+        'An inline atom — an image, a button — covered by a text range. The browser paints no selection on a non-editable element, so this is the highlight to draw; a clicked one carries ProseMirror-selectednode instead.',
     },
     {
       name: '.aee-table-wrap, .aee-columns-wrap, .aee-columns-box, .aee-column',

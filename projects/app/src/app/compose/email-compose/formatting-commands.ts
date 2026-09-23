@@ -9,6 +9,7 @@ import {
   findColumnContext,
   findTableContext,
   isMarkActive,
+  selectedButton,
   selectedImage,
 } from 'angular-email-editor';
 import { editorState, injectActions } from 'angular-email-editor/actions';
@@ -23,8 +24,9 @@ export interface FormattingHost {
   codeView: Signal<boolean>;
   codeEditor: Signal<Editor | undefined>;
   /** Opens the link editor, anchored at the text — the one formatting item
-      that is a dialog, not a command. */
-  openLink: () => void;
+      that is a dialog, not a command. `newButton`: on a button just made
+      from text, which is taken back if it is left without a link. */
+  openLink: (options?: { newButton?: boolean }) => void;
   /** Opens the alt-text editor over the selected image. */
   openAltText: () => void;
 }
@@ -70,6 +72,21 @@ export class FormattingCommands {
       up, the email editor otherwise — bound and live. What an extension
       declares needs no entry of its own here: the items read it by id. */
   readonly actions = injectActions(() => this.target(), {
+    // Over the kit's toggle: a button is a link, so making one opens the
+    // link editor on it, as Link does — prefilled with the link the text
+    // carried, if any. Left without a link, the button is taken back (the
+    // editor's `newButton`). Turning a button back into text opens nothing.
+    // Whether it can run and whether it is on stay the extension's answer.
+    override: {
+      'button-link': {
+        run: () => {
+          const editor = this.editor();
+          if (!editor?.commands['toggleButtonLink']()) return;
+          if (selectedButton(editor.state)) this.#host()?.openLink({ newButton: true });
+          else editor.focus();
+        },
+      },
+    },
     // The one formatting item that is a dialog, not a command: the composer's
     // own action. "On" where the caret stands in a link — in an editor that
     // has links at all.

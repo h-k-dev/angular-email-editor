@@ -6,6 +6,7 @@
  */
 import { clientList, findCssIssues } from './client-support';
 import { normalizeMergeTagText } from './extensions/nodes/merge-tag';
+import { escapeAttribute, escapeText } from './utils/escape';
 
 export type HtmlTokenType =
   'delimiter' | 'tagName' | 'attributeName' | 'attributeValue' | 'comment';
@@ -986,12 +987,4 @@ function openTag(element: Element): string {
 
 function collapseWhitespace(text: string): string {
   return text.replace(/\s+/g, ' ');
-}
-
-function escapeText(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-function escapeAttribute(value: string): string {
-  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 }

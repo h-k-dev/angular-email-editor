@@ -1,7 +1,7 @@
 import { TextSelection } from 'prosemirror-state';
 import { Editor, createEditor } from '../../editor';
 import { emailExtensions } from '../kits';
-import { linkRangeAt } from './link';
+import { hrefProblem, linkRangeAt, normalizeHref } from './link';
 
 const linkOpen = (href: string) => `<a href="${href}" target="_blank" rel="noopener noreferrer">`;
 
@@ -164,5 +164,58 @@ describe('auto-link input rule', () => {
 
   it('leaves plain prose alone', () => {
     expect(typeSpaceAfter('<div>just words</div>')).toBe(false);
+  });
+});
+
+describe('what a link field accepts', () => {
+  it('reads what was typed as the href it means', () => {
+    expect(normalizeHref('  example.com/a ')).toBe('https://example.com/a');
+    expect(normalizeHref('http://x.io')).toBe('http://x.io');
+    expect(normalizeHref('ann@example.com')).toBe('mailto:ann@example.com');
+    expect(normalizeHref('tel:+4930123')).toBe('tel:+4930123');
+    expect(normalizeHref('{{ unsubscribe_url }}')).toBe('{{ unsubscribe_url }}');
+    expect(normalizeHref('#top')).toBe('#top');
+    expect(normalizeHref('   ')).toBe('');
+  });
+
+  it('passes a real link, a mail or phone link, a fragment and a personalized one', () => {
+    for (const ok of [
+      'example.com',
+      'https://shop.example.com/sale?x=1',
+      'ann@example.com',
+      'tel:+4930123',
+      '#top',
+      '{{ unsubscribe_url }}',
+      'https://x.io/?id={{ id }}',
+    ]) {
+      expect(hrefProblem(ok)).toBeNull();
+    }
+  });
+
+  it('says what is wrong with the rest', () => {
+    expect(hrefProblem('')).toBe('required');
+    expect(hrefProblem('#')).toBe('required');
+    expect(hrefProblem('javascript:alert(1)')).toBe('unsafe');
+    expect(hrefProblem(' JavaScript:alert(1)')).toBe('unsafe');
+    expect(hrefProblem('data:text/html,<b>hi</b>')).toBe('unsafe');
+    expect(hrefProblem('not a link')).toBe('invalid');
+    expect(hrefProblem('localhost')).toBe('invalid');
+    expect(hrefProblem('ftp://files.example.com')).toBe('invalid');
+  });
+});
+
+describe('a link in the editor', () => {
+  it('is no stop in the Tab order — and the email never says so', () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const editor = createEditor({
+      parent: host,
+      extensions: emailExtensions,
+      content: '<div>see <a href="https://x.io">the docs</a></div>',
+    });
+    expect(editor.view.dom.querySelector('a')!.getAttribute('tabindex')).toBe('-1');
+    expect(editor.getHTML()).not.toContain('tabindex');
+    editor.destroy();
+    host.remove();
   });
 });

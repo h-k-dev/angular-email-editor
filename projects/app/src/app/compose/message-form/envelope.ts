@@ -12,6 +12,10 @@ export interface Envelope {
   cc: string[];
   bcc: string[];
   subject: string;
+  /** The inbox snippet beside the subject — sent as the document's hidden
+      preview text (`emailDocument`); empty lets the client take the body's
+      first line, as every personal mail does. */
+  previewText: string;
   html: string;
   attachments: AttachmentRef[];
 }
@@ -24,6 +28,7 @@ export const BLANK: Envelope = {
   cc: [],
   bcc: [],
   subject: '',
+  previewText: '',
   html: '',
   attachments: [],
 };
@@ -36,16 +41,17 @@ export function hasContent(html: string): boolean {
   return text.trim().length > 0;
 }
 
-/** Nobody has written anything: no recipient, subject, attachment or body,
-    and the sender as it started. An attachment still uploading counts —
-    the user put it there. */
+/** Nobody has written anything: no recipient, subject, preview text,
+    attachment or body, and the sender as it started. An attachment still
+    uploading counts — the user put it there. */
 export function isBlank(message: Envelope): boolean {
-  const { from, to, cc, bcc, subject, html, attachments } = message;
+  const { from, to, cc, bcc, subject, previewText, html, attachments } = message;
   return (
     !to.length &&
     !cc.length &&
     !bcc.length &&
     !subject.trim() &&
+    !previewText.trim() &&
     !attachments.length &&
     from.join() === BLANK.from.join() &&
     !hasContent(html)

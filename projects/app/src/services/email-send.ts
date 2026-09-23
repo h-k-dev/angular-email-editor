@@ -7,6 +7,10 @@ import { AttachmentRef } from './attachment-uploads';
     projection, inline parts, required fields) plus the validated envelope
     and the attachment references. Bytes are the store's, by id. */
 export interface EmailMessage extends SendIntent {
+  /** The `text/html` part as sent: `html` in its full document
+      (`emailDocument`) — head, client fixes, preview text. `html` stays
+      the bare fragment the editor round-trips. */
+  readonly document: string;
   readonly from: string[];
   readonly to: string[];
   readonly cc: string[];

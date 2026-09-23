@@ -3,8 +3,9 @@ import { TextSelection } from 'prosemirror-state';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { Compose } from './compose';
+import { FormattingCommands } from './email-compose/formatting-commands';
 import { Viewport } from '../../services/viewport';
-import { EMAIL_SEND_LATENCY } from '../../services/email-send';
+import { EMAIL_SEND_LATENCY, EmailSend } from '../../services/email-send';
 import {
   DRAFT_KEY,
   DRAFT_SAVE_DELAY,
@@ -224,6 +225,217 @@ describe('Compose', () => {
     expect(color.getAttribute('aria-expanded')).toBe('false');
   });
 
+  it('the button link always opens the link editor; a button left without a link is taken back', async () => {
+    const pane = (component as any).sheet().emailPane();
+    pane.value.set(
+      '<div>Read <b>the report</b> now</div><div>Go <a href="https://x.io">there</a></div>',
+    );
+    await fixture.whenStable();
+    const editor = pane.editor();
+    // jsdom has no layout: the popover's anchor needs a box to stand on.
+    vi.spyOn(editor.view, 'coordsAtPos').mockReturnValue({
+      left: 40,
+      right: 40,
+      top: 100,
+      bottom: 120,
+    });
+    // The composer's shared commands: `act` is what every Button link
+    // button calls (the bubble menu itself shows only with real focus).
+    const formatting = fixture.debugElement
+      .query((el) => !!el.nativeElement?.matches?.('section[email-compose]'))
+      .injector.get(FormattingCommands);
+    const dialog = () => document.querySelector('[role="dialog"][aria-label="Edit link"]');
+    const field = () => dialog()!.querySelector('input') as HTMLInputElement;
+    const key = (target: Element, key: string) =>
+      target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    const convert = async (text: string) => {
+      let from = 0;
+      editor.state.doc.descendants((node: any, pos: number) => {
+        if (node.isText && node.text.includes(text)) from = pos + node.text.indexOf(text);
+      });
+      editor.view.dispatch(
+        editor.state.tr.setSelection(
+          TextSelection.create(editor.state.doc, from, from + text.length),
+        ),
+      );
+      await fixture.whenStable();
+      formatting.act('button-link');
+      await fixture.whenStable();
+    };
+
+    // Text without a link: the editor opens, empty — a link is to be typed.
+    await convert('the report');
+    expect(dialog()).not.toBeNull();
+    expect(field().value).toBe('');
+    // Dismissed without one: taken back, the bold with it.
+    key(field(), 'Escape');
+    await fixture.whenStable();
+    expect(dialog()).toBeNull();
+    expect(pane.value()).not.toContain('inline-block');
+    expect(pane.value()).toContain('the report</strong>');
+
+    // Typed: the button goes there.
+    await convert('the report');
+    field().value = 'example.com/report';
+    field().dispatchEvent(new Event('input', { bubbles: true }));
+    key(field(), 'Enter');
+    await fixture.whenStable();
+    expect(pane.value()).toMatch(
+      /<a href="https:\/\/example\.com\/report"[^>]*inline-block[^>]*>the report<\/a>/,
+    );
+
+    // Text that was a link opens it too, prefilled; Escape keeps the button,
+    // which already goes somewhere.
+    await convert('there');
+    expect(field().value).toBe('https://x.io');
+    key(field(), 'Escape');
+    await fixture.whenStable();
+    expect(pane.value()).toMatch(/<a href="https:\/\/x\.io"[^>]*inline-block[^>]*>there<\/a>/);
+  });
+
+  it('a click on a button opens only its link editor — again after an Escape the editor took too', async () => {
+    const pane = (component as any).sheet().emailPane();
+    const style =
+      'display: inline-block; background-color: rgb(26, 115, 232); color: rgb(255, 255, 255); ' +
+      'font-weight: bold; text-decoration: none; border-width: 14px 28px; border-style: solid; ' +
+      'border-color: rgb(26, 115, 232);';
+    pane.value.set(`<div>Go <a href="https://x.io/shop" style="${style}">Shop</a> now</div>`);
+    await fixture.whenStable();
+    const editor = pane.editor();
+    const view = editor.view;
+    vi.spyOn(view, 'coordsAtPos').mockReturnValue({ left: 40, right: 40, top: 100, bottom: 120 });
+    const dialog = () => document.querySelector('[role="dialog"][aria-label="Edit link"]');
+    // The bubble the composer renders: what it would show, and what it does.
+    const bubble = () => (pane as any).bubbleShown();
+    // ProseMirror's click path on the button (its mouseup runs this).
+    const click = async () => {
+      const node = view.state.doc.nodeAt(4);
+      view.someProp('handleClickOn', (f: any) =>
+        f(view, 4, node, 4, new MouseEvent('mouseup'), true),
+      );
+      await fixture.whenStable();
+    };
+
+    await click();
+    expect(dialog()).not.toBeNull();
+    // The click that opened it ends after it is on screen — and is not a
+    // click outside it: it stays.
+    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await fixture.whenStable();
+    expect(dialog()).not.toBeNull();
+
+    // A button's link editor also sets where it sits on its line.
+    const center = dialog()!.querySelector<HTMLButtonElement>('[aria-label="Align center"]')!;
+    expect(center).not.toBeNull();
+    expect(center.getAttribute('aria-pressed')).toBe('false');
+    center.click();
+    await fixture.whenStable();
+    expect(pane.value()).toContain('text-align: center');
+    expect(center.getAttribute('aria-pressed')).toBe('true');
+    expect(dialog()).not.toBeNull(); // still its menu
+
+    // Even when the extension says "show": the link editor is the popover.
+    (pane as any).bubbleMenuState.set({ isOpen: true, boundingBox: null, kind: 'button' });
+    expect(bubble().isOpen).toBe(false);
+
+    // Escape in the editor, which the editor handles first.
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    escape.preventDefault();
+    view.dom.dispatchEvent(escape);
+    await fixture.whenStable();
+    expect(dialog()).toBeNull();
+    // Closed, and no other menu in its place while the button stays selected.
+    expect(bubble().isOpen).toBe(false);
+
+    // And the next click opens it again.
+    await click();
+    expect(dialog()).not.toBeNull();
+
+    // A press outside: the popover goes, nothing comes up in its place…
+    document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    await fixture.whenStable();
+    expect(dialog()).toBeNull();
+    expect(bubble().isOpen).toBe(false);
+
+    // …until the selection moves on; then the bubble is the selection's again.
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 1, 3)));
+    await fixture.whenStable();
+    (pane as any).bubbleMenuState.set({ isOpen: true, boundingBox: null, kind: 'text' });
+    expect(bubble().isOpen).toBe(true);
+  });
+
+  it('the link editor always offers apply, open and remove, and applies only a valid link', async () => {
+    const root = fixture.nativeElement as HTMLElement;
+    const pane = (component as any).sheet().emailPane();
+    pane.value.set('<p>see the docs</p>');
+    await fixture.whenStable();
+    const editor = pane.editor();
+    vi.spyOn(editor.view, 'coordsAtPos').mockReturnValue({
+      left: 40,
+      right: 40,
+      top: 100,
+      bottom: 120,
+    });
+    editor.view.dispatch(
+      editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 9, 13)),
+    );
+    await fixture.whenStable();
+    (root.querySelector('.toolbar [aria-label="Link"]') as HTMLButtonElement).click();
+    await fixture.whenStable();
+
+    const dialog = () => document.querySelector('[role="dialog"][aria-label="Edit link"]')!;
+    const field = () => dialog().querySelector('input') as HTMLInputElement;
+    const button = (label: string) =>
+      dialog().querySelector<HTMLButtonElement>(`[aria-label="${label}"]`)!;
+    const error = () => dialog().querySelector('[role="alert"]')?.textContent?.trim() ?? null;
+    const type = async (value: string) => {
+      field().value = value;
+      field().dispatchEvent(new Event('input', { bubbles: true }));
+      await fixture.whenStable();
+    };
+    const apply = async () => {
+      button('Apply link').click();
+      await fixture.whenStable();
+      await settle();
+    };
+
+    // A new link: all three are there, nothing is complained about yet —
+    // and no alignment: text aligns with its line from the toolbar.
+    expect(['Apply link', 'Open link', 'Remove link'].every((l) => !!button(l))).toBe(true);
+    expect(button('Align center')).toBeNull();
+    expect(button('Apply link').type).toBe('submit');
+    expect(error()).toBeNull();
+
+    // Applying nothing, or no link, or a script: refused and not applied —
+    // the field marked invalid, with no message.
+    const invalid = () => field().getAttribute('aria-invalid') === 'true';
+    for (const value of ['', 'not a link', 'javascript:alert(1)']) {
+      await type(value);
+      await apply();
+      expect(dialog()).not.toBeNull();
+      expect(invalid()).toBe(true);
+    }
+    expect(error()).toBeNull();
+    expect(pane.value()).not.toContain('href=');
+
+    // Open with no link to go to goes nowhere, and marks the field.
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    await type('nope');
+    button('Open link').click();
+    await fixture.whenStable();
+    expect(open).not.toHaveBeenCalled();
+    expect(invalid()).toBe(true);
+    await type('example.com/docs');
+    button('Open link').click();
+    expect(open).toHaveBeenCalledWith('https://example.com/docs', '_blank', 'noopener,noreferrer');
+    open.mockRestore();
+
+    // A link: applied, the popover gone.
+    await apply();
+    expect(document.querySelector('[role="dialog"][aria-label="Edit link"]')).toBeNull();
+    expect(pane.value()).toContain('href="https://example.com/docs"');
+  });
+
   it('the link buttons open the link editor at the selection, through the shared commands', async () => {
     const root = fixture.nativeElement as HTMLElement;
     const pane = (component as any).sheet().emailPane();
@@ -419,13 +631,13 @@ describe('Compose', () => {
       )!;
 
     expect(labels()).toEqual(['From', 'To', 'Subject']);
-    expect(actions()).toEqual(['Cc', 'Bcc']);
+    expect(actions()).toEqual(['Cc', 'Bcc', 'Preview']);
     expect(action('Cc').type).toBe('button');
 
     action('Cc').click();
     await fixture.whenStable();
     expect(labels()).toEqual(['From', 'To', 'Cc', 'Subject']);
-    expect(actions()).toEqual(['Bcc']);
+    expect(actions()).toEqual(['Bcc', 'Preview']);
     const ccInput = row('Cc').querySelector<HTMLInputElement>('[data-slot=input]')!;
     expect(document.activeElement).toBe(ccInput);
 
@@ -450,7 +662,7 @@ describe('Compose', () => {
     row('Cc').dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: subject }));
     await fixture.whenStable();
     expect(labels()).toEqual(['From', 'To', 'Subject']);
-    expect(actions()).toEqual(['Cc', 'Bcc']);
+    expect(actions()).toEqual(['Cc', 'Bcc', 'Preview']);
 
     // With an address in it, it stays — and it is in the model.
     action('Bcc').click();
@@ -463,8 +675,71 @@ describe('Compose', () => {
     row('Bcc').dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: subject }));
     await fixture.whenStable();
     expect(labels()).toEqual(['From', 'To', 'Bcc', 'Subject']);
-    expect(actions()).toEqual(['Cc']);
+    expect(actions()).toEqual(['Cc', 'Preview']);
     expect((component as any).sheet().message().bcc).toEqual(['grace@example.com']);
+  });
+
+  it('Preview on the Subject row opens the inbox snippet, folds empty, and goes out in the sent document', async () => {
+    const root = fixture.nativeElement as HTMLElement;
+    const labels = () =>
+      [...root.querySelectorAll('.writer-field__label')].map((el) => el.textContent?.trim());
+    const preview = () =>
+      [...root.querySelectorAll<HTMLButtonElement>('.writer-field__action')].find(
+        (el) => el.textContent?.trim() === 'Preview',
+      );
+    const row = () =>
+      [...root.querySelectorAll<HTMLElement>('.writer-field')].find(
+        (el) => el.querySelector('.writer-field__label')?.textContent?.trim() === 'Preview',
+      );
+
+    // The subject precedes its button in the source: Tab runs To, Subject, Preview.
+    const subject = root.querySelector<HTMLInputElement>('.writer-field__input')!;
+    expect(
+      subject.compareDocumentPosition(preview()!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    preview()!.click();
+    await fixture.whenStable();
+    expect(labels()).toEqual(['From', 'To', 'Subject', 'Preview']);
+    expect(preview()).toBeUndefined();
+    const input = row()!.querySelector('input')!;
+    expect(document.activeElement).toBe(input);
+
+    // Left empty, it folds back into the button.
+    row()!.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    await fixture.whenStable();
+    expect(labels()).toEqual(['From', 'To', 'Subject']);
+
+    // Filled, it stays — and the transport gets it as the document's hidden
+    // preview text, the subject as its title, the bare body beside it.
+    preview()!.click();
+    await fixture.whenStable();
+    row()!.querySelector('input')!.value = 'Numbers inside';
+    row()!
+      .querySelector('input')!
+      .dispatchEvent(new Event('input', { bubbles: true }));
+    row()!.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    await fixture.whenStable();
+    expect(labels()).toEqual(['From', 'To', 'Subject', 'Preview']);
+
+    const sheet = (component as any).sheet();
+    sheet.emailPane().value.set('<div>hello</div>');
+    sheet.message.update((m: object) => ({ ...m, to: ['ada@example.com'], subject: 'Q3' }));
+    await fixture.whenStable();
+    (root.querySelector('.writer-bar__send') as HTMLButtonElement).click();
+    await settle();
+    await fixture.whenStable();
+
+    const sent = TestBed.inject(EmailSend).last()!.message;
+    expect(sent.html).not.toContain('Numbers inside');
+    const doc = new DOMParser().parseFromString(sent.document, 'text/html');
+    expect(doc.title).toBe('Q3');
+    const article = doc.body.firstElementChild!;
+    expect(article.getAttribute('role')).toBe('article');
+    expect(article.firstElementChild!.textContent).toContain('Numbers inside');
+    expect(root.querySelector('[aria-label="Last send"]')?.textContent).toContain('preview text');
+    // The sheet started over, the row with it.
+    expect(labels()).toEqual(['From', 'To', 'Subject']);
   });
 
   it('starts with the caret in To, and tabs From, Cc, Bcc, To, Subject', async () => {

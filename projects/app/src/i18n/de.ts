@@ -37,6 +37,7 @@ export default {
       'image-placeholder': { title: 'Bildplatzhalter', keywords: 'bild, platzhalter' },
       divider: { title: 'Trennlinie', keywords: 'linie, trenner' },
       button: { title: 'Schaltfläche', keywords: 'knopf, schaltfläche' },
+      'button-link': { title: 'Schaltflächen-Link', keywords: 'schaltfläche, knopf, link, handlungsaufforderung' },
       table: { title: 'Tabelle', keywords: 'tabelle, raster' },
       'bordered-table': { title: 'Tabelle mit Rahmen', keywords: 'tabelle, rahmen' },
       columns: { title: 'Spalten', keywords: 'spalten, layout' },
@@ -80,6 +81,9 @@ export default {
       apply: 'Link übernehmen',
       open: 'Link öffnen',
       remove: 'Link entfernen',
+    },
+    button: {
+      menu: 'Schaltflächenoptionen',
     },
     image: {
       menu: 'Bildoptionen',

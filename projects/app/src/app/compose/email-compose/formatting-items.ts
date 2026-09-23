@@ -15,6 +15,7 @@ export type FormattingItemId =
   | 'text-color'
   | 'highlight'
   | 'link'
+  | 'button-link'
   | 'bulleted-list'
   | 'numbered-list'
   | 'outdent'
@@ -124,6 +125,15 @@ export function formattingItems(
     },
     // The composer's own action: it opens the link editor (see the commands).
     link: { id: 'link', label: 'Link', icon: 'link', ...action('link') },
+    // A toggle: selected text becomes a call-to-action button, a selected
+    // button linked text again. The commands open the link editor after it
+    // when the new button has no link yet.
+    'button-link': {
+      id: 'button-link',
+      label: 'Button link',
+      icon: 'smart_button',
+      ...action('button-link'),
+    },
     'bulleted-list': {
       id: 'bulleted-list',
       label: 'Bulleted list',

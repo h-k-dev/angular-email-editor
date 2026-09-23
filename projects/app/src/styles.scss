@@ -1085,7 +1085,16 @@ section[html-email-compose] .aee-editor {
   vertical-align: bottom;
 }
 
-.aee-editor .aee-image.ProseMirror-selectednode {
+/* The button in the editor: an atom anchor (contenteditable false), a box
+ * to paint a selection on as the image's wrapper is. Editor-only — the
+ * email's anchor carries nothing but its own inline style. */
+.aee-editor a[contenteditable='false'] {
+  position: relative;
+}
+
+/* Inline atoms — an image, a button — selected by a click: an outline. */
+.aee-editor .aee-image.ProseMirror-selectednode,
+.aee-editor a.ProseMirror-selectednode {
   outline: 2px solid var(--mat-sys-primary, #4c6ef5);
   outline-offset: 1px;
 }
@@ -1093,7 +1102,7 @@ section[html-email-compose] .aee-editor {
 /* The text highlight is ours, not the browser's: a text range that covers
  * an image must tint it in the SAME colour as the letters beside it (the
  * wrapper is contenteditable false, so the browser never paints it — see
- * `.aee-image--in-selection` below), and the browser's own colour is not
+ * `.aee-atom--in-selection` below), and the browser's own colour is not
  * something CSS can read back. Translucent, because over an image it is an
  * overlay. The hide-selection rules above outrank this (more specific). */
 .aee-editor::selection,
@@ -1106,7 +1115,8 @@ section[html-email-compose] .aee-editor {
 
 /* A selected node: a tint under the outline. */
 .aee-editor .aee-image.ProseMirror-selectednode::after,
-.aee-editor .aee-image--in-selection::after {
+.aee-editor a.ProseMirror-selectednode::after,
+.aee-editor .aee-atom--in-selection::after {
   content: '';
   position: absolute;
   inset: 0;
@@ -1117,12 +1127,13 @@ section[html-email-compose] .aee-editor {
   );
 }
 
-/* A text range that covers the image: no outline, no pads, and the text
- * highlight's own colour — one continuous highlight, the way Gmail's
- * plain <img> takes the native selection. The wrapper already fills its
- * line (`line-height: 0; vertical-align: bottom` above), so the tint needs
- * no stretching to meet the line box. */
-.aee-editor .aee-image--in-selection::after {
+/* A text range that covers an image or a button (`InlineAtomSelection`):
+ * no outline, no pads, and the text highlight's own colour — one
+ * continuous highlight, the way Gmail's plain <img> takes the native
+ * selection. The image's wrapper already fills its line (`line-height: 0;
+ * vertical-align: bottom` above), so the tint needs no stretching to meet
+ * the line box. */
+.aee-editor .aee-atom--in-selection::after {
   background-color: var(
     --email-text-selection,
     color-mix(in srgb, var(--mat-sys-primary, #4c6ef5) 28%, transparent)
@@ -1133,8 +1144,9 @@ section[html-email-compose] .aee-editor {
  * cannot be relied on to say "selected": the system's own Highlight says
  * it instead — the colour the text beside the image is selected in. */
 @media (forced-colors: active) {
-  .aee-editor .aee-image--in-selection,
-  .aee-editor .aee-image.ProseMirror-selectednode {
+  .aee-editor .aee-atom--in-selection,
+  .aee-editor .aee-image.ProseMirror-selectednode,
+  .aee-editor a.ProseMirror-selectednode {
     outline: 2px solid Highlight;
     outline-offset: 1px;
   }
@@ -1170,7 +1182,7 @@ section[html-email-compose] .aee-editor {
 
 /* On hover, on the selected image, and throughout a drag (the pointer may
  * leave the image while dragging). */
-.aee-editor .aee-image:hover:not(.aee-image--in-selection) .aee-image__pad,
+.aee-editor .aee-image:hover:not(.aee-atom--in-selection) .aee-image__pad,
 .aee-editor .aee-image.ProseMirror-selectednode .aee-image__pad,
 .aee-editor .aee-image--resizing .aee-image__pad {
   display: block;

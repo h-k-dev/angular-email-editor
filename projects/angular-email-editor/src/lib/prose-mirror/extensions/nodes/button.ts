@@ -1,7 +1,17 @@
 import { Node, Schema } from 'prosemirror-model';
-import { Command } from 'prosemirror-state';
+import {
+  Command,
+  EditorState,
+  NodeSelection,
+  Plugin,
+  PluginKey,
+  TextSelection,
+} from 'prosemirror-state';
+import { EditorView } from 'prosemirror-view';
 import { Transform } from 'prosemirror-transform';
-import { defineNode } from '../../extension';
+import { closeHistory } from 'prosemirror-history';
+import { FunctionalExtension, defineExtension, defineNode } from '../../extension';
+import { isSafeUrl } from '../marks/link';
 
 /** The button's canonical styling — the *border-based* bulletproof button:
     the touch target (≥ 44px tall, per the ledger) comes from borders in the
@@ -31,9 +41,10 @@ export const BUTTON_STYLE =
  * (`inline*`) — cells stay textblocks; they do not open to headings or
  * nested tables. It is an **atom** (label and href are attributes, not
  * editable content): a contentEditable `<a>` would ignore the node
- * boundary and unwrap when you type. The label and href are edited in
- * the HTML source pane, the same way image alt/width are. A dedicated
- * inline editor is a future polish item.
+ * boundary and unwrap when you type. Selected text becomes one, and a
+ * button linked text again (`button-link`, a toggle); a selected button's
+ * link is set with `setButtonHref`. Its label is edited as text — toggle
+ * it back, change the words, toggle again — or in the HTML source pane.
  */
 export const Button = defineNode({
   name: 'button',
@@ -56,17 +67,60 @@ export const Button = defineNode({
         getAttrs: (dom) => {
           if (!(dom instanceof HTMLElement)) return false;
           if (!/display:\s*inline-block/i.test(dom.getAttribute('style') ?? '')) return false;
+          // Same rule as the link mark: a script URL kills the button on
+          // parse — and, refused here, the link mark refuses it too.
+          const href = dom.getAttribute('href') ?? UNSET_BUTTON_HREF;
+          if (!isSafeUrl(href)) return false;
           // Collapsed: a formatter may print the label on its own line, and a
           // label never carries raw whitespace.
           const label = (dom.textContent ?? '').replace(/\s+/g, ' ').trim();
-          return { href: dom.getAttribute('href') ?? '#', label };
+          return { href, label };
         },
       },
     ],
-    toDOM: (node) => ['a', { href: node.attrs['href'], style: BUTTON_STYLE }, node.attrs['label']],
+    // In the editor: content, not a stop on the page's Tab order — a link
+    // is focusable, and inside a non-editable island it would take a Tab
+    // (and a click's focus) away from the text. The email never carries
+    // that: see emitDOM.
+    toDOM: (node) => ['a', { ...buttonAttrs(node), tabindex: '-1' }, node.attrs['label']],
+    // Serialization-only (see serializeToHTML): the anchor as it is sent.
+    emitDOM: (node: Node) => ['a', buttonAttrs(node), node.attrs['label']],
   },
+  plugins: () => [
+    new Plugin({
+      key: new PluginKey('buttonClick'),
+      props: {
+        // A click on a button edits it — it never follows it, with or
+        // without Ctrl/Cmd (this runs before the link mark's handleClick,
+        // and answering stops it). The button is selected, and a host that
+        // asked (`createButtonEdit`) is told to open its link editor.
+        handleClickOn: (view, _pos, node, nodePos, _event, direct) => {
+          if (!direct || node.type.name !== 'button') return false;
+          view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, nodePos)));
+          // The caret is the editor's, not the anchor's: Delete and typing
+          // act on the selected button.
+          view.focus();
+          const onEdit = buttonEditKey.getState(view.state)?.onEdit;
+          if (onEdit) {
+            const dom = view.nodeDOM(nodePos) as HTMLElement | null;
+            onEdit({ pos: nodePos, rect: dom?.getBoundingClientRect() ?? null });
+          }
+          return true;
+        },
+        // The anchor is non-editable (an atom), so to the browser it is a
+        // live link: a click — a middle click too — would open it, in a new
+        // tab (`target="_blank"`). In the editor it is content, not a way out.
+        handleDOMEvents: {
+          click: preventButtonNavigation,
+          auxclick: preventButtonNavigation,
+        },
+      },
+    }),
+  ],
   commands: ({ schema }) => ({
     insertButton: (): Command => insertButton(schema),
+    toggleButtonLink: (): Command => toggleButtonLink,
+    setButtonHref: (href: string): Command => setButtonHref(href),
   }),
   actions: ({ schema }) => [
     {
@@ -76,8 +130,187 @@ export const Button = defineNode({
       icon: 'smart_button',
       command: insertButton(schema),
     },
+    // The selection's own: selected text becomes a button, a selected
+    // button becomes linked text again. Needs one or the other, so a `/`
+    // menu (a caret) never offers it.
+    {
+      id: 'button-link',
+      title: 'Button link',
+      keywords: ['button', 'cta', 'call to action', 'link'],
+      icon: 'smart_button',
+      command: toggleButtonLink,
+      isEnabled: (state) => !!selectedButton(state) || !!buttonLabelAt(state),
+      isActive: (state) => !!selectedButton(state),
+    },
   ],
 });
+
+/** A button's anchor attributes as the email carries them: a new tab,
+    without the opener — what every link in the email carries (the link
+    mark's defaults), so a button is no exception to it. */
+function buttonAttrs(node: Node): Record<string, string> {
+  return {
+    href: node.attrs['href'] as string,
+    target: '_blank',
+    rel: 'noopener noreferrer',
+    style: BUTTON_STYLE,
+  };
+}
+
+/** Stops the browser following a button's anchor. Never answers: the
+    event stays ProseMirror's (and the page's) otherwise. */
+function preventButtonNavigation(view: EditorView, event: MouseEvent): boolean {
+  const anchor = (event.target as Element | null)?.closest?.('a');
+  if (!anchor || !view.dom.contains(anchor)) return false;
+  const node = view.state.doc.nodeAt(view.posAtDOM(anchor, 0));
+  if (node?.type.name === 'button') event.preventDefault();
+  return false;
+}
+
+/** Where a clicked button is, for the host's link editor to stand on. */
+export interface ButtonEditTarget {
+  pos: number;
+  /** The button's box in viewport coordinates — null where nothing is laid
+      out (a test DOM). */
+  rect: DOMRect | null;
+}
+
+export interface ButtonEditOptions {
+  /** A button was clicked, and is now the selection: open its link editor.
+      (A click never follows the button's link — its editor's own "open"
+      is the way out.) */
+  onEdit: (target: ButtonEditTarget) => void;
+}
+
+const buttonEditKey = new PluginKey<ButtonEditOptions>('buttonEdit');
+
+/**
+ * What a click on a button does, told to the host: the kit selects the
+ * button and never follows its link; this hands the host the moment to
+ * open its link editor on it — the one a text link opens with, so a button
+ * is edited the way a link is. Without it, a click only selects the button
+ * (and a bubble menu can offer the editor).
+ *
+ *     createButtonEdit({ onEdit: () => linkEditor.show() })
+ */
+export const createButtonEdit = (options: ButtonEditOptions): FunctionalExtension =>
+  defineExtension({
+    name: 'buttonEdit',
+    plugins: () => [
+      new Plugin<ButtonEditOptions>({
+        key: buttonEditKey,
+        state: { init: () => options, apply: (_tr, value) => value },
+      }),
+    ],
+  });
+
+/** The button a selection holds — a click's node selection — or null. */
+export function selectedButton(state: EditorState): { pos: number; node: Node } | null {
+  const { selection } = state;
+  return selection instanceof NodeSelection && selection.node.type.name === 'button'
+    ? { pos: selection.from, node: selection.node }
+    : null;
+}
+
+/** A button's `href` before it has been given one — the placeholder
+    `insertButton` and a text without a link start from. */
+export const UNSET_BUTTON_HREF = '#';
+
+/**
+ * What a text selection would become, or null when it cannot be a button:
+ * the range must lie in one line and hold text only — an image or a line
+ * break is not a label (a `{{ token }}` is: it is text, and personalizes
+ * the button) — and say something. The range is the selection *without*
+ * the whitespace at its ends: a double-click that took a word's trailing
+ * space must not swallow the space into the button and glue the words
+ * around it together. The label is its text with the whitespace inside
+ * collapsed (a label never carries raw whitespace, see the parse rule).
+ */
+function buttonLabelAt(state: EditorState): { from: number; to: number; label: string } | null {
+  const { selection, schema } = state;
+  if (!schema.nodes['button'] || !(selection instanceof TextSelection) || selection.empty) {
+    return null;
+  }
+  const { $from, $to } = selection;
+  if (!$from.sameParent($to) || !$from.parent.inlineContent) return null;
+  let textOnly = true;
+  state.doc.nodesBetween(selection.from, selection.to, (node) => {
+    if (node.isInline && !node.isText) textOnly = false;
+    return textOnly;
+  });
+  if (!textOnly) return null;
+  // Text only, in one parent: one character per position.
+  const text = state.doc.textBetween(selection.from, selection.to);
+  const label = text.replace(/\s+/g, ' ').trim();
+  if (!label) return null;
+  const from = selection.from + (text.length - text.trimStart().length);
+  const to = selection.to - (text.length - text.trimEnd().length);
+  return { from, to, label };
+}
+
+/**
+ * Selected text → a button: the text is its label, the link it carried (if
+ * any) its `href`, and the button is left selected. A selected button →
+ * linked text again: the label, carrying the button's link (none for a
+ * placeholder `#`), left selected as text. Whatever marks the text had —
+ * bold, a colour — do not survive into the button: it is an atom that
+ * paints itself (see `BUTTON_STYLE`).
+ */
+const toggleButtonLink: Command = (state, dispatch) => {
+  const button = selectedButton(state);
+  if (button) {
+    if (dispatch) {
+      const { href, label } = button.node.attrs as { href: string; label: string };
+      const link = state.schema.marks['link'];
+      const marks = link && href !== UNSET_BUTTON_HREF ? [link.create({ href })] : [];
+      const text = state.schema.text(label, marks);
+      const tr = state.tr.replaceWith(button.pos, button.pos + button.node.nodeSize, text);
+      tr.setSelection(TextSelection.create(tr.doc, button.pos, button.pos + text.nodeSize));
+      dispatch(tr.scrollIntoView());
+    }
+    return true;
+  }
+
+  const target = buttonLabelAt(state);
+  if (!target) return false;
+  if (dispatch) {
+    const { from, to, label } = target;
+    const link = state.schema.marks['link'];
+    let href = UNSET_BUTTON_HREF;
+    if (link) {
+      state.doc.nodesBetween(from, to, (node) => {
+        const mark = link.isInSet(node.marks);
+        if (mark && href === UNSET_BUTTON_HREF) href = mark.attrs['href'] as string;
+      });
+    }
+    const node = state.schema.nodes['button'].create({ href, label });
+    // Its own history event, never merged into the typing just before it:
+    // one undo takes back exactly the conversion — what a host does when
+    // the new button is left without a link.
+    const tr = closeHistory(state.tr).replaceWith(from, to, node);
+    tr.setSelection(NodeSelection.create(tr.doc, from));
+    dispatch(tr.scrollIntoView());
+  }
+  return true;
+};
+
+/** Sets the selected button's link, keeping it selected. An empty href is
+    the placeholder again; a script URL is refused, as the link mark's is. */
+const setButtonHref =
+  (href: string): Command =>
+  (state, dispatch) => {
+    const button = selectedButton(state);
+    if (!button || (href.trim() && !isSafeUrl(href))) return false;
+    if (dispatch) {
+      const tr = state.tr.setNodeMarkup(button.pos, undefined, {
+        ...button.node.attrs,
+        href: href.trim() || UNSET_BUTTON_HREF,
+      });
+      tr.setSelection(NodeSelection.create(tr.doc, button.pos));
+      dispatch(tr);
+    }
+    return true;
+  };
 
 function insertButton(schema: Schema): Command {
   return (state, dispatch) => {

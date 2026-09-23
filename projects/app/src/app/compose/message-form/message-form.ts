@@ -1,5 +1,6 @@
 import {
   Component,
+  ElementRef,
   Injector,
 
   // Signals
@@ -39,6 +40,7 @@ import { AngularFileDrop, FileDropEvent } from '@h-k-dev/angular-file-drop';
 import {
   Editor,
   InlineImages,
+  emailDocument,
   importLoss,
   importedDocument,
   toInboundMessage,
@@ -132,7 +134,9 @@ export class MessageForm {
   protected readonly viewport = inject(Viewport);
 
   /** The Subject input's id, unique on the page. */
-  protected readonly subjectId = `message-subject-${nextSheetId++}`;
+  protected readonly subjectId = `message-subject-${nextSheetId}`;
+  /** The Preview text input's id, unique on the page. */
+  protected readonly previewId = `message-preview-${nextSheetId++}`;
 
   /** The message — one model, owned here as a real host would own it
       (seeded from an account, a reply's headers, a draft). Every row on the
@@ -268,6 +272,7 @@ export class MessageForm {
     this.envelope().reset(BLANK);
     this.ccOpen.set(false);
     this.bccOpen.set(false);
+    this.previewOpen.set(false);
     this.cleared.emit();
     afterNextRender({ write: () => this.focus() }, { injector: this.#injector });
   }
@@ -290,6 +295,32 @@ export class MessageForm {
       { write: () => (which === 'cc' ? this.ccField() : this.bccField())?.focus() },
       { injector: this.#injector },
     );
+  }
+
+  /**
+   * Preview text — the inbox snippet — the way Cc and Bcc work: a text
+   * button at the end of the Subject row opens its own row (focused) and
+   * steps aside; left empty, the row folds back into the button when focus
+   * moves on. A personal mail never needs it, so it stays out of the way; a
+   * newsletter writer finds it one click from the subject.
+   */
+  protected readonly previewOpen = signal(false);
+  protected readonly showPreview = computed(
+    () => this.previewOpen() || this.message().previewText.length > 0,
+  );
+  protected readonly previewField = viewChild<ElementRef<HTMLInputElement>>('previewField');
+
+  protected openPreview(): void {
+    this.previewOpen.set(true);
+    afterNextRender(
+      { write: () => this.previewField()?.nativeElement.focus() },
+      { injector: this.#injector },
+    );
+  }
+
+  /** Focus left the preview row: an empty one folds. */
+  protected leavePreview(): void {
+    if (!this.message().previewText) this.previewOpen.set(false);
   }
 
   /**
@@ -487,10 +518,13 @@ export class MessageForm {
   async #deliver(field: FieldTree<Envelope>): Promise<TreeValidationResult> {
     const intent = this.emailPane().intent();
     if (!intent) return { kind: 'editor.unready', message: 'The editor is still loading' };
-    const { from, to, cc, bcc, subject, attachments } = field().value();
+    const { from, to, cc, bcc, subject, previewText, attachments } = field().value();
     try {
       const receipt = await this.#transport.send({
         ...intent,
+        // No `lang`: the app's language is the reader's UI, not the
+        // message's — the article's `dir="auto"` still reads the text.
+        document: emailDocument(intent.html, { title: subject, previewText }),
         from,
         to,
         cc,
@@ -503,6 +537,7 @@ export class MessageForm {
       const note =
         `Sent ${receipt.id} · to ${to.length} recipient${to.length === 1 ? '' : 's'}` +
         (subject ? ` · “${subject}”` : ' · no subject') +
+        (previewText ? ' · preview text' : '') +
         ` · ${kb} kB HTML · ${intent.text.length} chars text` +
         (parts
           ? ` · ${parts} inline image${parts === 1 ? '' : 's'} as cid: part${parts === 1 ? '' : 's'}`

@@ -36,6 +36,7 @@ export default {
       'image-placeholder': { title: '画像プレースホルダー', keywords: '画像, 枠, がぞう' },
       divider: { title: '区切り線', keywords: '線, 区切り, くぎり' },
       button: { title: 'ボタン', keywords: 'ボタン, ぼたん' },
+      'button-link': { title: 'ボタンリンク', keywords: 'ボタン, リンク, ぼたん' },
       table: { title: '表', keywords: '表, テーブル, ひょう' },
       'bordered-table': { title: '罫線付きの表', keywords: '表, 罫線, けいせん' },
       columns: { title: '段組み', keywords: '列, カラム, だんぐみ' },
@@ -76,6 +77,9 @@ export default {
       apply: 'リンクを適用',
       open: 'リンクを開く',
       remove: 'リンクを削除',
+    },
+    button: {
+      menu: 'ボタンのオプション',
     },
     image: {
       menu: '画像オプション',

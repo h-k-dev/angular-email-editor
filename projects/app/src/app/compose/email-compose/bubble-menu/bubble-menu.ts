@@ -20,10 +20,19 @@ import { FormattingCommands } from '../formatting-commands';
 import { FormattingItem, FormattingLayout, layoutEntries } from '../formatting-items';
 import { ToolbarKeys } from '../formatting-toolbar/toolbar-keys';
 
-/** The bubble menu's groups: the marks, then what wraps the selection. */
+/** The bubble menu's groups: the marks, then what wraps the selection —
+    a link, a button link, a quote. */
 const LAYOUT: FormattingLayout = [
   ['bold', 'italic', 'underline', 'strike'],
-  ['link', 'quote'],
+  ['link', 'button-link', 'quote'],
+];
+
+/** A clicked button: its link (the link editor, on the button), turning it
+    back into text (the same toggle, shown on), and where it sits on its
+    line — a call to action is usually centred. */
+const BUTTON_LAYOUT: FormattingLayout = [
+  ['link', 'button-link'],
+  ['align-left', 'align-center', 'align-right'],
 ];
 
 /** An image alone gets its own tools instead: where it sits on its line
@@ -77,6 +86,8 @@ export class BubbleMenu {
   protected readonly entries = layoutEntries(this.#commands.items, LAYOUT);
 
   protected readonly imageEntries = layoutEntries(this.#commands.items, IMAGE_LAYOUT);
+
+  protected readonly buttonEntries = layoutEntries(this.#commands.items, BUTTON_LAYOUT);
 
   protected readonly altItem = this.#commands.items['image-alt'];
 

@@ -58,6 +58,7 @@ import {
   createBlockMenu,
   createTableHandles,
   createBubbleMenu,
+  createButtonEdit,
   createContentStream,
   createEditor,
   createAngularExpressions,
@@ -260,6 +261,15 @@ export class EmailCompose implements FormValueControl<string> {
     boundingBox: null,
   });
 
+  /** What the bubble menu shows: the extension's state — except for a
+      button the link editor was opened on, as long as it stays selected:
+      one menu at a time, and closing the link editor brings none up in its
+      place. Derived, not asked of a callback at some moment, so no order of
+      events can put the two up together. */
+  protected readonly bubbleShown = computed<BubbleMenuState>(() =>
+    this.linkEditor().holdsButton() ? { isOpen: false, boundingBox: null } : this.bubbleMenuState(),
+  );
+
   /** The block menu's state, from its extension: open on a bare cursor in
       a layout block — never together with the bubble menu. */
   protected readonly blockMenuState = signal<BlockMenuState>({
@@ -304,7 +314,7 @@ export class EmailCompose implements FormValueControl<string> {
     this.#commands.connect({
       codeView: this.codeView,
       codeEditor: this.codeEditor,
-      openLink: () => this.linkEditor().show(),
+      openLink: (options) => this.linkEditor().show(options),
       // The bubble menu is open over the image when its alt button is
       // pressed: its box is where the popover goes.
       openAltText: () => this.altTextEditor().show(this.bubbleMenuState().boundingBox),
@@ -438,6 +448,12 @@ export class EmailCompose implements FormValueControl<string> {
         createAngularExpressions({ onDiagnostics: (d) => this.expressionDiagnostics.set(d) }),
         createTextMetrics({ onMetrics: (metrics) => this.bodyMetrics.set(metrics) }),
         createInlineImages({ registry: this.#images }),
+        // A click on a button never follows it: it opens the link editor on
+        // it, as on a text link — whose "Open link" is the way out. The caret
+        // stays in the editor, the button selected as an image is on a click:
+        // Delete removes it (and the popover with it); a click in the field
+        // edits the link.
+        createButtonEdit({ onEdit: () => this.linkEditor().show({ focus: false }) }),
         createImageDrag({
           // How the editor tells *this* zone an image drag is its own.
           claim: claimDragEvent,

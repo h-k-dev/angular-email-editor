@@ -39,6 +39,8 @@ export interface DraftContent {
   readonly cc: readonly string[];
   readonly bcc: readonly string[];
   readonly subject: string;
+  /** The inbox snippet; absent in drafts written before it existed. */
+  readonly previewText?: string;
   readonly html: string;
   readonly attachments: readonly DraftAttachment[];
 }
@@ -64,7 +66,7 @@ export interface SaveOptions {
     recognisable without comparing field by field. */
 export function serializeDraft(content: DraftContent | null): string | null {
   if (!content) return null;
-  const { from, to, cc, bcc, subject, html, attachments } = content;
+  const { from, to, cc, bcc, subject, previewText, html, attachments } = content;
   return JSON.stringify({
     v: 1,
     from,
@@ -72,6 +74,8 @@ export function serializeDraft(content: DraftContent | null): string | null {
     cc,
     bcc,
     subject,
+    // Left out when empty, so a draft without one stays the string it was.
+    ...(previewText && { previewText }),
     html,
     attachments: attachments.map(({ id, name, type, size }) => ({ id, name, type, size })),
   });
@@ -89,20 +93,30 @@ export function parseDraft(raw: string | null): DraftContent | null {
     return null;
   }
   if (!isRecord(value) || value['v'] !== 1) return null;
-  const { from, to, cc, bcc, subject, html, attachments } = value;
+  const { from, to, cc, bcc, subject, previewText, html, attachments } = value;
   if (
     !isStrings(from) ||
     !isStrings(to) ||
     !isStrings(cc) ||
     !isStrings(bcc) ||
     typeof subject !== 'string' ||
+    (previewText !== undefined && typeof previewText !== 'string') ||
     typeof html !== 'string' ||
     !Array.isArray(attachments) ||
     !attachments.every(isDraftAttachment)
   ) {
     return null;
   }
-  return { from, to, cc, bcc, subject, html, attachments };
+  return {
+    from,
+    to,
+    cc,
+    bcc,
+    subject,
+    ...(previewText !== undefined && { previewText }),
+    html,
+    attachments,
+  };
 }
 
 /**

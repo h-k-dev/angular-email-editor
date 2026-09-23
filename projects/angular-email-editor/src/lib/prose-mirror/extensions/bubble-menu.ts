@@ -2,16 +2,17 @@ import { EditorState, Plugin, PluginKey, TextSelection, AllSelection } from 'pro
 import { FunctionalExtension, defineExtension } from '../extension'; // Adjust path if needed
 import { selectionInsideMergeTag } from './nodes/merge-tag';
 import { selectedImage } from './nodes/image';
+import { selectedButton } from './nodes/button';
 
 export interface BubbleMenuState {
   isOpen: boolean;
   boundingBox: DOMRect | null;
   /** What the menu is for: `'image'` when an image is the whole selection
-      — clicked, or dragged over with nothing beside it (`selectedImage`),
-      and the box is the image's — `'text'` otherwise. A host shows the
-      image's own tools for the one, the marks for the other. Absent while
-      closed. */
-  kind?: 'text' | 'image';
+      — clicked, or dragged over with nothing beside it (`selectedImage`);
+      `'button'` for a clicked button (`selectedButton`) — the box is then
+      the node's own; `'text'` otherwise. A host shows each one's own
+      tools. Absent while closed. */
+  kind?: 'text' | 'image' | 'button';
 }
 
 export interface BubbleMenuOptions {
@@ -22,9 +23,12 @@ export interface BubbleMenuOptions {
 
 // Inside a merge tag the menu stays away: the token is text, but formatting
 // it is all-or-nothing and lives on the keyboard (Ctrl-B bolds the whole).
-// An image alone is the other thing it opens for — clicked or dragged over.
-const defaultShouldShow = (state: EditorState) =>
+// An image alone is the other thing it opens for — clicked or dragged over —
+// and a clicked button. Exported, so a host's `shouldShow` can narrow it
+// rather than restate it.
+export const defaultBubbleShouldShow = (state: EditorState) =>
   !!selectedImage(state) ||
+  !!selectedButton(state) ||
   (!state.selection.empty &&
     (state.selection instanceof TextSelection || state.selection instanceof AllSelection) &&
     !selectionInsideMergeTag(state));
@@ -55,26 +59,33 @@ export const createBubbleMenu = (options: BubbleMenuOptions): FunctionalExtensio
 
             // Check if we should show the menu. Also ensure the editor actually has focus
             // to prevent the menu from popping up when clicking outside the editor.
-            const canShow =
+            const canShow = () =>
               !mouseSelecting &&
-              (options.shouldShow || defaultShouldShow)(view.state) &&
+              (options.shouldShow || defaultBubbleShouldShow)(view.state) &&
               view.hasFocus();
 
-            if (!canShow) {
+            if (!canShow()) {
               close();
               return;
             }
 
             showTimer = setTimeout(() => {
-              // An image alone: the menu stands over the picture itself.
+              // Asked again once the delay is over: in between, the host may
+              // have opened something of its own there (a click on a button
+              // opens its link editor) that its `shouldShow` now says no to.
+              if (!canShow()) return close();
+              // An image alone, or a button: the menu stands over the node
+              // itself.
               const image = selectedImage(view.state);
-              const dom = image && (view.nodeDOM(image.pos) as HTMLElement | null);
+              const button = image ? null : selectedButton(view.state);
+              const node = image ?? button;
+              const dom = node && (view.nodeDOM(node.pos) as HTMLElement | null);
               if (dom && typeof dom.getBoundingClientRect === 'function') {
                 open = true;
                 options.onStateChange({
                   isOpen: true,
                   boundingBox: dom.getBoundingClientRect(),
-                  kind: 'image',
+                  kind: image ? 'image' : 'button',
                 });
                 return;
               }
