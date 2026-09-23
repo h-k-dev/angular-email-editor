@@ -14,6 +14,7 @@ import {
   model,
   output,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 
@@ -28,6 +29,7 @@ import type { FormValueControl } from '@angular/forms/signals';
 
 import { DropHint, DropHintArt } from '../drop-hint/drop-hint';
 import { isTyping, releaseEditingSurface } from '../is-typing';
+import { atRest } from '../at-rest';
 import { BlockMenu } from './block-menu/block-menu';
 import { TableMenu } from './table-menu/table-menu';
 import { BubbleMenu } from './bubble-menu/bubble-menu';
@@ -314,21 +316,51 @@ export class EmailCompose implements FormValueControl<string> {
     // parses through the email schema. Skipped while this editor has focus:
     // then it is the origin of the signal value, not a consumer. `setContent`
     // dispatches no transaction, so applying can't echo through `onUpdate`.
+    //
+    // At rest (`atRest`): a single write — a draft, an import, an example —
+    // lands at once, but typing in the source pane is a write per key, and
+    // parsing a large email per key (~14 ms at Gmail's 102 KB clip) eats a
+    // fast typist's gap between keys; that burst lands when it stops. The
+    // form's value is never held back — only this view of it. Focus catches
+    // up at once (the listeners in #mountEditor), so nobody types over a
+    // stale document.
     effect(() => {
-      this.value(); // track: any external write re-runs this
+      this.#incoming.value(); // track: any external write re-runs this
       const editor = this.editor();
-      if (!editor || isTyping(editor.view)) return;
-      this.#applyIncoming(editor);
+      untracked(() => {
+        if (!editor || isTyping(editor.view)) return;
+        this.#applyIncoming(editor);
+      });
     });
+  }
+
+  /** `value`, settled: see the effect above. This editor's own publishes
+      come back through it too; they pass at once and start no burst. */
+  readonly #incoming = atRest(() => this.value(), {
+    passes: (value) => value === this.#published,
+  });
+
+  /** The html this editor last published — what its document serializes
+      to: every change to the document is published (`onUpdate`, or right
+      after `setContent` below), so the two never drift. Kept so that
+      checking an incoming value is a string compare, not a second
+      serialization of the whole email on top of the one each keystroke
+      already costs. */
+  #published: string | null = null;
+
+  /** Serializes the document once and publishes it. */
+  #publish(editor: Editor): void {
+    this.#published = editor.getHTML();
+    this.value.set(this.#published);
   }
 
   /** Applies the signal's current value to the editor and re-publishes the
       canonical form (what survived the schema round-trip). */
   #applyIncoming(editor: Editor): void {
     const incoming = this.value();
-    if (incoming === editor.getHTML()) return;
+    if (incoming === (this.#published ??= editor.getHTML())) return;
     editor.setContent(incoming);
-    this.value.set(editor.getHTML());
+    this.#publish(editor);
   }
 
   #mountEditor(): void {
@@ -421,7 +453,7 @@ export class EmailCompose implements FormValueControl<string> {
         }),
       ],
       attributes: { role: 'textbox', 'aria-multiline': 'true', 'aria-label': 'Message body' },
-      onUpdate: (editor) => this.value.set(editor.getHTML()),
+      onUpdate: (editor) => this.#publish(editor),
     });
     // External writes must survive focus: the sync effect skips while this
     // editor is focused — so on blur, catch up with whatever the signal says
@@ -443,7 +475,7 @@ export class EmailCompose implements FormValueControl<string> {
     // canonical form. Publishing the empty document it mounted with would
     // write over the value it was given.
     this.#applyIncoming(editor);
-    this.value.set(editor.getHTML());
+    this.#publish(editor);
     // No focus of its own: where the caret starts is the page's decision
     // (the composer puts it in To), and the form's way in is `focus()`.
     // Mounting runs in the mixed render phase, after the page's focus write

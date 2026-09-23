@@ -1,6 +1,13 @@
 import { scanMergeTags } from './nodes/merge-tag';
 import { textRegions } from '../html-source';
-import { Command, EditorState, Plugin, PluginKey, TextSelection } from 'prosemirror-state';
+import {
+  Command,
+  EditorState,
+  Plugin,
+  PluginKey,
+  TextSelection,
+  Transaction,
+} from 'prosemirror-state';
 import { Fragment, Node, Slice } from 'prosemirror-model';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import { FunctionalExtension, defineExtension } from '../extension';
@@ -15,8 +22,48 @@ import {
 } from '../html-source';
 
 export interface HtmlLanguageOptions {
-  /** Called with fresh diagnostics after every document change. */
+  /** Called with fresh diagnostics whenever the text is rescanned: once
+      typing rests, and at once for a wholesale change. */
   onDiagnostics?: (diagnostics: HtmlDiagnostic[]) => void;
+  /** How long typing must rest, in ms, before the whole text is rescanned
+      — highlighting and lint rebuilt from scratch. Until then each edit
+      only moves the existing decorations along. Default
+      {@link TYPING_REST}. */
+  rescanDelay?: number;
+}
+
+/**
+ * How long typing must rest before work that covers the whole text runs, in
+ * ms — tuned for the fastest typists, not the average: around 300 words a
+ * minute a record typist lands a key every ~40 ms (~30 in a burst), so five
+ * missed keys is a stop, not a gap between two. Shorter would fire mid-burst;
+ * longer only keeps a finished edit waiting.
+ */
+export const TYPING_REST = 200;
+
+/** An edit small enough to be typing: under this many characters changed,
+    the decorations are mapped and the rescan waits for rest. Anything
+    larger — a paste, a format, a mirrored rewrite — rescans at once, or it
+    would sit unhighlighted until the rest. */
+const TYPING_EDIT = 64;
+
+interface HtmlLanguageState {
+  decorations: DecorationSet;
+  /** Mapped through edits since the last full scan: a rescan is due. */
+  stale: boolean;
+}
+
+/** The meta a rest rescan is dispatched with. */
+const RESCAN = 'rescan';
+
+function editSize(tr: Transaction): number {
+  let size = 0;
+  for (const map of tr.mapping.maps) {
+    map.forEach((oldStart, oldEnd, newStart, newEnd) => {
+      size += oldEnd - oldStart + (newEnd - newStart);
+    });
+  }
+  return size;
 }
 
 /** Interpolation classes — Angular-template style: the `{{` `}}` muted like
@@ -215,7 +262,11 @@ function handleCodePaste(state: EditorState, text: string | undefined): Slice | 
  * serialized output never changes.
  */
 export const createHtmlLanguage = (options: HtmlLanguageOptions = {}): FunctionalExtension => {
-  const key = new PluginKey<DecorationSet>('htmlLanguage');
+  const key = new PluginKey<HtmlLanguageState>('htmlLanguage');
+  const scanned = (doc: Node): HtmlLanguageState => ({
+    decorations: buildDecorations(doc, options),
+    stale: false,
+  });
   return defineExtension({
     name: 'htmlLanguage',
     commands: () => ({ formatDocument: () => formatDocument }),
@@ -231,15 +282,46 @@ export const createHtmlLanguage = (options: HtmlLanguageOptions = {}): Functiona
       },
     }),
     plugins: () => [
-      new Plugin<DecorationSet>({
+      // Paced for the fastest typist: a full scan of a 100 KB source costs
+      // tens of ms — more than the gap between two of their keys — so a
+      // keystroke only maps the decorations it has, and the scan (and the
+      // lint it reports) waits for typing to rest.
+      new Plugin<HtmlLanguageState>({
         key,
         state: {
-          init: (_, state) => buildDecorations(state.doc, options),
-          apply: (tr, decorations, _prev, state) =>
-            tr.docChanged ? buildDecorations(state.doc, options) : decorations,
+          init: (_, state) => scanned(state.doc),
+          apply: (tr, value, _prev, state) => {
+            if (tr.getMeta(key) === RESCAN) return scanned(state.doc);
+            if (!tr.docChanged) return value;
+            // Only typing waits: a mirrored write (`setText`, however small
+            // its diff) or a large edit is not someone's next keystroke.
+            if (tr.getMeta('externalSync') || editSize(tr) > TYPING_EDIT) return scanned(state.doc);
+            return { decorations: value.decorations.map(tr.mapping, tr.doc), stale: true };
+          },
+        },
+        view: (view) => {
+          let timer: ReturnType<typeof setTimeout> | undefined;
+          const rescan = () => {
+            timer = undefined;
+            if (view.isDestroyed || !key.getState(view.state)?.stale) return;
+            // Never under an IME's feet: redrawing the decorations mid-
+            // composition can break it. Try again after the next rest.
+            if (view.composing) return schedule();
+            view.dispatch(view.state.tr.setMeta(key, RESCAN).setMeta('addToHistory', false));
+          };
+          const schedule = () => {
+            clearTimeout(timer);
+            timer = setTimeout(rescan, options.rescanDelay ?? TYPING_REST);
+          };
+          return {
+            update: (current, prev) => {
+              if (current.state.doc !== prev.doc && key.getState(current.state)?.stale) schedule();
+            },
+            destroy: () => clearTimeout(timer),
+          };
         },
         props: {
-          decorations: (state) => key.getState(state),
+          decorations: (state) => key.getState(state)?.decorations,
           handleTextInput: handleTagTyping,
           handlePaste: (view, event) => {
             const slice = handleCodePaste(view.state, event.clipboardData?.getData('text/plain'));

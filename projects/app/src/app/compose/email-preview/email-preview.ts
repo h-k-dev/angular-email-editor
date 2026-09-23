@@ -1,8 +1,18 @@
-import { Component, computed, inject, input, linkedSignal, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  inject,
+  input,
+  linkedSignal,
+  signal,
+  untracked,
+} from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 // Library
 import { InlineImages, emailPlainText } from 'angular-email-editor';
+
+import { atRest } from '../at-rest';
 
 /** Approximates a mail client's rendering surface: default typography on
     white — the email itself carries no such defaults, the client does. */
@@ -24,7 +34,6 @@ const FORCED_INVERSION = `
     email that reads at 320px is free at any desktop width — so a wider
     preview never shows anything a narrower one did not already prove. */
 const PHONE_WIDTH = 320;
-
 /**
  * The third projection of the canonical `html` signal: a strictly read-only,
  * sandboxed rendering of what the recipient sees, at phone width.
@@ -45,12 +54,23 @@ export class EmailPreview {
       keystroke, for nobody. */
   active = input(true);
 
-  /** The html the preview shows: `html` while active, and the last one it
-      showed while hidden — the source reads `html` only when active, so a
-      hidden preview does not even depend on it. Catches up when shown. */
+  /** `html` once typing rests: each new email re-parses and re-lays-out the
+      whole frame — longer, on a large email, than a fast typist's gap
+      between two keys. A single write (an example, an import) lands at
+      once; a burst of typing, when it stops (`atRest`). */
+  readonly #paced = atRest(this.html);
+
+  /** The html the preview shows: `html` while active (at rest), and the
+      last one it showed while hidden — the source reads it only when
+      active, so a hidden preview does not even depend on it. Shown again it
+      catches up *exactly*: the moment it opens takes `html` itself, not a
+      settled value that may still be waiting for a rest. */
   readonly #shown = linkedSignal<string | null, string>({
-    source: () => (this.active() ? this.html() : null),
-    computation: (html, previous) => html ?? previous?.value ?? '',
+    source: () => (this.active() ? (this.#paced.value() ?? '') : null),
+    computation: (html, previous) => {
+      if (html === null) return previous?.value ?? '';
+      return previous && previous.source === null ? untracked(this.html) : html;
+    },
   });
 
   view = signal<'html' | 'text'>('html');

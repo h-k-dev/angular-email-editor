@@ -6,10 +6,12 @@ import {
   inject,
 
   // Signals
+  debounced,
   effect,
   input,
   model,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 
@@ -28,9 +30,9 @@ import {
   formatHTML,
   htmlSourceExtensions,
   lintHTML,
+  TYPING_REST,
 } from 'angular-email-editor';
 import { isTyping } from '../is-typing';
-
 /**
  * The HTML side of the composer: a ProseMirror editor over the source kit
  * (code lines, highlighting, linting, Shift-Alt-F formatting, email-safe
@@ -64,6 +66,9 @@ export class HtmlEmailCompose {
   editor = signal<Editor | undefined>(undefined);
   completions = signal<AutocompleteState | undefined>(undefined);
 
+  /** `html` once typing in the email editor rests — see the effect below. */
+  readonly #rest = debounced(() => this.html(), TYPING_REST);
+
   constructor() {
     // No phase: mounting ProseMirror writes the DOM and reads it back in
     // one go.
@@ -76,15 +81,26 @@ export class HtmlEmailCompose {
     // signal value — rewriting would yank the cursor mid-keystroke. `setText`
     // dispatches no transaction, so applying can't echo through `onUpdate`.
     // Hidden, the editor is left alone and only the lint follows the text.
+    //
+    // At rest, not per keystroke: the email editor publishes on every one,
+    // and each run here re-formats the whole email and re-lints it — or
+    // rewrites this editor with it, 60–140 ms at Gmail's 102 KB clip. That
+    // is longer than a fast typist's gap between two keys, so a throttle
+    // would still stall them once a window; it waits for typing to rest
+    // (`TYPING_REST`) instead. What is applied is `html` as it is *then*,
+    // and showing the pane catches up at once (`active` is read straight).
     effect(() => {
-      const html = this.html(); // track: any external write re-runs this
+      const active = this.active();
+      this.#rest.value();
       const editor = this.editor();
-      if (!editor || isTyping(editor.view)) return;
-      if (!this.active()) {
-        this.diagnostics.set(lintHTML(formatHTML(html)));
-        return;
-      }
-      this.#applyIncoming(editor);
+      untracked(() => {
+        if (!editor || isTyping(editor.view)) return;
+        if (!active) {
+          this.diagnostics.set(lintHTML(formatHTML(this.html())));
+          return;
+        }
+        this.#applyIncoming(editor);
+      });
     });
   }
 

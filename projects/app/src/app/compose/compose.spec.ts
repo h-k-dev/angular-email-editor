@@ -260,6 +260,22 @@ describe('Compose', () => {
     expect(pane.value()).toContain('href="https://example.com"');
   });
 
+  it('serializes the email once per keystroke — even with the editor unfocused', async () => {
+    const pane = (component as any).sheet().emailPane();
+    pane.value.set('<p>see the docs</p>');
+    await fixture.whenStable();
+    const editor = pane.editor();
+    const getHTML = vi.spyOn(editor, 'getHTML');
+    for (let i = 0; i < 5; i++) {
+      editor.view.dispatch(editor.state.tr.insertText('x', 2));
+      await fixture.whenStable();
+    }
+    // One publish per change; the incoming-value check compares with what
+    // was published instead of serializing again.
+    expect(getHTML).toHaveBeenCalledTimes(5);
+    expect(pane.value()).toContain('sxxxxxee the docs');
+  });
+
   it('the link editor selects its field as it opens; Escape closes from any of it, never an IME’s', async () => {
     const root = fixture.nativeElement as HTMLElement;
     const pane = (component as any).sheet().emailPane();

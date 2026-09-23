@@ -1,6 +1,7 @@
 import { createEditor } from '../editor';
 import { htmlSourceExtensions } from './kits';
 import { scanMergeTags } from './nodes/merge-tag';
+import { TYPING_REST, createHtmlLanguage } from './html-language';
 
 describe('html-language — interpolation highlighting', () => {
   it('scanMergeTags finds each token and the expression inside it', () => {
@@ -8,6 +9,45 @@ describe('html-language — interpolation highlighting', () => {
       { from: 3, to: 18, expr: [5, 16] },
       { from: 23, to: 44, expr: [25, 42] },
     ]);
+  });
+
+  it('while typing, moves its decorations along and rescans only once typing rests', () => {
+    vi.useFakeTimers();
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const reports: unknown[] = [];
+    const editor = createEditor({
+      parent: host,
+      extensions: [
+        ...htmlSourceExtensions.filter((extension) => extension.name !== 'htmlLanguage'),
+        createHtmlLanguage({ onDiagnostics: (d) => reports.push(d) }),
+      ],
+      content: '',
+    });
+    editor.setText('<div>Hi</div>');
+    const scans = reports.length;
+    const tags = () => [...editor.view.dom.querySelectorAll('.aee-tok-tag')].length;
+    expect(tags()).toBe(2);
+
+    // A burst of keystrokes inside the text: no rescan, highlighting kept.
+    for (const char of 'there') {
+      editor.view.dispatch(editor.state.tr.insertText(char, 8));
+      vi.advanceTimersByTime(TYPING_REST / 5);
+    }
+    expect(reports.length).toBe(scans);
+    expect(tags()).toBe(2);
+
+    // Rest: one rescan, one report.
+    vi.advanceTimersByTime(TYPING_REST);
+    expect(reports.length).toBe(scans + 1);
+
+    // A mirrored write rescans at once, however small its diff.
+    editor.setText('<p>Hi</p>');
+    expect(reports.length).toBe(scans + 2);
+
+    vi.useRealTimers();
+    editor.destroy();
+    host.remove();
   });
 
   it('paints the braces muted and the expression set apart, Angular-template style', () => {

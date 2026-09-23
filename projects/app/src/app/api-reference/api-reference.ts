@@ -140,7 +140,7 @@ export class ApiReference {
         {
           name: 'createHtmlLanguage / createHtmlAutocomplete / createSourceMarks',
           signature: '(options) => FunctionalExtension',
-          does: 'The source pane’s language service: highlighting plus lint diagnostics, tag and attribute completion, and mark shortcuts that round-trip the selection through the email schema.',
+          does: 'The source pane’s language service: highlighting plus lint diagnostics, tag and attribute completion, and mark shortcuts that round-trip the selection through the email schema. Paced for the fastest typist: a keystroke only moves the highlighting along; the whole text is rescanned — and onDiagnostics called — once typing rests (rescanDelay, default TYPING_REST = 200 ms), and at once for a mirrored write or a large edit.',
         },
         {
           name: 'LayoutGuides, QuoteFold, PasteHygiene, ClearFormatting',
