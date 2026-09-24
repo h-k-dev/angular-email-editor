@@ -1,5 +1,5 @@
 import { defineMark } from '../../extension';
-import { FILL_TEXT_COLOR, isFillTextColor } from '../../dual-contrast';
+import { fillTextColor, isFillTextColor } from '../../dual-contrast';
 import { setMark } from './set.utils';
 import { unsetMark } from './unset.utils';
 
@@ -163,7 +163,7 @@ export const TextStyle = defineMark({
           // The paired fill text colour is an emit artifact of the fill, not
           // an authored colour — absorb it so the pair round-trips clean and
           // clearing the fill later also clears its text colour.
-          if (backgroundColor && isFillTextColor(color)) color = null;
+          if (backgroundColor && isFillTextColor(color, backgroundColor)) color = null;
           if (!color && !fontSize && !fontFamily && !backgroundColor) return false;
           return { color, fontSize, fontFamily, backgroundColor };
         },
@@ -180,8 +180,8 @@ export const TextStyle = defineMark({
     toDOM: (mark) => {
       const { color, fontSize, fontFamily, backgroundColor } = mark.attrs;
       // A fill never rides on the client's default text colour: without an
-      // authored colour it carries the paired near-black (see FILL_TEXT_COLOR).
-      const textColor = color ?? (backgroundColor ? FILL_TEXT_COLOR : null);
+      // authored colour it carries its paired text (see fillTextColor).
+      const textColor = color ?? (backgroundColor ? fillTextColor(backgroundColor) : null);
       const style = [
         textColor ? `color: ${textColor}` : null,
         fontSize ? `font-size: ${fontSize}px` : null,

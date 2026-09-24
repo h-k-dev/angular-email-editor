@@ -196,9 +196,9 @@ describe('Compose', () => {
     expect(family.textContent).toContain('Serif');
   });
 
-  it('the text colour button reads as applied for a colour, not for the font or size that share its mark', async () => {
+  it('the colour button reads as applied for a colour, not for the font or size that share its mark', async () => {
     const root = fixture.nativeElement as HTMLElement;
-    const color = root.querySelector('.toolbar [aria-label="Text color"]') as HTMLButtonElement;
+    const color = root.querySelector('.toolbar [aria-label="Color"]') as HTMLButtonElement;
     const size = root.querySelector('.toolbar__select--size') as HTMLButtonElement;
 
     // A size at the caret: the same textStyle mark, without a colour.
@@ -216,13 +216,31 @@ describe('Compose', () => {
     color.click();
     await fixture.whenStable();
     expect(color.getAttribute('aria-expanded')).toBe('true');
-    const swatch = document.querySelector(
-      '[color-palette] [aria-label="Red"]',
-    ) as HTMLButtonElement;
-    swatch.click();
+    // One pane, both palettes, each named by its heading: text, background.
+    const palettes = () => [
+      ...document.querySelectorAll<HTMLElement>('[color-picker] [color-palette]'),
+    ];
+    const selected = (palette: HTMLElement) =>
+      palette.querySelector('[aria-selected="true"]')?.getAttribute('aria-label');
+    expect(
+      palettes().map((palette) =>
+        document.getElementById(palette.getAttribute('aria-labelledby')!)?.textContent?.trim(),
+      ),
+    ).toEqual(['Text color', 'Background color']);
+    (palettes()[0].querySelector('[aria-label="Red"]') as HTMLButtonElement).click();
     await fixture.whenStable();
     expect(color.hasAttribute('data-applied')).toBe(true);
     expect(color.getAttribute('aria-expanded')).toBe('false');
+
+    // Reopened, the pane marks the colours in effect; a background joins.
+    color.click();
+    await fixture.whenStable();
+    expect(palettes().map(selected)).toEqual(['Red', 'None']);
+    (palettes()[1].querySelector('[aria-label="Yellow"]') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    color.click();
+    await fixture.whenStable();
+    expect(palettes().map(selected)).toEqual(['Red', 'Yellow']);
   });
 
   it('the button link always opens the link editor; a button left without a link is taken back', async () => {
@@ -364,6 +382,62 @@ describe('Compose', () => {
     expect(bubble().isOpen).toBe(true);
   });
 
+  it('a button’s link editor has a second line: its words, bold and italic', async () => {
+    const pane = (component as any).sheet().emailPane();
+    const style =
+      'display: inline-block; background-color: rgb(26, 115, 232); color: rgb(255, 255, 255); ' +
+      'font-weight: bold; text-decoration: none; border-width: 14px 28px; border-style: solid; ' +
+      'border-color: rgb(26, 115, 232);';
+    pane.value.set(`<div>Go <a href="https://x.io/shop" style="${style}">Shop</a> now</div>`);
+    await fixture.whenStable();
+    const view = pane.editor().view;
+    vi.spyOn(view, 'coordsAtPos').mockReturnValue({ left: 40, right: 40, top: 100, bottom: 120 });
+    const node = view.state.doc.nodeAt(4);
+    view.someProp('handleClickOn', (f: any) => f(view, 4, node, 4, new MouseEvent('mouseup'), true));
+    await fixture.whenStable();
+
+    const dialog = () => document.querySelector('[role="dialog"][aria-label="Edit link"]')!;
+    const control = <T extends Element>(label: string) =>
+      dialog().querySelector<T>(`[aria-label="${label}"]`)!;
+    const words = () => control<HTMLInputElement>('Button text');
+    expect(dialog().querySelectorAll('.link-editor__row').length).toBe(2);
+    expect(words().value).toBe('Shop');
+
+    // Bold and italic apply at once, to the button as a whole — never to
+    // the field — and the popover stays.
+    const bold = control<HTMLButtonElement>('Bold');
+    const italic = control<HTMLButtonElement>('Italic');
+    expect(bold.getAttribute('aria-pressed')).toBe('true');
+    bold.click();
+    italic.click();
+    await fixture.whenStable();
+    expect(pane.value()).toContain('font-weight: normal; font-style: italic;');
+    expect(pane.value()).not.toMatch(/<strong|<em/);
+    expect(bold.getAttribute('aria-pressed')).toBe('false');
+    expect(italic.getAttribute('aria-pressed')).toBe('true');
+
+    // No words: refused, not applied.
+    const type = async (value: string) => {
+      words().value = value;
+      words().dispatchEvent(new Event('input', { bubbles: true }));
+      await fixture.whenStable();
+    };
+    await type('   ');
+    control<HTMLButtonElement>('Apply link').click();
+    await fixture.whenStable();
+    await settle();
+    expect(words().getAttribute('aria-invalid')).toBe('true');
+    expect(pane.value()).toContain('>Shop</a>');
+
+    // New words go on with Apply (Enter in the field), the link kept.
+    await type('Shop the sale');
+    words().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    await fixture.whenStable();
+    await settle();
+    expect(document.querySelector('[role="dialog"][aria-label="Edit link"]')).toBeNull();
+    expect(pane.value()).toMatch(/<a href="https:\/\/x\.io\/shop"[^>]*font-style: italic[^>]*>Shop the sale<\/a>/);
+  });
+
   it('the link editor always offers apply, open and remove, and applies only a valid link', async () => {
     const root = fixture.nativeElement as HTMLElement;
     const pane = (component as any).sheet().emailPane();
@@ -403,6 +477,7 @@ describe('Compose', () => {
     // and no alignment: text aligns with its line from the toolbar.
     expect(['Apply link', 'Open link', 'Remove link'].every((l) => !!button(l))).toBe(true);
     expect(button('Align center')).toBeNull();
+    expect(button('Button text')).toBeNull(); // no second line for text
     expect(button('Apply link').type).toBe('submit');
     expect(error()).toBeNull();
 

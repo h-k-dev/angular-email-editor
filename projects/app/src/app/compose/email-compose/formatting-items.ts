@@ -3,7 +3,7 @@ import type { FormattingCommands } from './formatting-commands';
 /** The pickers a formatting button can open instead of running a command.
     The toolbar owns them; it opens them at the button, or at the ⋯ when the
     button has moved there. */
-export type FormattingPicker = 'textColor' | 'highlight' | 'table';
+export type FormattingPicker = 'color' | 'table';
 
 /** The ids are the library's action ids wherever an item is one — kebab-case,
     locale-neutral, the key a translation file shares with the `/` menu. */
@@ -12,8 +12,7 @@ export type FormattingItemId =
   | 'italic'
   | 'underline'
   | 'strike'
-  | 'text-color'
-  | 'highlight'
+  | 'color'
   | 'link'
   | 'button-link'
   | 'bulleted-list'
@@ -104,24 +103,21 @@ export function formattingItems(
       icon: 'format_strikethrough',
       ...action('strike'),
     },
-    // The pickers are this toolbar's own: they open an overlay at the button
-    // and show what the selection carries, not an on/off.
-    'text-color': {
-      id: 'text-color',
-      label: 'Text color',
+    // The picker is this toolbar's own: it opens an overlay at the button
+    // and shows what the selection carries, not an on/off. One button for
+    // both colours, as Gmail has it: the pane holds the text palette and the
+    // background one side by side.
+    color: {
+      id: 'color',
+      label: 'Color',
       icon: 'format_color_text',
       wide: true,
-      // The textStyle mark also carries font and size: ask for the colour.
-      applied: () => !!commands.markAttrs('textStyle')?.['color'],
-      picker: 'textColor',
-    },
-    // Routes to text, table cell, or column by cursor.
-    highlight: {
-      id: 'highlight',
-      label: 'Highlight color',
-      icon: 'format_color_fill',
-      wide: true,
-      picker: 'highlight',
+      // The textStyle mark also carries font and size: ask for the colours.
+      applied: () => {
+        const attrs = commands.markAttrs('textStyle');
+        return !!(attrs?.['color'] || attrs?.['backgroundColor']);
+      },
+      picker: 'color',
     },
     // The composer's own action: it opens the link editor (see the commands).
     link: { id: 'link', label: 'Link', icon: 'link', ...action('link') },

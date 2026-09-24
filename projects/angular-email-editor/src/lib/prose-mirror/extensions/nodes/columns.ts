@@ -2,7 +2,7 @@ import { Command, EditorState, NodeSelection, Selection, TextSelection } from 'p
 import { Node, Schema } from 'prosemirror-model';
 import { keymap } from 'prosemirror-keymap';
 import { defineNode } from '../../extension';
-import { FILL_TEXT_COLOR } from '../../dual-contrast';
+import { fillTextColor } from '../../dual-contrast';
 import { isSafeColor, toEmailSafeColor } from '../marks/text-style';
 import { parsePadding } from './table';
 
@@ -61,8 +61,8 @@ function parseAlignment(dom: HTMLElement): ColumnsAlignment {
   return 'left';
 }
 
-// A filled panel always pairs its background with FILL_TEXT_COLOR — explicit
-// dark text survives the dark modes that flip default text but keep the fill.
+// A filled panel always pairs its background with its text (fillTextColor) —
+// explicit text survives the dark modes that flip default text but keep the fill.
 // Padding is *authored only* (the attr, from user markup) — the gutters seen
 // while composing are editorial `.aee-editor` CSS, which also reserves the
 // room the boundary/add affordances live in; the email carries none of it
@@ -71,7 +71,7 @@ const columnStyle = (maxWidth: number, background: string | null, padding: strin
   `display: inline-block; width: 100%; max-width: ${maxWidth}px; ` +
   `vertical-align: top; box-sizing: border-box;` +
   (padding ? ` padding: ${padding};` : '') +
-  (background ? ` background-color: ${background}; color: ${FILL_TEXT_COLOR};` : '');
+  (background ? ` background-color: ${background}; color: ${fillTextColor(background)};` : '');
 
 const columnMaxWidth = (count: number): number =>
   Math.floor((CONTAINER_MAX - 2 * CLIENT_PADDING_BUDGET) / count);

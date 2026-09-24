@@ -18,68 +18,112 @@
     role="dialog"
     [attr.aria-label]="i18n.t('editor.link.dialog', 'Edit link')"
   >
-    <!-- The field and Apply are one signal form: Apply is its submit. -->
+    <!-- The fields and Apply are one signal form: Apply is its submit. A
+         button's popover is its one menu, on two lines: its link, then its
+         words — which Apply takes too. -->
     <form class="link-editor__form" [formRoot]="linkForm" novalidate>
-      <!-- A URL reads left to right in every language: `dir="ltr"`, so an
-           address in a right-to-left interface keeps its order. The
-           placeholder is a hint, not a name — the label is its own. -->
-      <input
-        #input
-        class="link-editor__input"
-        type="text"
-        inputmode="url"
-        dir="ltr"
-        spellcheck="false"
-        autocomplete="off"
-        [formField]="linkForm.href"
-        [attr.aria-label]="i18n.t('editor.link.url', 'Link URL')"
-        [attr.aria-invalid]="refused() ? true : null"
-        [placeholder]="i18n.t('editor.link.url', 'Link URL')"
-        (keydown.enter)="onEnter($event)"
-      />
-      <!-- The three actions, always: apply, go to the link, take it off. -->
-      <button
-        mat-icon-button
-        type="submit"
-        [attr.aria-label]="i18n.t('editor.link.apply', 'Apply link')"
-      >
-        <mat-icon>check</mat-icon>
-      </button>
-      <button
-        mat-icon-button
-        type="button"
-        [attr.aria-label]="i18n.t('editor.link.open', 'Open link')"
-        (click)="visit()"
-      >
-        <mat-icon>open_in_new</mat-icon>
-      </button>
-      <button
-        mat-icon-button
-        type="button"
-        [attr.aria-label]="i18n.t('editor.link.remove', 'Remove link')"
-        (click)="remove()"
-      >
-        <mat-icon>link_off</mat-icon>
-      </button>
-    </form>
-    <!-- A button's one menu is this popover (its bubble stands aside), so
-         where it sits on its line is set here too — the paragraph's
-         alignment, as the toolbar sets it. The kit's actions, pressed where
-         they are on. -->
-    @if (forButton()) {
-      <mat-divider [vertical]="true" />
-      @for (item of alignItems; track item.id) {
+      <div class="link-editor__row">
+        <!-- A URL reads left to right in every language: `dir="ltr"`, so an
+             address in a right-to-left interface keeps its order. The
+             placeholder is a hint, not a name — the label is its own. -->
+        <input
+          #input
+          class="link-editor__input"
+          type="text"
+          inputmode="url"
+          dir="ltr"
+          spellcheck="false"
+          autocomplete="off"
+          [formField]="linkForm.href"
+          [attr.aria-label]="i18n.t('editor.link.url', 'Link URL')"
+          [attr.aria-invalid]="refused() ? true : null"
+          [placeholder]="i18n.t('editor.link.url', 'Link URL')"
+          (keydown.enter)="onEnter($event)"
+        />
+        <!-- The three actions, always: apply, go to the link, take it off. -->
+        <button
+          mat-icon-button
+          type="submit"
+          [attr.aria-label]="i18n.t('editor.link.apply', 'Apply link')"
+        >
+          <mat-icon>check</mat-icon>
+        </button>
         <button
           mat-icon-button
           type="button"
-          [attr.aria-label]="label(item)"
-          [emailAction]="actions.get(item.id)"
-          #align="emailAction"
-          [disabled]="align.disabled()"
+          [attr.aria-label]="i18n.t('editor.link.open', 'Open link')"
+          (click)="visit()"
         >
-          <mat-icon>{{ item.icon }}</mat-icon>
+          <mat-icon>open_in_new</mat-icon>
         </button>
+        <button
+          mat-icon-button
+          type="button"
+          [attr.aria-label]="i18n.t('editor.link.remove', 'Remove link')"
+          (click)="remove()"
+        >
+          <mat-icon>link_off</mat-icon>
+        </button>
+        <!-- Where the button sits on its line — the paragraph's alignment,
+             as the toolbar sets it. The kit's actions, pressed where they
+             are on. -->
+        @if (forButton()) {
+          <mat-divider [vertical]="true" />
+          @for (item of alignItems; track item.id) {
+            <button
+              mat-icon-button
+              type="button"
+              [attr.aria-label]="label(item)"
+              [emailAction]="actions.get(item.id)"
+              #align="emailAction"
+              [disabled]="align.disabled()"
+            >
+              <mat-icon>{{ item.icon }}</mat-icon>
+            </button>
+          }
+        }
+      </div>
+      @if (forButton()) {
+        <!-- The second line: the button's words, and how they are set —
+             bold and italic are the kit's own, which act on a selected
+             button as a whole. They apply at once (the button shows it);
+             focus stays in the popover. -->
+        <div class="link-editor__row">
+          <input
+            class="link-editor__input"
+            type="text"
+            dir="auto"
+            autocomplete="off"
+            [formField]="linkForm.label"
+            [attr.aria-label]="i18n.t('editor.button.label', 'Button text')"
+            [attr.aria-invalid]="labelRefused() ? true : null"
+            [placeholder]="i18n.t('editor.button.label', 'Button text')"
+            (keydown.enter)="onEnter($event)"
+          />
+          <button
+            mat-icon-button
+            type="button"
+            [attr.aria-label]="label(boldItem)"
+            [emailAction]="actions.get(boldItem.id)"
+            emailActionFocus="false"
+            #bold="emailAction"
+            [disabled]="bold.disabled()"
+          >
+            <mat-icon>{{ boldItem.icon }}</mat-icon>
+          </button>
+          <button
+            mat-icon-button
+            type="button"
+            [attr.aria-label]="label(italicItem)"
+            [emailAction]="actions.get(italicItem.id)"
+            emailActionFocus="false"
+            #italic="emailAction"
+            [disabled]="italic.disabled()"
+          >
+            <mat-icon>{{ italicItem.icon }}</mat-icon>
+          </button>
+        </div>
       }
-    }
+    </form>
   </div>
 </ng-template>

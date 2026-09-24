@@ -13,9 +13,21 @@
   border-radius: var(--email-compose-link-corner, var(--mat-sys-corner-medium, 8px));
 }
 
-// The form is only the field and its submit: it lays out as the row does.
+// The form holds the rows — one for a text link, two for a button (its
+// link, then its words) — stacked on the toolbar's 48px pitch: a row's gap
+// between them, as between wrapped rows.
 .link-editor__form {
-  display: contents;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+// A row lays out as the toolbar does. The fields are one width, so the
+// words' Bold and Italic stand under Apply and Open.
+.link-editor__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 

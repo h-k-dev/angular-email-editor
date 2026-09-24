@@ -1,4 +1,4 @@
-import { Command, EditorState, Plugin } from 'prosemirror-state';
+import { Command, EditorState, NodeSelection, Plugin } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { MarkType, Node, NodeType, Schema } from 'prosemirror-model';
 import { keymap } from 'prosemirror-keymap';
@@ -209,7 +209,28 @@ function syncDoc(view: EditorView, doc: Node): void {
   view.dispatch(tr.setMeta('addToHistory', false).setMeta('externalSync', true));
 }
 
+/**
+ * The selected node that carries `type` as an attribute instead of as a
+ * mark — or null. An atom that paints its own text (a button: its label is
+ * an attribute, and it allows no marks) names the marks it takes this way
+ * in its spec, `markAttrs: ['bold', 'italic']`, each a boolean attribute of
+ * the mark's name. Bold and italic then work on it as on text — the
+ * toolbar, the bubble menu, Mod-B — through {@link isMarkActive} and the
+ * kit's `toggleMark`.
+ */
+export function selectedMarkAtom(
+  state: EditorState,
+  type: MarkType,
+): { pos: number; node: Node } | null {
+  const { selection } = state;
+  if (!(selection instanceof NodeSelection)) return null;
+  const takes = selection.node.type.spec['markAttrs'] as readonly string[] | undefined;
+  return takes?.includes(type.name) ? { pos: selection.from, node: selection.node } : null;
+}
+
 export function isMarkActive(state: EditorState, type: MarkType): boolean {
+  const atom = selectedMarkAtom(state, type);
+  if (atom) return atom.node.attrs[type.name] === true;
   const { empty, $from, from, to } = state.selection;
   if (empty) return Boolean(type.isInSet(state.storedMarks ?? $from.marks()));
   return state.doc.rangeHasMark(from, to, type);

@@ -66,10 +66,15 @@ export default {
     },
     toolbar: {
       'image-alt': '代替テキスト',
-      'text-color': '文字の色',
-      highlight: 'ハイライトの色',
+      color: '色',
       link: 'リンク',
       table: '表を挿入',
+    },
+    color: {
+      text: '文字の色',
+      background: '背景色',
+      automatic: '自動',
+      none: 'なし',
     },
     link: {
       dialog: 'リンクを編集',
@@ -80,6 +85,7 @@ export default {
     },
     button: {
       menu: 'ボタンのオプション',
+      label: 'ボタンのテキスト',
     },
     image: {
       menu: '画像オプション',

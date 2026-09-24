@@ -8,7 +8,7 @@ import { FormattingToolbar } from './formatting-toolbar';
 /** Every tool is this wide, the row ends here, and the ⋯ — once shown —
     takes one tool's width out of the row, as the real layout would. */
 const TOOL = 40;
-const ROW_END = 300;
+const ROW_END = 260;
 
 /** jsdom has no layout: the row, its tools and the ⋯ get the boxes above. */
 function stubLayout(): void {
@@ -82,8 +82,8 @@ describe('FormattingToolbar', () => {
   });
 
   it('moves the tail that no longer fits into the ⋯, from the end, and stays put once it shows', async () => {
-    // 17 tools of 40px in a 300px row: the ⋯ needs one tool's room, so the
-    // line keeps six (240px) and the seventh — Bulleted list — moves.
+    // 16 tools of 40px in a 260px row: the ⋯ needs one tool's room, so the
+    // line keeps five (200px) and the sixth — Bulleted list — moves.
     expect(more().hidden).toBe(false);
     expect(button('Link').hasAttribute('data-overflow')).toBe(false);
     expect(button('Bulleted list').hasAttribute('data-overflow')).toBe(true);
@@ -144,7 +144,8 @@ describe('FormattingToolbar', () => {
       'Strikethrough',
       'Clear formatting',
     ]);
-    // The colour group goes whole on a phone, so its divider goes with it.
+    // A group that is wide-only through and through (quote and alignment,
+    // the table) goes whole on a phone, so its divider goes with it.
     const dividers = [...root.querySelectorAll('.toolbar__scroll > mat-divider')];
     expect(dividers.filter((el) => !el.classList.contains('toolbar__wide')).length).toBe(2);
   });

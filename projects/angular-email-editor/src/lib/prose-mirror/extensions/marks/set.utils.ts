@@ -13,8 +13,11 @@ export function setMark(markType: MarkType, attributes: Record<string, any> = {}
     if (empty) {
       if (selection instanceof TextSelection && selection.$cursor) {
         if (dispatch) {
-          // You could also extract old attributes here if dealing with complex marks
-          tr.addStoredMark(markType.create(attributes));
+          // Merge with the mark about to be typed in, as a range merges below:
+          // a background picked at the caret keeps the colour picked there.
+          const marks = state.storedMarks ?? selection.$cursor.marks();
+          const existing = marks.find((mark) => mark.type === markType);
+          tr.addStoredMark(markType.create({ ...existing?.attrs, ...attributes }));
           dispatch(tr);
         }
         return true;

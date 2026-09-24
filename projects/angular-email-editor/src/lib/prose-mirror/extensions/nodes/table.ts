@@ -37,7 +37,7 @@ import {
   tableEditing,
 } from 'prosemirror-tables';
 import { defineNode } from '../../extension';
-import { FILL_TEXT_COLOR } from '../../dual-contrast';
+import { fillTextColor } from '../../dual-contrast';
 import { isSafeColor, toEmailSafeColor } from '../marks/text-style';
 import { marksAcrossBreak } from '../split-keeping-marks';
 
@@ -293,10 +293,10 @@ function cellDOM(node: { attrs: Record<string, any> }): [string, Record<string, 
   // style; this inline border wins over it, so a bordered table shows its
   // actual borders while composing).
   if (border) style += ` border: 1px solid ${border};`;
-  // The fill always carries its paired text colour (FILL_TEXT_COLOR): the cell
+  // The fill always carries its paired text colour (fillTextColor): the cell
   // must not depend on the client's default text, which flips to near-white in
-  // non-transforming dark modes while the fill stays pale.
-  if (background) style += ` background-color: ${background}; color: ${FILL_TEXT_COLOR};`;
+  // non-transforming dark modes while the fill keeps its colour.
+  if (background) style += ` background-color: ${background}; color: ${fillTextColor(background)};`;
   attrs['style'] = style;
   return ['td', attrs, 0];
 }

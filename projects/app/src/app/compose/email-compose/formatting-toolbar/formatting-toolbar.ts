@@ -18,10 +18,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MenuTrigger } from '@angular/aria/menu';
 
 // CDK
-import { OverlayModule } from '@angular/cdk/overlay';
-
-// Library
-import { emailBackgroundPalette, emailTextPalette } from 'angular-email-editor';
+import { ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
 
 import { Viewport } from '../../../../services/viewport';
 import { FormattingCommands } from '../formatting-commands';
@@ -32,7 +29,7 @@ import {
   FormattingPicker,
   layoutEntries,
 } from '../formatting-items';
-import { ColorPalette } from './color-palette/color-palette';
+import { ColorPicker } from './color-picker/color-picker';
 import { createFontState } from './font-state';
 import { TablePicker } from './table-picker/table-picker';
 import { ToolbarKeys } from './toolbar-keys';
@@ -44,8 +41,7 @@ import { KeepFocus } from 'angular-email-editor/focus';
     lists and their indent, the paragraph's shape, the rarer marks, the table — and so the
     order they move into the ⋯ menu, from the end, when the line runs out. */
 const LAYOUT: FormattingLayout = [
-  ['bold', 'italic', 'underline'],
-  ['text-color', 'highlight'],
+  ['bold', 'italic', 'underline', 'color'],
   ['link', 'bulleted-list', 'numbered-list', 'outdent', 'indent'],
   ['quote', 'align-left', 'align-center', 'align-right'],
   ['strike', 'clear-formatting'],
@@ -82,7 +78,7 @@ const LAYOUT: FormattingLayout = [
     // CDK
     OverlayModule,
 
-    ColorPalette,
+    ColorPicker,
     TablePicker,
     ToolbarMenu,
     ToolbarOverflow,
@@ -117,13 +113,24 @@ export class FormattingToolbar {
     computed(() => this.wide() && this.shown()),
   );
 
-  protected readonly textPalette = emailTextPalette;
-  protected readonly backgroundPalette = emailBackgroundPalette;
+  /** The colours at the caret, for the colour pane to mark. */
+  protected readonly textColor = computed(
+    () => (this.commands.markAttrs('textStyle')?.['color'] as string | null) ?? null,
+  );
+  protected readonly backgroundColor = computed(
+    () => (this.commands.markAttrs('textStyle')?.['backgroundColor'] as string | null) ?? null,
+  );
 
   /** The picker that is open, if any, and where it is anchored: its button,
       or the ⋯ when the button has moved there. */
   protected readonly picker = signal<FormattingPicker | null>(null);
   protected readonly pickerOrigin = signal<Element>(inject(ElementRef).nativeElement);
+  /** Centred on its button: below it, or above when there is no room —
+      pushed back on screen near an edge. */
+  protected readonly pickerPositions: ConnectedPosition[] = [
+    { originX: 'center', originY: 'bottom', overlayX: 'center', overlayY: 'top' },
+    { originX: 'center', originY: 'top', overlayX: 'center', overlayY: 'bottom' },
+  ];
 
   protected readonly overflow = viewChild(ToolbarOverflow);
 

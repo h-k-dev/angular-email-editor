@@ -93,6 +93,18 @@ describe('button', () => {
     );
   });
 
+  it('reads a lighter weight and a slant off the box — bold unless said otherwise', () => {
+    const plain = BUTTON_STYLE.replace('font-weight: bold;', 'font-weight: 400; font-style: oblique;');
+    const out = roundTrip(`<a href="https://x.io" style="${plain}">Go</a>`);
+    expect(out).toContain('font-weight: normal; font-style: italic;');
+    expect(out).not.toContain('<strong');
+    expect(out).not.toContain('<em');
+    const unsaid = BUTTON_STYLE.replace('font-weight: bold; ', '');
+    expect(roundTrip(`<a href="https://x.io" style="${unsaid}">Go</a>`)).toContain(
+      `style="${BUTTON_STYLE}"`,
+    );
+  });
+
   it('produces lint-clean output', () => {
     expect(
       lintHTML(
@@ -349,6 +361,58 @@ describe('button', () => {
       expect(selectedButton(editor.state)?.node.attrs['href']).toBe('#');
       expect(editor.commands['setButtonHref']('javascript:alert(1)')).toBe(false);
       expect(selectedButton(editor.state)?.node.attrs['href']).toBe('#');
+      unmount();
+    });
+
+    it('sets a selected button’s words, collapsed; words it must have', () => {
+      const { editor, select, unmount } = mount('<div>Buy now</div>');
+      select(1, 8);
+      editor.commands['toggleButtonLink']();
+      expect(editor.commands['setButtonLabel']('  Shop   the sale ')).toBe(true);
+      expect(selectedButton(editor.state)?.node.attrs['label']).toBe('Shop the sale');
+      expect(editor.commands['setButtonLabel'](' \n ')).toBe(false);
+      expect(selectedButton(editor.state)?.node.attrs['label']).toBe('Shop the sale');
+      unmount();
+    });
+
+    it('takes the kit’s Bold and Italic as its own — the label as a whole, kept selected', () => {
+      const { editor, select, unmount } = mount('<div>Buy now</div>');
+      select(1, 8);
+      editor.commands['toggleButtonLink']();
+      const bold = editor.actions.find((a) => a.id === 'bold')!;
+      const italic = editor.actions.find((a) => a.id === 'italic')!;
+      expect(bold.isActive!(editor.state)).toBe(true); // a button starts bold
+      expect(italic.isActive!(editor.state)).toBe(false);
+      expect(isActionEnabled(bold, editor.state)).toBe(true);
+
+      editor.exec(bold.command);
+      editor.exec(italic.command);
+      expect(bold.isActive!(editor.state)).toBe(false);
+      expect(italic.isActive!(editor.state)).toBe(true);
+      expect(selectedButton(editor.state)).not.toBeNull();
+      const html = editor.getHTML();
+      expect(html).toContain('font-weight: normal; font-style: italic; text-decoration: none;');
+      expect(html).not.toContain('<strong');
+      expect(html).not.toContain('<em');
+      // The styling reads back off the box: a fixpoint.
+      expect(roundTrip(html)).toBe(html);
+      unmount();
+    });
+
+    it('Mod-B and Mod-I style a selected button', () => {
+      const { editor, select, unmount } = mount('<div>Buy now</div>');
+      select(1, 8);
+      editor.commands['toggleButtonLink']();
+      for (const key of ['b', 'i']) {
+        // Mod is Ctrl off a Mac — jsdom is no Mac.
+        const init = { key, ctrlKey: true, bubbles: true, cancelable: true };
+        const event = new KeyboardEvent('keydown', init);
+        editor.view.dom.dispatchEvent(event);
+        expect(event.defaultPrevented).toBe(true);
+      }
+      expect(selectedButton(editor.state)?.node.attrs).toEqual(
+        expect.objectContaining({ bold: false, italic: true }),
+      );
       unmount();
     });
 

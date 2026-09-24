@@ -1,0 +1,50 @@
+// Token cascade: --email-* → --mat-sys-* → fallback (see ROADMAP, UI/UX
+// stance).
+
+// A palette is 7 swatches of 28px with 4px between (color-palette.scss);
+// side by side, the pane needs two of them, the gap, its padding and the
+// overlay's 8px viewport margin a side.
+$palette: 7 * 28px + 6 * 4px;
+$gap: 20px;
+$padding: 12px;
+$side-by-side: 2 * $palette + $gap + 2 * $padding + 2 * 8px;
+
+:host {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px $gap;
+  padding: $padding;
+  box-sizing: border-box;
+  // The overlay keeps 8px from each edge of the viewport; past that the
+  // palettes wrap, top-down, instead of running off the screen.
+  max-inline-size: calc(100vw - 16px);
+
+  // Wrapped, the pane hugs its one column rather than keeping the width of
+  // the row it no longer is.
+  @media (width < $side-by-side) {
+    inline-size: min-content;
+  }
+
+  background-color: var(
+    --email-compose-palette-background,
+    var(--mat-sys-surface-container, #f3f3f3)
+  );
+  border-radius: var(--email-compose-palette-corner, var(--mat-sys-corner-medium, 8px));
+  box-shadow: var(--mat-sys-level2);
+}
+
+.color-picker__part {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.color-picker__heading {
+  margin: 0;
+  color: var(--mat-sys-on-surface-variant, #444746);
+  font-family: var(--mat-sys-label-medium-font, Roboto, sans-serif);
+  font-size: var(--mat-sys-label-medium-size, 0.75rem);
+  font-weight: var(--mat-sys-label-medium-weight, 500);
+  line-height: var(--mat-sys-label-medium-line-height, 1rem);
+  letter-spacing: var(--mat-sys-label-medium-tracking, 0.03125rem);
+}

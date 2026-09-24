@@ -27,10 +27,13 @@ const LAYOUT: FormattingLayout = [
   ['link', 'button-link', 'quote'],
 ];
 
-/** A clicked button: its link (the link editor, on the button), turning it
-    back into text (the same toggle, shown on), and where it sits on its
-    line — a call to action is usually centred. */
+/** A selected button: its label's weight and slant (the kit's own toggles,
+    which act on the button as a whole), its link (the link editor, on the
+    button — which also edits its words), turning it back into text (the
+    same toggle, shown on), and where it sits on its line — a call to
+    action is usually centred. */
 const BUTTON_LAYOUT: FormattingLayout = [
+  ['bold', 'italic'],
   ['link', 'button-link'],
   ['align-left', 'align-center', 'align-right'],
 ];

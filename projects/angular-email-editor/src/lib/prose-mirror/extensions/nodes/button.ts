@@ -22,13 +22,25 @@ import { isSafeUrl } from '../marks/link';
     `border-radius` — Outlook squares it anyway, and dropping it keeps our own
     output lint-clean. rgb() colours, not hex: the browser normalizes hex to
     rgb on the serialize round trip, so the canonical form must already be
-    rgb to stay stable. */
-export const BUTTON_STYLE =
-  'display: inline-block; background-color: rgb(26, 115, 232); color: rgb(255, 255, 255); ' +
-  'font-weight: bold; text-decoration: none; ' +
-  // Longhands in the CSSOM's own order (width, style, color) and at the end,
-  // where every serializer puts them — the canonical string is a fixpoint.
-  'border-width: 14px 28px; border-style: solid; border-color: rgb(26, 115, 232);';
+    rgb to stay stable. The label's weight and slant are the button's
+    own (`bold`, `italic`): this is a default button's. */
+export const BUTTON_STYLE = buttonStyle({ bold: true, italic: false });
+
+/** The canonical style of a button with that label styling: bold is
+    `font-weight: bold` and not bold `normal` (said, never left out — a
+    client's own anchor styling may be bold); italic adds `font-style`
+    after the weight, and not italic leaves it out. */
+export function buttonStyle({ bold, italic }: { bold: boolean; italic: boolean }): string {
+  return (
+    'display: inline-block; background-color: rgb(26, 115, 232); color: rgb(255, 255, 255); ' +
+    `font-weight: ${bold ? 'bold' : 'normal'}; ` +
+    (italic ? 'font-style: italic; ' : '') +
+    'text-decoration: none; ' +
+    // Longhands in the CSSOM's own order (width, style, color) and at the end,
+    // where every serializer puts them — the canonical string is a fixpoint.
+    'border-width: 14px 28px; border-style: solid; border-color: rgb(26, 115, 232);'
+  );
+}
 
 /**
  * A call-to-action button: an inline atom that serializes to a bordered
@@ -43,8 +55,10 @@ export const BUTTON_STYLE =
  * editable content): a contentEditable `<a>` would ignore the node
  * boundary and unwrap when you type. Selected text becomes one, and a
  * button linked text again (`button-link`, a toggle); a selected button's
- * link is set with `setButtonHref`. Its label is edited as text — toggle
- * it back, change the words, toggle again — or in the HTML source pane.
+ * link is set with `setButtonHref`, its words with `setButtonLabel`. The
+ * label is bold or italic as a whole — attributes, not marks: the kit's own
+ * Bold and Italic (the toolbar's, Mod-B, Mod-I) flip them on a selected
+ * button (`markAttrs`, see `selectedMarkAtom`).
  */
 export const Button = defineNode({
   name: 'button',
@@ -54,10 +68,18 @@ export const Button = defineNode({
     atom: true,
     selectable: true,
     draggable: true,
-    // The box already paints bold (and colour) on the `<a>`. Allowing marks
-    // would re-parse that `font-weight: bold` as a wrapping `<strong>`.
+    // The box paints its own weight, slant and colour on the `<a>`. Allowing
+    // marks would re-parse that `font-weight: bold` as a wrapping `<strong>`
+    // — so bold and italic are attributes, which the kit's mark toggles set
+    // on a selected button.
     marks: '',
-    attrs: { href: { default: '#' }, label: { default: 'Button' } },
+    markAttrs: ['bold', 'italic'],
+    attrs: {
+      href: { default: '#' },
+      label: { default: 'Button' },
+      bold: { default: true },
+      italic: { default: false },
+    },
     parseDOM: [
       {
         tag: 'a[href]',
@@ -74,7 +96,11 @@ export const Button = defineNode({
           // Collapsed: a formatter may print the label on its own line, and a
           // label never carries raw whitespace.
           const label = (dom.textContent ?? '').replace(/\s+/g, ' ').trim();
-          return { href, label };
+          // Bold unless the weight is said to be less; italic where the
+          // slant is said — the label's styling reads off the box alone.
+          const bold = !/^(normal|lighter|[1-4]\d\d)$/i.test(dom.style.fontWeight.trim());
+          const italic = /^(italic|oblique)/i.test(dom.style.fontStyle.trim());
+          return { href, label, bold, italic };
         },
       },
     ],
@@ -121,6 +147,7 @@ export const Button = defineNode({
     insertButton: (): Command => insertButton(schema),
     toggleButtonLink: (): Command => toggleButtonLink,
     setButtonHref: (href: string): Command => setButtonHref(href),
+    setButtonLabel: (label: string): Command => setButtonLabel(label),
   }),
   actions: ({ schema }) => [
     {
@@ -153,7 +180,7 @@ function buttonAttrs(node: Node): Record<string, string> {
     href: node.attrs['href'] as string,
     target: '_blank',
     rel: 'noopener noreferrer',
-    style: BUTTON_STYLE,
+    style: buttonStyle(node.attrs as { bold: boolean; italic: boolean }),
   };
 }
 
@@ -306,6 +333,23 @@ const setButtonHref =
         ...button.node.attrs,
         href: href.trim() || UNSET_BUTTON_HREF,
       });
+      tr.setSelection(NodeSelection.create(tr.doc, button.pos));
+      dispatch(tr);
+    }
+    return true;
+  };
+
+/** Sets the selected button's words, keeping it selected. Whitespace inside
+    is collapsed, as a parsed label's is; a label with no words is refused —
+    a button always says something. */
+const setButtonLabel =
+  (label: string): Command =>
+  (state, dispatch) => {
+    const button = selectedButton(state);
+    const words = label.replace(/\s+/g, ' ').trim();
+    if (!button || !words) return false;
+    if (dispatch && words !== button.node.attrs['label']) {
+      const tr = state.tr.setNodeAttribute(button.pos, 'label', words);
       tr.setSelection(NodeSelection.create(tr.doc, button.pos));
       dispatch(tr);
     }

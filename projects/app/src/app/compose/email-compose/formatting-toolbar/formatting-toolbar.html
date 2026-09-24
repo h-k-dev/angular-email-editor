@@ -134,11 +134,13 @@
 </div>
 
 <!-- The open picker, at its button — or at the ⋯, when the button has moved
-     there. One overlay for all three; (detach) keeps `picker` in step when
-     the CDK closes it by itself on Escape. -->
+     there. One overlay for both; (detach) keeps `picker` in step when the
+     CDK closes it by itself on Escape. Pushed, never squeezed: the colour
+     pane wraps only when the viewport itself is too narrow for it. -->
 <ng-template
   cdkConnectedOverlay
   [cdkConnectedOverlayOrigin]="pickerOrigin()"
+  [cdkConnectedOverlayPositions]="pickerPositions"
   [cdkConnectedOverlayOpen]="picker() !== null"
   [cdkConnectedOverlayHasBackdrop]="true"
   cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop"
@@ -148,22 +150,13 @@
   [cdkConnectedOverlayViewportMargin]="8"
 >
   @switch (picker()) {
-    @case ('textColor') {
+    @case ('color') {
       <div
-        color-palette
-        aria-label="Text color"
-        resetLabel="Automatic"
-        [colors]="textPalette"
-        (picked)="applyColor($event)"
-      ></div>
-    }
-    @case ('highlight') {
-      <div
-        color-palette
-        aria-label="Highlight color"
-        resetLabel="None"
-        [colors]="backgroundPalette"
-        (picked)="applyBackground($event)"
+        color-picker
+        [color]="textColor()"
+        [background]="backgroundColor()"
+        (colorPicked)="applyColor($event)"
+        (backgroundPicked)="applyBackground($event)"
       ></div>
     }
     @case ('table') {

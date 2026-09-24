@@ -69,11 +69,16 @@ export default {
     // on a bar, "Table" in a list.
     toolbar: {
       'image-alt': 'Alternativtext',
-      'text-color': 'Textfarbe',
-      highlight: 'Hervorhebungsfarbe',
+      color: 'Farbe',
       link: 'Link',
       strike: 'Durchgestrichen',
       table: 'Tabelle einfügen',
+    },
+    color: {
+      text: 'Textfarbe',
+      background: 'Hintergrundfarbe',
+      automatic: 'Automatisch',
+      none: 'Keine',
     },
     link: {
       dialog: 'Link bearbeiten',
@@ -84,6 +89,7 @@ export default {
     },
     button: {
       menu: 'Schaltflächenoptionen',
+      label: 'Schaltflächentext',
     },
     image: {
       menu: 'Bildoptionen',

@@ -1,0 +1,26 @@
+<section class="color-picker__part">
+  <h3 class="color-picker__heading" [id]="id + '-text'">
+    {{ i18n.t('editor.color.text', 'Text color') }}
+  </h3>
+  <div
+    color-palette
+    [attr.aria-labelledby]="id + '-text'"
+    [resetLabel]="i18n.t('editor.color.automatic', 'Automatic')"
+    [colors]="textPalette"
+    [value]="color()"
+    (picked)="colorPicked.emit($event)"
+  ></div>
+</section>
+<section class="color-picker__part">
+  <h3 class="color-picker__heading" [id]="id + '-background'">
+    {{ i18n.t('editor.color.background', 'Background color') }}
+  </h3>
+  <div
+    color-palette
+    [attr.aria-labelledby]="id + '-background'"
+    [resetLabel]="i18n.t('editor.color.none', 'None')"
+    [colors]="backgroundPalette"
+    [value]="background()"
+    (picked)="backgroundPicked.emit($event)"
+  ></div>
+</section>

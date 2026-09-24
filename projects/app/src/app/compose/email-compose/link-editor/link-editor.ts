@@ -57,6 +57,11 @@ import { dismissOnPressOutside } from '../../dismiss-outside';
  * to the link as it stands; Remove takes it off — the button too, which is
  * plain words again.
  *
+ * A button's popover is its one menu, on two lines: the link row carries
+ * where the button sits on its line (alignment), and a second row its
+ * words — a field Apply takes with the link — and the kit's Bold and
+ * Italic, which style the button's label as a whole at once.
+ *
  * One menu at a time: nothing covers the page while it is open, so a press
  * outside closes it and lands where it was aimed — no other menu takes its
  * place.
@@ -99,11 +104,13 @@ export class LinkEditor {
 
   protected readonly input = viewChild<ElementRef<HTMLInputElement>>('input');
 
-  /** What the field holds. */
-  readonly #model = signal({ href: '' });
+  /** What the fields hold: the link, and a button's words (unused for a
+      text link). */
+  readonly #model = signal({ href: '', label: '' });
 
-  /** The field, validated as a link an email can carry; Apply (and Enter)
-      submits it, and only a link that passes is applied. */
+  /** The fields: the link, validated as one an email can carry, and — for a
+      button — its words, which it must have. Apply (and Enter) submits
+      them, and only what passes is applied. */
   protected readonly linkForm = form(
     this.#model,
     (p) => {
@@ -111,6 +118,9 @@ export class LinkEditor {
         const problem = hrefProblem(value());
         return problem ? { kind: `link.${problem}` } : null;
       });
+      validate(p.label, ({ value }) =>
+        this.#button() && !value().trim() ? { kind: 'button.empty-label' } : null,
+      );
     },
     {
       name: 'link',
@@ -119,7 +129,9 @@ export class LinkEditor {
           this.#apply();
           return undefined;
         },
-        onInvalid: () => this.#focusField(),
+        // To the first field that failed — the form's order is the
+        // popover's: the link, then a button's words.
+        onInvalid: (field) => field().errorSummary()[0]?.fieldTree().focusBoundControl(),
       },
     },
   );
@@ -129,6 +141,13 @@ export class LinkEditor {
       is still being typed. */
   protected readonly refused = computed(() => {
     const field = this.linkForm.href();
+    return field.touched() && field.invalid();
+  });
+
+  /** A button's words were tried and there are none: said as the link's
+      problem is. */
+  protected readonly labelRefused = computed(() => {
+    const field = this.linkForm.label();
     return field.touched() && field.invalid();
   });
 
@@ -231,7 +250,14 @@ export class LinkEditor {
     (id) => this.#commands.items[id],
   );
 
-  /** The visible editor's actions, which the alignment buttons trigger. */
+  /** Bold and italic — the kit's mark toggles, which set a selected
+      button's own weight and slant. */
+  protected readonly boldItem = this.#commands.items.bold;
+
+  protected readonly italicItem = this.#commands.items.italic;
+
+  /** The visible editor's actions, which the alignment and style buttons
+      trigger. */
   protected readonly actions = this.#commands.actions;
 
   protected readonly label = (item: FormattingItem): string => this.#commands.label(item);
@@ -265,8 +291,10 @@ export class LinkEditor {
     this.#buttonPos.set(button?.pos ?? null);
     this.#holding.set(!!button);
     this.#newButton.set(!!button && !!options.newButton);
-    // A fresh start: the link it holds, nothing tried yet.
-    this.linkForm().reset({ href: href ?? '' });
+    // A fresh start: the link it holds (and a button's words), nothing
+    // tried yet.
+    const label = (button?.node.attrs['label'] as string | undefined) ?? '';
+    this.linkForm().reset({ href: href ?? '', label });
     // A button: over the button itself; text: at the selection's start.
     const dom = button && (editor.view.nodeDOM(button.pos) as HTMLElement | null);
     const box = dom?.getBoundingClientRect();
@@ -366,15 +394,19 @@ export class LinkEditor {
     editor?.focus();
   }
 
-  /** The submission: the field has passed, so its link goes on — the
-      text's link mark, or the button's href. */
+  /** The submission: the fields have passed, so the link goes on — the
+      text's link mark, or the button's href and words. */
   #apply(): void {
     const editor = this.#commands.target();
     this.open.set(false);
     if (!editor) return;
     const href = normalizeHref(this.linkForm.href().value());
-    if (this.#button()) editor.commands['setButtonHref'](href);
-    else editor.commands['setLink']({ href });
+    if (this.#button()) {
+      editor.commands['setButtonHref'](href);
+      editor.commands['setButtonLabel'](this.linkForm.label().value());
+    } else {
+      editor.commands['setLink']({ href });
+    }
     editor.focus();
   }
 

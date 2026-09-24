@@ -4,14 +4,6 @@
   display: grid;
   grid-template-columns: repeat(7, 28px);
   gap: 4px;
-  padding: 8px;
-
-  background-color: var(
-    --email-compose-palette-background,
-    var(--mat-sys-surface-container, #f3f3f3)
-  );
-  border-radius: var(--email-compose-palette-corner, var(--mat-sys-corner-medium, 8px));
-  box-shadow: var(--mat-sys-level2);
 }
 
 .color-palette__swatch {
@@ -28,6 +20,13 @@
   &:hover,
   &:focus-visible {
     border-color: var(--email-compose-palette-outline, var(--mat-sys-outline, #777777));
+  }
+
+  // The colour in effect: a primary ring with a gap of the surface inside it.
+  &[aria-selected='true'] {
+    border-color: var(--email-compose-palette-selected, var(--mat-sys-primary, #0056b3));
+    box-shadow: inset 0 0 0 2px
+      var(--email-compose-palette-background, var(--mat-sys-surface-container, #f3f3f3));
   }
 }
 

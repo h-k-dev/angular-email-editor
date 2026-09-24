@@ -115,6 +115,18 @@ describe('textStyle background (highlight)', () => {
     expect(canonical(once)).toBe(once);
   });
 
+  it('pairs a black fill with white text, absorbs it on parse, and round-trips', () => {
+    const once = applyToHello(commands['setBackgroundColor']('#202124'));
+    expect(once).toBe(
+      '<div><span style="color: rgb(255, 255, 255); background-color: rgb(32, 33, 36);">hello</span></div>',
+    );
+    expect(canonical(once)).toBe(once);
+    // White on a pale fill is someone's choice, not the pair: it stays.
+    const authored =
+      '<div><span style="color: rgb(255, 255, 255); background-color: rgb(254, 247, 224);">hello</span></div>';
+    expect(canonical(authored)).toBe(authored);
+  });
+
   it('absorbs the paired colour on parse — clearing the fill leaves no colour behind', () => {
     const doc = parseHTML(
       '<div><span style="color: rgb(32, 33, 36); background-color: rgb(254, 247, 224);">hello</span></div>',
@@ -148,6 +160,18 @@ describe('textStyle background (highlight)', () => {
     expect(serializeToHTML(state.doc, schema)).toBe(
       '<div><span style="color: rgb(197, 34, 31); background-color: rgb(254, 247, 224);">hello</span></div>',
     );
+  });
+
+  it('merges a highlight with text colour at a bare caret, for the text typed next', () => {
+    const doc = parseHTML('<div>hello</div>', schema);
+    let state = EditorState.create({ doc, selection: TextSelection.create(doc, 6) });
+    const apply = (command: ReturnType<(typeof commands)[string]>) =>
+      command(state, (tr) => (state = state.apply(tr)));
+    apply(commands['setColor']('#c5221f'));
+    apply(commands['setBackgroundColor']('#fef7e0'));
+    expect(state.storedMarks?.map((mark) => mark.attrs)).toEqual([
+      expect.objectContaining({ color: '#c5221f', backgroundColor: '#fef7e0' }),
+    ]);
   });
 
   it('unsetBackgroundColor clears only the fill', () => {
