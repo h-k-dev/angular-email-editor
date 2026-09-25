@@ -1361,3 +1361,31 @@ section[html-email-compose] .aee-editor {
 .doc-table--signatures td:nth-child(2) code {
   white-space: normal;
 }
+
+/* The composer's one popover (email-compose/popover): the CDK pane it
+ * renders in, on <body>, so its rules live here. The pane is placed by
+ * exact `top`/`left` (plus a `transform` for the position's offset), and
+ * moves *in place* while the popover stays up — a Shift-Arrow step that
+ * grows the selection, the image's tools turning into the text's, the
+ * link editor taking the bubble's spot. Those moves glide. Not the first
+ * placement: the pane is made at the corner and placed a frame later, and
+ * a glide from there would be a swoop — so only once the landing is over
+ * (the outlet takes `.popover--landing` off when its spring ends). And
+ * while it lands, the bubble's own tools do not fade in on top of it:
+ * two entrances at once read as a stutter. */
+.popover-pane:has(> .popover:not(.popover--landing)) {
+  transition:
+    top 160ms ease-out,
+    left 160ms ease-out,
+    transform 160ms ease-out;
+}
+
+.popover--landing .bubble-menu__tools--in {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popover-pane {
+    transition: none;
+  }
+}

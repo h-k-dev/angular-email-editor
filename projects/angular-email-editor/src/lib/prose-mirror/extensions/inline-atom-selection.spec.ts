@@ -118,6 +118,43 @@ describe('inline atoms: an image or a button selected like a character', () => {
       expect(kind()).toBe('text');
       unmount();
     });
+
+    it('opens after the delay, but once open follows the selection at once', () => {
+      vi.useFakeTimers();
+      const states: BubbleMenuState[] = [];
+      const { editor, range, unmount } = mount(IMAGE_LINE, [
+        createBubbleMenu({ updateDelay: 150, onStateChange: (state) => states.push(state) }),
+      ]);
+      editor.view.hasFocus = () => true;
+      const last = () => states[states.length - 1];
+
+      // Opening waits: a range passing through pops nothing.
+      range(1, 3);
+      expect(states).toHaveLength(0);
+      vi.advanceTimersByTime(150);
+      expect(last()).toMatchObject({ isOpen: true, kind: 'text' });
+
+      // Open, the next step is heard in the same transaction: the image
+      // alone is the image's menu now — not the text's for 150ms more,
+      // showing an alt that is no longer the selection's.
+      const heard = states.length;
+      range(imagePos, imagePos + 1);
+      expect(states.length).toBe(heard + 1);
+      expect(last()).toMatchObject({ isOpen: true, kind: 'image' });
+      range(imagePos, imagePos + 3);
+      expect(last()).toMatchObject({ isOpen: true, kind: 'text' });
+
+      // Closed, the next opening waits again.
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1)));
+      expect(last()).toMatchObject({ isOpen: false });
+      const closed = states.length;
+      range(1, 3);
+      expect(states.length).toBe(closed);
+      vi.advanceTimersByTime(150);
+      expect(last()).toMatchObject({ isOpen: true, kind: 'text' });
+      vi.useRealTimers();
+      unmount();
+    });
   });
 
   describe('text styling on a range with a button in it lands on the label too', () => {

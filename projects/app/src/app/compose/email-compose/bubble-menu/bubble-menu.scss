@@ -11,6 +11,29 @@
   @include toolbar.floating-toolbar;
 }
 
+// The row of tools for what is selected. It lays out as the toolbar does
+// (the toolbar itself holds one row at a time), so that it can be the thing
+// that fades in when the selection turns from an image into text: the
+// popover stays, the toolbar stays, the tools cross over. The old row is
+// gone at once — nothing to fade out over the new one in the same space —
+// and the new one comes up short and plain. Not on first landing: the
+// popover's own spring covers that (styles.scss turns this one off while
+// the popover lands — the two live in different views).
+.bubble-menu__tools {
+  @include toolbar.formatting-toolbar;
+  padding: 0;
+}
+
+.bubble-menu__tools--in {
+  animation: bubble-menu-tools-in 120ms linear both;
+}
+
+@keyframes bubble-menu-tools-in {
+  from {
+    opacity: 0;
+  }
+}
+
 // The image's alt, as words: a long one is cut, a missing one is said in
 // the error colour — screen readers and image-blocking clients get nothing.
 // The cut is on the words themselves, not on the button: Material's label

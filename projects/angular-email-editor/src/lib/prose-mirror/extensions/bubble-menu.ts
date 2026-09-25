@@ -17,6 +17,10 @@ export interface BubbleMenuState {
 }
 
 export interface BubbleMenuOptions {
+  /** How long a selection stands before the menu *opens* over it (150ms):
+      a drag's or a Shift-Arrow's intermediate ranges never pop a menu. A
+      menu that is already open follows the selection at once — see the
+      plugin view. */
   updateDelay?: number;
   onStateChange: (state: BubbleMenuState) => void;
   shouldShow?: (state: EditorState) => boolean;
@@ -54,72 +58,88 @@ export const createBubbleMenu = (options: BubbleMenuOptions): FunctionalExtensio
             options.onStateChange({ isOpen: false, boundingBox: null });
           };
 
+          // Whether the menu may show: not mid-drag, the host's say-so, and
+          // the editor focused — or the menu would pop up on a click
+          // elsewhere on the page.
+          const canShow = () =>
+            !destroyed &&
+            !mouseSelecting &&
+            (options.shouldShow || defaultBubbleShouldShow)(view.state) &&
+            view.hasFocus();
+
+          // Reports the menu open over the current selection.
+          const show = () => {
+            // Asked again once the delay is over: in between, the host may
+            // have opened something of its own there (a click on a button
+            // opens its link editor) that its `shouldShow` now says no to.
+            if (!canShow()) return close();
+            // An image alone, or a button: the menu stands over the node
+            // itself.
+            const image = selectedImage(view.state);
+            const button = image ? null : selectedButton(view.state);
+            const node = image ?? button;
+            const dom = node && (view.nodeDOM(node.pos) as HTMLElement | null);
+            if (dom && typeof dom.getBoundingClientRect === 'function') {
+              open = true;
+              options.onStateChange({
+                isOpen: true,
+                boundingBox: dom.getBoundingClientRect(),
+                kind: image ? 'image' : 'button',
+              });
+              return;
+            }
+
+            const { from, to } = view.state.selection;
+
+            // Get coordinates of the selection boundaries
+            const start = view.coordsAtPos(from);
+            const end = view.coordsAtPos(to, -1);
+
+            // Construct a virtual DOMRect representing the text selection.
+            // Angular CDK uses this to anchor the overlay!
+            const top = Math.min(start.top, end.top);
+            const bottom = Math.max(start.bottom, end.bottom);
+            const left = Math.min(start.left, end.left);
+            const right = Math.max(start.right, end.right);
+
+            // Construct a mathematically perfect virtual DOMRect
+            const boundingBox = {
+              top,
+              bottom,
+              left,
+              right,
+              width: right - left,
+              height: bottom - top,
+              x: left,
+              y: top,
+              toJSON: () => '',
+            } as DOMRect;
+
+            open = true;
+            options.onStateChange({ isOpen: true, boundingBox, kind: 'text' });
+          };
+
           const refresh = () => {
             if (destroyed) return;
             clearTimeout(showTimer);
-
-            // Check if we should show the menu. Also ensure the editor actually has focus
-            // to prevent the menu from popping up when clicking outside the editor.
-            const canShow = () =>
-              !mouseSelecting &&
-              (options.shouldShow || defaultBubbleShouldShow)(view.state) &&
-              view.hasFocus();
 
             if (!canShow()) {
               close();
               return;
             }
 
-            showTimer = setTimeout(() => {
-              // Asked again once the delay is over: in between, the host may
-              // have opened something of its own there (a click on a button
-              // opens its link editor) that its `shouldShow` now says no to.
-              if (!canShow()) return close();
-              // An image alone, or a button: the menu stands over the node
-              // itself.
-              const image = selectedImage(view.state);
-              const button = image ? null : selectedButton(view.state);
-              const node = image ?? button;
-              const dom = node && (view.nodeDOM(node.pos) as HTMLElement | null);
-              if (dom && typeof dom.getBoundingClientRect === 'function') {
-                open = true;
-                options.onStateChange({
-                  isOpen: true,
-                  boundingBox: dom.getBoundingClientRect(),
-                  kind: image ? 'image' : 'button',
-                });
-                return;
-              }
-
-              const { from, to } = view.state.selection;
-
-              // Get coordinates of the selection boundaries
-              const start = view.coordsAtPos(from);
-              const end = view.coordsAtPos(to, -1);
-
-              // Construct a virtual DOMRect representing the text selection.
-              // Angular CDK uses this to anchor the overlay!
-              const top = Math.min(start.top, end.top);
-              const bottom = Math.max(start.bottom, end.bottom);
-              const left = Math.min(start.left, end.left);
-              const right = Math.max(start.right, end.right);
-
-              // Construct a mathematically perfect virtual DOMRect
-              const boundingBox = {
-                top,
-                bottom,
-                left,
-                right,
-                width: right - left,
-                height: bottom - top,
-                x: left,
-                y: top,
-                toJSON: () => '',
-              } as DOMRect;
-
-              open = true;
-              options.onStateChange({ isOpen: true, boundingBox, kind: 'text' });
-            }, options.updateDelay ?? 150);
+            // Open already: the menu follows the selection *now* — its kind
+            // and its box change in the same transaction the selection did,
+            // so what a host renders from the state and what it reads live
+            // from the editor (an image's alt, an action's enabled) never
+            // disagree. Delayed, the image's menu stood over a text range
+            // for the delay, showing the alt of an image no longer selected
+            // alone — empty — and its image tools disabled, before the
+            // text's menu replaced it. The delay is for *opening*: a range
+            // passing through, a drag's intermediate selections, never pop
+            // a menu of their own.
+            if (open) return show();
+            showTimer = setTimeout(show, options.updateDelay ?? 150);
           };
 
           // 1. Mouse Tracking: Don't show the menu while the user is actively dragging a selection.
