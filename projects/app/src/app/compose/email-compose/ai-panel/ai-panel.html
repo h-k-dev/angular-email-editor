@@ -1,0 +1,38 @@
+<!-- The dialog, for the composer's one popover: the proposal, then the
+     prompt that steers it and the two ways out. -->
+<ng-template #panel>
+  <div
+    class="ai-panel"
+    role="dialog"
+    [attr.aria-label]="i18n.t('editor.ai.dialog', 'Writing assistant')"
+    [attr.aria-busy]="streaming()"
+  >
+    <!-- The preview editor mounts here: read only, the email kit with the
+         library's stream — the answer forms as it would in the message. -->
+    <div class="ai-panel__preview" #preview></div>
+
+    <div class="ai-panel__row">
+      <!-- The prompt editor mounts here: lines and lists, Ctrl-Enter asks. -->
+      <div class="ai-panel__prompt" #prompt></div>
+      <button
+        mat-icon-button
+        type="button"
+        [attr.aria-label]="i18n.t('editor.ai.rewrite', 'Rewrite with these instructions')"
+        [title]="i18n.t('editor.ai.rewriteKey', 'Ctrl+Enter')"
+        (click)="rewrite()"
+      >
+        <mat-icon>{{ streaming() ? 'replay' : 'send' }}</mat-icon>
+      </button>
+      <button
+        mat-icon-button
+        type="button"
+        class="ai-panel__accept"
+        [attr.aria-label]="i18n.t('editor.ai.accept', 'Accept and insert')"
+        [disabled]="!canAccept()"
+        (click)="accept()"
+      >
+        <mat-icon>check</mat-icon>
+      </button>
+    </div>
+  </div>
+</ng-template>

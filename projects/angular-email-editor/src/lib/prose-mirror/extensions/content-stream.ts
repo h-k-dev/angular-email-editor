@@ -582,7 +582,14 @@ export function streamContent(
     });
   };
 
+  // A run ends once. It is asked to twice — by the abort, at once, and by
+  // `done` settling, later — and by then another run may have started in
+  // its place (a host that stops one answer to ask for the next): the
+  // second ending must not close *that* one's range.
+  let ended = false;
   const end = () => {
+    if (ended) return;
+    ended = true;
     if (running.get(view) === controller) running.delete(view);
     if (!view.isDestroyed && isStreaming(view.state)) {
       view.dispatch(view.state.tr.setMeta(key, { range: null } satisfies StreamMeta));

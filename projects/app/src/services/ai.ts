@@ -6,6 +6,10 @@ export interface AiRequest {
   before: string;
   /** The language to write in. */
   language?: 'en' | 'de' | 'ja';
+  /** What the writer asked for, in their own words — the assistant panel's
+      prompt: "shorter", "mention the deadline", a list of points to make.
+      Empty or absent: the assistant's own judgement. */
+  instructions?: string;
 }
 
 export interface AiOptions {
@@ -164,11 +168,11 @@ export class Ai {
   /** The continuation, in pieces to append as they come: each a word with
       the space that separates it from what is already there. */
   async *write(
-    { before, language = 'en' }: AiRequest,
+    { before, language = 'en', instructions = '' }: AiRequest,
     { signal }: AiOptions = {},
   ): AsyncGenerator<string, void, void> {
     await pause(AI_LATENCY, signal);
-    const text = this.#continuation(before, language);
+    const text = this.#continuation(before, language, instructions);
     // Japanese has no spaces to break at: it arrives a couple of characters
     // at a time, and joins on without one.
     if (language === 'ja') {
@@ -191,14 +195,22 @@ export class Ai {
 
   /** What to write. On an empty line: a whole email. After text: a way on,
       two sentences of it — picked by how much is there, so that asking twice
-      in a row does not say the same thing twice. */
-  #continuation(before: string, language: 'en' | 'de' | 'ja'): string {
+      in a row does not say the same thing twice. The one instruction this
+      stand-in understands is to be *short* ("short", "kurz", "短く"): the
+      email keeps its greeting, its first paragraph and its sign-off, the
+      way on is one sentence. A real model reads the whole prompt. */
+  #continuation(before: string, language: 'en' | 'de' | 'ja', instructions: string): string {
+    const short = /short|brief|kurz|knapp|短|簡潔/i.test(instructions);
     const written = before.trim();
-    if (!written) return EMAILS[language];
+    if (!written) {
+      const blocks = EMAILS[language].split(GAP);
+      return short ? [...blocks.slice(0, 2), ...blocks.slice(-2)].join(GAP) : EMAILS[language];
+    }
     const ways = WAYS_ON[language];
     const sentences = written.split(/[.!?。！？]+/).filter((sentence) => sentence.trim()).length;
     const first = ways[sentences % ways.length];
     const second = ways[(sentences + 1) % ways.length];
+    if (short) return first;
     return language === 'ja' ? first + second : `${first} ${second}`;
   }
 }

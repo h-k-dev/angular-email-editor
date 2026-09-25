@@ -37,11 +37,11 @@ import { FormattingCommands } from './formatting-commands';
 import { FormattingToolbar } from './formatting-toolbar/formatting-toolbar';
 import { LinkEditor } from './link-editor/link-editor';
 import { AltTextEditor } from './alt-text-editor/alt-text-editor';
+import { AiPanel } from './ai-panel/ai-panel';
 import { Popover } from './popover/popover';
 import { PopoverOutlet } from './popover/popover-outlet';
 import { Templates } from '../../../services/templates';
 import { MergeTags } from '../../../services/merge-tags';
-import { Ai } from '../../../services/ai';
 import { I18n } from '../../../services/i18n';
 import { createAiWriter } from './ai-writer';
 import { mergeTagSource } from './merge-tag-source';
@@ -61,7 +61,6 @@ import {
   createTableHandles,
   createBubbleMenu,
   createButtonEdit,
-  createContentStream,
   createEditor,
   createAngularExpressions,
   createImageDrag,
@@ -69,7 +68,6 @@ import {
   createSendIntent,
   createSuggestionMenu,
   extensionSuggestions,
-  isStreaming,
   createTextMetrics,
   ExpressionDiagnostic,
   InlineImages,
@@ -107,6 +105,7 @@ export type SourceView = 'hidden' | 'code' | 'detached';
     FormattingToolbar,
     LinkEditor,
     AltTextEditor,
+    AiPanel,
     PopoverOutlet,
     SuggestionMenu,
     SuggestionMenuItem,
@@ -127,10 +126,12 @@ export class EmailCompose implements FormValueControl<string> {
   readonly #templates = inject(Templates);
   /** The variable catalogue the `{{` menu searches. */
   readonly #mergeTags = inject(MergeTags);
-  /** The writing assistant behind the `ai` action. */
-  readonly #ai = inject(Ai);
   /** The words of the language in use — the menu asks when it opens. */
   protected readonly i18n = inject(I18n);
+
+  /** The language the assistant writes in — a function, asked when the
+      writing starts, so a switch is heard with nothing re-created. */
+  protected readonly language = (): 'en' | 'de' | 'ja' => this.i18n.lang();
 
   /** How many rows a list has, for a screen reader — a function the menu
       calls, so it is one instance and reads the language when called. */
@@ -251,6 +252,7 @@ export class EmailCompose implements FormValueControl<string> {
   protected readonly tableMenu = viewChild.required(TableMenu);
   protected readonly linkEditor = viewChild.required(LinkEditor);
   protected readonly altTextEditor = viewChild.required(AltTextEditor);
+  protected readonly aiPanel = viewChild.required(AiPanel);
 
   /** The email editor, once mounted — the formatting commands' own. */
   readonly editor = this.#commands.editor;
@@ -384,10 +386,10 @@ export class EmailCompose implements FormValueControl<string> {
       extensions: [
         // The writing assistant: an extension of the composer's own. It
         // declares one action, `ai` — first in the kit, so first in the `/`
-        // menu — and streams its answer in at the caret, through the
-        // library's content stream (the caret, Escape, the abort are its).
-        createAiWriter({ ai: this.#ai, language: () => this.i18n.lang() }),
-        createContentStream(),
+        // menu — which opens the assistant panel for the caret: the answer
+        // streams there, on its own layer, and enters the message only on
+        // Accept.
+        createAiWriter({ onAsk: (ask) => this.aiPanel().show(ask) }),
         ...emailExtensions,
         createBubbleMenu({
           updateDelay: 150,
@@ -428,9 +430,6 @@ export class EmailCompose implements FormValueControl<string> {
               // Rows by id — the kit's actions and the two groups below —
               // in the language in use, searched in it *and* in English.
               i18n: this.i18n.suggestionLabel,
-              // Not while an answer streams in: the caret rides along behind
-              // text nobody typed, and a trigger in it is not a request.
-              allow: ({ state }) => !isStreaming(state),
               items: (ctx) => [...extensionSuggestions(ctx), templateGroup(this.#templates)],
             },
             {
@@ -443,7 +442,7 @@ export class EmailCompose implements FormValueControl<string> {
               query: /^ ?[\w.]*$/,
               // Not for a caret inside a token already written: those
               // braces are the token's, and a pick would land inside it.
-              allow: ({ state }) => !caretInsideMergeTag(state) && !isStreaming(state),
+              allow: ({ state }) => !caretInsideMergeTag(state),
               source: mergeTagSource(this.#mergeTags),
             },
           ],

@@ -1249,6 +1249,23 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   ("rewrite this"), a source is not told the editor state or its own range,
   rows cannot carry host data, and a source answers once (no streaming
   rows).
+  **The assistant on its own layer (2026-09-25).** The answer no longer
+  streams into the message: `ai` opens the composer's **assistant panel**
+  (`ai-panel`, a dialog panel of the one popover, under the caret) and the
+  answer streams into a read-only **preview** there — the email kit with
+  the library's content stream, so a list forms and a bold phrase arrives
+  bold as it would in the message. Under it a **prompt** — a second
+  ProseMirror editor, lines and lists only, so the writer's points stay
+  points — steers it: Rewrite (Ctrl-Enter) asks again with the
+  instructions (`AiRequest.instructions`; the stand-in understands
+  "short"), cutting short whatever was still coming. Accept inserts the
+  preview at the caret as one change, one undo; Escape or a press outside
+  lets it go, and the message is as it was with nothing in its history.
+  Which also answers the first item of the agenda above, from the other
+  side: the argument does not ride the `/` query, it has a field of its
+  own. Found on the way: a stopped stream ended twice — at once on abort
+  and again as `done` settled — and the second ending closed the range of
+  the stream that had taken its place; a run now ends once.
   **Content streams (2026-09-18).** `createContentStream()` +
   `streamContent(view, target, async ({ write, getWritableStream, signal }) => …, { format, transform })`
   — the shape of Tiptap's `streamContent`, in the main entry (no Angular).

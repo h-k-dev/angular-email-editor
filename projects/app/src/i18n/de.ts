@@ -37,7 +37,10 @@ export default {
       'image-placeholder': { title: 'Bildplatzhalter', keywords: 'bild, platzhalter' },
       divider: { title: 'Trennlinie', keywords: 'linie, trenner' },
       button: { title: 'Schaltfläche', keywords: 'knopf, schaltfläche' },
-      'button-link': { title: 'Schaltflächen-Link', keywords: 'schaltfläche, knopf, link, handlungsaufforderung' },
+      'button-link': {
+        title: 'Schaltflächen-Link',
+        keywords: 'schaltfläche, knopf, link, handlungsaufforderung',
+      },
       table: { title: 'Tabelle', keywords: 'tabelle, raster' },
       'bordered-table': { title: 'Tabelle mit Rahmen', keywords: 'tabelle, rahmen' },
       columns: { title: 'Spalten', keywords: 'spalten, layout' },
@@ -67,6 +70,15 @@ export default {
     },
     // A button's words, where they differ from the row's: "Insert table"
     // on a bar, "Table" in a list.
+    ai: {
+      dialog: 'Schreibassistent',
+      preview: 'Vorgeschlagener Text',
+      instructions: 'Anweisungen',
+      prompt: 'Sagen Sie dem Assistenten, was sich ändern soll…',
+      rewrite: 'Mit diesen Anweisungen neu schreiben',
+      rewriteKey: 'Strg+Eingabe',
+      accept: 'Übernehmen und einfügen',
+    },
     toolbar: {
       'image-alt': 'Alternativtext',
       color: 'Farbe',
