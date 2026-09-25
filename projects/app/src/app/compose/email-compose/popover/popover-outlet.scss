@@ -1,0 +1,74 @@
+// Only where the overlay is declared: no box in the composer's column.
+:host {
+  display: contents;
+}
+
+// The box the panels' content lands in. The surface — background, corner,
+// shadow — is each panel's own (the floating-toolbar and menu mixins), so
+// the link editor's field and the grip's menu keep their looks; this box
+// only carries the landing.
+.popover {
+  display: block;
+}
+
+// The landing. A spring, not a curve: a damped spring (perceptual duration
+// 300ms, bounce 0.25 — damping ratio 0.75) sampled into `linear()` stops over
+// the 440ms it takes to settle within 0.1%. It passes the mark by under 3%
+// and comes back, which is what reads as soft; nine tenths of the way are
+// done in the first 150ms, so the buttons are there when the pointer is.
+// A cubic-bezier cannot do this: it never crosses 1 and returns.
+$landing-spring: linear(
+  0,
+  0.061,
+  0.199,
+  0.365,
+  0.529,
+  0.673,
+  0.79,
+  0.879,
+  0.943,
+  0.985,
+  1.01,
+  1.023,
+  1.028,
+  1.028,
+  1.024,
+  1.02,
+  1.015,
+  1.011,
+  1.007,
+  1.004,
+  1.002,
+  1.001,
+  1,
+  0.999,
+  1
+);
+
+// `animate.enter` puts the class on as the overlay's content is created and
+// takes it off when the animations end. Two of them: the scale rides the
+// spring, the fade is short and plain — opacity has nowhere to overshoot to.
+.popover--landing {
+  animation:
+    popover-land 440ms $landing-spring both,
+    popover-fade 120ms linear both;
+}
+
+@keyframes popover-land {
+  from {
+    transform: scale(0.9);
+  }
+}
+
+@keyframes popover-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+// Less motion: it still fades in, it does not move.
+@media (prefers-reduced-motion: reduce) {
+  .popover--landing {
+    animation: popover-fade 120ms linear both;
+  }
+}

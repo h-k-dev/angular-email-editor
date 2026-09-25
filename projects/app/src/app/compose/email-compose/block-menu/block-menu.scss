@@ -1,6 +1,6 @@
 @use '../formatting-toolbar' as toolbar;
 
-// Only where the overlay is declared: no box in the composer's column.
+// Only where the panel is declared: no box in the composer's column.
 :host {
   display: contents;
 }

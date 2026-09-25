@@ -1,26 +1,26 @@
-import { Component, inject, signal, viewChild } from '@angular/core';
+import { Component, TemplateRef, inject, signal, viewChild } from '@angular/core';
 
 // Material
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
-// CDK
-import { CdkConnectedOverlay, ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
-
 // Library
-import { Anchor, AnchorRect } from 'angular-email-editor/anchor';
+import { AnchorRect } from 'angular-email-editor/anchor';
 import { ImageAlt } from 'angular-email-editor/image';
 
 import { I18n } from '../../../../services/i18n';
 import { FormattingCommands } from '../formatting-commands';
 import { dismissOnPressOutside } from '../../dismiss-outside';
+import { POPOVER_ABOVE, Popover } from '../popover/popover';
 
 /**
  * The alt-text popover: one field over the selected image, opened by the
  * image bubble menu's alt button through `FormattingCommands`. The field is
  * the library's `[emailImageAlt]` — it fills itself, applies on Enter,
- * cancels on Escape and hands the caret back; this component only places
- * the popover and closes it. A press outside leaves the alt as it was.
+ * cancels on Escape and hands the caret back; this component only opens
+ * the panel and closes it. A panel of the composer's one popover, in its
+ * dialog layer: it takes the bubble's place over the image, in the box
+ * that is already there. A press outside leaves the alt as it was.
  */
 @Component({
   selector: 'div[alt-text-editor]',
@@ -29,11 +29,7 @@ import { dismissOnPressOutside } from '../../dismiss-outside';
     MatButtonModule,
     MatIconModule,
 
-    // CDK
-    OverlayModule,
-
     // Library
-    Anchor,
     ImageAlt,
   ],
   templateUrl: './alt-text-editor.html',
@@ -42,27 +38,31 @@ import { dismissOnPressOutside } from '../../dismiss-outside';
 export class AltTextEditor {
   readonly #commands = inject(FormattingCommands);
 
+  readonly #popover = inject(Popover);
+
   protected readonly i18n = inject(I18n);
 
   protected readonly editor = this.#commands.editor;
   protected readonly open = signal(false);
   protected readonly anchor = signal<AnchorRect | null>(null);
 
-  protected readonly positions: ConnectedPosition[] = [
-    { originX: 'center', originY: 'top', overlayX: 'center', overlayY: 'bottom', offsetY: -8 },
-    // Fallback: no room above, flip below.
-    { originX: 'center', originY: 'bottom', overlayX: 'center', overlayY: 'top', offsetY: 8 },
-  ];
-
   // A query cannot be an ES-private field: TypeScript's `private` it is.
-  private readonly overlay = viewChild(CdkConnectedOverlay);
+  private readonly panel = viewChild<TemplateRef<unknown>>('panel');
 
   constructor() {
+    this.#popover.register({
+      layer: 'dialog',
+      open: this.open,
+      anchor: this.anchor,
+      content: this.panel,
+      positions: () => POPOVER_ABOVE,
+      onKeydown: (event) => this.onKeydown(event),
+    });
     // A press outside closes it — never the click (on the bubble's alt
     // button) that opened it.
     dismissOnPressOutside(
       this.open,
-      () => this.overlay()?.overlayRef?.overlayElement,
+      () => this.#popover.pane(),
       () => this.dismiss(),
     );
   }

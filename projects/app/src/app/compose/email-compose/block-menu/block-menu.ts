@@ -1,25 +1,23 @@
-import { Component, ElementRef, inject, input, viewChild } from '@angular/core';
+import { Component, ElementRef, TemplateRef, inject, input, viewChild } from '@angular/core';
 
 // Material
 import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
 
-// CDK
-import { ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
-
 // Library
 import { BlockMenuState } from 'angular-email-editor';
+import { KeepFocus } from 'angular-email-editor/focus';
 
 import { FormattingCommands } from '../formatting-commands';
-import { Anchor } from 'angular-email-editor/anchor';
-import { KeepFocus } from 'angular-email-editor/focus';
+import { POPOVER_BELOW, Popover } from '../popover/popover';
 
 /**
  * The layout-block toolbar — the bubble menu's sibling, anchored to the
  * block the caret stands in rather than to a selection (it only opens on a
  * bare cursor, so the two never stack). Placed by the editor's block-menu
- * extension, whose state the composer feeds in.
+ * extension, whose state the composer feeds in; a panel of the composer's
+ * one popover, under its block.
  *
  * No table section: every table operation lives on the table itself —
  * adding rows and columns is the + pills (Tab past the last cell also
@@ -39,11 +37,7 @@ import { KeepFocus } from 'angular-email-editor/focus';
     MatDividerModule,
     MatIconModule,
 
-    // CDK
-    OverlayModule,
-
     // Library
-    Anchor,
     KeepFocus,
   ],
   templateUrl: './block-menu.html',
@@ -56,18 +50,26 @@ export class BlockMenu {
       (viewport coordinates) and which block it is. */
   readonly state = input.required<BlockMenuState>();
 
-  /** The toolbar element — only while open, as it renders in the overlay.
+  /** The toolbar element — only while up, as it renders in the popover.
       The extension asks for it: to park focus in it on Alt-F10, and to tell
       focus in the menu from focus lost. */
   readonly element = viewChild<ElementRef<HTMLElement>>('menu');
 
-  /** Below its block — it describes the whole structure, not the line being
-      typed, and under the block it never covers the first row while
-      writing. Flips above only when the bottom has no room. */
-  protected readonly positions: ConnectedPosition[] = [
-    { originX: 'center', originY: 'bottom', overlayX: 'center', overlayY: 'top', offsetY: 8 },
-    { originX: 'center', originY: 'top', overlayX: 'center', overlayY: 'bottom', offsetY: -8 },
-  ];
+  // A query cannot be an ES-private field: TypeScript's `private` it is.
+  private readonly panel = viewChild<TemplateRef<unknown>>('panel');
+
+  constructor() {
+    // Below its block — it describes the whole structure, not the line
+    // being typed, and under the block it never covers the first row while
+    // writing. Flips above only when the bottom has no room.
+    inject(Popover).register({
+      layer: 'toolbar',
+      open: () => this.state().isOpen && this.state().block === 'columns',
+      anchor: () => this.state().boundingBox,
+      content: this.panel,
+      positions: () => POPOVER_BELOW,
+    });
+  }
 
   /** Runs a block command on the email editor — the block's, never the
       source pane's. */

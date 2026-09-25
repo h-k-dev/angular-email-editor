@@ -1,75 +1,46 @@
-<!-- The anchor: an element kept over the selection's box, for the overlay to
-     attach to. -->
-<span [emailAnchor]="state().boundingBox" cdkOverlayOrigin #origin="cdkOverlayOrigin"></span>
-
-<ng-template
-  cdkConnectedOverlay
-  [cdkConnectedOverlayOrigin]="origin"
-  [cdkConnectedOverlayOpen]="state().isOpen"
-  [cdkConnectedOverlayPositions]="positions"
-  [cdkConnectedOverlayHasBackdrop]="false"
-  [cdkConnectedOverlayPush]="true"
-  [cdkConnectedOverlayViewportMargin]="8"
-  cdkConnectedOverlayTransformOriginOn=".bubble-menu"
->
-  <!-- Lands softly (`animate.enter`, see the stylesheet), growing out of the
-       side that faces the selection — the CDK sets the transform origin for
-       whichever position it chose. -->
-  <!-- One menu, a set of tools per thing selected: an image alone and a
-       button get their own (the extension says which, `kind`), anything
-       else the marks. -->
-  @if (state().kind === 'image') {
-    <div
-      class="bubble-menu"
-      animate.enter="bubble-menu--landing"
-      role="toolbar"
-      appToolbarKeys
-      [attr.aria-label]="i18n.t('editor.image.menu', 'Image options')"
-      emailKeepFocus
-    >
-      <!-- The alt leads, as words: what it says, or that it is missing. -->
-      <button
-        mat-button
-        type="button"
-        class="bubble-menu__alt"
-        [class.bubble-menu__alt--missing]="!alt()"
-        aria-haspopup="dialog"
-        [attr.aria-label]="altLabel()"
-        [emailAction]="actions.get(altItem.id)"
-        #altTrigger="emailAction"
-        [disabled]="altTrigger.disabled()"
-      >
-        <span class="bubble-menu__alt-text" dir="auto">{{
-          alt() || i18n.t('editor.image.addAlt', 'Add alt text')
-        }}</span>
-      </button>
-      <ng-container *ngTemplateOutlet="buttons; context: { $implicit: imageEntries, lead: true }" />
-    </div>
-  } @else if (state().kind === 'button') {
-    <div
-      class="bubble-menu"
-      animate.enter="bubble-menu--landing"
-      role="toolbar"
-      appToolbarKeys
-      [attr.aria-label]="i18n.t('editor.button.menu', 'Button options')"
-      emailKeepFocus
-    >
-      <ng-container
-        *ngTemplateOutlet="buttons; context: { $implicit: buttonEntries, lead: false }"
-      />
-    </div>
-  } @else {
-    <div
-      class="bubble-menu"
-      animate.enter="bubble-menu--landing"
-      role="toolbar"
-      appToolbarKeys
-      [attr.aria-label]="i18n.t('editor.menu.selection', 'Selection formatting')"
-      emailKeepFocus
-    >
-      <ng-container *ngTemplateOutlet="buttons; context: { $implicit: entries, lead: false }" />
-    </div>
-  }
+<!-- The menu, for the composer's one popover: one toolbar, its tools by
+     what is selected. The `@switch` swaps the buttons inside it — the
+     toolbar element, and the popover around it, stay. -->
+<ng-template #panel>
+  <div
+    class="bubble-menu"
+    role="toolbar"
+    appToolbarKeys
+    [attr.aria-label]="menuLabel()"
+    emailKeepFocus
+  >
+    @switch (state().kind) {
+      @case ('image') {
+        <!-- The alt leads, as words: what it says, or that it is missing. -->
+        <button
+          mat-button
+          type="button"
+          class="bubble-menu__alt"
+          [class.bubble-menu__alt--missing]="!alt()"
+          aria-haspopup="dialog"
+          [attr.aria-label]="altLabel()"
+          [emailAction]="actions.get(altItem.id)"
+          #altTrigger="emailAction"
+          [disabled]="altTrigger.disabled()"
+        >
+          <span class="bubble-menu__alt-text" dir="auto">{{
+            alt() || i18n.t('editor.image.addAlt', 'Add alt text')
+          }}</span>
+        </button>
+        <ng-container
+          *ngTemplateOutlet="buttons; context: { $implicit: imageEntries, lead: true }"
+        />
+      }
+      @case ('button') {
+        <ng-container
+          *ngTemplateOutlet="buttons; context: { $implicit: buttonEntries, lead: false }"
+        />
+      }
+      @default {
+        <ng-container *ngTemplateOutlet="buttons; context: { $implicit: entries, lead: false }" />
+      }
+    }
+  </div>
 </ng-template>
 
 <!-- A run of buttons, divided by group; `lead` when something stands

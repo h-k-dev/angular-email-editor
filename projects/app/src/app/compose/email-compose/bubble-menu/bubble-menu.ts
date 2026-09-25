@@ -1,4 +1,4 @@
-import { Component, computed, inject, input } from '@angular/core';
+import { Component, TemplateRef, computed, inject, input, viewChild } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 
 // Material
@@ -6,19 +6,16 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
 
-// CDK
-import { ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
-
 // Library
 import { BubbleMenuState, selectedImageAlt } from 'angular-email-editor';
 import { ActionTrigger } from 'angular-email-editor/actions';
-import { Anchor } from 'angular-email-editor/anchor';
 import { KeepFocus } from 'angular-email-editor/focus';
 
 import { I18n } from '../../../../services/i18n';
 import { FormattingCommands } from '../formatting-commands';
 import { FormattingItem, FormattingLayout, layoutEntries } from '../formatting-items';
 import { ToolbarKeys } from '../formatting-toolbar/toolbar-keys';
+import { POPOVER_ABOVE, Popover } from '../popover/popover';
 
 /** The bubble menu's groups: the marks, then what wraps the selection —
     a link, a button link, a quote. */
@@ -53,6 +50,14 @@ const IMAGE_LAYOUT: FormattingLayout = [
  * the composer feeds its state in — and acting through the composer's
  * `FormattingCommands`, on the same items as the toolbar.
  *
+ * A panel of the composer's one popover (`Popover`): up while the
+ * extension says so, over the selection's box. One toolbar, with a set of
+ * tools per thing selected — an image alone and a button get their own
+ * (the extension says which, `kind`), anything else the marks — swapped
+ * *inside* the popover as the selection changes: passing an image by one
+ * character turns the image's tools into the text's, in the box that is
+ * already there, rather than landing a second menu over the first.
+ *
  * A mousedown never takes focus, so the editor's selection survives the
  * click — which is also what keeps the menu open through it.
  */
@@ -66,12 +71,8 @@ const IMAGE_LAYOUT: FormattingLayout = [
     MatDividerModule,
     MatIconModule,
 
-    // CDK
-    OverlayModule,
-
     // Library
     ActionTrigger,
-    Anchor,
     KeepFocus,
 
     ToolbarKeys,
@@ -81,7 +82,7 @@ const IMAGE_LAYOUT: FormattingLayout = [
 })
 export class BubbleMenu {
   /** The extension's state: whether the menu shows, and the selection's box
-      in viewport coordinates, which the anchor takes. */
+      in viewport coordinates, which the popover's anchor takes. */
   readonly state = input.required<BubbleMenuState>();
 
   readonly #commands = inject(FormattingCommands);
@@ -117,9 +118,28 @@ export class BubbleMenu {
   /** The visible editor's actions, which the buttons trigger by id. */
   protected readonly actions = this.#commands.actions;
 
-  protected readonly positions: ConnectedPosition[] = [
-    { originX: 'center', originY: 'top', overlayX: 'center', overlayY: 'bottom', offsetY: -8 },
-    // Fallback: no room above, flip below.
-    { originX: 'center', originY: 'bottom', overlayX: 'center', overlayY: 'top', offsetY: 8 },
-  ];
+  /** The toolbar's name, by what it is for. */
+  protected menuLabel(): string {
+    switch (this.state().kind) {
+      case 'image':
+        return this.i18n.t('editor.image.menu', 'Image options');
+      case 'button':
+        return this.i18n.t('editor.button.menu', 'Button options');
+      default:
+        return this.i18n.t('editor.menu.selection', 'Selection formatting');
+    }
+  }
+
+  // A query cannot be an ES-private field: TypeScript's `private` it is.
+  private readonly panel = viewChild<TemplateRef<unknown>>('panel');
+
+  constructor() {
+    inject(Popover).register({
+      layer: 'toolbar',
+      open: () => this.state().isOpen,
+      anchor: () => this.state().boundingBox,
+      content: this.panel,
+      positions: () => POPOVER_ABOVE,
+    });
+  }
 }

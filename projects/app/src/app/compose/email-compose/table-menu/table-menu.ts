@@ -1,9 +1,9 @@
 import {
   Component,
   ElementRef,
+  TemplateRef,
 
   // Signals
-  afterRenderEffect,
   computed,
   inject,
   input,
@@ -15,19 +15,21 @@ import {
 import { MatIconModule } from '@angular/material/icon';
 
 // CDK
-import { CdkConnectedOverlay, ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
+import { ConnectedPosition } from '@angular/cdk/overlay';
 
 // Library
 import { TableHandleTarget, duplicateColumn, duplicateRow } from 'angular-email-editor';
-import { Anchor } from 'angular-email-editor/anchor';
 import { KeepFocus } from 'angular-email-editor/focus';
 
 import { FormattingCommands } from '../formatting-commands';
+import { Popover } from '../popover/popover';
 
 /**
  * The menu a table grip opens: everything that can be done to one row or one
  * column, anchored to the grip that was pressed (the editor's table-handles
- * extension reports which band and where).
+ * extension reports which band and where). A panel of the composer's one
+ * popover: a grip pressed while it is up — the next row, or a column in
+ * another table entirely — moves the anchor, and the popover follows.
  *
  * The band is already selected by the time this opens — that is what the
  * grip's press does — so every item here is the ordinary selection-relative
@@ -47,11 +49,7 @@ import { FormattingCommands } from '../formatting-commands';
     // Material
     MatIconModule,
 
-    // CDK
-    OverlayModule,
-
     // Library
-    Anchor,
     KeepFocus,
   ],
   templateUrl: './table-menu.html',
@@ -89,23 +87,19 @@ export class TableMenu {
         ],
   );
 
-  /** The overlay itself, to be told when its origin has moved. */
-  private readonly overlay = viewChild(CdkConnectedOverlay);
+  // A query cannot be an ES-private field: TypeScript's `private` it is.
+  private readonly panel = viewChild<TemplateRef<unknown>>('panel');
 
   constructor() {
-    // A grip pressed while this menu is already open — the next row, or a
-    // column in another table entirely — moves the anchor, and a CDK overlay
-    // does not follow an origin that moves: it measures once, on attach. So
-    // the menu would stay beside the grip that opened it and describe a band
-    // somewhere else. Ask it to look again whenever the target changes, after
-    // the anchor's own style write has landed (hence the render phase, and
-    // `mixedReadWrite`: repositioning measures and then moves).
-    afterRenderEffect({
-      mixedReadWrite: () => {
-        this.target();
-        const overlay = this.overlay()?.overlayRef;
-        if (overlay?.hasAttached()) overlay.updatePosition();
-      },
+    // A click outside closes it — the band stays selected, so nothing is
+    // lost by the menu going away.
+    inject(Popover).register({
+      layer: 'toolbar',
+      open: () => !!this.target(),
+      anchor: () => this.target()?.boundingBox ?? null,
+      content: this.panel,
+      positions: this.positions,
+      onOutsideClick: () => this.closed.emit(),
     });
   }
 
