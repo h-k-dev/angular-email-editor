@@ -15,7 +15,8 @@ import { unsetMark } from './unset.utils';
  * re-applied the mark instead of removing it.
  *
  * A selected atom that takes the mark as an attribute (a button, see
- * `selectedMarkAtom`) has that attribute flipped instead, and stays selected.
+ * `selectedMarkAtom`) has that attribute flipped instead, and stays selected
+ * as it was — the click's node selection, or the drag's range.
  */
 export function toggleMark(markType: MarkType, attributes: Record<string, any> = {}) {
   return (state: EditorState, dispatch?: (tr: Transaction) => void): boolean => {
@@ -23,8 +24,15 @@ export function toggleMark(markType: MarkType, attributes: Record<string, any> =
     if (atom) {
       if (dispatch) {
         const { pos, node } = atom;
-        const tr = state.tr.setNodeAttribute(pos, markType.name, node.attrs[markType.name] !== true);
-        dispatch(tr.setSelection(NodeSelection.create(tr.doc, pos)));
+        const tr = state.tr.setNodeAttribute(
+          pos,
+          markType.name,
+          node.attrs[markType.name] !== true,
+        );
+        if (state.selection instanceof NodeSelection) {
+          tr.setSelection(NodeSelection.create(tr.doc, pos));
+        }
+        dispatch(tr);
       }
       return true;
     }

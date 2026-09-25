@@ -13,12 +13,12 @@
 
 // The image's alt, as words: a long one is cut, a missing one is said in
 // the error colour — screen readers and image-blocking clients get nothing.
-.bubble-menu__alt {
-  max-width: 200px;
-}
-
+// The cut is on the words themselves, not on the button: Material's label
+// is a flex item that never shrinks below its content (`min-width: auto`),
+// so a cap on the button would leave the words running out of it.
 .bubble-menu__alt-text {
   display: block;
+  max-width: 168px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

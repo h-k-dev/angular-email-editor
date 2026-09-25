@@ -1,4 +1,4 @@
-import { Node, Schema } from 'prosemirror-model';
+import { Fragment, Node, Schema, Slice } from 'prosemirror-model';
 import {
   Command,
   EditorState,
@@ -8,10 +8,10 @@ import {
   TextSelection,
 } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
-import { Transform } from 'prosemirror-transform';
 import { closeHistory } from 'prosemirror-history';
 import { FunctionalExtension, defineExtension, defineNode } from '../../extension';
 import { isSafeUrl } from '../marks/link';
+import { soleInlineAtom } from '../inline-atoms';
 
 /** The button's canonical styling — the *border-based* bulletproof button:
     the touch target (≥ 44px tall, per the ledger) comes from borders in the
@@ -140,6 +140,11 @@ export const Button = defineNode({
           click: preventButtonNavigation,
           auxclick: preventButtonNavigation,
         },
+        // Pasted HTML is parsed like a document, and paints the same
+        // `<strong>` around every button (see `bareButtons`): stripped here
+        // too, so a pasted button is as bare as a loaded one.
+        transformPasted: (slice) =>
+          new Slice(bareButtonsIn(slice.content), slice.openStart, slice.openEnd),
       },
     }),
   ],
@@ -231,12 +236,13 @@ export const createButtonEdit = (options: ButtonEditOptions): FunctionalExtensio
     ],
   });
 
-/** The button a selection holds — a click's node selection — or null. */
+/** The button a selection holds and nothing else, or null: a click's node
+    selection, or a range — a drag's, Shift-arrow's — that covers the button
+    and whitespace only (see `soleInlineAtom`). A range with text in it is
+    a text selection: the button in it takes the text styling with the
+    text (its `bold`, its `italic`). */
 export function selectedButton(state: EditorState): { pos: number; node: Node } | null {
-  const { selection } = state;
-  return selection instanceof NodeSelection && selection.node.type.name === 'button'
-    ? { pos: selection.from, node: selection.node }
-    : null;
+  return soleInlineAtom(state, 'button');
 }
 
 /** A button's `href` before it has been given one — the placeholder
@@ -372,12 +378,24 @@ function insertButton(schema: Schema): Command {
  */
 export function bareButtons(doc: Node, schema: Schema): Node {
   if (!schema.nodes['button']) return doc;
-  const tr = new Transform(doc);
-  doc.descendants((node, pos) => {
-    if (node.type.name === 'button' && node.marks.length) {
-      tr.removeMark(pos, pos + node.nodeSize);
+  return doc.copy(bareButtonsIn(doc.content));
+}
+
+/** The fragment with every button in it stripped of its marks — the same
+    fragment where none carries any. */
+function bareButtonsIn(fragment: Fragment): Fragment {
+  let changed = false;
+  const children: Node[] = [];
+  fragment.forEach((node) => {
+    let next = node;
+    if (node.type.name === 'button') {
+      if (node.marks.length) next = node.mark([]);
+    } else if (!node.isLeaf) {
+      const content = bareButtonsIn(node.content);
+      if (content !== node.content) next = node.copy(content);
     }
-    return true;
+    if (next !== node) changed = true;
+    children.push(next);
   });
-  return tr.doc;
+  return changed ? Fragment.fromArray(children) : fragment;
 }

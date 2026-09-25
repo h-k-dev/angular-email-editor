@@ -1,4 +1,4 @@
-import { Command, EditorState, NodeSelection, Plugin } from 'prosemirror-state';
+import { Command, EditorState, Plugin } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { MarkType, Node, NodeType, Schema } from 'prosemirror-model';
 import { keymap } from 'prosemirror-keymap';
@@ -12,6 +12,7 @@ import {
 } from './extension';
 import { createSchema } from './schema';
 import { parseHTML, serializeToHTML } from './html';
+import { markAttrsOf, soleInlineAtom } from './extensions/inline-atoms';
 
 export interface EditorOptions {
   /** Element the editable view is mounted into. */
@@ -216,24 +217,33 @@ function syncDoc(view: EditorView, doc: Node): void {
  * in its spec, `markAttrs: ['bold', 'italic']`, each a boolean attribute of
  * the mark's name. Bold and italic then work on it as on text — the
  * toolbar, the bubble menu, Mod-B — through {@link isMarkActive} and the
- * kit's `toggleMark`.
+ * kit's `toggleMark`. The atom is the selection's whole content (clicked,
+ * or dragged over with nothing but whitespace, `soleInlineAtom`); in a
+ * range with text the kit's `setMark` flips it along with the text.
  */
 export function selectedMarkAtom(
   state: EditorState,
   type: MarkType,
 ): { pos: number; node: Node } | null {
-  const { selection } = state;
-  if (!(selection instanceof NodeSelection)) return null;
-  const takes = selection.node.type.spec['markAttrs'] as readonly string[] | undefined;
-  return takes?.includes(type.name) ? { pos: selection.from, node: selection.node } : null;
+  const atom = soleInlineAtom(state);
+  return atom && markAttrsOf(atom.node).includes(type.name) ? atom : null;
 }
 
+/** Whether the mark is on in the selection: at a caret, what typing would
+    carry; in a range, whether any of it has the mark — text marked, or an
+    atom whose attribute for it is on (a bold button). */
 export function isMarkActive(state: EditorState, type: MarkType): boolean {
   const atom = selectedMarkAtom(state, type);
   if (atom) return atom.node.attrs[type.name] === true;
   const { empty, $from, from, to } = state.selection;
   if (empty) return Boolean(type.isInSet(state.storedMarks ?? $from.marks()));
-  return state.doc.rangeHasMark(from, to, type);
+  if (state.doc.rangeHasMark(from, to, type)) return true;
+  let active = false;
+  state.doc.nodesBetween(from, to, (node) => {
+    if (markAttrsOf(node).includes(type.name) && node.attrs[type.name] === true) active = true;
+    return !active;
+  });
+  return active;
 }
 
 /** Checks the selection's whole ancestor chain, so wrapper nodes

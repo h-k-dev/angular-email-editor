@@ -1,8 +1,14 @@
 import { EditorState, Transaction, TextSelection } from 'prosemirror-state';
 import { MarkType } from 'prosemirror-model';
+import { isInlineAtom, markAttrsOf } from '../inline-atoms';
 
 /**
  * A reusable, safe command to set a mark, inspired by Tiptap.
+ *
+ * An inline atom in the range takes no mark: one that carries the mark as
+ * an attribute (a button's `bold`) has it switched on instead, and the
+ * rest — an image — are left alone, the styling landing on the text
+ * around them.
  */
 export function setMark(markType: MarkType, attributes: Record<string, any> = {}) {
   return (state: EditorState, dispatch?: (tr: Transaction) => void): boolean => {
@@ -35,6 +41,14 @@ export function setMark(markType: MarkType, attributes: Record<string, any> = {}
         doc.nodesBetween($from.pos, $to.pos, (node, pos) => {
           // Skip if it's not an inline text node
           if (!node.isInline) return true;
+
+          if (isInlineAtom(node)) {
+            if (markAttrsOf(node).includes(markType.name)) {
+              if (node.attrs[markType.name] !== true) tr.setNodeAttribute(pos, markType.name, true);
+              hasApplied = true;
+            }
+            return false;
+          }
 
           const trimmedFrom = Math.max(pos, $from.pos);
           const trimmedTo = Math.min(pos + node.nodeSize, $to.pos);

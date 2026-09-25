@@ -1,8 +1,11 @@
 import { EditorState, Transaction } from 'prosemirror-state';
 import { MarkType } from 'prosemirror-model';
+import { markAttrsOf } from '../inline-atoms';
 
 /**
- * A reusable, safe command to unset a mark.
+ * A reusable, safe command to unset a mark. An atom in the range that
+ * carries the mark as an attribute (a button's `bold`) has it switched
+ * off with the text's mark.
  */
 export function unsetMark(markType: MarkType, attrs?: string[]) {
   return (state: EditorState, dispatch?: (tr: Transaction) => void): boolean => {
@@ -16,6 +19,11 @@ export function unsetMark(markType: MarkType, attrs?: string[]) {
         if (!attrs) {
           // Original behavior — nuke the whole mark
           tr.removeMark(range.$from.pos, range.$to.pos, markType);
+          state.doc.nodesBetween(range.$from.pos, range.$to.pos, (node, pos) => {
+            if (markAttrsOf(node).includes(markType.name) && node.attrs[markType.name] === true) {
+              tr.setNodeAttribute(pos, markType.name, false);
+            }
+          });
         } else {
           const nulled = Object.fromEntries(attrs.map((k) => [k, null]));
           state.doc.nodesBetween(range.$from.pos, range.$to.pos, (node, pos) => {

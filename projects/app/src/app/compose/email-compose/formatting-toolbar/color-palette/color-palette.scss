@@ -2,7 +2,9 @@
 // stance).
 :host {
   display: grid;
-  grid-template-columns: repeat(7, 28px);
+  // Eight across: the text palette (reset, black, white and the hues) fills
+  // two rows exactly.
+  grid-template-columns: repeat(8, 28px);
   gap: 4px;
 }
 
@@ -10,9 +12,13 @@
   width: 28px;
   height: 28px;
   padding: 0;
-  // Faint ring so pale background fills stay visible on the light overlay;
-  // strengthens on hover/focus.
-  border: 2px solid var(--email-compose-palette-swatch-outline, rgba(0, 0, 0, 0.12));
+  // Faint ring in the surface's own text colour, so white shows on the light
+  // overlay and black on the dark one; strengthens on hover/focus.
+  border: 2px solid
+    var(
+      --email-compose-palette-swatch-outline,
+      oklch(from var(--mat-sys-on-surface, #1b1b1f) l c h / 0.16)
+    );
   border-radius: 50%;
   cursor: pointer;
   background-color: var(--email-swatch);

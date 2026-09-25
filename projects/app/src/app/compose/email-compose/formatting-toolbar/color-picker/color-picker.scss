@@ -1,10 +1,10 @@
 // Token cascade: --email-* → --mat-sys-* → fallback (see ROADMAP, UI/UX
 // stance).
 
-// A palette is 7 swatches of 28px with 4px between (color-palette.scss);
+// A palette is 8 swatches of 28px with 4px between (color-palette.scss);
 // side by side, the pane needs two of them, the gap, its padding and the
 // overlay's 8px viewport margin a side.
-$palette: 7 * 28px + 6 * 4px;
+$palette: 8 * 28px + 7 * 4px;
 $gap: 20px;
 $padding: 12px;
 $side-by-side: 2 * $palette + $gap + 2 * $padding + 2 * 8px;

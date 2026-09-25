@@ -3,6 +3,7 @@ import { parseHTML, serializeToHTML } from '../../html';
 import { emailExtensions } from '../kits';
 import { createEditor } from '../../editor';
 import {
+  CARET_ROOM,
   Image,
   ImageAttrs,
   PLACEHOLDER_WIDTH,
@@ -235,11 +236,14 @@ describe('image node', () => {
       expect(selectedImageAlt(editor.state)).toBe('dot');
       select(TextSelection.create(doc, imagePos, imagePos + 1));
       expect(selectedImage(editor.state)?.pos).toBe(imagePos);
-      // A character on either side makes it a text selection.
-      select(TextSelection.create(doc, imagePos - 1, imagePos + 1));
+      // A letter on either side makes it a text selection; the spaces beside
+      // it do not (see `soleInlineAtom`).
+      select(TextSelection.create(doc, imagePos - 2, imagePos + 1));
       expect(selectedImage(editor.state)).toBeNull();
-      select(TextSelection.create(doc, imagePos, imagePos + 2));
+      select(TextSelection.create(doc, imagePos, imagePos + 3));
       expect(selectedImage(editor.state)).toBeNull();
+      select(TextSelection.create(doc, imagePos - 1, imagePos + 2));
+      expect(selectedImage(editor.state)?.pos).toBe(imagePos);
       select(TextSelection.create(doc, imagePos));
       expect(selectedImage(editor.state)).toBeNull();
       expect(selectedImageAlt(editor.state)).toBeNull();
@@ -261,18 +265,22 @@ describe('image node', () => {
       expect(editor.commands['setImageAlt']('')).toBe(true);
       expect(editor.state.doc.nodeAt(imagePos)?.attrs['alt']).toBeNull();
       // Nothing to do with the caret in the text.
-      editor.view.dispatch(
-        editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 2)),
-      );
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 2)));
       expect(editor.commands['setImageAlt']('x')).toBe(false);
       unmount();
     });
 
     it('removes the selected image — its actions are enabled only while it is the selection', () => {
       const { editor, unmount } = mount();
-      const actions = extensionActions({ schema: editor.state.schema, extensions: emailExtensions });
+      const actions = extensionActions({
+        schema: editor.state.schema,
+        extensions: emailExtensions,
+      });
       const enabled = (id: string) =>
-        isActionEnabled(actions.find((action) => action.id === id)!, editor.state);
+        isActionEnabled(
+          actions.find((action) => action.id === id)!,
+          editor.state,
+        );
       expect(enabled('remove-image')).toBe(false);
       expect(enabled('replace-image')).toBe(false);
       editor.view.dispatch(
@@ -427,7 +435,7 @@ describe('image node', () => {
       unmount();
     });
 
-    it('the line is the ceiling: an image never grows wider than the block it sits in', () => {
+    it('the line less the caret’s room is the ceiling: an image never fills the block it sits in', () => {
       const { wrapper, frame, down, move, up, width, unmount } = mount();
       Object.defineProperty(wrapper.parentElement, 'clientWidth', {
         value: 300,
@@ -435,9 +443,9 @@ describe('image node', () => {
       });
       down('right', 100);
       move(900);
-      expect(frame.style.width).toBe('300px');
+      expect(frame.style.width).toBe(`${300 - CARET_ROOM}px`);
       up();
-      expect(width()).toBe(300);
+      expect(width()).toBe(300 - CARET_ROOM);
       unmount();
     });
 

@@ -8,10 +8,11 @@ export interface BubbleMenuState {
   isOpen: boolean;
   boundingBox: DOMRect | null;
   /** What the menu is for: `'image'` when an image is the whole selection
-      — clicked, or dragged over with nothing beside it (`selectedImage`);
-      `'button'` for a clicked button (`selectedButton`) — the box is then
-      the node's own; `'text'` otherwise. A host shows each one's own
-      tools. Absent while closed. */
+      — clicked, or dragged over with nothing but whitespace beside it
+      (`selectedImage`); `'button'` likewise for a button (`selectedButton`)
+      — the box is then the node's own; `'text'` otherwise: a range with
+      text in it, or with an image and a button both. A host shows each
+      one's own tools. Absent while closed. */
   kind?: 'text' | 'image' | 'button';
 }
 
@@ -24,7 +25,7 @@ export interface BubbleMenuOptions {
 // Inside a merge tag the menu stays away: the token is text, but formatting
 // it is all-or-nothing and lives on the keyboard (Ctrl-B bolds the whole).
 // An image alone is the other thing it opens for — clicked or dragged over —
-// and a clicked button. Exported, so a host's `shouldShow` can narrow it
+// and a button alone. Exported, so a host's `shouldShow` can narrow it
 // rather than restate it.
 export const defaultBubbleShouldShow = (state: EditorState) =>
   !!selectedImage(state) ||

@@ -12,6 +12,7 @@ import { DOMSerializer, Node, Schema } from 'prosemirror-model';
 import { FunctionalExtension, defineExtension, defineNode } from '../../extension';
 import { isSafeUrl } from '../marks/link';
 import { InlineImageRegistry, inlineImageRegistry } from '../inline-images';
+import { soleInlineAtom } from '../inline-atoms';
 
 export interface ImageAttrs {
   /** `null` is a placeholder: a sized frame awaiting its file (see the
@@ -313,7 +314,10 @@ async function insertImageFiles(
   for (const file of files) {
     const attrs = await readImageFile(file, inlineImageRegistry(view.state));
     if (view.isDestroyed) return;
-    const node = schema.nodes['image'].create(attrs);
+    // Fitted to its line with room for the caret to its right (`CARET_ROOM`):
+    // a full-width image would push the caret's spot to the next line.
+    const width = fitImageWidth(attrs.width, lineCeilingAt(view, pos));
+    const node = schema.nodes['image'].create({ ...attrs, width });
     const tr = view.state.tr.insert(Math.min(pos, view.state.doc.content.size), node);
     // A tall image can push the caret below the fold; bring it back the same
     // way `insertImage` does, so a drop is not a caret that vanished.
@@ -358,15 +362,43 @@ export const MIN_IMAGE_WIDTH = 40;
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(Math.max(value, min), max);
 
-/** The content width of the block an image sits in — the line's ceiling for
-    a resize. 0 when unmeasurable (jsdom), and the caller falls back to the
+/** Room an image leaves at the end of its line for the caret (decided
+    2026-09-24): the widest an image gets in a line is the line less this,
+    so the caret can always stand to its right — on a drop, and at the top
+    of a resize. Wider, and the caret's spot (ProseMirror's 1px separator)
+    wraps to the next line, with nothing beside the image to click or to
+    start a drag from. */
+export const CARET_ROOM = 4;
+
+/** The content width of a textblock's element — the line an image in it
+    gets. 0 when unmeasurable (jsdom), and the caller falls back to the
     email maximum. */
-function lineWidth(wrapper: HTMLElement): number {
-  const block = wrapper.parentElement;
-  if (!block) return 0;
+function contentWidth(block: Element | null): number {
+  if (!(block instanceof HTMLElement)) return 0;
   const style = getComputedStyle(block);
   const padding = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
   return Math.round(block.clientWidth - padding);
+}
+
+/** The widest an image at `pos` can be and leave the caret its room: the
+    line's content width less {@link CARET_ROOM} (never below the resize
+    floor), or null where nothing is laid out. */
+function lineCeilingAt(view: EditorView, pos: number): number | null {
+  const $pos = view.state.doc.resolve(Math.min(pos, view.state.doc.content.size));
+  const block = $pos.depth ? (view.nodeDOM($pos.before()) as Element | null) : null;
+  const line = contentWidth(block);
+  return line > 0 ? Math.max(MIN_IMAGE_WIDTH, line - CARET_ROOM) : null;
+}
+
+/** `width` fitted under a line's `ceiling` (see `CARET_ROOM`): an unknown
+    width stays unknown (fluid, `max-width: 100%`), and without a ceiling
+    the width stands. */
+export function fitImageWidth(
+  width: number | null | undefined,
+  ceiling: number | null,
+): number | null {
+  if (!width) return null;
+  return ceiling !== null ? Math.min(width, ceiling) : width;
 }
 
 /** Width a fresh placeholder opens at — the ledger's phone width; the pads
@@ -412,8 +444,8 @@ function imageFrame(className: string, label: string): HTMLElement {
  * A drag on an unselected image works too and leaves it selected. Dragging
  * a pad draws only a primary *frame* at the would-be size; the real resize
  * — a `width` write, clamped between {@link MIN_IMAGE_WIDTH} and the line's
- * own width (never past {@link MAX_IMAGE_WIDTH}), so at the ceiling the
- * image fills the line and the next caret position is the next line —
+ * width less the caret's room (never past {@link MAX_IMAGE_WIDTH}), so at
+ * the ceiling the caret still stands to the image's right (`CARET_ROOM`) —
  * happens once, on release (`ColumnsResize`'s deferred commit). The ratio
  * is kept by construction: only `width` is ever written, and the serialized
  * style keeps `height: auto`. Pad presses never reach ProseMirror
@@ -536,10 +568,12 @@ class ImageView implements NodeView {
     const startX = event.clientX;
     const startWidth = Math.round(rect.width);
     let width = startWidth;
-    // The line is the ceiling: at it the image fills the line and the next
-    // caret position is the next line — and never past the email maximum.
-    const line = lineWidth(this.dom);
-    const max = line > 0 ? Math.min(MAX_IMAGE_WIDTH, line) : MAX_IMAGE_WIDTH;
+    // The line less the caret's room is the ceiling (`CARET_ROOM`): at it
+    // the image fills the line but for the spot the caret stands in to its
+    // right — and never past the email maximum.
+    const pos = this.getPos();
+    const ceiling = pos === undefined ? null : lineCeilingAt(this.view, pos);
+    const max = ceiling !== null ? Math.min(MAX_IMAGE_WIDTH, ceiling) : MAX_IMAGE_WIDTH;
     this.resized = true;
 
     const preview = (ev: PointerEvent) => {
@@ -577,26 +611,14 @@ class ImageView implements NodeView {
 
 /**
  * The image a selection holds and nothing else, or null: a click's node
- * selection, or a range that covers the image alone — a drag from right
- * beside it to right beside it, with no character, token or line break
- * caught along the way. What an image's own chrome (a bubble menu, its
+ * selection, or a range that covers the image alone — a drag over it, or
+ * Shift-arrow, that caught nothing but whitespace along the way (spaces,
+ * tabs, a line break: no character, no token, no second atom; see
+ * `soleInlineAtom`). What an image's own chrome (a bubble menu, its
  * actions) keys on; a range with text in it is a text selection.
  */
 export function selectedImage(state: EditorState): { pos: number; node: Node } | null {
-  const { selection, doc } = state;
-  if (selection instanceof NodeSelection) {
-    return selection.node.type.name === 'image' ? { pos: selection.from, node: selection.node } : null;
-  }
-  if (selection.empty || !(selection instanceof TextSelection)) return null;
-  let image: { pos: number; node: Node } | null = null;
-  let other = false;
-  doc.nodesBetween(selection.from, selection.to, (node, pos) => {
-    if (other) return false;
-    if (node.type.name === 'image' && !image) image = { pos, node };
-    else if (node.isInline) other = true;
-    return !node.isInline;
-  });
-  return other ? null : image;
+  return soleInlineAtom(state, 'image');
 }
 
 /** The selected image's alt text: `''` when it has none, `null` when no
