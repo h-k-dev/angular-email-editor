@@ -1,21 +1,7 @@
-<!-- The anchor: an element kept over the block's own box, for the overlay to
-     attach to. -->
-<span [emailAnchor]="state().boundingBox" cdkOverlayOrigin #origin="cdkOverlayOrigin"></span>
-
-<!-- disableClose: the CDK otherwise detaches the overlay itself on Escape,
-     which strands it — `isOpen` stays true, so the binding never toggles and
-     the overlay never re-attaches. Escape is ours: it returns focus to the
-     text and leaves the menu open, because the cursor is still in the block. -->
-<ng-template
-  cdkConnectedOverlay
-  [cdkConnectedOverlayOrigin]="origin"
-  [cdkConnectedOverlayOpen]="state().isOpen && state().block === 'columns'"
-  [cdkConnectedOverlayPositions]="positions"
-  [cdkConnectedOverlayHasBackdrop]="false"
-  [cdkConnectedOverlayDisableClose]="true"
-  [cdkConnectedOverlayPush]="true"
-  [cdkConnectedOverlayViewportMargin]="8"
->
+<!-- The menu, for the composer's one popover. Escape is ours: it returns
+     focus to the text and leaves the menu up, because the cursor is still
+     in the block. -->
+<ng-template #panel>
   <div
     class="block-menu"
     #menu
@@ -24,29 +10,22 @@
     emailKeepFocus
     (keydown.escape)="leave()"
   >
-    @if (state().block === 'columns') {
-      <button mat-icon-button type="button" aria-label="Add column" (click)="run('addColumn')">
-        <mat-icon>add</mat-icon>
-      </button>
-      <button
-        mat-icon-button
-        type="button"
-        aria-label="Remove column"
-        (click)="run('removeColumn')"
-      >
-        <mat-icon>remove</mat-icon>
-      </button>
+    <button mat-icon-button type="button" aria-label="Add column" (click)="run('addColumn')">
+      <mat-icon>add</mat-icon>
+    </button>
+    <button mat-icon-button type="button" aria-label="Remove column" (click)="run('removeColumn')">
+      <mat-icon>remove</mat-icon>
+    </button>
 
-      <mat-divider [vertical]="true" />
+    <mat-divider [vertical]="true" />
 
-      <button
-        mat-icon-button
-        type="button"
-        aria-label="Delete columns"
-        (click)="run('deleteColumns')"
-      >
-        <mat-icon>delete_outline</mat-icon>
-      </button>
-    }
+    <button
+      mat-icon-button
+      type="button"
+      aria-label="Delete columns"
+      (click)="run('deleteColumns')"
+    >
+      <mat-icon>delete_outline</mat-icon>
+    </button>
   </div>
 </ng-template>

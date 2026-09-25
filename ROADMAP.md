@@ -595,10 +595,22 @@ that safe (the canonical HTML is the only durable contract — all of the below
 is UI-layer or additive). Honest framing: the table/columns _editing UX is
 still clunky and unintuitive_ overall; these are the concrete symptoms.
 
-- [ ] **Block menu doesn't track its block.** Adding a row grows the table,
-      but the toolbar stays where it was — the anchor rect isn't re-resolved /
-      the overlay isn't repositioned after a structural edit. The menu should
-      ride its block through every mutation.
+- [x] **Block menu doesn't track its block.** _Fixed by construction
+      (2026-09-25)._ Adding a row grew the table but the toolbar stayed where
+      it was: the extension re-measured the block on every transaction, but
+      the CDK overlay never followed an origin that moved. Every floating
+      menu — the bubble menu, the block menu, a grip's row menu, the link
+      and alt-text editors — used to be its own overlay with an anchor and a
+      position strategy of its own, each landing afresh whenever a neighbour
+      closed (pass an image by one character with Shift-Arrow and the image's
+      bubble popped in over the text's, then the text's popped back). They
+      are now **panels of one popover** (`Popover` service +
+      `popover-outlet`, provided per composer beside `FormattingCommands`):
+      which panel is up is derived — dialogs over toolbars, the most recently
+      opened within a layer — the outlet re-places the overlay whenever the
+      shown panel's box changes, and only the content and the anchor change
+      while it stays up, so the landing plays once per opening. Pinned by
+      `popover.spec.ts`; the block's own move is geometry jsdom cannot paint.
 - [ ] **Click-below should escape the block.** _Mechanism shipped
       (2026-08-20), confirmation outstanding._ `prosemirror-gapcursor` now
       gives every isolating block a real cursor position beside it, so the

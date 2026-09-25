@@ -1,18 +1,5 @@
-<!-- The anchor: an element kept over the image's box, for the overlay to
-     attach to. -->
-<span [emailAnchor]="anchor()" cdkOverlayOrigin #origin="cdkOverlayOrigin"></span>
-
-<ng-template
-  cdkConnectedOverlay
-  [cdkConnectedOverlayOrigin]="origin"
-  [cdkConnectedOverlayOpen]="open()"
-  [cdkConnectedOverlayPositions]="positions"
-  [cdkConnectedOverlayDisableClose]="true"
-  (overlayKeydown)="onKeydown($event)"
-  (detach)="open.set(false)"
-  [cdkConnectedOverlayPush]="true"
-  [cdkConnectedOverlayViewportMargin]="8"
->
+<!-- The dialog, for the composer's one popover: the field over the image. -->
+<ng-template #panel>
   <div
     class="alt-text-editor"
     role="dialog"

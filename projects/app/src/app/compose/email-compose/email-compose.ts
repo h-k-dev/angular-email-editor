@@ -37,6 +37,8 @@ import { FormattingCommands } from './formatting-commands';
 import { FormattingToolbar } from './formatting-toolbar/formatting-toolbar';
 import { LinkEditor } from './link-editor/link-editor';
 import { AltTextEditor } from './alt-text-editor/alt-text-editor';
+import { Popover } from './popover/popover';
+import { PopoverOutlet } from './popover/popover-outlet';
 import { Templates } from '../../../services/templates';
 import { MergeTags } from '../../../services/merge-tags';
 import { Ai } from '../../../services/ai';
@@ -83,9 +85,10 @@ export type SourceView = 'hidden' | 'code' | 'detached';
 /**
  * The composer: the editing surface with the editor mounted on it, and the
  * chrome that formats what is in it — the toolbar below, the bubble and
- * block menus and the link editor floating over the text, the suggestion
- * menu (`/`, `{{`) under the caret. One `FormattingCommands` binds them all
- * to this editor.
+ * block menus, the grip's menu and the link and alt-text editors floating
+ * over the text, the suggestion menu (`/`, `{{`) under the caret. One
+ * `FormattingCommands` binds them all to this editor; one `Popover` is
+ * what floats, and each menu only a panel of it.
  */
 @Component({
   selector: 'section[email-compose]',
@@ -104,12 +107,14 @@ export type SourceView = 'hidden' | 'code' | 'detached';
     FormattingToolbar,
     LinkEditor,
     AltTextEditor,
+    PopoverOutlet,
     SuggestionMenu,
     SuggestionMenuItem,
   ],
   // The formatting commands this composer's toolbar, bubble menu and ⋯ menu
-  // share — one per composer, bound to its editor and code view.
-  providers: [FormattingCommands],
+  // share — one per composer, bound to its editor and code view — and the
+  // one popover its floating menus are panels of.
+  providers: [FormattingCommands, Popover],
   templateUrl: './email-compose.html',
   styleUrl: './email-compose.scss',
 })

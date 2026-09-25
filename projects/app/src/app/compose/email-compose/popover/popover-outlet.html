@@ -1,0 +1,29 @@
+<!-- The anchor: one element, kept over the box of whichever panel is up,
+     for the overlay to attach to. -->
+<span [emailAnchor]="anchor()" cdkOverlayOrigin #origin="cdkOverlayOrigin"></span>
+
+<!-- disableClose: the CDK would otherwise detach the overlay itself on
+     Escape, which strands it — the panel's `open` stays true, so nothing
+     toggles and the overlay never re-attaches. Escape and clicks outside are
+     the panels' own, forwarded. -->
+<ng-template
+  cdkConnectedOverlay
+  [cdkConnectedOverlayOrigin]="origin"
+  [cdkConnectedOverlayOpen]="!!shown()"
+  [cdkConnectedOverlayPositions]="positions()"
+  [cdkConnectedOverlayHasBackdrop]="false"
+  [cdkConnectedOverlayDisableClose]="true"
+  [cdkConnectedOverlayPush]="true"
+  [cdkConnectedOverlayViewportMargin]="8"
+  cdkConnectedOverlayTransformOriginOn=".popover"
+  (overlayKeydown)="onKeydown($event)"
+  (overlayOutsideClick)="onOutsideClick($event)"
+>
+  <!-- Lands softly (`animate.enter`, see the stylesheet), growing out of the
+       side that faces the anchor — the CDK sets the transform origin for
+       whichever position it chose. Created once per opening: the content
+       inside changes with the panel, the box does not. -->
+  <div class="popover" animate.enter="popover--landing">
+    <ng-container *ngTemplateOutlet="content()" />
+  </div>
+</ng-template>

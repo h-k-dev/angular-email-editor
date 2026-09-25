@@ -1,13 +1,15 @@
-<!-- What floats over the text: the link editor at the selection (opened by
-     the link items through the commands), the bubble menu on a selection
-     and the block menu on a bare cursor in a layout block (placed by their
-     extensions). All three render in the CDK overlay container; here they
-     take no room. -->
+<!-- What floats over the text — the link and alt-text editors at the
+     selection (opened by the link and alt items through the commands), the
+     bubble menu on a selection, the block menu on a bare cursor in a layout
+     block (placed by their extensions), a grip's row or column menu — is
+     one popover: the outlet renders it, in the CDK overlay container, and
+     the menus are its panels. Here they all take no room. -->
 <div link-editor></div>
 <div alt-text-editor></div>
 <div bubble-menu [state]="bubbleShown()"></div>
 <div block-menu [state]="blockMenuState()"></div>
 <div table-menu [target]="tableHandle()" (closed)="tableHandle.set(null)"></div>
+<div popover-outlet></div>
 
 <!-- The body: the editing surface, or the source in its place, and the hint
      that overlays whichever shows. A wrapper because the hint has to cover

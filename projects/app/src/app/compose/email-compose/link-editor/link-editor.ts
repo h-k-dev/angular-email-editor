@@ -2,12 +2,15 @@ import {
   Component,
   ElementRef,
   Injector,
+  TemplateRef,
   afterNextRender,
   afterRenderEffect,
   computed,
+  effect,
   inject,
   linkedSignal,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 
@@ -18,9 +21,6 @@ import { FormField, FormRoot, form, submit, validate } from '@angular/forms/sign
 import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
-
-// CDK
-import { CdkConnectedOverlay, ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
 
 // ProseMirror
 import { undo } from 'prosemirror-history';
@@ -35,12 +35,12 @@ import {
   selectedButton,
 } from 'angular-email-editor';
 import { ActionTrigger } from 'angular-email-editor/actions';
-import { Anchor } from 'angular-email-editor/anchor';
 
 import { I18n } from '../../../../services/i18n';
 import { FormattingCommands } from '../formatting-commands';
 import { FormattingItem } from '../formatting-items';
 import { dismissOnPressOutside } from '../../dismiss-outside';
+import { POPOVER_ABOVE, Popover } from '../popover/popover';
 
 /**
  * The link popover: a URL field and its three actions — apply, open, and
@@ -62,9 +62,11 @@ import { dismissOnPressOutside } from '../../dismiss-outside';
  * words — a field Apply takes with the link — and the kit's Bold and
  * Italic, which style the button's label as a whole at once.
  *
- * One menu at a time: nothing covers the page while it is open, so a press
- * outside closes it and lands where it was aimed — no other menu takes its
- * place.
+ * A panel of the composer's one popover, in its dialog layer: opened from
+ * the bubble menu's own Link button, it takes the bubble's place in the
+ * box that is already there. One menu at a time: nothing covers the page
+ * while it is open, so a press outside closes it and lands where it was
+ * aimed — no other menu takes its place.
  *
  * The input needs real focus, so no mousedown suppression here — the
  * editor blurs while editing and is refocused on close. Opened by a click
@@ -85,18 +87,16 @@ import { dismissOnPressOutside } from '../../dismiss-outside';
     MatDividerModule,
     MatIconModule,
 
-    // CDK
-    OverlayModule,
-
     // Library
     ActionTrigger,
-    Anchor,
   ],
   templateUrl: './link-editor.html',
   styleUrl: './link-editor.scss',
 })
 export class LinkEditor {
   readonly #commands = inject(FormattingCommands);
+
+  readonly #popover = inject(Popover);
 
   readonly #injector = inject(Injector);
 
@@ -192,12 +192,21 @@ export class LinkEditor {
   });
 
   // A query cannot be an ES-private field: TypeScript's `private` it is.
-  private readonly overlay = viewChild(CdkConnectedOverlay);
+  private readonly panel = viewChild<TemplateRef<unknown>>('panel');
 
   constructor() {
+    this.#popover.register({
+      layer: 'dialog',
+      open: this.open,
+      anchor: this.anchor,
+      content: this.panel,
+      positions: () => POPOVER_ABOVE,
+      onKeydown: (event) => this.onKeydown(event),
+    });
     // A button can move under its popover — aligned from the popover itself,
     // or pushed along by an edit — and the popover follows it: measured
-    // after the render that moved it (a read), then stood over (a write).
+    // after the render that moved it (a read), then stood over (a write);
+    // the popover re-places itself on the anchor's move.
     afterRenderEffect({
       earlyRead: () => {
         this.#commands.state(); // track: every transaction
@@ -209,32 +218,25 @@ export class LinkEditor {
       },
       write: (box) => {
         const measured = box();
-        if (!measured) return;
-        const before = this.anchor();
-        this.anchor.set(measured);
-        if (this.anchor() === before) return;
-        // The overlay does not watch its origin move. The anchor element
-        // takes the new box in the next render; then the overlay is told
-        // to follow it — measuring the origin and placing itself, both.
-        afterNextRender(
-          { mixedReadWrite: () => this.overlay()?.overlayRef?.updatePosition() },
-          { injector: this.#injector },
-        );
+        if (measured) this.anchor.set(measured);
       },
     });
     // A press outside closes it — never the click that opened it.
     dismissOnPressOutside(
       this.open,
-      () => this.overlay()?.overlayRef?.overlayElement,
+      () => this.#popover.pane(),
       () => this.dismiss(),
     );
+    // The popover has gone — however it went: Escape, a press outside,
+    // Apply, Remove, or its button no longer selected (`open` follows the
+    // button's selection).
+    let was = false;
+    effect(() => {
+      const open = this.open();
+      if (was && !open) untracked(() => this.#closed());
+      was = open;
+    });
   }
-
-  protected readonly positions: ConnectedPosition[] = [
-    { originX: 'center', originY: 'top', overlayX: 'center', overlayY: 'bottom', offsetY: -8 },
-    // Fallback: no room above, flip below.
-    { originX: 'center', originY: 'bottom', overlayX: 'center', overlayY: 'top', offsetY: 8 },
-  ];
 
   /** Whether the popover edits a selected button's link rather than a
       link mark on the text. */
@@ -334,12 +336,9 @@ export class LinkEditor {
     this.open.set(false);
   }
 
-  /** The popover has gone — however it went: Escape, a click outside,
-      Apply, Remove, or its button no longer selected. `open` follows (the
-      overlay may detach on its own). A button just made that still has no
-      link is taken back: it would go nowhere. */
-  protected closed(): void {
-    this.open.set(false);
+  /** After the popover has gone: a button just made that still has no
+      link is taken back — it would go nowhere. */
+  #closed(): void {
     const pos = this.#buttonPos();
     const editor = this.#commands.target();
     if (!this.#newButton() || pos === null || !editor) return;
@@ -353,9 +352,8 @@ export class LinkEditor {
   /** Escape closes — from anywhere in the popover, and from the editor when
       the caret stayed there (a clicked button), even if the editor has
       handled that Escape too; an IME's own Escape stays the IME's. Closing
-      is ours alone: the overlay's own Escape is off
-      (`cdkConnectedOverlayDisableClose`), or it would detach behind `open`'s
-      back and the next `show()` would change nothing. */
+      is ours alone: the popover's own Escape is off, or it would detach
+      behind `open`'s back and the next `show()` would change nothing. */
   protected onKeydown(event: KeyboardEvent): void {
     if (event.key !== 'Escape' || event.isComposing) return;
     event.preventDefault();
