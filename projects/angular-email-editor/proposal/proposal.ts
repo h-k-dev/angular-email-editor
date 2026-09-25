@@ -84,12 +84,18 @@ export function injectProposal(
     if (!now || !current || current.view.isDestroyed) return null;
     const proposed = proposalRange(now);
     const at = proposed ? proposed.to : now.selection.from;
-    // The line the proposal ends on: from its start on that line to its end.
-    const end = current.view.coordsAtPos(Math.min(at, now.doc.content.size), -1);
-    const startPos = proposed ? proposed.from : at;
-    const start = current.view.coordsAtPos(startPos);
-    const sameLine = Math.abs(start.top - end.top) < 1;
-    const left = sameLine ? Math.min(start.left, end.left) : end.left;
+    // The line the proposal ends on: from where the proposal starts on it —
+    // or, when the proposal began on an earlier line, from the block's own
+    // left edge — to its end.
+    const pos = Math.min(at, now.doc.content.size);
+    const end = current.view.coordsAtPos(pos, -1);
+    const start = current.view.coordsAtPos(proposed ? proposed.from : pos);
+    let left = Math.min(start.left, end.left);
+    if (Math.abs(start.top - end.top) >= 1) {
+      const $end = now.doc.resolve(pos);
+      const block = $end.depth ? current.view.nodeDOM($end.before($end.depth)) : null;
+      left = block instanceof HTMLElement ? block.getBoundingClientRect().left : end.left;
+    }
     return {
       left,
       top: end.top,
