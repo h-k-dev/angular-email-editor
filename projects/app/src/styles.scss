@@ -1140,6 +1140,18 @@ section[html-email-compose] .aee-editor {
   );
 }
 
+/* A button's body is its borders, not padding: the email-safe box is
+ * `border-width: 14px 28px` in the button's own colour (Outlook drops
+ * padding on an anchor). `inset: 0` covers the padding box, so the tint
+ * stopped at the label and a marked button lit only its words while the
+ * box around them stayed plain — unlike an image, lit whole. Out to the
+ * border box, then. The widths are the canonical ones every button is
+ * rewritten with (`buttonStyle`, nodes/button.ts), never a button's own. */
+.aee-editor a.aee-atom--in-selection::after,
+.aee-editor a.ProseMirror-selectednode::after {
+  inset: -14px -28px;
+}
+
 /* High-contrast themes (forced colors) replace author colours, so a tint
  * cannot be relied on to say "selected": the system's own Highlight says
  * it instead — the colour the text beside the image is selected in. */
