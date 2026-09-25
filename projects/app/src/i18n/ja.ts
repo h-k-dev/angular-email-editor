@@ -66,12 +66,11 @@ export default {
     },
     ai: {
       dialog: '文章アシスタント',
-      preview: '提案された文章',
       instructions: '指示',
-      prompt: 'アシスタントに変更してほしい点を伝えてください…',
-      rewrite: 'この指示で書き直す',
-      rewriteKey: 'Ctrl+Enter',
-      accept: '承認して挿入',
+      prompt: 'アシスタントに他に変更してほしい点を伝えてください…',
+      tryAgain: 'もう一度',
+      discard: '破棄',
+      apply: '適用',
     },
     toolbar: {
       'image-alt': '代替テキスト',

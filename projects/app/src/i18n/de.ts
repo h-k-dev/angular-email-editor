@@ -72,12 +72,11 @@ export default {
     // on a bar, "Table" in a list.
     ai: {
       dialog: 'Schreibassistent',
-      preview: 'Vorgeschlagener Text',
       instructions: 'Anweisungen',
-      prompt: 'Sagen Sie dem Assistenten, was sich ändern soll…',
-      rewrite: 'Mit diesen Anweisungen neu schreiben',
-      rewriteKey: 'Strg+Eingabe',
-      accept: 'Übernehmen und einfügen',
+      prompt: 'Sagen Sie dem Assistenten, was sich noch ändern soll…',
+      tryAgain: 'Noch einmal',
+      discard: 'Verwerfen',
+      apply: 'Übernehmen',
     },
     toolbar: {
       'image-alt': 'Alternativtext',

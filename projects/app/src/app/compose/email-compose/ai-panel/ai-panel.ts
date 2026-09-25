@@ -1,13 +1,12 @@
 import {
   Component,
-  ElementRef,
+  Injector,
   TemplateRef,
-  afterRenderEffect,
+  afterNextRender,
   computed,
   inject,
   input,
   signal,
-  untracked,
   viewChild,
 } from '@angular/core';
 
@@ -18,38 +17,9 @@ import { MatIconModule } from '@angular/material/icon';
 // CDK
 import { ConnectedPosition } from '@angular/cdk/overlay';
 
-// ProseMirror
-import { Command, EditorState, Plugin, PluginKey } from 'prosemirror-state';
-import {
-  Node as ProseMirrorNode,
-  DOMParser as ProseMirrorDOMParser,
-  Slice,
-} from 'prosemirror-model';
-import { Decoration, DecorationSet } from 'prosemirror-view';
-
 // Library
-import {
-  BaseKeymap,
-  BulletList,
-  ContentStreamReveal,
-  ContentStreamRun,
-  Document,
-  Editor,
-  Extension,
-  HardBreak,
-  History,
-  ListItem,
-  NoTextDrag,
-  OrderedList,
-  Paragraph,
-  Text,
-  createContentStream,
-  createEditor,
-  defineExtension,
-  emailExtensions,
-  streamContent,
-} from 'angular-email-editor';
-import { AnchorRect } from 'angular-email-editor/anchor';
+import { ChatInput } from 'angular-email-editor/chat-input';
+import { ProposalAccept, ProposalDiscard, injectProposal } from 'angular-email-editor/proposal';
 
 import { Ai } from '../../../../services/ai';
 import { I18n } from '../../../../services/i18n';
@@ -58,84 +28,30 @@ import { dismissOnPressOutside } from '../../dismiss-outside';
 import { Popover } from '../popover/popover';
 import { AiAsk } from '../ai-writer';
 
-/** Under the caret, opening to the right of it — the way the `/` menu
-    stands, since that is where the panel comes from; above when there is
-    no room below. Not centred: at a line's start a centred panel would
-    hang off the sheet. */
-const UNDER_THE_CARET: ConnectedPosition[] = [
+/** Under the proposal's last line, opening to the right of where it
+    starts; above when there is no room below. */
+const UNDER_THE_PROPOSAL: ConnectedPosition[] = [
   { originX: 'start', originY: 'bottom', overlayX: 'start', overlayY: 'top', offsetY: 8 },
   { originX: 'start', originY: 'top', overlayX: 'start', overlayY: 'bottom', offsetY: -8 },
 ];
 
-/** Says what the field is for while it is empty — a widget on the empty
-    paragraph, styled by the panel's stylesheet; the library paints nothing. */
-const placeholder = (text: () => string): Extension =>
-  defineExtension({
-    name: 'placeholder',
-    plugins: () => [
-      new Plugin({
-        key: new PluginKey('placeholder'),
-        props: {
-          decorations: (state) => {
-            const { doc } = state;
-            const empty =
-              doc.childCount === 1 &&
-              doc.firstChild!.isTextblock &&
-              doc.firstChild!.content.size === 0;
-            if (!empty) return null;
-            return DecorationSet.create(doc, [
-              Decoration.node(0, doc.firstChild!.nodeSize, {
-                class: 'ai-panel__empty',
-                'data-placeholder': text(),
-              }),
-            ]);
-          },
-        },
-      }),
-    ],
-  });
-
-/** The prompt as the assistant reads it: a line per block, a list item as
-    a dash line — the writer's points, kept as points. */
-function promptText(doc: ProseMirrorNode): string {
-  const lines: string[] = [];
-  doc.descendants((node, _pos, parent) => {
-    if (!node.isTextblock) return true;
-    const text = node.textBetween(0, node.content.size, '\n', ' ').trim();
-    if (text) lines.push(parent?.type.name === 'listItem' ? `- ${text}` : text);
-    return false;
-  });
-  return lines.join('\n');
-}
-
-/** The proposal as an *open* slice, the way typed text joins the line it
-    is written into: a way on continues the sentence, a whole email's first
-    line takes the empty line the caret is on. */
-function proposalSlice(html: string, state: EditorState): Slice {
-  const dom = new window.DOMParser().parseFromString(html, 'text/html');
-  return ProseMirrorDOMParser.fromSchema(state.schema).parseSlice(dom.body);
-}
-
 /**
- * The assistant's panel: what the assistant writes, on a layer of its own
- * over the text — a panel of the composer's one popover, under the caret.
- * Opened by the `ai` action (`createAiWriter`) with what stands before the
- * caret; the answer streams into a **preview** here, not into the message.
- * Under it, a **prompt** — an editor of its own, plain lines and lists, so
- * the writer's points stay points — steers it: Rewrite (Ctrl-Enter) asks
- * again with the instructions, cutting short whatever was still coming.
- * **Accept** takes the preview into the message at the caret, as one
- * change — one undo. Anything else — Escape, a press outside — lets it go:
- * the panel closes, the stream stops, and the message is exactly as it
- * was, with nothing in its history. Nothing the assistant wrote touches
- * the document until it is accepted.
+ * The assistant's panel: the assistant writes **into the message**, where
+ * its words will stand — as a *proposal*, marked, outside the history
+ * (the library's content proposal) — and this panel floats under it with
+ * the one thing that is not text: the way to steer and decide. A panel of
+ * the composer's one popover, in its dialog layer.
  *
- * The preview is the email kit with the library's content stream, read
- * only, so the answer forms the way it would in the message — a list
- * takes shape, a bold phrase arrives bold — with the same caret and fade,
- * and Accept inserts the very HTML the preview holds. Both editors live
- * only while the panel is up: they are made as its content renders and
- * destroyed as it goes.
+ * The chat input is the library's (`email-chat-input`: lines and lists,
+ * Enter asks); Try again asks once more with what it says; Discard and
+ * Apply are the library's triggers on Material buttons. Apply takes the
+ * proposal into the message as one change — one undo. Anything else —
+ * Discard, Escape, a press outside — takes it out, and the message is
+ * exactly as it was, with nothing in its history.
+ *
+ * All of the mechanics are the library's (`injectProposal`); this
+ * component is what a host writes — a host with an input of its own
+ * writes the same few lines around it.
  */
 @Component({
   selector: 'div[ai-panel]',
@@ -143,6 +59,11 @@ function proposalSlice(html: string, state: EditorState): Slice {
     // Material
     MatButtonModule,
     MatIconModule,
+
+    // Library
+    ChatInput,
+    ProposalAccept,
+    ProposalDiscard,
   ],
   templateUrl: './ai-panel.html',
   styleUrl: './ai-panel.scss',
@@ -154,32 +75,27 @@ export class AiPanel {
 
   readonly #ai = inject(Ai);
 
+  readonly #injector = inject(Injector);
+
   protected readonly i18n = inject(I18n);
 
   /** The language the assistant writes in — the composer's, asked when the
       writing starts. */
   readonly language = input<() => 'en' | 'de' | 'ja'>(() => 'en');
 
-  /** How the preview reveals what comes in — the library's `'block'` by
-      default; a spec asks for `'instant'`. */
-  readonly reveal = input<ContentStreamReveal>('block');
+  /** The proposal in the email editor: its state, and the three things
+      to do about it. */
+  protected readonly proposal = injectProposal(() => this.#commands.editor());
 
   protected readonly open = signal(false);
 
-  protected readonly anchor = signal<AnchorRect | null>(null);
+  /** What the writer typed into the chat input — sent with the next ask. */
+  protected readonly instructions = signal('');
 
-  /** The assistant is writing. */
-  protected readonly streaming = signal(false);
+  /** Under the proposal, following it as it grows. */
+  protected readonly anchor = computed(() => (this.open() ? this.proposal.box() : null));
 
-  /** There is something to accept: the assistant has written, and it
-      is not being written over. */
-  protected readonly proposed = signal(false);
-
-  protected readonly canAccept = computed(() => this.proposed() && !this.streaming());
-
-  protected readonly previewHost = viewChild<ElementRef<HTMLElement>>('preview');
-
-  protected readonly promptHost = viewChild<ElementRef<HTMLElement>>('prompt');
+  protected readonly chat = viewChild(ChatInput);
 
   // A query cannot be an ES-private field: TypeScript's `private` it is.
   private readonly panel = viewChild<TemplateRef<unknown>>('panel');
@@ -187,19 +103,13 @@ export class AiPanel {
   /** What the writer asked from, for as long as the panel is up. */
   #ask: AiAsk | null = null;
 
-  /** The two editors, while the panel is up: the preview the answer
-      streams into, and the prompt. */
-  protected readonly editors = signal<{ preview: Editor; prompt: Editor } | null>(null);
-
-  #run: ContentStreamRun | null = null;
-
   constructor() {
     this.#popover.register({
       layer: 'dialog',
       open: this.open,
       anchor: this.anchor,
       content: this.panel,
-      positions: () => UNDER_THE_CARET,
+      positions: () => UNDER_THE_PROPOSAL,
       onKeydown: (event) => this.onKeydown(event),
     });
     // A press outside lets the proposal go — never the click (a `/` menu
@@ -209,184 +119,72 @@ export class AiPanel {
       () => this.#popover.pane(),
       () => this.dismiss(),
     );
-
-    // The editors live with the panel's content: made once its hosts have
-    // rendered (a DOM write, after the render), destroyed as they go.
-    afterRenderEffect((onCleanup) => {
-      const preview = this.previewHost()?.nativeElement;
-      const prompt = this.promptHost()?.nativeElement;
-      if (!preview || !prompt) return;
-      const reveal = this.reveal();
-      untracked(() => {
-        this.#mount(preview, prompt, reveal);
-        this.#write();
-      });
-      onCleanup(() => this.#unmount());
-    });
   }
 
-  /** Opens the panel under the caret and asks the assistant at once. */
+  /** Opens the panel and asks the assistant at once: the answer begins to
+      appear in the message, under the caret. */
   show(ask: AiAsk): void {
-    const editor = this.#commands.editor();
-    if (!editor) return;
-    const coords = editor.view.coordsAtPos(editor.state.selection.from);
-    this.anchor.set({ left: coords.left, top: coords.top, height: coords.bottom - coords.top });
+    if (!this.#commands.editor()) return;
     this.#ask = ask;
-    this.proposed.set(false);
-    // Up already (asked twice): the same editors, asked again.
-    if (this.open()) this.#write();
-    else this.open.set(true);
+    this.instructions.set('');
+    this.open.set(true);
+    this.#write();
+    // The chat input exists once the render that opens the panel has run.
+    afterNextRender({ write: () => this.chat()?.focus() }, { injector: this.#injector });
   }
 
-  /** Takes the proposal into the message, at the caret, as one change. */
-  protected accept(): void {
-    const editor = this.#commands.editor();
-    const preview = this.editors()?.preview;
-    if (!editor || !preview || !this.canAccept()) return;
-    const { state } = editor;
-    const slice = proposalSlice(preview.getHTML(), state);
-    const tr = state.tr;
-    // A way on joins the sentence: the space the answer opened with, which
-    // the preview's own line dropped, is put back before the words.
-    const { $from } = state.selection;
-    const before = $from.parent.isTextblock ? $from.parent.textBetween(0, $from.parentOffset) : '';
-    const opensInline = slice.content.firstChild?.isTextblock && slice.openStart > 0;
-    if (before && !/\s$/.test(before) && opensInline) tr.insertText(' ');
-    tr.replaceSelection(slice).scrollIntoView();
-    editor.view.dispatch(tr);
-    this.#close();
-    editor.focus();
-  }
-
-  /** Asks again, with the prompt's instructions — cutting short whatever
-      was still coming. */
-  protected rewrite(): void {
+  /** The chat input's Enter, or Try again: asks once more, with the
+      instructions, over what is there. */
+  protected ask(instructions = this.instructions()): void {
+    this.instructions.set(instructions);
     this.#write();
   }
 
-  /** Escape: lets it go, and the caret is back in the text. */
+  /** Apply pressed: the library took the proposal in; the panel is done. */
+  protected applied(): void {
+    this.open.set(false);
+    this.#commands.focus();
+  }
+
+  /** Discard pressed, or Escape: the library took it out; the caret is
+      back in the text. */
   protected close(): void {
-    this.#close();
+    this.proposal.discard();
+    this.open.set(false);
     this.#commands.focus();
   }
 
   /** A press outside lets it go — and is just a press. */
   protected dismiss(): void {
-    this.#close();
+    this.proposal.discard();
+    this.open.set(false);
   }
 
-  /** Escape from anywhere in the panel — the prompt, a button — and from
-      the editor beneath; an IME's own Escape stays the IME's. */
+  /** Escape from anywhere — the input, a button, the editor beneath; an
+      IME's own Escape stays the IME's. */
   protected onKeydown(event: KeyboardEvent): void {
     if (event.key !== 'Escape' || event.isComposing) return;
     event.preventDefault();
     this.close();
   }
 
-  #close(): void {
-    this.#stop();
-    this.open.set(false);
-  }
-
-  #stop(): void {
-    this.#run?.stop();
-    this.#run = null;
-  }
-
-  #mount(previewHost: HTMLElement, promptHost: HTMLElement, reveal: ContentStreamReveal): void {
-    const preview = createEditor({
-      parent: previewHost,
-      extensions: [
-        ...emailExtensions,
-        createContentStream({
-          reveal,
-          onChange: (state) => this.streaming.set(state.streaming),
-        }),
-      ],
-      attributes: {
-        class: 'ai-panel__preview-editor',
-        'aria-label': this.i18n.t('editor.ai.preview', 'Suggested text'),
-      },
-    });
-    // Read only: the proposal is the assistant's until it is accepted.
-    preview.view.setProps({ editable: () => false });
-
-    const submit: Command = (_state, dispatch) => {
-      if (dispatch) this.rewrite();
-      return true;
-    };
-    const prompt = createEditor({
-      parent: promptHost,
-      extensions: [
-        Document,
-        Paragraph,
-        Text,
-        HardBreak,
-        // Lists, and nothing else: the writer's points, as points. A
-        // heading or a bold word says nothing to an assistant.
-        BulletList,
-        OrderedList,
-        ListItem,
-        History,
-        NoTextDrag,
-        defineExtension({ name: 'aiPromptKeys', keymap: () => ({ 'Mod-Enter': submit }) }),
-        BaseKeymap,
-        placeholder(() => this.i18n.t('editor.ai.prompt', 'Tell the assistant what to change…')),
-      ],
-      attributes: {
-        class: 'ai-panel__prompt-editor',
-        role: 'textbox',
-        'aria-multiline': 'true',
-        'aria-label': this.i18n.t('editor.ai.instructions', 'Instructions'),
-      },
-    });
-    this.editors.set({ preview, prompt });
-    prompt.focus();
-  }
-
-  #unmount(): void {
-    this.#stop();
-    const editors = this.editors();
-    editors?.preview.destroy();
-    editors?.prompt.destroy();
-    this.editors.set(null);
-    this.streaming.set(false);
-  }
-
-  /** Asks the assistant and streams the answer into the preview, from a
-      clean slate. */
+  /** Asks the assistant and proposes the answer at the caret — over an
+      earlier proposal, which goes. */
   #write(): void {
-    const editors = this.editors();
     const ask = this.#ask;
-    if (!editors || !ask) return;
-    this.#stop();
-    const { preview, prompt } = editors;
-    preview.setContent('');
-    this.proposed.set(false);
+    if (!ask) return;
     const request = {
       before: ask.before,
       language: this.language()(),
-      instructions: promptText(prompt.state.doc),
+      instructions: this.instructions(),
     };
-    // Into the preview's one empty line, the way the message's own empty
-    // line would take it.
-    const run = streamContent(
-      preview.view,
-      1,
-      async ({ write, signal }) => {
-        for await (const piece of this.#ai.write(request, { signal })) write(piece);
-      },
-      { format: 'html' },
-    );
-    this.#run = run;
-    run.done
-      .then((finished) => {
-        if (this.#run !== run) return;
-        this.#run = null;
-        // Stopped short, what shows is still the assistant's — accept it
-        // or ask again.
-        this.proposed.set(preview.state.doc.textContent.trim() !== '' || !finished);
-      })
-      .catch((reason) => console.error(reason));
+    this.proposal
+      .propose(
+        async ({ write, signal }) => {
+          for await (const piece of this.#ai.write(request, { signal })) write(piece);
+        },
+        { format: 'html' },
+      )
+      ?.done.catch((reason) => console.error(reason));
   }
 }

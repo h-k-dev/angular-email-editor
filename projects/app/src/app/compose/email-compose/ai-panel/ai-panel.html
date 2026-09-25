@@ -1,37 +1,53 @@
-<!-- The dialog, for the composer's one popover: the proposal, then the
-     prompt that steers it and the two ways out. -->
+<!-- The dialog, for the composer's one popover: under the proposal in the
+     text — the chat input, then the three ways on. -->
 <ng-template #panel>
   <div
     class="ai-panel"
     role="dialog"
     [attr.aria-label]="i18n.t('editor.ai.dialog', 'Writing assistant')"
-    [attr.aria-busy]="streaming()"
+    [attr.aria-busy]="proposal.streaming()"
   >
-    <!-- The preview editor mounts here: read only, the email kit with the
-         library's stream — the answer forms as it would in the message. -->
-    <div class="ai-panel__preview" #preview></div>
+    <!-- The library's chat input: lines and lists, Enter asks. -->
+    <div
+      email-chat-input
+      class="ai-panel__chat"
+      [placeholder]="i18n.t('editor.ai.prompt', 'Tell the assistant what else to change…')"
+      [label]="i18n.t('editor.ai.instructions', 'Instructions')"
+      [(value)]="instructions"
+      (sent)="ask($event)"
+      (escaped)="close()"
+    ></div>
 
     <div class="ai-panel__row">
-      <!-- The prompt editor mounts here: lines and lists, Ctrl-Enter asks. -->
-      <div class="ai-panel__prompt" #prompt></div>
+      <button mat-button type="button" class="ai-panel__again" (click)="ask()">
+        <mat-icon>refresh</mat-icon>
+        {{ i18n.t('editor.ai.tryAgain', 'Try again') }}
+      </button>
+      <span class="ai-panel__space"></span>
+      <!-- The library's triggers: Discard takes the proposal out, Apply
+           takes it in. Disabled by the panel's own means, from their state. -->
       <button
-        mat-icon-button
+        mat-button
         type="button"
-        [attr.aria-label]="i18n.t('editor.ai.rewrite', 'Rewrite with these instructions')"
-        [title]="i18n.t('editor.ai.rewriteKey', 'Ctrl+Enter')"
-        (click)="rewrite()"
+        [emailProposalDiscard]="proposal"
+        #discard="emailProposalDiscard"
+        [disabled]="discard.disabled()"
+        (click)="close()"
       >
-        <mat-icon>{{ streaming() ? 'replay' : 'send' }}</mat-icon>
+        <mat-icon>close</mat-icon>
+        {{ i18n.t('editor.ai.discard', 'Discard') }}
       </button>
       <button
-        mat-icon-button
+        mat-flat-button
         type="button"
-        class="ai-panel__accept"
-        [attr.aria-label]="i18n.t('editor.ai.accept', 'Accept and insert')"
-        [disabled]="!canAccept()"
-        (click)="accept()"
+        class="ai-panel__apply"
+        [emailProposalAccept]="proposal"
+        #apply="emailProposalAccept"
+        [disabled]="apply.disabled()"
+        (click)="applied()"
       >
         <mat-icon>check</mat-icon>
+        {{ i18n.t('editor.ai.apply', 'Apply') }}
       </button>
     </div>
   </div>

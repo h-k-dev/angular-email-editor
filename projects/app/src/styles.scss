@@ -1402,25 +1402,14 @@ section[html-email-compose] .aee-editor {
   }
 }
 
-/* The assistant panel's two editors (email-compose/ai-panel): ProseMirror
- * makes their DOM outside any Angular view, so what is theirs is styled
- * here, under the panel's own classes. The prompt takes lines and lists,
- * nothing else; while it is empty, its one paragraph says what it is for
- * (the panel's placeholder plugin). */
-.ai-panel__prompt-editor p,
-.ai-panel__prompt-editor ul,
-.ai-panel__prompt-editor ol {
-  margin: 0;
+/* What the assistant proposes into the text (the library's content
+ * proposal, `aee-proposal`): the message's own words, in the accent — it is
+ * in the text where it will stand, and not the writer's yet. Faded a
+ * little while it is still coming (the editor says `aria-busy`). */
+.aee-editor .aee-proposal {
+  color: var(--email-proposal-color, var(--mat-sys-primary, #6750a4));
 }
 
-.ai-panel__prompt-editor ul,
-.ai-panel__prompt-editor ol {
-  padding-inline-start: 20px;
-}
-
-.ai-panel__empty::before {
-  content: attr(data-placeholder);
-  position: absolute;
-  pointer-events: none;
-  color: var(--mat-sys-on-surface-variant, #777777);
+.aee-editor[aria-busy='true'] .aee-proposal {
+  opacity: 0.85;
 }

@@ -1249,60 +1249,32 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   ("rewrite this"), a source is not told the editor state or its own range,
   rows cannot carry host data, and a source answers once (no streaming
   rows).
-  **The assistant on its own layer (2026-09-25).** The answer no longer
-  streams into the message: `ai` opens the composer's **assistant panel**
-  (`ai-panel`, a dialog panel of the one popover, under the caret) and the
-  answer streams into a read-only **preview** there — the email kit with
-  the library's content stream, so a list forms and a bold phrase arrives
-  bold as it would in the message. Under it a **prompt** — a second
-  ProseMirror editor, lines and lists only, so the writer's points stay
-  points — steers it: Rewrite (Ctrl-Enter) asks again with the
-  instructions (`AiRequest.instructions`; the stand-in understands
-  "short"), cutting short whatever was still coming. Accept inserts the
-  preview at the caret as one change, one undo; Escape or a press outside
-  lets it go, and the message is as it was with nothing in its history.
-  Which also answers the first item of the agenda above, from the other
-  side: the argument does not ride the `/` query, it has a field of its
-  own. Found on the way: a stopped stream ended twice — at once on abort
-  and again as `done` settled — and the second ending closed the range of
-  the stream that had taken its place; a run now ends once.
-  **Content streams (2026-09-18).** `createContentStream()` +
-  `streamContent(view, target, async ({ write, getWritableStream, signal }) => …, { format, transform })`
-  — the shape of Tiptap's `streamContent`, in the main entry (no Angular).
-  The host supplies the pieces; the library owns the rest: the range written
-  so far lives in plugin state and moves with the text (someone else's edit
-  right at either edge stays theirs — the range closes in, never out), a
-  caret widget `span.aee-stream-caret` for the host's stylesheet, `aria-busy`
-  on the editor, Escape to stop, the abort signal, `done`. `target` is a
-  position, or a range the first piece replaces ("rewrite this selection").
-  `'text'` is appended; `'html'` is _re-read as a whole_ on every write —
-  the buffer is parsed through the schema as an open slice and replaces what
-  was written — so a list or a bold word forms as it streams and a tag cut in
-  two never shows; the space an answer opens with is kept. `done` settles on
-  a stop even if the callback never returns. One stream per editor. Pieces
-  are ordinary transactions: close together they undo as one. Known limits:
-  streamed tables are not repaired mid-stream; an edit _inside_ the streamed
-  range is rewritten by the next HTML write. The demo's `ai-writer` shrank to
-  an action that asks its service and calls `write`. The feel (same day):
-  `smooth` (default) reveals what has come in at an adaptive pace — a
-  grapheme or a few a frame (`Intl.Segmenter`), closing the gap with a
-  180 ms time constant, never slower than 45 chars/s — and `done` waits
-  until all of it shows; `html` cuts the read back to what shows, so a
-  block appears with its first character. `fadeIn` (400 ms) marks what each
-  frame reveals `span.aee-stream-fresh` (inline decorations, rebuilt from
-  offsets because a re-read replaces the range) with
-  `--email-stream-fade-in`; the demo rises it into focus with `top` on the
-  inline span — not a transform, whose inline-block would break wrapping.
-  Reworked 2026-09-19 — typing read as a gimmick next to the chat
-  assistants, which fade whole chunks in: `smooth` became `reveal`,
-  `'block'` (default) | `'character'` (the above) | `'instant'`. A block —
-  paragraph, list item, line of plain text — shows whole once the next one
-  starts or the stream ends, blocks that land together 110 ms apart; the
-  caret waits after the last. Fresh is then a *node* decoration on the block
-  (the `li` when the stream wrote it; a span only where text joins a line
-  already there), `fadeIn` 600 ms, so the demo can fade it behind a rolling
-  mask edge (`@property --aee-stream-wipe`) and settle it 4 px — list items
-  without the mask, which would cut off their marker.
+  **The assistant proposes, in the text (2026-09-25).** The answer no
+  longer lands as it streams: it is *proposed* — written into the message
+  where it will stand, marked (`aee-proposal`, the accent colour), outside
+  the undo history — and decided on from a panel floating under it.
+  Library, opt-in and tree-shakeable: `createContentProposal()` +
+  `proposeContent` / `acceptProposal` / `discardProposal` (the main entry,
+  on the content stream, which gained `history: false` and `streamedRange`
+  so a proposal follows the stream's range exactly); accept takes the same
+  slice out and in again as one ordinary change — one undo — and discard
+  leaves the document and its history as they were. Angular:
+  `angular-email-editor/proposal` — `injectProposal(editor)` (active,
+  streaming, range, the box to stand under, propose/stop/accept/discard)
+  and two triggers for a host's own buttons, `[emailProposalAccept]` /
+  `[emailProposalDiscard]`; and `angular-email-editor/chat-input` — the
+  chat input, a ProseMirror editor with lines and bullet/numbered lists
+  (Enter sends outside a list and goes on to the next item inside, Ctrl-
+  Enter always sends, `- ` / `1. ` begin a list), its text carried out as
+  dash lines. The demo's `ai-panel` is what a host writes around them: the
+  chat input, Try again, Discard, Apply, under the proposal in the one
+  popover's dialog layer; `AiRequest.instructions` carries the words (the
+  stand-in understands "short"). Which also answers the first item of the
+  agenda above, from the other side: the argument does not ride the `/`
+  query, it has a field of its own. Found on the way: a stopped stream
+  ended twice — at once on abort and again as `done` settled — and the
+  second ending closed the range of the stream that had taken its place; a
+  run now ends once.
   **Names are flat, as Angular's are** (`@angular/material/button`,
   `@angular/cdk/overlay`) — no `components/…` or `directives/…` segment:
   - one level, `angular-email-editor/<name>`; the only nesting is

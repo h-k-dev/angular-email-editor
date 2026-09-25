@@ -3,7 +3,14 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TextSelection } from 'prosemirror-state';
 import { undo } from 'prosemirror-history';
 
-import { Editor, createEditor, emailExtensions } from 'angular-email-editor';
+import {
+  Editor,
+  createContentProposal,
+  createContentStream,
+  createEditor,
+  emailExtensions,
+  isProposing,
+} from 'angular-email-editor';
 
 import { Ai, AiOptions, AiRequest } from '../../../../services/ai';
 import { FormattingCommands } from '../formatting-commands';
@@ -21,13 +28,13 @@ class ResizeObserverStub {
 (globalThis as { ResizeObserver?: unknown }).ResizeObserver ??= ResizeObserverStub;
 
 /** A composer's worth: the commands, the popover, the panel, and an email
-    editor with the `ai` action in its kit. */
+    editor with the `ai` action, the stream and the proposal in its kit. */
 @Component({
   imports: [AiPanel, PopoverOutlet],
   providers: [FormattingCommands, Popover],
   template: `
     <div #host></div>
-    <div ai-panel reveal="instant" [language]="language"></div>
+    <div ai-panel [language]="language"></div>
     <div popover-outlet></div>
   `,
 })
@@ -50,6 +57,9 @@ class Host {
         parent: this.host().nativeElement,
         extensions: [
           createAiWriter({ onAsk: (ask) => this.panel().show(ask) }),
+          // Written the moment it comes, so the spec reads it at once.
+          createContentStream({ reveal: 'instant' }),
+          createContentProposal(),
           ...emailExtensions,
         ],
         content: '<div>We met last week.</div>',
@@ -103,9 +113,15 @@ describe('AiPanel', () => {
 
   const ORIGINAL = '<div>We met last week.</div>';
   const dialog = () => document.querySelector<HTMLElement>('.popover [role="dialog"]');
-  const preview = () => dialog()?.querySelector('.ai-panel__preview')?.textContent?.trim() ?? null;
-  const button = (label: string) =>
-    dialog()!.querySelector<HTMLButtonElement>(`[aria-label="${label}"]`)!;
+  const button = (text: string) =>
+    [...dialog()!.querySelectorAll<HTMLButtonElement>('button')].find((b) =>
+      b.textContent?.includes(text),
+    )!;
+  const html = () => host.editor.getHTML();
+  const proposedText = () =>
+    [...host.editor.view.dom.querySelectorAll('.aee-proposal')]
+      .map((el) => el.textContent)
+      .join('');
   const ask = async () => {
     host.editor.exec(host.editor.actions.find((a) => a.id === 'ai')!.command);
     await fixture.whenStable();
@@ -126,7 +142,7 @@ describe('AiPanel', () => {
 
   afterEach(() => fixture.destroy());
 
-  it('opens under the caret and streams the answer into its preview — never into the message', async () => {
+  it('proposes the answer into the message itself, marked, and floats under it', async () => {
     expect(dialog()).toBeNull();
     await ask();
     expect(dialog()).not.toBeNull();
@@ -134,45 +150,57 @@ describe('AiPanel', () => {
     await feed(' Bitte');
     await feed(' <strong>lesen');
     await feed(' Sie</strong> das.');
-    expect(preview()).toBe('Bitte lesen Sie das.');
-    expect(host.editor.getHTML()).toBe(ORIGINAL);
-    // Not yet: the assistant is still writing.
-    expect(button('Accept and insert').disabled).toBe(true);
-    await feed(null);
-    expect(button('Accept and insert').disabled).toBe(false);
-    // The prompt has the focus: the writer can steer at once.
-    expect(document.activeElement?.classList.contains('ai-panel__prompt-editor')).toBe(true);
-  });
-
-  it('Accept takes the proposal into the message at the caret, as one change', async () => {
-    await ask();
-    await feed(' Bitte');
-    await feed(' <strong>lesen Sie</strong> das.');
-    await feed(null);
-    button('Accept and insert').click();
-    await settle();
-    expect(dialog()).toBeNull();
-    expect(host.editor.getHTML()).toBe(
+    // In the text, where it will stand — as a proposal.
+    expect(html()).toBe(
       '<div>We met last week. Bitte <strong style="font-weight: bold;">lesen Sie</strong> das.</div>',
     );
-    expect(document.activeElement).toBe(host.editor.view.dom);
-    // One undo, and the message is as it was.
-    expect(host.editor.exec(undo)).toBe(true);
-    expect(host.editor.getHTML()).toBe(ORIGINAL);
+    expect(isProposing(host.editor.state)).toBe(true);
+    expect(proposedText()).toBe(' Bitte lesen Sie das.');
+    // Not yet: the assistant is still writing. Discard is always there.
+    expect(button('Apply').disabled).toBe(true);
+    expect(button('Discard').disabled).toBe(false);
+    await feed(null);
+    expect(button('Apply').disabled).toBe(false);
+    // The chat input has the focus: the writer can steer at once.
+    expect(document.activeElement?.classList.contains('email-chat-input__editor')).toBe(true);
   });
 
-  it('a press outside lets it go: the stream stops, the message is as it was, with nothing to undo', async () => {
+  it('Apply keeps the proposal as the message’s own — one change, one undo', async () => {
     await ask();
     await feed(' Bitte');
+    await feed(' lesen.');
+    await feed(null);
+    button('Apply').click();
+    await settle();
+    expect(dialog()).toBeNull();
+    expect(isProposing(host.editor.state)).toBe(false);
+    expect(html()).toBe('<div>We met last week. Bitte lesen.</div>');
+    expect(document.activeElement).toBe(host.editor.view.dom);
+    expect(host.editor.exec(undo)).toBe(true);
+    expect(html()).toBe(ORIGINAL);
+  });
+
+  it('a press outside takes it out: the message is as it was, with nothing to undo', async () => {
+    await ask();
+    await feed(' Bitte');
+    expect(html()).toContain('Bitte');
     document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }));
     await settle();
     expect(dialog()).toBeNull();
     expect(aborted).toBe(1);
-    expect(host.editor.getHTML()).toBe(ORIGINAL);
+    expect(html()).toBe(ORIGINAL);
     expect(undo(host.editor.state)).toBe(false);
   });
 
-  it('Escape lets it go too, and hands the caret back', async () => {
+  it('Discard and Escape do the same, and hand the caret back', async () => {
+    await ask();
+    await feed(' Bitte');
+    button('Discard').click();
+    await settle();
+    expect(dialog()).toBeNull();
+    expect(html()).toBe(ORIGINAL);
+    expect(document.activeElement).toBe(host.editor.view.dom);
+
     await ask();
     await feed(' Bitte');
     document.body.dispatchEvent(
@@ -180,17 +208,20 @@ describe('AiPanel', () => {
     );
     await settle();
     expect(dialog()).toBeNull();
-    expect(aborted).toBe(1);
-    expect(host.editor.getHTML()).toBe(ORIGINAL);
-    expect(document.activeElement).toBe(host.editor.view.dom);
+    expect(html()).toBe(ORIGINAL);
+    expect(aborted).toBe(2);
   });
 
-  it('Rewrite asks again with the prompt’s instructions — a list as points — and starts the preview over', async () => {
+  it('the chat input’s Enter asks again with the instructions, over the earlier proposal', async () => {
     await ask();
     await feed(' Bitte');
-    const { prompt } = (host.panel() as any).editors();
-    prompt.setContent('<p>Make it</p><ul><li>short</li><li>friendly</li></ul>');
-    prompt.view.dom.dispatchEvent(
+    // Typed into the chat input (a list item), then sent with Ctrl-Enter.
+    const chat = (host.panel() as any).chat().editor();
+    chat.commands['toggleBulletList']();
+    chat.view.dispatch(chat.state.tr.insertText('kurz'));
+    await settle();
+    const input = dialog()!.querySelector<HTMLElement>('.email-chat-input__editor')!;
+    input.dispatchEvent(
       new KeyboardEvent('keydown', {
         key: 'Enter',
         ctrlKey: true,
@@ -203,35 +234,23 @@ describe('AiPanel', () => {
     expect(asked[1]).toEqual({
       before: 'We met last week.',
       language: 'de',
-      instructions: 'Make it\n- short\n- friendly',
+      instructions: '- kurz',
     });
-    expect(preview()).toBe('');
+    // The first proposal went with the ask; the new one takes its place.
+    expect(html()).toBe(ORIGINAL);
     await feed(' Kurz.');
     await feed(null);
-    expect(preview()).toBe('Kurz.');
-    expect(host.editor.getHTML()).toBe(ORIGINAL);
+    expect(html()).toBe('<div>We met last week. Kurz.</div>');
+    expect(proposedText()).toBe(' Kurz.');
   });
 
-  it('a whole email on an empty line lands whole, its blocks as blocks', async () => {
-    host.editor.setContent('<div><br></div>');
-    host.editor.view.dispatch(
-      host.editor.state.tr.setSelection(TextSelection.create(host.editor.state.doc, 1)),
-    );
+  it('Try again asks once more with the same instructions', async () => {
     await ask();
-    await feed('<div>Hallo,</div><div><br></div><ul><li>eins</li>');
-    await feed('<li>zwei</li></ul>');
+    await feed(' Bitte');
     await feed(null);
-    button('Accept and insert').click();
+    button('Try again').click();
     await settle();
-    // The canonical form of that email: what the editor makes of the same
-    // HTML when given it whole.
-    const whole = createEditor({
-      parent: document.createElement('div'),
-      extensions: emailExtensions,
-      content: '<div>Hallo,</div><div><br></div><ul><li>eins</li><li>zwei</li></ul>',
-    });
-    expect(host.editor.getHTML()).toBe(whole.getHTML());
-    expect(host.editor.getHTML()).toMatch(/^<div>Hallo,<\/div><div><br><\/div><ul/);
-    whole.destroy();
+    expect(asked).toHaveLength(2);
+    expect(html()).toBe(ORIGINAL);
   });
 });

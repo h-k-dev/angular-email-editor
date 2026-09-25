@@ -4,7 +4,7 @@ import {
   DOMParser as ProseMirrorDOMParser,
   Slice,
 } from 'prosemirror-model';
-import { EditorState, Plugin, PluginKey } from 'prosemirror-state';
+import { EditorState, Plugin, PluginKey, Transaction } from 'prosemirror-state';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import { FunctionalExtension, defineExtension } from '../extension';
 
@@ -85,6 +85,11 @@ export interface StreamContentOptions {
   /** Rewrites the buffer before it is parsed (`'html'`) — strip a code
       fence, turn Markdown into HTML. Given everything received so far. */
   transform?: (buffer: string) => string;
+  /** Whether what is written enters the undo history. Default true: the
+      pieces undo as one. `false` keeps the writing out of it — for content
+      that is only *proposed* (see `proposeContent`), which is committed or
+      taken back as a whole later, so that neither undoes anything else. */
+  history?: boolean;
 }
 
 /** A stream in progress. */
@@ -117,6 +122,13 @@ interface FreshSpec {
 }
 
 const key = new PluginKey<StreamPluginState>('contentStream');
+
+/** What a transaction of a stream says about where the stream is now —
+    for another plugin (a proposal's) to follow the range as precisely as
+    the stream itself does: `undefined` when the transaction is not the
+    stream's own, `null` when the stream ended with it. */
+export const streamedRange = (tr: Transaction): ContentStreamRange | null | undefined =>
+  (tr.getMeta(key) as StreamMeta | undefined)?.range;
 
 /** What the running stream of each editor is aborted with. */
 const running = new WeakMap<EditorView, AbortController>();
@@ -414,17 +426,20 @@ export function streamContent(
   }
   if (isStreaming(view.state)) throw new Error('streamContent: a stream is already running');
 
-  const { format = 'text', transform } = options;
+  const { format = 'text', transform, history = true } = options;
   const { reveal: mode, fadeIn } = settings.get(view) ?? { reveal: 'instant', fadeIn: 0 };
   const controller = new AbortController();
   const { signal } = controller;
   running.set(view, controller);
 
+  /** A transaction of this stream's own: kept out of the history if asked. */
+  const own = (tr: Transaction): Transaction => (history ? tr : tr.setMeta('addToHistory', false));
+
   const start = typeof target === 'number' ? { from: target, to: target } : target;
   // A new stream starts with nothing fresh: what an earlier one left fading
   // is simply done.
   const begin: StreamMeta = { range: start, fresh: DecorationSet.empty };
-  view.dispatch(view.state.tr.setMeta(key, begin));
+  view.dispatch(own(view.state.tr).setMeta(key, begin));
 
   let buffer = '';
   /** What there is to reveal: `buffer`'s text, or its HTML's read. */
@@ -492,7 +507,7 @@ export function streamContent(
       );
     }
     shown = count;
-    view.dispatch(tr.setMeta(key, meta));
+    view.dispatch(own(tr).setMeta(key, meta));
   };
 
   /** Pacing: a frame's worth more of what has come in — or the next block. */
@@ -592,7 +607,7 @@ export function streamContent(
     ended = true;
     if (running.get(view) === controller) running.delete(view);
     if (!view.isDestroyed && isStreaming(view.state)) {
-      view.dispatch(view.state.tr.setMeta(key, { range: null } satisfies StreamMeta));
+      view.dispatch(own(view.state.tr).setMeta(key, { range: null } satisfies StreamMeta));
     }
   };
 

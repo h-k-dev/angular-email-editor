@@ -5,66 +5,33 @@
   display: contents;
 }
 
-// The link editor's popover, grown a preview: the same surface tokens, so
-// the floating fields always look alike; wide enough for an email's lines
-// to read as they will in the message.
+// The link editor's popover, grown a chat input: the same surface tokens, so
+// the floating fields always look alike.
 .ai-panel {
   @include toolbar.floating-toolbar;
   flex-direction: column;
   align-items: stretch;
   gap: 8px;
-  width: min(480px, calc(100vw - 32px));
+  width: min(520px, calc(100vw - 32px));
   background-color: var(--email-compose-link-background, var(--mat-sys-surface-container, #f3f3f3));
   border-radius: var(--email-compose-link-corner, var(--mat-sys-corner-medium, 8px));
 }
 
-// The proposal: the message's own text look, on the field surface, scrolling
-// once it is longer than a screen's third — a whole email is.
-.ai-panel__preview {
-  max-height: 36vh;
-  overflow-y: auto;
-  padding: 8px 10px;
-  background-color: var(
+// The library's chat input, on the link editor's field tokens.
+.ai-panel__chat {
+  --email-chat-input-background: var(
     --email-compose-link-input-background,
     var(--mat-sys-surface-bright, #ffffff)
   );
-  color: var(--mat-sys-on-surface, inherit);
-  border-radius: var(--mat-sys-corner-small, 4px);
-  font: var(--mat-sys-body-medium);
 }
 
-// The row: the prompt, then Rewrite and Accept — laid out as the toolbar's
-// rows are.
+// Try again on the left; Discard and Apply on the right, Apply filled.
 .ai-panel__row {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 8px;
 }
 
-// The prompt: the link editor's field, grown to its lines.
-.ai-panel__prompt {
+.ai-panel__space {
   flex: 1;
-  min-width: 0;
-  max-height: 30vh;
-  overflow-y: auto;
-  padding: 6px 10px;
-  background-color: var(
-    --email-compose-link-input-background,
-    var(--mat-sys-surface-bright, #ffffff)
-  );
-  color: var(--mat-sys-on-surface, inherit);
-  border-radius: var(--mat-sys-corner-small, 4px);
-  font: var(--mat-sys-body-medium);
-
-  &:focus-within {
-    outline: 2px solid var(--mat-sys-primary, #0056b3);
-    outline-offset: -2px;
-  }
-}
-
-// The editors' own DOM — ProseMirror's, made outside any view — is styled
-// in styles.scss, under this panel's own classes.
-
-.ai-panel__accept {
-  color: var(--mat-sys-primary, #0056b3);
 }
