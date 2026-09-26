@@ -32,6 +32,7 @@ import { isTyping, releaseEditingSurface } from '../is-typing';
 import { atRest } from '../at-rest';
 import { BlockMenu } from './block-menu/block-menu';
 import { TableMenu } from './table-menu/table-menu';
+import { CellMenu } from './cell-menu/cell-menu';
 import { BubbleMenu } from './bubble-menu/bubble-menu';
 import { FormattingCommands } from './formatting-commands';
 import { FormattingToolbar } from './formatting-toolbar/formatting-toolbar';
@@ -110,6 +111,7 @@ export type SourceView = 'hidden' | 'code' | 'detached';
     AngularFileDrop,
     BlockMenu,
     TableMenu,
+    CellMenu,
     BubbleMenu,
     DropHint,
     FormattingToolbar,

@@ -1319,10 +1319,19 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   table-handles extension's third kind (`kind: 'cell'`, with `row` and
   `index` the column), a selection-driven widget decoration keyed by the
   cell, so it moves with the caret and is never rebuilt while the cell is
-  typed in; the menu is the grip menu's cell branch, its lists pages of the
-  same panel with a way back. `clearCells` (the caret's cell, or every
-  selected one) joins the table's commands; a text colour goes on all the
-  cell's words through a selection the menu makes and puts back.
+  typed in. The menu is a component of its own (`CellMenu`) on Angular
+  Aria's menu (`ngMenu`, `ngMenuItem` with `submenu`), not the band grips'
+  paged panel: its lists are cascading submenus that open beside their row
+  on hover or the right arrow, and the keys are the menu's while it is up —
+  arrows walk it, Right and Enter open a list, Left closes one, typing
+  jumps to a row, Escape leaves — so, unlike the band menus, it _takes_
+  focus when it opens (onto its first row, one render after the popover
+  shows it) and hands the caret back to the cell when it closes. No new
+  library directive was needed for that: Aria's primitives carry the
+  hover-open and keyboard behaviour, the app only styles and positions
+  them. `clearCells` (the caret's cell, or every selected one) joins the
+  table's commands; a text colour goes on all the cell's words through a
+  selection the menu makes and puts back.
 
 - **Sections: the full-width band (2026-09-26).** A `section` node — a
   fill running edge to edge across the reader's window with the content

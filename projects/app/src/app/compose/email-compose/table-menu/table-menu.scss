@@ -7,10 +7,6 @@
   @include menu.panel;
 
   min-inline-size: 208px;
-  // The cell's colour list runs past a screen: the panel scrolls, the way
-  // Notion's does, rather than being pushed off it.
-  max-block-size: min(60vh, 480px);
-  overflow-y: auto;
 }
 
 .table-menu__item {
@@ -19,44 +15,4 @@
 
 .table-menu__separator {
   @include menu.separator;
-}
-
-// The cell menu's lists: a heading over each, a way back at the top, and a
-// swatch where the slash menu's colour rows have theirs — the letter in the
-// colour for a text colour, the fill for a background.
-.table-menu__heading {
-  padding: 8px 12px 2px;
-  color: var(--mat-sys-on-surface-variant, #555555);
-  font: var(--mat-sys-label-small, 500 11px / 16px system-ui, sans-serif);
-}
-
-.table-menu__back {
-  color: var(--mat-sys-on-surface-variant, #555555);
-}
-
-.table-menu__swatch {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  inline-size: 20px;
-  block-size: 20px;
-  border-radius: 50%;
-  box-shadow: inset 0 0 0 1px var(--mat-sys-outline-variant, #cccccc);
-  font: 500 14px / 1 var(--mat-sys-body-medium-font, system-ui, sans-serif);
-
-  &--text {
-    border-radius: var(--mat-sys-corner-extra-small, 4px);
-    background-color: var(--mat-sys-surface-bright, #ffffff);
-  }
-
-  &--none {
-    background: linear-gradient(
-      135deg,
-      transparent 45%,
-      var(--mat-sys-error, #b3261e) 45%,
-      var(--mat-sys-error, #b3261e) 55%,
-      transparent 55%
-    );
-  }
 }

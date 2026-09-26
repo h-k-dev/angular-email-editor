@@ -1,0 +1,71 @@
+@use '../../../../styles/menu' as menu;
+
+/* The cell's menu wears the app's one menu look (see styles/_menu.scss),
+ * like the grip menus and the toolbar's dropdowns; a list of it is the
+ * same box, standing beside its row. */
+.cell-menu {
+  @include menu.panel;
+
+  position: relative;
+  min-inline-size: 200px;
+}
+
+.cell-menu__item {
+  @include menu.item;
+}
+
+.cell-menu__separator {
+  @include menu.separator;
+}
+
+// A list: beside the menu, its top edge on its row's (`top` is written by
+// the component from the row), away while Aria says it is not visible.
+// The colour list runs past a screen, so it scrolls.
+.cell-menu__sub {
+  position: absolute;
+  inset-inline-start: calc(100% + 4px);
+  min-inline-size: 208px;
+  max-block-size: min(60vh, 480px);
+  overflow-y: auto;
+  box-shadow: var(--mat-sys-level2);
+
+  &[data-visible='false'] {
+    display: none;
+  }
+}
+
+// A heading over a list's part, and a swatch where the slash menu's colour
+// rows have theirs — the letter in the colour for a text colour, the fill
+// for a background, a struck circle for none.
+.cell-menu__heading {
+  padding: 8px 12px 2px;
+  color: var(--mat-sys-on-surface-variant, #555555);
+  font: var(--mat-sys-label-small, 500 11px / 16px system-ui, sans-serif);
+}
+
+.cell-menu__swatch {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  inline-size: 20px;
+  block-size: 20px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px var(--mat-sys-outline-variant, #cccccc);
+  font: 500 14px / 1 var(--mat-sys-body-medium-font, system-ui, sans-serif);
+
+  &--text {
+    border-radius: var(--mat-sys-corner-extra-small, 4px);
+    background-color: var(--mat-sys-surface-bright, #ffffff);
+  }
+
+  &--none {
+    background: linear-gradient(
+      135deg,
+      transparent 45%,
+      var(--mat-sys-error, #b3261e) 45%,
+      var(--mat-sys-error, #b3261e) 55%,
+      transparent 55%
+    );
+  }
+}

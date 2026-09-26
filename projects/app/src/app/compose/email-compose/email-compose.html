@@ -9,6 +9,7 @@
 <div bubble-menu [state]="bubbleShown()"></div>
 <div block-menu [state]="blockMenuState()"></div>
 <div table-menu [target]="tableHandle()" (closed)="tableHandle.set(null)"></div>
+<div cell-menu [target]="tableHandle()" (closed)="tableHandle.set(null)"></div>
 <div popover-outlet></div>
 
 <!-- The body: the editing surface, or the source in its place, and the hint
