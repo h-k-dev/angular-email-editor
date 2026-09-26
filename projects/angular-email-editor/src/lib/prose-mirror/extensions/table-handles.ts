@@ -5,11 +5,15 @@ import { CellSelection, TableMap } from 'prosemirror-tables';
 import { FunctionalExtension, defineExtension } from '../extension';
 import { selectColumn, selectRow } from './nodes/table';
 
-/** Which band of which table a grip stands for, and where it is on screen. */
+/** Which band — or which cell — of which table a grip stands for, and
+    where it is on screen. */
 export interface TableHandleTarget {
-  kind: 'row' | 'column';
-  /** The band's index in the grid, counted from the top / the start. */
+  kind: 'row' | 'column' | 'cell';
+  /** The band's index in the grid, counted from the top / the start; a
+      cell's column. */
   index: number;
+  /** A cell's row. */
+  row?: number;
   /** The table's position in the document — what the select commands take. */
   tablePos: number;
   /** The grip's own rect: what the app's menu anchors to. */
@@ -21,8 +25,9 @@ export interface TableHandlesOptions {
       nothing to offer any more (`null`) — the table went away under them. */
   onOpen: (target: TableHandleTarget | null) => void;
   /** What a grip says to assistive tech, translated by the host. Called with
-      the band's 1-based number, as a person counts rows. */
-  label?: (kind: 'row' | 'column', number: number) => string;
+      the band's 1-based number, as a person counts rows; for the caret
+      cell's grip, the cell's column. */
+  label?: (kind: 'row' | 'column' | 'cell', number: number) => string;
 }
 
 interface TableHandlesState {
@@ -74,7 +79,42 @@ const tableHandlesKey = new PluginKey<TableHandlesState>('tableHandles');
  */
 export const createTableHandles = (options: TableHandlesOptions): FunctionalExtension => {
   const label =
-    options.label ?? ((kind: 'row' | 'column', number: number) => `${kind} ${number} options`);
+    options.label ??
+    ((kind: 'row' | 'column' | 'cell', number: number) =>
+      kind === 'cell' ? 'Cell options' : `${kind} ${number} options`);
+
+  /** The caret cell's own grip: a dot on the cell's right edge that opens
+      the cell's menu — fill, alignment, clearing — the caret staying where
+      it is. Selection-driven, so it is built afresh as the caret moves and
+      never rebuilt while a cell is typed in (its key is the cell). */
+  const cellGrip = (cell: CaretCell): HTMLElement => {
+    const el = document.createElement('span');
+    el.className = 'aee-grip aee-grip--cell';
+    el.setAttribute('role', 'button');
+    el.setAttribute('aria-label', label('cell', cell.column + 1));
+    el.setAttribute('title', label('cell', cell.column + 1));
+    el.setAttribute('aria-haspopup', 'menu');
+    el.setAttribute('aria-expanded', 'false');
+    el.contentEditable = 'false';
+    for (let i = 0; i < 3; i++) el.appendChild(document.createElement('i'));
+    el.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+    el.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      el.setAttribute('aria-expanded', 'true');
+      options.onOpen({
+        kind: 'cell',
+        index: cell.column,
+        row: cell.row,
+        tablePos: cell.tablePos,
+        boundingBox: el.getBoundingClientRect(),
+      });
+    });
+    return el;
+  };
 
   const grip = (view: EditorView, kind: 'row' | 'column', index: number): HTMLElement => {
     const el = document.createElement('span');
@@ -129,7 +169,18 @@ export const createTableHandles = (options: TableHandlesOptions): FunctionalExte
           apply: (tr, prev, _old, state) => applyHandles(tr, prev, state, grip),
         },
         props: {
-          decorations: (state) => tableHandlesKey.getState(state)?.decorations,
+          decorations: (state) => {
+            const set = tableHandlesKey.getState(state)?.decorations ?? DecorationSet.empty;
+            const cell = caretCell(state.selection);
+            if (!cell) return set;
+            return set.add(state.doc, [
+              Decoration.widget(cell.pos + 1, () => cellGrip(cell), {
+                key: `cell-grip-${cell.pos}`,
+                side: -1,
+                ignoreSelection: true,
+              }),
+            ]);
+          },
         },
         view: (view) => {
           let lastGeneration = -1;
@@ -337,7 +388,15 @@ function sameTableGrid(a: Node, b: Node): boolean {
 /** The cell the caret is in — a text selection inside one cell — as its
     place in the grid: which row and column, of which table. Null for a
     cell selection (a band's own affair) and outside any table. */
-function caretCell(selection: Selection): { tablePos: number; row: number; column: number } | null {
+interface CaretCell {
+  tablePos: number;
+  row: number;
+  column: number;
+  /** The cell node's position in the document. */
+  pos: number;
+}
+
+function caretCell(selection: Selection): CaretCell | null {
   if (selection instanceof CellSelection) return null;
   const { $from } = selection;
   for (let depth = $from.depth; depth > 0; depth--) {
@@ -346,8 +405,9 @@ function caretCell(selection: Selection): { tablePos: number; row: number; colum
     const table = $from.node(depth - 2);
     if (table.type.spec['tableRole'] !== 'table') return null;
     const tableStart = $from.start(depth - 2);
-    const rect = TableMap.get(table).findCell($from.before(depth) - tableStart);
-    return { tablePos: tableStart - 1, row: rect.top, column: rect.left };
+    const pos = $from.before(depth);
+    const rect = TableMap.get(table).findCell(pos - tableStart);
+    return { tablePos: tableStart - 1, row: rect.top, column: rect.left, pos };
   }
   return null;
 }

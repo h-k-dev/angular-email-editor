@@ -20,7 +20,10 @@ describe('table handles', () => {
         ...emailExtensions,
         createTableHandles({
           onOpen: (target) => (opened = target),
-          label: (kind, number) => `${kind === 'row' ? 'Row' : 'Column'} ${number} options`,
+          label: (kind, number) =>
+            kind === 'cell'
+              ? 'Cell options'
+              : `${kind === 'row' ? 'Row' : 'Column'} ${number} options`,
         }),
       ],
       content:
@@ -84,6 +87,28 @@ describe('table handles', () => {
     // A band selected is the band's affair: the caret marks go.
     grips('row')[0].click();
     expect(caret()).toHaveLength(0);
+  });
+
+  it('hangs a grip on the caret’s cell that opens the cell’s menu, the caret staying', () => {
+    const b2 = host.querySelectorAll('td')[4];
+    const pos = editor.view.posAtDOM(b2.firstChild!, 1);
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, pos)));
+    const grips = host.querySelectorAll<HTMLElement>('.aee-grip--cell');
+    expect(grips).toHaveLength(1);
+    expect(grips[0].closest('td')!.textContent).toBe('b2');
+    expect(grips[0].getAttribute('aria-label')).toBe('Cell options');
+    grips[0].click();
+    expect(opened).toMatchObject({ kind: 'cell', index: 1, row: 1 });
+    expect(grips[0].getAttribute('aria-expanded')).toBe('true');
+    expect(editor.state.selection.from).toBe(pos);
+    // The grip is the cell's: the caret moving takes it along.
+    const a1 = host.querySelectorAll('td')[0];
+    editor.view.dispatch(
+      editor.state.tr.setSelection(
+        TextSelection.create(editor.state.doc, editor.view.posAtDOM(a1.firstChild!, 1)),
+      ),
+    );
+    expect(host.querySelector('.aee-grip--cell')!.closest('td')!.textContent).toBe('a1');
   });
 
   it('keeps the same grip elements while typing, so the pointer is never rebuilt out from under itself', () => {

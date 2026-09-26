@@ -1310,6 +1310,20 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   the styled box. The form holds the _message_; the ask stays `sent`, an
   action with a stream behind it is the host's, not the form's submit.
 
+- **The cell's own menu (2026-09-26).** Notion's: a dot on the caret cell's
+  right edge at rest, the six-dot handle under the pointer, and a press
+  opens the cell's menu — Color (the palette's text colours and fills, as
+  "Red text" / "Red background" rows with a swatch, plus default text and
+  no background), Alignment (left, centre, right; top, middle, bottom) and
+  Clear contents — the caret staying where it is. The grip is the
+  table-handles extension's third kind (`kind: 'cell'`, with `row` and
+  `index` the column), a selection-driven widget decoration keyed by the
+  cell, so it moves with the caret and is never rebuilt while the cell is
+  typed in; the menu is the grip menu's cell branch, its lists pages of the
+  same panel with a way back. `clearCells` (the caret's cell, or every
+  selected one) joins the table's commands; a text colour goes on all the
+  cell's words through a selection the menu makes and puts back.
+
 - **Sections: the full-width band (2026-09-26).** A `section` node — a
   fill running edge to edge across the reader's window with the content
   centred in the 600px column inside it, MJML's `mj-section` rendered our

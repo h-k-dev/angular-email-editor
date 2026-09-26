@@ -182,6 +182,12 @@ export class ApiReference {
           does: 'A full-width band — a fill edge to edge, the content centred in the 600px column — emitted as one presentation table with bgcolor and inline background-color (Outlook reads the attribute, Gmail the style) and an inline max-width div: no stylesheet, no conditional comment. Parses a builder’s section (MJML’s) the same way.',
         },
         {
+          name: 'createTableHandles: the cell grip · clearCells',
+          signature:
+            "onOpen({ kind: 'cell', index: column, row, tablePos, boundingBox }) · Command",
+          does: 'A dot on the caret cell’s right edge — the six-dot handle under the pointer — that hands the host the cell to open a menu for (the demo’s: colour, alignment, clear contents), the caret staying; clearCells empties the caret’s cell or every selected one.',
+        },
+        {
           name: 'emailPlainText',
           signature: '(html: string) => string',
           does: 'The text/plain projection of the canonical HTML — the other half of a well-formed multipart/alternative body.',

@@ -762,6 +762,63 @@ html {
   }
 }
 
+/* The caret cell's grip: a dot on the cell's right edge, at rest — Notion's
+ * — that grows into the six-dot handle under the pointer and while its menu
+ * is up. Always on for the cell being typed in; nothing to reveal. Over the
+ * column boundary line (z-index 4), which the click must not start dragging
+ * (the grip stops the mousedown). */
+.aee-editor .aee-grip--cell {
+  inset-inline-end: -5px;
+  inset-block-start: 50%;
+  translate: 0 -50%;
+  inline-size: 8px;
+  block-size: 8px;
+  flex-direction: column;
+  gap: 2px;
+  border-radius: 50%;
+  background-color: var(--email-column-resize, var(--mat-sys-primary, #4c6ef5));
+  opacity: 1;
+  pointer-events: auto;
+  transition:
+    inline-size 120ms ease-out,
+    block-size 120ms ease-out,
+    inset-inline-end 120ms ease-out;
+}
+
+.aee-editor .aee-grip--cell > i {
+  display: none;
+  inline-size: 2px;
+  block-size: 2px;
+  background-color: var(--mat-sys-on-primary, #ffffff);
+}
+
+.aee-editor .aee-grip--cell > i::before,
+.aee-editor .aee-grip--cell > i::after {
+  inline-size: 2px;
+  block-size: 2px;
+  inset-block-start: 0;
+}
+
+.aee-editor .aee-grip--cell > i::before {
+  inset-inline-start: -4px;
+}
+
+.aee-editor .aee-grip--cell > i::after {
+  inset-inline-start: 4px;
+}
+
+.aee-editor .aee-grip--cell:hover,
+.aee-editor .aee-grip--cell[aria-expanded='true'] {
+  inset-inline-end: -10px;
+  inline-size: 18px;
+  block-size: 18px;
+}
+
+.aee-editor .aee-grip--cell:hover > i,
+.aee-editor .aee-grip--cell[aria-expanded='true'] > i {
+  display: block;
+}
+
 /* Pointing at the grip itself shows it — the way in from outside the table,
  * and what keeps it under the pointer on the way from its band.
  *

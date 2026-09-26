@@ -5,6 +5,7 @@ import {
 
   // Signals
   computed,
+  linkedSignal,
   inject,
   input,
   output,
@@ -18,7 +19,15 @@ import { MatIconModule } from '@angular/material/icon';
 import { ConnectedPosition } from '@angular/cdk/overlay';
 
 // Library
-import { TableHandleTarget, duplicateColumn, duplicateRow } from 'angular-email-editor';
+import {
+  PaletteColor,
+  TableHandleTarget,
+  duplicateColumn,
+  duplicateRow,
+  caretCellPos,
+} from 'angular-email-editor';
+import { injectPalette } from 'angular-email-editor/palette';
+import { TextSelection } from 'prosemirror-state';
 import { KeepFocus } from 'angular-email-editor/focus';
 
 import { FormattingCommands } from '../formatting-commands';
@@ -69,14 +78,27 @@ export class TableMenu {
       lost, and for Escape to hand the caret back. */
   readonly element = viewChild<ElementRef<HTMLElement>>('menu');
 
-  /** Row or column — the two menus differ only in their words and icons. */
+  /** Row, column or cell — the band menus differ only in their words and
+      icons; the cell's is its own (colour, alignment, clearing). */
   protected readonly kind = computed(() => this.target()?.kind ?? 'row');
   protected readonly isRow = computed(() => this.kind() === 'row');
+  protected readonly isCell = computed(() => this.kind() === 'cell');
+
+  /** The cell menu's page: its three items, or the colour list, or the
+      alignment list — a second level in the same panel, with a way back.
+      Back to the items whenever the menu opens anew. */
+  protected readonly page = linkedSignal<TableHandleTarget | null, 'items' | 'color' | 'align'>({
+    source: this.target,
+    computation: () => 'items',
+  });
+
+  /** The palette in use — text colours and fills, as the colour list's rows. */
+  protected readonly palette = injectPalette();
 
   /** Beside the grip it belongs to: a row's menu opens to its right, a
       column's below it, so neither covers the band it is about to change. */
   protected readonly positions = computed<ConnectedPosition[]>(() =>
-    this.isRow()
+    this.isRow() || this.isCell()
       ? [
           { originX: 'end', originY: 'top', overlayX: 'start', overlayY: 'top', offsetX: 4 },
           { originX: 'start', originY: 'top', overlayX: 'end', overlayY: 'top', offsetX: -4 },
@@ -126,6 +148,45 @@ export class TableMenu {
 
   protected remove(): void {
     this.#run(this.isRow() ? 'deleteRow' : 'deleteColumn');
+  }
+
+  /** The cell's text colour: on all of the cell's words — the caret alone
+      is in it, so the cell is selected for the mark and the caret put back. */
+  protected colorText(color: PaletteColor | null): void {
+    const editor = this.#commands.editor();
+    if (!editor) return;
+    const pos = caretCellPos(editor.state);
+    if (pos === null) return;
+    const { selection } = editor.state;
+    const cell = editor.state.doc.nodeAt(pos)!;
+    editor.view.dispatch(
+      editor.state.tr.setSelection(
+        TextSelection.create(editor.state.doc, pos + 1, pos + cell.nodeSize - 1),
+      ),
+    );
+    if (color) editor.commands['setColor'](color.value);
+    else editor.commands['unsetColor']();
+    editor.view.dispatch(
+      editor.state.tr.setSelection(TextSelection.create(editor.state.doc, selection.from)),
+    );
+    this.#done();
+  }
+
+  /** The cell's fill, from the background palette — or none. */
+  protected fill(color: PaletteColor | null): void {
+    this.#run('setCellBackground', color?.value ?? null);
+  }
+
+  protected alignText(align: 'left' | 'center' | 'right'): void {
+    this.#run('setCellAlignment', align);
+  }
+
+  protected alignVertically(valign: 'top' | 'middle' | 'bottom'): void {
+    this.#run('setCellVerticalAlign', valign);
+  }
+
+  protected clear(): void {
+    this.#run('clearCells');
   }
 
   /** Escape: the menu closes and the caret goes back to the text. */

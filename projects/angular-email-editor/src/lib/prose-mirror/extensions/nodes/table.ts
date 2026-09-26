@@ -459,6 +459,9 @@ export const Table = defineNode({
     duplicateColumn: (): Command => duplicateColumn(),
     /** Align it down the cell's height — top, middle or bottom. */
     setCellVerticalAlign: (valign: CellVerticalAlignment): Command => setCellAttr('valign', valign),
+    /** Empties the caret's cell — or every cell of a cell selection — the
+        cells themselves staying. */
+    clearCells: (): Command => clearCells,
   }),
   keymap: () => ({
     Tab: tabToCell(1),
@@ -1251,3 +1254,38 @@ function cellStart(doc: Node, tablePos: number, row: number, col: number): numbe
   // Cell positions in the map are relative to the table's content start.
   return tablePos + 1 + map.map[row * map.width + col] + 1;
 }
+
+/** The cell the caret is in, as its position in the document — null for a
+    cell selection (which knows its cells) and outside any table. */
+export function caretCellPos(state: EditorState): number | null {
+  const { selection } = state;
+  if (selection instanceof CellSelection) return null;
+  const { $from } = selection;
+  for (let depth = $from.depth; depth > 0; depth--) {
+    if ($from.node(depth).type.spec['tableRole'] === 'cell') return $from.before(depth);
+  }
+  return null;
+}
+
+/** Deletes the content of the caret's cell, or of every selected cell. */
+export const clearCells: Command = (state, dispatch) => {
+  const { selection } = state;
+  const cells: { pos: number; node: Node }[] = [];
+  if (selection instanceof CellSelection) {
+    selection.forEachCell((node, pos) => cells.push({ pos, node }));
+  } else {
+    const pos = caretCellPos(state);
+    if (pos === null) return false;
+    cells.push({ pos, node: state.doc.nodeAt(pos)! });
+  }
+  if (!cells.length) return false;
+  if (dispatch) {
+    const tr = state.tr;
+    // Last first, so earlier positions stay put.
+    for (const { pos, node } of [...cells].reverse()) {
+      if (node.content.size) tr.delete(pos + 1, pos + node.nodeSize - 1);
+    }
+    dispatch(tr.scrollIntoView());
+  }
+  return true;
+};

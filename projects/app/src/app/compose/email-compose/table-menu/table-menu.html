@@ -5,28 +5,160 @@
     class="table-menu"
     #menu
     role="menu"
-    [attr.aria-label]="isRow() ? 'Row options' : 'Column options'"
+    [attr.aria-label]="isCell() ? 'Cell options' : isRow() ? 'Row options' : 'Column options'"
     emailKeepFocus
     (keydown.escape)="leave()"
   >
-    <button class="table-menu__item" type="button" role="menuitem" (click)="insert('before')">
-      <mat-icon>{{ isRow() ? 'vertical_align_top' : 'first_page' }}</mat-icon>
-      <span>{{ isRow() ? 'Insert row above' : 'Insert column left' }}</span>
-    </button>
-    <button class="table-menu__item" type="button" role="menuitem" (click)="insert('after')">
-      <mat-icon>{{ isRow() ? 'vertical_align_bottom' : 'last_page' }}</mat-icon>
-      <span>{{ isRow() ? 'Insert row below' : 'Insert column right' }}</span>
-    </button>
+    @if (isCell()) {
+      <!-- The cell's menu — colour, alignment, clearing — each list a page
+           of the same panel, the way Notion's cell menu opens its lists. -->
+      @switch (page()) {
+        @case ('color') {
+          <button
+            class="table-menu__item table-menu__back"
+            type="button"
+            (click)="page.set('items')"
+          >
+            <mat-icon>chevron_left</mat-icon>
+            <span>Color</span>
+          </button>
+          <div class="table-menu__heading">Text color</div>
+          <button class="table-menu__item" type="button" role="menuitem" (click)="colorText(null)">
+            <span class="table-menu__swatch table-menu__swatch--text">A</span>
+            <span>Default text</span>
+          </button>
+          @for (color of palette.text; track color.value) {
+            <button
+              class="table-menu__item"
+              type="button"
+              role="menuitem"
+              (click)="colorText(color)"
+            >
+              <span class="table-menu__swatch table-menu__swatch--text" [style.color]="color.value"
+                >A</span
+              >
+              <span>{{ color.name }} text</span>
+            </button>
+          }
+          <div class="table-menu__separator" role="separator"></div>
+          <div class="table-menu__heading">Background</div>
+          <button class="table-menu__item" type="button" role="menuitem" (click)="fill(null)">
+            <span class="table-menu__swatch table-menu__swatch--none"></span>
+            <span>No background</span>
+          </button>
+          @for (color of palette.background; track color.value) {
+            <button class="table-menu__item" type="button" role="menuitem" (click)="fill(color)">
+              <span class="table-menu__swatch" [style.background-color]="color.value"></span>
+              <span>{{ color.name }} background</span>
+            </button>
+          }
+        }
+        @case ('align') {
+          <button
+            class="table-menu__item table-menu__back"
+            type="button"
+            (click)="page.set('items')"
+          >
+            <mat-icon>chevron_left</mat-icon>
+            <span>Alignment</span>
+          </button>
+          <button
+            class="table-menu__item"
+            type="button"
+            role="menuitem"
+            (click)="alignText('left')"
+          >
+            <mat-icon>format_align_left</mat-icon><span>Left</span>
+          </button>
+          <button
+            class="table-menu__item"
+            type="button"
+            role="menuitem"
+            (click)="alignText('center')"
+          >
+            <mat-icon>format_align_center</mat-icon><span>Center</span>
+          </button>
+          <button
+            class="table-menu__item"
+            type="button"
+            role="menuitem"
+            (click)="alignText('right')"
+          >
+            <mat-icon>format_align_right</mat-icon><span>Right</span>
+          </button>
+          <div class="table-menu__separator" role="separator"></div>
+          <button
+            class="table-menu__item"
+            type="button"
+            role="menuitem"
+            (click)="alignVertically('top')"
+          >
+            <mat-icon>vertical_align_top</mat-icon><span>Top</span>
+          </button>
+          <button
+            class="table-menu__item"
+            type="button"
+            role="menuitem"
+            (click)="alignVertically('middle')"
+          >
+            <mat-icon>vertical_align_center</mat-icon><span>Middle</span>
+          </button>
+          <button
+            class="table-menu__item"
+            type="button"
+            role="menuitem"
+            (click)="alignVertically('bottom')"
+          >
+            <mat-icon>vertical_align_bottom</mat-icon><span>Bottom</span>
+          </button>
+        }
+        @default {
+          <button
+            class="table-menu__item"
+            type="button"
+            role="menuitem"
+            aria-haspopup="menu"
+            (click)="page.set('color')"
+          >
+            <mat-icon>format_color_fill</mat-icon>
+            <span>Color</span>
+          </button>
+          <button
+            class="table-menu__item"
+            type="button"
+            role="menuitem"
+            aria-haspopup="menu"
+            (click)="page.set('align')"
+          >
+            <mat-icon>format_align_left</mat-icon>
+            <span>Alignment</span>
+          </button>
+          <button class="table-menu__item" type="button" role="menuitem" (click)="clear()">
+            <mat-icon>backspace</mat-icon>
+            <span>Clear contents</span>
+          </button>
+        }
+      }
+    } @else {
+      <button class="table-menu__item" type="button" role="menuitem" (click)="insert('before')">
+        <mat-icon>{{ isRow() ? 'vertical_align_top' : 'first_page' }}</mat-icon>
+        <span>{{ isRow() ? 'Insert row above' : 'Insert column left' }}</span>
+      </button>
+      <button class="table-menu__item" type="button" role="menuitem" (click)="insert('after')">
+        <mat-icon>{{ isRow() ? 'vertical_align_bottom' : 'last_page' }}</mat-icon>
+        <span>{{ isRow() ? 'Insert row below' : 'Insert column right' }}</span>
+      </button>
 
-    <div class="table-menu__separator" role="separator"></div>
+      <div class="table-menu__separator" role="separator"></div>
 
-    <button class="table-menu__item" type="button" role="menuitem" (click)="duplicate()">
-      <mat-icon>content_copy</mat-icon>
-      <span>{{ isRow() ? 'Duplicate row' : 'Duplicate column' }}</span>
-    </button>
-    <button class="table-menu__item" type="button" role="menuitem" (click)="remove()">
-      <mat-icon>delete_outline</mat-icon>
-      <span>{{ isRow() ? 'Delete row' : 'Delete column' }}</span>
-    </button>
+      <button class="table-menu__item" type="button" role="menuitem" (click)="duplicate()">
+        <mat-icon>content_copy</mat-icon>
+        <span>{{ isRow() ? 'Duplicate row' : 'Duplicate column' }}</span>
+      </button>
+      <button class="table-menu__item" type="button" role="menuitem" (click)="remove()">
+        <mat-icon>delete_outline</mat-icon>
+        <span>{{ isRow() ? 'Delete row' : 'Delete column' }}</span>
+      </button>
+    }
   </div>
 </ng-template>

@@ -446,7 +446,11 @@ export class EmailCompose implements FormValueControl<string> {
           label: (kind, number) =>
             this.i18n.t(
               `editor.table.${kind}Options`,
-              kind === 'row' ? `Row ${number} options` : `Column ${number} options`,
+              kind === 'cell'
+                ? 'Cell options'
+                : kind === 'row'
+                  ? `Row ${number} options`
+                  : `Column ${number} options`,
               { number },
             ),
         }),
