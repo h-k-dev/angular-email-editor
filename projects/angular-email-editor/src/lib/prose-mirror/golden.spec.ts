@@ -53,6 +53,9 @@ const MESSY: string[] = [
   '<table><tbody><tr><td>a</td><td>b</td></tr><tr><td>c</td><td>d</td></tr></tbody></table>',
   '<table><tr><td>no tbody in source</td></tr></table>',
   '<div style="width: 100%; max-width: 600px;"><div style="display: inline-block; width: 100%; max-width: 300px; vertical-align: top; box-sizing: border-box; padding-left: 8px; padding-right: 8px;"><div>one</div></div><div style="display: inline-block; width: 100%; max-width: 300px; vertical-align: top; box-sizing: border-box; padding-left: 8px; padding-right: 8px;"><div>two</div></div></div>',
+  // A section: one presentation table for every client, the fill as bgcolor
+  // and inline style with its paired text colour, the content centred.
+  '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width: 100%; border-collapse: collapse;"><tbody><tr><td bgcolor="#f1f3f4" style="padding: 20px 0px; background-color: rgb(241, 243, 244); color: rgb(32, 33, 36);"><div style="max-width: 600px; margin-left: auto; margin-right: auto; padding-left: 16px; padding-right: 16px; box-sizing: border-box;"><div>band</div></div></td></tr></tbody></table>',
 ];
 
 describe('golden canonical outputs', () => {

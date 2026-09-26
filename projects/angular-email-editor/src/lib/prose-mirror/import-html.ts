@@ -11,7 +11,8 @@
  *    `role="presentation"` table for Outlook's sake; each one would parse as
  *    a table of ours with its content hoisted out beside it. They are
  *    unwrapped ({@link unwrapLayoutTables}) — only the builders' own, which
- *    the canonical form never emits.
+ *    the canonical form never emits, and never one that carries a fill or a
+ *    padding: that is a band, the section node's own.
  */
 
 /** The width the import is drawn at: an email's container. A `min-width`
@@ -176,6 +177,9 @@ export function unwrapLayoutTables(root: ParentNode): void {
 
 function isWrapperTable(table: HTMLTableElement): boolean {
   if (table.getAttribute('role') !== 'presentation') return false;
+  // A wrapper with a fill or a padding on it is a band — the section node's
+  // to parse, not this pass's to take out.
+  if (isBand(table)) return false;
   if (
     !table.hasAttribute('cellpadding') &&
     !table.hasAttribute('cellspacing') &&
@@ -187,5 +191,25 @@ function isWrapperTable(table: HTMLTableElement): boolean {
   const cell = table.rows[0].cells[0];
   return Array.from(cell.childNodes).every(
     (node) => node.nodeType === Node.ELEMENT_NODE || !node.textContent?.trim(),
+  );
+}
+
+/** Whether a one-cell table carries what makes it a section: a fill on the
+    cell, the table or the div wrapping it, or a padding on the cell. */
+function isBand(table: HTMLTableElement): boolean {
+  if (table.rows.length !== 1 || table.rows[0].cells.length !== 1) return false;
+  const cell = table.rows[0].cells[0];
+  const parent = table.parentElement;
+  const declares = (el: Element, property: string) =>
+    new RegExp(`(?:^|;)\\s*${property}\\s*:`, 'i').test(el.getAttribute('style') ?? '');
+  return !!(
+    declares(cell, 'background(?:-color)?') ||
+    cell.getAttribute('bgcolor') ||
+    declares(table, 'background(?:-color)?') ||
+    table.getAttribute('bgcolor') ||
+    (parent instanceof HTMLElement &&
+      parent.tagName === 'DIV' &&
+      declares(parent, 'background(?:-color)?')) ||
+    declares(cell, 'padding(?:-top|-right|-bottom|-left)?')
   );
 }

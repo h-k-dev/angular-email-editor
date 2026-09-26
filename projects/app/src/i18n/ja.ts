@@ -41,6 +41,7 @@ export default {
       'bordered-table': { title: '罫線付きの表', keywords: '表, 罫線, けいせん' },
       columns: { title: '段組み', keywords: '列, カラム, だんぐみ' },
       '3-columns': { title: '3 段組み', keywords: '列, カラム, だんぐみ' },
+      section: { title: 'セクション', keywords: 'セクション, 帯, 背景' },
       bold: { title: '太字', keywords: '太字, ふとじ, 強調' },
       italic: { title: '斜体', keywords: '斜体, しゃたい, イタリック' },
       underline: { title: '下線', keywords: '下線, かせん, アンダーライン' },

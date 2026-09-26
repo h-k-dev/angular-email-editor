@@ -64,7 +64,9 @@ export class BlockMenu {
     // writing. Flips above only when the bottom has no room.
     inject(Popover).register({
       layer: 'toolbar',
-      open: () => this.state().isOpen && this.state().block === 'columns',
+      open: () =>
+        this.state().isOpen &&
+        (this.state().block === 'columns' || this.state().block === 'section'),
       anchor: () => this.state().boundingBox,
       content: this.panel,
       positions: () => POPOVER_BELOW,

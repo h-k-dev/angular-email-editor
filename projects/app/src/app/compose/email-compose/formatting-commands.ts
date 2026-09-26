@@ -7,6 +7,7 @@ import { redo, undo } from 'prosemirror-history';
 import {
   Editor,
   findColumnContext,
+  findSectionContext,
   findTableContext,
   isMarkActive,
   selectedButton,
@@ -206,8 +207,8 @@ export class FormattingCommands {
   }
 
   /** Applies a background fill to the most relevant scope: selected text gets an
-      inline highlight; a bare cursor in a table cell or column fills that
-      container; otherwise it's an inline highlight (stored, so it continues as
+      inline highlight; a bare cursor in a table cell, a column or a section
+      fills that container; otherwise it's an inline highlight (stored, so it continues as
       you type). `null` clears whichever scope applies. */
   applyBackground(color: string | null): void {
     const editor = this.target();
@@ -220,6 +221,8 @@ export class FormattingCommands {
       editor.commands['setCellBackground'](color);
     } else if (bare && findColumnContext(state)) {
       editor.commands['setColumnBackground'](color);
+    } else if (bare && findSectionContext(state)) {
+      editor.commands['setSectionBackground'](color);
     } else if (color) {
       editor.commands['setBackgroundColor'](color);
     } else {

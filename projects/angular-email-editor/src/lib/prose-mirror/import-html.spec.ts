@@ -70,6 +70,18 @@ describe('unwrapLayoutTables', () => {
     expect(Array.from(doc.body.children).map((el) => el.id)).toEqual(['b', 'a']);
   });
 
+  it('keeps a wrapper that is a band — a fill or a padding on it — for the section node', () => {
+    const doc = document(
+      wrapper('<div>x</div>', 'padding: 20px 0') +
+        wrapper('<div>y</div>', 'background-color: #f1f3f4') +
+        '<div style="background-color: #ffffff">' +
+        wrapper('<div>z</div>') +
+        '</div>',
+    );
+    unwrapLayoutTables(doc.body);
+    expect(doc.body.querySelectorAll('table')).toHaveLength(3);
+  });
+
   it('keeps a table that is a table: text in its cell, or no builder attributes', () => {
     const doc = document(
       wrapper('cell') +
@@ -98,11 +110,13 @@ describe('unwrapLayoutTables', () => {
       '</td></tr></tbody></table></div></body></html>';
     const editor = createEditor({ parent: mount, extensions: emailExtensions, content: html });
     const out = editor.getHTML();
-    // One columns block, two halves of the budget each, the right-to-left
-    // section's words first — no empty table left behind.
-    expect(out).not.toContain('<table');
-    // The full-width column takes the whole budget — not the two-column
-    // default it would fall back to were the sheet not read.
+    // Two sections (the cells carry MJML's padding), no empty grid: inside
+    // them the column blocks — two halves of the budget each, and the
+    // right-to-left section's words first. The full-width column takes the
+    // whole budget — not the two-column default it would fall back to were
+    // the sheet not read.
+    expect(out.match(/<table role="presentation" width="100%"/g)).toHaveLength(2);
+    expect(out.match(/padding: 20px 0px;/g)).toHaveLength(2);
     expect(out.match(/max-width: 560px/g)).toHaveLength(1);
     expect(out.match(/max-width: 280px/g)).toHaveLength(2);
     expect(out.indexOf('Words')).toBeLessThan(out.indexOf('Picture'));

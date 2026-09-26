@@ -81,6 +81,7 @@ describe('createSuggestionMenu — the / menu', () => {
       'Bordered table',
       'Columns',
       '3 columns',
+      'Section',
       'Bold',
       'Italic',
       'Underline',

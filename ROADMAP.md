@@ -1310,6 +1310,31 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   the styled box. The form holds the _message_; the ask stays `sent`, an
   action with a stream behind it is the host's, not the form's submit.
 
+- **Sections: the full-width band (2026-09-26).** A `section` node — a
+  fill running edge to edge across the reader's window with the content
+  centred in the 600px column inside it, MJML's `mj-section` rendered our
+  way. Rendered once, for every client: MJML renders a section twice (a
+  div for the clients that read `max-width`, the same content again in a
+  600px table inside an Outlook-only comment) because Outlook's Word
+  engine ignores `max-width` and `inline-block`; Gmail drops every
+  comment and its app strips the head for non-Google accounts, so what
+  both keep is what the node emits — one `role="presentation"` table,
+  100% wide, its one cell carrying the fill as `bgcolor` _and_ inline
+  `background-color` with the paired text colour (`fillTextColor`), and
+  inside it a div capped at 600px with auto margins; where the cap is
+  ignored (Outlook) the content runs the band's full width, the graceful
+  half of the columns block's own bargain. What cannot be said inline is
+  left out. On parse a section is a one-cell presentation table whose cell
+  holds nothing but elements and carries a fill or a padding — MJML's,
+  with the fill on its wrapping div, as much as our own — a right-to-left
+  cell handing its children over reversed; a one-cell table with words in
+  it stays a table. `/section` inserts a band in the palette's quiet grey,
+  the toolbar's colour button fills the band the caret is in, the block
+  menu takes a band away with its content staying, the layout guides mark
+  its edges. Read through the CSSOM where it expands a builder's
+  `background:` shorthand, and through the attribute's own words where
+  it does not.
+
 - **A builder's export comes in whole (2026-09-26).** An MJML (or any
   builder's) document leans on two things the canonical email HTML never
   has, and the editor read neither: its `<style>` sheet — the mobile-first

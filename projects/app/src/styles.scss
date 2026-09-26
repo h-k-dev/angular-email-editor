@@ -219,7 +219,23 @@ html {
   }
 }
 
+/* The section band: full-bleed across the surface — the editor's inline
+ * inset is the surface's, so the band pulls itself onto its edges; the
+ * centred column inside carries the same inset inline (the node's own
+ * style, which the email keeps), so its words line up with the text
+ * around the band. A guide along its top and bottom edges, revealed like
+ * the other layout blocks'. */
+.aee-editor .aee-section {
+  box-sizing: border-box;
+  margin-inline: calc(-1 * var(--mat-sys-inner-spacing, 16px));
+  border-block: 1px solid transparent;
+  transition: border-color 140ms ease-out 400ms;
+}
+
 /* 1. cursor inside — on both blocks the class lands on the NodeView wrapper */
+.aee-editor .aee-section.aee-guides-active,
+.aee-editor .aee-section:hover,
+.aee-editor.aee-guides-peek .aee-section,
 .aee-editor .aee-table-wrap.aee-guides-active td,
 .aee-editor .aee-columns-wrap.aee-guides-active .aee-column,
 /* 2. hover the block — the whole grid, not just the cell/column under the

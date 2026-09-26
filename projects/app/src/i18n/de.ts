@@ -45,6 +45,7 @@ export default {
       'bordered-table': { title: 'Tabelle mit Rahmen', keywords: 'tabelle, rahmen' },
       columns: { title: 'Spalten', keywords: 'spalten, layout' },
       '3-columns': { title: '3 Spalten', keywords: 'spalten, layout' },
+      section: { title: 'Abschnitt', keywords: 'abschnitt, band, hintergrund, bereich' },
       bold: { title: 'Fett', keywords: 'fett, hervorheben' },
       italic: { title: 'Kursiv', keywords: 'kursiv, schräg' },
       underline: { title: 'Unterstrichen', keywords: 'unterstreichen' },
