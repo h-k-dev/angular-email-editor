@@ -22,6 +22,12 @@ section[email-compose] {
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
+  // The writer's column (email-writer.scss): on a wide sheet the editor
+  // keeps to it with the bar and the envelope.
+  box-sizing: border-box;
+  inline-size: 100%;
+  max-inline-size: var(--writer-column, none);
+  margin-inline: auto;
 }
 
 // The envelope rows, projected into the writer's envelope block under its

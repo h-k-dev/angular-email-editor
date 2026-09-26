@@ -34,13 +34,6 @@
 :host {
   @include toolbar.formatting-toolbar;
   flex: none;
-  // The bottom section — this bar, the chat strip over it, the writer bar
-  // under it — is one column, centred and no wider than a long line: on a
-  // full-screen window the sheet is wider than a message is.
-  box-sizing: border-box;
-  inline-size: 100%;
-  max-inline-size: 100ch;
-  margin-inline: auto;
   // One line at every width: the row inside clips (wide) or scrolls (phone).
   flex-wrap: nowrap;
   // The pane's grid column is content-sized to the 600px editor box; the

@@ -14,17 +14,12 @@
 }
 
 // Each piece sets its own inset. The strip as a whole has none: the field
-// reaches the sheet's edges — the screen's, on a phone — and never grows
-// past a long line: on a full-screen window the sheet is wider than a
-// message is, and the field stays under the words it is about.
+// reaches the section's edges — the screen's, on a phone; the writer's
+// column's on a zoomed-out window (email-writer.scss).
 .chat-based-suggestion {
   display: flex;
   flex-direction: column;
   gap: 0;
-  box-sizing: border-box;
-  inline-size: 100%;
-  max-inline-size: 100ch;
-  margin-inline: auto;
 }
 
 // The top line has no surface: what stands on it floats over the text, on
@@ -147,8 +142,10 @@
   --email-chat-input-focus: transparent;
 }
 
-// The icons: a 40px round target each; the send button filled in the
-// text's own colour — no accent — and the stop button the same.
+// The icons: a 40px round target each — on a wide screen the very look of
+// the message's own Send button in the writer bar, a plain icon; on a
+// phone, where the button is the bar's, the send and stop button filled
+// in the text's own colour (below). No accent anywhere.
 .chat-based-suggestion__icon {
   display: inline-flex;
   align-items: center;
@@ -180,14 +177,7 @@
 }
 
 .chat-based-suggestion__send {
-  background-color: var(--mat-sys-on-surface, #1f1f1f);
-  color: var(--mat-sys-surface, #ffffff);
-
-  &:disabled {
-    opacity: 1;
-    background-color: color-mix(in srgb, var(--mat-sys-on-surface, #1f1f1f) 12%, transparent);
-    color: var(--mat-sys-on-surface-variant, #555555);
-  }
+  color: var(--mat-sys-on-surface, #1f1f1f);
 }
 
 // A phone: the strip is the screen's width, flush to its sides and square,
@@ -201,6 +191,11 @@
 
   .chat-based-suggestion__top {
     min-height: 28px;
+  }
+
+  .chat-based-suggestion__send {
+    background-color: var(--mat-sys-on-surface, #1f1f1f);
+    color: var(--mat-sys-surface, #ffffff);
   }
 
   // Edge to edge: the hairline above alone parts it from the text.
