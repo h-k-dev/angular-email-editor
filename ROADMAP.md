@@ -1267,9 +1267,12 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   (Enter sends outside a list and goes on to the next item inside, Ctrl-
   Enter always sends, `- ` / `1. ` begin a list), its text carried out as
   dash lines. The demo's `ai-panel` is what a host writes around them: the
-  chat input, Try again, Discard, Apply, under the proposal in the one
-  popover's dialog layer; `AiRequest.instructions` carries the words (the
-  stand-in understands "short"). Which also answers the first item of the
+  chat input, Try again, Discard, Apply — a bar docked above the formatting
+  toolbar while the proposal stands (a panel chasing the proposal's last
+  line moved too much); only Escape or Discard let it go, a click in the
+  text is editing, and Apply takes the proposal as it stands, the writer's
+  edits with it; `AiRequest.instructions` carries the words (the stand-in
+  understands "short"). Which also answers the first item of the
   agenda above, from the other side: the argument does not ride the `/`
   query, it has a field of its own. Found on the way: a stopped stream
   ended twice — at once on abort and again as `done` settled — and the

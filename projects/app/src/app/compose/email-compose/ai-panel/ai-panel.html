@@ -1,13 +1,14 @@
-<!-- The dialog, for the composer's one popover: under the proposal in the
-     text — the chat input, then the three ways on. -->
-<ng-template #panel>
+<!-- The bar, above the formatting toolbar while a proposal is up: the chat
+     input, then the three ways on. -->
+@if (open()) {
   <div
     class="ai-panel"
-    role="dialog"
+    role="region"
     [attr.aria-label]="i18n.t('editor.ai.dialog', 'Writing assistant')"
     [attr.aria-busy]="proposal.streaming()"
   >
-    <!-- The library's chat input: lines and lists, Enter asks. -->
+    <!-- The library's chat input: lines and lists, Enter asks, Escape
+         lets go (the page's Escape, below, hears it too). -->
     <div
       email-chat-input
       class="ai-panel__chat"
@@ -15,7 +16,6 @@
       [label]="i18n.t('editor.ai.instructions', 'Instructions')"
       [(value)]="instructions"
       (sent)="ask($event)"
-      (escaped)="close()"
     ></div>
 
     <div class="ai-panel__row">
@@ -25,7 +25,8 @@
       </button>
       <span class="ai-panel__space"></span>
       <!-- The library's triggers: Discard takes the proposal out, Apply
-           takes it in. Disabled by the panel's own means, from their state. -->
+           takes it in — as it stands. Disabled by the bar's own means,
+           from their state. -->
       <button
         mat-button
         type="button"
@@ -51,4 +52,4 @@
       </button>
     </div>
   </div>
-</ng-template>
+}

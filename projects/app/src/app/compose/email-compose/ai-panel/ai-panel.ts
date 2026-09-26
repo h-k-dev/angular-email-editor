@@ -1,9 +1,9 @@
 import {
   Component,
+  DOCUMENT,
   Injector,
-  TemplateRef,
   afterNextRender,
-  computed,
+  effect,
   inject,
   input,
   signal,
@@ -14,9 +14,6 @@ import {
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
-// CDK
-import { ConnectedPosition } from '@angular/cdk/overlay';
-
 // Library
 import { ChatInput } from 'angular-email-editor/chat-input';
 import { ProposalAccept, ProposalDiscard, injectProposal } from 'angular-email-editor/proposal';
@@ -24,30 +21,23 @@ import { ProposalAccept, ProposalDiscard, injectProposal } from 'angular-email-e
 import { Ai } from '../../../../services/ai';
 import { I18n } from '../../../../services/i18n';
 import { FormattingCommands } from '../formatting-commands';
-import { dismissOnPressOutside } from '../../dismiss-outside';
-import { Popover } from '../popover/popover';
 import { AiAsk } from '../ai-writer';
 
-/** Under the proposal's last line, opening to the right of where it
-    starts; above when there is no room below. */
-const UNDER_THE_PROPOSAL: ConnectedPosition[] = [
-  { originX: 'start', originY: 'bottom', overlayX: 'start', overlayY: 'top', offsetY: 8 },
-  { originX: 'start', originY: 'top', overlayX: 'start', overlayY: 'bottom', offsetY: -8 },
-];
-
 /**
- * The assistant's panel: the assistant writes **into the message**, where
+ * The assistant's bar: the assistant writes **into the message**, where
  * its words will stand — as a *proposal*, marked, outside the history
- * (the library's content proposal) — and this panel floats under it with
- * the one thing that is not text: the way to steer and decide. A panel of
- * the composer's one popover, in its dialog layer.
+ * (the library's content proposal) — and this bar, docked above the
+ * formatting toolbar, holds the one thing that is not text: the way to
+ * steer and decide. Docked, not floating: a proposal grows, wraps and
+ * scrolls, and a panel chasing its last line moved too much.
  *
  * The chat input is the library's (`email-chat-input`: lines and lists,
  * Enter asks); Try again asks once more with what it says; Discard and
- * Apply are the library's triggers on Material buttons. Apply takes the
- * proposal into the message as one change — one undo. Anything else —
- * Discard, Escape, a press outside — takes it out, and the message is
- * exactly as it was, with nothing in its history.
+ * Apply are the library's triggers on Material buttons. The proposal is
+ * ordinary text in the meantime: the writer edits it in place, and Apply
+ * takes it as it stands — edits and all — into the message as one change,
+ * one undo. Only Escape (from anywhere) or Discard take it out; a click
+ * elsewhere, in the text above all, is editing, not leaving.
  *
  * All of the mechanics are the library's (`injectProposal`); this
  * component is what a host writes — a host with an input of its own
@@ -67,15 +57,16 @@ const UNDER_THE_PROPOSAL: ConnectedPosition[] = [
   ],
   templateUrl: './ai-panel.html',
   styleUrl: './ai-panel.scss',
+  host: { '[hidden]': '!open()' },
 })
 export class AiPanel {
   readonly #commands = inject(FormattingCommands);
 
-  readonly #popover = inject(Popover);
-
   readonly #ai = inject(Ai);
 
   readonly #injector = inject(Injector);
+
+  readonly #document = inject(DOCUMENT);
 
   protected readonly i18n = inject(I18n);
 
@@ -92,36 +83,28 @@ export class AiPanel {
   /** What the writer typed into the chat input — sent with the next ask. */
   protected readonly instructions = signal('');
 
-  /** Under the proposal, following it as it grows. */
-  protected readonly anchor = computed(() => (this.open() ? this.proposal.box() : null));
-
   protected readonly chat = viewChild(ChatInput);
 
-  // A query cannot be an ES-private field: TypeScript's `private` it is.
-  private readonly panel = viewChild<TemplateRef<unknown>>('panel');
-
-  /** What the writer asked from, for as long as the panel is up. */
+  /** What the writer asked from, for as long as the bar is up. */
   #ask: AiAsk | null = null;
 
   constructor() {
-    this.#popover.register({
-      layer: 'dialog',
-      open: this.open,
-      anchor: this.anchor,
-      content: this.panel,
-      positions: () => UNDER_THE_PROPOSAL,
-      onKeydown: (event) => this.onKeydown(event),
+    // Escape, from anywhere on the page — the text, the input, a button —
+    // lets the proposal go. Only while the bar is up; an IME's own Escape
+    // stays the IME's.
+    effect((onCleanup) => {
+      if (!this.open()) return;
+      const onKeydown = (event: KeyboardEvent) => {
+        if (event.key !== 'Escape' || event.isComposing) return;
+        event.preventDefault();
+        this.close();
+      };
+      this.#document.addEventListener('keydown', onKeydown);
+      onCleanup(() => this.#document.removeEventListener('keydown', onKeydown));
     });
-    // A press outside lets the proposal go — never the click (a `/` menu
-    // row) that opened the panel.
-    dismissOnPressOutside(
-      this.open,
-      () => this.#popover.pane(),
-      () => this.dismiss(),
-    );
   }
 
-  /** Opens the panel and asks the assistant at once: the answer begins to
+  /** Opens the bar and asks the assistant at once: the answer begins to
       appear in the message, under the caret. */
   show(ask: AiAsk): void {
     if (!this.#commands.editor()) return;
@@ -129,7 +112,7 @@ export class AiPanel {
     this.instructions.set('');
     this.open.set(true);
     this.#write();
-    // The chat input exists once the render that opens the panel has run.
+    // The chat input exists once the render that shows the bar has run.
     afterNextRender({ write: () => this.chat()?.focus() }, { injector: this.#injector });
   }
 
@@ -140,32 +123,19 @@ export class AiPanel {
     this.#write();
   }
 
-  /** Apply pressed: the library took the proposal in; the panel is done. */
+  /** Apply pressed: the library took the proposal in — as it stands, the
+      writer's edits with it; the bar is done. */
   protected applied(): void {
     this.open.set(false);
     this.#commands.focus();
   }
 
-  /** Discard pressed, or Escape: the library took it out; the caret is
+  /** Discard pressed, or Escape: the library takes it out; the caret is
       back in the text. */
   protected close(): void {
     this.proposal.discard();
     this.open.set(false);
     this.#commands.focus();
-  }
-
-  /** A press outside lets it go — and is just a press. */
-  protected dismiss(): void {
-    this.proposal.discard();
-    this.open.set(false);
-  }
-
-  /** Escape from anywhere — the input, a button, the editor beneath; an
-      IME's own Escape stays the IME's. */
-  protected onKeydown(event: KeyboardEvent): void {
-    if (event.key !== 'Escape' || event.isComposing) return;
-    event.preventDefault();
-    this.close();
   }
 
   /** Asks the assistant and proposes the answer at the caret — over an

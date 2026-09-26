@@ -14,8 +14,6 @@ import {
 
 import { Ai, AiOptions, AiRequest } from '../../../../services/ai';
 import { FormattingCommands } from '../formatting-commands';
-import { Popover } from '../popover/popover';
-import { PopoverOutlet } from '../popover/popover-outlet';
 import { createAiWriter } from '../ai-writer';
 import { AiPanel } from './ai-panel';
 
@@ -27,15 +25,14 @@ class ResizeObserverStub {
 }
 (globalThis as { ResizeObserver?: unknown }).ResizeObserver ??= ResizeObserverStub;
 
-/** A composer's worth: the commands, the popover, the panel, and an email
-    editor with the `ai` action, the stream and the proposal in its kit. */
+/** A composer's worth: the commands, the bar, and an email editor with
+    the `ai` action, the stream and the proposal in its kit. */
 @Component({
-  imports: [AiPanel, PopoverOutlet],
-  providers: [FormattingCommands, Popover],
+  imports: [AiPanel],
+  providers: [FormattingCommands],
   template: `
     <div #host></div>
     <div ai-panel [language]="language"></div>
-    <div popover-outlet></div>
   `,
 })
 class Host {
@@ -68,7 +65,8 @@ class Host {
       this.editor.view.dispatch(
         this.editor.state.tr.setSelection(TextSelection.create(this.editor.state.doc, end)),
       );
-      // jsdom has no layout: the panel's anchor needs a box to stand on.
+      // jsdom has no layout: Apply scrolls the caret into view, which
+      // measures — from a rect the spec supplies.
       vi.spyOn(this.editor.view, 'coordsAtPos').mockReturnValue({
         left: 40,
         right: 40,
@@ -112,7 +110,7 @@ describe('AiPanel', () => {
   } as unknown as Ai;
 
   const ORIGINAL = '<div>We met last week.</div>';
-  const dialog = () => document.querySelector<HTMLElement>('.popover [role="dialog"]');
+  const dialog = () => document.querySelector<HTMLElement>('[ai-panel] .ai-panel');
   const button = (text: string) =>
     [...dialog()!.querySelectorAll<HTMLButtonElement>('button')].find((b) =>
       b.textContent?.includes(text),
@@ -142,7 +140,7 @@ describe('AiPanel', () => {
 
   afterEach(() => fixture.destroy());
 
-  it('proposes the answer into the message itself, marked, and floats under it', async () => {
+  it('proposes the answer into the message itself, marked, with the bar up', async () => {
     expect(dialog()).toBeNull();
     await ask();
     expect(dialog()).not.toBeNull();
@@ -180,19 +178,37 @@ describe('AiPanel', () => {
     expect(html()).toBe(ORIGINAL);
   });
 
-  it('a press outside takes it out: the message is as it was, with nothing to undo', async () => {
+  it('a press outside is not leaving: the bar stays, the proposal too', async () => {
     await ask();
     await feed(' Bitte');
-    expect(html()).toContain('Bitte');
     document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     await settle();
-    expect(dialog()).toBeNull();
-    expect(aborted).toBe(1);
-    expect(html()).toBe(ORIGINAL);
-    expect(undo(host.editor.state)).toBe(false);
+    expect(dialog()).not.toBeNull();
+    expect(aborted).toBe(0);
+    expect(html()).toContain('Bitte');
   });
 
-  it('Discard and Escape do the same, and hand the caret back', async () => {
+  it('the proposal is edited in place, and Apply takes it as it stands', async () => {
+    await ask();
+    await feed(' Bitte lesen.');
+    await feed(null);
+    // The writer's own edit, inside the proposal: it is proposed with it.
+    const at = host.editor.getHTML().indexOf('lesen') - 4; // the doc position of "lesen"
+    const pos = host.editor.state.doc.textContent.indexOf('lesen') + 1;
+    host.editor.view.dispatch(host.editor.state.tr.insertText('bitte ', pos));
+    await settle();
+    expect(proposedText()).toBe(' Bitte bitte lesen.');
+    expect(at).toBeGreaterThan(0);
+    button('Apply').click();
+    await settle();
+    expect(html()).toBe('<div>We met last week. Bitte bitte lesen.</div>');
+    expect(isProposing(host.editor.state)).toBe(false);
+    expect(host.editor.exec(undo)).toBe(true);
+    expect(html()).toBe(ORIGINAL);
+  });
+
+  it('Discard and Escape — from anywhere — do the same, and hand the caret back', async () => {
     await ask();
     await feed(' Bitte');
     button('Discard').click();
@@ -203,13 +219,15 @@ describe('AiPanel', () => {
 
     await ask();
     await feed(' Bitte');
-    document.body.dispatchEvent(
+    // Escape in the text, where the writer was editing the proposal.
+    host.editor.view.dom.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
     );
     await settle();
     expect(dialog()).toBeNull();
     expect(html()).toBe(ORIGINAL);
     expect(aborted).toBe(2);
+    expect(undo(host.editor.state)).toBe(false);
   });
 
   it('the chat input’s Enter asks again with the instructions, over the earlier proposal', async () => {

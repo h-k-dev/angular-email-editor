@@ -3,11 +3,9 @@
      bubble menu on a selection, the block menu on a bare cursor in a layout
      block (placed by their extensions), a grip's row or column menu — is
      one popover: the outlet renders it, in the CDK overlay container, and
-     the menus are its panels — the assistant's panel among them, where its
-     answer streams before it is accepted. Here they all take no room. -->
+     the menus are its panels. Here they all take no room. -->
 <div link-editor></div>
 <div alt-text-editor></div>
-<div ai-panel [language]="language"></div>
 <div bubble-menu [state]="bubbleShown()"></div>
 <div block-menu [state]="blockMenuState()"></div>
 <div table-menu [target]="tableHandle()" (closed)="tableHandle.set(null)"></div>
@@ -93,6 +91,11 @@
      ignorant of what fills it, which is what keeps envelope concerns
      (attachments among them) out of the editor component. -->
 <ng-content select="[below-body]" />
+
+<!-- The assistant's bar, above the toolbar while its proposal stands in the
+     text: the chat input that steers it, Try again, Discard, Apply. Docked
+     here rather than floating under the proposal, which grows and scrolls. -->
+<div ai-panel [language]="language"></div>
 
 <!-- The formatting toolbar sits *below* the editing surface: on a phone the
      shell's height follows the virtual keyboard (see app.scss), so the bar

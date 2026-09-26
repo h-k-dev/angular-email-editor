@@ -1,23 +1,26 @@
-@use '../formatting-toolbar' as toolbar;
-
-// Only where the panel is declared: no box in the composer's column.
+// A section of the composer's column, like the toolbar under it: it sets
+// its own inline inset from the same token every section reads, and takes
+// no room at all while there is nothing proposed.
 :host {
-  display: contents;
+  display: block;
+  padding-inline: var(--mat-sys-inner-spacing);
 }
 
-// The link editor's popover, grown a chat input: the same surface tokens, so
-// the floating fields always look alike.
+:host([hidden]) {
+  display: none;
+}
+
+// The bar: the chat input, then the row of ways on — on the link editor's
+// field tokens, so the composer's fields always look alike.
 .ai-panel {
-  @include toolbar.floating-toolbar;
+  display: flex;
   flex-direction: column;
-  align-items: stretch;
   gap: 8px;
-  width: min(520px, calc(100vw - 32px));
+  padding: 8px;
   background-color: var(--email-compose-link-background, var(--mat-sys-surface-container, #f3f3f3));
   border-radius: var(--email-compose-link-corner, var(--mat-sys-corner-medium, 8px));
 }
 
-// The library's chat input, on the link editor's field tokens.
 .ai-panel__chat {
   --email-chat-input-background: var(
     --email-compose-link-input-background,
