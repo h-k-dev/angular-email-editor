@@ -1362,9 +1362,18 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   block; a padding alone makes one only round a column, since a builder's
   text block sits in a padded cell too); the toolbar's fill goes onto a
   selected button; (4) a `background: url(…)` shorthand leaves the CSSOM's
-  colour _transparent_, which read as black — no fill now. Not carried:
-  `text-transform: uppercase` (no mark for it), a builder's padding
-  between blocks, and a size outside the kit's ladder.
+  colour _transparent_, which read as black — no fill now. Since: the
+  **case** is carried too — `textTransform` (uppercase, lowercase,
+  capitalize) joins the text-style span's attributes, inherited down like
+  a colour, set and cleared by `setTextTransform`/`unsetTextTransform`,
+  with an `uppercase` toggle on the toolbar (a navbar's HOME is HOME
+  again, the words as typed underneath) — and so is a **cell's padding**:
+  a dissolved cell (and a builder's plain wrapper div) shares its box out
+  among the blocks it held, the sides on every block, the top on the
+  first, the bottom on the last, and a paragraph keeps it as `spacing`
+  (`t r b l`, px), emitted as `margin` — what the Word engine honours on
+  a block, where a padding it does not — with an indent folded into the
+  left side. Still not carried: a size outside the kit's ladder.
 
 - **A section's background image (2026-09-26).** MJML's `background-url`,
   our way: a band may carry an image behind its content (`image` attr, an

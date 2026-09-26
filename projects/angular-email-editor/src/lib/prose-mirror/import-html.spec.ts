@@ -113,6 +113,19 @@ describe('inheritTextStyles', () => {
     expect(span.textContent).toBe('Loose words');
   });
 
+  it('shares a plain wrapper div’s padding out among its blocks, and passes text-transform down', () => {
+    const doc = document(
+      '<div style="padding: 10px 25px; text-transform: uppercase"><p>One</p><p>Two</p></div>',
+    );
+    inheritTextStyles(doc.body);
+    const wrapper = doc.body.firstElementChild as HTMLElement;
+    const [one, two] = Array.from(wrapper.children) as HTMLElement[];
+    expect(wrapper.style.padding).toBe('');
+    expect(one.style.padding).toBe('10px 25px 0px');
+    expect(two.style.padding).toBe('0px 25px 10px');
+    expect(one.querySelector('span')?.style.textTransform).toBe('uppercase');
+  });
+
   it('keeps an anchor’s own colour, and passes no zero font-size (a builder’s gap killer)', () => {
     const doc = document(
       '<td style="font-size:0px"><div><a href="https://x.io" style="color:#000000;font-size:12px"> home </a></div></td>',
@@ -151,6 +164,10 @@ describe('unwrapLayoutTables', () => {
     // A block with an alignment of its own keeps it; one without takes the cell's.
     expect(title.style.textAlign).toBe('left');
     expect(sub.style.textAlign).toBe('center');
+    // The cell's padding, shared out: the sides on both, the top on the
+    // first, the bottom on the last.
+    expect(title.style.padding).toBe('10px 25px 0px');
+    expect(sub.style.padding).toBe('0px 25px 10px');
     // An inline run becomes a paragraph of the cell's alignment.
     expect(go.tagName).toBe('DIV');
     expect(go.style.textAlign).toBe('center');
@@ -265,11 +282,11 @@ describe('unwrapLayoutTables', () => {
     // The title: centred, in the colour its wrapping div declared (its
     // 15px is not one of the kit's sizes, and goes).
     expect(out).toContain(
-      '<div style="text-align: center;"><span style="color: rgb(189, 135, 20);">SUNNIEST DESTINATIONS</span></div>',
+      '<div style="text-align: center; margin: 10px 25px;"><span style="color: rgb(189, 135, 20);">SUNNIEST DESTINATIONS</span></div>',
     );
     // The button: ours, in MJML's colour, centred — and no section round it.
     expect(out).toContain(
-      '<div style="text-align: center;"><a href="https://mjml.io" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: rgb(189, 135, 20); color: rgb(255, 255, 255); font-weight: normal; text-decoration: none; border-width: 14px 28px; border-style: solid; border-color: rgb(189, 135, 20);">BOOK NOW</a></div>',
+      '<div style="text-align: center; margin: 20px 25px;"><a href="https://mjml.io" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: rgb(189, 135, 20); color: rgb(255, 255, 255); font-weight: normal; text-decoration: none; border-width: 14px 28px; border-style: solid; border-color: rgb(189, 135, 20);">BOOK NOW</a></div>',
     );
     expect(out).not.toContain('bgcolor=');
     expect(out).not.toContain('<table');
@@ -286,7 +303,9 @@ describe('unwrapLayoutTables', () => {
     const editor = createEditor({ parent: mount, extensions: emailExtensions, content: html });
     const out = editor.getHTML();
     expect(out).toContain('<div style="text-align: center;">');
-    expect(out).toMatch(/<span style="color: rgb\(0, 0, 0\); font-size: 12px;">home ?<\/span>/);
+    expect(out).toMatch(
+      /<span style="color: rgb\(0, 0, 0\); font-size: 12px; text-transform: uppercase;">home ?<\/span>/,
+    );
     expect(out).toContain('href="https://x.io/4"');
     editor.destroy();
   });

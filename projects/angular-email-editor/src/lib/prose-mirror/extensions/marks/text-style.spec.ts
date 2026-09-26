@@ -26,6 +26,38 @@ function applyToHello(command: ReturnType<(typeof commands)[string]>): string {
   return serializeToHTML(state.doc, schema);
 }
 
+describe('textStyle text-transform', () => {
+  const roundTrip = (html: string) => serializeToHTML(parseHTML(html, schema), schema);
+
+  it('parses, emits and round-trips the case the words are shown in', () => {
+    const out = roundTrip('<div><span style="text-transform: uppercase">home</span></div>');
+    expect(out).toBe('<div><span style="text-transform: uppercase;">home</span></div>');
+    expect(roundTrip(out)).toBe(out);
+    // `none` is the words as written: no mark.
+    expect(roundTrip('<div><span style="text-transform: none">x</span></div>')).toBe(
+      '<div>x</div>',
+    );
+  });
+
+  it('sets and clears through the commands, and the uppercase action toggles', () => {
+    const doc = parseHTML('<div>home</div>', schema);
+    let state = EditorState.create({ doc, selection: TextSelection.create(doc, 1, 5) });
+    const run = (command: (s: EditorState, d: (tr: any) => void) => boolean) =>
+      command(state, (tr) => (state = state.apply(tr)));
+    run(commands['setTextTransform']('uppercase'));
+    expect(serializeToHTML(state.doc, schema)).toContain('text-transform: uppercase;');
+    const action = TextStyle.actions!({ schema, extensions: emailExtensions })[0];
+    expect(action.id).toBe('uppercase');
+    expect(action.isActive!(state)).toBe(true);
+    run(action.command);
+    expect(action.isActive!(state)).toBe(false);
+    expect(serializeToHTML(state.doc, schema)).toBe('<div>home</div>');
+    run(commands['setTextTransform']('capitalize'));
+    run(commands['unsetTextTransform']());
+    expect(serializeToHTML(state.doc, schema)).toBe('<div>home</div>');
+  });
+});
+
 describe('toEmailSafeColor', () => {
   it('reads no colour in a CSS-wide keyword — the CSSOM’s word for a shorthand’s colour', () => {
     expect(toEmailSafeColor('initial')).toBeNull();

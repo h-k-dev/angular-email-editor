@@ -111,6 +111,7 @@ describe('FormattingToolbar', () => {
       'format_align_centerAlign center',
       'format_align_rightAlign right',
       'format_strikethroughStrikethrough',
+      'keyboard_capslockUppercase',
       'format_clearClear formatting',
       'table_chartInsert table',
     ]);
@@ -142,6 +143,7 @@ describe('FormattingToolbar', () => {
       'Underline',
       'Link',
       'Strikethrough',
+      'Uppercase',
       'Clear formatting',
     ]);
     // A group that is wide-only through and through (quote and alignment,

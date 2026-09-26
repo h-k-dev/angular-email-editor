@@ -134,3 +134,35 @@ describe('indent and outdent commands', () => {
     );
   });
 });
+
+describe('email paragraph spacing', () => {
+  it('reads a builder’s padding, or a margin that is more than an indent, as the line’s box — emitted as margin, a fixpoint', () => {
+    const doc = parseHTML(
+      '<div style="padding: 10px 25px">padded</div>' +
+        '<div style="margin: 0px 25px 20px">margined</div>' +
+        '<div style="margin-left: 40px">indented</div>',
+      schema,
+    );
+    expect(doc.child(0).attrs['spacing']).toBe('10px 25px');
+    expect(doc.child(1).attrs['spacing']).toBe('0px 25px 20px');
+    expect(doc.child(2).attrs['spacing']).toBeNull();
+    expect(doc.child(2).attrs['indent']).toBe(1);
+    const out = serializeToHTML(doc, schema);
+    expect(out).toBe(
+      '<div style="margin: 10px 25px;">padded</div>' +
+        '<div style="margin: 0px 25px 20px;">margined</div>' +
+        '<div style="margin-left: 40px;">indented</div>',
+    );
+    expect(serializeToHTML(parseHTML(out, schema), schema)).toBe(out);
+  });
+
+  it('folds an indent into a spaced line’s left side', () => {
+    const doc = parseHTML('<div style="margin: 10px 25px">x</div>', schema);
+    const spaced = doc
+      .child(0)
+      .type.create({ ...doc.child(0).attrs, indent: 1 }, doc.child(0).content);
+    expect(serializeToHTML(doc.copy(doc.content.replaceChild(0, spaced)), schema)).toBe(
+      '<div style="margin: 10px 25px 10px 65px;">x</div>',
+    );
+  });
+});

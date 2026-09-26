@@ -75,17 +75,67 @@ function indentOf(node: HTMLElement): number {
 }
 
 function attrsOf(node: HTMLElement) {
-  return { align: alignmentOf(node), indent: indentOf(node) };
+  const spacing = spacingOf(node);
+  // With a box of its own the line's margins are the box's: no indent read
+  // off the same margin-left twice.
+  return { align: alignmentOf(node), indent: spacing ? 0 : indentOf(node), spacing };
+}
+
+/** The room a line keeps round itself — a builder's cell padding, carried
+    onto the line (the import shares a dissolved cell's box out): its
+    `padding`, else its `margin` where that is more than the indent's
+    `margin-left` alone; as the four sides in px, `t r b l` normalised the
+    way the CSSOM prints a shorthand, or null for none. */
+function spacingOf(node: HTMLElement): string | null {
+  const style = node.style;
+  if (!style) return null;
+  const px = (value: string) => /^(\d+(?:\.\d+)?)px$/.exec(value.trim())?.[1] ?? null;
+  const sides = (prefix: 'padding' | 'margin'): [string, string, string, string] | null => {
+    const raw = [
+      style.getPropertyValue(`${prefix}-top`),
+      style.getPropertyValue(`${prefix}-right`),
+      style.getPropertyValue(`${prefix}-bottom`),
+      style.getPropertyValue(`${prefix}-left`),
+    ].map((side) => (side ? px(side) : '0'));
+    if (raw.some((side) => side === null)) return null;
+    const box = raw as [string, string, string, string];
+    return box.some((side) => parseFloat(side) > 0) ? box : null;
+  };
+  const padding = sides('padding');
+  const margin = sides('margin');
+  // A margin-left alone is the indent, read elsewhere.
+  const box =
+    padding ??
+    (margin && (margin[0] !== '0' || margin[1] !== '0' || margin[2] !== '0') ? margin : null);
+  if (!box) return null;
+  const probe = document.createElement('div');
+  probe.style.margin = box.map((side) => `${side}px`).join(' ');
+  return probe.style.margin || null;
 }
 
 /** The inline style a paragraph serializes with — none when it carries
-    neither an alignment nor an indent. */
+    neither an alignment, an indent nor a spacing. A spacing is written as
+    `margin`: what the Word engine honours on a block (a padding it does
+    not), and Gmail the same; the indent rides on its left side. */
 function styleOf(attrs: Record<string, any>): { style: string } | Record<never, never> {
+  const indent = (attrs['indent'] ?? 0) * INDENT_STEP;
   const declarations = [
     attrs['align'] && `text-align: ${attrs['align']};`,
-    attrs['indent'] > 0 && `margin-left: ${attrs['indent'] * INDENT_STEP}px;`,
+    attrs['spacing']
+      ? `margin: ${indent > 0 ? withLeft(attrs['spacing'], indent) : attrs['spacing']};`
+      : indent > 0 && `margin-left: ${indent}px;`,
   ].filter(Boolean);
   return declarations.length ? { style: declarations.join(' ') } : {};
+}
+
+/** A spacing with an indent added to its left side — one `margin` says
+    both; parsed back, the sum is the spacing's (the indent folded in). */
+function withLeft(spacing: string, extra: number): string {
+  const probe = document.createElement('div');
+  probe.style.margin = spacing;
+  const left = /^(\d+(?:\.\d+)?)px$/.exec(probe.style.marginLeft)?.[1] ?? '0';
+  probe.style.marginLeft = `${parseFloat(left) + extra}px`;
+  return probe.style.margin || spacing;
 }
 
 /**
@@ -220,6 +270,9 @@ export const EmailParagraph = defineNode({
     attrs: {
       align: { default: null },
       indent: { default: 0 },
+      /** The room round the line, `t r b l` in px — a builder's cell
+          padding carried over; emitted as `margin`. Null for none. */
+      spacing: { default: null },
     },
     parseDOM: [
       // The empty-line marker first (same tags, earlier rules win): its <br>

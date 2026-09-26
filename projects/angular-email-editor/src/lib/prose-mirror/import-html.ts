@@ -214,20 +214,22 @@ export function unwrapLayoutTables(root: ParentNode): void {
 
 /** What a wrapper's cell hands over: its children — reversed when written
     right-to-left — with the cell's own alignment (`align`, `text-align`)
-    carried onto them, since the cell goes: onto each block that has none
-    of its own, and round the inline runs (a button, a row of links) as a
-    paragraph of that alignment. */
+    and padding carried onto them, since the cell goes: the alignment onto
+    each block that has none of its own, and round the inline runs (a
+    button, a row of links) as a paragraph of that alignment; the padding
+    shared out as {@link distributePadding} does. */
 function cellContent(cell: HTMLTableCellElement, table: HTMLTableElement): globalThis.Node[] {
   const children = Array.from(cell.childNodes);
   if (cell.style.direction === 'rtl' || table.style.direction === 'rtl') children.reverse();
   const align = alignmentOf(cell);
-  if (!align) return children;
+  const box = paddingOf(cell);
+  if (!align && !box) return children;
   const out: globalThis.Node[] = [];
   let run: globalThis.Node[] = [];
   const flush = () => {
     if (run.some((node) => node.textContent?.trim() || node.nodeType === 1)) {
       const paragraph = cell.ownerDocument.createElement('div');
-      paragraph.style.textAlign = align;
+      if (align) paragraph.style.textAlign = align;
       paragraph.append(...run);
       out.push(paragraph);
     }
@@ -236,14 +238,72 @@ function cellContent(cell: HTMLTableCellElement, table: HTMLTableElement): globa
   for (const child of children) {
     if (child instanceof HTMLElement && isBlock(child)) {
       flush();
-      if (!alignsItself(child)) child.style.textAlign = align;
+      if (align && !alignsItself(child)) child.style.textAlign = align;
       out.push(child);
     } else {
       run.push(child);
     }
   }
   flush();
+  if (box)
+    distributePadding(
+      box,
+      out.filter((node): node is HTMLElement => node instanceof HTMLElement && isBlock(node)),
+    );
   return out;
+}
+
+/** A box's four sides, in px — top, right, bottom, left. */
+type Box = [number, number, number, number];
+
+/** An element's padding, where it declares one that is not all zeros —
+    the CSSOM's longhands, else the attribute's own shorthand. */
+export function paddingOf(el: HTMLElement): Box | null {
+  const px = (value: string): number => {
+    const m = /^(-?\d+(?:\.\d+)?)(?:px)?$/.exec(value.trim());
+    return m ? parseFloat(m[1]) : 0;
+  };
+  let box: Box;
+  if (
+    el.style.paddingTop ||
+    el.style.paddingRight ||
+    el.style.paddingBottom ||
+    el.style.paddingLeft
+  ) {
+    box = [
+      px(el.style.paddingTop),
+      px(el.style.paddingRight),
+      px(el.style.paddingBottom),
+      px(el.style.paddingLeft),
+    ];
+  } else {
+    const raw = inlineValue(el, 'padding');
+    if (!raw) return null;
+    const parts = raw.split(/\s+/).map(px);
+    if (!parts.length || parts.length > 4) return null;
+    const [t, r = t, b = t, l = r] = parts;
+    box = [t, r, b, l];
+  }
+  return box.some((side) => side > 0) ? box : null;
+}
+
+/** Shares a dissolved box's padding out among the blocks it held, the way
+    the box laid them out: the sides on every block, the top on the first,
+    the bottom on the last — on top of any padding of their own. A table or
+    a list takes none (they read no padding); a paragraph, a heading, a div
+    do, and a paragraph's becomes its spacing. */
+export function distributePadding(box: Box, blocks: HTMLElement[]): void {
+  const takers = blocks.filter((block) => !/^(TABLE|UL|OL|HR)$/.test(block.tagName));
+  takers.forEach((block, index) => {
+    const own = paddingOf(block) ?? [0, 0, 0, 0];
+    const next: Box = [
+      own[0] + (index === 0 ? box[0] : 0),
+      own[1] + box[1],
+      own[2] + (index === takers.length - 1 ? box[2] : 0),
+      own[3] + box[3],
+    ];
+    block.style.padding = next.map((side) => `${side}px`).join(' ');
+  });
 }
 
 /** A cell's or block's own alignment — centre or right; left is the
@@ -382,7 +442,7 @@ function inlineValue(el: HTMLElement, property: string): string {
 /** What an ancestor's style hands down to the words: the properties CSS
     inherits that the schema reads — a colour, a size, a face off a
     `<span>`, an alignment off the block. */
-const INHERITED = ['color', 'font-size', 'font-family'] as const;
+const INHERITED = ['color', 'font-size', 'font-family', 'text-transform'] as const;
 
 /**
  * Writes down what CSS would inherit. A builder puts `color`, `font-size`,
@@ -455,6 +515,19 @@ export function inheritTextStyles(root: ParentNode): void {
       }
     }
     flush();
+    // A builder's plain wrapper div (no column, no centring div of ours: no
+    // `display`, no `max-width`) with a padding round blocks: shared out
+    // among them, since the schema reads a paragraph's box, not a div's.
+    if (el.tagName === 'DIV' && !inlineValue(el, 'display') && !inlineValue(el, 'max-width')) {
+      const blocks = Array.from(el.children).filter(
+        (child): child is HTMLElement => child instanceof HTMLElement && isBlock(child),
+      );
+      const box = blocks.length ? paddingOf(el) : null;
+      if (box) {
+        distributePadding(box, blocks);
+        el.style.padding = '';
+      }
+    }
     // Down into the children with what they were handed. A span just made
     // holds what stood here — an anchor with a colour of its own among it,
     // which is visited in turn.

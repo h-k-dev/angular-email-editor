@@ -12,6 +12,7 @@ export type FormattingItemId =
   | 'italic'
   | 'underline'
   | 'strike'
+  | 'uppercase'
   | 'color'
   | 'link'
   | 'button-link'
@@ -102,6 +103,14 @@ export function formattingItems(
       label: 'Strikethrough',
       icon: 'format_strikethrough',
       ...action('strike'),
+    },
+    // The case the words are shown in, the words as typed underneath — a
+    // navbar's, a heading's; what a builder's `text-transform` becomes.
+    uppercase: {
+      id: 'uppercase',
+      label: 'Uppercase',
+      icon: 'keyboard_capslock',
+      ...action('uppercase'),
     },
     // The picker is this toolbar's own: it opens an overlay at the button
     // and shows what the selection carries, not an on/off. One button for

@@ -46,7 +46,7 @@ const LAYOUT: FormattingLayout = [
   ['bold', 'italic', 'underline', 'color'],
   ['link', 'bulleted-list', 'numbered-list', 'outdent', 'indent'],
   ['quote', 'align-left', 'align-center', 'align-right'],
-  ['strike', 'clear-formatting'],
+  ['strike', 'uppercase', 'clear-formatting'],
   ['table'],
 ];
 
