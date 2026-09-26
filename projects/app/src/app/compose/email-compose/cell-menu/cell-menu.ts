@@ -123,9 +123,13 @@ export class CellMenu {
     });
   }
 
-  /** Where a list stands: beside its row, top edges level. */
+  /** Where a list stands: its first row level with its row — the row's
+      offset in the menu less the menu's padding, which the list has again
+      above its own first row. */
   protected subTop(item: MenuItem<CellAction>): number {
-    return item.element.offsetTop;
+    const menu = item.element.offsetParent;
+    const padding = menu ? parseFloat(getComputedStyle(menu).paddingTop) || 0 : 0;
+    return item.element.offsetTop - padding;
   }
 
   protected pick(action: CellAction): void {

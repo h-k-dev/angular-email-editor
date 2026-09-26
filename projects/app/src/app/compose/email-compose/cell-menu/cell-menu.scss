@@ -18,12 +18,14 @@
   @include menu.separator;
 }
 
-// A list: beside the menu, its top edge on its row's (`top` is written by
-// the component from the row), away while Aria says it is not visible.
-// The colour list runs past a screen, so it scrolls.
+// A list: over the menu's edge, the way a cascading menu's is (Windows's,
+// Notion's) — no gap for the pointer to fall through on its way over, and
+// the list reads as the row's own — its first row level with its row
+// (`top` is written by the component from the row), away while Aria says
+// it is not visible. The colour list runs past a screen, so it scrolls.
 .cell-menu__sub {
   position: absolute;
-  inset-inline-start: calc(100% + 4px);
+  inset-inline-start: calc(100% - 6px);
   min-inline-size: 208px;
   max-block-size: min(60vh, 480px);
   overflow-y: auto;
