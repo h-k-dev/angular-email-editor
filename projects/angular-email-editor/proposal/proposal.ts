@@ -10,6 +10,7 @@ import {
   isStreaming,
   proposalRange,
   proposeContent,
+  reviseProposal,
   stopProposal,
 } from 'angular-email-editor';
 import { editorState } from 'angular-email-editor/actions';
@@ -43,6 +44,16 @@ export interface EditorProposal {
     callback: (writer: ContentStreamWriter) => Promise<void> | void,
     options?: Omit<StreamContentOptions, 'history'> & { target?: number | ContentStreamRange },
   ): ContentStreamRun | null;
+  /** Writes a part of the proposal again — `range`, inside it, or the
+      editor's selection when it lies inside — the rest standing. `null`
+      when there is no proposal holding it. */
+  revise(
+    callback: (writer: ContentStreamWriter) => Promise<void> | void,
+    options?: Omit<StreamContentOptions, 'history'> & { range?: ContentStreamRange },
+  ): ContentStreamRun | null;
+  /** The editor's selection, when it is a range inside the proposal —
+      what {@link revise} would write again; null otherwise. */
+  readonly selectedPart: Signal<ContentStreamRange | null>;
   /** Stops the writing where it is; what is proposed stays proposed. */
   stop(): void;
   /** Takes the proposal into the document: one change, one undo. */
@@ -106,8 +117,23 @@ export function injectProposal(
       height: end.bottom - end.top,
     };
   });
+  const selectedPart = computed<ContentStreamRange | null>(() => {
+    const now = state();
+    const proposed = now && proposalRange(now);
+    if (!now || !proposed) return null;
+    const { from, to, empty } = now.selection;
+    return !empty && from >= proposed.from && to <= proposed.to ? { from, to } : null;
+  });
   return {
     active: computed(() => range() !== null),
+    selectedPart,
+    revise: (callback, options = {}) => {
+      const current = editor();
+      const { range: given, ...rest } = options;
+      const part = given ?? selectedPart();
+      if (!current || !part) return null;
+      return reviseProposal(current.view, part, callback, rest);
+    },
     streaming,
     thinking: computed(() => {
       const current = range();

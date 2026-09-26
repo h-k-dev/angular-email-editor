@@ -75,6 +75,7 @@ export default {
       instructions: 'Anweisungen',
       prompt: 'Sagen Sie dem Assistenten, was sich noch ändern soll…',
       send: 'Senden',
+      stop: 'Anhalten',
       voice: 'Spracheingabe (demnächst)',
       thinking: 'Der Assistent denkt nach…',
       discard: 'Verwerfen',

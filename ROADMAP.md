@@ -1276,7 +1276,18 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   over the text (`Popover.close()`, which asks the shown panel) closes
   first — a click in the text is editing, and Apply takes the proposal as
   it stands, the writer's edits with it; `AiRequest.instructions` carries
-  the words (the stand-in understands "short", and thinks 1.2s first). Which also answers the first item of the
+  the words (the stand-in understands "short", and thinks 1.2s first).
+  Later the same day: one message at a time — the send button is a stop
+  button while the model works, Enter is refused meanwhile, and Ctrl-Enter
+  (⌘-Enter) with a proposal standing is Apply, heard before the editor's
+  own send (a capture listener while the bar is up; swallowed while the
+  model writes); Discard and Apply are small outlined buttons alike, the
+  toolbar starts off. And a *part*: with a range of the proposal selected
+  in the text, the ask writes that part again — `reviseProposal` in the
+  library (the proposal's range maps through the stream instead of
+  following it, never below the stream's end), `revise` and
+  `selectedPart` on `injectProposal`, `AiRequest.selection` for the
+  stand-in, which rewrites the part (short: its first sentence). Which also answers the first item of the
   agenda above, from the other side: the argument does not ride the `/`
   query, it has a field of its own. Found on the way: a stopped stream
   ended twice — at once on abort and again as `done` settled — and the

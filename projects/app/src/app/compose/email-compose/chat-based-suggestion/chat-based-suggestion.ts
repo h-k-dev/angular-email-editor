@@ -15,6 +15,7 @@ import {
 import { MatIconModule } from '@angular/material/icon';
 
 // Library
+import { ContentStreamWriter } from 'angular-email-editor';
 import { ChatInput } from 'angular-email-editor/chat-input';
 import { ProposalAccept, ProposalDiscard, injectProposal } from 'angular-email-editor/proposal';
 
@@ -94,27 +95,42 @@ export class ChatBasedSuggestion {
   /** Something to send: the field is not empty. */
   protected readonly canSend = computed(() => this.instructions().trim() !== '');
 
+  /** The assistant is at work — thinking, or writing — and the send button
+      is a stop button: one message at a time. */
+  protected readonly busy = this.proposal.streaming;
+
   protected readonly chat = viewChild(ChatInput);
 
   /** What the writer asked from, for as long as the bar is up. */
   #ask: AiAsk | null = null;
 
   constructor() {
-    // Escape, from anywhere on the page — the text, the input, a button.
-    // One thing at a time: a menu up over the text (a bubble on a
-    // selection in the proposal, a link editor) closes first; with none
-    // up, the proposal goes. Only while the bar is up; an IME's own
-    // Escape stays the IME's.
+    // Keys from anywhere on the page — the text, the input, a button —
+    // while the bar is up, heard before anything else (the capture phase):
+    // - Escape, one thing at a time: a menu up over the text (a bubble on
+    //   a selection in the proposal, a link editor) closes first; with none
+    //   up, the proposal goes;
+    // - Ctrl-Enter (⌘-Enter on a Mac) is Apply, not the message's send: a
+    //   proposal on the table is what the key commits, and the editor's
+    //   own binding never sees it. While the assistant still writes, the
+    //   key is swallowed — nothing is sent either way.
+    // An IME's own keys stay the IME's.
     effect((onCleanup) => {
       if (!this.open()) return;
       const onKeydown = (event: KeyboardEvent) => {
-        if (event.key !== 'Escape' || event.isComposing) return;
-        event.preventDefault();
-        if (this.#popover.close()) return;
-        this.close();
+        if (event.isComposing) return;
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          if (this.#popover.close()) return;
+          this.close();
+        } else if (event.key === 'Enter' && (isMac() ? event.metaKey : event.ctrlKey)) {
+          event.preventDefault();
+          event.stopPropagation();
+          if (!this.busy() && this.proposal.accept()) this.applied();
+        }
       };
-      this.#document.addEventListener('keydown', onKeydown);
-      onCleanup(() => this.#document.removeEventListener('keydown', onKeydown));
+      this.#document.addEventListener('keydown', onKeydown, true);
+      onCleanup(() => this.#document.removeEventListener('keydown', onKeydown, true));
     });
   }
 
@@ -131,12 +147,21 @@ export class ChatBasedSuggestion {
   }
 
   /** The chat input's Enter, or the send button: asks once more, with the
-      instructions, over what is there. */
+      instructions — over what is there, or, with a part of the proposal
+      selected in the text, over that part alone. Not while the assistant
+      is still at work: one message at a time. */
   protected ask(instructions = this.instructions()): void {
-    if (!instructions.trim()) return;
+    if (!instructions.trim() || this.busy()) return;
     this.instructions.set(instructions);
     this.#write();
     this.chat()?.clear();
+    this.chat()?.focus();
+  }
+
+  /** The stop button: the writing stops where it is; what has come stays
+      proposed, to apply, discard, or ask over. */
+  protected stop(): void {
+    this.proposal.stop();
     this.chat()?.focus();
   }
 
@@ -156,22 +181,30 @@ export class ChatBasedSuggestion {
   }
 
   /** Asks the assistant and proposes the answer at the caret — over an
-      earlier proposal, which goes. */
+      earlier proposal, which goes; or, with a part of it selected, writes
+      that part again, the rest standing. */
   #write(): void {
     const ask = this.#ask;
-    if (!ask) return;
+    const editor = this.#commands.editor();
+    if (!ask || !editor) return;
+    const part = this.proposal.selectedPart();
     const request = {
       before: ask.before,
       language: this.language()(),
       instructions: this.instructions(),
+      ...(part && { selection: editor.state.doc.textBetween(part.from, part.to, '\n', ' ') }),
     };
-    this.proposal
-      .propose(
-        async ({ write, signal }) => {
-          for await (const piece of this.#ai.write(request, { signal })) write(piece);
-        },
-        { format: 'html' },
-      )
-      ?.done.catch((reason) => console.error(reason));
+    const callback = async ({ write, signal }: ContentStreamWriter) => {
+      for await (const piece of this.#ai.write(request, { signal })) write(piece);
+    };
+    const run = part
+      ? this.proposal.revise(callback, { format: 'html', range: part })
+      : this.proposal.propose(callback, { format: 'html' });
+    run?.done.catch((reason) => console.error(reason));
   }
+}
+
+/** Whether the keyboard is a Mac's: ⌘ where others hold Ctrl. */
+function isMac(): boolean {
+  return typeof navigator !== 'undefined' && /Mac|iP(hone|ad|od)/.test(navigator.platform);
 }

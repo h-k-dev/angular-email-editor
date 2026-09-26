@@ -29,9 +29,17 @@ export interface ContentProposalOptions {
 
 interface ProposalMeta {
   range: ContentStreamRange | null;
+  /** Whether the range follows the stream's own (a fresh proposal) or only
+      maps through it (a revision of a part, streamed inside it). */
+  snap?: boolean;
 }
 
-const key = new PluginKey<ContentStreamRange | null>('contentProposal');
+interface ProposalPluginState {
+  range: ContentStreamRange;
+  snap: boolean;
+}
+
+const key = new PluginKey<ProposalPluginState | null>('contentProposal');
 
 /** What each editor's running proposal is stopped with. */
 const runs = new WeakMap<EditorView, ContentStreamRun>();
@@ -42,7 +50,7 @@ export const isProposing = (state: EditorView['state']): boolean => !!key.getSta
 
 /** Where the proposal stands, if there is one. */
 export const proposalRange = (state: EditorView['state']): ContentStreamRange | null =>
-  key.getState(state) ?? null;
+  key.getState(state)?.range ?? null;
 
 /**
  * Lets content be **proposed** into the document — an assistant's answer,
@@ -75,30 +83,34 @@ export const createContentProposal = (
   return defineExtension({
     name: 'contentProposal',
     plugins: () => [
-      new Plugin<ContentStreamRange | null>({
+      new Plugin<ProposalPluginState | null>({
         key,
         state: {
           init: () => null,
           apply: (tr, previous) => {
-            let range = previous;
             const meta = tr.getMeta(key) as ProposalMeta | undefined;
-            if (meta) return meta.range;
-            if (!range) return null;
-            // The stream's own transaction says exactly where it has got
-            // to; any other change maps the range through — closing in, as
-            // the stream's does, so a stray edit at an edge is not proposed.
+            if (meta) return meta.range ? { range: meta.range, snap: meta.snap ?? true } : null;
+            if (!previous) return null;
+            let { range } = previous;
+            const { snap } = previous;
+            // A fresh proposal follows the stream's own transaction, which
+            // says exactly where it has got to. A revision streams *inside*
+            // the proposal: the range maps through it like any change —
+            // closing in at the edges, as the stream's does, so a stray edit
+            // there is not proposed — but never below the stream's end.
             const streamed = streamedRange(tr);
-            if (streamed) return streamed;
+            if (streamed && snap) return { range: streamed, snap };
             if (tr.docChanged) {
               const from = tr.mapping.map(range.from, 1);
-              range = { from, to: Math.max(from, tr.mapping.map(range.to, -1)) };
+              const to = Math.max(from, tr.mapping.map(range.to, -1), streamed?.to ?? from);
+              range = { from, to };
             }
-            return range;
+            return range === previous.range ? previous : { range, snap };
           },
         },
         props: {
           decorations: (state) => {
-            const range = key.getState(state);
+            const range = key.getState(state)?.range;
             if (!range || range.to <= range.from) return null;
             return DecorationSet.create(state.doc, [
               Decoration.inline(range.from, range.to, { class: className }),
@@ -107,8 +119,8 @@ export const createContentProposal = (
         },
         view: (editorView) => ({
           update: (view, previous) => {
-            const range = key.getState(view.state) ?? null;
-            const before = key.getState(previous) ?? null;
+            const range = key.getState(view.state)?.range ?? null;
+            const before = key.getState(previous)?.range ?? null;
             const streaming = !!range && isStreaming(view.state);
             const was = !!before && isStreaming(previous);
             if (range === before && streaming === was) return;
@@ -163,6 +175,36 @@ export function proposeContent(
   return run;
 }
 
+/**
+ * Revises a *part* of the proposal: `range`, inside it, is replaced by what
+ * `callback` streams — "rewrite this bit" — while the rest of the proposal
+ * stands, still proposed, and the whole is accepted or discarded together
+ * as before. Null (and nothing streamed) when no proposal holds the range.
+ */
+export function reviseProposal(
+  view: EditorView,
+  range: ContentStreamRange,
+  callback: (writer: ContentStreamWriter) => Promise<void> | void,
+  options: Omit<StreamContentOptions, 'history'> = {},
+): ContentStreamRun | null {
+  const current = key.getState(view.state);
+  if (!current || range.from < current.range.from || range.to > current.range.to) return null;
+  stopProposal(view);
+  // Mapping, not following: the stream's range is the part's, not the
+  // proposal's.
+  view.dispatch(
+    view.state.tr
+      .setMeta(key, { range: current.range, snap: false } satisfies ProposalMeta)
+      .setMeta('addToHistory', false),
+  );
+  const run = streamContent(view, range, callback, { ...options, history: false });
+  runs.set(view, run);
+  run.done.finally(() => {
+    if (runs.get(view) === run) runs.delete(view);
+  });
+  return run;
+}
+
 /** Stops the writing where it is; what is proposed stays proposed. */
 export function stopProposal(view: EditorView): void {
   runs.get(view)?.stop();
@@ -174,7 +216,7 @@ export function stopProposal(view: EditorView): void {
  * it back. The caret lands after it. False when nothing is proposed.
  */
 export function acceptProposal(view: EditorView): boolean {
-  const range = key.getState(view.state);
+  const range = key.getState(view.state)?.range;
   if (!range) return false;
   stopProposal(view);
   const { from, to } = range;
@@ -209,7 +251,7 @@ export function discardProposal(view: EditorView): boolean {
 /** The transaction that takes the proposal out — stopping the writing
     first — or null when nothing is proposed. */
 function discardTransaction(view: EditorView): Transaction | null {
-  const range = key.getState(view.state);
+  const range = key.getState(view.state)?.range;
   if (!range) return null;
   stopProposal(view);
   const tr = view.state.tr

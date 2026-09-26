@@ -10,6 +10,9 @@ export interface AiRequest {
       prompt: "shorter", "mention the deadline", a list of points to make.
       Empty or absent: the assistant's own judgement. */
   instructions?: string;
+  /** A part of the earlier answer the writer selected: the answer is that
+      part, written again to the instructions — nothing else. */
+  selection?: string;
 }
 
 export interface AiOptions {
@@ -169,11 +172,14 @@ export class Ai {
   /** The continuation, in pieces to append as they come: each a word with
       the space that separates it from what is already there. */
   async *write(
-    { before, language = 'en', instructions = '' }: AiRequest,
+    { before, language = 'en', instructions = '', selection }: AiRequest,
     { signal }: AiOptions = {},
   ): AsyncGenerator<string, void, void> {
     await pause(AI_LATENCY, signal);
-    const text = this.#continuation(before, language, instructions);
+    const text =
+      selection !== undefined
+        ? this.#rewrite(selection, instructions)
+        : this.#continuation(before, language, instructions);
     // Japanese has no spaces to break at: it arrives a couple of characters
     // at a time, and joins on without one.
     if (language === 'ja') {
@@ -192,6 +198,15 @@ export class Ai {
       glue = ' ';
       await pause(AI_WORD_DELAY, signal);
     }
+  }
+
+  /** A selected part, written again. The stand-in knows one instruction
+      here too, *short*: the part's first sentence; otherwise the part as it
+      was, its markup escaped — a model would paraphrase. */
+  #rewrite(selection: string, instructions: string): string {
+    const short = /short|brief|kurz|knapp|短|簡潔/i.test(instructions);
+    const text = short ? (/^.*?[.!?。！？](?=\s|$)/s.exec(selection)?.[0] ?? selection) : selection;
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
   /** What to write. On an empty line: a whole email. After text: a way on,

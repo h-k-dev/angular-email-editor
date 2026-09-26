@@ -10,6 +10,7 @@ import {
   isProposing,
   proposalRange,
   proposeContent,
+  reviseProposal,
 } from './content-proposal';
 import { richTextExtensions } from './kits';
 
@@ -172,6 +173,30 @@ describe('createContentProposal / proposeContent', () => {
     expect(html()).toBe(canon('<p>Hallo,</p><ul><li><p>eins</p></li><li><p>zwei</p></li></ul>'));
     expect(editor.exec(undo)).toBe(true);
     expect(html()).toBe(canon('<p></p>'));
+  });
+
+  it('a part is written again inside the proposal, the rest standing', async () => {
+    const { writer, finish, run } = open();
+    writer.write(' One. Two. Three.');
+    finish();
+    await run.done;
+    const whole = proposalRange(editor.state)!;
+    const start = editor.state.doc.textContent.indexOf('Two.') + 1;
+    let again!: ContentStreamWriter;
+    const revision = reviseProposal(editor.view, { from: start, to: start + 4 }, (given) => {
+      again = given;
+      return new Promise<void>(() => undefined);
+    });
+    expect(revision).not.toBeNull();
+    again.write('Zwei.');
+    expect(html()).toBe(canon('<p>We met last week. One. Zwei. Three.</p>'));
+    // Still the whole proposal, grown by the part's difference.
+    expect(proposalRange(editor.state)).toEqual({ from: whole.from, to: whole.to + 1 });
+    expect(acceptProposal(editor.view)).toBe(true);
+    expect(editor.exec(undo)).toBe(true);
+    expect(html()).toBe(canon(ORIGINAL));
+    // Nothing to revise outside a proposal.
+    expect(reviseProposal(editor.view, { from: 1, to: 3 }, () => undefined)).toBeNull();
   });
 
   it('the editor going away stops the writing', () => {

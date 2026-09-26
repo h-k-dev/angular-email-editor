@@ -69,6 +69,7 @@ export default {
       instructions: '指示',
       prompt: 'アシスタントに他に変更してほしい点を伝えてください…',
       send: '送信',
+      stop: '停止',
       voice: '音声入力（準備中）',
       thinking: 'アシスタントが考えています…',
       discard: '破棄',

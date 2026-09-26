@@ -236,7 +236,9 @@ describe('ChatBasedSuggestion', () => {
   it('the chat input’s Enter asks again with the instructions, over the earlier proposal', async () => {
     await ask();
     await feed(' Bitte');
-    // Typed into the chat input (a list item), then sent with Ctrl-Enter.
+    await feed(null);
+    // Typed into the chat input (a list item), then sent with Enter — the
+    // chat's own; Ctrl-Enter is Apply while a proposal stands.
     const chat = (host.panel() as any).chat().editor();
     chat.commands['toggleBulletList']();
     chat.view.dispatch(chat.state.tr.insertText('kurz'));
@@ -251,18 +253,89 @@ describe('ChatBasedSuggestion', () => {
       }),
     );
     await settle();
+    // Ctrl-Enter applied instead: the proposal is the message's now.
+    expect(asked).toHaveLength(1);
+    expect(dialog()).toBeNull();
+    expect(html()).toBe('<div>We met last week. Bitte</div>');
+    expect(isProposing(host.editor.state)).toBe(false);
+  });
+
+  it('one message at a time: Ctrl-Enter is swallowed and Enter refused while it writes; Stop ends it', async () => {
+    await ask();
+    await feed(' Bitte');
+    const input = dialog()!.querySelector<HTMLElement>('.email-chat-input__editor')!;
+    const chat = (host.panel() as any).chat().editor();
+    chat.view.dispatch(chat.state.tr.insertText('kurz'));
+    await settle();
+    // The send button is a stop button now.
+    expect(dialog()!.querySelector('[aria-label="Send"]')).toBeNull();
+    const stop = dialog()!.querySelector<HTMLButtonElement>('[aria-label="Stop"]')!;
+    expect(stop).not.toBeNull();
+    // Enter: refused, nothing asked; Ctrl-Enter: swallowed, nothing applied.
+    input.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    );
+    input.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Enter',
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await settle();
+    expect(asked).toHaveLength(1);
+    expect(isProposing(host.editor.state)).toBe(true);
+    expect(dialog()).not.toBeNull();
+    // Stop: the writing ends where it is, and stays proposed.
+    stop.click();
+    await settle();
     expect(aborted).toBe(1);
+    expect(proposedText()).toBe(' Bitte');
+    expect(dialog()!.querySelector('[aria-label="Send"]')).not.toBeNull();
+    // The instructions are still there: sent now, they ask over the whole.
+    input.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    );
+    await settle();
+    expect(asked[1]?.instructions).toBe('kurz');
+  });
+
+  it('with a part of the proposal selected, the ask writes that part again, the rest standing', async () => {
+    await ask();
+    await feed(' Bitte lesen. Danke.');
+    await feed(null);
+    // "lesen" selected in the text.
+    const text = host.editor.state.doc.textContent;
+    const from = text.indexOf('lesen') + 1;
+    host.editor.view.dispatch(
+      host.editor.state.tr.setSelection(
+        TextSelection.create(host.editor.state.doc, from, from + 5),
+      ),
+    );
+    await settle();
+    const chat = (host.panel() as any).chat().editor();
+    chat.view.dispatch(chat.state.tr.insertText('lauter'));
+    await settle();
+    dialog()!.querySelector<HTMLButtonElement>('[aria-label="Send"]')!.click();
+    await settle();
     expect(asked[1]).toEqual({
       before: 'We met last week.',
       language: 'de',
-      instructions: '- kurz',
+      instructions: 'lauter',
+      selection: 'lesen',
     });
-    // The first proposal went with the ask; the new one takes its place.
-    expect(html()).toBe(ORIGINAL);
-    await feed(' Kurz.');
+    // The part goes with the first piece that takes its place; the rest
+    // stands throughout.
+    expect(html()).toBe('<div>We met last week. Bitte lesen. Danke.</div>');
+    await feed('LESEN');
     await feed(null);
-    expect(html()).toBe('<div>We met last week. Kurz.</div>');
-    expect(proposedText()).toBe(' Kurz.');
+    expect(html()).toBe('<div>We met last week. Bitte LESEN. Danke.</div>');
+    expect(proposedText()).toBe(' Bitte LESEN. Danke.');
+    button('Apply').click();
+    await settle();
+    expect(host.editor.exec(undo)).toBe(true);
+    expect(html()).toBe(ORIGINAL);
   });
 
   it('the send button asks with what is typed, and shows the model thinking until the first word', async () => {
