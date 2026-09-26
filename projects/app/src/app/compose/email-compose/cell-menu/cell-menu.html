@@ -1,10 +1,12 @@
 <!-- The menu, for the composer's one popover: Angular Aria's, with its two
      lists nested inside as submenus — beside their rows (the stylesheet
      places them by `top`), open on hover or the right arrow, hidden while
-     not (`data-visible`). Escape is ours: it hands the caret back. -->
+     not (`data-visible`), with macOS's grace for the pointer on its way to
+     one (`menuSafeTriangle`). Escape is ours: it hands the caret back. -->
 <ng-template #panel>
   <div
     ngMenu
+    menuSafeTriangle
     #menu
     class="cell-menu"
     aria-label="Cell options"

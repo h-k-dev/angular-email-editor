@@ -14,6 +14,13 @@
   @include menu.item;
 }
 
+// On the pointer's way to an open list (the safe triangle's grace), the
+// row it crosses is not hovered: the one that opened the list keeps the
+// highlight.
+.cell-menu[data-grace] > .cell-menu__item:not([aria-expanded='true']):hover {
+  background-color: transparent;
+}
+
 .cell-menu__separator {
   @include menu.separator;
 }

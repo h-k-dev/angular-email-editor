@@ -29,6 +29,7 @@ import { TextSelection } from 'prosemirror-state';
 
 import { FormattingCommands } from '../formatting-commands';
 import { Popover } from '../popover/popover';
+import { MenuSafeTriangle } from './safe-triangle';
 
 /** What a row of the menu does, as the item's value: `text:<hex>` or
     `text:` (default), `fill:<hex>` or `fill:` (none), `align:<left|center|
@@ -44,10 +45,11 @@ type CellAction = string;
  * Built on Angular Aria's menu (`ngMenu`, `ngMenuItem` with `submenu`):
  * the keys are the menu's while it is up — arrows walk it, Right and
  * Enter open a list, Left closes one, typing jumps to a row, Escape
- * leaves — which is why, unlike the band menus, this one *takes* focus
- * when it opens and hands it back to the text when it closes. The caret
- * stays where it was: every action reads the selection the editor kept.
- * A list runs past the screen, so it scrolls.
+ * leaves — and the pointer has macOS's grace on its way from a row to its
+ * list (`MenuSafeTriangle`) — which is why, unlike the band menus, this
+ * one *takes* focus when it opens and hands it back to the text when it
+ * closes. The caret stays where it was: every action reads the selection
+ * the editor kept. A list runs past the screen, so it scrolls.
  */
 @Component({
   selector: 'div[cell-menu]',
@@ -58,6 +60,7 @@ type CellAction = string;
     // Angular Aria
     Menu,
     MenuItem,
+    MenuSafeTriangle,
   ],
   templateUrl: './cell-menu.html',
   styleUrl: './cell-menu.scss',

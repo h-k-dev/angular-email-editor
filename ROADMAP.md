@@ -1324,7 +1324,13 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   paged panel: its lists are cascading submenus that open beside their row
   on hover or the right arrow, and the keys are the menu's while it is up —
   arrows walk it, Right and Enter open a list, Left closes one, typing
-  jumps to a row, Escape leaves — so, unlike the band menus, it _takes_
+  jumps to a row, Escape leaves — and the pointer has macOS's grace on its
+  way from a row to its list (`MenuSafeTriangle`, on the root menu: while
+  the pointer stays inside the triangle from where it just was to the
+  list's near edge, a hover on a row it crosses is stopped before Aria
+  hears it; rest there and the hover is replayed after a moment). A list
+  overlaps the menu's edge by a few pixels, Windows's way, its first row
+  level with the row that opened it. So, unlike the band menus, it _takes_
   focus when it opens (onto its first row, one render after the popover
   shows it) and hands the caret back to the cell when it closes. No new
   library directive was needed for that: Aria's primitives carry the
