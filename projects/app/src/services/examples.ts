@@ -64,6 +64,11 @@ export class Examples {
       for good where they cannot (nothing serves them in a unit test). */
   readonly documents = signal<readonly ExampleDocument[]>([]);
 
+  /** The HTML of the example last loaded into a message, as the file holds
+      it — the message's *original*, for the preview to draw beside the
+      editor's reading. Null until one is. */
+  readonly loaded = signal<string | null>(null);
+
   constructor() {
     void this.#preload();
   }

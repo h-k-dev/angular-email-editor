@@ -42,6 +42,9 @@ export interface DraftContent {
   /** The inbox snippet; absent in drafts written before it existed. */
   readonly previewText?: string;
   readonly html: string;
+  /** The HTML as it came in, before the editor read it; absent for a
+      message written here, and in drafts written before it existed. */
+  readonly original?: string | null;
   readonly attachments: readonly DraftAttachment[];
 }
 
@@ -66,7 +69,7 @@ export interface SaveOptions {
     recognisable without comparing field by field. */
 export function serializeDraft(content: DraftContent | null): string | null {
   if (!content) return null;
-  const { from, to, cc, bcc, subject, previewText, html, attachments } = content;
+  const { from, to, cc, bcc, subject, previewText, html, original, attachments } = content;
   return JSON.stringify({
     v: 1,
     from,
@@ -77,6 +80,7 @@ export function serializeDraft(content: DraftContent | null): string | null {
     // Left out when empty, so a draft without one stays the string it was.
     ...(previewText && { previewText }),
     html,
+    ...(original && { original }),
     attachments: attachments.map(({ id, name, type, size }) => ({ id, name, type, size })),
   });
 }
@@ -93,7 +97,7 @@ export function parseDraft(raw: string | null): DraftContent | null {
     return null;
   }
   if (!isRecord(value) || value['v'] !== 1) return null;
-  const { from, to, cc, bcc, subject, previewText, html, attachments } = value;
+  const { from, to, cc, bcc, subject, previewText, html, original, attachments } = value;
   if (
     !isStrings(from) ||
     !isStrings(to) ||
@@ -102,6 +106,7 @@ export function parseDraft(raw: string | null): DraftContent | null {
     typeof subject !== 'string' ||
     (previewText !== undefined && typeof previewText !== 'string') ||
     typeof html !== 'string' ||
+    (original !== undefined && original !== null && typeof original !== 'string') ||
     !Array.isArray(attachments) ||
     !attachments.every(isDraftAttachment)
   ) {
@@ -115,6 +120,7 @@ export function parseDraft(raw: string | null): DraftContent | null {
     subject,
     ...(previewText !== undefined && { previewText }),
     html,
+    ...(original !== undefined && { original }),
     attachments,
   };
 }

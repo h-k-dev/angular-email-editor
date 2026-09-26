@@ -190,6 +190,12 @@ export class ApiReference {
           does: 'A dot on the caret cell’s right edge — the six-dot handle under the pointer — that hands the host the cell to open a menu for (the demo’s: colour, alignment, clear contents), the caret staying; clearCells empties the caret’s cell or every selected one.',
         },
         {
+          name: 'renderForClient · RENDERING_CLIENTS',
+          signature:
+            "(html, client: 'apple-mail' | 'gmail' | 'outlook-desktop', { dark? }) => string",
+          does: 'The email as a client would draw it — a whole document for a sandboxed frame, from the client-support data: the client’s surface laid under the HTML (a fragment or a whole pasted document, its head kept), and what the data says the client ignores taken out — Gmail’s dropped comments, form controls and unmatched style rules, Outlook’s opened conditional comments, lost media queries and ignored declarations, an inline-block column stacked — with the client’s dark mode on request.',
+        },
+        {
           name: 'emailPlainText',
           signature: '(html: string) => string',
           does: 'The text/plain projection of the canonical HTML — the other half of a well-formed multipart/alternative body.',

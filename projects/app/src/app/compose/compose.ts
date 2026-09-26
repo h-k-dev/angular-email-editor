@@ -6,9 +6,11 @@ import {
   // Signals
   afterNextRender,
   computed,
+  effect,
   inject,
   linkedSignal,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 
@@ -31,6 +33,7 @@ import { DropHint } from './drop-hint/drop-hint';
 import { HtmlEmailCompose } from './html-email-compose/html-email-compose';
 import { EmailPreview } from './email-preview/email-preview';
 import { KeepDraft } from './message-form/keep-draft';
+import { Examples } from '../../services/examples';
 import { MessageForm } from './message-form/message-form';
 import { Viewport } from '../../services/viewport';
 
@@ -92,6 +95,8 @@ export class Compose {
       signal. */
   protected readonly viewport = inject(Viewport);
 
+  readonly #examples = inject(Examples);
+
   /** Where the HTML source shows (the writer bar's </> and detach
       buttons). Owned here because revealing a finding has to
       switch to a view that can show it. Going narrow folds a detached pane
@@ -142,6 +147,15 @@ export class Compose {
   );
 
   readonly #injector = inject(Injector);
+
+  constructor() {
+    // An example loaded whole is the message's original from then on: the
+    // file's HTML, for the preview to draw beside the editor's reading.
+    effect(() => {
+      const html = this.#examples.loaded();
+      if (html) untracked(() => this.sheet().original.set(html));
+    });
+  }
   protected sourcePane = viewChild.required(HtmlEmailCompose);
 
   /** Live word/line counter, measured mathematically by the email pane. */

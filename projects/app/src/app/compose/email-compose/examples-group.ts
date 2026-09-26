@@ -34,7 +34,11 @@ export function examplesGroup(examples: Examples): SuggestionGroup {
         keywords: [doc.set.short, doc.set.key, ...(doc.set.dialect ? [doc.set.dialect] : [])],
         detail: doc.set.short,
         icon: 'article',
-        command: replaceHTML(doc.html),
+        // The file's HTML is the message's original from here on.
+        command: (state, dispatch, view) => {
+          if (dispatch) examples.loaded.set(doc.html);
+          return replaceHTML(doc.html)(state, dispatch, view);
+        },
       }));
     },
   };

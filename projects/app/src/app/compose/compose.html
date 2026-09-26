@@ -39,6 +39,7 @@
     [hidden]="!previewOpen()"
     [active]="previewOpen()"
     [html]="sheet.html()"
+    [original]="sheet.original()"
     aria-label="Email preview"
   ></section>
   <!-- The message: the sheet every message in the app is written on (the
@@ -118,6 +119,7 @@
     [hidden]="sourceView() === 'hidden'"
     [active]="sourceView() !== 'hidden'"
     [(html)]="sheet.html"
+    (htmlChange)="sheet.original.set($event)"
     [(diagnostics)]="diagnostics"
     aria-label="Email HTML source"
   ></section>

@@ -198,6 +198,17 @@ export class MessageForm {
     set: (html) => this.message.update((m) => (m.html === html ? m : { ...m, html })),
   });
 
+  /** The HTML as it came in — the source pane's text as pasted or typed, an
+      example loaded whole — before the editor read it; null for a message
+      written here. Kept on the message, so the preview can draw it beside
+      the editor's reading for each client. */
+  readonly original = linkedSignal<string | null, string | null>({
+    source: () => this.message().original,
+    computation: (original) => original,
+    set: (original) =>
+      this.message.update((m) => (m.original === original ? m : { ...m, original })),
+  });
+
   /** Where the frame shows the HTML source; the editor steps out of code
       view by writing it. */
   readonly sourceView = model<SourceView>('hidden');

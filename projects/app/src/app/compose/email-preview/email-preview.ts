@@ -1,35 +1,20 @@
-import {
-  Component,
-  computed,
-  inject,
-  input,
-  linkedSignal,
-  signal,
-  untracked,
-} from '@angular/core';
+import { Component, computed, inject, input, linkedSignal, signal, untracked } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 // Library
-import { InlineImages, emailPlainText } from 'angular-email-editor';
+import {
+  CLIENT_LABELS,
+  InlineImages,
+  RENDERING_CLIENTS,
+  RenderingClient,
+  emailPlainText,
+  renderForClient,
+} from 'angular-email-editor';
 
 import { atRest } from '../at-rest';
 
 /** Approximates a mail client's rendering surface: default typography on
     white — the email itself carries no such defaults, the client does. */
-const CLIENT_SURFACE = `
-  body { margin: 16px; background: #ffffff; color: #202124;
-         font-family: Arial, Helvetica, sans-serif; font-size: 14px;
-         line-height: 20px; word-wrap: break-word; }
-`;
-
-/** Simulated Gmail-style forced inversion: invert + hue-rotate keeps
-    mid-tones roughly themselves (the dual-contrast band), flips the
-    extremes — a simulation, not a screenshot, and labeled as such. */
-const FORCED_INVERSION = `
-  html { filter: invert(1) hue-rotate(180deg); background: #ffffff; }
-  img { filter: invert(1) hue-rotate(180deg); }
-`;
-
 /** The preview is phone-width, full stop: per the responsiveness ledger, an
     email that reads at 320px is free at any desktop width — so a wider
     preview never shows anything a narrower one did not already prove. */
@@ -48,6 +33,11 @@ export class EmailPreview {
 
   /** Canonical email HTML — input only; a preview never talks back. */
   html = input('');
+
+  /** The HTML as it came in — pasted into the source pane, or an example
+      loaded whole — before the editor read it, where there is one. The
+      preview can show it beside the editor's reading, for each client. */
+  original = input<string | null>(null);
 
   /** Whether the preview is on screen. While it is not, it holds still: a
       hidden frame's `srcdoc` would still be parsed and laid out on every
@@ -75,21 +65,37 @@ export class EmailPreview {
 
   view = signal<'html' | 'text'>('html');
   mode = signal<'light' | 'dark'>('light');
+
+  /** The client the frame draws for — Apple Mail reads it all, Gmail and
+      Outlook each in their way (`renderForClient`). */
+  client = signal<RenderingClient>('apple-mail');
+  protected readonly clients = RENDERING_CLIENTS;
+  protected readonly clientLabels = CLIENT_LABELS;
+
+  /** Whose HTML the frame draws: the editor's canonical form, or the
+      original as it came in. Back to the editor's when no original is. */
+  source = linkedSignal<string | null, 'editor' | 'original'>({
+    source: this.original,
+    computation: (original, previous) =>
+      original && previous?.value === 'original' ? 'original' : 'editor',
+  });
   protected readonly PHONE_WIDTH = PHONE_WIDTH;
 
   /** The composer's registry: `cid:` sources become data URLs for the frame
       (an opaque-origin sandbox cannot load the editor's blob URLs). */
   readonly #images = inject(InlineImages);
 
-  /** Our own canonical HTML inside a fully sandboxed frame (no scripts, no
+  /** The HTML the frame draws for its client — the editor's, or the
+      original — inside a fully sandboxed frame (no scripts, no
       same-origin), so bypassing the sanitizer is safe here. */
-  document = computed<SafeHtml>(() =>
-    this.#sanitizer.bypassSecurityTrustHtml(
-      `<!doctype html><html><head><meta charset="utf-8"><style>${CLIENT_SURFACE}${
-        this.mode() === 'dark' ? FORCED_INVERSION : ''
-      }</style></head><body>${this.#images.previewHtml(this.#shown())}</body></html>`,
-    ),
-  );
+  document = computed<SafeHtml>(() => {
+    const original = this.original();
+    const html =
+      this.source() === 'original' && original ? original : this.#images.previewHtml(this.#shown());
+    return this.#sanitizer.bypassSecurityTrustHtml(
+      renderForClient(html, this.client(), { dark: this.mode() === 'dark' }),
+    );
+  });
 
   /** The text/plain alternative of the same signal. */
   text = computed(() => emailPlainText(this.#shown()));

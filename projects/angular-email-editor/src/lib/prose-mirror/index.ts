@@ -5,6 +5,7 @@ export * from './import-html';
 export * from './html-source';
 export * from './dual-contrast';
 export * from './client-support';
+export * from './client-rendering';
 export * from './plain-text';
 export * from './email-document';
 export * from './reply';

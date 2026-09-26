@@ -1339,6 +1339,34 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   table's commands; a text colour goes on all the cell's words through a
   selection the menu makes and puts back.
 
+- **The preview, per client, and the original (2026-09-26).** Two fixes
+  and a pane. The preview opened blank until its HTML/Text toggle was
+  pressed: a `srcdoc` frame first laid out inside a hidden ancestor never
+  paints in Chromium until it is made again, so the frame now exists only
+  while the preview is on screen (its catch-up on opening was already
+  there). And what a client makes of the email: `renderForClient(html,
+client, { dark })` in the library — a simulation, in a browser, drawn
+  from the same client-support data the linter reads, not a screenshot
+  service — lays each client's surface under the email and takes out what
+  the data says it ignores: Apple Mail reads it all; Gmail drops the
+  comments, the form controls, the `<style>` rules it cannot match and
+  the declarations marked ignored there, and its dark mode inverts;
+  Outlook on Windows opens the conditional comments meant for it and
+  drops the parts kept from it, loses the media queries and the
+  declarations the Word engine ignores, stacks an inline-block column,
+  and leaves VML standing (a browser draws none of it — the colour
+  beneath shows, as in an Outlook without it). The library owns the
+  rendering because the data is the library's and the rule is one
+  function of the HTML; the app owns what to show it: the preview pane
+  gets a client choice (Apple Mail, Gmail, Outlook) and, where the
+  message has one, a source choice — the editor's reading, or the
+  **original** as it came in. The original is the app's: the message
+  (`Envelope.original`, kept in the draft) remembers the source pane's
+  text as pasted or typed and the file of an example loaded whole, so
+  the two can be held side by side per client. At phone width, the
+  original's own media queries apply — an MJML hamburger shows as it
+  would in iOS Mail.
+
 - **A builder's export, whole (2026-09-26).** MJML's "worldly" template
   showed what the import still dropped: its buttons came in blue, in a
   band of their own colour; its titles, navbar and hero text stood at the

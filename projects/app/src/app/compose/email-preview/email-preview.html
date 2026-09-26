@@ -11,16 +11,65 @@
     type="button"
     class="controls__toggle"
     [attr.aria-pressed]="mode() === 'dark'"
-    title="Simulated Gmail-style forced inversion"
+    title="The client's dark mode — Gmail's forced inversion, Apple Mail's and Outlook's dark surfaces"
     [disabled]="view() === 'text'"
     (click)="mode.set(mode() === 'light' ? 'dark' : 'light')"
   >
     {{ mode() === 'light' ? 'Light' : 'Dark' }}
   </button>
+
+  <!-- The client the frame draws for: what each keeps of the HTML and
+       drops, from the client-support data the linter reads. -->
+  <div class="controls__group" role="radiogroup" aria-label="Mail client">
+    @for (option of clients; track option) {
+      <button
+        type="button"
+        class="controls__toggle"
+        role="radio"
+        [attr.aria-checked]="client() === option"
+        [attr.aria-pressed]="client() === option"
+        [disabled]="view() === 'text'"
+        (click)="client.set(option)"
+      >
+        {{ clientLabels[option] }}
+      </button>
+    }
+  </div>
+
+  <!-- Whose HTML: the editor's reading, or the original as it came in. -->
+  @if (original()) {
+    <div class="controls__group" role="radiogroup" aria-label="Source">
+      <button
+        type="button"
+        class="controls__toggle"
+        role="radio"
+        [attr.aria-checked]="source() === 'editor'"
+        [attr.aria-pressed]="source() === 'editor'"
+        title="The message as the editor reads it"
+        (click)="source.set('editor')"
+      >
+        Editor
+      </button>
+      <button
+        type="button"
+        class="controls__toggle"
+        role="radio"
+        [attr.aria-checked]="source() === 'original'"
+        [attr.aria-pressed]="source() === 'original'"
+        title="The HTML as it was pasted or loaded, before the editor read it"
+        (click)="source.set('original')"
+      >
+        Original
+      </button>
+    </div>
+  }
 </header>
 
+<!-- The frame exists only while the preview is on screen: a srcdoc frame
+     first laid out inside a hidden ancestor never paints in Chromium until
+     it is made again — the preview opened blank until a view toggle. -->
 <div class="stage">
-  @if (view() === 'html') {
+  @if (active() && view() === 'html') {
     <iframe
       class="frame"
       sandbox
@@ -28,7 +77,7 @@
       [style.width.px]="PHONE_WIDTH"
       [srcdoc]="document()"
     ></iframe>
-  } @else {
+  } @else if (view() === 'text') {
     <pre class="text" [style.width.px]="PHONE_WIDTH">{{ text() }}</pre>
   }
 </div>

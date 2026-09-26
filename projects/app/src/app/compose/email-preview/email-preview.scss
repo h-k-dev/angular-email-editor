@@ -8,6 +8,8 @@
 
 .controls {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 4px;
   padding: 2px;
   flex: none;
@@ -17,6 +19,16 @@
     var(--mat-sys-surface-container, #f3f3f3)
   );
   border-radius: var(--email-preview-corner, var(--mat-sys-corner-medium, 8px));
+}
+
+// A choice of one — the client, the source — stands as a group, a hair
+// apart from the toggles.
+.controls__group {
+  display: inline-flex;
+  gap: 2px;
+  margin-inline-start: 6px;
+  padding-inline-start: 6px;
+  border-inline-start: 1px solid var(--mat-sys-outline-variant, #cccccc);
 }
 
 .controls__toggle {
