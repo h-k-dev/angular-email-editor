@@ -8,7 +8,7 @@ import {
 } from 'prosemirror-model';
 import { Command, Selection } from 'prosemirror-state';
 import { repairTables } from './extensions/nodes/table';
-import { dropHidden, inlineStyles, unwrapLayoutTables } from './import-html';
+import { dropHidden, inheritTextStyles, inlineStyles, unwrapLayoutTables } from './import-html';
 import { promoteMergeTags } from './extensions/nodes/merge-tag';
 import { bareButtons } from './extensions/nodes/button';
 
@@ -94,6 +94,7 @@ export function parseHTML(html: string, schema: Schema): Node {
   inlineStyles(dom);
   dropHidden(dom.body);
   unwrapLayoutTables(dom.body);
+  inheritTextStyles(dom.body);
   const parsed = ProseMirrorDOMParser.fromSchema(schema).parse(dom.body);
   return bareButtons(promoteMergeTags(repairTables(parsed, schema), schema), schema);
 }

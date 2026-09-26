@@ -78,14 +78,20 @@ describe('button', () => {
     const out = roundTrip(
       '<div><a href="https://x.io" style="display: inline-block; color: #000000; padding: 0 35px; text-decoration: none;">home</a></div>',
     );
-    expect(out).toContain('rel="noopener noreferrer">home</a>');
+    // A link — its colour kept, on a span inside (the import's inheritance).
+    expect(out).toContain(
+      'rel="noopener noreferrer"><span style="color: rgb(0, 0, 0);">home</span></a>',
+    );
     expect(out).not.toContain('background-color: rgb(26, 115, 232)');
-    // A fill alone makes the box; a border alone makes it too.
+    // A fill alone makes the box (in that fill, with the text it pairs); a
+    // border alone makes it too (the default blue, no fill said).
     expect(
       roundTrip(
         '<a href="https://x.io" style="display: inline-block; background-color: #333">Go</a>',
       ),
-    ).toContain(`style="${BUTTON_STYLE}">Go</a>`);
+    ).toContain(
+      'style="display: inline-block; background-color: rgb(51, 51, 51); color: rgb(255, 255, 255); font-weight: bold; text-decoration: none; border-width: 14px 28px; border-style: solid; border-color: rgb(51, 51, 51);">Go</a>',
+    );
     expect(
       roundTrip(
         '<a href="https://x.io" style="display: inline-block; border: 2px solid #333">Go</a>',
@@ -95,6 +101,20 @@ describe('button', () => {
     expect(
       roundTrip('<a href="https://x.io" style="display: inline-block; border: none">Go</a>'),
     ).not.toContain('background-color: rgb(26, 115, 232)');
+  });
+
+  it('keeps a builder’s fill: the box stays ours, in that colour, with the text the fill pairs', () => {
+    const out = roundTrip(
+      '<div><a href="https://x.io" style="display: inline-block; background: #bd8714; color: #FFFFFF; padding: 10px 25px; border-radius: 3px;">Book</a></div>',
+    );
+    expect(out).toContain(
+      'style="display: inline-block; background-color: rgb(189, 135, 20); color: rgb(255, 255, 255); font-weight: bold; text-decoration: none; border-width: 14px 28px; border-style: solid; border-color: rgb(189, 135, 20);">Book</a>',
+    );
+    expect(roundTrip(out)).toBe(out);
+    // Our own blue is the default — not carried as a fill.
+    expect(
+      roundTrip(`<div><a href="https://x.io" style="${BUTTON_STYLE}">CTA</a></div>`),
+    ).toContain(`style="${BUTTON_STYLE}">CTA</a>`);
   });
 
   it('refuses a script URL — the button is dropped, as the link mark drops it', () => {

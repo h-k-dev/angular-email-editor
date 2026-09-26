@@ -2,6 +2,7 @@ import { createEditor } from './editor';
 import { emailExtensions } from './extensions/kits';
 import {
   dropHidden,
+  inheritTextStyles,
   inlineStyles,
   mediaMatches,
   parseRules,
@@ -69,6 +70,21 @@ describe('dropHidden', () => {
     expect(doc.body.textContent).toBe('KeptText');
   });
 
+  it('drops the comments too — a builder’s Outlook conditionals — so a wrapper’s cell reads as elements alone', () => {
+    const doc = document(
+      '<table border="0" cellpadding="0" cellspacing="0" role="presentation"><tbody><tr><td align="center">' +
+        '<!--[if !mso]><!--><input type="checkbox" style="display:none !important"><!--<![endif]-->' +
+        '<div class="links"><a href="https://x.io">home</a></div>' +
+        '<!--[if mso | IE]></td></tr></table><![endif]--></td></tr></tbody></table>',
+    );
+    dropHidden(doc.body);
+    unwrapLayoutTables(doc.body);
+    expect(doc.body.querySelector('table')).toBeNull();
+    expect(doc.body.querySelector('input')).toBeNull();
+    expect(doc.body.innerHTML).not.toContain('<!--');
+    expect((doc.body.querySelector('.links') as HTMLElement).style.textAlign).toBe('center');
+  });
+
   it('reads a hidden rule the sheet folded in, and leaves visibility to the client', () => {
     const doc = document(
       '<style>.desktop-only { display: none !important; }</style>' +
@@ -77,6 +93,35 @@ describe('dropHidden', () => {
     inlineStyles(doc);
     dropHidden(doc.body);
     expect(doc.body.textContent).toBe('Stays');
+  });
+});
+
+describe('inheritTextStyles', () => {
+  it('hands a wrapping div’s colour, size and face down: onto its blocks, and round its runs as a span', () => {
+    const doc = document(
+      '<div style="color:#bd8714;font-size:15px;font-family:Ubuntu, Arial;text-align:center"><p>Title</p><p style="color:#000">Own</p>Loose words</div>',
+    );
+    inheritTextStyles(doc.body);
+    const [title, own, span] = Array.from(doc.body.firstElementChild!.children) as HTMLElement[];
+    expect(title.style.color).toBe('rgb(189, 135, 20)');
+    expect(title.style.fontSize).toBe('15px');
+    expect(title.style.textAlign).toBe('center');
+    expect(own.style.color).toBe('rgb(0, 0, 0)');
+    expect(own.style.fontSize).toBe('15px');
+    expect(span.tagName).toBe('SPAN');
+    expect(span.style.color).toBe('rgb(189, 135, 20)');
+    expect(span.textContent).toBe('Loose words');
+  });
+
+  it('keeps an anchor’s own colour, and passes no zero font-size (a builder’s gap killer)', () => {
+    const doc = document(
+      '<td style="font-size:0px"><div><a href="https://x.io" style="color:#000000;font-size:12px"> home </a></div></td>',
+    );
+    inheritTextStyles(doc.body);
+    const span = doc.body.querySelector('a > span') as HTMLElement;
+    expect(span.style.color).toBe('rgb(0, 0, 0)');
+    expect(span.style.fontSize).toBe('12px');
+    expect(doc.body.querySelectorAll('span')).toHaveLength(1);
   });
 });
 
@@ -92,6 +137,27 @@ describe('unwrapLayoutTables', () => {
     expect(doc.body.innerHTML).toBe('<img src="a.png"><div>text</div>');
   });
 
+  it('takes a column’s stack out — one cell a row — carrying each cell’s alignment onto what it held', () => {
+    const doc = document(
+      '<table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%"><tbody>' +
+        '<tr><td align="center" style="padding:10px 25px"><div style="text-align:left"><p>Title</p></div><div><p>Sub</p></div></td></tr>' +
+        '<tr><td align="center" style="padding:0"><a href="https://x.io" style="display:inline-block">Go</a></td></tr>' +
+        '<tr><td style="padding:0"><img src="a.png"></td></tr>' +
+        '</tbody></table>',
+    );
+    unwrapLayoutTables(doc.body);
+    expect(doc.body.querySelector('table')).toBeNull();
+    const [title, sub, go, img] = Array.from(doc.body.children) as HTMLElement[];
+    // A block with an alignment of its own keeps it; one without takes the cell's.
+    expect(title.style.textAlign).toBe('left');
+    expect(sub.style.textAlign).toBe('center');
+    // An inline run becomes a paragraph of the cell's alignment.
+    expect(go.tagName).toBe('DIV');
+    expect(go.style.textAlign).toBe('center');
+    expect(go.innerHTML).toContain('>Go</a>');
+    expect(img.tagName).toBe('IMG');
+  });
+
   it('hands a right-to-left cell’s children over in reverse', () => {
     const doc = document(wrapper('<div id="a">a</div><div id="b">b</div>', 'direction:rtl'));
     unwrapLayoutTables(doc.body);
@@ -100,7 +166,7 @@ describe('unwrapLayoutTables', () => {
 
   it('keeps a wrapper that is a band — a fill or a padding on it — for the section node', () => {
     const doc = document(
-      wrapper('<div>x</div>', 'padding: 20px 0') +
+      wrapper('<div style="display:inline-block;width:100%">x</div>', 'padding: 20px 0') +
         wrapper('<div>y</div>', 'background-color: #f1f3f4') +
         '<div style="background-color: #ffffff">' +
         wrapper('<div>z</div>') +
@@ -176,6 +242,52 @@ describe('unwrapLayoutTables', () => {
       3,
     );
     expect(out).not.toContain('background-color: rgb(26, 115, 232)');
+    editor.destroy();
+  });
+
+  it('brings an MJML column in whole: the centred title in its colour, the button in its own, no band round it', () => {
+    const mount = document('').body;
+    const html =
+      '<div class="mj-column-per-50" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;">' +
+      '<table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%"><tbody><tr><td style="vertical-align:top;padding:0px;">' +
+      '<table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%"><tbody>' +
+      '<tr><td align="center" style="font-size:0px;padding:10px 25px;word-break:break-word;">' +
+      '<div style="font-family:Ubuntu, Helvetica, Arial, sans-serif;font-size:15px;line-height:1;text-align:center;color:#BD8714;"><p>SUNNIEST DESTINATIONS</p></div></td></tr>' +
+      '<tr><td align="center" style="font-size:0px;padding:20px 25px;word-break:break-word;">' +
+      '<table border="0" cellpadding="0" cellspacing="0" role="presentation" style="border-collapse:separate;line-height:100%;"><tbody><tr>' +
+      '<td align="center" bgcolor="#bd8714" role="presentation" style="border:none;border-radius:3px;cursor:auto;mso-padding-alt:10px 25px;background:#bd8714;" valign="middle">' +
+      '<a href="https://mjml.io" style="display: inline-block; background: #bd8714; color: #FFFFFF; font-size: 13px; font-weight: normal; line-height: 120%; margin: 0; text-decoration: none; padding: 10px 25px; border-radius: 3px;" target="_blank"> BOOK NOW </a>' +
+      '</td></tr></tbody></table></td></tr>' +
+      '</tbody></table></td></tr></tbody></table></div>';
+    const editor = createEditor({ parent: mount, extensions: emailExtensions, content: html });
+    const out = editor.getHTML();
+    console.log('MJML COLUMN OUT', out);
+    // The title: centred, in the colour its wrapping div declared (its
+    // 15px is not one of the kit's sizes, and goes).
+    expect(out).toContain(
+      '<div style="text-align: center;"><span style="color: rgb(189, 135, 20);">SUNNIEST DESTINATIONS</span></div>',
+    );
+    // The button: ours, in MJML's colour, centred — and no section round it.
+    expect(out).toContain(
+      '<div style="text-align: center;"><a href="https://mjml.io" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: rgb(189, 135, 20); color: rgb(255, 255, 255); font-weight: normal; text-decoration: none; border-width: 14px 28px; border-style: solid; border-color: rgb(189, 135, 20);">BOOK NOW</a></div>',
+    );
+    expect(out).not.toContain('bgcolor=');
+    expect(out).not.toContain('<table');
+    editor.destroy();
+  });
+
+  it('centres an MJML navbar and keeps its links’ colour', () => {
+    const mount = document('').body;
+    const link = (text: string) =>
+      `<a class="mj-link" href="https://x.io/${text.length}" target="_blank" style="display: inline-block; color: #000000; font-size: 12px; font-weight: bold; line-height: 22px; text-decoration: none; text-transform: uppercase; padding: 0 35px;"> ${text} </a>`;
+    const html =
+      '<table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%"><tbody><tr><td align="center" style="font-size:0px;padding:0px;">' +
+      `<div class="mj-inline-links">${link('home')} ${link('Our blog')}</div></td></tr></tbody></table>`;
+    const editor = createEditor({ parent: mount, extensions: emailExtensions, content: html });
+    const out = editor.getHTML();
+    expect(out).toContain('<div style="text-align: center;">');
+    expect(out).toMatch(/<span style="color: rgb\(0, 0, 0\); font-size: 12px;">home ?<\/span>/);
+    expect(out).toContain('href="https://x.io/4"');
     editor.destroy();
   });
 });

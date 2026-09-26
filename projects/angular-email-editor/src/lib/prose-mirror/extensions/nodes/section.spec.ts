@@ -145,8 +145,24 @@ describe('section', () => {
     const out = canonical(mjml);
     expect(out).toContain('background="https://static.x.io/hero.jpg"');
     expect(out).toContain('<v:fill type="frame" src="https://static.x.io/hero.jpg" />');
+    // The shorthand's colour is transparent — no fill, not black.
+    expect(out).not.toContain('bgcolor=');
+    expect(out).not.toContain('background-color');
     expect(out).toContain('Are you seascape?');
     expect(canonical(out)).toBe(out);
+  });
+
+  it('is not a filled cell round one anchor — that is a button’s box, MJML’s', () => {
+    const out = canonical(
+      '<table border="0" cellpadding="0" cellspacing="0" role="presentation"><tbody><tr>' +
+        '<td align="center" bgcolor="#48b6bf" role="presentation" style="background:#48b6bf;border-radius:3px" valign="middle">' +
+        '<a href="https://x.io" style="display: inline-block; background: #48b6bf; color: #FFFFFF; padding: 10px 25px;">BOOK NOW</a>' +
+        '</td></tr></tbody></table>',
+    );
+    expect(out).not.toContain('max-width: 600px');
+    expect(out).not.toContain('bgcolor=');
+    expect(out).toContain('background-color: rgb(72, 182, 191);');
+    expect(out).toContain('>BOOK NOW</a>');
   });
 
   it('leaves a one-cell table with words in it a table', () => {

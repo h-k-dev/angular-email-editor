@@ -1339,6 +1339,33 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   table's commands; a text colour goes on all the cell's words through a
   selection the menu makes and puts back.
 
+- **A builder's export, whole (2026-09-26).** MJML's "worldly" template
+  showed what the import still dropped: its buttons came in blue, in a
+  band of their own colour; its titles, navbar and hero text stood at the
+  left, in the default colour; the hero band was black. Four things, each
+  the schema reading less than a client's cascade gives: (1) a builder's
+  **stack** — a column's blocks, one cell a row in a presentation table —
+  is now a wrapper too (`unwrapLayoutTables` takes a one-column table of
+  element-only cells out, not only a one-cell one), and a cell's `align`
+  goes with what it held: onto each block that says nothing of its own,
+  and round an inline run (a button, a row of links) as a paragraph of
+  that alignment; (2) **inheritance** is materialised
+  (`inheritTextStyles`): what a wrapping `<div>` or `<td>` declares —
+  `color`, `font-size`, `font-family`, `text-align` — is written onto the
+  blocks beneath it that have none, and round its runs as a `<span>`, an
+  anchor's own colour included (a navbar's black links stay black), a
+  builder's `font-size: 0` gap killer and a fill's paired text colour
+  excepted; (3) a **button keeps its fill** and its text colour
+  (`background`, `color` attrs, hex or null for ours): the box stays ours
+  — borders, square, Outlook's — in the builder's colour, and a filled
+  cell round one anchor is a button's box, not a band (a band holds a
+  block; a padding alone makes one only round a column, since a builder's
+  text block sits in a padded cell too); the toolbar's fill goes onto a
+  selected button; (4) a `background: url(…)` shorthand leaves the CSSOM's
+  colour _transparent_, which read as black — no fill now. Not carried:
+  `text-transform: uppercase` (no mark for it), a builder's padding
+  between blocks, and a size outside the kit's ladder.
+
 - **A section's background image (2026-09-26).** MJML's `background-url`,
   our way: a band may carry an image behind its content (`image` attr, an
   `http(s)` URL only — a data URL shows nothing in Gmail, a script is a

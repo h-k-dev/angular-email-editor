@@ -28,6 +28,13 @@ export function isSafeColor(color: string | null | undefined): color is string {
  */
 export function toEmailSafeColor(raw: string): string | null {
   if (!raw) return null;
+  // A CSS-wide keyword is no colour: `initial` is what the CSSOM says for a
+  // `background: url(…)` shorthand's colour, and it computes to black.
+  if (
+    /^(initial|inherit|unset|revert|revert-layer|transparent|currentcolor|none)$/i.test(raw.trim())
+  ) {
+    return null;
+  }
 
   // Already hex — fast path
   if (/^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(raw)) return raw;

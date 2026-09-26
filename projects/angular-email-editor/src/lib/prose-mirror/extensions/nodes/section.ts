@@ -4,6 +4,7 @@ import { defineNode } from '../../extension';
 import { emailBackgroundPalette, fillTextColor } from '../../dual-contrast';
 import { isSafeColor, toEmailSafeColor } from '../marks/text-style';
 import { parsePadding } from './table';
+import { holdsBlock, holdsColumn, isPadded } from '../../import-html';
 
 /** How wide a section's content runs: the email's container, centred in
     the band. */
@@ -220,6 +221,8 @@ function sectionAttrs(table: HTMLTableElement): Record<string, unknown> | false 
     (node) => node.nodeType === 3 /* text */ && !!node.textContent?.trim(),
   );
   if (hasWords) return false;
+  // A band holds blocks; a filled cell round one anchor is a button's box.
+  if (!holdsBlock(cell)) return false;
   const parent = table.parentElement;
   const raw =
     declaredBackground(cell) ||
@@ -232,7 +235,9 @@ function sectionAttrs(table: HTMLTableElement): Record<string, unknown> | false 
   const padding = parsePadding(cell);
   const background = raw && isSafeColor(raw) ? toEmailSafeColor(raw) : null;
   const image = declaredImage(table, cell, parent);
-  if (!background && !padding && !image) return false;
+  // A padding alone makes a band only round a column: a builder's text
+  // block sits in a padded cell too, and is a block, not a section.
+  if (!background && !image && !(isPadded(cell) && holdsColumn(cell))) return false;
   return { background, padding: padding ?? SECTION_PADDING, image };
 }
 
@@ -267,6 +272,9 @@ function declaredImage(
     which not every engine expands). */
 export function declaredBackground(el: Element): string {
   const cssom = (el as HTMLElement).style?.backgroundColor;
+  // A `background: url(…)` shorthand leaves the CSSOM's colour transparent
+  // — `rgba(0, 0, 0, 0)`, or `initial` — which is no fill, not black.
+  if (cssom && /^(rgba\([^)]*,\s*0\)|initial|transparent|inherit|unset)$/i.test(cssom)) return '';
   if (cssom) return cssom;
   const style = el.getAttribute('style') ?? '';
   const m = /(?:^|;)\s*background(?:-color)?\s*:\s*([^;]+)/i.exec(style);

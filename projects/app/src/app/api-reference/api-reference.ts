@@ -172,9 +172,10 @@ export class ApiReference {
           does: 'The document in and out of the schema — the round trip the two panes share.',
         },
         {
-          name: 'inlineStyles · unwrapLayoutTables',
-          signature: '(doc: Document, viewportWidth?) => void · (root: ParentNode) => void',
-          does: 'What parseHTML runs before the schema on a whole document: the <style> sheet folded into the elements it matches (document order, !important over inline, media queries answered for a 600px screen), and the builders’ one-cell presentation wrapper tables taken out, a right-to-left cell reversed — so an MJML export comes in as sections of columns, not empty grids.',
+          name: 'inlineStyles · dropHidden · unwrapLayoutTables · inheritTextStyles',
+          signature:
+            '(doc: Document, viewportWidth?) => void · (root: ParentNode) => void · (root) => void · (root) => void',
+          does: 'What parseHTML runs before the schema on a whole document: the <style> sheet folded into the elements it matches (document order, !important over inline, media queries answered for a 600px screen); display: none elements dropped; the builders’ presentation wrapper tables taken out — one cell, or a column’s stack of one-cell rows — a cell’s align carried onto what it held, a right-to-left cell reversed; and what a wrapping div or cell declares (colour, size, face, alignment) written onto the blocks and runs beneath, as CSS would inherit it — so an MJML export comes in as sections of columns with its titles centred, its links in their colour and its buttons in theirs.',
         },
         {
           name: 'Section · insertSection · setSectionBackground · setSectionImage · removeSection',

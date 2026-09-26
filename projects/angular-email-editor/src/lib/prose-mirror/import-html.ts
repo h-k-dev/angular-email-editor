@@ -18,11 +18,17 @@
  *    mobile-only variant — is dropped ({@link dropHidden}), rather than
  *    read as text standing in the message: the schema has no notion of
  *    hidden, and the client the import is drawn for would not show it.
+ * 4. **Inheritance.** A builder writes the colour, the size, the face and
+ *    the alignment on a wrapping `<div>` or `<td>` and lets CSS carry them
+ *    down; the schema reads a paragraph's alignment off the paragraph and
+ *    a colour off a `<span>`. What an ancestor declares is written down
+ *    onto the blocks and the runs beneath it ({@link inheritTextStyles}),
+ *    so it reaches the words the way a client's cascade would.
  */
 
 /**
- * Drops every element hidden with an inline `display: none` (the sheet's
- * having been folded in, a rule's counts too). A builder's export hides
+ * Drops the comments, and every element hidden with an inline
+ * `display: none` (the sheet's having been folded in, a rule's counts too). A builder's export hides
  * the part of a trick the client cannot pull off — the label of an
  * MJML hamburger menu, whose ☰ would otherwise stand in the message as
  * text — and the alternative of a responsive pair; a preview text sits
@@ -31,11 +37,21 @@
  * concern, not a rendering's.
  */
 export function dropHidden(root: ParentNode): void {
+  // Comments first — a builder's Outlook conditionals stand between the
+  // elements, and the schema never reads one; gone, a wrapper's cell is
+  // seen to hold nothing but elements.
+  const doc = root instanceof Document ? root : root.ownerDocument!;
+  const walker = doc.createTreeWalker(root, NodeFilter.SHOW_COMMENT);
+  const comments: globalThis.Node[] = [];
+  while (walker.nextNode()) comments.push(walker.currentNode);
+  for (const comment of comments) comment.parentNode?.removeChild(comment);
   for (const el of Array.from(root.querySelectorAll<HTMLElement>('[style]'))) {
     if (!el.isConnected) continue;
     if (/(?:^|;)\s*display\s*:\s*none\b/i.test(el.getAttribute('style') ?? '')) el.remove();
   }
 }
+
+import { isFillTextColor } from './dual-contrast';
 
 /** The width the import is drawn at: an email's container. A `min-width`
     media query at or below it applies; a `max-width` one below it does not. */
@@ -189,14 +205,97 @@ export function unwrapLayoutTables(root: ParentNode): void {
     // with it and still be there next round — either way the loop ends.
     for (const table of wrappers.reverse()) {
       if (!table.isConnected) continue;
-      const cell = table.rows[0].cells[0];
-      const children = Array.from(cell.childNodes);
-      if (cell.style.direction === 'rtl' || table.style.direction === 'rtl') children.reverse();
-      table.replaceWith(...children);
+      const content: globalThis.Node[] = [];
+      for (const row of Array.from(table.rows)) content.push(...cellContent(row.cells[0], table));
+      table.replaceWith(...content);
     }
   }
 }
 
+/** What a wrapper's cell hands over: its children — reversed when written
+    right-to-left — with the cell's own alignment (`align`, `text-align`)
+    carried onto them, since the cell goes: onto each block that has none
+    of its own, and round the inline runs (a button, a row of links) as a
+    paragraph of that alignment. */
+function cellContent(cell: HTMLTableCellElement, table: HTMLTableElement): globalThis.Node[] {
+  const children = Array.from(cell.childNodes);
+  if (cell.style.direction === 'rtl' || table.style.direction === 'rtl') children.reverse();
+  const align = alignmentOf(cell);
+  if (!align) return children;
+  const out: globalThis.Node[] = [];
+  let run: globalThis.Node[] = [];
+  const flush = () => {
+    if (run.some((node) => node.textContent?.trim() || node.nodeType === 1)) {
+      const paragraph = cell.ownerDocument.createElement('div');
+      paragraph.style.textAlign = align;
+      paragraph.append(...run);
+      out.push(paragraph);
+    }
+    run = [];
+  };
+  for (const child of children) {
+    if (child instanceof HTMLElement && isBlock(child)) {
+      flush();
+      if (!alignsItself(child)) child.style.textAlign = align;
+      out.push(child);
+    } else {
+      run.push(child);
+    }
+  }
+  flush();
+  return out;
+}
+
+/** A cell's or block's own alignment — centre or right; left is the
+    default, and not carried. */
+function alignmentOf(el: HTMLElement): 'center' | 'right' | null {
+  const align = (el.style.textAlign || el.getAttribute('align') || '').trim().toLowerCase();
+  return align === 'center' || align === 'right' ? align : null;
+}
+
+/** Whether a block says where its text goes, left included — a said
+    alignment is its own, and takes nothing from above. */
+function alignsItself(el: HTMLElement): boolean {
+  return !!(el.style.textAlign || el.getAttribute('align'));
+}
+
+const BLOCK_TAGS = new Set([
+  'div',
+  'p',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'ul',
+  'ol',
+  'li',
+  'blockquote',
+  'table',
+  'hr',
+  'section',
+  'article',
+  'header',
+  'footer',
+]);
+
+/** Whether an element lays out as a block — a column, a paragraph, a
+    table — as against a run of a line (a link, an image, a span). */
+export function isBlock(el: Element): boolean {
+  return BLOCK_TAGS.has(el.tagName.toLowerCase());
+}
+
+/** Whether a cell holds a block of its own — what a section's does, as
+    against a button's wrapper (one anchor) or an image's (one `<img>`). */
+export function holdsBlock(cell: Element): boolean {
+  return Array.from(cell.children).some(isBlock);
+}
+
+/** A builder's wrapper: one column of cells — one cell round a section,
+    a column or an image, or the stack a column's blocks sit in, a row
+    each — every cell holding elements alone. Never a table of ours: the
+    canonical form writes none of the builders' attributes. */
 function isWrapperTable(table: HTMLTableElement): boolean {
   if (table.getAttribute('role') !== 'presentation') return false;
   // A wrapper with a fill or a padding on it is a band — the section node's
@@ -209,23 +308,30 @@ function isWrapperTable(table: HTMLTableElement): boolean {
   ) {
     return false;
   }
-  if (table.rows.length !== 1 || table.rows[0].cells.length !== 1) return false;
-  const cell = table.rows[0].cells[0];
-  return Array.from(cell.childNodes).every(
-    (node) => node.nodeType === Node.ELEMENT_NODE || !node.textContent?.trim(),
+  if (!table.rows.length) return false;
+  return Array.from(table.rows).every(
+    (row) =>
+      row.cells.length === 1 &&
+      Array.from(row.cells[0].childNodes).every(
+        (node) => node.nodeType === Node.ELEMENT_NODE || !node.textContent?.trim(),
+      ),
   );
 }
 
-/** Whether a one-cell table carries what makes it a section: a fill or an
-    image on the cell, the table or the div wrapping it, or a padding on
-    the cell. */
+/** Whether a one-cell table carries what makes it a section: a block in
+    the cell (a button's wrapper round one anchor is a wrapper, whatever
+    its fill), and a fill or an image on the cell, the table or the div
+    wrapping it — or a padding on the cell round a *column* (a builder's
+    section holds its columns; a builder's text block sits in a padded
+    cell too, and is no band). */
 function isBand(table: HTMLTableElement): boolean {
   if (table.rows.length !== 1 || table.rows[0].cells.length !== 1) return false;
   const cell = table.rows[0].cells[0];
+  if (!holdsBlock(cell)) return false;
   const parent = table.parentElement;
   const declares = (el: Element, property: string) =>
     new RegExp(`(?:^|;)\\s*${property}\\s*:`, 'i').test(el.getAttribute('style') ?? '');
-  return !!(
+  const filled = !!(
     declares(cell, 'background(?:-color|-image)?') ||
     cell.getAttribute('bgcolor') ||
     cell.getAttribute('background') ||
@@ -234,7 +340,133 @@ function isBand(table: HTMLTableElement): boolean {
     table.getAttribute('background') ||
     (parent instanceof HTMLElement &&
       parent.tagName === 'DIV' &&
-      declares(parent, 'background(?:-color|-image)?')) ||
-    declares(cell, 'padding(?:-top|-right|-bottom|-left)?')
+      declares(parent, 'background(?:-color|-image)?'))
   );
+  return filled || (isPadded(cell) && holdsColumn(cell));
+}
+
+/** Whether a cell declares a padding that is not all zeros. */
+export function isPadded(cell: Element): boolean {
+  const style = cell.getAttribute('style') ?? '';
+  const m = /(?:^|;)\s*padding(?:-top|-right|-bottom|-left)?\s*:\s*([^;]+)/gi;
+  let match: RegExpExecArray | null;
+  while ((match = m.exec(style))) {
+    if (!/^(0(?:px|em|rem|%)?\s*)+$/.test(match[1].trim())) return true;
+  }
+  return false;
+}
+
+/** Whether a cell holds a column — a builder's inline-block div, or our
+    own centring div — which is what a section's cell holds. */
+export function holdsColumn(cell: Element): boolean {
+  return Array.from(cell.children).some(
+    (child) =>
+      child.tagName === 'DIV' &&
+      (/inline-block/i.test((child as HTMLElement).style.display) ||
+        !!(child as HTMLElement).style.maxWidth),
+  );
+}
+
+/** An inline declaration's value: the CSSOM's reading, else the attribute's
+    own words — an engine that trips on a shorthand before it drops the
+    rest. */
+function inlineValue(el: HTMLElement, property: string): string {
+  const cssom = el.style.getPropertyValue(property).trim();
+  if (cssom) return cssom;
+  const m = new RegExp(`(?:^|;)\\s*${property}\\s*:\\s*([^;]+)`, 'i').exec(
+    el.getAttribute('style') ?? '',
+  );
+  return m?.[1]?.trim() ?? '';
+}
+
+/** What an ancestor's style hands down to the words: the properties CSS
+    inherits that the schema reads — a colour, a size, a face off a
+    `<span>`, an alignment off the block. */
+const INHERITED = ['color', 'font-size', 'font-family'] as const;
+
+/**
+ * Writes down what CSS would inherit. A builder puts `color`, `font-size`,
+ * `font-family` and `text-align` on a wrapping `<div>` (MJML's text
+ * block), or `align` on a cell, and the words beneath inherit them; the
+ * schema reads a colour off a `<span>` and an alignment off the paragraph
+ * itself, so the cascade is materialised: each declaring element hands
+ * the properties to the blocks under it that declare none of their own
+ * (alignment among them), and wraps its runs of inline content in a
+ * `<span>` carrying the colour, the size and the face — an anchor's own
+ * colour included, which is how a navbar's black links stay black. Top
+ * down, so a grandchild takes the nearer ancestor's word. A `font-size`
+ * of 0 (a builder's way to kill the gaps between inline-block columns)
+ * is not a size and is not passed on.
+ */
+export function inheritTextStyles(root: ParentNode): void {
+  const doc = root instanceof Document ? root : root.ownerDocument!;
+  const declared = (el: HTMLElement): Partial<Record<(typeof INHERITED)[number], string>> => {
+    const out: Partial<Record<(typeof INHERITED)[number], string>> = {};
+    // A fill's paired text colour (our bands, columns and cells write one
+    // beside the fill) is the fill's, not an authored colour: the span rule
+    // absorbs it on a span, and it is not passed down here either.
+    const fill = el.style.backgroundColor || el.getAttribute('bgcolor') || '';
+    for (const property of INHERITED) {
+      const value = inlineValue(el, property);
+      if (!value || /^(inherit|initial|unset|transparent)$/i.test(value)) continue;
+      if (property === 'font-size' && /^0(px|em|rem|%)?$/.test(value)) continue;
+      if (property === 'color' && fill && isFillTextColor(value, fill)) continue;
+      out[property] = value;
+    }
+    return out;
+  };
+  const visit = (el: HTMLElement): void => {
+    const inherited = declared(el);
+    // A heading's size is the heading's own (the schema's headings say
+    // theirs), not a size to write onto its words.
+    if (/^H[1-6]$/.test(el.tagName)) delete inherited['font-size'];
+    const align = alignmentOf(el);
+    // A span (or a legacy font) is read for its own styles by the schema:
+    // nothing to hand down, and a span inside it would stand in its way.
+    const passes = Object.keys(inherited).length > 0 && !/^(SPAN|FONT)$/.test(el.tagName);
+    const made = new Set<Element>();
+    let run: globalThis.Node[] = [];
+    const flush = () => {
+      const words = run.some((node) =>
+        node.nodeType === Node.TEXT_NODE ? !!node.textContent?.trim() : node.nodeType === 1,
+      );
+      if (passes && words) {
+        const span = doc.createElement('span');
+        for (const [property, value] of Object.entries(inherited)) {
+          span.style.setProperty(property, value);
+        }
+        el.insertBefore(span, run[0]);
+        span.append(...run);
+        made.add(span);
+      }
+      run = [];
+    };
+    for (const child of Array.from(el.childNodes)) {
+      if (child instanceof HTMLElement && isBlock(child)) {
+        flush();
+        for (const [property, value] of Object.entries(inherited)) {
+          if (!child.style.getPropertyValue(property)) child.style.setProperty(property, value);
+        }
+        if (align && !alignsItself(child) && child.tagName !== 'TABLE') {
+          child.style.textAlign = align;
+        }
+      } else {
+        run.push(child);
+      }
+    }
+    flush();
+    // Down into the children with what they were handed. A span just made
+    // holds what stood here — an anchor with a colour of its own among it,
+    // which is visited in turn.
+    for (const child of Array.from(el.children)) {
+      if (!(child instanceof HTMLElement)) continue;
+      if (made.has(child)) {
+        for (const inner of Array.from(child.children))
+          if (inner instanceof HTMLElement) visit(inner);
+      } else {
+        visit(child);
+      }
+    }
+  };
+  for (const child of Array.from(root.children)) if (child instanceof HTMLElement) visit(child);
 }

@@ -8,6 +8,7 @@ import {
   emailFontSizes,
   isSafeFontFamily,
   parseFontFamily,
+  toEmailSafeColor,
 } from './text-style';
 
 const schema = createSchema(emailExtensions);
@@ -24,6 +25,15 @@ function applyToHello(command: ReturnType<(typeof commands)[string]>): string {
   command(state, (tr) => (state = state.apply(tr)));
   return serializeToHTML(state.doc, schema);
 }
+
+describe('toEmailSafeColor', () => {
+  it('reads no colour in a CSS-wide keyword — the CSSOM’s word for a shorthand’s colour', () => {
+    expect(toEmailSafeColor('initial')).toBeNull();
+    expect(toEmailSafeColor('transparent')).toBeNull();
+    expect(toEmailSafeColor('inherit')).toBeNull();
+    expect(toEmailSafeColor('#bd8714')).toBe('#bd8714');
+  });
+});
 
 describe('textStyle font-size', () => {
   it('applies a curated size as an inline font-size', () => {
