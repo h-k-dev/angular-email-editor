@@ -99,6 +99,7 @@ export const BulletList = defineNode({
   actions: ({ schema }) => [
     {
       id: 'bulleted-list',
+      section: 'blocks',
       title: 'Bulleted list',
       keywords: ['ul', 'unordered', 'list'],
       icon: 'format_list_bulleted',
@@ -145,6 +146,7 @@ export const OrderedList = defineNode({
   actions: ({ schema }) => [
     {
       id: 'numbered-list',
+      section: 'blocks',
       title: 'Numbered list',
       keywords: ['ol', 'ordered', 'list'],
       icon: 'format_list_numbered',

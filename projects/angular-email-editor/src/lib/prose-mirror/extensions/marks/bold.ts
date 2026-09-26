@@ -70,6 +70,7 @@ export const Bold = defineMark({
   actions: ({ schema }) => [
     {
       id: 'bold',
+      section: 'styling',
       title: 'Bold',
       keywords: ['bold'],
       icon: 'format_bold',

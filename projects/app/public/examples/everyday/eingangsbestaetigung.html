@@ -1,0 +1,1 @@
+<div>{{ customer_gender == 'male' ? 'Sehr geehrter Herr' : customer_gender == 'female' ? 'Sehr geehrte Frau' : 'Guten Tag' }} {{ customer_surname }},</div><div><br></div><div>wir bestätigen den Eingang Ihrer Nachricht vom {{ case_created | formatDateDE }} zum Vorgang {{ case_name }}.</div><div><br></div><div>Mit freundlichen Grüßen</div><div>{{ user_name }}</div>

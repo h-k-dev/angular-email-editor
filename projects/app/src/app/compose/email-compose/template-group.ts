@@ -22,6 +22,7 @@ export function templateGroup(templates: Templates): SuggestionGroup {
     placeholder: 'Search templates…',
     keywords: ['template', 'snippet'],
     icon: 'library_books',
+    section: 'templates',
     children: async ({ query, cursor, signal }) => {
       const skip = cursor ? Number(cursor) : 0;
       const search = query.trim();

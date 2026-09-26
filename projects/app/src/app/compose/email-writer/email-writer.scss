@@ -72,6 +72,15 @@
   flex: 1 1 auto;
 }
 
+// Send: a filled button, exactly the bar's 40px, its edge on the text edge
+// — the bar is inset for icon buttons, whose glyph sits 10px inside their
+// state layer; a filled button has no such margin, so it takes the 10px
+// itself.
+.writer-bar__send {
+  flex: none;
+  margin-inline-start: 10px;
+}
+
 // The writer's column. The sheet is as wide as its frame; what is written
 // on it is not: on a zoomed-out window — a wide sheet — every block, the
 // bar, the envelope and the editor (message-form.scss, which projects it),

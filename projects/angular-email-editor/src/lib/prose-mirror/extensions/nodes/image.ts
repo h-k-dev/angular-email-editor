@@ -760,6 +760,7 @@ export const Image = defineNode({
   actions: ({ schema }) => [
     {
       id: 'image',
+      section: 'media',
       title: 'Image',
       keywords: ['image', 'picture', 'photo', 'img'],
       icon: 'image',
@@ -771,6 +772,7 @@ export const Image = defineNode({
     {
       // The slide-deck model: size the frame first, click it to fill it.
       id: 'image-placeholder',
+      section: 'media',
       title: 'Image placeholder',
       keywords: ['placeholder', 'image', 'frame', 'slot', 'picture'],
       icon: 'add_photo_alternate',
@@ -787,6 +789,7 @@ export const Image = defineNode({
     // selection, so a `/` menu (a caret) never offers them.
     {
       id: 'replace-image',
+      section: 'media',
       title: 'Replace image',
       keywords: ['replace', 'image', 'swap', 'change'],
       icon: 'swap_horiz',
@@ -799,6 +802,7 @@ export const Image = defineNode({
     },
     {
       id: 'remove-image',
+      section: 'media',
       title: 'Remove image',
       keywords: ['remove', 'delete', 'image'],
       icon: 'delete',

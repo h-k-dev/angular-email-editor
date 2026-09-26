@@ -48,6 +48,7 @@ export const Heading = defineNode({
   actions: ({ schema }) =>
     [1, 2, 3].map((level) => ({
       id: `heading-${level}`,
+      section: 'blocks',
       title: `Heading ${level}`,
       keywords: [`h${level}`, 'title', 'heading'],
       icon: `format_h${level}`,

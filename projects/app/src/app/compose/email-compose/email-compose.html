@@ -48,8 +48,23 @@
       [resultsLabel]="resultsLabel"
     >
       @for (item of suggestionState()?.items; track item.id) {
+        <!-- A section's heading where the section changes — the library's
+             wording, or the dictionary's. -->
+        @if (sectionStartingAt(suggestionState()?.items, $index); as section) {
+          <div email-suggestion-menu-section>{{ suggestionState()?.sectionTitle(section) }}</div>
+        }
         <div email-suggestion-menu-item [item]="item">
-          @if (item.icon) {
+          <!-- A palette row shows its colour: as the letter, for a text
+               colour; as the fill, for a background. -->
+          @if (item.swatch) {
+            <span
+              class="suggestion__swatch"
+              [class.suggestion__swatch--text]="item.id.startsWith('color-')"
+              [style.--email-swatch]="item.swatch"
+              aria-hidden="true"
+              >A</span
+            >
+          } @else if (item.icon) {
             <mat-icon>{{ item.icon }}</mat-icon>
           }
           <span class="suggestion__title">{{ item.title }}</span>

@@ -79,6 +79,7 @@ export const createSendIntent = (options: SendIntentOptions): FunctionalExtensio
     actions: () => [
       {
         id: 'send',
+        section: 'message',
         title: 'Send',
         keywords: ['send', 'mail', 'deliver', 'submit'],
         icon: 'send',

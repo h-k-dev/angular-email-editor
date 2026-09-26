@@ -44,6 +44,7 @@ export const createAiWriter = ({ onAsk }: AiWriterOptions): FunctionalExtension 
     actions: () => [
       {
         id: 'ai',
+        section: 'ai',
         title: 'AI: write for me',
         keywords: ['ai', 'assistant', 'write', 'continue', 'draft', 'email', 'suggest'],
         icon: 'auto_awesome',

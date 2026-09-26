@@ -33,6 +33,7 @@ export const Strike = defineMark({
   actions: ({ schema }) => [
     {
       id: 'strike',
+      section: 'styling',
       title: 'Strike',
       keywords: ['strike', 'strikethrough'],
       icon: 'format_strikethrough',

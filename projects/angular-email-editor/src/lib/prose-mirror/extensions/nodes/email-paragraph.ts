@@ -274,6 +274,7 @@ export const EmailParagraph = defineNode({
   actions: ({ schema }) => [
     {
       id: 'text',
+      section: 'blocks',
       title: 'Text',
       keywords: ['paragraph', 'plain'],
       icon: 'notes',
@@ -287,6 +288,7 @@ export const EmailParagraph = defineNode({
       ] as const
     ).map(([id, title, icon, align]) => ({
       id,
+      section: 'styling',
       title,
       keywords: ['align', 'alignment'],
       icon,
@@ -297,6 +299,7 @@ export const EmailParagraph = defineNode({
     // or lifts. Whether one can move right now is the command's own answer.
     {
       id: 'indent',
+      section: 'styling',
       title: 'Indent more',
       keywords: ['indent', 'nest', 'tab'],
       icon: 'format_indent_increase',
@@ -304,6 +307,7 @@ export const EmailParagraph = defineNode({
     },
     {
       id: 'outdent',
+      section: 'styling',
       title: 'Indent less',
       keywords: ['outdent', 'unindent', 'lift'],
       icon: 'format_indent_decrease',

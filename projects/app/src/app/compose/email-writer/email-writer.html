@@ -1,41 +1,40 @@
 <!-- The bar's content, drawn once and placed by the viewport: on a phone it
      heads the sheet, on anything wider it closes it, under the composer's
-     formatting toolbar. The node moves rather than being restyled, so the
-     reading and Tab order always follow what is on screen. -->
+     formatting toolbar. Send at its start, Discard at its end, whichever.
+     The node moves rather than being restyled, so the reading and Tab
+     order always follow what is on screen. -->
 <ng-template #bar>
-  <!-- The host's view controls, at the bar's start — away from the actions
-       that do something to the message. -->
-  <ng-content select="[leading]" />
-
-  <span class="writer-bar__spacer"></span>
-
-  <!-- The host's own actions, beside Send. -->
-  <ng-content select="[actions]" />
-
-  <!-- The form's submit button — an icon button like every other in the
-       writer: the app's global icon-button override gives it the 40px state
-       layer and 48px touch target (styles.scss), so nothing is restated
-       here. The label moves to aria-label and the title, which is where a
-       lone icon carries it.
+  <!-- The form's submit button, first on the bar: Send, as the word — the
+       one thing the message is for, where a mail app puts it, and read at
+       a glance the way no glyph is. A filled button, the bar's height; on
+       the text edge (the stylesheet).
        While the submission runs the button stays live — focusable, and its
-       tooltip still reachable — and shows a spinner in the icon's place
-       instead of greying out. Pressing it again is harmless: the form
-       ignores a submit while one is running, whichever gesture it comes
-       from. -->
+       tooltip still reachable — and shows a spinner over the word instead
+       of greying out. Pressing it again is harmless: the form ignores a
+       submit while one is running, whichever gesture it comes from. -->
   <button
-    mat-icon-button
+    matButton="filled"
     type="submit"
     class="writer-bar__send"
     title="Send (Ctrl+Enter)"
     [attr.aria-label]="submitting() ? 'Sending' : 'Send'"
     [showProgress]="submitting()"
   >
-    <mat-icon>send</mat-icon>
-    <!-- The glyph's size (the icon button's 20px, styles.scss): Material sizes
-         only the spinner's svg, and the element keeps its diameter as an
-         inline size — left at the default 100px it hangs out of the bar. -->
+    Send
+    <!-- The spinner's size: Material sizes only the svg, and the element
+         keeps its diameter as an inline size — left at the default 100px
+         it hangs out of the bar. -->
     <mat-progress-spinner progressIndicator mode="indeterminate" [diameter]="20" />
   </button>
+
+  <!-- The host's view controls, after Send — away from the actions that
+       do something to the message. -->
+  <ng-content select="[leading]" />
+
+  <span class="writer-bar__spacer"></span>
+
+  <!-- The host's own actions, at the bar's end — Discard last of all. -->
+  <ng-content select="[actions]" />
 </ng-template>
 
 @if (viewport.compact()) {

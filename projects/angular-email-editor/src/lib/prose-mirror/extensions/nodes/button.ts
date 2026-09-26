@@ -157,6 +157,7 @@ export const Button = defineNode({
   actions: ({ schema }) => [
     {
       id: 'button',
+      section: 'layout',
       title: 'Button',
       keywords: ['button', 'cta', 'call to action', 'link'],
       icon: 'smart_button',
@@ -167,6 +168,7 @@ export const Button = defineNode({
     // menu (a caret) never offers it.
     {
       id: 'button-link',
+      section: 'layout',
       title: 'Button link',
       keywords: ['button', 'cta', 'call to action', 'link'],
       icon: 'smart_button',

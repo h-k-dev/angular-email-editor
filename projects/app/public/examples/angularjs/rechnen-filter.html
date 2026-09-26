@@ -1,0 +1,1 @@
+<div>Einfache Rechnung: {{ 1+2+3+4+5 }}</div><div>Feldwert: {{ cf_70 }}</div><div>{{ mwst = round(parseFloat( cf_70 ) * 0.19,2); mwst }}</div><div>{{ cf_70 | formatPrice }}€ + {{ mwst | formatPrice }}€ = {{ parseFloat(cf_70) + mwst }}€</div>

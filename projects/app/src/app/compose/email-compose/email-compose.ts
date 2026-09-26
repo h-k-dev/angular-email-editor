@@ -40,7 +40,9 @@ import { AltTextEditor } from './alt-text-editor/alt-text-editor';
 import { ChatBasedSuggestion } from './chat-based-suggestion/chat-based-suggestion';
 import { Popover } from './popover/popover';
 import { PopoverOutlet } from './popover/popover-outlet';
+import { Examples } from '../../../services/examples';
 import { Templates } from '../../../services/templates';
+import { examplesGroup } from './examples-group';
 import { MergeTags } from '../../../services/merge-tags';
 import { I18n } from '../../../services/i18n';
 import { createAiWriter } from './ai-writer';
@@ -70,13 +72,19 @@ import {
   createSendIntent,
   createSuggestionMenu,
   extensionSuggestions,
+  SuggestionItem,
   createTextMetrics,
   ExpressionDiagnostic,
   InlineImages,
   mergeTagAt,
   emailExtensions,
 } from 'angular-email-editor';
-import { SuggestionMenu, SuggestionMenuItem } from 'angular-email-editor/suggestion-menu';
+import {
+  SuggestionMenu,
+  SuggestionMenuItem,
+  SuggestionMenuSection,
+} from 'angular-email-editor/suggestion-menu';
+import { colorSuggestions, injectPalette } from 'angular-email-editor/palette';
 
 /** Where the HTML source shows: nowhere, in the editing surface's place
     (code view), or beside the editor in its own column (detached). */
@@ -111,6 +119,7 @@ export type SourceView = 'hidden' | 'code' | 'detached';
     PopoverOutlet,
     SuggestionMenu,
     SuggestionMenuItem,
+    SuggestionMenuSection,
   ],
   // The formatting commands this composer's toolbar, bubble menu and ⋯ menu
   // share — one per composer, bound to its editor and code view — and the
@@ -126,6 +135,24 @@ export class EmailCompose implements FormValueControl<string> {
   readonly #images = inject(InlineImages);
   /** The template store the slash menu's /templates group searches. */
   readonly #templates = inject(Templates);
+
+  /** The section a row begins, for its heading: the row's, when the row
+      before it is of another — null inside a section, or with none. */
+  protected sectionStartingAt(
+    items: readonly SuggestionItem[] | undefined,
+    index: number,
+  ): string | null {
+    const section = items?.[index]?.section;
+    if (!section) return null;
+    return index > 0 && items![index - 1].section === section ? null : section;
+  }
+
+  /** The example documents the slash menu's /examples group lists. */
+  readonly #examples = inject(Examples);
+
+  /** The palette in use — the pickers' swatches, and the slash menu's colour
+      rows (`EMAIL_PALETTE`; the library's unless the app provides one). */
+  readonly #palette = injectPalette();
   /** The variable catalogue the `{{` menu searches. */
   readonly #mergeTags = inject(MergeTags);
   /** The words of the language in use — the menu asks when it opens. */
@@ -441,7 +468,19 @@ export class EmailCompose implements FormValueControl<string> {
               // Rows by id — the kit's actions and the two groups below —
               // in the language in use, searched in it *and* in English.
               i18n: this.i18n.suggestionLabel,
-              items: (ctx) => [...extensionSuggestions(ctx), templateGroup(this.#templates)],
+              items: (ctx) =>
+                bySection(
+                  [
+                    ...extensionSuggestions(ctx),
+                    ...colorSuggestions(ctx, this.#palette),
+                    templateGroup(this.#templates),
+                    examplesGroup(this.#examples),
+                  ],
+                  SLASH_SECTIONS,
+                ),
+              // The sections' headings, in the language in use — the
+              // library words what the dictionary leaves out.
+              sections: (id) => this.i18n.t(`editor.menu.sections.${id}`, '') || undefined,
             },
             {
               trigger: '{{',
@@ -529,4 +568,32 @@ export class EmailCompose implements FormValueControl<string> {
     this.sourceView.set('hidden');
     afterNextRender({ write: () => this.editor()?.focus() }, { injector: this.#injector });
   }
+}
+
+/** The `/` menu's sections, in reading order: what the writer reaches for
+    first — the assistant, the blocks — down to the demo's own seeds. */
+const SLASH_SECTIONS = [
+  'ai',
+  'blocks',
+  'styling',
+  'color',
+  'media',
+  'layout',
+  'templates',
+  'examples',
+  'message',
+] as const;
+
+/** The rows in section order — each section's rows together, in their own
+    order, so the menu heads them once; a row of no section, or of one the
+    order does not name, goes last. */
+function bySection<T extends { section?: string }>(items: T[], order: readonly string[]): T[] {
+  const rank = (item: T) => {
+    const index = item.section ? order.indexOf(item.section) : -1;
+    return index < 0 ? order.length : index;
+  };
+  return items
+    .map((item, index) => ({ item, index, rank: rank(item) }))
+    .sort((a, b) => a.rank - b.rank || a.index - b.index)
+    .map((entry) => entry.item);
 }

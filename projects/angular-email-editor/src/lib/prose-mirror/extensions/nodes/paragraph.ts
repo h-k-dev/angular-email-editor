@@ -29,6 +29,7 @@ export const Paragraph = defineNode({
   actions: ({ schema }) => [
     {
       id: 'text',
+      section: 'blocks',
       title: 'Text',
       keywords: ['paragraph', 'plain'],
       icon: 'notes',

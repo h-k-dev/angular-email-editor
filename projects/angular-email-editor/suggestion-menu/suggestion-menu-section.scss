@@ -1,0 +1,37 @@
+// A section's heading in a suggestion menu: small, quiet, above its rows.
+// Tokens are the menu's (--email-suggestion-menu-section-*), so one place
+// themes the set.
+
+:host {
+  display: block;
+  flex: none;
+  padding-block: var(--email-suggestion-menu-section-padding-block, 8px 2px);
+  padding-inline: var(--email-suggestion-menu-section-padding-inline, 8px);
+  box-sizing: border-box;
+  color: var(
+    --email-suggestion-menu-section-color,
+    var(--mat-sys-on-surface-variant, light-dark(#444746, #c4c7c5))
+  );
+  font-size: var(
+    --email-suggestion-menu-section-font-size,
+    var(--mat-sys-label-small-size, 0.6875rem)
+  );
+  font-weight: var(
+    --email-suggestion-menu-section-font-weight,
+    var(--mat-sys-label-small-weight, 500)
+  );
+  line-height: var(
+    --email-suggestion-menu-section-line-height,
+    var(--mat-sys-label-small-line-height, 1rem)
+  );
+  letter-spacing: var(
+    --email-suggestion-menu-section-letter-spacing,
+    var(--mat-sys-label-small-tracking, 0.03rem)
+  );
+  user-select: none;
+}
+
+// The first heading sits on the list's own padding.
+:host(:first-child) {
+  padding-block-start: var(--email-suggestion-menu-section-first-padding-block-start, 4px);
+}

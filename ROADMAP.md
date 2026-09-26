@@ -1250,7 +1250,7 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   rows cannot carry host data, and a source answers once (no streaming
   rows).
   **The assistant proposes, in the text (2026-09-25).** The answer no
-  longer lands as it streams: it is *proposed* — written into the message
+  longer lands as it streams: it is _proposed_ — written into the message
   where it will stand, marked (`aee-proposal`, the accent colour), outside
   the undo history — and decided on from a panel floating under it.
   Library, opt-in and tree-shakeable: `createContentProposal()` +
@@ -1282,7 +1282,7 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   (⌘-Enter) with a proposal standing is Apply, heard before the editor's
   own send (a capture listener while the bar is up; swallowed while the
   model writes); Discard and Apply are small outlined buttons alike, the
-  toolbar starts off. And a *part*: with a range of the proposal selected
+  toolbar starts off. And a _part_: with a range of the proposal selected
   in the text, the ask writes that part again — `reviseProposal` in the
   library (the proposal's range maps through the stream instead of
   following it, never below the stream's end), `revise` and
@@ -1294,7 +1294,7 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   second ending closed the range of the stream that had taken its place; a
   run now ends once. **From the template's side (2026-09-26):** the
   proposal is also a directive, `[emailProposal]="editor"` on the panel's
-  element — it *is* the `EditorProposal` (`#p="emailProposal"`, `p.active()`,
+  element — it _is_ the `EditorProposal` (`#p="emailProposal"`, `p.active()`,
   `p.propose(…)`) and everything inside takes it by injection, so the
   triggers go bare (`<button emailProposalAccept>`; a bound value still
   wins, and neither is an error that says so). The keys are a directive
@@ -1307,8 +1307,36 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   a `FormValueControl<string>` besides — `[formField]` drives `value` both
   ways, `disabled`/`readonly` in, `touch` on blur, `reset()` — and
   `<div email-chat-input>` is the same directive as a host directive in
-  the styled box. The form holds the *message*; the ask stays `sent`, an
+  the styled box. The form holds the _message_; the ask stays `sent`, an
   action with a stream behind it is the host's, not the form's submit.
+
+- **The `/` menu in sections, with colours and examples (2026-09-26).**
+  Every suggestion row may declare a `section` — a stable id, worded by the
+  trigger's `sections` (a map or a lookup, so a language switch reaches the
+  headings) with the library's wording beneath (`suggestionSectionTitles`),
+  read through `state.sectionTitle(id)`; the library's actions declare
+  theirs (blocks, styling, media, layout, message), a host its own (the
+  demo: ai, color, templates, examples), lists its rows in section order,
+  and shows `[email-suggestion-menu-section]` where the section changes.
+  Colours are rows too, the way a chat's slash menu lists them: "Red text",
+  "Red background" — `colorSuggestions(ctx, palette)` in the new
+  `angular-email-editor/palette` entry, each row a `swatch`, picked onto the
+  selection or the caret's next words. The palette is a token there,
+  `EMAIL_PALETTE`: the library's by default, an app's own through
+  `providePalette`, either side or a function of the defaults to mix; the
+  pickers read it too. The examples left the status strip for the menu:
+  `/examples`, a plain local list of every example document (filtered and
+  ranked like the kit's rows, no source, no loading), each put in the
+  message's place by `replaceHTML`. The examples themselves are assets now —
+  `public/examples/index.json` names the sets, a file per example beside it
+  (a reply's inbound message as JSON, a template as HTML) — fetched once by
+  the `Examples` service when the app starts; the template store lists the
+  dialect sets from the same catalogue. In the app besides: Send is the
+  word, first on the writer's bar, Discard last; Compose is a floating
+  action button at a phone's lower right; the phone toolbar's buttons stand
+  1px apart; and with the chat up, the field and the toolbar share one box
+  on a wide screen, the dock's, painted behind them from under Discard and
+  Apply.
   **Names are flat, as Angular's are** (`@angular/material/button`,
   `@angular/cdk/overlay`) — no `components/…` or `directives/…` segment:
   - one level, `angular-email-editor/<name>`; the only nesting is

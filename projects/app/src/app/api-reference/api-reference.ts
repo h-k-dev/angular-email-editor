@@ -122,6 +122,12 @@ export class ApiReference {
           does: 'The component pair renders any suggestion menu’s state as a listbox whose options the editor points at (aria-activedescendant), loads the next page as it scrolls, and says searching / loading more / no results / failed. extensionSuggestions gathers the kit’s / commands; insertMergeTag is what a {{ item runs.',
         },
         {
+          name: 'SuggestionItem.section · sections · [email-suggestion-menu-section]',
+          signature:
+            'section?: string · sections?: Record<string, string> | (id) => string · state.sectionTitle(id)',
+          does: 'Rows declare a section (blocks, styling, media, layout, message; a host adds ai, color, templates, examples); the trigger words the headings, the library’s own wording (suggestionSectionTitles) beneath; the section component is the heading a renderer shows where the section changes.',
+        },
+        {
           name: 'createContentStream · streamContent · isStreaming',
           signature:
             '(options?) => FunctionalExtension · (view, target, async ({ write, getWritableStream, signal }) => …, { format?, transform? }) => { stop, done }',
@@ -324,6 +330,12 @@ export class ApiReference {
           name: 'emailTextPalette / emailBackgroundPalette',
           signature: 'PaletteColor[]',
           does: 'The colours that pass on both sides — the swatches the composer’s pickers offer.',
+        },
+        {
+          name: 'EMAIL_PALETTE · providePalette · injectPalette · colorSuggestions',
+          signature:
+            'InjectionToken<EmailPalette> · (config: Partial<EmailPalette> | (defaults) => Partial<EmailPalette>) => Provider · () => EmailPalette · (ctx, palette) => SuggestionCommandItem[]',
+          does: 'angular-email-editor/palette — the palette in use: the library’s unless the app provides its own, either side or a function of the defaults to mix; what the pickers offer, and the / menu’s colour rows ("Red text", "Red background", section color, each with its swatch).',
         },
       ],
     },

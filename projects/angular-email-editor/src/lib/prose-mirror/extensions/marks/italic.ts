@@ -39,6 +39,7 @@ export const Italic = defineMark({
   actions: ({ schema }) => [
     {
       id: 'italic',
+      section: 'styling',
       title: 'Italic',
       keywords: ['italic'],
       icon: 'format_italic',

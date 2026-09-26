@@ -555,6 +555,7 @@ export const Table = defineNode({
   actions: ({ schema }) => [
     {
       id: 'table',
+      section: 'layout',
       title: 'Table',
       keywords: ['table', 'grid', 'rows', 'columns'],
       icon: 'table_chart',
@@ -562,6 +563,7 @@ export const Table = defineNode({
     },
     {
       id: 'bordered-table',
+      section: 'layout',
       title: 'Bordered table',
       keywords: ['bordered-table', 'table', 'borders', 'grid', 'excel', 'lines'],
       icon: 'grid_on',

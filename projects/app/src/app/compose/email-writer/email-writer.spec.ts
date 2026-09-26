@@ -54,20 +54,22 @@ describe('EmailWriter', () => {
     root = fixture.nativeElement as HTMLElement;
   });
 
-  it('is the form, with Send as its submit button on the right of the bar, after the actions', () => {
+  it('is the form, with Send as its submit button first on the bar, the word and no glyph', () => {
     const writer = root.querySelector('form[email-writer]')!;
     expect(writer.getAttribute('novalidate')).not.toBeNull(); // the form root's
-    // Icon-only, so the name lives on the label, not in the text.
     expect(send().type).toBe('submit');
     expect(send().getAttribute('aria-label')).toBe('Send');
-    expect(send().querySelector('mat-icon')?.textContent?.trim()).toBe('send');
-    expect(bar().lastElementChild).toBe(send());
-    expect(send().previousElementSibling).toBe(root.querySelector('.action'));
+    expect(send().textContent?.trim()).toBe('Send');
+    expect(send().querySelector('mat-icon')).toBeNull();
+    expect(bar().firstElementChild).toBe(send());
   });
 
-  it('opens the bar with the leading controls, the spacer between them and the actions', () => {
-    expect(bar().firstElementChild).toBe(root.querySelector('.lead'));
-    expect(bar().firstElementChild?.nextElementSibling?.classList).toContain('writer-bar__spacer');
+  it('follows Send with the leading controls, the spacer, and the actions last', () => {
+    expect(send().nextElementSibling).toBe(root.querySelector('.lead'));
+    expect(root.querySelector('.lead')?.nextElementSibling?.classList).toContain(
+      'writer-bar__spacer',
+    );
+    expect(bar().lastElementChild).toBe(root.querySelector('.action'));
   });
 
   it('closes the sheet with the bar, under the fields, where there is room', () => {

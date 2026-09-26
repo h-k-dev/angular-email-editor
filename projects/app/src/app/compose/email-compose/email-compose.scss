@@ -168,6 +168,27 @@
   }
 }
 
+// A palette row's colour, in the icon's box: the letter in the colour on
+// the row's own surface, or the fill behind a letter in the text's colour.
+.suggestion__swatch {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--mat-sys-corner-extra-small, 4px);
+  background-color: var(--email-swatch);
+  color: var(--mat-sys-on-surface, #1f1f1f);
+  font: 500 14px / 1 var(--mat-sys-body-medium-font, system-ui, sans-serif);
+
+  &--text {
+    background-color: var(--mat-sys-surface-bright, #ffffff);
+    box-shadow: inset 0 0 0 1px var(--mat-sys-outline-variant, #cccccc);
+    color: var(--email-swatch);
+  }
+}
+
 .suggestion__title {
   flex: 1;
   min-width: 0;

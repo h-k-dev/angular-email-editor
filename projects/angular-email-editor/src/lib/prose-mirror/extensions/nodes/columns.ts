@@ -264,6 +264,7 @@ export const Columns = defineNode({
   actions: ({ schema }) => [
     {
       id: 'columns',
+      section: 'layout',
       title: 'Columns',
       keywords: ['columns', 'column', 'layout', 'grid', 'side by side'],
       icon: 'view_column',
@@ -271,6 +272,7 @@ export const Columns = defineNode({
     },
     {
       id: '3-columns',
+      section: 'layout',
       title: '3 columns',
       keywords: ['columns', 'three', 'layout'],
       icon: 'view_column',

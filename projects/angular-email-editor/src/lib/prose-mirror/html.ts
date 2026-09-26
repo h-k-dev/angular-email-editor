@@ -6,7 +6,7 @@ import {
   Schema,
   Slice,
 } from 'prosemirror-model';
-import { Command } from 'prosemirror-state';
+import { Command, Selection } from 'prosemirror-state';
 import { repairTables } from './extensions/nodes/table';
 import { promoteMergeTags } from './extensions/nodes/merge-tag';
 import { bareButtons } from './extensions/nodes/button';
@@ -102,5 +102,19 @@ export const insertHTML =
   (state, dispatch) => {
     const doc = parseHTML(html, state.schema);
     dispatch?.(state.tr.replaceSelection(new Slice(doc.content, 0, 0)).scrollIntoView());
+    return true;
+  };
+
+/** A command that puts `html` in the whole document's place — an example
+    loaded over what is written, as one undoable change; the caret lands at
+    its end. */
+export const replaceHTML =
+  (html: string): Command =>
+  (state, dispatch) => {
+    const doc = parseHTML(html, state.schema);
+    if (dispatch) {
+      const tr = state.tr.replaceWith(0, state.doc.content.size, doc.content);
+      dispatch(tr.setSelection(Selection.atEnd(tr.doc)).scrollIntoView());
+    }
     return true;
   };

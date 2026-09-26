@@ -89,6 +89,38 @@ describe('createSuggestionMenu — the / menu', () => {
     expect(menu.hasAttribute('style')).toBe(false);
   });
 
+  it('carries each row’s section, and words the headings — the library’s, or the host’s', () => {
+    type('/');
+    const sections = state!.items.map((item) => item.section);
+    expect(sections).toContain('blocks');
+    expect(sections).toContain('styling');
+    // The library's own wording, and an id nobody worded shows as it is.
+    expect(state!.sectionTitle('blocks')).toBe('Basic blocks');
+    expect(state!.sectionTitle('styling')).toBe('Styling');
+    expect(state!.sectionTitle('mine')).toBe('mine');
+
+    // A host's wording, asked afresh: what it leaves out stays the library's.
+    editor.destroy();
+    let language = 'de';
+    editor = createEditor({
+      parent: host,
+      extensions: [
+        ...richTextExtensions,
+        slashMenu({
+          element: menu,
+          onChange: (s) => (state = s),
+          sections: (id) => (language === 'de' && id === 'blocks' ? 'Grundbausteine' : undefined),
+        }),
+      ],
+    });
+    vi.spyOn(editor.view, 'coordsAtPos').mockReturnValue({ left: 0, right: 0, top: 0, bottom: 0 });
+    type('/');
+    expect(state!.sectionTitle('blocks')).toBe('Grundbausteine');
+    expect(state!.sectionTitle('styling')).toBe('Styling');
+    language = 'en';
+    expect(state!.sectionTitle('blocks')).toBe('Basic blocks');
+  });
+
   it('only triggers at a block start or after whitespace', () => {
     type('a/');
     expect(state?.open ?? false).toBe(false);
