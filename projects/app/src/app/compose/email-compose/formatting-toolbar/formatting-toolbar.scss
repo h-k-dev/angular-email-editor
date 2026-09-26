@@ -63,17 +63,18 @@
 
   // Phone: the toolbar is the bar on the keyboard (the shell gives up the
   // keyboard's height, app.scss, and the sheet ends flush under this row,
-  // email-writer.scss). One row, always 48px: the formatting scrolls
-  // sideways, history holds the end — a second row would take another 48px
-  // of the little screen the keyboard leaves.
+  // email-writer.scss). One row, always 40px: the formatting scrolls
+  // sideways, history holds the end — a second row would take another 40px
+  // of the little screen the keyboard leaves. The buttons are their 40px
+  // state layer and no more — no 48px target overhanging it: on a phone
+  // the bar is a control strip of its own (a second use of it is to come),
+  // and every button in it, and in the chat strip above it, is one size.
   @include bp.phone {
-    // The block padding moves into the parts, and 4px of the start inset
-    // into the scroller: a scroll container clips its content's hit areas at
-    // its padding edge, so the 48px targets need the room inside it. 2px +
-    // 4px + the 10px of state layer keeps the glyph on the text edge.
+    --mat-icon-button-state-layer-size: 40px;
+    --mat-icon-button-touch-target-size: 40px;
     padding-block: 0;
-    padding-inline: calc(var(--mat-sys-inner-spacing, 16px) - 14px)
-      calc(var(--mat-sys-inner-spacing, 16px) - 10px);
+    // The glyph on the text edge: the 10px of state layer around it.
+    padding-inline: calc(var(--mat-sys-inner-spacing, 16px) - 10px);
   }
 }
 
@@ -112,7 +113,9 @@
   }
 
   @include bp.phone {
-    padding: 4px;
+    // No padding: the targets are the 40px state layers, nothing overhangs
+    // them, so nothing needs room inside the scroller's clip.
+    padding: 0;
     overflow-x: auto;
     // A fling at the end must not scroll the page or trigger back-navigation.
     overscroll-behavior-x: contain;
@@ -122,7 +125,7 @@
     // A fling settles with a whole button at the start edge, glyph on the
     // text edge — the padding is the snap line.
     scroll-snap-type: x proximity;
-    scroll-padding-inline: 4px;
+    scroll-padding-inline: 0;
 
     &::-webkit-scrollbar {
       display: none;
@@ -181,10 +184,6 @@
 
   @include bp.wide {
     gap: 4px;
-  }
-
-  @include bp.phone {
-    padding-block: 4px;
   }
 }
 

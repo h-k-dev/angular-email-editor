@@ -13,8 +13,9 @@
   display: none;
 }
 
-// Wide: the strip keeps to the sheet's inline inset, and never grows past
-// a comfortable line — on a full-screen window the sheet is wider than a
+// Each piece sets its own inset. The strip as a whole has none: the field
+// reaches the sheet's edges — the screen's, on a phone — and never grows
+// past a long line: on a full-screen window the sheet is wider than a
 // message is, and the field stays under the words it is about.
 .chat-based-suggestion {
   display: flex;
@@ -22,20 +23,18 @@
   gap: 0;
   box-sizing: border-box;
   inline-size: 100%;
-  // The cap is on the field, the inset outside it: at the sheet's usual
-  // width the strip is the text column's width exactly, and only a wider
-  // sheet — a full-screen window — leaves room on either side.
-  max-inline-size: calc(75ch + 2 * var(--mat-sys-inner-spacing, 16px));
+  max-inline-size: 90ch;
   margin-inline: auto;
-  padding-inline: var(--mat-sys-inner-spacing, 16px);
 }
 
-// The top line has no surface: what stands on it floats over the text.
+// The top line has no surface: what stands on it floats over the text, on
+// the text's own inset.
 .chat-based-suggestion__top {
   display: flex;
   align-items: center;
   gap: 6px;
   min-height: 32px;
+  padding-inline: var(--mat-sys-inner-spacing, 16px);
 }
 
 .chat-based-suggestion__space {
@@ -44,13 +43,13 @@
 
 // Discard and Apply as small, thin buttons — a compact toolkit's: 28px
 // tall, a small label, a hand's width of padding, a tight corner, both
-// outlined alike. No state layer; the height is the target.
+// alike and bare — no outline, no state layer; the height is the target.
 .chat-based-suggestion__word {
   display: inline-flex;
   align-items: center;
   height: 28px;
   padding: 0 10px;
-  border: 1px solid var(--mat-sys-outline-variant, #cccccc);
+  border: none;
   border-radius: 6px;
   background: none;
   color: var(--mat-sys-on-surface, #1f1f1f);
@@ -189,21 +188,20 @@
 }
 
 // A phone: the strip is the screen's width, flush to its sides and square,
-// the way a chat's message box sits on the keyboard — no inset, no line
-// cap, and a tighter row. The words above keep the text's inset.
+// the way a chat's message box sits on the keyboard — no line cap, and a
+// tighter row whose buttons are the toolbar's size (40px, the bar under
+// it), on the same 10px inset from the edge.
 @include bp.phone {
   .chat-based-suggestion {
     max-inline-size: none;
-    padding-inline: 0;
   }
 
   .chat-based-suggestion__top {
-    padding-inline: var(--mat-sys-inner-spacing, 16px);
     min-height: 28px;
   }
 
   .chat-based-suggestion__field {
-    padding: 2px 4px 2px 12px;
+    padding: 0 calc(var(--mat-sys-inner-spacing, 16px) - 10px) 0 var(--mat-sys-inner-spacing, 16px);
     border-radius: 0;
   }
 }
