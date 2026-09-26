@@ -8,6 +8,7 @@ import {
 } from 'prosemirror-model';
 import { Command, Selection } from 'prosemirror-state';
 import { repairTables } from './extensions/nodes/table';
+import { inlineStyles, unwrapLayoutTables } from './import-html';
 import { promoteMergeTags } from './extensions/nodes/merge-tag';
 import { bareButtons } from './extensions/nodes/button';
 
@@ -87,6 +88,10 @@ export function serializeToHTML(doc: Node, schema: Schema): string {
  */
 export function parseHTML(html: string, schema: Schema): Node {
   const dom = new window.DOMParser().parseFromString(html, 'text/html');
+  // A builder's export leans on its stylesheet and on wrapper tables; the
+  // schema reads neither (import-html.ts).
+  inlineStyles(dom);
+  unwrapLayoutTables(dom.body);
   const parsed = ProseMirrorDOMParser.fromSchema(schema).parse(dom.body);
   return bareButtons(promoteMergeTags(repairTables(parsed, schema), schema), schema);
 }

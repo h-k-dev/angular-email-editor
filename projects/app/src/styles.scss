@@ -149,8 +149,13 @@ html {
   border: 1px solid transparent;
   // Ease the guides in rather than snapping them on: motion starting early is
   // what makes a peek read as responsive, and it softens anything that slips
-  // past the peek's hold delay into a partial fade instead of a blink.
-  transition: border-color 140ms ease-out;
+  // past the peek's hold delay into a partial fade instead of a blink. And
+  // ease them *out* late: this is the rule of the state they fade to, so its
+  // delay is the fade-out's — the grid lingers a beat after the pointer or
+  // the caret has left, and a hand crossing a cell's edge never sees it
+  // blink. The reveal rules below take the delay off, so a grid comes on at
+  // once.
+  transition: border-color 140ms ease-out 400ms;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -230,6 +235,7 @@ html {
 .aee-editor.aee-guides-peek table td,
 .aee-editor.aee-guides-peek .aee-column {
   border-color: var(--email-layout-guide, var(--email-table-grid, rgb(224, 224, 224)));
+  transition-delay: 0ms;
 }
 
 /* Cell selection (prosemirror-tables): shift-drag or shift-click a rectangle
@@ -723,9 +729,12 @@ html {
  * whole grid on every pointer move, which is the one thing a Notion-class
  * table never does on hover. Twenty-four is far past any table an email is
  * written with, and a wider one simply has no grip past it. */
-/* Hover only, never the caret — the same rule the add pills follow: typing in
- * a row with the mouse parked elsewhere must not leave a handle on screen. */
-.aee-editor tr:hover .aee-grip--row {
+/* The band under the pointer — and the caret's own row and column (`data-caret`,
+ * written by the extension from the selection), so a cell being typed in
+ * always shows the two grips that act on it, the way Tiptap's and Notion's
+ * tables keep a focused cell's handles on screen. */
+.aee-editor tr:hover .aee-grip--row,
+.aee-editor .aee-grip[data-caret] {
   opacity: 1;
   pointer-events: auto;
 }

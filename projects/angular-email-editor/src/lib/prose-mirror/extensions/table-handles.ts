@@ -137,7 +137,11 @@ export const createTableHandles = (options: TableHandlesOptions): FunctionalExte
           const sync = () => {
             const plugin = tableHandlesKey.getState(view.state);
             const band = selectedBand(view.state.selection);
-            const key = band ? `${band.tablePos}:${band.kind}:${band.from}:${band.to}` : '';
+            const caret = caretCell(view.state.selection);
+            const key = [
+              band ? `${band.tablePos}:${band.kind}:${band.from}:${band.to}` : '',
+              caret ? `${caret.tablePos}:${caret.row}:${caret.column}` : '',
+            ].join('|');
             if (plugin?.generation === lastGeneration && key === lastBand) return;
             lastGeneration = plugin?.generation ?? 0;
             lastBand = key;
@@ -146,6 +150,22 @@ export const createTableHandles = (options: TableHandlesOptions): FunctionalExte
               .forEach((el) => {
                 el.setAttribute('aria-expanded', 'false');
               });
+            view.dom.querySelectorAll<HTMLElement>('.aee-grip[data-caret]').forEach((el) => {
+              el.removeAttribute('data-caret');
+            });
+            // The caret's cell: its row's grip and its column's stay on
+            // screen while it is typed in (the stylesheet shows `data-caret`).
+            if (caret) {
+              const table = view.nodeDOM(caret.tablePos);
+              if (table instanceof HTMLElement) {
+                table
+                  .querySelector<HTMLElement>(`.aee-grip--row[data-index="${caret.row}"]`)
+                  ?.setAttribute('data-caret', '');
+                table
+                  .querySelector<HTMLElement>(`.aee-grip--column[data-index="${caret.column}"]`)
+                  ?.setAttribute('data-caret', '');
+              }
+            }
             if (!band) return;
             const table = view.nodeDOM(band.tablePos);
             if (!(table instanceof HTMLElement)) return;
@@ -314,6 +334,24 @@ function sameTableGrid(a: Node, b: Node): boolean {
  * and what the grip then reports as its expanded state. Anything else — a
  * caret, a rectangle of cells, another table's selection — is no band.
  */
+/** The cell the caret is in — a text selection inside one cell — as its
+    place in the grid: which row and column, of which table. Null for a
+    cell selection (a band's own affair) and outside any table. */
+function caretCell(selection: Selection): { tablePos: number; row: number; column: number } | null {
+  if (selection instanceof CellSelection) return null;
+  const { $from } = selection;
+  for (let depth = $from.depth; depth > 0; depth--) {
+    if ($from.node(depth).type.spec['tableRole'] !== 'cell') continue;
+    if (depth < 2) return null;
+    const table = $from.node(depth - 2);
+    if (table.type.spec['tableRole'] !== 'table') return null;
+    const tableStart = $from.start(depth - 2);
+    const rect = TableMap.get(table).findCell($from.before(depth) - tableStart);
+    return { tablePos: tableStart - 1, row: rect.top, column: rect.left };
+  }
+  return null;
+}
+
 function selectedBand(
   selection: Selection,
 ): { kind: 'row' | 'column'; from: number; to: number; tablePos: number } | null {

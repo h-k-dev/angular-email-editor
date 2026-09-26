@@ -72,11 +72,15 @@
   flex: 1 1 auto;
 }
 
-// Send: a filled button, exactly the bar's 40px, its edge on the text edge
-// — the bar is inset for icon buttons, whose glyph sits 10px inside their
-// state layer; a filled button has no such margin, so it takes the 10px
-// itself.
+// Send: a filled button, one line tall rather than the bar's 40px — its
+// container height and inline padding set through Material's own button
+// tokens (material.angular.dev/components/button/styling), so the theme's
+// colours and type stay — its edge on the text edge: the bar is inset for
+// icon buttons, whose glyph sits 10px inside their state layer; a filled
+// button has no such margin, so it takes the 10px itself.
 .writer-bar__send {
+  --mat-button-filled-container-height: 32px;
+  --mat-button-filled-horizontal-padding: 16px;
   flex: none;
   margin-inline-start: 10px;
 }

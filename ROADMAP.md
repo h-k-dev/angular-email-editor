@@ -1310,6 +1310,47 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   the styled box. The form holds the _message_; the ask stays `sent`, an
   action with a stream behind it is the host's, not the form's submit.
 
+- **A builder's export comes in whole (2026-09-26).** An MJML (or any
+  builder's) document leans on two things the canonical email HTML never
+  has, and the editor read neither: its `<style>` sheet — the mobile-first
+  pattern, `width: 100%` inline and `width: 50% !important` in a `min-width`
+  media query — and a one-cell `role="presentation"` wrapper table round
+  every section, column and image, each of which parsed as a table of ours
+  with its content hoisted out beside it: an empty grid, then the column
+  block, again and again, the columns all one width. `parseHTML` now runs
+  two passes before the schema (`import-html.ts`): `inlineStyles` folds the
+  sheet into the elements it matches — document order, `!important` over
+  inline, media queries answered for a 600px screen — and
+  `unwrapLayoutTables` takes the builders' wrappers out (only theirs: the
+  attributes they write, `cellpadding`/`cellspacing`/`border="0"`, and a
+  cell holding nothing but elements — a table with words in its one cell
+  stays a table, and so does every table of our own), a right-to-left cell
+  handing its children over reversed, the way a client draws MJML's
+  image-on-the-right sections. A column's `max-width` in percent is now a
+  share of the budget, so two halves sit side by side exactly as two of
+  ours. Not carried: a section's own background and padding (the model has
+  no section), and MJML's button (a filled `<td>` round a `<p>`, not a
+  link). In the editor besides: the layout guides linger 400ms before they
+  fade, so a hand crossing a cell's edge never sees them blink; the caret's
+  own row and column grips stay on screen while a cell is typed in (Tiptap's
+  and Notion's way); the `/` menu's sections stand further apart; Send is
+  sized through Material's button tokens (32px, 16px inline). Found on the
+  way, and the reason the import first looked right and then went wrong
+  the moment the source pane handed the formatted HTML back — two things.
+  The source pane formats its text on blur, and `formatHTML` printed the
+  body's children alone: a pasted document's head, its stylesheet with it,
+  was gone by the time the composer read the text again, and the columns
+  fell back to their default width. The formatter now prints a document's
+  `<style>` elements first, the head's included, their CSS as written —
+  formatting stays presentation-only, so what the parse read before it
+  reads after. And an external `setContent` applies the new document as a
+  minimal diff whose slice is open at both ends — where those ends stand
+  at different depths ProseMirror _fits_ it instead of refusing, closing
+  and reopening the nodes round the gap: a duplicated empty row, a column
+  at its default width. The sync now checks the fitted result against the
+  parsed document and falls back to replacing the whole document when
+  they differ.
+
 - **The `/` menu in sections, with colours and examples (2026-09-26).**
   Every suggestion row may declare a `section` — a stable id, worded by the
   trigger's `sections` (a map or a lookup, so a language switch reaches the

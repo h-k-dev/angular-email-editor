@@ -1,6 +1,7 @@
 export * from './extension';
 export * from './schema';
 export * from './html';
+export * from './import-html';
 export * from './html-source';
 export * from './dual-contrast';
 export * from './client-support';

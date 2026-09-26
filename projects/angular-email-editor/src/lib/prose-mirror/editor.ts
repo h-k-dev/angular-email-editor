@@ -199,13 +199,21 @@ function syncDoc(view: EditorView, doc: Node): void {
     endB += overlap;
   }
 
-  const tr = view.state.tr;
+  let tr = view.state.tr;
   try {
     tr.replace(start, endA, doc.slice(start, endB));
   } catch {
-    // A slice the schema can't fit at that boundary: fall back to replacing
-    // the whole document — still a transaction, so history semantics hold.
-    tr.replaceWith(0, previous.content.size, doc.content);
+    tr = null!;
+  }
+  // The slice is open at both ends, and where its ends stand at different
+  // depths ProseMirror *fits* it rather than refusing: it closes and reopens
+  // the nodes around the gap, leaving a duplicated row here, a column at its
+  // default width there. Neither is the document that was asked for. A
+  // slice the schema cannot fit at all throws instead. Either way, fall
+  // back to replacing the whole document — still one transaction, so the
+  // history semantics hold; only the selection lands less precisely.
+  if (!tr || !tr.doc.eq(doc)) {
+    tr = view.state.tr.replaceWith(0, previous.content.size, doc.content);
   }
   view.dispatch(tr.setMeta('addToHistory', false).setMeta('externalSync', true));
 }

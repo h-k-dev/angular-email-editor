@@ -172,6 +172,11 @@ export class ApiReference {
           does: 'The document in and out of the schema — the round trip the two panes share.',
         },
         {
+          name: 'inlineStyles · unwrapLayoutTables',
+          signature: '(doc: Document, viewportWidth?) => void · (root: ParentNode) => void',
+          does: 'What parseHTML runs before the schema on a whole document: the <style> sheet folded into the elements it matches (document order, !important over inline, media queries answered for a 600px screen), and the builders’ one-cell presentation wrapper tables taken out, a right-to-left cell reversed — so an MJML export comes in as sections of columns, not empty grids.',
+        },
+        {
           name: 'emailPlainText',
           signature: '(html: string) => string',
           does: 'The text/plain projection of the canonical HTML — the other half of a well-formed multipart/alternative body.',

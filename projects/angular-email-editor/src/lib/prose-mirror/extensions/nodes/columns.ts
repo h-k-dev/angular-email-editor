@@ -135,9 +135,15 @@ export function setColumnsBoundary(columnsPos: number, boundary: number, leftCap
   };
 }
 
+/** The cap a column's `max-width` means: px as written; a percentage — a
+    builder's share of the row (MJML's `mj-column-per-50`) — as that share
+    of the budget, so two halves sit side by side exactly as two of ours. */
 function parseColumnMaxWidth(style: string | null): number {
-  const m = /max-width:\s*(\d+)px/.exec(style ?? '');
-  return m ? +m[1] : columnMaxWidth(2);
+  const m = /max-width:\s*(\d+(?:\.\d+)?)(px|%)/i.exec(style ?? '');
+  if (!m) return columnMaxWidth(2);
+  if (m[2] === 'px') return Math.round(+m[1]);
+  const budget = CONTAINER_MAX - 2 * CLIENT_PADDING_BUDGET;
+  return Math.max(MIN_COLUMN_CAP, Math.min(budget, Math.floor((budget * +m[1]) / 100)));
 }
 
 /** A single column: an `inline-block` div, recognised on parse by that style

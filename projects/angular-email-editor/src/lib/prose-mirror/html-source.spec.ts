@@ -206,6 +206,21 @@ describe('html-source formatter — merge tags', () => {
   });
 });
 
+describe('html-source formatter — a whole document', () => {
+  it('keeps the stylesheet, from the head too, its CSS as written', () => {
+    const source =
+      '<html><head><style type="text/css">@media only screen and (min-width:480px) { .mj-column-per-50 { width: 50% !important; max-width: 50%; } }\n a > b { color: red }</style></head>' +
+      '<body><div style="margin:0 auto;max-width:600px"><div class="mj-column-per-50" style="display:inline-block;width:100%"><p>x</p></div></div></body></html>';
+    const formatted = formatHTML(source);
+    expect(formatted.startsWith('<style type="text/css">\n  @media only screen')).toBe(true);
+    // Not escaped, not re-wrapped: the parse reads the same rules after.
+    expect(formatted).toContain('a > b { color: red }');
+    expect(formatted).toContain('width: 50% !important');
+    expect(formatted.indexOf('</style>')).toBeLessThan(formatted.indexOf('<div'));
+    expect(formatHTML(formatted)).toBe(formatted);
+  });
+});
+
 describe('html-source formatter — 80 characters', () => {
   const LONG =
     '<div>Sehr geehrte Damen und Herren, vielen Dank für Ihre Nachricht vom letzten Dienstag, die wir mit großem Interesse gelesen haben und heute beantworten.</div>';

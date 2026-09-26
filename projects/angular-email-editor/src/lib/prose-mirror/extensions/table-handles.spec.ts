@@ -1,3 +1,4 @@
+import { TextSelection } from 'prosemirror-state';
 import { CellSelection } from 'prosemirror-tables';
 import { createEditor, Editor } from '../editor';
 import { emailExtensions } from './kits';
@@ -64,6 +65,25 @@ describe('table handles', () => {
     (editor.state.selection as CellSelection).forEachCell((cell) => column.push(cell.textContent));
     expect(column).toEqual(['a1', 'b1']);
     expect(opened).toMatchObject({ kind: 'column', index: 0 });
+  });
+
+  it('marks the caret’s row and column grips, so a cell being typed in keeps its handles', () => {
+    const caret = () =>
+      grips('row')
+        .concat(grips('column'))
+        .filter((g) => g.getAttribute('aria-label'))
+        .filter((g) => g.hasAttribute('data-caret'))
+        .map((g) => g.getAttribute('aria-label'));
+    // A new document's caret stands in a1: its row's grip and its column's.
+    expect(caret()).toEqual(['Row 1 options', 'Column 1 options']);
+    // The caret into b2: row 2's grip and column 2's.
+    const b2 = host.querySelectorAll('td')[4];
+    const pos = editor.view.posAtDOM(b2.firstChild!, 1);
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, pos)));
+    expect(caret()).toEqual(['Row 2 options', 'Column 2 options']);
+    // A band selected is the band's affair: the caret marks go.
+    grips('row')[0].click();
+    expect(caret()).toHaveLength(0);
   });
 
   it('keeps the same grip elements while typing, so the pointer is never rebuilt out from under itself', () => {

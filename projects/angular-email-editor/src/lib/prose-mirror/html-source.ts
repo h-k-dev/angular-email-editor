@@ -673,9 +673,16 @@ const BLOCK_TAGS = new Set([
 export const FORMAT_WIDTH = 80;
 
 export function formatHTML(html: string, indent = '  ', width = FORMAT_WIDTH): string {
-  const body = new DOMParser().parseFromString(html, 'text/html').body;
+  const doc = new DOMParser().parseFromString(html, 'text/html');
   const lines: string[] = [];
-  for (const child of Array.from(body.childNodes)) formatNode(child, 0, lines, indent, width);
+  // A whole document's stylesheet — a builder's export leans on it, and the
+  // parse folds it in (`inlineStyles`) — comes first, then the body: the
+  // head has nothing else the email keeps. Formatting stays presentation
+  // only: what the parse read before, it reads after.
+  for (const style of Array.from(doc.head.querySelectorAll('style'))) {
+    formatNode(style, 0, lines, indent, width);
+  }
+  for (const child of Array.from(doc.body.childNodes)) formatNode(child, 0, lines, indent, width);
   return lines.join('\n');
 }
 
@@ -704,6 +711,17 @@ function formatNode(
   const tag = node.tagName.toLowerCase();
   if (VOID_TAGS.has(tag)) {
     lines.push(...openTagLines(node, pad, indent, width));
+    return;
+  }
+  // Raw text elements: the CSS is kept as written, line by line — escaped
+  // or re-wrapped it would no longer be the stylesheet it was.
+  if (tag === 'style' || tag === 'script') {
+    lines.push(`${pad}${openTag(node)}`);
+    for (const line of (node.textContent ?? '').split('\n')) {
+      const trimmed = line.trim();
+      if (trimmed) lines.push(`${pad}${indent}${trimmed}`);
+    }
+    lines.push(`${pad}</${tag}>`);
     return;
   }
   if (!BLOCK_TAGS.has(tag) || !hasBlockChild(node)) {

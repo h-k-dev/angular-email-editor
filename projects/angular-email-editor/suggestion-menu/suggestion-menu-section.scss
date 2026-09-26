@@ -5,7 +5,7 @@
 :host {
   display: block;
   flex: none;
-  padding-block: var(--email-suggestion-menu-section-padding-block, 8px 2px);
+  padding-block: var(--email-suggestion-menu-section-padding-block, 14px 4px);
   padding-inline: var(--email-suggestion-menu-section-padding-inline, 8px);
   box-sizing: border-box;
   color: var(
@@ -31,7 +31,7 @@
   user-select: none;
 }
 
-// The first heading sits on the list's own padding.
+// The first heading sits on the list's own padding: no gap to bridge.
 :host(:first-child) {
   padding-block-start: var(--email-suggestion-menu-section-first-padding-block-start, 4px);
 }

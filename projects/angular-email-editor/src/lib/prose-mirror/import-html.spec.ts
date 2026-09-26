@@ -1,0 +1,111 @@
+import { createEditor } from './editor';
+import { emailExtensions } from './extensions/kits';
+import { inlineStyles, mediaMatches, parseRules, unwrapLayoutTables } from './import-html';
+
+const document = (html: string) => new DOMParser().parseFromString(html, 'text/html');
+
+describe('inlineStyles', () => {
+  it('folds the sheet into the elements it matches and drops the block', () => {
+    const doc = document(
+      '<style>.a { color: red; } p { margin: 0 } .a { font-size: 12px; color: blue }</style>' +
+        '<p class="a" style="color: green">x</p><p>y</p>',
+    );
+    inlineStyles(doc);
+    const [a, b] = Array.from(doc.querySelectorAll('p'));
+    // Inline stands over the sheet; later rules replace earlier sheet values.
+    expect(a.style.color).toBe('green');
+    expect(a.style.fontSize).toBe('12px');
+    expect(a.style.margin).toBe('0px');
+    expect(b.style.margin).toBe('0px');
+    expect(doc.querySelector('style')).toBeNull();
+  });
+
+  it('lets !important beat an inline declaration, as a mobile-first export relies on', () => {
+    const doc = document(
+      '<style>@media only screen and (min-width:480px) { .col { width: 50% !important; max-width: 50%; } }' +
+        '@media only screen and (max-width:479px) { .col { width: 100% !important; } }</style>' +
+        '<div class="col" style="width: 100%">c</div>',
+    );
+    inlineStyles(doc);
+    const col = doc.querySelector<HTMLElement>('.col')!;
+    expect(col.style.getPropertyValue('width')).toBe('50%');
+    expect(col.style.getPropertyPriority('width')).toBe('important');
+    expect(col.style.maxWidth).toBe('50%');
+  });
+
+  it('skips what the document cannot match, and other at-rules', () => {
+    const rules = parseRules(
+      'a:hover { color: red } a::before { content: "" } @font-face { font-family: x } b { font-weight: bold }',
+      600,
+    );
+    expect(rules.map((rule) => rule.selector)).toEqual(['b']);
+  });
+
+  it('answers a media query for the import width', () => {
+    expect(mediaMatches('only screen and (min-width:480px)', 600)).toBe(true);
+    expect(mediaMatches('only screen and (max-width:479px)', 600)).toBe(false);
+    expect(mediaMatches('screen and (min-width: 480px) and (max-width: 700px)', 600)).toBe(true);
+    expect(mediaMatches('print', 600)).toBe(false);
+    expect(mediaMatches('not screen', 600)).toBe(false);
+    expect(mediaMatches('screen', 600)).toBe(true);
+    expect(mediaMatches('(prefers-color-scheme: dark)', 600)).toBe(false);
+  });
+});
+
+describe('unwrapLayoutTables', () => {
+  const wrapper = (inner: string, cellStyle = '') =>
+    `<table border="0" cellpadding="0" cellspacing="0" role="presentation"><tbody><tr>` +
+    `<td style="${cellStyle}">${inner}</td></tr></tbody></table>`;
+
+  it('takes a builder’s one-cell wrapper tables out, innermost included', () => {
+    const doc = document(wrapper(wrapper('<img src="a.png">') + '<div>text</div>'));
+    unwrapLayoutTables(doc.body);
+    expect(doc.body.querySelector('table')).toBeNull();
+    expect(doc.body.innerHTML).toBe('<img src="a.png"><div>text</div>');
+  });
+
+  it('hands a right-to-left cell’s children over in reverse', () => {
+    const doc = document(wrapper('<div id="a">a</div><div id="b">b</div>', 'direction:rtl'));
+    unwrapLayoutTables(doc.body);
+    expect(Array.from(doc.body.children).map((el) => el.id)).toEqual(['b', 'a']);
+  });
+
+  it('keeps a table that is a table: text in its cell, or no builder attributes', () => {
+    const doc = document(
+      wrapper('cell') +
+        '<table role="presentation"><tbody><tr><td><img src="a.png"></td></tr></tbody></table>' +
+        wrapper('<div>x</div>', '') +
+        '<table border="0" cellpadding="0" role="presentation"><tbody><tr><td>a</td><td>b</td></tr></tbody></table>',
+    );
+    unwrapLayoutTables(doc.body);
+    expect(doc.body.querySelectorAll('table')).toHaveLength(3);
+  });
+
+  it('brings an MJML section in as one of the kit’s column blocks', () => {
+    const mount = document('').body;
+    const html =
+      '<html><head><style>@media only screen and (min-width:480px) { .mj-column-per-100 { width: 100% !important; max-width: 100%; } .mj-column-per-50 { width: 50% !important; max-width: 50%; } }</style></head><body>' +
+      '<div style="margin:0px auto;max-width:600px;">' +
+      '<table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;"><tbody><tr>' +
+      '<td style="direction:ltr;font-size:0px;padding:20px 0;text-align:center;">' +
+      '<div class="mj-column-per-100" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;"><p>Wide</p></div>' +
+      '</td></tr></tbody></table></div>' +
+      '<div style="margin:0px auto;max-width:600px;">' +
+      '<table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;"><tbody><tr>' +
+      '<td style="direction:rtl;font-size:0px;padding:20px 0;text-align:center;">' +
+      '<div class="mj-column-per-50" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;"><p>Picture</p></div>' +
+      '<div class="mj-column-per-50" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;"><p>Words</p></div>' +
+      '</td></tr></tbody></table></div></body></html>';
+    const editor = createEditor({ parent: mount, extensions: emailExtensions, content: html });
+    const out = editor.getHTML();
+    // One columns block, two halves of the budget each, the right-to-left
+    // section's words first — no empty table left behind.
+    expect(out).not.toContain('<table');
+    // The full-width column takes the whole budget — not the two-column
+    // default it would fall back to were the sheet not read.
+    expect(out.match(/max-width: 560px/g)).toHaveLength(1);
+    expect(out.match(/max-width: 280px/g)).toHaveLength(2);
+    expect(out.indexOf('Words')).toBeLessThan(out.indexOf('Picture'));
+    editor.destroy();
+  });
+});
