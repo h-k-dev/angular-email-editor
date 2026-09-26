@@ -1,3 +1,5 @@
+@use '../../../styles/breakpoints' as bp;
+
 // Lives inside the writer's sheet (email-writer.scss): the surface is the
 // writer's, so nothing here paints a background of its own.
 :host {
@@ -99,6 +101,46 @@
   // envelope rows and whatever follows — through this token. It stays inside
   // the scroller, so the inset scrolls with the text.
   padding-block: var(--email-compose-surface-padding-block, 0);
+}
+
+// The dock at the sheet's foot: the chat-based suggestion over the
+// formatting toolbar, stacked flush.
+.dock {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+}
+
+// With the chat up, on a wide screen, the two are one box: the field and
+// the toolbar's row (or, with the toolbar off, the field and its button)
+// in one outlined, faintly filled, rounded box — a chat's composer with
+// its tools along the bottom. The box is painted by a layer behind the
+// content, from where the field begins (`--dock-box-top`, the height of
+// the Discard / Apply line, which the strip reads for that line) to the
+// dock's foot; it stands 8px in from the sheet's edges, the sheet's own
+// bottom padding under it, so it is a box on the sheet and never doubles
+// the sheet's edge. Inside, the toolbar's own inset sets the glyphs, and
+// the field's sets the text, on one line. A phone keeps its bar on the
+// keyboard: no box, the hairline above the field alone.
+.dock--chat {
+  @include bp.wide {
+    --dock-box-top: 32px;
+    position: relative;
+    isolation: isolate;
+    margin-inline: 8px;
+    padding: 0 4px 4px;
+
+    &::before {
+      content: '';
+      position: absolute;
+      inset: var(--dock-box-top) 0 0;
+      z-index: -1;
+      pointer-events: none;
+      border: 1px solid var(--mat-sys-outline-variant, #cccccc);
+      border-radius: 16px;
+      background-color: color-mix(in srgb, var(--mat-sys-on-surface, #1f1f1f) 2%, transparent);
+    }
+  }
 }
 
 // Code view: the projected source pane takes the editing surface's place.

@@ -1,12 +1,10 @@
 @use '../../../../styles/breakpoints' as bp;
 
-// A section of the composer's column, sitting on the bar under it: the
-// column's gap is closed below, so the strip rises out of the toolbar
-// rather than hovering over it. Takes no room at all while there is
+// The upper half of the composer's dock (email-compose.scss), stacked
+// flush on the toolbar under it. Takes no room at all while there is
 // nothing proposed.
 :host {
   display: block;
-  margin-block-end: -8px;
 }
 
 :host([hidden]) {
@@ -23,12 +21,13 @@
 }
 
 // The top line has no surface: what stands on it floats over the text, on
-// the text's own inset.
+// the text's own inset — above the box the dock paints from under it
+// (`--dock-box-top`, the dock's: this line is exactly that tall).
 .chat-based-suggestion__top {
   display: flex;
   align-items: center;
   gap: 6px;
-  min-height: 32px;
+  min-height: var(--dock-box-top, 32px);
   padding-inline: var(--mat-sys-inner-spacing, 16px);
 }
 
@@ -106,31 +105,17 @@
   }
 }
 
-// The field: no surface of its own — a surface parted it from the bar it
-// sits on. A hairline over its top tells it from the text above, and its
-// two rounded corners say it is a box, open at the bottom onto the
-// toolbar: one box, the field and the bar. The line is drawn on a layer
-// under the content and fades out down the sides just past the corners:
-// the field stands at the section's edges, and a line all the way down
-// would double the sheet's own. No ring, no accent: the caret says where
-// the focus is. It rises out of the bar as it opens.
+// The field: no surface of its own — the dock's box is (email-compose.scss),
+// which the field and the toolbar's row share. Its inset puts the text on
+// the line the toolbar's glyphs stand on: the box's 4px, then 18px here,
+// against the toolbar's 8px of row padding, 2px of target and 6px of
+// state layer round a glyph. No ring, no accent: the caret says where the
+// focus is. It rises out of the bar as it opens.
 .chat-based-suggestion__field {
-  position: relative;
   display: flex;
   align-items: flex-end;
   gap: 2px;
-  padding: 5px 5px 4px 13px;
-
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    border: 1px solid var(--mat-sys-outline-variant, #cccccc);
-    border-bottom: none;
-    border-radius: 12px 12px 0 0;
-    mask-image: linear-gradient(to bottom, #000 12px, transparent 40px);
-  }
+  padding: 4px 4px 0 18px;
 }
 
 .chat-based-suggestion__field--rising {
@@ -210,16 +195,10 @@
     color: var(--mat-sys-surface, #ffffff);
   }
 
-  // Edge to edge: the hairline above alone parts it from the text.
+  // Edge to edge, no box: the hairline above alone parts it from the text.
   .chat-based-suggestion__field {
-    padding: 1px calc(var(--mat-sys-inner-spacing, 16px) - 10px) 0
-      var(--mat-sys-inner-spacing, 16px);
-
-    &::before {
-      border-inline: none;
-      border-radius: 0;
-      mask-image: none;
-    }
+    padding: 0 calc(var(--mat-sys-inner-spacing, 16px) - 10px) 0 var(--mat-sys-inner-spacing, 16px);
+    border-top: 1px solid var(--mat-sys-outline-variant, #cccccc);
   }
 }
 
