@@ -25,7 +25,8 @@ export class ToolbarKeys {
   protected onKeydown(event: KeyboardEvent): void {
     let step = STEPS[event.key];
     if (step === undefined || event.altKey || event.ctrlKey || event.metaKey) return;
-    if (typeof step === 'number' && getComputedStyle(this.#host).direction === 'rtl') step = -step as 1 | -1;
+    if (typeof step === 'number' && getComputedStyle(this.#host).direction === 'rtl')
+      step = -step as 1 | -1;
     const tools = this.#tools();
     const at = tools.indexOf(event.target as HTMLButtonElement);
     if (at < 0 || tools.length < 2) return;

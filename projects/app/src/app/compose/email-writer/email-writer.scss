@@ -54,6 +54,12 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  // With the toolbar and the chat strip: one bottom column, centred and no
+  // wider than a long line on a full-screen window's wide sheet.
+  box-sizing: border-box;
+  inline-size: 100%;
+  max-inline-size: 100ch;
+  margin-inline: auto;
   // Exactly the icon button's 40px state layer (styles.scss): the visible
   // box, and the line the glyphs centre on. The 48px touch target overhangs
   // it by 4px above and below — invisible, into the column's 8px gap and

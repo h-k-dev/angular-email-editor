@@ -2,6 +2,7 @@ import {
   Component,
   DOCUMENT,
   Injector,
+  TemplateRef,
   afterNextRender,
   computed,
   effect,
@@ -10,6 +11,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 
 // Material
 import { MatIconModule } from '@angular/material/icon';
@@ -38,8 +40,12 @@ import { AiAsk } from '../ai-writer';
  * the model thinks (asked, and nothing has come yet); on the right,
  * Discard and Apply, as words — no state layer, a touch target's height.
  * Below, the field: the library's chat input (lines and lists, Enter
- * sends) in a pill, with a place for voice input and the send button — a
- * mouse's way to ask.
+ * sends), outlined, open at the bottom onto the toolbar it sits on. One
+ * button goes with it — voice input while the field is empty, send once
+ * there is text, stop while the assistant writes — at the field's end
+ * when the toolbar is off, at the *toolbar's* end when it is on (a phone
+ * always): the composer hands the button over (`action`,
+ * `actionInToolbar`), so it reads as the bar's own.
  *
  * The proposal is ordinary text in the meantime: the writer edits it in
  * place, and Apply takes it as it stands — edits and all — into the
@@ -55,6 +61,8 @@ import { AiAsk } from '../ai-writer';
 @Component({
   selector: 'div[chat-based-suggestion]',
   imports: [
+    NgTemplateOutlet,
+
     // Material
     MatIconModule,
 
@@ -87,7 +95,18 @@ export class ChatBasedSuggestion {
   /** The proposal in the email editor: its state, and the ways out. */
   protected readonly proposal = injectProposal(() => this.#commands.editor());
 
-  protected readonly open = signal(false);
+  /** Whether the strip is up — the composer reads it to hand the button
+      to the toolbar. */
+  readonly open = signal(false);
+
+  /** Whether the toolbar under the strip is shown: then the button is
+      the bar's, pinned at its end, and the strip holds the field alone. */
+  readonly actionInToolbar = input(false);
+
+  /** The one button — voice input while the field is empty, send once
+      there is text, stop while the assistant writes — as a template, for
+      the strip or for the toolbar's end. */
+  readonly action = viewChild<TemplateRef<unknown>>('action');
 
   /** What the writer typed into the chat input — sent with the next ask. */
   protected readonly instructions = signal('');

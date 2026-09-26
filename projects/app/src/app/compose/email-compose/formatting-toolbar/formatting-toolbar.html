@@ -133,6 +133,14 @@
   </button>
 </div>
 
+<!-- The line's end, for what a host pins there: the chat-based suggestion's
+     one button, which joins the bar as if it were the bar's own. -->
+@if (end(); as template) {
+  <div class="toolbar__end">
+    <ng-container *ngTemplateOutlet="template" />
+  </div>
+}
+
 <!-- The open picker, at its button — or at the ⋯, when the button has moved
      there. One overlay for both; (detach) keeps `picker` in step when the
      CDK closes it by itself on Escape. Pushed, never squeezed: the colour

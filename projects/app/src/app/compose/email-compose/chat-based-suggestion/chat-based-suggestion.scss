@@ -23,7 +23,7 @@
   gap: 0;
   box-sizing: border-box;
   inline-size: 100%;
-  max-inline-size: 90ch;
+  max-inline-size: 100ch;
   margin-inline: auto;
 }
 
@@ -111,15 +111,18 @@
   }
 }
 
-// The field: one strip on the field surface, the chat input, a place for
-// voice input and the send button in a row — no ring, no accent: the caret
-// says where the focus is. It rises out of the bar as it opens.
+// The field: no surface of its own — a surface parted it from the bar it
+// sits on. A hairline round its top and sides tells it from the text
+// above, and the open bottom joins it to the toolbar: one box, the field
+// and the bar. No ring, no accent: the caret says where the focus is. It
+// rises out of the bar as it opens.
 .chat-based-suggestion__field {
   display: flex;
   align-items: flex-end;
   gap: 2px;
   padding: 4px 4px 4px 12px;
-  background-color: var(--mat-sys-surface-container-high, #ececec);
+  border: 1px solid var(--mat-sys-outline-variant, #cccccc);
+  border-bottom: none;
   border-radius: 12px 12px 0 0;
 }
 
@@ -200,8 +203,10 @@
     min-height: 28px;
   }
 
+  // Edge to edge: the hairline above alone parts it from the text.
   .chat-based-suggestion__field {
     padding: 0 calc(var(--mat-sys-inner-spacing, 16px) - 10px) 0 var(--mat-sys-inner-spacing, 16px);
+    border-inline: none;
     border-radius: 0;
   }
 }

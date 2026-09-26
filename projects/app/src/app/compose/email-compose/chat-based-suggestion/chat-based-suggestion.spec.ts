@@ -344,18 +344,22 @@ describe('ChatBasedSuggestion', () => {
     await feed(null);
     const send = () => dialog()!.querySelector<HTMLButtonElement>('[aria-label="Send"]')!;
     const thinking = () => dialog()!.querySelector('[role="status"]');
-    // Nothing typed: nothing to send.
-    expect(send().disabled).toBe(true);
+    // Nothing typed: the one button is the voice input's place, not send.
+    expect(send()).toBeNull();
+    expect(dialog()!.querySelector('[aria-label^="Voice input"]')).not.toBeNull();
     const chat = (host.panel() as any).chat().editor();
     chat.view.dispatch(chat.state.tr.insertText('kurz'));
     await settle();
-    expect(send().disabled).toBe(false);
+    expect(send()).not.toBeNull();
     send().click();
     await settle();
     expect(asked[1]?.instructions).toBe('kurz');
     // Asked, nothing come yet: thinking. The field is cleared for the next ask.
     expect(thinking()).not.toBeNull();
     expect(chat.state.doc.textContent).toBe('');
+    // Sent: the field is empty again, and the button is the stop button
+    // while the assistant writes, then the voice input's place.
+    expect(dialog()!.querySelector('[aria-label="Stop"]')).not.toBeNull();
     await feed(' Kurz.');
     expect(thinking()).toBeNull();
     await feed(null);

@@ -256,6 +256,13 @@ export class EmailCompose implements FormValueControl<string> {
   protected readonly altTextEditor = viewChild.required(AltTextEditor);
   protected readonly suggestion = viewChild.required(ChatBasedSuggestion);
 
+  /** The chat-based suggestion's button, for the toolbar's end while the
+      strip is up and the toolbar shows — the bar takes it as its own. */
+  protected readonly suggestionAction = computed(() => {
+    const suggestion = this.suggestion();
+    return this.toolbar() && suggestion.open() ? (suggestion.action() ?? null) : null;
+  });
+
   /** The email editor, once mounted — the formatting commands' own. */
   readonly editor = this.#commands.editor;
 

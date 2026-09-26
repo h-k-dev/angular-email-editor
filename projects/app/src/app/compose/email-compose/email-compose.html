@@ -96,11 +96,16 @@
      in the text: Discard and Apply over the text, the chat that steers it.
      Docked here rather than floating under the proposal, which grows and
      scrolls. -->
-<div chat-based-suggestion [language]="language"></div>
+<div chat-based-suggestion [language]="language" [actionInToolbar]="toolbar()"></div>
 
 <!-- The formatting toolbar sits *below* the editing surface: on a phone the
      shell's height follows the virtual keyboard (see app.scss), so the bar
      rides up and stays reachable right above the keys. Last in DOM as on
      screen. The host can hide it (`toolbar`, the writer bar's formatting
      button). -->
-<div formatting-toolbar aria-label="Text formatting" [shown]="toolbar()"></div>
+<div
+  formatting-toolbar
+  aria-label="Text formatting"
+  [shown]="toolbar()"
+  [end]="suggestionAction()"
+></div>

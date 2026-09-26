@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import {
   Component,
   ElementRef,
@@ -7,6 +8,7 @@ import {
   input,
   signal,
   viewChild,
+  TemplateRef,
 } from '@angular/core';
 
 // Material
@@ -67,6 +69,8 @@ const LAYOUT: FormattingLayout = [
 @Component({
   selector: 'div[formatting-toolbar]',
   imports: [
+    NgTemplateOutlet,
+
     // Material
     MatButtonModule,
     MatDividerModule,
@@ -102,6 +106,11 @@ export class FormattingToolbar {
       formatting options). Hidden, the text keeps its keyboard shortcuts,
       the slash menu and the bubble menu. */
   readonly shown = input(true, { transform: booleanAttribute });
+
+  /** What stands at the line's end, after history — a template the host
+      hands in: the chat-based suggestion's button while its strip is up,
+      so that the button is part of the bar rather than a row of its own. */
+  readonly end = input<TemplateRef<unknown> | null>(null);
 
   /** Wide: one dense line with a ⋯; otherwise a phone's scrolling row. */
   protected readonly wide = computed(() => !this.#viewport.compact());
