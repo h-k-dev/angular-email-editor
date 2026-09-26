@@ -1,4 +1,14 @@
-import { Directive, Injector, Signal, computed, inject, input } from '@angular/core';
+import {
+  DOCUMENT,
+  Directive,
+  Injector,
+  Signal,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+} from '@angular/core';
 import {
   ContentStreamRange,
   ContentStreamRun,
@@ -163,10 +173,86 @@ export function injectProposal(
 }
 
 /**
+ * The proposal of an editor, as a directive: put it on the element that
+ * holds the host's panel — the chat, the buttons — and everything inside
+ * has it, by injection, with nothing to bind:
+ *
+ *     <div [emailProposal]="editor" #p="emailProposal">
+ *       <button emailProposalAccept [disabled]="!p.active()">Apply</button>
+ *       <button emailProposalDiscard>Discard</button>
+ *     </div>
+ *
+ * The directive *is* the {@link EditorProposal}: `p.active()`,
+ * `p.propose(…)`, `p.accept()` — the same face `injectProposal` gives a
+ * class, for a host that lives in its template. The two are one thing
+ * looked at from two sides; a trigger takes either, bound or injected.
+ */
+@Directive({ selector: '[emailProposal]', exportAs: 'emailProposal' })
+export class Proposal implements EditorProposal {
+  /** The editor the proposal is in — read reactively, so it may come
+      later, or change. */
+  readonly editor = input.required<Editor | undefined>({ alias: 'emailProposal' });
+
+  readonly #proposal = injectProposal(() => this.editor());
+
+  readonly active = this.#proposal.active;
+  readonly streaming = this.#proposal.streaming;
+  readonly thinking = this.#proposal.thinking;
+  readonly range = this.#proposal.range;
+  readonly box = this.#proposal.box;
+  readonly selectedPart = this.#proposal.selectedPart;
+
+  propose(...args: Parameters<EditorProposal['propose']>): ContentStreamRun | null {
+    return this.#proposal.propose(...args);
+  }
+
+  revise(...args: Parameters<EditorProposal['revise']>): ContentStreamRun | null {
+    return this.#proposal.revise(...args);
+  }
+
+  stop(): void {
+    this.#proposal.stop();
+  }
+
+  accept(): boolean {
+    return this.#proposal.accept();
+  }
+
+  discard(): boolean {
+    return this.#proposal.discard();
+  }
+}
+
+/** A trigger's own binding: an `EditorProposal`, or nothing — the bare
+    attribute (`''`) counts as nothing, and the ancestor's is used. */
+const bound = (value: EditorProposal | '' | undefined): EditorProposal | undefined =>
+  value || undefined;
+
+/** The proposal a trigger acts on: the one bound to it, else the one an
+    `[emailProposal]` ancestor provides. Neither is a mistake, and said so. */
+function resolveProposal(
+  own: Signal<EditorProposal | undefined>,
+  selector: string,
+): Signal<EditorProposal> {
+  const provided = inject(Proposal, { optional: true });
+  return computed(() => {
+    const proposal = own() ?? provided ?? undefined;
+    if (!proposal) {
+      throw new Error(
+        `[${selector}] has no proposal: bind one ([${selector}]="proposal"), ` +
+          `or put [emailProposal] on an ancestor.`,
+      );
+    }
+    return proposal;
+  });
+}
+
+/**
  * Makes the host's own button the one that accepts the proposal: a click
  * takes it into the document and hands the caret back; disabled — by the
  * host's own means, bound from `disabled()` — while nothing is proposed or
- * it is still being written.
+ * it is still being written. The proposal is bound, or, bare, the
+ * `[emailProposal]` ancestor's.
  *
  *     <button mat-button [emailProposalAccept]="proposal" #apply="emailProposalAccept"
  *             [disabled]="apply.disabled()">Apply</button>
@@ -177,19 +263,22 @@ export function injectProposal(
   host: { '(click)': 'run()', '[attr.aria-disabled]': 'disabled() ? true : null' },
 })
 export class ProposalAccept {
-  readonly proposal = input.required<EditorProposal>({ alias: 'emailProposalAccept' });
+  readonly proposal = input(undefined, { alias: 'emailProposalAccept', transform: bound });
 
-  readonly disabled = computed(() => !this.proposal().active() || this.proposal().streaming());
+  readonly #proposal = resolveProposal(this.proposal, 'emailProposalAccept');
+
+  readonly disabled = computed(() => !this.#proposal().active() || this.#proposal().streaming());
 
   run(): boolean {
     if (this.disabled()) return false;
-    return this.proposal().accept();
+    return this.#proposal().accept();
   }
 }
 
 /**
  * Makes the host's own button the one that discards the proposal: a click
- * takes it out, wherever the writing has got to.
+ * takes it out, wherever the writing has got to. The proposal is bound,
+ * or, bare, the `[emailProposal]` ancestor's.
  *
  *     <button mat-button [emailProposalDiscard]="proposal">Discard</button>
  */
@@ -199,12 +288,75 @@ export class ProposalAccept {
   host: { '(click)': 'run()', '[attr.aria-disabled]': 'disabled() ? true : null' },
 })
 export class ProposalDiscard {
-  readonly proposal = input.required<EditorProposal>({ alias: 'emailProposalDiscard' });
+  readonly proposal = input(undefined, { alias: 'emailProposalDiscard', transform: bound });
 
-  readonly disabled = computed(() => !this.proposal().active());
+  readonly #proposal = resolveProposal(this.proposal, 'emailProposalDiscard');
+
+  readonly disabled = computed(() => !this.#proposal().active());
 
   run(): boolean {
     if (this.disabled()) return false;
-    return this.proposal().discard();
+    return this.#proposal().discard();
   }
+}
+
+/**
+ * The keys of a proposal, heard from anywhere on the page — the text, the
+ * host's input, a button — while one stands, before anything else hears
+ * them (the document, capture phase):
+ *
+ * - **Ctrl-Enter** (⌘-Enter on a Mac) accepts: a proposal on the table is
+ *   what the key commits, and whatever the editor binds to it (a send,
+ *   say) never sees it. While the proposal is still being written the key
+ *   is swallowed — nothing is sent, nothing is applied; one thing at a
+ *   time. `accepted` says it happened.
+ * - **Escape** is the host's: `escape` carries the event, and the host
+ *   decides — close a menu over the text first, or let the proposal go —
+ *   because what else is open is the host's to know. Nothing is prevented
+ *   or stopped for it; the host does that on the event if it acts.
+ *
+ * Nothing is heard while nothing is proposed, and an IME's own keys stay
+ * the IME's. The proposal is bound, or, bare, the `[emailProposal]`
+ * ancestor's.
+ *
+ *     <div [emailProposal]="editor" emailProposalKeys
+ *          (accepted)="done()" (escape)="$event.preventDefault(); leave()">
+ */
+@Directive({ selector: '[emailProposalKeys]', exportAs: 'emailProposalKeys' })
+export class ProposalKeys {
+  readonly proposal = input(undefined, { alias: 'emailProposalKeys', transform: bound });
+
+  /** Ctrl-Enter (⌘-Enter) took the proposal into the document. */
+  readonly accepted = output<void>();
+
+  /** Escape, with a proposal standing — for the host to act on. */
+  readonly escape = output<KeyboardEvent>();
+
+  readonly #proposal = resolveProposal(this.proposal, 'emailProposalKeys');
+
+  readonly #document = inject(DOCUMENT);
+
+  constructor() {
+    effect((onCleanup) => {
+      const proposal = this.#proposal();
+      if (!proposal.active()) return;
+      const onKeydown = (event: KeyboardEvent) => {
+        if (event.isComposing) return;
+        if (event.key === 'Escape') {
+          this.escape.emit(event);
+        } else if (event.key === 'Enter' && (isMac() ? event.metaKey : event.ctrlKey)) {
+          event.preventDefault();
+          event.stopPropagation();
+          if (!proposal.streaming() && proposal.accept()) this.accepted.emit();
+        }
+      };
+      this.#document.addEventListener('keydown', onKeydown, true);
+      onCleanup(() => this.#document.removeEventListener('keydown', onKeydown, true));
+    });
+  }
+}
+
+/** Whether the keyboard is a Mac's: ⌘ where others hold Ctrl. */
+function isMac(): boolean {
+  return typeof navigator !== 'undefined' && /Mac|iP(hone|ad|od)/.test(navigator.platform);
 }

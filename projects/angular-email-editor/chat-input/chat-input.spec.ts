@@ -1,7 +1,8 @@
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { splitBlock } from 'prosemirror-commands';
-import { ChatInput } from './chat-input';
+import { FormField, form } from '@angular/forms/signals';
+import { ChatInput, ChatInputField } from './chat-input';
 
 @Component({
   imports: [ChatInput],
@@ -102,5 +103,100 @@ describe('ChatInput', () => {
     await settle();
     expect(editor().querySelectorAll('li').length).toBe(1);
     expect(editor().textContent).toContain('short');
+  });
+});
+
+// The behaviour alone, on an element of the host's own.
+@Component({
+  imports: [ChatInputField],
+  template: `
+    <p
+      emailChatInput
+      #field="emailChatInput"
+      placeholder="Ask…"
+      [(value)]="value"
+      (sent)="sent.push($event)"
+      (touch)="touched = touched + 1"
+    ></p>
+  `,
+})
+class Bare {
+  readonly value = signal('');
+  readonly sent: string[] = [];
+  touched = 0;
+  readonly field = viewChild.required<ChatInputField>('field');
+}
+
+describe('ChatInputField', () => {
+  let fixture: ComponentFixture<Bare>;
+  let host: Bare;
+
+  const editor = () =>
+    (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>(
+      'p > .email-chat-input__editor',
+    )!;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({ imports: [Bare] }).compileComponents();
+    fixture = TestBed.createComponent(Bare);
+    host = fixture.componentInstance;
+    await fixture.whenStable();
+  });
+
+  afterEach(() => fixture.destroy());
+
+  it('mounts the field into the host’s element, sends on Enter, and says when focus leaves', async () => {
+    expect(editor()).not.toBeNull();
+    expect(
+      editor().querySelector('.email-chat-input__empty')?.getAttribute('data-placeholder'),
+    ).toBe('Ask…');
+    const view = host.field().editor()!.view;
+    view.dispatch(view.state.tr.insertText('Shorter'));
+    await fixture.whenStable();
+    expect(host.value()).toBe('Shorter');
+    editor().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(host.sent).toEqual(['Shorter']);
+    editor().dispatchEvent(new FocusEvent('blur'));
+    expect(host.touched).toBe(1);
+    host.field().reset();
+    await fixture.whenStable();
+    expect(host.value()).toBe('');
+  });
+});
+
+// As a signal-forms control: the form holds the message, the field shows
+// and edits it — through the styled component, whose host directive is
+// the control.
+@Component({
+  imports: [ChatInput, FormField],
+  template: `<div email-chat-input [formField]="chat.message"></div>`,
+})
+class InForm {
+  readonly model = signal({ message: '' });
+  readonly chat = form(this.model);
+  readonly input = viewChild.required(ChatInput);
+}
+
+describe('ChatInput in a signal form', () => {
+  it('drives the field’s value both ways, and marks it touched on blur', async () => {
+    await TestBed.configureTestingModule({ imports: [InForm] }).compileComponents();
+    const fixture = TestBed.createComponent(InForm);
+    const host = fixture.componentInstance;
+    await fixture.whenStable();
+    const editor = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>(
+      '.email-chat-input__editor',
+    )!;
+    const view = host.input().editor()!.view;
+    view.dispatch(view.state.tr.insertText('Make it'));
+    await fixture.whenStable();
+    expect(host.model().message).toBe('Make it');
+    expect(host.chat.message().touched()).toBe(false);
+    editor.dispatchEvent(new FocusEvent('blur'));
+    await fixture.whenStable();
+    expect(host.chat.message().touched()).toBe(true);
+    host.chat.message().value.set('- short');
+    await fixture.whenStable();
+    expect(editor.querySelectorAll('li').length).toBe(1);
+    fixture.destroy();
   });
 });

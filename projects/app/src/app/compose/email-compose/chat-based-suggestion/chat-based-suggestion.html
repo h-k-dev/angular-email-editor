@@ -1,11 +1,16 @@
 <!-- The bar, above the formatting toolbar while a proposal is up: the ways
-     out over the text, then the chat. -->
+     out over the text, then the chat. The library's keys directive hears
+     the page while the proposal stands: Ctrl-Enter (⌘-Enter) applies it,
+     Escape is ours to decide. -->
 @if (open()) {
   <div
     class="chat-based-suggestion"
     role="region"
     [attr.aria-label]="i18n.t('editor.ai.dialog', 'Writing assistant')"
     [attr.aria-busy]="proposal.streaming()"
+    [emailProposalKeys]="proposal"
+    (accepted)="applied()"
+    (escape)="escape($event)"
   >
     <!-- On nothing: the thinking on the left, the decision on the right. -->
     <div class="chat-based-suggestion__top">

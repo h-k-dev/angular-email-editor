@@ -1,6 +1,7 @@
 import {
   Component,
   DestroyRef,
+  Directive,
   ElementRef,
   afterNextRender,
   booleanAttribute,
@@ -12,6 +13,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
+import type { FormValueControl } from '@angular/forms/signals';
 import { Command, Plugin, PluginKey } from 'prosemirror-state';
 import { Node as ProseMirrorNode } from 'prosemirror-model';
 import { Decoration, DecorationSet } from 'prosemirror-view';
@@ -72,32 +74,35 @@ const placeholder = (text: () => string): Extension =>
   });
 
 /**
- * A chat input: a field to ask an assistant with, the way a chat's message
- * box works — Enter sends, Shift-Enter breaks the line — that also takes
- * **lists**, so a list of points reaches the assistant as points: `- ` or
- * `1. ` at a line's start begins one, Enter goes on to the next item, Enter
- * on an empty item leaves the list, Tab and Shift-Tab nest and lift.
- * Ctrl-Enter sends from anywhere, a list included. Nothing else: no
- * headings, no bold — an assistant reads words.
+ * The behaviour of a chat input, on an element of the host's own: a field
+ * to ask an assistant with, the way a chat's message box works — Enter
+ * sends, Shift-Enter breaks the line — that also takes **lists**, so a list
+ * of points reaches the assistant as points: `- ` or `1. ` at a line's
+ * start begins one, Enter goes on to the next item, Enter on an empty item
+ * leaves the list, Tab and Shift-Tab nest and lift. Ctrl-Enter sends from
+ * anywhere, a list included. Nothing else: no headings, no bold — an
+ * assistant reads words. No look of its own: the host's element, the
+ * host's styles (`ChatInput` is the styled one).
  *
- *     <div email-chat-input placeholder="Tell the assistant what to change…"
+ *     <div emailChatInput placeholder="Tell the assistant what to change…"
  *          [(value)]="instructions" (sent)="ask($event)" (escaped)="close()"></div>
  *
  * `value` is the text as it is sent — a line per block, list items as
  * dash lines (`chatInputText`) — two-way: set it and the field shows it
  * (a dash line becomes an item again). `sent` carries the same text;
  * `clear()` empties the field, `focus()` puts the caret in it. A
- * ProseMirror editor inside (the library's own, `.aee-editor`), so a
- * host's editor styles reach it; its own look is tokenized
- * (`--email-chat-input-*`, Material's system tokens beneath).
+ * ProseMirror editor is mounted inside the element (the library's own,
+ * `.aee-editor`), so a host's editor styles reach it.
+ *
+ * **A signal-forms control, optionally.** It is a `FormValueControl` for
+ * `string`: bind a field with `[formField]="chat.message"` and the
+ * directive drives `value` both ways, pushes `disabled` and `readonly`
+ * in, hears `touch` when focus leaves the field, and `reset()` empties
+ * it. The form holds the *message*; the ask is still `sent` — an action
+ * with a stream behind it is the host's, not the form's submit.
  */
-@Component({
-  selector: 'div[email-chat-input]',
-  template: '',
-  styleUrl: './chat-input.scss',
-  host: { '[class.email-chat-input--disabled]': 'disabled()' },
-})
-export class ChatInput {
+@Directive({ selector: '[emailChatInput]', exportAs: 'emailChatInput' })
+export class ChatInputField implements FormValueControl<string> {
   /** What the field is for, while it is empty. */
   readonly placeholder = input('');
 
@@ -106,6 +111,9 @@ export class ChatInput {
 
   /** Whether typing is refused. */
   readonly disabled = input(false, { transform: booleanAttribute });
+
+  /** Whether the text is shown but not edited. */
+  readonly readonly = input(false, { transform: booleanAttribute });
 
   /** The text, as it is sent: lines, and `- ` dash lines for list items. */
   readonly value = model('');
@@ -117,6 +125,9 @@ export class ChatInput {
 
   /** Escape, in the field. */
   readonly escaped = output<void>();
+
+  /** Focus left the field — a form marks it touched on this. */
+  readonly touch = output<void>();
 
   readonly #host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
@@ -145,6 +156,11 @@ export class ChatInput {
   clear(): void {
     this.#editor()?.setText('');
     this.value.set('');
+  }
+
+  /** A form's reset: the field, empty. */
+  reset(): void {
+    this.clear();
   }
 
   focus(): void {
@@ -206,7 +222,15 @@ export class ChatInput {
       },
       onUpdate: (current) => this.value.set(chatInputText(current.state.doc)),
     });
-    editor.view.setProps({ editable: () => !this.disabled() });
+    editor.view.setProps({
+      editable: () => !this.disabled() && !this.readonly(),
+      handleDOMEvents: {
+        blur: () => {
+          this.touch.emit();
+          return false;
+        },
+      },
+    });
     this.#editor.set(editor);
     if (this.value()) this.#show(this.value());
   }
@@ -240,6 +264,49 @@ export class ChatInput {
     const text = chatInputText(editor.state.doc);
     if (!text.trim()) return;
     this.sent.emit(text);
+  }
+}
+
+/**
+ * The chat input, styled: `ChatInputField`'s behaviour in a box of its
+ * own — outlined on focus, scrolling past a height, disabled dimmed — the
+ * look tokenized (`--email-chat-input-*`, Material's system tokens
+ * beneath). The same inputs and outputs, forwarded; the same signal-forms
+ * contract.
+ *
+ *     <div email-chat-input placeholder="Tell the assistant what to change…"
+ *          [(value)]="instructions" (sent)="ask($event)" (escaped)="close()"></div>
+ *
+ * `field` is the directive underneath; `editor`, `clear()` and `focus()`
+ * are its, at hand.
+ */
+@Component({
+  selector: 'div[email-chat-input]',
+  template: '',
+  styleUrl: './chat-input.scss',
+  hostDirectives: [
+    {
+      directive: ChatInputField,
+      inputs: ['placeholder', 'label', 'disabled', 'readonly', 'value'],
+      outputs: ['valueChange', 'sent', 'escaped', 'touch'],
+    },
+  ],
+  host: { '[class.email-chat-input--disabled]': 'field.disabled()' },
+})
+export class ChatInput {
+  /** The behaviour underneath: the field itself. */
+  readonly field = inject(ChatInputField);
+
+  /** The editor inside, once mounted. */
+  readonly editor = this.field.editor;
+
+  /** Empties the field. */
+  clear(): void {
+    this.field.clear();
+  }
+
+  focus(): void {
+    this.field.focus();
   }
 }
 

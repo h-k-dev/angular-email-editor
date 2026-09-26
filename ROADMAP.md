@@ -1292,7 +1292,23 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   query, it has a field of its own. Found on the way: a stopped stream
   ended twice — at once on abort and again as `done` settled — and the
   second ending closed the range of the stream that had taken its place; a
-  run now ends once.
+  run now ends once. **From the template's side (2026-09-26):** the
+  proposal is also a directive, `[emailProposal]="editor"` on the panel's
+  element — it *is* the `EditorProposal` (`#p="emailProposal"`, `p.active()`,
+  `p.propose(…)`) and everything inside takes it by injection, so the
+  triggers go bare (`<button emailProposalAccept>`; a bound value still
+  wins, and neither is an error that says so). The keys are a directive
+  too, `[emailProposalKeys]`: Ctrl-Enter (⌘-Enter) accepts while a
+  proposal stands and is swallowed while it is written, `accepted` says so;
+  Escape is handed to the host (`escape`, with the event), because what
+  else is up is the host's to know — the demo closes a popover first. And
+  the chat input is a behaviour first: `[emailChatInput]` mounts the field
+  into the host's own element with no look of its own (`ChatInputField`),
+  a `FormValueControl<string>` besides — `[formField]` drives `value` both
+  ways, `disabled`/`readonly` in, `touch` on blur, `reset()` — and
+  `<div email-chat-input>` is the same directive as a host directive in
+  the styled box. The form holds the *message*; the ask stays `sent`, an
+  action with a stream behind it is the host's, not the form's submit.
   **Names are flat, as Angular's are** (`@angular/material/button`,
   `@angular/cdk/overlay`) — no `components/…` or `directives/…` segment:
   - one level, `angular-email-editor/<name>`; the only nesting is

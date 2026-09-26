@@ -1,11 +1,9 @@
 import {
   Component,
-  DOCUMENT,
   Injector,
   TemplateRef,
   afterNextRender,
   computed,
-  effect,
   inject,
   input,
   signal,
@@ -19,7 +17,12 @@ import { MatIconModule } from '@angular/material/icon';
 // Library
 import { ContentStreamWriter } from 'angular-email-editor';
 import { ChatInput } from 'angular-email-editor/chat-input';
-import { ProposalAccept, ProposalDiscard, injectProposal } from 'angular-email-editor/proposal';
+import {
+  ProposalAccept,
+  ProposalDiscard,
+  ProposalKeys,
+  injectProposal,
+} from 'angular-email-editor/proposal';
 
 import { Ai } from '../../../../services/ai';
 import { I18n } from '../../../../services/i18n';
@@ -54,9 +57,11 @@ import { AiAsk } from '../ai-writer';
  * is one thing at a time: a bubble menu or a dialog up over the text
  * closes first, and the next Escape lets the proposal go.
  *
- * All of the mechanics are the library's (`injectProposal`); this
- * component is what a host writes — a host with an input of its own
- * writes the same few lines around it.
+ * All of the mechanics are the library's: `injectProposal` for the
+ * proposal's state and ways out, `[emailProposalKeys]` for Ctrl-Enter
+ * and Escape, the triggers for the two words, the chat input for the
+ * field. This component is what a host writes around them — a host with
+ * an input of its own writes the same few lines around its own.
  */
 @Component({
   selector: 'div[chat-based-suggestion]',
@@ -70,6 +75,7 @@ import { AiAsk } from '../ai-writer';
     ChatInput,
     ProposalAccept,
     ProposalDiscard,
+    ProposalKeys,
   ],
   templateUrl: './chat-based-suggestion.html',
   styleUrl: './chat-based-suggestion.scss',
@@ -83,8 +89,6 @@ export class ChatBasedSuggestion {
   readonly #ai = inject(Ai);
 
   readonly #injector = inject(Injector);
-
-  readonly #document = inject(DOCUMENT);
 
   protected readonly i18n = inject(I18n);
 
@@ -122,36 +126,6 @@ export class ChatBasedSuggestion {
 
   /** What the writer asked from, for as long as the bar is up. */
   #ask: AiAsk | null = null;
-
-  constructor() {
-    // Keys from anywhere on the page — the text, the input, a button —
-    // while the bar is up, heard before anything else (the capture phase):
-    // - Escape, one thing at a time: a menu up over the text (a bubble on
-    //   a selection in the proposal, a link editor) closes first; with none
-    //   up, the proposal goes;
-    // - Ctrl-Enter (⌘-Enter on a Mac) is Apply, not the message's send: a
-    //   proposal on the table is what the key commits, and the editor's
-    //   own binding never sees it. While the assistant still writes, the
-    //   key is swallowed — nothing is sent either way.
-    // An IME's own keys stay the IME's.
-    effect((onCleanup) => {
-      if (!this.open()) return;
-      const onKeydown = (event: KeyboardEvent) => {
-        if (event.isComposing) return;
-        if (event.key === 'Escape') {
-          event.preventDefault();
-          if (this.#popover.close()) return;
-          this.close();
-        } else if (event.key === 'Enter' && (isMac() ? event.metaKey : event.ctrlKey)) {
-          event.preventDefault();
-          event.stopPropagation();
-          if (!this.busy() && this.proposal.accept()) this.applied();
-        }
-      };
-      this.#document.addEventListener('keydown', onKeydown, true);
-      onCleanup(() => this.#document.removeEventListener('keydown', onKeydown, true));
-    });
-  }
 
   /** Opens the bar and asks the assistant at once: the answer begins to
       appear in the message, under the caret. */
@@ -191,6 +165,16 @@ export class ChatBasedSuggestion {
     this.#commands.focus();
   }
 
+  /** Escape, from anywhere on the page while the proposal stands (the
+      library's keys directive hears it) — one thing at a time: a menu up
+      over the text (a bubble on a selection in the proposal, a link
+      editor) closes first; with none up, the proposal goes. */
+  protected escape(event: KeyboardEvent): void {
+    event.preventDefault();
+    if (this.#popover.close()) return;
+    this.close();
+  }
+
   /** Discard pressed, or Escape: the library takes it out; the caret is
       back in the text. */
   protected close(): void {
@@ -221,9 +205,4 @@ export class ChatBasedSuggestion {
       : this.proposal.propose(callback, { format: 'html' });
     run?.done.catch((reason) => console.error(reason));
   }
-}
-
-/** Whether the keyboard is a Mac's: ⌘ where others hold Ctrl. */
-function isMac(): boolean {
-  return typeof navigator !== 'undefined' && /Mac|iP(hone|ad|od)/.test(navigator.platform);
 }
