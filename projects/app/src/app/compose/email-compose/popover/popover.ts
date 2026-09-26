@@ -60,6 +60,11 @@ export interface PopoverPanel {
   onKeydown?(event: KeyboardEvent): void;
   /** A click outside the popover while this panel is up. */
   onOutsideClick?(event: MouseEvent): void;
+  /** Closes the panel from outside — an Escape that means "one thing at a
+      time": a bubble collapses its selection, a dialog closes. A panel
+      that cannot close on request (the block menu: it is the caret's)
+      leaves this out. */
+  close?(): void;
 }
 
 /** What the outlet hands the service: its overlay's element, when there is
@@ -129,6 +134,16 @@ export class Popover {
     inject(DestroyRef).onDestroy(() =>
       this.#panels.update((panels) => panels.filter((known) => known !== panel)),
     );
+  }
+
+  /** Closes the panel that is up, if it is one that can be asked to.
+      True when something was closed — so an Escape that closed a menu is
+      spent, and a second one goes on to the next thing. */
+  close(): boolean {
+    const shown = this.shown();
+    if (!shown?.close) return false;
+    shown.close();
+    return true;
   }
 
   /** The popover's element while it is up, else null — what a panel's

@@ -16,8 +16,9 @@ export interface AiOptions {
   signal?: AbortSignal;
 }
 
-/** How long the assistant thinks before the first word, in ms. */
-export const AI_LATENCY = 600;
+/** How long the assistant thinks before the first word, in ms — long
+    enough for a host to show it thinking. */
+export const AI_LATENCY = 1200;
 
 /** The pause between two words, in ms — the pace of someone writing. */
 export const AI_WORD_DELAY = 70;

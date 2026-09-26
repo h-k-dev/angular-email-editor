@@ -100,6 +100,7 @@ export class TableMenu {
       content: this.panel,
       positions: this.positions,
       onOutsideClick: () => this.closed.emit(),
+      close: () => this.leave(),
     });
   }
 

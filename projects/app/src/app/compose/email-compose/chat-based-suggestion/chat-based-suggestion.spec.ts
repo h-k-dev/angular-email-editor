@@ -1,5 +1,6 @@
 import { Component, ElementRef, afterNextRender, inject, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { TextSelection } from 'prosemirror-state';
 import { undo } from 'prosemirror-history';
 
@@ -15,7 +16,8 @@ import {
 import { Ai, AiOptions, AiRequest } from '../../../../services/ai';
 import { FormattingCommands } from '../formatting-commands';
 import { createAiWriter } from '../ai-writer';
-import { AiPanel } from './ai-panel';
+import { Popover } from '../popover/popover';
+import { ChatBasedSuggestion } from './chat-based-suggestion';
 
 // jsdom lacks what the editor needs at mount (see compose.spec.ts).
 class ResizeObserverStub {
@@ -28,18 +30,18 @@ class ResizeObserverStub {
 /** A composer's worth: the commands, the bar, and an email editor with
     the `ai` action, the stream and the proposal in its kit. */
 @Component({
-  imports: [AiPanel],
-  providers: [FormattingCommands],
+  imports: [ChatBasedSuggestion],
+  providers: [FormattingCommands, Popover],
   template: `
     <div #host></div>
-    <div ai-panel [language]="language"></div>
+    <div chat-based-suggestion [language]="language"></div>
   `,
 })
 class Host {
   readonly language = () => 'de' as const;
   readonly commands = inject(FormattingCommands);
   readonly host = viewChild.required<ElementRef<HTMLElement>>('host');
-  readonly panel = viewChild.required(AiPanel);
+  readonly panel = viewChild.required(ChatBasedSuggestion);
   editor!: Editor;
 
   constructor() {
@@ -78,7 +80,7 @@ class Host {
   }
 }
 
-describe('AiPanel', () => {
+describe('ChatBasedSuggestion', () => {
   let fixture: ComponentFixture<Host>;
   let host: Host;
   let asked: AiRequest[];
@@ -110,7 +112,8 @@ describe('AiPanel', () => {
   } as unknown as Ai;
 
   const ORIGINAL = '<div>We met last week.</div>';
-  const dialog = () => document.querySelector<HTMLElement>('[ai-panel] .ai-panel');
+  const dialog = () =>
+    document.querySelector<HTMLElement>('[chat-based-suggestion] .chat-based-suggestion');
   const button = (text: string) =>
     [...dialog()!.querySelectorAll<HTMLButtonElement>('button')].find((b) =>
       b.textContent?.includes(text),
@@ -262,13 +265,52 @@ describe('AiPanel', () => {
     expect(proposedText()).toBe(' Kurz.');
   });
 
-  it('Try again asks once more with the same instructions', async () => {
+  it('the send button asks with what is typed, and shows the model thinking until the first word', async () => {
     await ask();
     await feed(' Bitte');
     await feed(null);
-    button('Try again').click();
+    const send = () => dialog()!.querySelector<HTMLButtonElement>('[aria-label="Send"]')!;
+    const thinking = () => dialog()!.querySelector('[role="status"]');
+    // Nothing typed: nothing to send.
+    expect(send().disabled).toBe(true);
+    const chat = (host.panel() as any).chat().editor();
+    chat.view.dispatch(chat.state.tr.insertText('kurz'));
     await settle();
-    expect(asked).toHaveLength(2);
+    expect(send().disabled).toBe(false);
+    send().click();
+    await settle();
+    expect(asked[1]?.instructions).toBe('kurz');
+    // Asked, nothing come yet: thinking. The field is cleared for the next ask.
+    expect(thinking()).not.toBeNull();
+    expect(chat.state.doc.textContent).toBe('');
+    await feed(' Kurz.');
+    expect(thinking()).toBeNull();
+    await feed(null);
+    expect(html()).toBe('<div>We met last week. Kurz.</div>');
+  });
+
+  it('Escape closes a menu up over the text first, and lets the proposal go on the next', async () => {
+    await ask();
+    await feed(' Bitte lesen.');
+    await feed(null);
+    const popover = fixture.debugElement
+      .query(By.directive(ChatBasedSuggestion))
+      .injector.get(Popover);
+    const closed = vi.fn(() => true);
+    vi.spyOn(popover, 'close').mockImplementation(closed);
+    const escape = () =>
+      host.editor.view.dom.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+      );
+    escape();
+    await settle();
+    expect(closed).toHaveBeenCalledTimes(1);
+    expect(dialog()).not.toBeNull();
+    expect(html()).toContain('Bitte lesen.');
+    closed.mockReturnValue(false);
+    escape();
+    await settle();
+    expect(dialog()).toBeNull();
     expect(html()).toBe(ORIGINAL);
   });
 });

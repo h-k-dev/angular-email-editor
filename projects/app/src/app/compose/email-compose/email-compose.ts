@@ -37,7 +37,7 @@ import { FormattingCommands } from './formatting-commands';
 import { FormattingToolbar } from './formatting-toolbar/formatting-toolbar';
 import { LinkEditor } from './link-editor/link-editor';
 import { AltTextEditor } from './alt-text-editor/alt-text-editor';
-import { AiPanel } from './ai-panel/ai-panel';
+import { ChatBasedSuggestion } from './chat-based-suggestion/chat-based-suggestion';
 import { Popover } from './popover/popover';
 import { PopoverOutlet } from './popover/popover-outlet';
 import { Templates } from '../../../services/templates';
@@ -107,7 +107,7 @@ export type SourceView = 'hidden' | 'code' | 'detached';
     FormattingToolbar,
     LinkEditor,
     AltTextEditor,
-    AiPanel,
+    ChatBasedSuggestion,
     PopoverOutlet,
     SuggestionMenu,
     SuggestionMenuItem,
@@ -254,7 +254,7 @@ export class EmailCompose implements FormValueControl<string> {
   protected readonly tableMenu = viewChild.required(TableMenu);
   protected readonly linkEditor = viewChild.required(LinkEditor);
   protected readonly altTextEditor = viewChild.required(AltTextEditor);
-  protected readonly aiPanel = viewChild.required(AiPanel);
+  protected readonly suggestion = viewChild.required(ChatBasedSuggestion);
 
   /** The email editor, once mounted — the formatting commands' own. */
   readonly editor = this.#commands.editor;
@@ -388,10 +388,10 @@ export class EmailCompose implements FormValueControl<string> {
       extensions: [
         // The writing assistant: an extension of the composer's own. It
         // declares one action, `ai` — first in the kit, so first in the `/`
-        // menu — which opens the assistant panel: the answer is *proposed*
+        // menu — which opens the chat-based suggestion: the answer is *proposed*
         // into the text under the caret (the library's content stream and
         // proposal, opted into here), and is the message's only on Apply.
-        createAiWriter({ onAsk: (ask) => this.aiPanel().show(ask) }),
+        createAiWriter({ onAsk: (ask) => this.suggestion().show(ask) }),
         createContentStream(),
         createContentProposal(),
         ...emailExtensions,

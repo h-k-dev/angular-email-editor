@@ -1,0 +1,185 @@
+// A section of the composer's column, like the toolbar under it: it sets
+// its own inline inset from the same token every section reads, and takes
+// no room at all while there is nothing proposed.
+:host {
+  display: block;
+  padding-inline: var(--mat-sys-inner-spacing);
+}
+
+:host([hidden]) {
+  display: none;
+}
+
+.chat-based-suggestion {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+// The top line has no surface: what stands on it floats over the text.
+.chat-based-suggestion__top {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 40px;
+}
+
+.chat-based-suggestion__space {
+  flex: 1;
+}
+
+// Discard and Apply as words: no state layer, but a touch target's height
+// and a hand's width of padding.
+.chat-based-suggestion__word {
+  min-height: 40px;
+  padding: 0 12px;
+  border: none;
+  border-radius: var(--mat-sys-corner-full, 999px);
+  background: none;
+  color: var(--mat-sys-on-surface-variant, #555555);
+  font: var(--mat-sys-label-large, inherit);
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background-color: color-mix(in srgb, var(--mat-sys-on-surface, #1f1f1f) 8%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary, #0056b3);
+    outline-offset: -2px;
+  }
+
+  &:disabled {
+    opacity: 0.38;
+    cursor: default;
+  }
+}
+
+.chat-based-suggestion__word--apply {
+  color: var(--mat-sys-primary, #0056b3);
+  font-weight: 600;
+}
+
+// Three dots that dance while the model thinks.
+.chat-based-suggestion__thinking {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-inline: 12px;
+
+  span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--mat-sys-on-surface-variant, #555555);
+    animation: chat-based-suggestion-dot 900ms ease-in-out infinite;
+
+    &:nth-child(2) {
+      animation-delay: 150ms;
+    }
+
+    &:nth-child(3) {
+      animation-delay: 300ms;
+    }
+  }
+}
+
+@keyframes chat-based-suggestion-dot {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-based-suggestion__thinking span {
+    animation: chat-based-suggestion-dot-still 900ms ease-in-out infinite;
+  }
+
+  @keyframes chat-based-suggestion-dot-still {
+    0%,
+    100% {
+      opacity: 0.5;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+}
+
+// The pill: the field, the voice place and the send button in one row, on
+// the field surface.
+.chat-based-suggestion__field {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  padding: 4px 4px 4px 12px;
+  background-color: var(
+    --email-compose-link-input-background,
+    var(--mat-sys-surface-container-high, #ececec)
+  );
+  border-radius: 24px;
+
+  &:focus-within {
+    outline: 2px solid var(--mat-sys-primary, #0056b3);
+    outline-offset: -2px;
+  }
+}
+
+// The chat input, bare inside the pill: the pill is its surface.
+.chat-based-suggestion__chat {
+  flex: 1;
+  min-width: 0;
+  align-self: center;
+  --email-chat-input-background: transparent;
+  --email-chat-input-padding: 8px 0;
+  --email-chat-input-focus: transparent;
+}
+
+// The icons: a 40px round target each; the send button filled.
+.chat-based-suggestion__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--mat-sys-on-surface-variant, #555555);
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary, #0056b3);
+    outline-offset: -2px;
+  }
+
+  &:disabled {
+    opacity: 0.38;
+    cursor: default;
+  }
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.chat-based-suggestion__send {
+  background-color: var(--mat-sys-primary, #0056b3);
+  color: var(--mat-sys-on-primary, #ffffff);
+
+  &:disabled {
+    opacity: 1;
+    background-color: color-mix(in srgb, var(--mat-sys-on-surface, #1f1f1f) 12%, transparent);
+    color: var(--mat-sys-on-surface-variant, #555555);
+  }
+}

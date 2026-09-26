@@ -29,7 +29,7 @@ function textBefore(state: EditorState): string {
  * The composer's writing assistant, as an extension of its own: it declares
  * one **action**, `ai` — so it is a row of the `/` menu (and could be a
  * toolbar button) with no wiring. Run, it asks the composer to open its
- * assistant panel (`AiPanel`) for the caret: the answer streams *there*, on
+ * chat-based suggestion (`ChatBasedSuggestion`) for the caret: the answer streams *there*, on
  * a layer of its own over the text, where the writer reads it, steers it
  * with instructions, and takes it into the message with Accept — or lets
  * it go, and the message is as it was. Nothing is written into the

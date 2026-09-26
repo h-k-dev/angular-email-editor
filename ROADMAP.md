@@ -1266,13 +1266,17 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   chat input, a ProseMirror editor with lines and bullet/numbered lists
   (Enter sends outside a list and goes on to the next item inside, Ctrl-
   Enter always sends, `- ` / `1. ` begin a list), its text carried out as
-  dash lines. The demo's `ai-panel` is what a host writes around them: the
-  chat input, Try again, Discard, Apply — a bar docked above the formatting
-  toolbar while the proposal stands (a panel chasing the proposal's last
-  line moved too much); only Escape or Discard let it go, a click in the
-  text is editing, and Apply takes the proposal as it stands, the writer's
-  edits with it; `AiRequest.instructions` carries the words (the stand-in
-  understands "short"). Which also answers the first item of the
+  dash lines. The demo's `chat-based-suggestion` is what a host writes
+  around them: a bar docked above the formatting toolbar while the
+  proposal stands (a panel chasing the proposal's last line moved too
+  much) — above, on no surface, three dots that dance while the model
+  thinks (`proposal.thinking`) and Discard / Apply as words; below, the
+  chat input in a pill with a place for voice input and a send button.
+  Only Escape or Discard let it go — Escape one thing at a time: a menu up
+  over the text (`Popover.close()`, which asks the shown panel) closes
+  first — a click in the text is editing, and Apply takes the proposal as
+  it stands, the writer's edits with it; `AiRequest.instructions` carries
+  the words (the stand-in understands "short", and thinks 1.2s first). Which also answers the first item of the
   agenda above, from the other side: the argument does not ride the `/`
   query, it has a field of its own. Found on the way: a stopped stream
   ended twice — at once on abort and again as `done` settled — and the

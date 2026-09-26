@@ -1,0 +1,78 @@
+<!-- The bar, above the formatting toolbar while a proposal is up: the ways
+     out over the text, then the chat. -->
+@if (open()) {
+  <div
+    class="chat-based-suggestion"
+    role="region"
+    [attr.aria-label]="i18n.t('editor.ai.dialog', 'Writing assistant')"
+    [attr.aria-busy]="proposal.streaming()"
+  >
+    <!-- On nothing: the thinking on the left, the decision on the right. -->
+    <div class="chat-based-suggestion__top">
+      @if (proposal.thinking()) {
+        <div
+          class="chat-based-suggestion__thinking"
+          role="status"
+          [attr.aria-label]="i18n.t('editor.ai.thinking', 'The assistant is thinking…')"
+        >
+          <span></span><span></span><span></span>
+        </div>
+      }
+      <span class="chat-based-suggestion__space"></span>
+      <!-- The library's triggers, as words: Discard takes the proposal out,
+           Apply takes it in — as it stands. Disabled by the bar's own means,
+           from their state. -->
+      <button
+        type="button"
+        class="chat-based-suggestion__word"
+        [emailProposalDiscard]="proposal"
+        #discard="emailProposalDiscard"
+        [disabled]="discard.disabled()"
+        (click)="close()"
+      >
+        {{ i18n.t('editor.ai.discard', 'Discard') }}
+      </button>
+      <button
+        type="button"
+        class="chat-based-suggestion__word chat-based-suggestion__word--apply"
+        [emailProposalAccept]="proposal"
+        #apply="emailProposalAccept"
+        [disabled]="apply.disabled()"
+        (click)="applied()"
+      >
+        {{ i18n.t('editor.ai.apply', 'Apply') }}
+      </button>
+    </div>
+
+    <!-- The pill: the library's chat input (lines and lists, Enter sends),
+         a place for voice input, and the send button. -->
+    <div class="chat-based-suggestion__field">
+      <div
+        email-chat-input
+        class="chat-based-suggestion__chat"
+        [placeholder]="i18n.t('editor.ai.prompt', 'Tell the assistant what else to change…')"
+        [label]="i18n.t('editor.ai.instructions', 'Instructions')"
+        [(value)]="instructions"
+        (sent)="ask($event)"
+      ></div>
+      <!-- Voice input: a place kept, nothing behind it yet. -->
+      <button
+        type="button"
+        class="chat-based-suggestion__icon"
+        [attr.aria-label]="i18n.t('editor.ai.voice', 'Voice input (coming soon)')"
+        disabled
+      >
+        <mat-icon>mic</mat-icon>
+      </button>
+      <button
+        type="button"
+        class="chat-based-suggestion__icon chat-based-suggestion__send"
+        [attr.aria-label]="i18n.t('editor.ai.send', 'Send')"
+        [disabled]="!canSend()"
+        (click)="ask()"
+      >
+        <mat-icon>arrow_upward</mat-icon>
+      </button>
+    </div>
+  </div>
+}

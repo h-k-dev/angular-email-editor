@@ -92,10 +92,11 @@
      (attachments among them) out of the editor component. -->
 <ng-content select="[below-body]" />
 
-<!-- The assistant's bar, above the toolbar while its proposal stands in the
-     text: the chat input that steers it, Try again, Discard, Apply. Docked
-     here rather than floating under the proposal, which grows and scrolls. -->
-<div ai-panel [language]="language"></div>
+<!-- The chat-based suggestion, above the toolbar while its proposal stands
+     in the text: Discard and Apply over the text, the chat that steers it.
+     Docked here rather than floating under the proposal, which grows and
+     scrolls. -->
+<div chat-based-suggestion [language]="language"></div>
 
 <!-- The formatting toolbar sits *below* the editing surface: on a phone the
      shell's height follows the virtual keyboard (see app.scss), so the bar

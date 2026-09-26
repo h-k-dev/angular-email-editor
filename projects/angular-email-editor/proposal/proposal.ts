@@ -27,6 +27,9 @@ export interface EditorProposal {
   readonly active: Signal<boolean>;
   /** The proposal is still being written. */
   readonly streaming: Signal<boolean>;
+  /** Asked, and nothing has come yet: the model is thinking — for a host
+      to show it, since there is nothing in the text to see. */
+  readonly thinking: Signal<boolean>;
   /** Where it stands, in the document. */
   readonly range: Signal<ContentStreamRange | null>;
   /** Its box in viewport coordinates — the last line's, for a panel to
@@ -106,6 +109,10 @@ export function injectProposal(
   return {
     active: computed(() => range() !== null),
     streaming,
+    thinking: computed(() => {
+      const current = range();
+      return streaming() && !!current && current.to === current.from;
+    }),
     range,
     box,
     propose: (callback, options = {}) => {
