@@ -72,6 +72,9 @@
   @include bp.phone {
     --mat-icon-button-state-layer-size: 40px;
     --mat-icon-button-touch-target-size: 40px;
+    // Shoulder to shoulder: 1px between the 40px targets — the screen has
+    // no width to give to gaps, and the targets touch without overlapping.
+    gap: 1px;
     padding-block: 0;
     // The glyph on the text edge: the 10px of state layer around it.
     padding-inline: calc(var(--mat-sys-inner-spacing, 16px) - 10px);
@@ -113,6 +116,7 @@
   }
 
   @include bp.phone {
+    gap: 1px;
     // No padding: the targets are the 40px state layers, nothing overhangs
     // them, so nothing needs room inside the scroller's clip.
     padding: 0;
@@ -192,6 +196,10 @@
 
   @include bp.wide {
     gap: 4px;
+  }
+
+  @include bp.phone {
+    gap: 1px;
   }
 }
 
