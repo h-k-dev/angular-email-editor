@@ -88,7 +88,7 @@ export const Button = defineNode({
         priority: 60,
         getAttrs: (dom) => {
           if (!(dom instanceof HTMLElement)) return false;
-          if (!/display:\s*inline-block/i.test(dom.getAttribute('style') ?? '')) return false;
+          if (!isButtonBox(dom)) return false;
           // Same rule as the link mark: a script URL kills the button on
           // parse — and, refused here, the link mark refuses it too.
           const href = dom.getAttribute('href') ?? UNSET_BUTTON_HREF;
@@ -182,6 +182,31 @@ export const Button = defineNode({
 /** A button's anchor attributes as the email carries them: a new tab,
     without the opener — what every link in the email carries (the link
     mark's defaults), so a button is no exception to it. */
+/** Whether an anchor is drawn as a box — `display: inline-block` with a
+    fill or a border, which is what makes a fake button one. An inline-block
+    anchor with neither is a link a builder laid out, a navbar's say (MJML
+    gives every menu link `inline-block` and a padding), and stays a link. */
+function isButtonBox(dom: HTMLElement): boolean {
+  const style = dom.getAttribute('style') ?? '';
+  if (!/display:\s*inline-block/i.test(style)) return false;
+  if (dom.getAttribute('bgcolor')) return true;
+  const declarations = style
+    .split(';')
+    .map((declaration) => declaration.split(/:(.*)/s).map((part) => part.trim().toLowerCase()));
+  const declared = (property: RegExp) =>
+    declarations.some(
+      ([name, value]) =>
+        !!name &&
+        property.test(name) &&
+        !!value &&
+        !/^(none|transparent|initial|inherit|unset|0(px)?)(\s|$|!)/.test(value),
+    );
+  return (
+    declared(/^background(-color|-image)?$/) ||
+    declared(/^border(-style|-width|-top|-bottom|-left|-right)?$/)
+  );
+}
+
 function buttonAttrs(node: Node): Record<string, string> {
   return {
     href: node.attrs['href'] as string,

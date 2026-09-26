@@ -72,6 +72,31 @@ describe('button', () => {
     expect(button).not.toContain('rel="noopener noreferrer">');
   });
 
+  it('is a box, not a layout: an inline-block anchor with no fill or border stays a link', () => {
+    // MJML's navbar link — inline-block for the row it stands in, a padding
+    // for the spacing, and neither a fill nor a border.
+    const out = roundTrip(
+      '<div><a href="https://x.io" style="display: inline-block; color: #000000; padding: 0 35px; text-decoration: none;">home</a></div>',
+    );
+    expect(out).toContain('rel="noopener noreferrer">home</a>');
+    expect(out).not.toContain('background-color: rgb(26, 115, 232)');
+    // A fill alone makes the box; a border alone makes it too.
+    expect(
+      roundTrip(
+        '<a href="https://x.io" style="display: inline-block; background-color: #333">Go</a>',
+      ),
+    ).toContain(`style="${BUTTON_STYLE}">Go</a>`);
+    expect(
+      roundTrip(
+        '<a href="https://x.io" style="display: inline-block; border: 2px solid #333">Go</a>',
+      ),
+    ).toContain(`style="${BUTTON_STYLE}">Go</a>`);
+    // `border: none` is no border.
+    expect(
+      roundTrip('<a href="https://x.io" style="display: inline-block; border: none">Go</a>'),
+    ).not.toContain('background-color: rgb(26, 115, 232)');
+  });
+
   it('refuses a script URL — the button is dropped, as the link mark drops it', () => {
     const out = roundTrip(
       `<div><a href="javascript:alert(1)" style="${BUTTON_STYLE}">Go</a></div>`,
@@ -94,7 +119,10 @@ describe('button', () => {
   });
 
   it('reads a lighter weight and a slant off the box — bold unless said otherwise', () => {
-    const plain = BUTTON_STYLE.replace('font-weight: bold;', 'font-weight: 400; font-style: oblique;');
+    const plain = BUTTON_STYLE.replace(
+      'font-weight: bold;',
+      'font-weight: 400; font-style: oblique;',
+    );
     const out = roundTrip(`<a href="https://x.io" style="${plain}">Go</a>`);
     expect(out).toContain('font-weight: normal; font-style: italic;');
     expect(out).not.toContain('<strong');
@@ -196,7 +224,11 @@ describe('button', () => {
       editor.view.dispatch(
         editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, pos)),
       );
-      const event = new KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true });
+      const event = new KeyboardEvent('keydown', {
+        key: 'Delete',
+        bubbles: true,
+        cancelable: true,
+      });
       editor.view.dom.dispatchEvent(event);
       expect(event.defaultPrevented).toBe(true);
       expect(editor.getHTML()).toBe('<div>Go  now</div>');

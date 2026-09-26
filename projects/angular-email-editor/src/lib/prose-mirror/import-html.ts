@@ -13,7 +13,29 @@
  *    unwrapped ({@link unwrapLayoutTables}) — only the builders' own, which
  *    the canonical form never emits, and never one that carries a fill or a
  *    padding: that is a band, the section node's own.
+ * 3. **Hidden elements.** What a builder hides with `display: none` — the
+ *    trigger of a hamburger menu, a preview text, a desktop-only or
+ *    mobile-only variant — is dropped ({@link dropHidden}), rather than
+ *    read as text standing in the message: the schema has no notion of
+ *    hidden, and the client the import is drawn for would not show it.
  */
+
+/**
+ * Drops every element hidden with an inline `display: none` (the sheet's
+ * having been folded in, a rule's counts too). A builder's export hides
+ * the part of a trick the client cannot pull off — the label of an
+ * MJML hamburger menu, whose ☰ would otherwise stand in the message as
+ * text — and the alternative of a responsive pair; a preview text sits
+ * in such a block as well, and goes with it: an email of ours carries no
+ * hidden text. Not `visibility` or `mso-hide`: those are a client's
+ * concern, not a rendering's.
+ */
+export function dropHidden(root: ParentNode): void {
+  for (const el of Array.from(root.querySelectorAll<HTMLElement>('[style]'))) {
+    if (!el.isConnected) continue;
+    if (/(?:^|;)\s*display\s*:\s*none\b/i.test(el.getAttribute('style') ?? '')) el.remove();
+  }
+}
 
 /** The width the import is drawn at: an email's container. A `min-width`
     media query at or below it applies; a `max-width` one below it does not. */

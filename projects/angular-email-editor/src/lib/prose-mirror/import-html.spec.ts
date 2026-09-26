@@ -1,6 +1,12 @@
 import { createEditor } from './editor';
 import { emailExtensions } from './extensions/kits';
-import { inlineStyles, mediaMatches, parseRules, unwrapLayoutTables } from './import-html';
+import {
+  dropHidden,
+  inlineStyles,
+  mediaMatches,
+  parseRules,
+  unwrapLayoutTables,
+} from './import-html';
 
 const document = (html: string) => new DOMParser().parseFromString(html, 'text/html');
 
@@ -49,6 +55,28 @@ describe('inlineStyles', () => {
     expect(mediaMatches('not screen', 600)).toBe(false);
     expect(mediaMatches('screen', 600)).toBe(true);
     expect(mediaMatches('(prefers-color-scheme: dark)', 600)).toBe(false);
+  });
+});
+
+describe('dropHidden', () => {
+  it('drops what a builder hides — a hamburger trigger with its glyphs, a preview text', () => {
+    const doc = document(
+      '<div style="display:none;font-size:1px;max-height:0">Preview text</div>' +
+        '<div class="mj-menu-trigger" style="display:none;max-height:0px;font-size:0px;"><label>&#9776;</label></div>' +
+        '<div style="display: block">Kept</div><p style="color: red">Text</p>',
+    );
+    dropHidden(doc.body);
+    expect(doc.body.textContent).toBe('KeptText');
+  });
+
+  it('reads a hidden rule the sheet folded in, and leaves visibility to the client', () => {
+    const doc = document(
+      '<style>.desktop-only { display: none !important; }</style>' +
+        '<p class="desktop-only">Gone</p><p style="visibility:hidden;mso-hide:all">Stays</p>',
+    );
+    inlineStyles(doc);
+    dropHidden(doc.body);
+    expect(doc.body.textContent).toBe('Stays');
   });
 });
 
@@ -120,6 +148,34 @@ describe('unwrapLayoutTables', () => {
     expect(out.match(/max-width: 560px/g)).toHaveLength(1);
     expect(out.match(/max-width: 280px/g)).toHaveLength(2);
     expect(out.indexOf('Words')).toBeLessThan(out.indexOf('Picture'));
+    editor.destroy();
+  });
+
+  it('brings an MJML hamburger navbar in as its fallback: a row of links, no glyphs, no buttons', () => {
+    const mount = document('').body;
+    const link = (text: string) =>
+      `<a class="mj-link" href="https://x.io/${text.length}" target="_blank" style="display: inline-block; color: #000000; font-size: 12px; font-weight: bold; line-height: 22px; text-decoration: none; text-transform: uppercase; padding: 0 35px;">${text}</a>`;
+    const html =
+      '<html><head><style>@media only screen and (max-width:479px) { .mj-menu-checkbox[type="checkbox"]~.mj-inline-links { display: none !important; } }</style></head><body>' +
+      '<table border="0" cellpadding="0" cellspacing="0" role="presentation"><tbody><tr><td align="center" style="font-size:0px;padding:0px;">' +
+      '<!--[if !mso]><!--><input type="checkbox" id="c" class="mj-menu-checkbox" style="display:none !important; max-height:0; visibility:hidden;"><!--<![endif]-->' +
+      '<div class="mj-menu-trigger" style="display:none;max-height:0px;max-width:0px;font-size:0px;overflow:hidden;">' +
+      '<label for="c" class="mj-menu-label" style="display:block;cursor:pointer;mso-hide:all;font-size:30px;">' +
+      '<span class="mj-menu-icon-open" style="mso-hide:all;"> &#9776; </span><span class="mj-menu-icon-close" style="display:none;mso-hide:all;"> &#8855; </span></label></div>' +
+      `<div class="mj-inline-links">${link('home')}${link('Summer deals')}${link('Our blog')}</div>` +
+      '</td></tr></tbody></table></body></html>';
+    const editor = createEditor({ parent: mount, extensions: emailExtensions, content: html });
+    const out = editor.getHTML();
+    // The client the import is drawn for shows the links, and nothing of
+    // the toggle: no ☰, no ⊗, and the links are links — a builder's
+    // inline-block anchor with no fill or border is not a button.
+    expect(out).not.toContain('\u2630');
+    expect(out).not.toContain('\u2297');
+    expect(out).not.toContain('<input');
+    expect(out.match(/<a href="https:\/\/x.io\/\d+"[^>]*rel="noopener noreferrer">/g)).toHaveLength(
+      3,
+    );
+    expect(out).not.toContain('background-color: rgb(26, 115, 232)');
     editor.destroy();
   });
 });

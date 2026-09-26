@@ -1384,7 +1384,17 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   share of the budget, so two halves sit side by side exactly as two of
   ours. Not carried: a section's own background and padding (the model has
   no section), and MJML's button (a filled `<td>` round a `<p>`, not a
-  link). In the editor besides: the layout guides linger 400ms before they
+  link). A third pass since (2026-09-26): `dropHidden` removes what the
+  export hides with `display: none` — the label of an MJML hamburger menu
+  (a checkbox-and-`:checked` trick only Apple Mail pulls off; Gmail strips
+  the form controls and the selector, Outlook the lot), whose ☰ ⊗ stood in
+  the message as text, a preview text, the other half of a responsive
+  pair — so what the import shows is the fallback Gmail and Outlook show:
+  the row of links. And the button node's parse rule wants a box, not a
+  layout: an inline-block anchor is a button only with a fill or a border
+  on it, so a navbar's links (MJML gives each `inline-block` and a
+  padding) stay links, where they were coming in as four blue buttons. In
+  the editor besides: the layout guides linger 400ms before they
   fade, so a hand crossing a cell's edge never sees them blink; the caret's
   own row and column grips stay on screen while a cell is typed in (Tiptap's
   and Notion's way); the `/` menu's sections stand further apart; Send is
