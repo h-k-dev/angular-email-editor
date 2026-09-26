@@ -20,44 +20,55 @@
 .chat-based-suggestion__top {
   display: flex;
   align-items: center;
-  gap: 4px;
-  min-height: 40px;
+  gap: 6px;
+  min-height: 28px;
 }
 
 .chat-based-suggestion__space {
   flex: 1;
 }
 
-// Discard and Apply as words: no state layer, but a touch target's height
-// and a hand's width of padding.
+// Discard and Apply as small, thin buttons — a compact toolkit's: 28px
+// tall, a small label, a hand's width of padding, a tight corner. Discard
+// is outlined, Apply filled. No state layer; the height is the target.
 .chat-based-suggestion__word {
-  min-height: 40px;
-  padding: 0 12px;
-  border: none;
-  border-radius: var(--mat-sys-corner-full, 999px);
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--mat-sys-outline-variant, #cccccc);
+  border-radius: 6px;
   background: none;
-  color: var(--mat-sys-on-surface-variant, #555555);
-  font: var(--mat-sys-label-large, inherit);
+  color: var(--mat-sys-on-surface, #1f1f1f);
+  font: 500 12.5px / 1 var(--mat-sys-label-large-font, system-ui, sans-serif);
   cursor: pointer;
+  transition:
+    background-color 120ms,
+    opacity 120ms;
 
   &:hover:not(:disabled) {
-    background-color: color-mix(in srgb, var(--mat-sys-on-surface, #1f1f1f) 8%, transparent);
+    background-color: color-mix(in srgb, var(--mat-sys-on-surface, #1f1f1f) 6%, transparent);
   }
 
   &:focus-visible {
     outline: 2px solid var(--mat-sys-primary, #0056b3);
-    outline-offset: -2px;
+    outline-offset: 2px;
   }
 
   &:disabled {
-    opacity: 0.38;
+    opacity: 0.5;
     cursor: default;
   }
 }
 
 .chat-based-suggestion__word--apply {
-  color: var(--mat-sys-primary, #0056b3);
-  font-weight: 600;
+  border-color: transparent;
+  background-color: var(--mat-sys-primary, #0056b3);
+  color: var(--mat-sys-on-primary, #ffffff);
+
+  &:hover:not(:disabled) {
+    background-color: color-mix(in srgb, var(--mat-sys-primary, #0056b3) 90%, #000000);
+  }
 }
 
 // Three dots that dance while the model thinks.

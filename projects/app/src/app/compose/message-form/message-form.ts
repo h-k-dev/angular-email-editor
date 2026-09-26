@@ -218,8 +218,10 @@ export class MessageForm {
   readonly cleared = output<void>();
 
   /** Whether the formatting toolbar is switched on (the writer bar's
-      formatting options button). Shown by default. */
-  protected readonly formattingOpen = signal(true);
+      formatting options button). Off by default: the message is written
+      first, and the marks have their keys, the bubble menu and the `/`
+      menu; the bar is one press away when it is wanted. */
+  protected readonly formattingOpen = signal(false);
 
   /** Whether the composer's formatting toolbar shows. Always on a phone:
       there it is the bar on the keyboard, and the bar has no switch for it.
