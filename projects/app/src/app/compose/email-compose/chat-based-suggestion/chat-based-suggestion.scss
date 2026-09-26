@@ -1,19 +1,33 @@
-// A section of the composer's column, like the toolbar under it: it sets
-// its own inline inset from the same token every section reads, and takes
-// no room at all while there is nothing proposed.
+@use '../../../../styles/breakpoints' as bp;
+
+// A section of the composer's column, sitting on the bar under it: the
+// column's gap is closed below, so the strip rises out of the toolbar
+// rather than hovering over it. Takes no room at all while there is
+// nothing proposed.
 :host {
   display: block;
-  padding-inline: var(--mat-sys-inner-spacing);
+  margin-block-end: -8px;
 }
 
 :host([hidden]) {
   display: none;
 }
 
+// Wide: the strip keeps to the sheet's inline inset, and never grows past
+// a comfortable line — on a full-screen window the sheet is wider than a
+// message is, and the field stays under the words it is about.
 .chat-based-suggestion {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0;
+  box-sizing: border-box;
+  inline-size: 100%;
+  // The cap is on the field, the inset outside it: at the sheet's usual
+  // width the strip is the text column's width exactly, and only a wider
+  // sheet — a full-screen window — leaves room on either side.
+  max-inline-size: calc(75ch + 2 * var(--mat-sys-inner-spacing, 16px));
+  margin-inline: auto;
+  padding-inline: var(--mat-sys-inner-spacing, 16px);
 }
 
 // The top line has no surface: what stands on it floats over the text.
@@ -21,7 +35,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  min-height: 28px;
+  min-height: 32px;
 }
 
 .chat-based-suggestion__space {
@@ -51,7 +65,7 @@
   }
 
   &:focus-visible {
-    outline: 2px solid var(--mat-sys-primary, #0056b3);
+    outline: 2px solid var(--mat-sys-on-surface, #1f1f1f);
     outline-offset: 2px;
   }
 
@@ -66,7 +80,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  padding-inline: 12px;
+  padding-inline: 4px;
 
   span {
     width: 6px;
@@ -98,42 +112,30 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .chat-based-suggestion__thinking span {
-    animation: chat-based-suggestion-dot-still 900ms ease-in-out infinite;
-  }
-
-  @keyframes chat-based-suggestion-dot-still {
-    0%,
-    100% {
-      opacity: 0.5;
-    }
-    50% {
-      opacity: 1;
-    }
-  }
-}
-
-// The pill: the field, the voice place and the send button in one row, on
-// the field surface.
+// The field: one strip on the field surface, the chat input, a place for
+// voice input and the send button in a row — no ring, no accent: the caret
+// says where the focus is. It rises out of the bar as it opens.
 .chat-based-suggestion__field {
   display: flex;
   align-items: flex-end;
-  gap: 4px;
+  gap: 2px;
   padding: 4px 4px 4px 12px;
-  background-color: var(
-    --email-compose-link-input-background,
-    var(--mat-sys-surface-container-high, #ececec)
-  );
-  border-radius: 24px;
+  background-color: var(--mat-sys-surface-container-high, #ececec);
+  border-radius: 12px 12px 0 0;
+}
 
-  &:focus-within {
-    outline: 2px solid var(--mat-sys-primary, #0056b3);
-    outline-offset: -2px;
+.chat-based-suggestion__field--rising {
+  animation: chat-based-suggestion-rise 200ms ease-out both;
+}
+
+@keyframes chat-based-suggestion-rise {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
   }
 }
 
-// The chat input, bare inside the pill: the pill is its surface.
+// The chat input, bare inside the strip: the strip is its surface.
 .chat-based-suggestion__chat {
   flex: 1;
   min-width: 0;
@@ -143,7 +145,8 @@
   --email-chat-input-focus: transparent;
 }
 
-// The icons: a 40px round target each; the send button filled.
+// The icons: a 40px round target each; the send button filled in the
+// text's own colour — no accent — and the stop button the same.
 .chat-based-suggestion__icon {
   display: inline-flex;
   align-items: center;
@@ -158,7 +161,7 @@
   cursor: pointer;
 
   &:focus-visible {
-    outline: 2px solid var(--mat-sys-primary, #0056b3);
+    outline: 2px solid var(--mat-sys-on-surface, #1f1f1f);
     outline-offset: -2px;
   }
 
@@ -175,12 +178,58 @@
 }
 
 .chat-based-suggestion__send {
-  background-color: var(--mat-sys-primary, #0056b3);
-  color: var(--mat-sys-on-primary, #ffffff);
+  background-color: var(--mat-sys-on-surface, #1f1f1f);
+  color: var(--mat-sys-surface, #ffffff);
 
   &:disabled {
     opacity: 1;
     background-color: color-mix(in srgb, var(--mat-sys-on-surface, #1f1f1f) 12%, transparent);
     color: var(--mat-sys-on-surface-variant, #555555);
+  }
+}
+
+// A phone: the strip is the screen's width, flush to its sides and square,
+// the way a chat's message box sits on the keyboard — no inset, no line
+// cap, and a tighter row. The words above keep the text's inset.
+@include bp.phone {
+  .chat-based-suggestion {
+    max-inline-size: none;
+    padding-inline: 0;
+  }
+
+  .chat-based-suggestion__top {
+    padding-inline: var(--mat-sys-inner-spacing, 16px);
+    min-height: 28px;
+  }
+
+  .chat-based-suggestion__field {
+    padding: 2px 4px 2px 12px;
+    border-radius: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-based-suggestion__thinking span {
+    animation: chat-based-suggestion-dot-still 900ms ease-in-out infinite;
+  }
+
+  @keyframes chat-based-suggestion-dot-still {
+    0%,
+    100% {
+      opacity: 0.5;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  .chat-based-suggestion__field--rising {
+    animation: chat-based-suggestion-fade 120ms linear both;
+  }
+
+  @keyframes chat-based-suggestion-fade {
+    from {
+      opacity: 0;
+    }
   }
 }

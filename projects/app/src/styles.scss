@@ -1403,13 +1403,20 @@ section[html-email-compose] .aee-editor {
 }
 
 /* What the assistant proposes into the text (the library's content
- * proposal, `aee-proposal`): the message's own words, in the accent — it is
- * in the text where it will stand, and not the writer's yet. Faded a
- * little while it is still coming (the editor says `aria-busy`). */
+ * proposal, `aee-proposal`): the message's own words, in their own colour —
+ * it is in the text where it will stand — on the faintest wash, so that
+ * what is not the writer's yet can be told from what is; no accent, which
+ * read as a link. Faded a little while it is still coming (the editor says
+ * `aria-busy`). */
 .aee-editor .aee-proposal {
-  color: var(--email-proposal-color, var(--mat-sys-primary, #6750a4));
+  background-color: var(
+    --email-proposal-background,
+    color-mix(in srgb, var(--mat-sys-on-surface, #1f1f1f) 5%, transparent)
+  );
+  border-radius: 2px;
+  box-decoration-break: clone;
 }
 
 .aee-editor[aria-busy='true'] .aee-proposal {
-  opacity: 0.85;
+  opacity: 0.8;
 }

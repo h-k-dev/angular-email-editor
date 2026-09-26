@@ -44,9 +44,10 @@
       </button>
     </div>
 
-    <!-- The pill: the library's chat input (lines and lists, Enter sends),
-         a place for voice input, and the send button. -->
-    <div class="chat-based-suggestion__field">
+    <!-- The strip: the library's chat input (lines and lists, Enter sends),
+         a place for voice input, and the send button — rising out of the
+         bar as it opens (`animate.enter`, see the stylesheet). -->
+    <div class="chat-based-suggestion__field" animate.enter="chat-based-suggestion__field--rising">
       <div
         email-chat-input
         class="chat-based-suggestion__chat"
