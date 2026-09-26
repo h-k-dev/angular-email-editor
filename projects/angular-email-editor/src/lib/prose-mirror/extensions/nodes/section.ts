@@ -1,5 +1,5 @@
 import { Command, EditorState, TextSelection } from 'prosemirror-state';
-import { Node, Schema } from 'prosemirror-model';
+import { DOMOutputSpec, Node, Schema } from 'prosemirror-model';
 import { defineNode } from '../../extension';
 import { emailBackgroundPalette, fillTextColor } from '../../dual-contrast';
 import { isSafeColor, toEmailSafeColor } from '../marks/text-style';
@@ -40,10 +40,25 @@ export const SECTION_INSET = 16;
  * fill; the swatches are the dual-safe background palette, so both survive
  * a forced inversion. `bgcolor` carries the same colour as hex for Outlook.
  *
+ * **A background image, for both clients.** A band may carry an image
+ * behind its content (MJML's `background-url`): the cell gets it as a
+ * `background` attribute *and* as inline `background-image`, centred,
+ * covering, not repeating — Gmail and the rest read those — with the fill
+ * colour beneath for the clients that hold images back. Outlook's Word
+ * engine reads neither, and draws VML: the cell's content is wrapped in a
+ * `v:rect` with a `v:fill` of the image, inside `[if mso]` conditional
+ * comments that every other client discards. That is the one place the
+ * email carries a comment — MJML's translation of the same idea, and the
+ * only way to a picture behind text in Outlook; without it the colour
+ * shows, which is the fallback anyway. A band without an image emits no
+ * comment at all.
+ *
  * **On parse** a section is a one-cell presentation table whose cell holds
- * nothing but elements and carries a fill or a padding — a builder's
- * section (MJML's, with the fill on its table or wrapping div) as much as
- * our own. A one-cell table with words in it is a table, and stays one.
+ * nothing but elements and carries a fill, an image or a padding — a
+ * builder's section (MJML's, with the fill on its table or wrapping div,
+ * the image as the table's `background` or a `url()` in a style) as much
+ * as our own. A one-cell table with words in it is a table, and stays one.
+ * Only an `http(s)` image is taken.
  */
 export const Section = defineNode({
   name: 'section',
@@ -57,6 +72,8 @@ export const Section = defineNode({
       background: { default: null },
       /** The band's padding, as `parsePadding` normalises it. */
       padding: { default: SECTION_PADDING },
+      /** An image behind the content — an `http(s)` URL — or null. */
+      image: { default: null },
     },
     parseDOM: [
       {
@@ -71,39 +88,18 @@ export const Section = defineNode({
     // class on it, which the email never sees.
     toDOM: (node) => [
       'div',
-      { class: 'aee-section', style: bandStyle(node.attrs['background'], node.attrs['padding']) },
+      { class: 'aee-section', style: bandStyle(node.attrs as SectionAttrs) },
       ['div', { class: 'aee-section__inner', style: innerStyle() }, 0],
     ],
-    emitDOM: (node: { attrs: Record<string, any> }) => [
-      'table',
-      {
-        role: 'presentation',
-        width: '100%',
-        cellpadding: '0',
-        cellspacing: '0',
-        border: '0',
-        style: 'width: 100%; border-collapse: collapse;',
-      },
-      [
-        'tbody',
-        [
-          'tr',
-          [
-            'td',
-            {
-              ...(node.attrs['background'] && { bgcolor: node.attrs['background'] }),
-              style: bandStyle(node.attrs['background'], node.attrs['padding']),
-            },
-            ['div', { style: innerStyle() }, 0],
-          ],
-        ],
-      ],
-    ],
+    emitDOM: (node: { attrs: Record<string, any> }) => emitBand(node.attrs as SectionAttrs),
   },
   commands: ({ schema }) => ({
     insertSection: (background?: string | null): Command => insertSection(schema, background),
     /** Fill the section the cursor is in (or clear it with `null`). */
     setSectionBackground: (color: string | null): Command => setSectionBackground(color),
+    /** Put an image behind the section the cursor is in (or take it away
+        with `null`) — an `http(s)` URL; anything else is refused. */
+    setSectionImage: (url: string | null): Command => setSectionImage(url),
     /** Take the band away, its content staying where it stood. */
     removeSection: (): Command => removeSection,
   }),
@@ -122,11 +118,89 @@ export const Section = defineNode({
 
 const DEFAULT_FILL = emailBackgroundPalette.find((color) => color.name === 'Gray')?.value ?? null;
 
-const bandStyle = (background: string | null, padding: string | null): string =>
-  (padding ? `padding: ${padding};` : '') +
-  (background
-    ? `${padding ? ' ' : ''}background-color: ${background}; color: ${fillTextColor(background)};`
-    : '');
+interface SectionAttrs {
+  background: string | null;
+  padding: string | null;
+  image: string | null;
+}
+
+/** The band's inline style: its padding, its fill with the text colour
+    the fill pairs, and the image behind it — centred at the top, covering
+    the band, once — for every client that reads CSS backgrounds. */
+const bandStyle = ({ background, padding, image }: SectionAttrs): string =>
+  [
+    padding ? `padding: ${padding};` : '',
+    background ? `background-color: ${background}; color: ${fillTextColor(background)};` : '',
+    image
+      ? `background-image: url('${image}'); background-position: center top; ` +
+        'background-size: cover; background-repeat: no-repeat;'
+      : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+const TABLE_ATTRS = {
+  role: 'presentation',
+  width: '100%',
+  cellpadding: '0',
+  cellspacing: '0',
+  border: '0',
+  style: 'width: 100%; border-collapse: collapse;',
+};
+
+/** The band as sent: one presentation table. With an image, the content is
+    wrapped in VML for Outlook — comment nodes, which a DOMOutputSpec cannot
+    express, so the table is then built by hand. */
+function emitBand(attrs: SectionAttrs): DOMOutputSpec {
+  const cellAttrs = {
+    ...(attrs.background && { bgcolor: attrs.background }),
+    ...(attrs.image && { background: attrs.image }),
+    style: bandStyle(attrs),
+  };
+  if (!attrs.image) {
+    return [
+      'table',
+      TABLE_ATTRS,
+      ['tbody', ['tr', ['td', cellAttrs, ['div', { style: innerStyle() }, 0]]]],
+    ];
+  }
+  // Styles through the CSSOM, as the spec path writes them (`cssText`), so
+  // the two paths print the same colours.
+  const table = document.createElement('table');
+  for (const [name, value] of Object.entries(TABLE_ATTRS)) setAttribute(table, name, value);
+  const td = table.createTBody().insertRow().insertCell();
+  for (const [name, value] of Object.entries(cellAttrs)) setAttribute(td, name, value);
+  const inner = document.createElement('div');
+  inner.style.cssText = innerStyle();
+  td.append(document.createComment(vmlOpen(attrs)), inner, document.createComment(VML_CLOSE));
+  return { dom: table, contentDOM: inner };
+}
+
+function setAttribute(el: HTMLElement, name: string, value: string): void {
+  if (name === 'style') el.style.cssText = value;
+  else el.setAttribute(name, value);
+}
+
+/** Outlook's own drawing of a picture behind text: a full-width rectangle
+    (`mso-width-percent: 1000` is the Word engine's "as wide as the page")
+    filled with the image, the fill colour as its base, the content in a
+    text box that grows with it. */
+const vmlOpen = ({ image, background }: SectionAttrs): string =>
+  '[if mso]><v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" ' +
+  'style="mso-width-percent: 1000;">' +
+  `<v:fill type="frame" src="${escapeAttribute(image!)}"${background ? ` color="${background}"` : ''} />` +
+  '<v:textbox inset="0,0,0,0" style="mso-fit-shape-to-text: true;"><![endif]';
+
+const VML_CLOSE = '[if mso]></v:textbox></v:rect><![endif]';
+
+const escapeAttribute = (value: string): string =>
+  value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+
+/** Whether a URL may stand as a band's image: `http(s)` only — never a
+    script, a data URL (Gmail shows nothing for it) or a file. */
+export function isSectionImageUrl(url: string | null): url is string {
+  return !!url && /^https?:\/\/\S+$/i.test(url.trim());
+}
 
 /** The section's content column: the container's width, centred, with the
     surface's inline inset inside it so words never touch the band's edge
@@ -157,8 +231,35 @@ function sectionAttrs(table: HTMLTableElement): Record<string, unknown> | false 
     '';
   const padding = parsePadding(cell);
   const background = raw && isSafeColor(raw) ? toEmailSafeColor(raw) : null;
-  if (!background && !padding) return false;
-  return { background, padding: padding ?? SECTION_PADDING };
+  const image = declaredImage(table, cell, parent);
+  if (!background && !padding && !image) return false;
+  return { background, padding: padding ?? SECTION_PADDING, image };
+}
+
+/** The image a builder's section carries: the table's `background`
+    attribute (ours, MJML's), else a `url()` in the cell's, the table's or
+    the wrapping div's `background-image` or `background` — the first
+    that is an `http(s)` URL. */
+function declaredImage(
+  table: HTMLTableElement,
+  cell: HTMLTableCellElement,
+  parent: Element | null,
+): string | null {
+  const candidates = [table.getAttribute('background'), cell.getAttribute('background')];
+  for (const el of [
+    cell,
+    table,
+    parent instanceof HTMLElement && parent.tagName === 'DIV' ? parent : null,
+  ]) {
+    if (!el) continue;
+    const style = el.getAttribute('style') ?? '';
+    const m = /(?:^|;)\s*background(?:-image)?\s*:[^;]*?url\(\s*(['"]?)([^'")]+)\1\s*\)/i.exec(
+      style,
+    );
+    candidates.push(m?.[2] ?? null);
+  }
+  const image = candidates.map((url) => url?.trim() ?? null).find(isSectionImageUrl);
+  return image ?? null;
 }
 
 /** The background an element declares inline — the CSSOM's reading, else
@@ -235,6 +336,23 @@ export function setSectionBackground(color: string | null): Command {
         state.tr
           .setNodeMarkup(ctx.pos, undefined, { ...ctx.node.attrs, background })
           .scrollIntoView(),
+      );
+    }
+    return true;
+  };
+}
+
+/** Puts an image behind (or takes it from) the section the cursor is in.
+    A URL that is not `http(s)` is refused: the command answers false. */
+export function setSectionImage(url: string | null): Command {
+  return (state, dispatch) => {
+    const ctx = findSectionContext(state);
+    if (!ctx) return false;
+    const image = url ? url.trim() : null;
+    if (image && !isSectionImageUrl(image)) return false;
+    if (dispatch) {
+      dispatch(
+        state.tr.setNodeMarkup(ctx.pos, undefined, { ...ctx.node.attrs, image }).scrollIntoView(),
       );
     }
     return true;

@@ -89,6 +89,66 @@ describe('section', () => {
     expect(canonical(out)).toBe(out);
   });
 
+  it('carries an image behind the band — attribute and CSS for Gmail, VML for Outlook, the fill beneath — and parses back as itself', () => {
+    editor.commands['insertSection']('#202124');
+    editor.exec((state, dispatch) => {
+      dispatch?.(state.tr.insertText('hero'));
+      return true;
+    });
+    expect(editor.commands['setSectionImage']('https://x.io/hero.jpg')).toBe(true);
+    const out = editor.getHTML();
+    expect(out).toContain(
+      '<td bgcolor="#202124" background="https://x.io/hero.jpg" style="padding: 20px 0px; background-color: rgb(32, 33, 36); color: rgb(255, 255, 255); background-image: url(&quot;https://x.io/hero.jpg&quot;); background-position: center top; background-size: cover; background-repeat: no-repeat;">',
+    );
+    // Outlook's drawing, in the comments every other client discards —
+    // round the content, the fill as the picture's base.
+    expect(out).toContain(
+      '<!--[if mso]><v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="mso-width-percent: 1000;"><v:fill type="frame" src="https://x.io/hero.jpg" color="#202124" /><v:textbox inset="0,0,0,0" style="mso-fit-shape-to-text: true;"><![endif]--><div style="max-width: 600px;',
+    );
+    expect(out).toContain('hero</div></div><!--[if mso]></v:textbox></v:rect><![endif]--></td>');
+    // The editor shows it too.
+    expect(host.querySelector<HTMLElement>('.aee-section')!.style.backgroundImage).toContain(
+      'https://x.io/hero.jpg',
+    );
+    // A fixpoint: the comments go on parse, the attribute brings the image
+    // back, the emit writes the same comments.
+    expect(canonical(out)).toBe(out);
+    // Taken away, no trace — not a comment.
+    editor.commands['setSectionImage'](null);
+    expect(editor.getHTML()).not.toContain('<!--');
+    expect(editor.getHTML()).not.toContain('background=');
+  });
+
+  it('takes only an http(s) image: a script, a data URL or a file is refused, on the command and on parse', () => {
+    editor.commands['insertSection']('#202124');
+    expect(editor.commands['setSectionImage']('javascript:alert(1)')).toBe(false);
+    expect(editor.commands['setSectionImage']('data:image/png;base64,AAAA')).toBe(false);
+    expect(editor.commands['setSectionImage']('file:///etc/hosts')).toBe(false);
+    expect(editor.getHTML()).not.toContain('background=');
+    const refused = canonical(
+      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tbody><tr>' +
+        '<td background="javascript:alert(1)" style="padding: 20px 0px; background-image: url(data:image/png;base64,AAAA)"><div><p>x</p></div></td></tr></tbody></table>',
+    );
+    expect(refused).toContain('padding: 20px 0px;');
+    expect(refused).not.toContain('background=');
+    expect(refused).not.toContain('javascript');
+  });
+
+  it('parses MJML’s hero: the image on the wrapping div and as the table’s background', () => {
+    const mjml =
+      '<div style="background:url(\'https://static.x.io/hero.jpg\') center top / cover no-repeat;background-position:center top;background-repeat:no-repeat;background-size:cover;margin:0px auto;max-width:600px;">' +
+      '<div style="line-height:0;font-size:0;">' +
+      '<table align="center" background="https://static.x.io/hero.jpg" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:url(\'https://static.x.io/hero.jpg\') center top / cover no-repeat;width:100%;"><tbody><tr>' +
+      '<td style="direction:ltr;font-size:0px;padding:20px 0;text-align:center;">' +
+      '<div style="display:inline-block;vertical-align:top;width:100%;max-width:600px"><p>Are you seascape?</p></div>' +
+      '</td></tr></tbody></table></div></div>';
+    const out = canonical(mjml);
+    expect(out).toContain('background="https://static.x.io/hero.jpg"');
+    expect(out).toContain('<v:fill type="frame" src="https://static.x.io/hero.jpg" />');
+    expect(out).toContain('Are you seascape?');
+    expect(canonical(out)).toBe(out);
+  });
+
   it('leaves a one-cell table with words in it a table', () => {
     const table =
       '<table role="presentation" cellpadding="0" style="background-color: #f1f3f4"><tbody><tr><td style="padding: 8px">cell</td></tr></tbody></table>';

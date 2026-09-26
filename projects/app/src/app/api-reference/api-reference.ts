@@ -177,9 +177,10 @@ export class ApiReference {
           does: 'What parseHTML runs before the schema on a whole document: the <style> sheet folded into the elements it matches (document order, !important over inline, media queries answered for a 600px screen), and the builders’ one-cell presentation wrapper tables taken out, a right-to-left cell reversed — so an MJML export comes in as sections of columns, not empty grids.',
         },
         {
-          name: 'Section · insertSection · setSectionBackground · removeSection',
-          signature: 'node · (background?) => Command · (color | null) => Command · () => Command',
-          does: 'A full-width band — a fill edge to edge, the content centred in the 600px column — emitted as one presentation table with bgcolor and inline background-color (Outlook reads the attribute, Gmail the style) and an inline max-width div: no stylesheet, no conditional comment. Parses a builder’s section (MJML’s) the same way.',
+          name: 'Section · insertSection · setSectionBackground · setSectionImage · removeSection',
+          signature:
+            'node · (background?) => Command · (color | null) => Command · (url | null) => Command · () => Command',
+          does: 'A full-width band — a fill edge to edge, the content centred in the 600px column — emitted as one presentation table with bgcolor and inline background-color (Outlook reads the attribute, Gmail the style) and an inline max-width div: no stylesheet, no conditional comment. An image behind it (http(s) only) goes on the cell as the background attribute and inline background-image for Gmail, with a VML v:rect in [if mso] comments for Outlook and the fill beneath for images held back. Parses a builder’s section (MJML’s, its background-url included) the same way.',
         },
         {
           name: 'createTableHandles: the cell grip · clearCells',

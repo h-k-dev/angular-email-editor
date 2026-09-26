@@ -1339,6 +1339,29 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   table's commands; a text colour goes on all the cell's words through a
   selection the menu makes and puts back.
 
+- **A section's background image (2026-09-26).** MJML's `background-url`,
+  our way: a band may carry an image behind its content (`image` attr, an
+  `http(s)` URL only — a data URL shows nothing in Gmail, a script is a
+  script), which the cell gets as a `background` attribute _and_ as inline
+  `background-image`, centred at the top, covering, once — Gmail and every
+  CSS client read those — with the fill colour beneath for the clients
+  that hold images back. Outlook's Word engine reads neither and draws
+  VML: the content is wrapped in a `v:rect` with a `v:fill` of the image
+  (`mso-width-percent: 1000`, the Word engine's "as wide as the page"),
+  inside `[if mso]` conditional comments every other client discards. It
+  is the one place the email carries a comment — MJML's translation of
+  the same idea, the only way to a picture behind text in Outlook, and
+  the colour is what shows without it. A band with no image emits no
+  comment at all; the source pane's linter, which flags CSS background
+  images for Outlook, knows the pair (a `v:fill` comment and the cell's
+  `background` attribute) and lets it be. `setSectionImage` (refusing
+  anything but `http(s)`) joins the commands; the block menu's section
+  toolbar gets a wallpaper button with a URL field. On import, the image
+  is read from the table's `background` attribute or a `url()` in the
+  cell's, the table's or the wrapping div's style, so MJML's hero section
+  comes in with its picture. Not verified in Outlook itself here — the
+  VML is MJML's, in wide use, and worth a Litmus run.
+
 - **Sections: the full-width band (2026-09-26).** A `section` node — a
   fill running edge to edge across the reader's window with the content
   centred in the 600px column inside it, MJML's `mj-section` rendered our

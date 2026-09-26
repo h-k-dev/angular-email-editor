@@ -216,8 +216,9 @@ function isWrapperTable(table: HTMLTableElement): boolean {
   );
 }
 
-/** Whether a one-cell table carries what makes it a section: a fill on the
-    cell, the table or the div wrapping it, or a padding on the cell. */
+/** Whether a one-cell table carries what makes it a section: a fill or an
+    image on the cell, the table or the div wrapping it, or a padding on
+    the cell. */
 function isBand(table: HTMLTableElement): boolean {
   if (table.rows.length !== 1 || table.rows[0].cells.length !== 1) return false;
   const cell = table.rows[0].cells[0];
@@ -225,13 +226,15 @@ function isBand(table: HTMLTableElement): boolean {
   const declares = (el: Element, property: string) =>
     new RegExp(`(?:^|;)\\s*${property}\\s*:`, 'i').test(el.getAttribute('style') ?? '');
   return !!(
-    declares(cell, 'background(?:-color)?') ||
+    declares(cell, 'background(?:-color|-image)?') ||
     cell.getAttribute('bgcolor') ||
-    declares(table, 'background(?:-color)?') ||
+    cell.getAttribute('background') ||
+    declares(table, 'background(?:-color|-image)?') ||
     table.getAttribute('bgcolor') ||
+    table.getAttribute('background') ||
     (parent instanceof HTMLElement &&
       parent.tagName === 'DIV' &&
-      declares(parent, 'background(?:-color)?')) ||
+      declares(parent, 'background(?:-color|-image)?')) ||
     declares(cell, 'padding(?:-top|-right|-bottom|-left)?')
   );
 }

@@ -336,6 +336,14 @@ export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): Htm
     });
   }
 
+  // A picture behind text drawn Outlook's way: a `v:fill` in a conditional
+  // comment. Where the email carries one, a cell's CSS background image —
+  // paired with the `background` attribute, the section node's pattern —
+  // is the same picture for everyone else, not an image Outlook drops.
+  const hasVml = scan.tokens.some(
+    (token) => token.type === 'comment' && /<v:fill\b/i.test(source.slice(token.from, token.to)),
+  );
+
   // Style declarations the floor clients ignore or mangle — data-driven from
   // the client-support module; the message names the client and what happens.
   for (const tag of scan.tags) {
@@ -343,6 +351,7 @@ export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): Htm
     const style = attributeValueToken(source, scan, tag, 'style');
     if (!style?.value) continue;
     const hasWidthAttribute = attributeValue(source, scan, tag, 'width') !== null;
+    const hasVmlBackground = hasVml && attributeValue(source, scan, tag, 'background') !== null;
     // `max-width` is only a problem when it is the *sole* width constraint;
     // paired with `width: 100%` (the fluid columns pattern) Outlook falls back
     // to 100% and fills the container gracefully.
@@ -402,6 +411,8 @@ export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): Htm
           message: `"width: ${value}" — a fixed width overflows a phone; use width: 100% with max-width: ${value} (the hybrid)`,
         });
       }
+
+      if (hasVmlBackground && /^background(-image)?$/.test(property)) continue;
 
       for (const issue of findCssIssues(property, value, tag.name)) {
         diagnostics.push({

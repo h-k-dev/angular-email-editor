@@ -120,6 +120,18 @@ describe('html-source linter', () => {
     expect(lintHTML('<div>short words only here</div>')).toEqual([]);
   });
 
+  it('exempts a background image drawn for Outlook in VML — the section node’s picture behind text', () => {
+    const cell = (comments: boolean) =>
+      (comments
+        ? '<!--[if mso]><v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false"><v:fill type="frame" src="https://x.io/hero.jpg" /><v:textbox><![endif]-->'
+        : '') +
+      '<td background="https://x.io/hero.jpg" style="background-image: url(https://x.io/hero.jpg); background-size: cover;">x</td>' +
+      (comments ? '<!--[if mso]></v:textbox></v:rect><![endif]-->' : '');
+    const flagged = lintHTML(cell(false)).filter((d) => d.message.includes('background'));
+    expect(flagged.length).toBeGreaterThan(0);
+    expect(lintHTML(cell(true)).filter((d) => d.message.includes('background'))).toEqual([]);
+  });
+
   it('exempts our own deliberate Outlook degradations: fluid inline-block columns and the bordered button anchor', () => {
     expect(
       lintHTML(

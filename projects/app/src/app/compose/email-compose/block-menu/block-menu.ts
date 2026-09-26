@@ -1,4 +1,16 @@
-import { Component, ElementRef, TemplateRef, inject, input, viewChild } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  Injector,
+  TemplateRef,
+  afterNextRender,
+  computed,
+  inject,
+  input,
+  linkedSignal,
+  signal,
+  viewChild,
+} from '@angular/core';
 
 // Material
 import { MatButtonModule } from '@angular/material/button';
@@ -6,7 +18,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
 
 // Library
-import { BlockMenuState } from 'angular-email-editor';
+import { BlockMenuState, findSectionContext } from 'angular-email-editor';
 import { KeepFocus } from 'angular-email-editor/focus';
 
 import { FormattingCommands } from '../formatting-commands';
@@ -58,6 +70,31 @@ export class BlockMenu {
   // A query cannot be an ES-private field: TypeScript's `private` it is.
   private readonly panel = viewChild<TemplateRef<unknown>>('panel');
 
+  readonly #injector = inject(Injector);
+
+  /** The image field is up — the button pressed; folded again when the
+      menu closes or moves to another kind of block. Not on every state the
+      extension emits (focus moving into the field is one): a linked signal
+      recomputes on any change beneath its source, so the computation keeps
+      the value while the key is the same. */
+  protected readonly imageField = linkedSignal<string, boolean>({
+    source: () => `${this.state().isOpen}:${this.state().block}`,
+    computation: (key, previous) => (previous?.source === key ? previous.value : false),
+  });
+
+  /** What the field opened with: the section's image, or nothing. */
+  protected readonly imageValue = signal('');
+
+  /** The field holds an address that is not an http(s) URL. */
+  protected readonly imageRefused = signal(false);
+
+  /** Whether the section under the caret has an image — the field's
+      "remove" button shows then. */
+  protected readonly hasImage = computed(() => {
+    this.state();
+    return !!this.#sectionImage();
+  });
+
   constructor() {
     // Below its block — it describes the whole structure, not the line
     // being typed, and under the block it never covers the first row while
@@ -85,6 +122,44 @@ export class BlockMenu {
   /** Escape: back to the text. */
   protected leave(): void {
     this.#commands.focus();
+  }
+
+  /** The image button: the field opens with the section's image, and takes
+      the caret; pressed again, it folds. */
+  protected toggleImageField(): void {
+    if (this.imageField()) {
+      this.imageField.set(false);
+      this.#restoreFocus();
+      return;
+    }
+    this.imageValue.set(this.#sectionImage() ?? '');
+    this.imageRefused.set(false);
+    this.imageField.set(true);
+    afterNextRender(
+      { write: () => this.element()?.nativeElement.querySelector('input')?.select() },
+      { injector: this.#injector },
+    );
+  }
+
+  /** Enter in the field, or its remove button: the section's image is
+      set (or, empty, taken away); refused, the field says so and keeps
+      the caret. */
+  protected setImage(raw: string): void {
+    const editor = this.#commands.editor();
+    if (!editor) return;
+    const url = raw.trim();
+    if (!editor.commands['setSectionImage'](url || null)) {
+      this.imageRefused.set(true);
+      return;
+    }
+    this.imageField.set(false);
+    this.#commands.editor()?.focus();
+  }
+
+  #sectionImage(): string | null {
+    const editor = this.#commands.editor();
+    if (!editor) return null;
+    return (findSectionContext(editor.state)?.node.attrs['image'] as string | null) ?? null;
   }
 
   /**
