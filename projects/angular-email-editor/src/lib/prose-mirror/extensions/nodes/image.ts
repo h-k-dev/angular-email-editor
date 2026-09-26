@@ -342,8 +342,68 @@ function pickImageFiles(multiple: boolean): Promise<File[]> {
       input.remove();
     });
     document.body.appendChild(input);
-    input.click();
+    openFileChooser(() => input.click());
   });
+}
+
+/** How long a keyboard-opened chooser waits for the pointer to move before
+    it opens regardless — inside the browser's window of user activation
+    (five seconds in Chromium), so the click still counts. */
+export const FILE_CHOOSER_POINTER_WAIT = 2500;
+
+/** Whether the last input the page saw was a key, not the pointer. */
+let keyboardLast = false;
+let modalityWatched = false;
+
+function watchModality(): void {
+  if (modalityWatched || typeof document === 'undefined') return;
+  modalityWatched = true;
+  document.addEventListener('keydown', () => (keyboardLast = true), true);
+  document.addEventListener('pointermove', () => (keyboardLast = false), true);
+  document.addEventListener('pointerdown', () => (keyboardLast = false), true);
+}
+
+/**
+ * Opens a file chooser the way the pointer stays visible in it. Chromium on
+ * Windows hides the mouse pointer while a key is typed and shows it again
+ * on the next mouse move *it* handles; the OS file dialog is modal and
+ * takes the moves itself, so a chooser opened from a keyboard action — a
+ * `/image` picked with Enter — runs with no pointer at all. Where the last
+ * input was a key on Windows, the opening waits for the pointer to move
+ * (the page shows it again on that move), or for a moment to pass
+ * ({@link FILE_CHOOSER_POINTER_WAIT}) for the writer who never reaches for
+ * the mouse. Anywhere else, and after a click, it opens at once.
+ */
+export function openFileChooser(
+  open: () => void,
+  options: { keyboard?: boolean; windows?: boolean; wait?: number } = {},
+): void {
+  watchModality();
+  const keyboard = options.keyboard ?? keyboardLast;
+  const windows = options.windows ?? isWindows();
+  if (!keyboard || !windows) {
+    open();
+    return;
+  }
+  let done = false;
+  const now = () => {
+    if (done) return;
+    done = true;
+    clearTimeout(timer);
+    document.removeEventListener('pointermove', now, true);
+    open();
+  };
+  const timer = setTimeout(now, options.wait ?? FILE_CHOOSER_POINTER_WAIT);
+  document.addEventListener('pointermove', now, true);
+}
+
+function isWindows(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const platform =
+    (navigator as { userAgentData?: { platform?: string } }).userAgentData?.platform ??
+    navigator.platform ??
+    '';
+  return /win/i.test(platform);
 }
 
 /** Opens the OS file picker and inserts the chosen image(s) at the cursor —

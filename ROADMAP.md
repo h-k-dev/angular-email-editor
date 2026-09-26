@@ -1339,6 +1339,17 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   table's commands; a text colour goes on all the cell's words through a
   selection the menu makes and puts back.
 
+- **The file chooser's missing pointer (2026-09-26).** On Windows,
+  Chromium (Chrome, Brave) hides the mouse pointer while a key is typed
+  and shows it again on the next mouse move _it_ handles; the OS file
+  dialog is modal and takes the moves itself, so `/image` picked with
+  Enter opened a chooser with no pointer in it at all. `openFileChooser`
+  now opens a keyboard-started chooser on Windows on the next pointer
+  move (the page shows the pointer again on that move), or after a moment
+  (`FILE_CHOOSER_POINTER_WAIT`, inside the browser's window of user
+  activation) for the writer who never reaches for the mouse; after a
+  click, and anywhere but Windows, it opens at once.
+
 - **The preview, per client, and the original (2026-09-26).** Two fixes
   and a pane. The preview opened blank until its HTML/Text toggle was
   pressed: a `srcdoc` frame first laid out inside a hidden ancestor never
