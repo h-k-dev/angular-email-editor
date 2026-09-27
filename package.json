@@ -3,8 +3,10 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
-    "start": "ng serve",
+    "start": "npm run build:lib && ng serve",
     "build": "ng build",
+    "build:lib": "ng build angular-email-editor",
+    "watch:lib": "ng build angular-email-editor --watch",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
   },

@@ -36,6 +36,7 @@ export const Divider = defineNode({
   actions: ({ schema }) => [
     {
       id: 'divider',
+      section: 'blocks',
       title: 'Divider',
       keywords: ['divider', 'separator', 'rule', 'hr', 'line'],
       icon: 'horizontal_rule',

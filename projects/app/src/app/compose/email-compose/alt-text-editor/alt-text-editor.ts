@@ -57,6 +57,7 @@ export class AltTextEditor {
       content: this.panel,
       positions: () => POPOVER_ABOVE,
       onKeydown: (event) => this.onKeydown(event),
+      close: () => this.close(),
     });
     // A press outside closes it — never the click (on the bubble's alt
     // button) that opened it.

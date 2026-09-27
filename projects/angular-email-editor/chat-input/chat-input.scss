@@ -1,0 +1,55 @@
+// A chat input's box: a field, on the field tokens — --email-chat-input-*
+// first, then Material's system token of the same meaning, then a fallback.
+:host {
+  display: block;
+  box-sizing: border-box;
+  min-width: 0;
+  max-height: var(--email-chat-input-max-height, 30vh);
+  overflow-y: auto;
+  padding: var(--email-chat-input-padding, 6px 10px);
+
+  color: var(--email-chat-input-color, var(--mat-sys-on-surface, light-dark(#1f1f1f, #e3e3e3)));
+  background-color: var(
+    --email-chat-input-background,
+    var(--mat-sys-surface-bright, light-dark(#ffffff, #2b2c2e))
+  );
+  border-radius: var(--email-chat-input-corner, var(--mat-sys-corner-small, 4px));
+  font: var(--email-chat-input-font, var(--mat-sys-body-medium, inherit));
+
+  &:focus-within {
+    outline: 2px solid var(--email-chat-input-focus, var(--mat-sys-primary, #0056b3));
+    outline-offset: -2px;
+  }
+}
+
+:host(.email-chat-input--disabled) {
+  opacity: 0.6;
+}
+
+// ProseMirror's own DOM, made outside any view: `::ng-deep`, held to this
+// component's own editor class.
+:host ::ng-deep .email-chat-input__editor {
+  outline: none;
+
+  p,
+  ul,
+  ol {
+    margin: 0;
+  }
+
+  ul,
+  ol {
+    padding-inline-start: 20px;
+  }
+
+  // What the field is for, while it is empty (the placeholder plugin).
+  .email-chat-input__empty::before {
+    content: attr(data-placeholder);
+    position: absolute;
+    pointer-events: none;
+    color: var(
+      --email-chat-input-placeholder-color,
+      var(--mat-sys-on-surface-variant, light-dark(#777777, #9a9a9a))
+    );
+  }
+}

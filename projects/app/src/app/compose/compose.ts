@@ -6,14 +6,15 @@ import {
   // Signals
   afterNextRender,
   computed,
+  effect,
   inject,
   linkedSignal,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 
 // Angular CDK
-import { OverlayModule } from '@angular/cdk/overlay';
 import { DomPortal } from '@angular/cdk/portal';
 
 // Angular Material
@@ -24,7 +25,7 @@ import { MatIcon } from '@angular/material/icon';
 import { AngularFileDrop, FileDropEvent } from '@h-k-dev/angular-file-drop';
 
 // Angular Email Editor
-import { HtmlDiagnostic, InlineImages, emailSizeBudget, replyDocument } from 'angular-email-editor';
+import { HtmlDiagnostic, InlineImages, emailSizeBudget } from 'angular-email-editor';
 
 import { SourceView } from './email-compose/email-compose';
 import { releaseEditingSurface } from './is-typing';
@@ -32,25 +33,14 @@ import { DropHint } from './drop-hint/drop-hint';
 import { HtmlEmailCompose } from './html-email-compose/html-email-compose';
 import { EmailPreview } from './email-preview/email-preview';
 import { KeepDraft } from './message-form/keep-draft';
+import { Examples } from '../../services/examples';
 import { MessageForm } from './message-form/message-form';
 import { Viewport } from '../../services/viewport';
-import { REPLY_EXAMPLES } from '../../../test/reply-examples';
-import { ANGULAR_EXPRESSION_EXAMPLES, HANDLEBARS_EXAMPLES } from '../../../test/template-examples';
 
 /** A status-strip note and the document it is about. */
 interface StatusNote {
   text: string;
   html: string;
-}
-
-type ExampleSetKey = 'reply' | 'angular' | 'handlebars';
-
-interface ExampleSet {
-  /** Menu entry / resting label of the split button. */
-  label: string;
-  /** Prefix of the cycling label ("Reply 2/4 — Gmail thread"). */
-  short: string;
-  examples: { name: string; html: () => string }[];
 }
 
 /**
@@ -64,7 +54,6 @@ interface ExampleSet {
   selector: 'app-compose',
   imports: [
     // Angular CDK
-    OverlayModule,
 
     // Components
     MessageForm,
@@ -105,6 +94,8 @@ export class Compose {
       that resets when its source changes, not an effect writing into a
       signal. */
   protected readonly viewport = inject(Viewport);
+
+  readonly #examples = inject(Examples);
 
   /** Where the HTML source shows (the writer bar's </> and detach
       buttons). Owned here because revealing a finding has to
@@ -156,6 +147,15 @@ export class Compose {
   );
 
   readonly #injector = inject(Injector);
+
+  constructor() {
+    // An example loaded whole is the message's original from then on: the
+    // file's HTML, for the preview to draw beside the editor's reading.
+    effect(() => {
+      const html = this.#examples.loaded();
+      if (html) untracked(() => this.sheet().original.set(html));
+    });
+  }
   protected sourcePane = viewChild.required(HtmlEmailCompose);
 
   /** Live word/line counter, measured mathematically by the email pane. */
@@ -247,69 +247,4 @@ export class Compose {
     const note = this.sentNote();
     return note && this.sheet().blank() ? note : null;
   });
-
-  /** Demo-only example cycler, one set per scenario: reply seeds (the split
-      button's default), AngularJS-expression templates (the iusta dialect)
-      and Handlebars templates. The main button cycles the active set; the
-      caret's dropdown switches sets and loads that set's next example. All
-      of them replace the document via the same canonical `html` signal a
-      real host would set. */
-  #exampleSets: Record<ExampleSetKey, ExampleSet> = {
-    reply: {
-      label: 'Reply example',
-      short: 'Reply',
-      examples: REPLY_EXAMPLES.map((example) => ({
-        name: example.name,
-        html: () => replyDocument(example.inbound),
-      })),
-    },
-    angular: {
-      label: 'AngularJS expression example',
-      short: 'AngularJS',
-      examples: ANGULAR_EXPRESSION_EXAMPLES.map((example) => ({
-        name: example.name,
-        html: () => example.html,
-      })),
-    },
-    handlebars: {
-      label: 'Handlebars example',
-      short: 'Handlebars',
-      examples: HANDLEBARS_EXAMPLES.map((example) => ({
-        name: example.name,
-        html: () => example.html,
-      })),
-    },
-  };
-
-  /** Dropdown rows, in the order they should read. */
-  protected exampleSetOptions = (['reply', 'angular', 'handlebars'] as const).map((key) => ({
-    key,
-    label: this.#exampleSets[key].label,
-  }));
-
-  protected exampleMenuOpen = signal(false);
-  /** The active set and its position; -1 = nothing loaded yet. Each set
-      remembers its own position, so switching back resumes the cycle. */
-  protected exampleState = signal<{ set: ExampleSetKey; index: number }>({
-    set: 'reply',
-    index: -1,
-  });
-  #exampleIndices: Record<ExampleSetKey, number> = { reply: -1, angular: -1, handlebars: -1 };
-
-  protected exampleLabel = computed(() => {
-    const { set, index } = this.exampleState();
-    const s = this.#exampleSets[set];
-    if (index < 0) return s.label;
-    return `${s.short} ${index + 1}/${s.examples.length} — ${s.examples[index].name}`;
-  });
-
-  protected nextExample(set?: ExampleSetKey): void {
-    this.exampleMenuOpen.set(false);
-    const key = set ?? this.exampleState().set;
-    const examples = this.#exampleSets[key].examples;
-    const index = (this.#exampleIndices[key] + 1) % examples.length;
-    this.#exampleIndices[key] = index;
-    this.exampleState.set({ set: key, index });
-    this.sheet().html.set(examples[index].html());
-  }
 }

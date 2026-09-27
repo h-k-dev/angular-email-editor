@@ -202,6 +202,7 @@ export class LinkEditor {
       content: this.panel,
       positions: () => POPOVER_ABOVE,
       onKeydown: (event) => this.onKeydown(event),
+      close: () => this.close(),
     });
     // A button can move under its popover — aligned from the popover itself,
     // or pushed along by an edit — and the popover follows it: measured

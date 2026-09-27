@@ -56,6 +56,16 @@ export class I18n {
    * so this reads the language of that moment and tracks nothing.
    */
   readonly suggestionLabel = (id: string): SuggestionItemLabel | undefined => {
+    // A palette row — `color-red`, `background-red` — is worded from the
+    // colour's name and the side's pattern ("{{name}} text"), so a palette
+    // of any length is translated by its names alone.
+    const colour = /^(color|background)-(.+)$/.exec(id);
+    if (colour) {
+      const name = this.#lookup(`editor.color.names.${colour[2]}`);
+      if (!name) return undefined;
+      const side = colour[1] === 'color' ? 'textRow' : 'backgroundRow';
+      return { title: this.#lookup(`editor.color.${side}`, { name }), keywords: [name] };
+    }
     const base = `editor.actions.${id}`;
     const title = this.#lookup(`${base}.title`);
     const keywords = this.#lookup(`${base}.keywords`);

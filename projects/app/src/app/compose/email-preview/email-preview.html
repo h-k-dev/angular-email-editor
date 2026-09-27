@@ -1,34 +1,131 @@
+<!-- Two rows, every control on them always — a row that changed with the
+     message would move the stage under the reader. Row one: what the frame
+     shows (HTML or text), the client's mode, the device. Row two: the
+     client, and whose HTML — the editor's reading, or the original as it
+     came in, which is there to choose only once the message has one. -->
 <header class="controls">
-  <button
-    type="button"
-    class="controls__toggle"
-    [attr.aria-pressed]="view() === 'text'"
-    (click)="view.set(view() === 'html' ? 'text' : 'html')"
-  >
-    {{ view() === 'html' ? 'HTML' : 'Text' }}
-  </button>
-  <button
-    type="button"
-    class="controls__toggle"
-    [attr.aria-pressed]="mode() === 'dark'"
-    title="Simulated Gmail-style forced inversion"
-    [disabled]="view() === 'text'"
-    (click)="mode.set(mode() === 'light' ? 'dark' : 'light')"
-  >
-    {{ mode() === 'light' ? 'Light' : 'Dark' }}
-  </button>
+  <div class="controls__row">
+    <button
+      type="button"
+      class="controls__toggle"
+      [attr.aria-pressed]="view() === 'text'"
+      (click)="view.set(view() === 'html' ? 'text' : 'html')"
+    >
+      {{ view() === 'html' ? 'HTML' : 'Text' }}
+    </button>
+    <button
+      type="button"
+      class="controls__toggle"
+      [attr.aria-pressed]="mode() === 'dark'"
+      title="The client's dark mode — Gmail's forced inversion, Apple Mail's and Outlook's dark surfaces"
+      [disabled]="view() === 'text'"
+      (click)="mode.set(mode() === 'light' ? 'dark' : 'light')"
+    >
+      {{ mode() === 'light' ? 'Light' : 'Dark' }}
+    </button>
+    <div class="controls__group" role="radiogroup" aria-label="Device">
+      <button
+        type="button"
+        class="controls__toggle"
+        role="radio"
+        [attr.aria-checked]="device() === 'phone'"
+        [attr.aria-pressed]="device() === 'phone'"
+        title="A phone's 320px"
+        (click)="device.set('phone')"
+      >
+        Phone
+      </button>
+      <button
+        type="button"
+        class="controls__toggle"
+        role="radio"
+        [attr.aria-checked]="device() === 'desktop'"
+        [attr.aria-pressed]="device() === 'desktop'"
+        title="A desktop reading pane: the 600px email with room round it"
+        (click)="device.set('desktop')"
+      >
+        Desktop
+      </button>
+    </div>
+  </div>
+  <div class="controls__row">
+    <div class="controls__group" role="radiogroup" aria-label="Mail client">
+      @for (option of clients; track option) {
+        <button
+          type="button"
+          class="controls__toggle"
+          role="radio"
+          [attr.aria-checked]="client() === option"
+          [attr.aria-pressed]="client() === option"
+          [disabled]="view() === 'text'"
+          (click)="client.set(option)"
+        >
+          {{ clientLabels[option] }}
+        </button>
+      }
+    </div>
+    <div class="controls__group" role="radiogroup" aria-label="Source">
+      <button
+        type="button"
+        class="controls__toggle"
+        role="radio"
+        [attr.aria-checked]="source() === 'editor'"
+        [attr.aria-pressed]="source() === 'editor'"
+        title="The message as the editor reads it"
+        [disabled]="!original()"
+        (click)="source.set('editor')"
+      >
+        Editor
+      </button>
+      <button
+        type="button"
+        class="controls__toggle"
+        role="radio"
+        [attr.aria-checked]="source() === 'original'"
+        [attr.aria-pressed]="source() === 'original'"
+        [title]="
+          original()
+            ? 'The HTML as it was pasted or loaded, before the editor read it'
+            : 'Nothing pasted or loaded yet: the message was written here'
+        "
+        [disabled]="!original()"
+        (click)="source.set('original')"
+      >
+        Original
+      </button>
+    </div>
+  </div>
 </header>
 
+<!-- The frame exists only while the preview is on screen: a srcdoc frame
+     first laid out inside a hidden ancestor never paints in Chromium until
+     it is made again — the preview opened blank until a view toggle. -->
+<!-- The stage holds a box the device's scaled size; the frame inside is the
+     device's full width, scaled down as a whole where the flank has less
+     room, so the email lays out for the device and not for the flank. -->
 <div class="stage">
-  @if (view() === 'html') {
-    <iframe
-      class="frame"
-      sandbox
-      title="Email preview"
-      [style.width.px]="PHONE_WIDTH"
-      [srcdoc]="document()"
-    ></iframe>
-  } @else {
-    <pre class="text" [style.width.px]="PHONE_WIDTH">{{ text() }}</pre>
-  }
+  <div
+    class="device"
+    [style.width.px]="deviceWidth() * scale()"
+    [style.height.px]="stageHeight() ? stageHeight()! - 32 : null"
+  >
+    @if (active() && view() === 'html') {
+      <iframe
+        class="frame"
+        sandbox
+        title="Email preview"
+        [style.width.px]="deviceWidth()"
+        [style.height.px]="stageHeight() ? (stageHeight()! - 32) / scale() : null"
+        [style.transform]="'scale(' + scale() + ')'"
+        [srcdoc]="document()"
+      ></iframe>
+    } @else if (view() === 'text') {
+      <pre
+        class="text"
+        [style.width.px]="deviceWidth()"
+        [style.height.px]="stageHeight() ? (stageHeight()! - 32) / scale() : null"
+        [style.transform]="'scale(' + scale() + ')'"
+        >{{ text() }}</pre>
+    }
+  </div>
 </div>

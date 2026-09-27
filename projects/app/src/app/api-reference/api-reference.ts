@@ -122,6 +122,12 @@ export class ApiReference {
           does: 'The component pair renders any suggestion menu’s state as a listbox whose options the editor points at (aria-activedescendant), loads the next page as it scrolls, and says searching / loading more / no results / failed. extensionSuggestions gathers the kit’s / commands; insertMergeTag is what a {{ item runs.',
         },
         {
+          name: 'SuggestionItem.section · sections · [email-suggestion-menu-section]',
+          signature:
+            'section?: string · sections?: Record<string, string> | (id) => string · state.sectionTitle(id)',
+          does: 'Rows declare a section (blocks, styling, media, layout, message; a host adds ai, color, templates, examples); the trigger words the headings, the library’s own wording (suggestionSectionTitles) beneath; the section component is the heading a renderer shows where the section changes.',
+        },
+        {
           name: 'createContentStream · streamContent · isStreaming',
           signature:
             '(options?) => FunctionalExtension · (view, target, async ({ write, getWritableStream, signal }) => …, { format?, transform? }) => { stop, done }',
@@ -164,6 +170,30 @@ export class ApiReference {
           name: 'parseHTML / serializeToHTML',
           signature: '(html, schema) => Node · (doc, schema) => string',
           does: 'The document in and out of the schema — the round trip the two panes share.',
+        },
+        {
+          name: 'inlineStyles · dropHidden · unwrapLayoutTables · inheritTextStyles',
+          signature:
+            '(doc: Document, viewportWidth?) => void · (root: ParentNode) => void · (root) => void · (root) => void',
+          does: 'What parseHTML runs before the schema on a whole document: the <style> sheet folded into the elements it matches (document order, !important over inline, media queries answered for a 600px screen); display: none elements dropped; the builders’ presentation wrapper tables taken out — one cell, or a column’s stack of one-cell rows — a cell’s align carried onto what it held, a right-to-left cell reversed; and what a wrapping div or cell declares (colour, size, face, alignment) written onto the blocks and runs beneath, as CSS would inherit it — so an MJML export comes in as sections of columns with its titles centred, its links in their colour and its buttons in theirs.',
+        },
+        {
+          name: 'Section · insertSection · setSectionBackground · setSectionImage · removeSection',
+          signature:
+            'node · (background?) => Command · (color | null) => Command · (url | null) => Command · () => Command',
+          does: 'A full-width band — a fill edge to edge, the content centred in the 600px column — emitted as one presentation table with bgcolor and inline background-color (Outlook reads the attribute, Gmail the style) and an inline max-width div: no stylesheet, no conditional comment. An image behind it (http(s) only) goes on the cell as the background attribute and inline background-image for Gmail, with a VML v:rect in [if mso] comments for Outlook and the fill beneath for images held back. Parses a builder’s section (MJML’s, its background-url included) the same way.',
+        },
+        {
+          name: 'createTableHandles: the cell grip · clearCells',
+          signature:
+            "onOpen({ kind: 'cell', index: column, row, tablePos, boundingBox }) · Command",
+          does: 'A dot on the caret cell’s right edge — the six-dot handle under the pointer — that hands the host the cell to open a menu for (the demo’s: colour, alignment, clear contents), the caret staying; clearCells empties the caret’s cell or every selected one.',
+        },
+        {
+          name: 'renderForClient · RENDERING_CLIENTS',
+          signature:
+            "(html, client: 'apple-mail' | 'gmail' | 'outlook-desktop', { dark? }) => string",
+          does: 'The email as a client would draw it — a whole document for a sandboxed frame, from the client-support data: the client’s surface laid under the HTML (a fragment or a whole pasted document, its head kept), and what the data says the client ignores taken out — Gmail’s dropped comments, form controls and unmatched style rules, Outlook’s opened conditional comments, lost media queries and ignored declarations, an inline-block column stacked — with the client’s dark mode on request.',
         },
         {
           name: 'emailPlainText',
@@ -324,6 +354,12 @@ export class ApiReference {
           name: 'emailTextPalette / emailBackgroundPalette',
           signature: 'PaletteColor[]',
           does: 'The colours that pass on both sides — the swatches the composer’s pickers offer.',
+        },
+        {
+          name: 'EMAIL_PALETTE · providePalette · injectPalette · colorSuggestions',
+          signature:
+            'InjectionToken<EmailPalette> · (config: Partial<EmailPalette> | (defaults) => Partial<EmailPalette>) => Provider · () => EmailPalette · (ctx, palette) => SuggestionCommandItem[]',
+          does: 'angular-email-editor/palette — the palette in use: the library’s unless the app provides its own, either side or a function of the defaults to mix; what the pickers offer, and the / menu’s colour rows ("Red text", "Red background", section color, each with its swatch).',
         },
       ],
     },

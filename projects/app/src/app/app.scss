@@ -4,6 +4,7 @@
 // shell gives it up — so anything anchored to the bottom (the composer's
 // toolbar) rides up above the keys instead of hiding behind them.
 :host {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: calc(100dvh - var(--keyboard-inset, 0px));
@@ -69,6 +70,19 @@
   flex: none;
 }
 
+// The floating Compose: a phone's (below). Positioned in the shell, not the
+// viewport, so it rides up with the shell above the virtual keyboard — and
+// clear of the composer's toolbar, the 40px bar on the phone's foot
+// (formatting-toolbar.scss), which it must never cover.
+.app-fab {
+  display: none;
+  position: absolute;
+  inset-inline-end: 16px;
+  inset-block-end: calc(40px + 16px);
+  // Over the page, under an open compose window (compose-window.scss).
+  z-index: 3;
+}
+
 // A stretched flex cross size is definite, so the composer's `height: 100%`
 // resolves against it (no scroll); the reference pages are taller than the
 // shell and scroll here instead.
@@ -94,14 +108,13 @@
     display: none;
   }
 
-  // The pencil alone says Compose on a phone; the button keeps its name
-  // for assistive tech (aria-label).
+  // Compose leaves the bar for the floating button at the screen's lower
+  // right — a mail app's phone client, where a thumb is.
   .app-compose {
-    min-inline-size: 40px;
-    padding-inline: 8px;
+    display: none;
   }
 
-  .app-compose__label {
-    display: none;
+  .app-fab {
+    display: inline-flex;
   }
 }

@@ -336,6 +336,14 @@ export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): Htm
     });
   }
 
+  // A picture behind text drawn Outlook's way: a `v:fill` in a conditional
+  // comment. Where the email carries one, a cell's CSS background image —
+  // paired with the `background` attribute, the section node's pattern —
+  // is the same picture for everyone else, not an image Outlook drops.
+  const hasVml = scan.tokens.some(
+    (token) => token.type === 'comment' && /<v:fill\b/i.test(source.slice(token.from, token.to)),
+  );
+
   // Style declarations the floor clients ignore or mangle — data-driven from
   // the client-support module; the message names the client and what happens.
   for (const tag of scan.tags) {
@@ -343,6 +351,7 @@ export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): Htm
     const style = attributeValueToken(source, scan, tag, 'style');
     if (!style?.value) continue;
     const hasWidthAttribute = attributeValue(source, scan, tag, 'width') !== null;
+    const hasVmlBackground = hasVml && attributeValue(source, scan, tag, 'background') !== null;
     // `max-width` is only a problem when it is the *sole* width constraint;
     // paired with `width: 100%` (the fluid columns pattern) Outlook falls back
     // to 100% and fills the container gracefully.
@@ -403,6 +412,8 @@ export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): Htm
         });
       }
 
+      if (hasVmlBackground && /^background(-image)?$/.test(property)) continue;
+
       for (const issue of findCssIssues(property, value, tag.name)) {
         diagnostics.push({
           from: declarationFrom + leading,
@@ -436,7 +447,12 @@ export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): Htm
 
   for (const token of scan.tokens) {
     if (token.type !== 'comment') continue;
-    if (source.slice(token.from, token.to).endsWith('-->')) {
+    const comment = source.slice(token.from, token.to);
+    // A conditional comment is Outlook's own content — the Word engine
+    // reads what stands inside `[if mso]`, and the columns block and the
+    // section's picture write one for it — not a note the schema drops.
+    if (/^<!--\[if\s/i.test(comment) || /^<!--<!\[endif\]-->$/i.test(comment)) continue;
+    if (comment.endsWith('-->')) {
       diagnostics.push({
         from: token.from,
         to: token.to,
@@ -673,9 +689,16 @@ const BLOCK_TAGS = new Set([
 export const FORMAT_WIDTH = 80;
 
 export function formatHTML(html: string, indent = '  ', width = FORMAT_WIDTH): string {
-  const body = new DOMParser().parseFromString(html, 'text/html').body;
+  const doc = new DOMParser().parseFromString(html, 'text/html');
   const lines: string[] = [];
-  for (const child of Array.from(body.childNodes)) formatNode(child, 0, lines, indent, width);
+  // A whole document's stylesheet — a builder's export leans on it, and the
+  // parse folds it in (`inlineStyles`) — comes first, then the body: the
+  // head has nothing else the email keeps. Formatting stays presentation
+  // only: what the parse read before, it reads after.
+  for (const style of Array.from(doc.head.querySelectorAll('style'))) {
+    formatNode(style, 0, lines, indent, width);
+  }
+  for (const child of Array.from(doc.body.childNodes)) formatNode(child, 0, lines, indent, width);
   return lines.join('\n');
 }
 
@@ -704,6 +727,17 @@ function formatNode(
   const tag = node.tagName.toLowerCase();
   if (VOID_TAGS.has(tag)) {
     lines.push(...openTagLines(node, pad, indent, width));
+    return;
+  }
+  // Raw text elements: the CSS is kept as written, line by line — escaped
+  // or re-wrapped it would no longer be the stylesheet it was.
+  if (tag === 'style' || tag === 'script') {
+    lines.push(`${pad}${openTag(node)}`);
+    for (const line of (node.textContent ?? '').split('\n')) {
+      const trimmed = line.trim();
+      if (trimmed) lines.push(`${pad}${indent}${trimmed}`);
+    }
+    lines.push(`${pad}</${tag}>`);
     return;
   }
   if (!BLOCK_TAGS.has(tag) || !hasBlockChild(node)) {

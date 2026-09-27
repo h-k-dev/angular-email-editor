@@ -1,10 +1,15 @@
 import { AllSelection, TextSelection } from 'prosemirror-state';
 import { createEditor, Editor } from './editor';
-import { insertHTML } from './html';
+import { insertHTML, parseHTML, serializeToHTML } from './html';
 import { emailExtensions, htmlSourceExtensions, richTextExtensions } from './extensions/kits';
 import { extensionActions, extensionSuggestions, isActionEnabled } from './extension';
 import { BubbleMenuState, createBubbleMenu } from './extensions/bubble-menu';
 import { createSendIntent } from './extensions/send-intent';
+
+/** A newsletter as `parseHTML` brings a builder's export in — the canonical
+    form of the MJML sample, seven column blocks. */
+const IMPORTED_NEWSLETTER =
+  '<div style="width: 100%; max-width: 600px;"><div style="display: inline-block; width: 100%; max-width: 560px; vertical-align: top; box-sizing: border-box;"><table style="width: 100%; table-layout: fixed; border-collapse: collapse;" role="presentation"><tbody><tr><td style="padding: 10px 25px; vertical-align: top; overflow-wrap: break-word; text-align: center;"><img src="https://x/christmas-logo.png" width="214" style="width: 100%; max-width: 214px; height: auto;"></td></tr><tr><td style="padding: 10px 25px; vertical-align: top; overflow-wrap: break-word;"></td></tr></tbody></table><div style="text-align: center;">Product | Concept | Contact</div></div></div><div style="width: 100%; max-width: 600px; margin-left: auto; margin-right: auto;"><div style="display: inline-block; width: 100%; max-width: 560px; vertical-align: top; box-sizing: border-box;"><div><img src="https://x/christmas-hero.jpg" width="600" style="width: 100%; max-width: 600px; height: auto;"></div></div></div><div style="width: 100%; max-width: 600px;"><div style="display: inline-block; width: 100%; max-width: 560px; vertical-align: top; box-sizing: border-box;"><div style="text-align: center;">- Our Holiday Recipes -</div></div></div><div style="width: 100%; max-width: 600px;"><div style="display: inline-block; width: 100%; max-width: 280px; vertical-align: top; box-sizing: border-box;"><div><img src="https://x/christmas-product-1.jpg" width="240" style="width: 100%; max-width: 240px; height: auto;"></div></div><div style="display: inline-block; width: 100%; max-width: 280px; vertical-align: top; box-sizing: border-box;"><div><strong style="font-weight: bold;">Cake Title</strong></div><div>Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium.</div><div><u style="text-decoration: underline;">Choose me</u> &gt;</div></div></div><div style="width: 100%; max-width: 600px;"><div style="display: inline-block; width: 100%; max-width: 280px; vertical-align: top; box-sizing: border-box;"><div><strong style="font-weight: bold;">Cake Title</strong></div><div>Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium.</div><div><u style="text-decoration: underline;">Choose me</u> &gt;</div></div><div style="display: inline-block; width: 100%; max-width: 280px; vertical-align: top; box-sizing: border-box;"><div><img src="https://x/christmas-product-2.jpg" width="240" style="width: 100%; max-width: 240px; height: auto;"></div></div></div><div style="width: 100%; max-width: 600px;"><div style="display: inline-block; width: 100%; max-width: 560px; vertical-align: top; box-sizing: border-box;"><div>Discover all desserts</div></div></div><div style="width: 100%; max-width: 600px;"><div style="display: inline-block; width: 100%; max-width: 560px; vertical-align: top; box-sizing: border-box;"><div><img src="https://x/facebook.png" width="20" style="width: 100%; max-width: 20px; height: auto;"> <img src="https://x/pinterest.png" width="20" style="width: 100%; max-width: 20px; height: auto;"></div></div></div>';
 
 describe('createEditor', () => {
   let host: HTMLElement;
@@ -103,6 +108,26 @@ describe('createEditor', () => {
     // Undo reverts the local bold; the externally synced content stays.
     expect(editor.commands['undo']()).toBe(true);
     expect(editor.getHTML()).toBe('<p dir="auto">Hello world</p><p dir="auto">Appended</p>');
+  });
+
+  it('setContent lands exactly the parsed document, even where the diff would be fitted', () => {
+    // A builder's export as the email kit imports it: seven column blocks,
+    // most holding a two-row table with an image in the first cell. Syncing
+    // it down to its first block alone puts the diff's ends at different
+    // depths — the blocks share their closing tags — and a fitted
+    // replacement would leave a duplicated empty row and columns at their
+    // default width behind; the sync must land the parsed document itself.
+    const seeded = createEditor({
+      parent: document.createElement('div'),
+      extensions: emailExtensions,
+      content: IMPORTED_NEWSLETTER,
+    });
+    const first = new DOMParser().parseFromString(IMPORTED_NEWSLETTER, 'text/html').body.children[0]
+      .outerHTML;
+    seeded.setContent(first);
+    expect(seeded.getHTML()).toBe(serializeToHTML(parseHTML(first, seeded.schema), seeded.schema));
+    expect(seeded.getHTML().match(/<tr>/g)).toHaveLength(2);
+    seeded.destroy();
   });
 
   it('setContent maps the selection through the diff', () => {

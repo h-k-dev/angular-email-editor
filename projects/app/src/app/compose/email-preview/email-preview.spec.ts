@@ -26,23 +26,18 @@ describe('EmailPreview', () => {
     expect(srcdoc()).toContain('<p>First</p>');
   });
 
-  it('holds still while hidden — the frame is not rewritten per keystroke', async () => {
+  it('holds still while hidden — no frame at all, so nothing is laid out per keystroke', async () => {
     fixture.componentRef.setInput('active', false);
     await fixture.whenStable();
-    const frame = (fixture.nativeElement as HTMLElement).querySelector('iframe')!;
-    const writes: string[] = [];
-    new MutationObserver((records) => writes.push(...records.map((r) => r.attributeName!))).observe(
-      frame,
-      { attributes: true },
-    );
+    // A srcdoc frame first laid out inside a hidden ancestor never paints in
+    // Chromium until it is made again: hidden, the preview has no frame.
+    expect((fixture.nativeElement as HTMLElement).querySelector('iframe')).toBeNull();
 
     for (const text of ['S', 'Se', 'Sec', 'Second']) {
       fixture.componentRef.setInput('html', `<p>${text}</p>`);
       await fixture.whenStable();
     }
-    await Promise.resolve();
-    expect(writes).not.toContain('srcdoc');
-    expect(srcdoc()).toContain('<p>First</p>');
+    expect((fixture.nativeElement as HTMLElement).querySelector('iframe')).toBeNull();
   });
 
   it('catches up once shown again', async () => {

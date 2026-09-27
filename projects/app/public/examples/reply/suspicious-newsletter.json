@@ -1,0 +1,5 @@
+{
+  "html": "<div style=\"background:#ff0000;color:#00ff33\">MEGA SALE!!!</div><script>document.location=\"https://evil.example\"</script><img src=\"javascript:steal()\" alt=\"prize\"><img src=\"https://tracker.example/pixel.gif\" width=\"1200\" alt=\"\"><a href=\"javascript:void(0)\" onclick=\"pwn()\">Claim now</a>",
+  "from": "deals@newsletter.example",
+  "date": "Aug 19, 2026, 6:00 AM"
+}

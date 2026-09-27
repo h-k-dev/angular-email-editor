@@ -33,6 +33,7 @@ export const Blockquote = defineNode({
   actions: ({ schema }) => [
     {
       id: 'quote',
+      section: 'blocks',
       title: 'Quote',
       keywords: ['blockquote', 'citation'],
       icon: 'format_quote',

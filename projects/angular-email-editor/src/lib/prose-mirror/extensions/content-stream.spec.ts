@@ -207,7 +207,10 @@ describe('createContentStream / streamContent', () => {
       editor.destroy();
       editor = createEditor({
         parent: host,
-        extensions: [...richTextExtensions, createContentStream({ caret: false, reveal: 'instant' })],
+        extensions: [
+          ...richTextExtensions,
+          createContentStream({ caret: false, reveal: 'instant' }),
+        ],
         content: '<p>Text</p>',
       });
       const { writer, finish } = open(1);
@@ -218,6 +221,26 @@ describe('createContentStream / streamContent', () => {
   });
 
   describe('stopping', () => {
+    it('a run stopped for the next one ends once: the one in its place keeps streaming', async () => {
+      const first = open(end());
+      first.writer.write(' One.');
+      first.run.stop();
+      expect(isStreaming(editor.state)).toBe(false);
+      // Another, at once, where the first was.
+      const second = open(end());
+      second.writer.write(' Two.');
+      expect(text()).toBe('We met last week. One. Two.');
+      // The first's `done` settles later — that must not end the second.
+      expect(await first.run.done).toBe(false);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(isStreaming(editor.state)).toBe(true);
+      second.writer.write(' Three.');
+      expect(text()).toBe('We met last week. One. Two. Three.');
+      second.finish();
+      expect(await second.run.done).toBe(true);
+      expect(isStreaming(editor.state)).toBe(false);
+    });
+
     it('stops on Escape: what is written stays, the rest is not, the signal aborts', async () => {
       const { run, writer } = open(end());
       writer.write(' Half');
@@ -421,7 +444,10 @@ describe('createContentStream / streamContent', () => {
       editor.destroy();
       editor = createEditor({
         parent: host,
-        extensions: [...richTextExtensions, createContentStream({ reveal: 'character', fadeIn: 0 })],
+        extensions: [
+          ...richTextExtensions,
+          createContentStream({ reveal: 'character', fadeIn: 0 }),
+        ],
         content: '<p>We met last week.</p>',
       });
       const { writer, finish } = open(end());

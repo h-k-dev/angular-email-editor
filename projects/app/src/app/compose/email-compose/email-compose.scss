@@ -1,3 +1,5 @@
+@use '../../../styles/breakpoints' as bp;
+
 // Lives inside the writer's sheet (email-writer.scss): the surface is the
 // writer's, so nothing here paints a background of its own.
 :host {
@@ -101,6 +103,46 @@
   padding-block: var(--email-compose-surface-padding-block, 0);
 }
 
+// The dock at the sheet's foot: the chat-based suggestion over the
+// formatting toolbar, stacked flush.
+.dock {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+}
+
+// With the chat up, on a wide screen, the two are one box: the field and
+// the toolbar's row (or, with the toolbar off, the field and its button)
+// in one outlined, faintly filled, rounded box — a chat's composer with
+// its tools along the bottom. The box is painted by a layer behind the
+// content, from where the field begins (`--dock-box-top`, the height of
+// the Discard / Apply line, which the strip reads for that line) to the
+// dock's foot; it stands 8px in from the sheet's edges, the sheet's own
+// bottom padding under it, so it is a box on the sheet and never doubles
+// the sheet's edge. Inside, the toolbar's own inset sets the glyphs, and
+// the field's sets the text, on one line. A phone keeps its bar on the
+// keyboard: no box, the hairline above the field alone.
+.dock--chat {
+  @include bp.wide {
+    --dock-box-top: 32px;
+    position: relative;
+    isolation: isolate;
+    margin-inline: 8px;
+    padding: 0 4px 4px;
+
+    &::before {
+      content: '';
+      position: absolute;
+      inset: var(--dock-box-top) 0 0;
+      z-index: -1;
+      pointer-events: none;
+      border: 1px solid var(--mat-sys-outline-variant, #cccccc);
+      border-radius: 16px;
+      background-color: color-mix(in srgb, var(--mat-sys-on-surface, #1f1f1f) 2%, transparent);
+    }
+  }
+}
+
 // Code view: the projected source pane takes the editing surface's place.
 // A grid cell so the projected section stretches on both axes without the
 // composer having to style it; [hidden] must beat the display rules here.
@@ -123,6 +165,27 @@
     font-size: 20px;
     width: 20px;
     height: 20px;
+  }
+}
+
+// A palette row's colour, in the icon's box: the letter in the colour on
+// the row's own surface, or the fill behind a letter in the text's colour.
+.suggestion__swatch {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--mat-sys-corner-extra-small, 4px);
+  background-color: var(--email-swatch);
+  color: var(--mat-sys-on-surface, #1f1f1f);
+  font: 500 14px / 1 var(--mat-sys-body-medium-font, system-ui, sans-serif);
+
+  &--text {
+    background-color: var(--mat-sys-surface-bright, #ffffff);
+    box-shadow: inset 0 0 0 1px var(--mat-sys-outline-variant, #cccccc);
+    color: var(--email-swatch);
   }
 }
 

@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { stubExampleAssets } from '../../test/examples-fixture';
 import { Templates } from './templates';
 
 describe('Templates', () => {
@@ -13,11 +14,15 @@ describe('Templates', () => {
 
   beforeEach(() => {
     vi.useFakeTimers();
+    stubExampleAssets();
     TestBed.configureTestingModule({});
     service = TestBed.inject(Templates);
   });
 
-  afterEach(() => vi.useRealTimers());
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
 
   it('answers after a latency, like a server', async () => {
     let answered = false;

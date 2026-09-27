@@ -13,6 +13,7 @@ import {
   imageDropTarget,
   selectedImage,
   selectedImageAlt,
+  openFileChooser,
 } from './image';
 import { NodeSelection, Selection, TextSelection } from 'prosemirror-state';
 import { extensionActions, isActionEnabled } from '../../extension';
@@ -23,6 +24,31 @@ import { SendIntent, createSendIntent } from '../send-intent';
 
 const schema = createSchema(emailExtensions);
 const roundTrip = (html: string) => serializeToHTML(parseHTML(html, schema), schema);
+
+describe('openFileChooser', () => {
+  it('opens at once after a pointer, and anywhere but Windows', () => {
+    const opened: string[] = [];
+    openFileChooser(() => opened.push('pointer'), { keyboard: false, windows: true });
+    openFileChooser(() => opened.push('mac'), { keyboard: true, windows: false });
+    expect(opened).toEqual(['pointer', 'mac']);
+  });
+
+  it('from a key on Windows, waits for the pointer to move — or a moment — so the dialog shows a pointer', async () => {
+    let opened = 0;
+    openFileChooser(() => opened++, { keyboard: true, windows: true, wait: 200 });
+    expect(opened).toBe(0);
+    document.dispatchEvent(new PointerEvent('pointermove', { bubbles: true }));
+    expect(opened).toBe(1);
+    // Once: the move and the moment do not both open it.
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    expect(opened).toBe(1);
+
+    let late = 0;
+    openFileChooser(() => late++, { keyboard: true, windows: true, wait: 50 });
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    expect(late).toBe(1);
+  });
+});
 
 describe('image node', () => {
   // ProseMirror's own drop handler hit-tests the pointer; jsdom has no

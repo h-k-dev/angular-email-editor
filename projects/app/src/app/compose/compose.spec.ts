@@ -151,21 +151,32 @@ describe('Compose', () => {
     ) as HTMLButtonElement;
     const toolbar = root.querySelector('.toolbar') as HTMLElement;
 
-    // Shown by default, pressed.
-    expect(toolbar.hidden).toBe(false);
-    expect(button.getAttribute('aria-pressed')).toBe('true');
-
-    button.click();
-    await fixture.whenStable();
+    // Off by default, not pressed.
     expect(toolbar.hidden).toBe(true);
     expect(button.getAttribute('aria-pressed')).toBe('false');
 
     button.click();
     await fixture.whenStable();
     expect(toolbar.hidden).toBe(false);
+    expect(button.getAttribute('aria-pressed')).toBe('true');
+
+    button.click();
+    await fixture.whenStable();
+    expect(toolbar.hidden).toBe(true);
   });
 
+  /** Switches the formatting toolbar on — it is off by default. */
+  const showToolbar = async () => {
+    (
+      fixture.nativeElement.querySelector(
+        '.writer-bar [aria-label="Formatting options"]',
+      ) as HTMLButtonElement
+    ).click();
+    await fixture.whenStable();
+  };
+
   it('the font dropdowns lead the toolbar and apply the curated choice from their Aria menu', async () => {
+    await showToolbar();
     const root = fixture.nativeElement as HTMLElement;
     const row = root.querySelector('.toolbar__scroll') as HTMLElement;
     const family = row.querySelector('.toolbar__select--family') as HTMLButtonElement;
@@ -197,6 +208,7 @@ describe('Compose', () => {
   });
 
   it('the colour button reads as applied for a colour, not for the font or size that share its mark', async () => {
+    await showToolbar();
     const root = fixture.nativeElement as HTMLElement;
     const color = root.querySelector('.toolbar [aria-label="Color"]') as HTMLButtonElement;
     const size = root.querySelector('.toolbar__select--size') as HTMLButtonElement;
@@ -393,7 +405,9 @@ describe('Compose', () => {
     const view = pane.editor().view;
     vi.spyOn(view, 'coordsAtPos').mockReturnValue({ left: 40, right: 40, top: 100, bottom: 120 });
     const node = view.state.doc.nodeAt(4);
-    view.someProp('handleClickOn', (f: any) => f(view, 4, node, 4, new MouseEvent('mouseup'), true));
+    view.someProp('handleClickOn', (f: any) =>
+      f(view, 4, node, 4, new MouseEvent('mouseup'), true),
+    );
     await fixture.whenStable();
 
     const dialog = () => document.querySelector('[role="dialog"][aria-label="Edit link"]')!;
@@ -431,11 +445,15 @@ describe('Compose', () => {
 
     // New words go on with Apply (Enter in the field), the link kept.
     await type('Shop the sale');
-    words().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    words().dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    );
     await fixture.whenStable();
     await settle();
     expect(document.querySelector('[role="dialog"][aria-label="Edit link"]')).toBeNull();
-    expect(pane.value()).toMatch(/<a href="https:\/\/x\.io\/shop"[^>]*font-style: italic[^>]*>Shop the sale<\/a>/);
+    expect(pane.value()).toMatch(
+      /<a href="https:\/\/x\.io\/shop"[^>]*font-style: italic[^>]*>Shop the sale<\/a>/,
+    );
   });
 
   it('the link editor always offers apply, open and remove, and applies only a valid link', async () => {
@@ -1057,9 +1075,7 @@ describe('Compose below the docking breakpoint', () => {
         '.writer-bar [aria-label="Formatting options"]',
       ) as HTMLButtonElement | null;
 
-    // Wide: switched off.
-    toggle()!.click();
-    await fixture.whenStable();
+    // Wide: off, as by default.
     expect(toolbar.hidden).toBe(true);
 
     // Phone: the toolbar is back and the switch is gone.

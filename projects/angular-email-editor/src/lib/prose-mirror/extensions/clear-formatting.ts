@@ -23,6 +23,7 @@ export const ClearFormatting = defineExtension({
   actions: () => [
     {
       id: 'clear-formatting',
+      section: 'styling',
       title: 'Clear formatting',
       keywords: ['clear', 'remove', 'formatting', 'plain'],
       icon: 'format_clear',

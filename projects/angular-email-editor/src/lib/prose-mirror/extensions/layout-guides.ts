@@ -8,9 +8,9 @@ import { defineExtension } from '../extension';
     are bare inline-block divs), so the editor has to reveal it — and they carry
     block-level commands (align, add/remove row…) that need somewhere to live.
     One definition, shared by the guides and the block menu. */
-export type LayoutBlockType = 'table' | 'columns';
+export type LayoutBlockType = 'table' | 'columns' | 'section';
 
-const LAYOUT_BLOCKS = new Set<string>(['table', 'columns']);
+const LAYOUT_BLOCKS = new Set<string>(['table', 'columns', 'section']);
 
 export interface LayoutBlock {
   pos: number;
@@ -18,7 +18,7 @@ export interface LayoutBlock {
   type: LayoutBlockType;
 }
 
-/** The innermost `table`/`columns` ancestor of the selection, or null. */
+/** The innermost `table`/`columns`/`section` ancestor of the selection, or null. */
 export function layoutBlockAt(state: EditorState): LayoutBlock | null {
   const { $from } = state.selection;
   for (let depth = $from.depth; depth > 0; depth--) {

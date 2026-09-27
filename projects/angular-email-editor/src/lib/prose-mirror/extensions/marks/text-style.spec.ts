@@ -8,6 +8,8 @@ import {
   emailFontSizes,
   isSafeFontFamily,
   parseFontFamily,
+  parseFontSize,
+  toEmailSafeColor,
 } from './text-style';
 
 const schema = createSchema(emailExtensions);
@@ -24,6 +26,63 @@ function applyToHello(command: ReturnType<(typeof commands)[string]>): string {
   command(state, (tr) => (state = state.apply(tr)));
   return serializeToHTML(state.doc, schema);
 }
+
+describe('textStyle text-transform', () => {
+  const roundTrip = (html: string) => serializeToHTML(parseHTML(html, schema), schema);
+
+  it('parses, emits and round-trips the case the words are shown in', () => {
+    const out = roundTrip('<div><span style="text-transform: uppercase">home</span></div>');
+    expect(out).toBe('<div><span style="text-transform: uppercase;">home</span></div>');
+    expect(roundTrip(out)).toBe(out);
+    // `none` is the words as written: no mark.
+    expect(roundTrip('<div><span style="text-transform: none">x</span></div>')).toBe(
+      '<div>x</div>',
+    );
+  });
+
+  it('sets and clears through the commands, and the uppercase action toggles', () => {
+    const doc = parseHTML('<div>home</div>', schema);
+    let state = EditorState.create({ doc, selection: TextSelection.create(doc, 1, 5) });
+    const run = (command: (s: EditorState, d: (tr: any) => void) => boolean) =>
+      command(state, (tr) => (state = state.apply(tr)));
+    run(commands['setTextTransform']('uppercase'));
+    expect(serializeToHTML(state.doc, schema)).toContain('text-transform: uppercase;');
+    const action = TextStyle.actions!({ schema, extensions: emailExtensions })[0];
+    expect(action.id).toBe('uppercase');
+    expect(action.isActive!(state)).toBe(true);
+    run(action.command);
+    expect(action.isActive!(state)).toBe(false);
+    expect(serializeToHTML(state.doc, schema)).toBe('<div>home</div>');
+    run(commands['setTextTransform']('capitalize'));
+    run(commands['unsetTextTransform']());
+    expect(serializeToHTML(state.doc, schema)).toBe('<div>home</div>');
+  });
+});
+
+describe('parseFontSize', () => {
+  it('reads a rung as itself and snaps a size off the ladder to the nearest rung, upward on a tie', () => {
+    expect(parseFontSize('14px')).toBe(14);
+    expect(parseFontSize('11px')).toBe(12);
+    expect(parseFontSize('13px')).toBe(14);
+    expect(parseFontSize('15px')).toBe(16);
+    expect(parseFontSize('28px')).toBe(32);
+    expect(parseFontSize('40px')).toBe(32);
+    expect(parseFontSize('9')).toBe(10);
+    // Not a px size: not a size.
+    expect(parseFontSize('1.2em')).toBeNull();
+    expect(parseFontSize('small')).toBeNull();
+    expect(parseFontSize('')).toBeNull();
+  });
+});
+
+describe('toEmailSafeColor', () => {
+  it('reads no colour in a CSS-wide keyword — the CSSOM’s word for a shorthand’s colour', () => {
+    expect(toEmailSafeColor('initial')).toBeNull();
+    expect(toEmailSafeColor('transparent')).toBeNull();
+    expect(toEmailSafeColor('inherit')).toBeNull();
+    expect(toEmailSafeColor('#bd8714')).toBe('#bd8714');
+  });
+});
 
 describe('textStyle font-size', () => {
   it('applies a curated size as an inline font-size', () => {

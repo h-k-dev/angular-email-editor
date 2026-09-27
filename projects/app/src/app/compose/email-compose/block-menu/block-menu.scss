@@ -8,3 +8,30 @@
 .block-menu {
   @include toolbar.floating-toolbar;
 }
+
+// The image field: the link editor's, in a row of the menu.
+.block-menu__input {
+  width: 260px;
+  padding: 6px 10px;
+  border: none;
+  outline: none;
+
+  background-color: var(
+    --email-compose-link-input-background,
+    var(--mat-sys-surface-bright, #ffffff)
+  );
+  color: var(--mat-sys-on-surface, inherit);
+  border-radius: var(--mat-sys-corner-small, 4px);
+  font: var(--mat-sys-body-medium);
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary, #0056b3);
+    outline-offset: -2px;
+  }
+
+  &[aria-invalid='true'],
+  &[aria-invalid='true']:focus-visible {
+    outline: 2px solid var(--mat-sys-error, #b3261e);
+    outline-offset: -2px;
+  }
+}

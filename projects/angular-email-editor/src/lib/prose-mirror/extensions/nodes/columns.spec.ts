@@ -17,6 +17,27 @@ const TWO_COLS =
   `<div style="${COL(300)}"><div>a</div></div>` +
   `<div style="${COL(300)}"><div>b</div></div></div>`;
 
+describe('outlookColumns — the hybrid’s Outlook half', () => {
+  it('wraps a columns block’s fluid divs in a fixed table inside [if mso] comments, one cell a column, and parses back without them', () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const editor = createEditor({ parent: host, extensions: emailExtensions, content: '<p>x</p>' });
+    editor.commands['insertColumns'](2);
+    const out = editor.getHTML();
+    expect(out).toContain(
+      '<!--[if mso]><table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center"><tr><td width="280" valign="top"><![endif]--><div style="display: inline-block; width: 100%; max-width: 280px;',
+    );
+    expect(out).toContain(
+      '<!--[if mso]></td><td width="280" valign="top"><![endif]--><div style="display: inline-block;',
+    );
+    expect(out).toContain('</div><!--[if mso]></td></tr></table><![endif]--></div>');
+    // The round trip: the comments go on parse, the block writes them again.
+    expect(serializeToHTML(parseHTML(out, editor.schema), editor.schema)).toBe(out);
+    editor.destroy();
+    host.remove();
+  });
+});
+
 describe('columns serialization', () => {
   it('is a round-trip fixpoint', () => {
     const once = canonical(TWO_COLS);
@@ -38,7 +59,8 @@ describe('columns serialization', () => {
 
   it('serializes no padding by default; authored padding stays — and warns', () => {
     // The gutter seen while composing is editorial CSS, not the email's.
-    expect(canonical(TWO_COLS)).not.toContain('padding');
+    // (`cellpadding` on the Outlook table is the table's, not a padding.)
+    expect(canonical(TWO_COLS)).not.toMatch(/padding[-:]/);
 
     // Authored padding (legacy longhand pair included) canonicalizes to one
     // shorthand, round-trips — and the linter tells the truth about it:

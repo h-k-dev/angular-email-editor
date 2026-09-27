@@ -1,0 +1,103 @@
+<!-- The bar, above the formatting toolbar while a proposal is up: the ways
+     out over the text, then the chat. The library's keys directive hears
+     the page while the proposal stands: Ctrl-Enter (⌘-Enter) applies it,
+     Escape is ours to decide. -->
+@if (open()) {
+  <div
+    class="chat-based-suggestion"
+    role="region"
+    [attr.aria-label]="i18n.t('editor.ai.dialog', 'Writing assistant')"
+    [attr.aria-busy]="proposal.streaming()"
+    [emailProposalKeys]="proposal"
+    (accepted)="applied()"
+    (escape)="escape($event)"
+  >
+    <!-- On nothing: the thinking on the left, the decision on the right. -->
+    <div class="chat-based-suggestion__top">
+      @if (proposal.thinking()) {
+        <div
+          class="chat-based-suggestion__thinking"
+          role="status"
+          [attr.aria-label]="i18n.t('editor.ai.thinking', 'The assistant is thinking…')"
+        >
+          <span></span><span></span><span></span>
+        </div>
+      }
+      <span class="chat-based-suggestion__space"></span>
+      <!-- The library's triggers, as words: Discard takes the proposal out,
+           Apply takes it in — as it stands. Disabled by the bar's own means,
+           from their state. -->
+      <button
+        type="button"
+        class="chat-based-suggestion__word"
+        [emailProposalDiscard]="proposal"
+        #discard="emailProposalDiscard"
+        [disabled]="discard.disabled()"
+        (click)="close()"
+      >
+        {{ i18n.t('editor.ai.discard', 'Discard') }}
+      </button>
+      <button
+        type="button"
+        class="chat-based-suggestion__word"
+        [emailProposalAccept]="proposal"
+        #apply="emailProposalAccept"
+        [disabled]="apply.disabled()"
+        (click)="applied()"
+      >
+        {{ i18n.t('editor.ai.apply', 'Apply') }}
+      </button>
+    </div>
+
+    <!-- The strip: the library's chat input (lines and lists, Enter sends),
+         rising out of the bar as it opens (`animate.enter`, see the
+         stylesheet) — and the button, unless the toolbar has it. -->
+    <div class="chat-based-suggestion__field" animate.enter="chat-based-suggestion__field--rising">
+      <div
+        email-chat-input
+        class="chat-based-suggestion__chat"
+        [placeholder]="i18n.t('editor.ai.prompt', 'Tell the assistant what else to change…')"
+        [label]="i18n.t('editor.ai.instructions', 'Instructions')"
+        [(value)]="instructions"
+        (sent)="ask($event)"
+      ></div>
+      @if (!actionInToolbar()) {
+        <ng-container *ngTemplateOutlet="action" />
+      }
+    </div>
+  </div>
+}
+
+<!-- The one button, by what there is to do: stop while the assistant
+     writes, send once there is text, and until then a place for voice
+     input — kept, nothing behind it yet. -->
+<ng-template #action>
+  @if (busy()) {
+    <button
+      type="button"
+      class="chat-based-suggestion__icon chat-based-suggestion__send"
+      [attr.aria-label]="i18n.t('editor.ai.stop', 'Stop')"
+      (click)="stop()"
+    >
+      <mat-icon>stop</mat-icon>
+    </button>
+  } @else if (canSend()) {
+    <button
+      type="button"
+      class="chat-based-suggestion__icon chat-based-suggestion__send"
+      [attr.aria-label]="i18n.t('editor.ai.send', 'Send')"
+      (click)="ask()"
+    >
+      <mat-icon>arrow_upward</mat-icon>
+    </button>
+  } @else {
+    <button
+      type="button"
+      class="chat-based-suggestion__icon"
+      [attr.aria-label]="i18n.t('editor.ai.voice', 'Voice input (coming soon)')"
+      disabled
+    >
+      <mat-icon>mic</mat-icon>
+    </button>
+  }
+</ng-template>

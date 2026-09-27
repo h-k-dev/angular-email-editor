@@ -6,26 +6,85 @@
     class="block-menu"
     #menu
     role="toolbar"
-    aria-label="Columns"
+    [attr.aria-label]="state().block === 'section' ? 'Section' : 'Columns'"
     emailKeepFocus
     (keydown.escape)="leave()"
   >
-    <button mat-icon-button type="button" aria-label="Add column" (click)="run('addColumn')">
-      <mat-icon>add</mat-icon>
-    </button>
-    <button mat-icon-button type="button" aria-label="Remove column" (click)="run('removeColumn')">
-      <mat-icon>remove</mat-icon>
-    </button>
+    @if (state().block === 'section') {
+      <!-- A band's picture: a field for its URL, opened by the button —
+           Enter sets it, an address that is not http(s) turns the field
+           red. Its fill is the toolbar's colour button, like a cell's. -->
+      <button
+        mat-icon-button
+        type="button"
+        aria-label="Background image"
+        title="An image behind the section"
+        [attr.aria-pressed]="imageField()"
+        (click)="toggleImageField()"
+      >
+        <mat-icon>wallpaper</mat-icon>
+      </button>
+      @if (imageField()) {
+        <input
+          #image
+          class="block-menu__input"
+          type="text"
+          inputmode="url"
+          dir="ltr"
+          spellcheck="false"
+          autocomplete="off"
+          aria-label="Background image URL"
+          placeholder="https://…/image.jpg"
+          [value]="imageValue()"
+          [attr.aria-invalid]="imageRefused() ? true : null"
+          (input)="imageRefused.set(false)"
+          (keydown.enter)="setImage(image.value); $event.preventDefault()"
+        />
+        @if (hasImage()) {
+          <button
+            mat-icon-button
+            type="button"
+            aria-label="Remove background image"
+            (click)="setImage('')"
+          >
+            <mat-icon>hide_image</mat-icon>
+          </button>
+        }
+        <mat-divider [vertical]="true" />
+      }
+      <!-- A band's one structural act: taking it away, the content staying. -->
+      <button
+        mat-icon-button
+        type="button"
+        aria-label="Remove section"
+        title="Remove the section, keeping its content"
+        (click)="run('removeSection')"
+      >
+        <mat-icon>delete_outline</mat-icon>
+      </button>
+    } @else {
+      <button mat-icon-button type="button" aria-label="Add column" (click)="run('addColumn')">
+        <mat-icon>add</mat-icon>
+      </button>
+      <button
+        mat-icon-button
+        type="button"
+        aria-label="Remove column"
+        (click)="run('removeColumn')"
+      >
+        <mat-icon>remove</mat-icon>
+      </button>
 
-    <mat-divider [vertical]="true" />
+      <mat-divider [vertical]="true" />
 
-    <button
-      mat-icon-button
-      type="button"
-      aria-label="Delete columns"
-      (click)="run('deleteColumns')"
-    >
-      <mat-icon>delete_outline</mat-icon>
-    </button>
+      <button
+        mat-icon-button
+        type="button"
+        aria-label="Delete columns"
+        (click)="run('deleteColumns')"
+      >
+        <mat-icon>delete_outline</mat-icon>
+      </button>
+    }
   </div>
 </ng-template>

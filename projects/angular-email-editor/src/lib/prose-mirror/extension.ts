@@ -28,6 +28,14 @@ interface SuggestionItemBase {
   detail?: string;
   /** An icon name, for renderers that show one (the demo: Material). */
   icon?: string;
+  /** The heading a renderer groups rows under — a stable id (`'blocks'`,
+      `'styling'`, `'color'`), worded by the trigger's `sections` (see
+      `SuggestionTrigger`). Rows are listed in the order given, so a
+      section's rows are listed together, and a renderer shows the heading
+      where the section changes. */
+  section?: string;
+  /** A colour the row shows in an icon's place — a palette's rows. */
+  swatch?: string;
 }
 
 /** A suggestion that acts: picking it deletes the trigger and query text,

@@ -16,7 +16,8 @@
   <span class="app-spacer"></span>
 
   <!-- A new message in a window of its own, over whatever page is open —
-       Gmail's Compose. As many as wanted; the service keeps them. -->
+       Gmail's Compose. As many as wanted; the service keeps them. On a
+       phone this one gives way to the floating button below. -->
   <button
     matButton="tonal"
     type="button"
@@ -38,3 +39,17 @@
 <main class="app-main">
   <router-outlet />
 </main>
+
+<!-- Compose on a phone: a floating action button at the screen's lower
+     right, the pencil alone, over whatever page is open — the way a mail
+     app's phone client starts a message. The bar's button is away there
+     (app.scss); an open window covers this one. -->
+<button
+  matFab
+  type="button"
+  class="app-fab"
+  [attr.aria-label]="i18n.t('app.compose', 'Compose')"
+  (click)="compose()"
+>
+  <mat-icon>edit</mat-icon>
+</button>

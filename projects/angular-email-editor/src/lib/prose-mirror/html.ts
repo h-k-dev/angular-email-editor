@@ -6,10 +6,18 @@ import {
   Schema,
   Slice,
 } from 'prosemirror-model';
-import { Command } from 'prosemirror-state';
+import { Command, Selection } from 'prosemirror-state';
 import { repairTables } from './extensions/nodes/table';
+import {
+  dropHidden,
+  inheritTextStyles,
+  inlineStyles,
+  noteOwnWidths,
+  unwrapLayoutTables,
+} from './import-html';
 import { promoteMergeTags } from './extensions/nodes/merge-tag';
 import { bareButtons } from './extensions/nodes/button';
+import { outlookColumns } from './extensions/nodes/columns';
 
 const serializerCache = new WeakMap<Schema, DOMSerializer>();
 
@@ -67,6 +75,9 @@ export function serializeToHTML(doc: Node, schema: Schema): string {
   const fragment = getSerializer(schema).serializeFragment(doc.content);
   const container = document.createElement('div');
   container.appendChild(fragment);
+  // The Outlook half of the columns hybrid: comments between the columns,
+  // where no node's own emit can put them (columns.ts).
+  if (schema.nodes['columns']) outlookColumns(container);
   return container.innerHTML;
 }
 
@@ -87,6 +98,14 @@ export function serializeToHTML(doc: Node, schema: Schema): string {
  */
 export function parseHTML(html: string, schema: Schema): Node {
   const dom = new window.DOMParser().parseFromString(html, 'text/html');
+  // A builder's export leans on its stylesheet, on wrapper tables and on
+  // hiding what a client cannot show; the schema reads none of those
+  // (import-html.ts).
+  noteOwnWidths(dom.body);
+  inlineStyles(dom);
+  dropHidden(dom.body);
+  unwrapLayoutTables(dom.body);
+  inheritTextStyles(dom.body);
   const parsed = ProseMirrorDOMParser.fromSchema(schema).parse(dom.body);
   return bareButtons(promoteMergeTags(repairTables(parsed, schema), schema), schema);
 }
@@ -102,5 +121,19 @@ export const insertHTML =
   (state, dispatch) => {
     const doc = parseHTML(html, state.schema);
     dispatch?.(state.tr.replaceSelection(new Slice(doc.content, 0, 0)).scrollIntoView());
+    return true;
+  };
+
+/** A command that puts `html` in the whole document's place — an example
+    loaded over what is written, as one undoable change; the caret lands at
+    its end. */
+export const replaceHTML =
+  (html: string): Command =>
+  (state, dispatch) => {
+    const doc = parseHTML(html, state.schema);
+    if (dispatch) {
+      const tr = state.tr.replaceWith(0, state.doc.content.size, doc.content);
+      dispatch(tr.setSelection(Selection.atEnd(tr.doc)).scrollIntoView());
+    }
     return true;
   };

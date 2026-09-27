@@ -1,0 +1,159 @@
+{
+  "sets": [
+    {
+      "key": "reply",
+      "label": "Reply example",
+      "short": "Reply",
+      "kind": "reply",
+      "examples": [
+        {
+          "name": "Plain note",
+          "file": "reply/plain-note.json"
+        },
+        {
+          "name": "Gmail thread",
+          "file": "reply/gmail-thread.json"
+        },
+        {
+          "name": "Outlook memo",
+          "file": "reply/outlook-memo.json"
+        },
+        {
+          "name": "Text-only",
+          "file": "reply/text-only.json"
+        },
+        {
+          "name": "Suspicious newsletter",
+          "file": "reply/suspicious-newsletter.json"
+        }
+      ]
+    },
+    {
+      "key": "angularjs",
+      "label": "AngularJS expression example",
+      "short": "AngularJS",
+      "kind": "html",
+      "dialect": "angularjs",
+      "examples": [
+        {
+          "name": "Anrede & Bedingungen",
+          "file": "angularjs/anrede-bedingungen.html"
+        },
+        {
+          "name": "Rechnen & Filter",
+          "file": "angularjs/rechnen-filter.html"
+        },
+        {
+          "name": "Daten & calcDate",
+          "file": "angularjs/daten-calcdate.html"
+        },
+        {
+          "name": "Lange Anrede (zweizeilig)",
+          "file": "angularjs/lange-anrede-zweizeilig.html"
+        },
+        {
+          "name": "Sehr lange Anrede (dreizeilig)",
+          "file": "angularjs/sehr-lange-anrede-dreizeilig.html"
+        },
+        {
+          "name": "Tabelle & Spalten",
+          "file": "angularjs/tabelle-spalten.html"
+        }
+      ]
+    },
+    {
+      "key": "handlebars",
+      "label": "Handlebars example",
+      "short": "Handlebars",
+      "kind": "html",
+      "dialect": "handlebars",
+      "examples": [
+        {
+          "name": "Simple fields",
+          "file": "handlebars/simple-fields.html"
+        },
+        {
+          "name": "Blocks stay literal",
+          "file": "handlebars/blocks-stay-literal.html"
+        },
+        {
+          "name": "Table & columns",
+          "file": "handlebars/table-columns.html"
+        }
+      ]
+    },
+    {
+      "key": "everyday",
+      "label": "Everyday letter example",
+      "short": "Everyday",
+      "kind": "html",
+      "dialect": "angularjs",
+      "examples": [
+        {
+          "name": "Eingangsbestätigung",
+          "file": "everyday/eingangsbestaetigung.html"
+        },
+        {
+          "name": "Terminbestätigung",
+          "file": "everyday/terminbestaetigung.html"
+        },
+        {
+          "name": "Terminerinnerung",
+          "file": "everyday/terminerinnerung.html"
+        },
+        {
+          "name": "Unterlagen anfordern",
+          "file": "everyday/unterlagen-anfordern.html"
+        },
+        {
+          "name": "Zahlungserinnerung",
+          "file": "everyday/zahlungserinnerung.html"
+        },
+        {
+          "name": "Mahnung (zweite Stufe)",
+          "file": "everyday/mahnung-zweite-stufe.html"
+        },
+        {
+          "name": "Zahlungseingang bestätigt",
+          "file": "everyday/zahlungseingang-bestaetigt.html"
+        },
+        {
+          "name": "Vollmacht zur Unterschrift",
+          "file": "everyday/vollmacht-zur-unterschrift.html"
+        },
+        {
+          "name": "Sachstandsmitteilung",
+          "file": "everyday/sachstandsmitteilung.html"
+        },
+        {
+          "name": "Fristverlängerung beantragt",
+          "file": "everyday/fristverlaengerung-beantragt.html"
+        },
+        {
+          "name": "Mandatsbeendigung",
+          "file": "everyday/mandatsbeendigung.html"
+        },
+        {
+          "name": "Abwesenheitsnotiz",
+          "file": "everyday/abwesenheitsnotiz.html"
+        },
+        {
+          "name": "Rückrufbitte",
+          "file": "everyday/rueckrufbitte.html"
+        },
+        {
+          "name": "Kostenvoranschlag",
+          "file": "everyday/kostenvoranschlag.html"
+        },
+        {
+          "name": "Vergleichsangebot weitergeleitet",
+          "file": "everyday/vergleichsangebot-weitergeleitet.html"
+        },
+        {
+          "name": "Feedback erbeten",
+          "file": "everyday/feedback-erbeten.html"
+        }
+      ]
+    }
+  ]
+}

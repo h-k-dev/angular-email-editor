@@ -67,11 +67,24 @@ function parseAlignment(dom: HTMLElement): ColumnsAlignment {
 // while composing are editorial `.aee-editor` CSS, which also reserves the
 // room the boundary/add affordances live in; the email carries none of it
 // unless the author asked.
-const columnStyle = (maxWidth: number, background: string | null, padding: string | null): string =>
-  `display: inline-block; width: 100%; max-width: ${maxWidth}px; ` +
+const columnStyle = (
+  maxWidth: number,
+  background: string | null,
+  padding: string | null,
+  hold = false,
+): string =>
+  `display: inline-block; width: ${hold ? `${columnShare(maxWidth)}%` : '100%'}; max-width: ${maxWidth}px; ` +
   `vertical-align: top; box-sizing: border-box;` +
   (padding ? ` padding: ${padding};` : '') +
   (background ? ` background-color: ${background}; color: ${fillTextColor(background)};` : '');
+
+/** A column's share of the row, in whole percent — what a held column is
+    wide on a phone (its cap still holds on a desktop). */
+const columnShare = (maxWidth: number): number =>
+  Math.max(
+    1,
+    Math.min(100, Math.round((maxWidth / (CONTAINER_MAX - 2 * CLIENT_PADDING_BUDGET)) * 100)),
+  );
 
 const columnMaxWidth = (count: number): number =>
   Math.floor((CONTAINER_MAX - 2 * CLIENT_PADDING_BUDGET) / count);
@@ -135,9 +148,15 @@ export function setColumnsBoundary(columnsPos: number, boundary: number, leftCap
   };
 }
 
+/** The cap a column's `max-width` means: px as written; a percentage — a
+    builder's share of the row (MJML's `mj-column-per-50`) — as that share
+    of the budget, so two halves sit side by side exactly as two of ours. */
 function parseColumnMaxWidth(style: string | null): number {
-  const m = /max-width:\s*(\d+)px/.exec(style ?? '');
-  return m ? +m[1] : columnMaxWidth(2);
+  const m = /max-width:\s*(\d+(?:\.\d+)?)(px|%)/i.exec(style ?? '');
+  if (!m) return columnMaxWidth(2);
+  if (m[2] === 'px') return Math.round(+m[1]);
+  const budget = CONTAINER_MAX - 2 * CLIENT_PADDING_BUDGET;
+  return Math.max(MIN_COLUMN_CAP, Math.min(budget, Math.floor((budget * +m[1]) / 100)));
 }
 
 /** A single column: an `inline-block` div, recognised on parse by that style
@@ -155,6 +174,11 @@ export const Column = defineNode({
       maxWidth: { default: columnMaxWidth(2) },
       background: { default: null },
       padding: { default: null },
+      /** Holds its share of the row on a phone instead of stacking — a
+          builder's grouped columns (MJML's `mj-group`), written with a
+          percent `width` of their own rather than the stacking pattern's
+          `width: 100%`. Emitted as that percent. */
+      hold: { default: false },
     },
     parseDOM: [
       {
@@ -165,10 +189,15 @@ export const Column = defineNode({
           const style = el.getAttribute('style') ?? '';
           if (!/display:\s*inline-block/i.test(style)) return false;
           const bg = el.style?.backgroundColor;
+          // The width the author wrote, before an import folded a sheet's
+          // `!important` over it (`noteOwnWidths`), else the inline one.
+          const own = el.getAttribute('data-aee-own-width') ?? el.style?.width ?? '';
+          const share = /^(\d+(?:\.\d+)?)%$/.exec(own.trim());
           return {
             maxWidth: parseColumnMaxWidth(style),
             background: isSafeColor(bg) ? bg : null,
             padding: parsePadding(el),
+            hold: !!share && +share[1] < 100,
           };
         },
       },
@@ -179,14 +208,24 @@ export const Column = defineNode({
       'div',
       {
         class: 'aee-column',
-        style: columnStyle(node.attrs['maxWidth'], node.attrs['background'], node.attrs['padding']),
+        style: columnStyle(
+          node.attrs['maxWidth'],
+          node.attrs['background'],
+          node.attrs['padding'],
+          node.attrs['hold'],
+        ),
       },
       0,
     ],
     emitDOM: (node: { attrs: Record<string, any> }) => [
       'div',
       {
-        style: columnStyle(node.attrs['maxWidth'], node.attrs['background'], node.attrs['padding']),
+        style: columnStyle(
+          node.attrs['maxWidth'],
+          node.attrs['background'],
+          node.attrs['padding'],
+          node.attrs['hold'],
+        ),
       },
       0,
     ],
@@ -264,6 +303,7 @@ export const Columns = defineNode({
   actions: ({ schema }) => [
     {
       id: 'columns',
+      section: 'layout',
       title: 'Columns',
       keywords: ['columns', 'column', 'layout', 'grid', 'side by side'],
       icon: 'view_column',
@@ -271,6 +311,7 @@ export const Columns = defineNode({
     },
     {
       id: '3-columns',
+      section: 'layout',
       title: '3 columns',
       keywords: ['columns', 'three', 'layout'],
       icon: 'view_column',
@@ -585,4 +626,48 @@ export function setColumnBackground(color: string | null): Command {
     }
     return true;
   };
+}
+
+/**
+ * The hybrid's other half, for the email as sent: round every columns
+ * block a fixed table the Word engine reads and no one else sees — one
+ * cell per column, the column's cap as its width — inside `[if mso]`
+ * conditional comments, before, between and after the fluid columns.
+ * Outlook lays the columns side by side at their caps (it ignores
+ * `inline-block` and `max-width`, and would stack them); every other
+ * client drops the comments and keeps the fluid divs. MJML's own way, and
+ * the one way to a row in Outlook. A serializer's pass over the rendered
+ * DOM (`serializeToHTML`): the comments stand between the columns, where
+ * no node's own `emitDOM` can put them; on parse they are dropped, and
+ * the block re-emits them, so the round trip holds.
+ */
+export function outlookColumns(root: HTMLElement): void {
+  const prefix = `width: 100%; max-width: ${CONTAINER_MAX}px;`;
+  for (const container of Array.from(root.querySelectorAll<HTMLElement>('div'))) {
+    if (!(container.getAttribute('style') ?? '').startsWith(prefix)) continue;
+    const columns = Array.from(container.children).filter(
+      (child): child is HTMLElement =>
+        child instanceof HTMLElement &&
+        child.tagName === 'DIV' &&
+        /^display: inline-block;/.test(child.getAttribute('style') ?? ''),
+    );
+    if (columns.length < 2 || columns.length !== container.children.length) continue;
+    const doc = container.ownerDocument;
+    const cell = (column: HTMLElement) =>
+      `<td width="${parseColumnMaxWidth(column.getAttribute('style'))}" valign="top">`;
+    container.insertBefore(
+      doc.createComment(
+        '[if mso]><table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center">' +
+          `<tr>${cell(columns[0])}<![endif]`,
+      ),
+      columns[0],
+    );
+    for (let i = 1; i < columns.length; i++) {
+      container.insertBefore(
+        doc.createComment(`[if mso]></td>${cell(columns[i])}<![endif]`),
+        columns[i],
+      );
+    }
+    container.appendChild(doc.createComment('[if mso]></td></tr></table><![endif]'));
+  }
 }

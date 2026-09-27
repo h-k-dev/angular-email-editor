@@ -17,6 +17,10 @@ export interface Envelope {
       first line, as every personal mail does. */
   previewText: string;
   html: string;
+  /** The HTML as it came in — pasted into the source pane, or an example
+      loaded whole — before the editor read it; null for a message written
+      here. The preview draws it beside the editor's reading, per client. */
+  original: string | null;
   attachments: AttachmentRef[];
 }
 
@@ -29,6 +33,7 @@ export const BLANK: Envelope = {
   bcc: [],
   subject: '',
   previewText: '',
+  original: null,
   html: '',
   attachments: [],
 };

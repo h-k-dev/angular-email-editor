@@ -1,3 +1,5 @@
+import { Schema } from 'prosemirror-model';
+import { EditorState } from 'prosemirror-state';
 import { defineMark } from '../../extension';
 import { fillTextColor, isFillTextColor } from '../../dual-contrast';
 import { setMark } from './set.utils';
@@ -28,6 +30,13 @@ export function isSafeColor(color: string | null | undefined): color is string {
  */
 export function toEmailSafeColor(raw: string): string | null {
   if (!raw) return null;
+  // A CSS-wide keyword is no colour: `initial` is what the CSSOM says for a
+  // `background: url(…)` shorthand's colour, and it computes to black.
+  if (
+    /^(initial|inherit|unset|revert|revert-layer|transparent|currentcolor|none)$/i.test(raw.trim())
+  ) {
+    return null;
+  }
 
   // Already hex — fast path
   if (/^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(raw)) return raw;
@@ -47,6 +56,34 @@ export function toEmailSafeColor(raw: string): string | null {
   return '#' + [r, g, b].map((n) => n.toString(16).padStart(2, '0')).join('');
 }
 
+export type TextTransform = 'uppercase' | 'lowercase' | 'capitalize';
+
+/** A `text-transform` the mark takes: the three cases; `none` and the
+    rest are the words as written. */
+export function parseTextTransform(raw: string | null | undefined): TextTransform | null {
+  const value = (raw ?? '').trim().toLowerCase();
+  return value === 'uppercase' || value === 'lowercase' || value === 'capitalize' ? value : null;
+}
+
+/** Whether the selection (or the caret's stored marks) shows in capitals. */
+function isUppercase(state: EditorState, schema: Schema): boolean {
+  const type = schema.marks['textStyle'];
+  const { from, $from, to, empty } = state.selection;
+  if (empty) {
+    const marks = state.storedMarks ?? $from.marks();
+    return marks.some((mark) => mark.type === type && mark.attrs['textTransform'] === 'uppercase');
+  }
+  let found = false;
+  state.doc.nodesBetween(from, to, (node) => {
+    if (found || !node.isInline) return !found;
+    found = node.marks.some(
+      (mark) => mark.type === type && mark.attrs['textTransform'] === 'uppercase',
+    );
+    return !found;
+  });
+  return found;
+}
+
 const ALLOWED_SIZES = [10, 12, 14, 16, 18, 24, 32] as const;
 export type FontSize = (typeof ALLOWED_SIZES)[number];
 
@@ -60,8 +97,20 @@ export function isSafeFontSize(value: unknown): value is FontSize {
  */
 export function parseFontSize(raw: string | null | undefined): FontSize | null {
   if (!raw) return null;
-  const n = parseInt(raw, 10);
-  return isSafeFontSize(n) ? n : null;
+  const n = parseFloat(raw);
+  if (!Number.isFinite(n) || n <= 0 || !/^\s*\d+(?:\.\d+)?(?:px)?\s*$/.test(raw)) return null;
+  if (isSafeFontSize(n)) return n;
+  // A size off the ladder — a builder's 11px, 13px, 15px — snaps to the
+  // nearest rung, upward on a tie: read as the size it is nearest to, not
+  // dropped to the default. (The schema still emits only its own rungs.)
+  let nearest: FontSize = ALLOWED_SIZES[0];
+  for (const size of ALLOWED_SIZES) {
+    const better =
+      Math.abs(size - n) < Math.abs(nearest - n) ||
+      (Math.abs(size - n) === Math.abs(nearest - n) && size > nearest);
+    if (better) nearest = size;
+  }
+  return nearest;
 }
 
 /**
@@ -149,6 +198,9 @@ export const TextStyle = defineMark({
       fontSize: { default: null },
       fontFamily: { default: null },
       backgroundColor: { default: null },
+      /** `uppercase`, `lowercase` or `capitalize` — a builder's navbar and
+          headings wear one; null for the words as written. */
+      textTransform: { default: null },
     },
     parseDOM: [
       {
@@ -164,8 +216,11 @@ export const TextStyle = defineMark({
           // an authored colour — absorb it so the pair round-trips clean and
           // clearing the fill later also clears its text colour.
           if (backgroundColor && isFillTextColor(color, backgroundColor)) color = null;
-          if (!color && !fontSize && !fontFamily && !backgroundColor) return false;
-          return { color, fontSize, fontFamily, backgroundColor };
+          const textTransform = parseTextTransform(node.style?.textTransform);
+          if (!color && !fontSize && !fontFamily && !backgroundColor && !textTransform) {
+            return false;
+          }
+          return { color, fontSize, fontFamily, backgroundColor, textTransform };
         },
       },
       {
@@ -178,7 +233,7 @@ export const TextStyle = defineMark({
       },
     ],
     toDOM: (mark) => {
-      const { color, fontSize, fontFamily, backgroundColor } = mark.attrs;
+      const { color, fontSize, fontFamily, backgroundColor, textTransform } = mark.attrs;
       // A fill never rides on the client's default text colour: without an
       // authored colour it carries its paired text (see fillTextColor).
       const textColor = color ?? (backgroundColor ? fillTextColor(backgroundColor) : null);
@@ -187,6 +242,7 @@ export const TextStyle = defineMark({
         fontSize ? `font-size: ${fontSize}px` : null,
         fontFamily ? `font-family: ${fontFamily}` : null,
         backgroundColor ? `background-color: ${backgroundColor}` : null,
+        textTransform ? `text-transform: ${textTransform}` : null,
       ]
         .filter(Boolean)
         .join('; ');
@@ -242,6 +298,20 @@ export const TextStyle = defineMark({
     unsetFontFamily: () => unsetMark(schema.marks['textStyle'], ['fontFamily']),
 
     /**
+     * Set the case the words are shown in — `uppercase`, `lowercase` or
+     * `capitalize` — leaving them as typed underneath.
+     */
+    setTextTransform: (value: TextTransform) => (state, dispatch) =>
+      parseTextTransform(value)
+        ? setMark(schema.marks['textStyle'], { textTransform: value })(state, dispatch)
+        : false,
+
+    /**
+     * Show the words as typed again.
+     */
+    unsetTextTransform: () => unsetMark(schema.marks['textStyle'], ['textTransform']),
+
+    /**
      * Apply a background color to the selection.
      */
     setBackgroundColor: (color: string) => (state, dispatch) => {
@@ -256,4 +326,18 @@ export const TextStyle = defineMark({
      */
     unsetBackgroundColor: () => unsetMark(schema.marks['textStyle'], ['backgroundColor']),
   }),
+  actions: ({ schema }) => [
+    {
+      id: 'uppercase',
+      section: 'styling',
+      title: 'Uppercase',
+      keywords: ['uppercase', 'capitals', 'caps', 'case'],
+      icon: 'keyboard_capslock',
+      command: (state, dispatch) =>
+        isUppercase(state, schema)
+          ? unsetMark(schema.marks['textStyle'], ['textTransform'])(state, dispatch)
+          : setMark(schema.marks['textStyle'], { textTransform: 'uppercase' })(state, dispatch),
+      isActive: (state) => isUppercase(state, schema),
+    },
+  ],
 });

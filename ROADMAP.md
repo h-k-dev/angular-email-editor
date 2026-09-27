@@ -1249,43 +1249,349 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   ("rewrite this"), a source is not told the editor state or its own range,
   rows cannot carry host data, and a source answers once (no streaming
   rows).
-  **Content streams (2026-09-18).** `createContentStream()` +
-  `streamContent(view, target, async ({ write, getWritableStream, signal }) => …, { format, transform })`
-  — the shape of Tiptap's `streamContent`, in the main entry (no Angular).
-  The host supplies the pieces; the library owns the rest: the range written
-  so far lives in plugin state and moves with the text (someone else's edit
-  right at either edge stays theirs — the range closes in, never out), a
-  caret widget `span.aee-stream-caret` for the host's stylesheet, `aria-busy`
-  on the editor, Escape to stop, the abort signal, `done`. `target` is a
-  position, or a range the first piece replaces ("rewrite this selection").
-  `'text'` is appended; `'html'` is _re-read as a whole_ on every write —
-  the buffer is parsed through the schema as an open slice and replaces what
-  was written — so a list or a bold word forms as it streams and a tag cut in
-  two never shows; the space an answer opens with is kept. `done` settles on
-  a stop even if the callback never returns. One stream per editor. Pieces
-  are ordinary transactions: close together they undo as one. Known limits:
-  streamed tables are not repaired mid-stream; an edit _inside_ the streamed
-  range is rewritten by the next HTML write. The demo's `ai-writer` shrank to
-  an action that asks its service and calls `write`. The feel (same day):
-  `smooth` (default) reveals what has come in at an adaptive pace — a
-  grapheme or a few a frame (`Intl.Segmenter`), closing the gap with a
-  180 ms time constant, never slower than 45 chars/s — and `done` waits
-  until all of it shows; `html` cuts the read back to what shows, so a
-  block appears with its first character. `fadeIn` (400 ms) marks what each
-  frame reveals `span.aee-stream-fresh` (inline decorations, rebuilt from
-  offsets because a re-read replaces the range) with
-  `--email-stream-fade-in`; the demo rises it into focus with `top` on the
-  inline span — not a transform, whose inline-block would break wrapping.
-  Reworked 2026-09-19 — typing read as a gimmick next to the chat
-  assistants, which fade whole chunks in: `smooth` became `reveal`,
-  `'block'` (default) | `'character'` (the above) | `'instant'`. A block —
-  paragraph, list item, line of plain text — shows whole once the next one
-  starts or the stream ends, blocks that land together 110 ms apart; the
-  caret waits after the last. Fresh is then a *node* decoration on the block
-  (the `li` when the stream wrote it; a span only where text joins a line
-  already there), `fadeIn` 600 ms, so the demo can fade it behind a rolling
-  mask edge (`@property --aee-stream-wipe`) and settle it 4 px — list items
-  without the mask, which would cut off their marker.
+  **The assistant proposes, in the text (2026-09-25).** The answer no
+  longer lands as it streams: it is _proposed_ — written into the message
+  where it will stand, marked (`aee-proposal`, the accent colour), outside
+  the undo history — and decided on from a panel floating under it.
+  Library, opt-in and tree-shakeable: `createContentProposal()` +
+  `proposeContent` / `acceptProposal` / `discardProposal` (the main entry,
+  on the content stream, which gained `history: false` and `streamedRange`
+  so a proposal follows the stream's range exactly); accept takes the same
+  slice out and in again as one ordinary change — one undo — and discard
+  leaves the document and its history as they were. Angular:
+  `angular-email-editor/proposal` — `injectProposal(editor)` (active,
+  streaming, range, the box to stand under, propose/stop/accept/discard)
+  and two triggers for a host's own buttons, `[emailProposalAccept]` /
+  `[emailProposalDiscard]`; and `angular-email-editor/chat-input` — the
+  chat input, a ProseMirror editor with lines and bullet/numbered lists
+  (Enter sends outside a list and goes on to the next item inside, Ctrl-
+  Enter always sends, `- ` / `1. ` begin a list), its text carried out as
+  dash lines. The demo's `chat-based-suggestion` is what a host writes
+  around them: a bar docked above the formatting toolbar while the
+  proposal stands (a panel chasing the proposal's last line moved too
+  much) — above, on no surface, three dots that dance while the model
+  thinks (`proposal.thinking`) and Discard / Apply as words; below, the
+  chat input in a pill with a place for voice input and a send button.
+  Only Escape or Discard let it go — Escape one thing at a time: a menu up
+  over the text (`Popover.close()`, which asks the shown panel) closes
+  first — a click in the text is editing, and Apply takes the proposal as
+  it stands, the writer's edits with it; `AiRequest.instructions` carries
+  the words (the stand-in understands "short", and thinks 1.2s first).
+  Later the same day: one message at a time — the send button is a stop
+  button while the model works, Enter is refused meanwhile, and Ctrl-Enter
+  (⌘-Enter) with a proposal standing is Apply, heard before the editor's
+  own send (a capture listener while the bar is up; swallowed while the
+  model writes); Discard and Apply are small outlined buttons alike, the
+  toolbar starts off. And a _part_: with a range of the proposal selected
+  in the text, the ask writes that part again — `reviseProposal` in the
+  library (the proposal's range maps through the stream instead of
+  following it, never below the stream's end), `revise` and
+  `selectedPart` on `injectProposal`, `AiRequest.selection` for the
+  stand-in, which rewrites the part (short: its first sentence). Which also answers the first item of the
+  agenda above, from the other side: the argument does not ride the `/`
+  query, it has a field of its own. Found on the way: a stopped stream
+  ended twice — at once on abort and again as `done` settled — and the
+  second ending closed the range of the stream that had taken its place; a
+  run now ends once. **From the template's side (2026-09-26):** the
+  proposal is also a directive, `[emailProposal]="editor"` on the panel's
+  element — it _is_ the `EditorProposal` (`#p="emailProposal"`, `p.active()`,
+  `p.propose(…)`) and everything inside takes it by injection, so the
+  triggers go bare (`<button emailProposalAccept>`; a bound value still
+  wins, and neither is an error that says so). The keys are a directive
+  too, `[emailProposalKeys]`: Ctrl-Enter (⌘-Enter) accepts while a
+  proposal stands and is swallowed while it is written, `accepted` says so;
+  Escape is handed to the host (`escape`, with the event), because what
+  else is up is the host's to know — the demo closes a popover first. And
+  the chat input is a behaviour first: `[emailChatInput]` mounts the field
+  into the host's own element with no look of its own (`ChatInputField`),
+  a `FormValueControl<string>` besides — `[formField]` drives `value` both
+  ways, `disabled`/`readonly` in, `touch` on blur, `reset()` — and
+  `<div email-chat-input>` is the same directive as a host directive in
+  the styled box. The form holds the _message_; the ask stays `sent`, an
+  action with a stream behind it is the host's, not the form's submit.
+
+- **The cell's own menu (2026-09-26).** Notion's: a dot on the caret cell's
+  right edge at rest, the six-dot handle under the pointer, and a press
+  opens the cell's menu — Color (the palette's text colours and fills, as
+  "Red text" / "Red background" rows with a swatch, plus default text and
+  no background), Alignment (left, centre, right; top, middle, bottom) and
+  Clear contents — the caret staying where it is. The grip is the
+  table-handles extension's third kind (`kind: 'cell'`, with `row` and
+  `index` the column), a selection-driven widget decoration keyed by the
+  cell, so it moves with the caret and is never rebuilt while the cell is
+  typed in. The menu is a component of its own (`CellMenu`) on Angular
+  Aria's menu (`ngMenu`, `ngMenuItem` with `submenu`), not the band grips'
+  paged panel: its lists are cascading submenus that open beside their row
+  on hover or the right arrow, and the keys are the menu's while it is up —
+  arrows walk it, Right and Enter open a list, Left closes one, typing
+  jumps to a row, Escape leaves — and the pointer has macOS's grace on its
+  way from a row to its list (`MenuSafeTriangle`, on the root menu: while
+  the pointer stays inside the triangle from where it just was to the
+  list's near edge, a hover on a row it crosses is stopped before Aria
+  hears it; rest there and the hover is replayed after a moment). A list
+  overlaps the menu's edge by a few pixels, Windows's way, its first row
+  level with the row that opened it. So, unlike the band menus, it _takes_
+  focus when it opens (onto its first row, one render after the popover
+  shows it) and hands the caret back to the cell when it closes. No new
+  library directive was needed for that: Aria's primitives carry the
+  hover-open and keyboard behaviour, the app only styles and positions
+  them. `clearCells` (the caret's cell, or every selected one) joins the
+  table's commands; a text colour goes on all the cell's words through a
+  selection the menu makes and puts back.
+
+- **Gmail on a phone, ours beside the original (2026-09-26).** Four
+  differences seen side by side: a page-coloured gap above a dark card —
+  a card's padding is inside the card in MJML, ours was on the band, so
+  a section with a `contentBackground` now carries its padding on the
+  card (`padding: 20px 16px`, the inset on the same declaration) and the
+  band none; a narrower phone render — iOS Mail and the Gmail app draw
+  edge to edge, so `renderForClient` takes a `pane` and a phone gets no
+  body margin; `[[DELIVERY_INFO]]` at the left — loose words beside a
+  `<p>` in a centred div, which `inheritTextStyles` now gives a centred
+  line of their own; and Outlook stacking every row of columns — the
+  hybrid's other half is emitted now: `outlookColumns`, a serializer
+  pass, wraps every columns block in a fixed table inside `[if mso]`
+  comments, one cell a column at its cap, before, between and after the
+  fluid divs (where no node's own emit can put them), so the Word engine
+  lays the columns side by side at 560px and scrolls a phone sideways as
+  MJML's own does; the comments go on parse and the block writes them
+  again, the round trip a fixpoint, and the source pane's linter lets a
+  conditional comment be (Outlook's own content, not a note).
+
+- **The preview stands still, and has a desktop (2026-09-26).** The pane
+  moved between variants: its width was its widest row of controls, and
+  a row that changed with the message (the source choice, there only
+  with an original) changed the pane. The pane is now as wide as its
+  frame and no wider (`min(frame + inset, 100%)` of its flank), its
+  controls two rows with every control always on them (a choice that has
+  nothing to offer is disabled, not gone), so nothing under the reader
+  moves whichever client, source or view is chosen. And a Phone/Desktop
+  switch: the frame is a phone's 320px or a desktop reading pane's
+  600px, laid out at that width whatever the flank has — where the flank
+  is narrower the frame scales down as a whole (a ResizeObserver on the
+  stage, a `transform` on the frame), so a 600px email in a 415px flank
+  is the 600px layout at two thirds, never a 383px layout.
+
+- **A builder's page and its cards; grouped columns (2026-09-26).** Seen
+  in the per-client preview of MJML's "worldly": the page's light blue
+  was gone and every section a white band, and the header's two columns,
+  side by side on a phone in MJML's own render, stacked in ours. A
+  section now carries a `contentBackground` beside its band fill: where
+  a builder's fill sits says what it fills — on the cell, the band; on
+  the table or its wrapping div, the band too, unless that div is a
+  _card_ capped at a width (MJML's section on a page), when it is the
+  content column's and the band takes the page's colour (the body's, or
+  the outermost uncapped wrapper's); on our own centring div, the
+  content column's. Emitted as a `background-color` on the inner div,
+  which the Word engine draws. And a column may `hold` its share on a
+  phone: written with a percent width of its own (MJML's `mj-group`,
+  where the mobile-first pair says `width: 100%` inline and takes its
+  half from the sheet), it is emitted with that percent, so it sits
+  beside its neighbour at 320px; the width the author wrote is noted
+  before the sheet is folded over it (`noteOwnWidths`), since folded
+  both read the same.
+
+- **The file chooser's missing pointer (2026-09-26).** On Windows,
+  Chromium (Chrome, Brave) hides the mouse pointer while a key is typed
+  and shows it again on the next mouse move _it_ handles; the OS file
+  dialog is modal and takes the moves itself, so `/image` picked with
+  Enter opened a chooser with no pointer in it at all. `openFileChooser`
+  now opens a keyboard-started chooser on Windows on the next pointer
+  move (the page shows the pointer again on that move), or after a moment
+  (`FILE_CHOOSER_POINTER_WAIT`, inside the browser's window of user
+  activation) for the writer who never reaches for the mouse; after a
+  click, and anywhere but Windows, it opens at once.
+
+- **The preview, per client, and the original (2026-09-26).** Two fixes
+  and a pane. The preview opened blank until its HTML/Text toggle was
+  pressed: a `srcdoc` frame first laid out inside a hidden ancestor never
+  paints in Chromium until it is made again, so the frame now exists only
+  while the preview is on screen (its catch-up on opening was already
+  there). And what a client makes of the email: `renderForClient(html,
+client, { dark })` in the library — a simulation, in a browser, drawn
+  from the same client-support data the linter reads, not a screenshot
+  service — lays each client's surface under the email and takes out what
+  the data says it ignores: Apple Mail reads it all; Gmail drops the
+  comments, the form controls, the `<style>` rules it cannot match and
+  the declarations marked ignored there, and its dark mode inverts;
+  Outlook on Windows opens the conditional comments meant for it and
+  drops the parts kept from it, loses the media queries and the
+  declarations the Word engine ignores, stacks an inline-block column,
+  and leaves VML standing (a browser draws none of it — the colour
+  beneath shows, as in an Outlook without it). The library owns the
+  rendering because the data is the library's and the rule is one
+  function of the HTML; the app owns what to show it: the preview pane
+  gets a client choice (Apple Mail, Gmail, Outlook) and, where the
+  message has one, a source choice — the editor's reading, or the
+  **original** as it came in. The original is the app's: the message
+  (`Envelope.original`, kept in the draft) remembers the source pane's
+  text as pasted or typed and the file of an example loaded whole, so
+  the two can be held side by side per client. At phone width, the
+  original's own media queries apply — an MJML hamburger shows as it
+  would in iOS Mail.
+
+- **A builder's export, whole (2026-09-26).** MJML's "worldly" template
+  showed what the import still dropped: its buttons came in blue, in a
+  band of their own colour; its titles, navbar and hero text stood at the
+  left, in the default colour; the hero band was black. Four things, each
+  the schema reading less than a client's cascade gives: (1) a builder's
+  **stack** — a column's blocks, one cell a row in a presentation table —
+  is now a wrapper too (`unwrapLayoutTables` takes a one-column table of
+  element-only cells out, not only a one-cell one), and a cell's `align`
+  goes with what it held: onto each block that says nothing of its own,
+  and round an inline run (a button, a row of links) as a paragraph of
+  that alignment; (2) **inheritance** is materialised
+  (`inheritTextStyles`): what a wrapping `<div>` or `<td>` declares —
+  `color`, `font-size`, `font-family`, `text-align` — is written onto the
+  blocks beneath it that have none, and round its runs as a `<span>`, an
+  anchor's own colour included (a navbar's black links stay black), a
+  builder's `font-size: 0` gap killer and a fill's paired text colour
+  excepted; (3) a **button keeps its fill** and its text colour
+  (`background`, `color` attrs, hex or null for ours): the box stays ours
+  — borders, square, Outlook's — in the builder's colour, and a filled
+  cell round one anchor is a button's box, not a band (a band holds a
+  block; a padding alone makes one only round a column, since a builder's
+  text block sits in a padded cell too); the toolbar's fill goes onto a
+  selected button; (4) a `background: url(…)` shorthand leaves the CSSOM's
+  colour _transparent_, which read as black — no fill now. Since: the
+  **case** is carried too — `textTransform` (uppercase, lowercase,
+  capitalize) joins the text-style span's attributes, inherited down like
+  a colour, set and cleared by `setTextTransform`/`unsetTextTransform`,
+  with an `uppercase` toggle on the toolbar (a navbar's HOME is HOME
+  again, the words as typed underneath) — and so is a **cell's padding**:
+  a dissolved cell (and a builder's plain wrapper div) shares its box out
+  among the blocks it held, the sides on every block, the top on the
+  first, the bottom on the last, and a paragraph keeps it as `spacing`
+  (`t r b l`, px), emitted as `margin` — what the Word engine honours on
+  a block, where a padding it does not — with an indent folded into the
+  left side. Still not carried: a size outside the kit's ladder.
+
+- **A section's background image (2026-09-26).** MJML's `background-url`,
+  our way: a band may carry an image behind its content (`image` attr, an
+  `http(s)` URL only — a data URL shows nothing in Gmail, a script is a
+  script), which the cell gets as a `background` attribute _and_ as inline
+  `background-image`, centred at the top, covering, once — Gmail and every
+  CSS client read those — with the fill colour beneath for the clients
+  that hold images back. Outlook's Word engine reads neither and draws
+  VML: the content is wrapped in a `v:rect` with a `v:fill` of the image
+  (`mso-width-percent: 1000`, the Word engine's "as wide as the page"),
+  inside `[if mso]` conditional comments every other client discards. It
+  is the one place the email carries a comment — MJML's translation of
+  the same idea, the only way to a picture behind text in Outlook, and
+  the colour is what shows without it. A band with no image emits no
+  comment at all; the source pane's linter, which flags CSS background
+  images for Outlook, knows the pair (a `v:fill` comment and the cell's
+  `background` attribute) and lets it be. `setSectionImage` (refusing
+  anything but `http(s)`) joins the commands; the block menu's section
+  toolbar gets a wallpaper button with a URL field. On import, the image
+  is read from the table's `background` attribute or a `url()` in the
+  cell's, the table's or the wrapping div's style, so MJML's hero section
+  comes in with its picture. Not verified in Outlook itself here — the
+  VML is MJML's, in wide use, and worth a Litmus run.
+
+- **Sections: the full-width band (2026-09-26).** A `section` node — a
+  fill running edge to edge across the reader's window with the content
+  centred in the 600px column inside it, MJML's `mj-section` rendered our
+  way. Rendered once, for every client: MJML renders a section twice (a
+  div for the clients that read `max-width`, the same content again in a
+  600px table inside an Outlook-only comment) because Outlook's Word
+  engine ignores `max-width` and `inline-block`; Gmail drops every
+  comment and its app strips the head for non-Google accounts, so what
+  both keep is what the node emits — one `role="presentation"` table,
+  100% wide, its one cell carrying the fill as `bgcolor` _and_ inline
+  `background-color` with the paired text colour (`fillTextColor`), and
+  inside it a div capped at 600px with auto margins; where the cap is
+  ignored (Outlook) the content runs the band's full width, the graceful
+  half of the columns block's own bargain. What cannot be said inline is
+  left out. On parse a section is a one-cell presentation table whose cell
+  holds nothing but elements and carries a fill or a padding — MJML's,
+  with the fill on its wrapping div, as much as our own — a right-to-left
+  cell handing its children over reversed; a one-cell table with words in
+  it stays a table. `/section` inserts a band in the palette's quiet grey,
+  the toolbar's colour button fills the band the caret is in, the block
+  menu takes a band away with its content staying, the layout guides mark
+  its edges. Read through the CSSOM where it expands a builder's
+  `background:` shorthand, and through the attribute's own words where
+  it does not.
+
+- **A builder's export comes in whole (2026-09-26).** An MJML (or any
+  builder's) document leans on two things the canonical email HTML never
+  has, and the editor read neither: its `<style>` sheet — the mobile-first
+  pattern, `width: 100%` inline and `width: 50% !important` in a `min-width`
+  media query — and a one-cell `role="presentation"` wrapper table round
+  every section, column and image, each of which parsed as a table of ours
+  with its content hoisted out beside it: an empty grid, then the column
+  block, again and again, the columns all one width. `parseHTML` now runs
+  two passes before the schema (`import-html.ts`): `inlineStyles` folds the
+  sheet into the elements it matches — document order, `!important` over
+  inline, media queries answered for a 600px screen — and
+  `unwrapLayoutTables` takes the builders' wrappers out (only theirs: the
+  attributes they write, `cellpadding`/`cellspacing`/`border="0"`, and a
+  cell holding nothing but elements — a table with words in its one cell
+  stays a table, and so does every table of our own), a right-to-left cell
+  handing its children over reversed, the way a client draws MJML's
+  image-on-the-right sections. A column's `max-width` in percent is now a
+  share of the budget, so two halves sit side by side exactly as two of
+  ours. Not carried: a section's own background and padding (the model has
+  no section), and MJML's button (a filled `<td>` round a `<p>`, not a
+  link). A third pass since (2026-09-26): `dropHidden` removes what the
+  export hides with `display: none` — the label of an MJML hamburger menu
+  (a checkbox-and-`:checked` trick only Apple Mail pulls off; Gmail strips
+  the form controls and the selector, Outlook the lot), whose ☰ ⊗ stood in
+  the message as text, a preview text, the other half of a responsive
+  pair — so what the import shows is the fallback Gmail and Outlook show:
+  the row of links. And the button node's parse rule wants a box, not a
+  layout: an inline-block anchor is a button only with a fill or a border
+  on it, so a navbar's links (MJML gives each `inline-block` and a
+  padding) stay links, where they were coming in as four blue buttons. In
+  the editor besides: the layout guides linger 400ms before they
+  fade, so a hand crossing a cell's edge never sees them blink; the caret's
+  own row and column grips stay on screen while a cell is typed in (Tiptap's
+  and Notion's way); the `/` menu's sections stand further apart; Send is
+  sized through Material's button tokens (32px, 16px inline). Found on the
+  way, and the reason the import first looked right and then went wrong
+  the moment the source pane handed the formatted HTML back — two things.
+  The source pane formats its text on blur, and `formatHTML` printed the
+  body's children alone: a pasted document's head, its stylesheet with it,
+  was gone by the time the composer read the text again, and the columns
+  fell back to their default width. The formatter now prints a document's
+  `<style>` elements first, the head's included, their CSS as written —
+  formatting stays presentation-only, so what the parse read before it
+  reads after. And an external `setContent` applies the new document as a
+  minimal diff whose slice is open at both ends — where those ends stand
+  at different depths ProseMirror _fits_ it instead of refusing, closing
+  and reopening the nodes round the gap: a duplicated empty row, a column
+  at its default width. The sync now checks the fitted result against the
+  parsed document and falls back to replacing the whole document when
+  they differ.
+
+- **The `/` menu in sections, with colours and examples (2026-09-26).**
+  Every suggestion row may declare a `section` — a stable id, worded by the
+  trigger's `sections` (a map or a lookup, so a language switch reaches the
+  headings) with the library's wording beneath (`suggestionSectionTitles`),
+  read through `state.sectionTitle(id)`; the library's actions declare
+  theirs (blocks, styling, media, layout, message), a host its own (the
+  demo: ai, color, templates, examples), lists its rows in section order,
+  and shows `[email-suggestion-menu-section]` where the section changes.
+  Colours are rows too, the way a chat's slash menu lists them: "Red text",
+  "Red background" — `colorSuggestions(ctx, palette)` in the new
+  `angular-email-editor/palette` entry, each row a `swatch`, picked onto the
+  selection or the caret's next words. The palette is a token there,
+  `EMAIL_PALETTE`: the library's by default, an app's own through
+  `providePalette`, either side or a function of the defaults to mix; the
+  pickers read it too. The examples left the status strip for the menu:
+  `/examples`, a plain local list of every example document (filtered and
+  ranked like the kit's rows, no source, no loading), each put in the
+  message's place by `replaceHTML`. The examples themselves are assets now —
+  `public/examples/index.json` names the sets, a file per example beside it
+  (a reply's inbound message as JSON, a template as HTML) — fetched once by
+  the `Examples` service when the app starts; the template store lists the
+  dialect sets from the same catalogue. In the app besides: Send is the
+  word, first on the writer's bar, Discard last; Compose is a floating
+  action button at a phone's lower right; the phone toolbar's buttons stand
+  1px apart; and with the chat up, the field and the toolbar share one box
+  on a wide screen, the dock's, painted behind them from under Discard and
+  Apply.
   **Names are flat, as Angular's are** (`@angular/material/button`,
   `@angular/cdk/overlay`) — no `components/…` or `directives/…` segment:
   - one level, `angular-email-editor/<name>`; the only nesting is

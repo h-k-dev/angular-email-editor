@@ -198,6 +198,17 @@ export class MessageForm {
     set: (html) => this.message.update((m) => (m.html === html ? m : { ...m, html })),
   });
 
+  /** The HTML as it came in — the source pane's text as pasted or typed, an
+      example loaded whole — before the editor read it; null for a message
+      written here. Kept on the message, so the preview can draw it beside
+      the editor's reading for each client. */
+  readonly original = linkedSignal<string | null, string | null>({
+    source: () => this.message().original,
+    computation: (original) => original,
+    set: (original) =>
+      this.message.update((m) => (m.original === original ? m : { ...m, original })),
+  });
+
   /** Where the frame shows the HTML source; the editor steps out of code
       view by writing it. */
   readonly sourceView = model<SourceView>('hidden');
@@ -218,8 +229,10 @@ export class MessageForm {
   readonly cleared = output<void>();
 
   /** Whether the formatting toolbar is switched on (the writer bar's
-      formatting options button). Shown by default. */
-  protected readonly formattingOpen = signal(true);
+      formatting options button). Off by default: the message is written
+      first, and the marks have their keys, the bubble menu and the `/`
+      menu; the bar is one press away when it is wanted. */
+  protected readonly formattingOpen = signal(false);
 
   /** Whether the composer's formatting toolbar shows. Always on a phone:
       there it is the bar on the keyboard, and the bar has no switch for it.

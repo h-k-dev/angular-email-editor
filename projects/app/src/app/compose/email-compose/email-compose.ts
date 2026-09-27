@@ -32,16 +32,19 @@ import { isTyping, releaseEditingSurface } from '../is-typing';
 import { atRest } from '../at-rest';
 import { BlockMenu } from './block-menu/block-menu';
 import { TableMenu } from './table-menu/table-menu';
+import { CellMenu } from './cell-menu/cell-menu';
 import { BubbleMenu } from './bubble-menu/bubble-menu';
 import { FormattingCommands } from './formatting-commands';
 import { FormattingToolbar } from './formatting-toolbar/formatting-toolbar';
 import { LinkEditor } from './link-editor/link-editor';
 import { AltTextEditor } from './alt-text-editor/alt-text-editor';
+import { ChatBasedSuggestion } from './chat-based-suggestion/chat-based-suggestion';
 import { Popover } from './popover/popover';
 import { PopoverOutlet } from './popover/popover-outlet';
+import { Examples } from '../../../services/examples';
 import { Templates } from '../../../services/templates';
+import { examplesGroup } from './examples-group';
 import { MergeTags } from '../../../services/merge-tags';
-import { Ai } from '../../../services/ai';
 import { I18n } from '../../../services/i18n';
 import { createAiWriter } from './ai-writer';
 import { mergeTagSource } from './merge-tag-source';
@@ -61,6 +64,7 @@ import {
   createTableHandles,
   createBubbleMenu,
   createButtonEdit,
+  createContentProposal,
   createContentStream,
   createEditor,
   createAngularExpressions,
@@ -69,14 +73,19 @@ import {
   createSendIntent,
   createSuggestionMenu,
   extensionSuggestions,
-  isStreaming,
+  SuggestionItem,
   createTextMetrics,
   ExpressionDiagnostic,
   InlineImages,
   mergeTagAt,
   emailExtensions,
 } from 'angular-email-editor';
-import { SuggestionMenu, SuggestionMenuItem } from 'angular-email-editor/suggestion-menu';
+import {
+  SuggestionMenu,
+  SuggestionMenuItem,
+  SuggestionMenuSection,
+} from 'angular-email-editor/suggestion-menu';
+import { colorSuggestions, injectPalette } from 'angular-email-editor/palette';
 
 /** Where the HTML source shows: nowhere, in the editing surface's place
     (code view), or beside the editor in its own column (detached). */
@@ -102,14 +111,17 @@ export type SourceView = 'hidden' | 'code' | 'detached';
     AngularFileDrop,
     BlockMenu,
     TableMenu,
+    CellMenu,
     BubbleMenu,
     DropHint,
     FormattingToolbar,
     LinkEditor,
     AltTextEditor,
+    ChatBasedSuggestion,
     PopoverOutlet,
     SuggestionMenu,
     SuggestionMenuItem,
+    SuggestionMenuSection,
   ],
   // The formatting commands this composer's toolbar, bubble menu and ⋯ menu
   // share — one per composer, bound to its editor and code view — and the
@@ -125,12 +137,32 @@ export class EmailCompose implements FormValueControl<string> {
   readonly #images = inject(InlineImages);
   /** The template store the slash menu's /templates group searches. */
   readonly #templates = inject(Templates);
+
+  /** The section a row begins, for its heading: the row's, when the row
+      before it is of another — null inside a section, or with none. */
+  protected sectionStartingAt(
+    items: readonly SuggestionItem[] | undefined,
+    index: number,
+  ): string | null {
+    const section = items?.[index]?.section;
+    if (!section) return null;
+    return index > 0 && items![index - 1].section === section ? null : section;
+  }
+
+  /** The example documents the slash menu's /examples group lists. */
+  readonly #examples = inject(Examples);
+
+  /** The palette in use — the pickers' swatches, and the slash menu's colour
+      rows (`EMAIL_PALETTE`; the library's unless the app provides one). */
+  readonly #palette = injectPalette();
   /** The variable catalogue the `{{` menu searches. */
   readonly #mergeTags = inject(MergeTags);
-  /** The writing assistant behind the `ai` action. */
-  readonly #ai = inject(Ai);
   /** The words of the language in use — the menu asks when it opens. */
   protected readonly i18n = inject(I18n);
+
+  /** The language the assistant writes in — a function, asked when the
+      writing starts, so a switch is heard with nothing re-created. */
+  protected readonly language = (): 'en' | 'de' | 'ja' => this.i18n.lang();
 
   /** How many rows a list has, for a screen reader — a function the menu
       calls, so it is one instance and reads the language when called. */
@@ -251,6 +283,14 @@ export class EmailCompose implements FormValueControl<string> {
   protected readonly tableMenu = viewChild.required(TableMenu);
   protected readonly linkEditor = viewChild.required(LinkEditor);
   protected readonly altTextEditor = viewChild.required(AltTextEditor);
+  protected readonly suggestion = viewChild.required(ChatBasedSuggestion);
+
+  /** The chat-based suggestion's button, for the toolbar's end while the
+      strip is up and the toolbar shows — the bar takes it as its own. */
+  protected readonly suggestionAction = computed(() => {
+    const suggestion = this.suggestion();
+    return this.toolbar() && suggestion.open() ? (suggestion.action() ?? null) : null;
+  });
 
   /** The email editor, once mounted — the formatting commands' own. */
   readonly editor = this.#commands.editor;
@@ -384,10 +424,12 @@ export class EmailCompose implements FormValueControl<string> {
       extensions: [
         // The writing assistant: an extension of the composer's own. It
         // declares one action, `ai` — first in the kit, so first in the `/`
-        // menu — and streams its answer in at the caret, through the
-        // library's content stream (the caret, Escape, the abort are its).
-        createAiWriter({ ai: this.#ai, language: () => this.i18n.lang() }),
+        // menu — which opens the chat-based suggestion: the answer is *proposed*
+        // into the text under the caret (the library's content stream and
+        // proposal, opted into here), and is the message's only on Apply.
+        createAiWriter({ onAsk: (ask) => this.suggestion().show(ask) }),
         createContentStream(),
+        createContentProposal(),
         ...emailExtensions,
         createBubbleMenu({
           updateDelay: 150,
@@ -406,7 +448,11 @@ export class EmailCompose implements FormValueControl<string> {
           label: (kind, number) =>
             this.i18n.t(
               `editor.table.${kind}Options`,
-              kind === 'row' ? `Row ${number} options` : `Column ${number} options`,
+              kind === 'cell'
+                ? 'Cell options'
+                : kind === 'row'
+                  ? `Row ${number} options`
+                  : `Column ${number} options`,
               { number },
             ),
         }),
@@ -428,10 +474,19 @@ export class EmailCompose implements FormValueControl<string> {
               // Rows by id — the kit's actions and the two groups below —
               // in the language in use, searched in it *and* in English.
               i18n: this.i18n.suggestionLabel,
-              // Not while an answer streams in: the caret rides along behind
-              // text nobody typed, and a trigger in it is not a request.
-              allow: ({ state }) => !isStreaming(state),
-              items: (ctx) => [...extensionSuggestions(ctx), templateGroup(this.#templates)],
+              items: (ctx) =>
+                bySection(
+                  [
+                    ...extensionSuggestions(ctx),
+                    ...colorSuggestions(ctx, this.#palette),
+                    templateGroup(this.#templates),
+                    examplesGroup(this.#examples),
+                  ],
+                  SLASH_SECTIONS,
+                ),
+              // The sections' headings, in the language in use — the
+              // library words what the dictionary leaves out.
+              sections: (id) => this.i18n.t(`editor.menu.sections.${id}`, '') || undefined,
             },
             {
               trigger: '{{',
@@ -443,7 +498,7 @@ export class EmailCompose implements FormValueControl<string> {
               query: /^ ?[\w.]*$/,
               // Not for a caret inside a token already written: those
               // braces are the token's, and a pick would land inside it.
-              allow: ({ state }) => !caretInsideMergeTag(state) && !isStreaming(state),
+              allow: ({ state }) => !caretInsideMergeTag(state),
               source: mergeTagSource(this.#mergeTags),
             },
           ],
@@ -519,4 +574,32 @@ export class EmailCompose implements FormValueControl<string> {
     this.sourceView.set('hidden');
     afterNextRender({ write: () => this.editor()?.focus() }, { injector: this.#injector });
   }
+}
+
+/** The `/` menu's sections, in reading order: what the writer reaches for
+    first — the assistant, the blocks — down to the demo's own seeds. */
+const SLASH_SECTIONS = [
+  'ai',
+  'blocks',
+  'styling',
+  'color',
+  'media',
+  'layout',
+  'templates',
+  'examples',
+  'message',
+] as const;
+
+/** The rows in section order — each section's rows together, in their own
+    order, so the menu heads them once; a row of no section, or of one the
+    order does not name, goes last. */
+function bySection<T extends { section?: string }>(items: T[], order: readonly string[]): T[] {
+  const rank = (item: T) => {
+    const index = item.section ? order.indexOf(item.section) : -1;
+    return index < 0 ? order.length : index;
+  };
+  return items
+    .map((item, index) => ({ item, index, rank: rank(item) }))
+    .sort((a, b) => a.rank - b.rank || a.index - b.index)
+    .map((entry) => entry.item);
 }

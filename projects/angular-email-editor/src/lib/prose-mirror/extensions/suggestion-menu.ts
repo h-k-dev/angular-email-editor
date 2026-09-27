@@ -65,6 +65,11 @@ export interface SuggestionMenuState {
       editor points at the highlighted one (`aria-activedescendant`), and the
       pointer's highlight finds its row by it. */
   optionId: (index: number) => string;
+  /** The heading for a section id (an item's `section`): the trigger's
+      `sections` wording, else the library's own ({@link
+      suggestionSectionTitles}), else the id itself. Asked as headings are
+      rendered, so a function given as `sections` is heard afresh. */
+  sectionTitle: (id: string) => string;
   /** Applies an item. A command item removes the trigger and query text,
       then runs its command; a group rewrites the query to `<word> `,
       opening level 2. */
@@ -188,9 +193,32 @@ export interface SuggestionTrigger {
   i18n?:
     | Readonly<Record<string, SuggestionItemLabel>>
     | ((id: string) => SuggestionItemLabel | undefined);
+  /**
+   * The headings of the items' sections (`SuggestionItem.section`), by id:
+   * a map, or a function of the id, asked whenever a heading is rendered —
+   * hand it a translation service's lookup and a language switch reaches
+   * the headings too. What it leaves out is worded by the library
+   * ({@link suggestionSectionTitles}), and an id neither knows shows as it
+   * is.
+   */
+  sections?: Readonly<Record<string, string>> | ((id: string) => string | undefined);
   /** The listbox id ({@link SuggestionMenuState.listboxId}); unique by default. */
   id?: string;
 }
+
+/** The library's wording of the sections its own actions declare — and of
+    the ones a host commonly adds: its palette's rows (`color`), its groups. */
+export const suggestionSectionTitles: Readonly<Record<string, string>> = {
+  ai: 'AI',
+  blocks: 'Basic blocks',
+  styling: 'Styling',
+  color: 'Color',
+  media: 'Media',
+  layout: 'Layout',
+  message: 'Message',
+  templates: 'Templates',
+  examples: 'Examples',
+};
 
 /**
  * A suggestion menu: the element it shows in, and the triggers that open it
@@ -442,6 +470,11 @@ function createSuggestionMenuPlugin(
 
   const listboxId = options.id ?? `email-suggestion-menu-${nextListboxId++}`;
   const optionId = (index: number) => `${listboxId}-option-${index}`;
+  const sectionTitle = (id: string): string => {
+    const { sections } = options;
+    const words = typeof sections === 'function' ? sections(id) : sections?.[id];
+    return words ?? suggestionSectionTitles[id] ?? id;
+  };
 
   /**
    * An active session is derived from the document, not from keystrokes: a
@@ -759,6 +792,7 @@ function createSuggestionMenuPlugin(
       clientRect,
       listboxId,
       optionId,
+      sectionTitle,
       select,
       back,
       loadMore,

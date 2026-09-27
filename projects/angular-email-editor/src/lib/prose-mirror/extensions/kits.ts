@@ -34,6 +34,7 @@ import { BaseKeymap } from './base-keymap';
 import { PasteHygiene } from './paste-hygiene';
 import { ClearFormatting } from './clear-formatting';
 import { QuoteFold } from './quote-fold';
+import { Section } from './nodes/section';
 
 /** Everything but the paragraph flavour, which is what the kits swap. */
 const withParagraph = (paragraph: NodeExtension): Extension[] => [
@@ -59,6 +60,7 @@ const withParagraph = (paragraph: NodeExtension): Extension[] => [
   TableCell,
   Columns,
   Column,
+  Section,
   // After the layout blocks on purpose: their own arrow escapes must be
   // reached before gap-cursor claims the arrows (see the extension's docs).
   Gapcursor,

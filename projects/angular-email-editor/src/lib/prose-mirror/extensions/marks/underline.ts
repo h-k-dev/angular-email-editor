@@ -29,6 +29,7 @@ export const Underline = defineMark({
   actions: ({ schema }) => [
     {
       id: 'underline',
+      section: 'styling',
       title: 'Underline',
       keywords: ['underline'],
       icon: 'format_underlined',

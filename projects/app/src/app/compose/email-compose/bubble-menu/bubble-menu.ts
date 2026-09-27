@@ -1,6 +1,9 @@
 import { Component, TemplateRef, computed, inject, input, viewChild } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 
+// ProseMirror
+import { TextSelection } from 'prosemirror-state';
+
 // Material
 import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
@@ -140,6 +143,16 @@ export class BubbleMenu {
       anchor: () => this.state().boundingBox,
       content: this.panel,
       positions: () => POPOVER_ABOVE,
+      // Asked to close: the selection collapses to its end — the menu is
+      // the selection's, and goes with it.
+      close: () => {
+        const editor = this.#commands.editor();
+        if (!editor) return;
+        const { state } = editor;
+        editor.view.dispatch(
+          state.tr.setSelection(TextSelection.create(state.doc, state.selection.to)),
+        );
+      },
     });
   }
 }

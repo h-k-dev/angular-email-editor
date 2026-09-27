@@ -1,6 +1,7 @@
 <!-- The menu, for the composer's one popover: one toolbar, its tools by
-     what is selected. The `@switch` swaps the buttons inside it — the
-     toolbar element, and the popover around it, stay. -->
+     what is selected. The `@switch` swaps the row of tools inside it — the
+     toolbar element, and the popover around it, stay; the row that comes
+     in fades in (`animate.enter`, see the stylesheet). -->
 <ng-template #panel>
   <div
     class="bubble-menu"
@@ -11,33 +12,39 @@
   >
     @switch (state().kind) {
       @case ('image') {
-        <!-- The alt leads, as words: what it says, or that it is missing. -->
-        <button
-          mat-button
-          type="button"
-          class="bubble-menu__alt"
-          [class.bubble-menu__alt--missing]="!alt()"
-          aria-haspopup="dialog"
-          [attr.aria-label]="altLabel()"
-          [emailAction]="actions.get(altItem.id)"
-          #altTrigger="emailAction"
-          [disabled]="altTrigger.disabled()"
-        >
-          <span class="bubble-menu__alt-text" dir="auto">{{
-            alt() || i18n.t('editor.image.addAlt', 'Add alt text')
-          }}</span>
-        </button>
-        <ng-container
-          *ngTemplateOutlet="buttons; context: { $implicit: imageEntries, lead: true }"
-        />
+        <div class="bubble-menu__tools" animate.enter="bubble-menu__tools--in">
+          <!-- The alt leads, as words: what it says, or that it is missing. -->
+          <button
+            mat-button
+            type="button"
+            class="bubble-menu__alt"
+            [class.bubble-menu__alt--missing]="!alt()"
+            aria-haspopup="dialog"
+            [attr.aria-label]="altLabel()"
+            [emailAction]="actions.get(altItem.id)"
+            #altTrigger="emailAction"
+            [disabled]="altTrigger.disabled()"
+          >
+            <span class="bubble-menu__alt-text" dir="auto">{{
+              alt() || i18n.t('editor.image.addAlt', 'Add alt text')
+            }}</span>
+          </button>
+          <ng-container
+            *ngTemplateOutlet="buttons; context: { $implicit: imageEntries, lead: true }"
+          />
+        </div>
       }
       @case ('button') {
-        <ng-container
-          *ngTemplateOutlet="buttons; context: { $implicit: buttonEntries, lead: false }"
-        />
+        <div class="bubble-menu__tools" animate.enter="bubble-menu__tools--in">
+          <ng-container
+            *ngTemplateOutlet="buttons; context: { $implicit: buttonEntries, lead: false }"
+          />
+        </div>
       }
       @default {
-        <ng-container *ngTemplateOutlet="buttons; context: { $implicit: entries, lead: false }" />
+        <div class="bubble-menu__tools" animate.enter="bubble-menu__tools--in">
+          <ng-container *ngTemplateOutlet="buttons; context: { $implicit: entries, lead: false }" />
+        </div>
       }
     }
   </div>

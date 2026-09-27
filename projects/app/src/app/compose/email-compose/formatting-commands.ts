@@ -7,6 +7,7 @@ import { redo, undo } from 'prosemirror-history';
 import {
   Editor,
   findColumnContext,
+  findSectionContext,
   findTableContext,
   isMarkActive,
   selectedButton,
@@ -205,10 +206,11 @@ export class FormattingCommands {
     editor.focus();
   }
 
-  /** Applies a background fill to the most relevant scope: selected text gets an
-      inline highlight; a bare cursor in a table cell or column fills that
-      container; otherwise it's an inline highlight (stored, so it continues as
-      you type). `null` clears whichever scope applies. */
+  /** Applies a background fill to the most relevant scope: a selected button
+      is filled; selected text gets an inline highlight; a bare cursor in a
+      table cell, a column or a section fills that container; otherwise it's
+      an inline highlight (stored, so it continues as you type). `null`
+      clears whichever scope applies. */
   applyBackground(color: string | null): void {
     const editor = this.target();
     if (!editor) return;
@@ -216,10 +218,14 @@ export class FormattingCommands {
 
     // The container scopes are the email editor's: the source has no cells.
     const bare = state.selection.empty && !this.codeView();
-    if (bare && findTableContext(state)) {
+    if (!this.codeView() && selectedButton(state)) {
+      editor.commands['setButtonBackground'](color);
+    } else if (bare && findTableContext(state)) {
       editor.commands['setCellBackground'](color);
     } else if (bare && findColumnContext(state)) {
       editor.commands['setColumnBackground'](color);
+    } else if (bare && findSectionContext(state)) {
+      editor.commands['setSectionBackground'](color);
     } else if (color) {
       editor.commands['setBackgroundColor'](color);
     } else {

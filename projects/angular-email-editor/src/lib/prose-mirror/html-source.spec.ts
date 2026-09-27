@@ -60,10 +60,16 @@ describe('html-source linter', () => {
   });
 
   it('announces that comments will not survive the parse — loud, never silent', () => {
-    const diagnostics = lintHTML('<div>a</div><!--[if mso]>ghost<![endif]-->');
+    const diagnostics = lintHTML('<div>a</div><!-- ghost -->');
     expect(diagnostics).toHaveLength(1);
     expect(diagnostics[0]).toMatchObject({ severity: 'warning' });
     expect(diagnostics[0].message).toContain('drops them');
+  });
+
+  it('lets a conditional comment be — Outlook’s own content, not a note', () => {
+    const source =
+      '<!--[if mso]><table><tr><td width="280"><![endif]--><div>x</div><!--[if mso]></td></tr></table><![endif]--><!--[if !mso]><!--><p>y</p><!--<![endif]-->';
+    expect(lintHTML(source).filter((d) => d.message.includes('Comments'))).toEqual([]);
   });
 
   it('flags an unterminated comment as an error', () => {
@@ -118,6 +124,18 @@ describe('html-source linter', () => {
       lintHTML('<div>{{customer_first_name_and_a_very_long_field_identifier_here}}</div>'),
     ).toEqual([]);
     expect(lintHTML('<div>short words only here</div>')).toEqual([]);
+  });
+
+  it('exempts a background image drawn for Outlook in VML — the section node’s picture behind text', () => {
+    const cell = (comments: boolean) =>
+      (comments
+        ? '<!--[if mso]><v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false"><v:fill type="frame" src="https://x.io/hero.jpg" /><v:textbox><![endif]-->'
+        : '') +
+      '<td background="https://x.io/hero.jpg" style="background-image: url(https://x.io/hero.jpg); background-size: cover;">x</td>' +
+      (comments ? '<!--[if mso]></v:textbox></v:rect><![endif]-->' : '');
+    const flagged = lintHTML(cell(false)).filter((d) => d.message.includes('background'));
+    expect(flagged.length).toBeGreaterThan(0);
+    expect(lintHTML(cell(true)).filter((d) => d.message.includes('background'))).toEqual([]);
   });
 
   it('exempts our own deliberate Outlook degradations: fluid inline-block columns and the bordered button anchor', () => {
@@ -203,6 +221,21 @@ describe('html-source formatter — merge tags', () => {
     expect(formatHTML('<div>{{#if a}}{{x}}{{/if}} {{~ y ~}}</div>')).toBe(
       '<div>{{#if a}}{{ x }}{{/if}} {{~ y ~}}</div>',
     );
+  });
+});
+
+describe('html-source formatter — a whole document', () => {
+  it('keeps the stylesheet, from the head too, its CSS as written', () => {
+    const source =
+      '<html><head><style type="text/css">@media only screen and (min-width:480px) { .mj-column-per-50 { width: 50% !important; max-width: 50%; } }\n a > b { color: red }</style></head>' +
+      '<body><div style="margin:0 auto;max-width:600px"><div class="mj-column-per-50" style="display:inline-block;width:100%"><p>x</p></div></div></body></html>';
+    const formatted = formatHTML(source);
+    expect(formatted.startsWith('<style type="text/css">\n  @media only screen')).toBe(true);
+    // Not escaped, not re-wrapped: the parse reads the same rules after.
+    expect(formatted).toContain('a > b { color: red }');
+    expect(formatted).toContain('width: 50% !important');
+    expect(formatted.indexOf('</style>')).toBeLessThan(formatted.indexOf('<div'));
+    expect(formatHTML(formatted)).toBe(formatted);
   });
 });
 

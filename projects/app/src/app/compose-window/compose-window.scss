@@ -88,6 +88,10 @@
   inset: 0;
   z-index: 4;
   margin: auto;
+  // The zoomed-out sheet is wider than a message is: the writer's blocks
+  // keep to a centred column of a long line's width (email-writer.scss),
+  // and the room at the sides is a side panel's to come.
+  --writer-column: 100ch;
   inline-size: var(--compose-window-dialog-width);
   max-inline-size: none;
   block-size: calc(var(--compose-window-dialog-width) * 9 / 16);

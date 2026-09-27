@@ -11,6 +11,8 @@ import { EditorView } from 'prosemirror-view';
 import { closeHistory } from 'prosemirror-history';
 import { FunctionalExtension, defineExtension, defineNode } from '../../extension';
 import { isSafeUrl } from '../marks/link';
+import { isSafeColor, toEmailSafeColor } from '../marks/text-style';
+import { fillTextColor } from '../../dual-contrast';
 import { soleInlineAtom } from '../inline-atoms';
 
 /** The button's canonical styling — the *border-based* bulletproof button:
@@ -24,22 +26,56 @@ import { soleInlineAtom } from '../inline-atoms';
     rgb on the serialize round trip, so the canonical form must already be
     rgb to stay stable. The label's weight and slant are the button's
     own (`bold`, `italic`): this is a default button's. */
-export const BUTTON_STYLE = buttonStyle({ bold: true, italic: false });
+export const BUTTON_STYLE = buttonStyle({
+  bold: true,
+  italic: false,
+  background: null,
+  color: null,
+});
 
-/** The canonical style of a button with that label styling: bold is
-    `font-weight: bold` and not bold `normal` (said, never left out — a
+/** The default button's fill — the primary blue — and the text on it. */
+export const BUTTON_FILL = 'rgb(26, 115, 232)';
+
+const BUTTON_FILL_HEX = '#1a73e8';
+
+/** The canonical style of a button with that label styling and fill: bold
+    is `font-weight: bold` and not bold `normal` (said, never left out — a
     client's own anchor styling may be bold); italic adds `font-style`
-    after the weight, and not italic leaves it out. */
-export function buttonStyle({ bold, italic }: { bold: boolean; italic: boolean }): string {
+    after the weight, and not italic leaves it out; the fill (hex, null for
+    the default blue) colours the box and its borders, in the rgb form the
+    CSSOM prints, with the words in `color` (hex) or, null, the text the
+    fill pairs (`fillTextColor`; white on the default blue). */
+export function buttonStyle({
+  bold,
+  italic,
+  background,
+  color,
+}: {
+  bold: boolean;
+  italic: boolean;
+  background?: string | null;
+  color?: string | null;
+}): string {
+  const fill = background ? hexToRgb(background) : BUTTON_FILL;
+  const text = color
+    ? hexToRgb(color)
+    : background
+      ? hexToRgb(fillTextColor(background))
+      : 'rgb(255, 255, 255)';
   return (
-    'display: inline-block; background-color: rgb(26, 115, 232); color: rgb(255, 255, 255); ' +
+    `display: inline-block; background-color: ${fill}; color: ${text}; ` +
     `font-weight: ${bold ? 'bold' : 'normal'}; ` +
     (italic ? 'font-style: italic; ' : '') +
     'text-decoration: none; ' +
     // Longhands in the CSSOM's own order (width, style, color) and at the end,
     // where every serializer puts them — the canonical string is a fixpoint.
-    'border-width: 14px 28px; border-style: solid; border-color: rgb(26, 115, 232);'
+    `border-width: 14px 28px; border-style: solid; border-color: ${fill};`
   );
+}
+
+function hexToRgb(hex: string): string {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
 }
 
 /**
@@ -79,6 +115,11 @@ export const Button = defineNode({
       label: { default: 'Button' },
       bold: { default: true },
       italic: { default: false },
+      /** The box's fill, as hex — null for the default blue. A builder's
+          button keeps its colour; the box stays ours (borders, square). */
+      background: { default: null },
+      /** The words' colour, as hex — null for the one the fill pairs. */
+      color: { default: null },
     },
     parseDOM: [
       {
@@ -88,7 +129,7 @@ export const Button = defineNode({
         priority: 60,
         getAttrs: (dom) => {
           if (!(dom instanceof HTMLElement)) return false;
-          if (!/display:\s*inline-block/i.test(dom.getAttribute('style') ?? '')) return false;
+          if (!isButtonBox(dom)) return false;
           // Same rule as the link mark: a script URL kills the button on
           // parse — and, refused here, the link mark refuses it too.
           const href = dom.getAttribute('href') ?? UNSET_BUTTON_HREF;
@@ -98,9 +139,10 @@ export const Button = defineNode({
           const label = (dom.textContent ?? '').replace(/\s+/g, ' ').trim();
           // Bold unless the weight is said to be less; italic where the
           // slant is said — the label's styling reads off the box alone.
-          const bold = !/^(normal|lighter|[1-4]\d\d)$/i.test(dom.style.fontWeight.trim());
-          const italic = /^(italic|oblique)/i.test(dom.style.fontStyle.trim());
-          return { href, label, bold, italic };
+          const bold = !/^(normal|lighter|[1-4]\d\d)$/i.test(inlineValue(dom, 'font-weight'));
+          const italic = /^(italic|oblique)/i.test(inlineValue(dom, 'font-style'));
+          const background = buttonFill(dom);
+          return { href, label, bold, italic, background, color: buttonText(dom, background) };
         },
       },
     ],
@@ -153,10 +195,13 @@ export const Button = defineNode({
     toggleButtonLink: (): Command => toggleButtonLink,
     setButtonHref: (href: string): Command => setButtonHref(href),
     setButtonLabel: (label: string): Command => setButtonLabel(label),
+    /** Fill the selected button (or, with `null`, the default blue again). */
+    setButtonBackground: (color: string | null): Command => setButtonBackground(color),
   }),
   actions: ({ schema }) => [
     {
       id: 'button',
+      section: 'layout',
       title: 'Button',
       keywords: ['button', 'cta', 'call to action', 'link'],
       icon: 'smart_button',
@@ -167,6 +212,7 @@ export const Button = defineNode({
     // menu (a caret) never offers it.
     {
       id: 'button-link',
+      section: 'layout',
       title: 'Button link',
       keywords: ['button', 'cta', 'call to action', 'link'],
       icon: 'smart_button',
@@ -180,13 +226,84 @@ export const Button = defineNode({
 /** A button's anchor attributes as the email carries them: a new tab,
     without the opener — what every link in the email carries (the link
     mark's defaults), so a button is no exception to it. */
+/** Whether an anchor is drawn as a box — `display: inline-block` with a
+    fill or a border, which is what makes a fake button one. An inline-block
+    anchor with neither is a link a builder laid out, a navbar's say (MJML
+    gives every menu link `inline-block` and a padding), and stays a link. */
+function isButtonBox(dom: HTMLElement): boolean {
+  const style = dom.getAttribute('style') ?? '';
+  if (!/display:\s*inline-block/i.test(style)) return false;
+  if (dom.getAttribute('bgcolor')) return true;
+  const declarations = style
+    .split(';')
+    .map((declaration) => declaration.split(/:(.*)/s).map((part) => part.trim().toLowerCase()));
+  const declared = (property: RegExp) =>
+    declarations.some(
+      ([name, value]) =>
+        !!name &&
+        property.test(name) &&
+        !!value &&
+        !/^(none|transparent|initial|inherit|unset|0(px)?)(\s|$|!)/.test(value),
+    );
+  return (
+    declared(/^background(-color|-image)?$/) ||
+    declared(/^border(-style|-width|-top|-bottom|-left|-right)?$/)
+  );
+}
+
 function buttonAttrs(node: Node): Record<string, string> {
   return {
     href: node.attrs['href'] as string,
     target: '_blank',
     rel: 'noopener noreferrer',
-    style: buttonStyle(node.attrs as { bold: boolean; italic: boolean }),
+    style: buttonStyle(
+      node.attrs as {
+        bold: boolean;
+        italic: boolean;
+        background: string | null;
+        color: string | null;
+      },
+    ),
   };
+}
+
+/** An inline declaration's value: the CSSOM's reading, else the attribute's
+    own words — an engine that trips on the `background` shorthand before
+    it drops the rest. */
+function inlineValue(dom: HTMLElement, property: string): string {
+  const cssom = dom.style.getPropertyValue(property).trim();
+  if (cssom) return cssom;
+  const m = new RegExp(`(?:^|;)\\s*${property}\\s*:\\s*([^;]+)`, 'i').exec(
+    dom.getAttribute('style') ?? '',
+  );
+  return m?.[1]?.trim() ?? '';
+}
+
+/** The text colour a parsed box carries, where it is not the one the fill
+    pairs (the canonical form's, absorbed): a builder's white on a mid
+    fill, say. */
+function buttonText(dom: HTMLElement, background: string | null): string | null {
+  const raw = inlineValue(dom, 'color');
+  if (!raw || !isSafeColor(raw)) return null;
+  const hex = toEmailSafeColor(raw)?.toLowerCase() ?? null;
+  if (!hex) return null;
+  const paired = background ? fillTextColor(background).toLowerCase() : '#ffffff';
+  return hex === paired ? null : hex;
+}
+
+/** The fill a parsed box carries: its `background-color`, the colour in
+    its `background` shorthand, or a `bgcolor` attribute — as hex; null
+    for none, or for our own default blue (the canonical form's). */
+function buttonFill(dom: HTMLElement): string | null {
+  const style = dom.getAttribute('style') ?? '';
+  const raw =
+    dom.style.backgroundColor ||
+    /(?:^|;)\s*background\s*:\s*([^;]+)/i.exec(style)?.[1]?.trim().split(/\s+/)[0] ||
+    dom.getAttribute('bgcolor') ||
+    '';
+  if (!raw || !isSafeColor(raw)) return null;
+  const hex = toEmailSafeColor(raw)?.toLowerCase() ?? null;
+  return hex && hex !== BUTTON_FILL_HEX ? hex : null;
 }
 
 /** Stops the browser following a button's anchor. Never answers: the
@@ -339,6 +456,27 @@ const setButtonHref =
         ...button.node.attrs,
         href: href.trim() || UNSET_BUTTON_HREF,
       });
+      tr.setSelection(NodeSelection.create(tr.doc, button.pos));
+      dispatch(tr);
+    }
+    return true;
+  };
+
+/** Fills the selected button — or, with `null`, gives it the default blue
+    back — keeping it selected. */
+const setButtonBackground =
+  (color: string | null): Command =>
+  (state, dispatch) => {
+    const button = selectedButton(state);
+    if (!button) return false;
+    const hex = color ? (toEmailSafeColor(color)?.toLowerCase() ?? null) : null;
+    if (color && !hex) return false;
+    if (dispatch) {
+      const tr = state.tr.setNodeAttribute(
+        button.pos,
+        'background',
+        hex === BUTTON_FILL_HEX ? null : hex,
+      );
       tr.setSelection(NodeSelection.create(tr.doc, button.pos));
       dispatch(tr);
     }

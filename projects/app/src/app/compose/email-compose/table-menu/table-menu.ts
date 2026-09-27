@@ -95,11 +95,13 @@ export class TableMenu {
     // lost by the menu going away.
     inject(Popover).register({
       layer: 'toolbar',
-      open: () => !!this.target(),
+      // A band's grip; a cell's opens the cell menu instead.
+      open: () => !!this.target() && this.target()!.kind !== 'cell',
       anchor: () => this.target()?.boundingBox ?? null,
       content: this.panel,
       positions: this.positions,
       onOutsideClick: () => this.closed.emit(),
+      close: () => this.leave(),
     });
   }
 
