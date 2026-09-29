@@ -185,6 +185,8 @@ describe('image node', () => {
         parent: host,
         extensions: emailExtensions,
         content: '<div>hello <img src="x.png" alt="dot"> world</div>',
+        // The image's canonical hybrid sizing is what these assert.
+        parseMode: 'repair',
       });
       return { editor, unmount: () => (editor.destroy(), host.remove()) };
     };
@@ -380,6 +382,8 @@ describe('image node', () => {
         parent: host,
         extensions: emailExtensions,
         content: '<div>hello <img src="x.png" alt="dot"> world</div>',
+        // The image's canonical hybrid sizing is what these assert.
+        parseMode: 'repair',
       });
       editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, 7)));
       const wrapper = editor.view.nodeDOM(7) as HTMLElement;
@@ -490,7 +494,13 @@ describe('image node', () => {
     const mount = (content: string) => {
       const host = document.createElement('div');
       document.body.appendChild(host);
-      const editor = createEditor({ parent: host, extensions: emailExtensions, content });
+      // The frame's canonical sizing is what these assert.
+      const editor = createEditor({
+        parent: host,
+        extensions: emailExtensions,
+        content,
+        parseMode: 'repair',
+      });
       return { editor, unmount: () => (editor.destroy(), host.remove()) };
     };
 

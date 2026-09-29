@@ -19,7 +19,14 @@ describe('section', () => {
   beforeEach(() => {
     host = document.createElement('div');
     document.body.appendChild(host);
-    editor = createEditor({ parent: host, extensions: emailExtensions, content: '<p>before</p>' });
+    // The band's canonical emission is what this suite asserts (`canonical`
+    // parses as the import does), so the editor parses that way too.
+    editor = createEditor({
+      parent: host,
+      extensions: emailExtensions,
+      content: '<p>before</p>',
+      parseMode: 'repair',
+    });
   });
 
   afterEach(() => {

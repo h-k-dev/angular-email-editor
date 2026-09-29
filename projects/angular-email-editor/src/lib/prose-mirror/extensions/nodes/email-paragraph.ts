@@ -5,16 +5,6 @@ import { Fragment, ResolvedPos } from 'prosemirror-model';
 import { isNodeActive } from '../../editor';
 import { defineNode } from '../../extension';
 import { findListDepth } from './lists';
-import {
-  AUTHORED_ATTRS,
-  AuthoredMarkup,
-  authoredAttribute,
-  authoredMarkup,
-  renderAuthored,
-  withAttribute,
-  withStyleDeclaration,
-} from '../../authored';
-import { declarationProperty, splitDeclarations } from '../../email-vocabulary';
 
 const BLOCK_TAGS = new Set([
   'P',
@@ -162,26 +152,6 @@ function cellAround($pos: ResolvedPos): number | null {
 }
 
 /**
- * An authored line's markup with a new alignment. Authored alignment is always
- * explicit — `null` (left) writes `text-align: left` rather than removing the
- * declaration, because an authored line usually sits in a container with its
- * own alignment (MJML cells are `text-align: center`) and removing it would
- * inherit that instead. Written where the markup already says it: the
- * `text-align` declaration, else a legacy `align` attribute, else appended.
- */
-function alignAuthored(markup: AuthoredMarkup, align: ParagraphAlignment): AuthoredMarkup {
-  const value = align ?? 'left';
-  const style = authoredAttribute(markup, 'style') ?? '';
-  const declared = splitDeclarations(style).some(
-    (part) => declarationProperty(part) === 'text-align',
-  );
-  if (!declared && authoredAttribute(markup, 'align') !== null) {
-    return withAttribute(markup, 'align', value);
-  }
-  return withStyleDeclaration(markup, 'text-align', value);
-}
-
-/**
  * Applies an alignment to every paragraph the selection touches — and to
  * every table cell it touches that holds no paragraph to take it.
  *
@@ -209,12 +179,7 @@ const setAlignment =
       let lines = false;
       state.doc.nodesBetween($from.pos, $to.pos, (node, pos) => {
         if (node.type !== paragraph) return true;
-        const html = authoredMarkup(node);
-        tr.setNodeMarkup(pos, undefined, {
-          ...node.attrs,
-          align,
-          html: html && alignAuthored(html, align),
-        });
+        tr.setNodeMarkup(pos, undefined, { ...node.attrs, align });
         lines = true;
         applied = true;
         return false;
@@ -276,14 +241,7 @@ const shiftIndent =
       if (node.type !== paragraph) return true;
       const indent = Math.min(INDENT_MAX, Math.max(0, (node.attrs['indent'] ?? 0) + step));
       if (indent !== node.attrs['indent']) {
-        // An authored line serializes from its markup: the indent is written
-        // into its style, where the parse reads it back from.
-        const html = authoredMarkup(node);
-        tr.setNodeMarkup(pos, undefined, {
-          ...node.attrs,
-          indent,
-          html: html && withStyleDeclaration(html, 'margin-left', `${indent * INDENT_STEP}px`),
-        });
+        tr.setNodeMarkup(pos, undefined, { ...node.attrs, indent });
         applied = true;
       }
       return false;
@@ -303,23 +261,23 @@ const shiftIndent =
  * {@link INDENT_STEP}); both serialize as inline style, the only style mail
  * clients keep, and both stay on the next line when Enter is pressed at the
  * line's end (see `splitKeepingMarks`), as they do in Gmail.
- * An authored line (MJML's styled `<div>`, a template's `<p class>`) parses
- * into this same node in the `email` mode, its markup kept verbatim in `html`
- * (see `authored.ts`): it renders and serializes as written, and every
- * command — marks, alignment, Enter — works on it like on any line.
  */
 export const EmailParagraph = defineNode({
   name: 'paragraph',
   spec: {
     content: 'inline*',
     group: 'block',
+    // An authored line (MJML's styled `<div>`) keeps its markup (authored.ts);
+    // aligning it back to the default writes `text-align: left` rather than
+    // removing the declaration — an authored line usually sits in a container
+    // with an alignment of its own (MJML cells centre), which it would inherit.
+    authoredStyleDefaults: { 'text-align': 'left' },
     attrs: {
       align: { default: null },
       indent: { default: 0 },
       /** The room round the line, `t r b l` in px — a builder's cell
           padding carried over; emitted as `margin`. Null for none. */
       spacing: { default: null },
-      ...AUTHORED_ATTRS,
     },
     parseDOM: [
       // The empty-line marker first (same tags, earlier rules win): its <br>
@@ -342,23 +300,11 @@ export const EmailParagraph = defineNode({
         getAttrs: (node) => (hasBlockChildren(node) ? false : attrsOf(node)),
       },
     ],
-    toDOM: (node) => {
-      const html = authoredMarkup(node);
-      if (html) return renderAuthored(html, true);
-      return ['div', { dir: 'auto', ...styleOf(node.attrs) }, 0];
-    },
+    toDOM: (node) => ['div', { dir: 'auto', ...styleOf(node.attrs) }, 0],
     // Serialization-only override (see serializeToHTML): empty lines must be
     // emitted as <div><br></div> or mail clients collapse them. The editor
     // view keeps the plain content hole — it needs it for cursor placement.
-    // An emptied authored line gets the same `<br>` for the same reason.
     emitDOM: (node: { childCount: number; attrs: Record<string, any> }) => {
-      const html = node.attrs['html'] as AuthoredMarkup | null;
-      if (html) {
-        if (node.childCount > 0) return renderAuthored(html, true);
-        const { dom } = renderAuthored(html, false);
-        dom.appendChild(document.createElement('br'));
-        return { dom };
-      }
       const attrs = styleOf(node.attrs);
       return node.childCount === 0 ? ['div', attrs, ['br']] : ['div', attrs, 0];
     },

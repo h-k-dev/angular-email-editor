@@ -1,3 +1,4 @@
+import { authoredMarkupOf } from '../../authored';
 import {
   Command,
   EditorState,
@@ -13,7 +14,6 @@ import { FunctionalExtension, defineExtension, defineNode } from '../../extensio
 import { isSafeUrl } from '../marks/link';
 import { InlineImageRegistry, inlineImageRegistry } from '../inline-images';
 import { soleInlineAtom } from '../inline-atoms';
-import { AUTHORED_ATTRS, authoredMarkup, renderAuthored } from '../../authored';
 
 export interface ImageAttrs {
   /** `null` is a placeholder: a sized frame awaiting its file (see the
@@ -583,7 +583,16 @@ class ImageView implements NodeView {
       A placeholder is flagged for the app's frame styling. */
   private apply(node: Node): void {
     const width = node.attrs['width'] as number | null;
-    this.dom.style.width = width ? `${width}px` : '';
+    // An authored image (a template's, kept as written — authored.ts) sizes
+    // itself as written: MJML's `display:block; width:100%` fills its cell.
+    // The wrapper then takes no width of its own and stands as the image
+    // does, so the cell around it lays out exactly as in the email.
+    const authored = authoredMarkupOf(node);
+    const style =
+      authored?.path[0]?.attrs.find(([name]: [string, string]) => name === 'style')?.[1] ?? '';
+    this.dom.style.width = width && !authored ? `${width}px` : '';
+    this.dom.style.display =
+      authored && /(?:^|;)\s*display\s*:\s*block\b/i.test(style) ? 'block' : '';
     this.dom.classList.toggle('aee-image--placeholder', !node.attrs['src']);
   }
 
@@ -771,10 +780,6 @@ export const Image = defineNode({
       alt: { default: null },
       title: { default: null },
       width: { default: null },
-      // Authored markup (MJML's `<img … style="border:0;display:block…"
-      // height="auto">`), kept verbatim in the `email` parse mode; the
-      // modelled `src`/`alt`/`title` are written back into it — see authored.ts.
-      ...AUTHORED_ATTRS,
     },
     parseDOM: [
       {
@@ -796,8 +801,6 @@ export const Image = defineNode({
     ],
     toDOM: (node) => {
       const { src, alt, title, width } = node.attrs;
-      const html = authoredMarkup(node);
-      if (html) return renderAuthored(html, false, { src, alt, title });
       const style = width
         ? `width: 100%; max-width: ${width}px; height: auto;`
         : 'max-width: 100%; height: auto;';

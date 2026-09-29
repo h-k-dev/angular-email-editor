@@ -236,7 +236,14 @@ describe('unwrapLayoutTables', () => {
       '<div class="mj-column-per-50" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;"><p>Picture</p></div>' +
       '<div class="mj-column-per-50" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;"><p>Words</p></div>' +
       '</td></tr></tbody></table></div></body></html>';
-    const editor = createEditor({ parent: mount, extensions: emailExtensions, content: html });
+    // The import pipeline is the `repair` parse; the editor's default keeps
+    // a builder's export as authored instead.
+    const editor = createEditor({
+      parent: mount,
+      extensions: emailExtensions,
+      content: html,
+      parseMode: 'repair',
+    });
     const out = editor.getHTML();
     // Two sections (the cells carry MJML's padding), no empty grid: inside
     // them the column blocks — two halves of the budget each, and the
@@ -264,7 +271,14 @@ describe('unwrapLayoutTables', () => {
       '<span class="mj-menu-icon-open" style="mso-hide:all;"> &#9776; </span><span class="mj-menu-icon-close" style="display:none;mso-hide:all;"> &#8855; </span></label></div>' +
       `<div class="mj-inline-links">${link('home')}${link('Summer deals')}${link('Our blog')}</div>` +
       '</td></tr></tbody></table></body></html>';
-    const editor = createEditor({ parent: mount, extensions: emailExtensions, content: html });
+    // The import pipeline is the `repair` parse; the editor's default keeps
+    // a builder's export as authored instead.
+    const editor = createEditor({
+      parent: mount,
+      extensions: emailExtensions,
+      content: html,
+      parseMode: 'repair',
+    });
     const out = editor.getHTML();
     // The client the import is drawn for shows the links, and nothing of
     // the toggle: no ☰, no ⊗, and the links are links — a builder's
@@ -293,7 +307,14 @@ describe('unwrapLayoutTables', () => {
       '<a href="https://mjml.io" style="display: inline-block; background: #bd8714; color: #FFFFFF; font-size: 13px; font-weight: normal; line-height: 120%; margin: 0; text-decoration: none; padding: 10px 25px; border-radius: 3px;" target="_blank"> BOOK NOW </a>' +
       '</td></tr></tbody></table></td></tr>' +
       '</tbody></table></td></tr></tbody></table></div>';
-    const editor = createEditor({ parent: mount, extensions: emailExtensions, content: html });
+    // The import pipeline is the `repair` parse; the editor's default keeps
+    // a builder's export as authored instead.
+    const editor = createEditor({
+      parent: mount,
+      extensions: emailExtensions,
+      content: html,
+      parseMode: 'repair',
+    });
     const out = editor.getHTML();
     console.log('MJML COLUMN OUT', out);
     // The title: centred, in the colour its wrapping div declared, its
@@ -324,7 +345,14 @@ describe('unwrapLayoutTables', () => {
       column('mj-column-per-50', '100%', 'Stacks left') +
       column('mj-column-per-50', '100%', 'Stacks right') +
       '</td></tr></tbody></table></div></body></html>';
-    const editor = createEditor({ parent: mount, extensions: emailExtensions, content: html });
+    // The import pipeline is the `repair` parse; the editor's default keeps
+    // a builder's export as authored instead.
+    const editor = createEditor({
+      parent: mount,
+      extensions: emailExtensions,
+      content: html,
+      parseMode: 'repair',
+    });
     const out = editor.getHTML();
     // The group's columns, written 50% wide by their author, hold that on a
     // phone; the mobile-first pair (100% inline, 50% from the sheet) stacks.
@@ -341,7 +369,14 @@ describe('unwrapLayoutTables', () => {
     const html =
       '<table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%"><tbody><tr><td align="center" style="font-size:0px;padding:0px;">' +
       `<div class="mj-inline-links">${link('home')} ${link('Our blog')}</div></td></tr></tbody></table>`;
-    const editor = createEditor({ parent: mount, extensions: emailExtensions, content: html });
+    // The import pipeline is the `repair` parse; the editor's default keeps
+    // a builder's export as authored instead.
+    const editor = createEditor({
+      parent: mount,
+      extensions: emailExtensions,
+      content: html,
+      parseMode: 'repair',
+    });
     const out = editor.getHTML();
     expect(out).toContain('<div style="text-align: center;">');
     expect(out).toMatch(

@@ -24,6 +24,9 @@ describe('createEditor', () => {
       parent: host,
       extensions: richTextExtensions,
       content: '<p>Hello world</p>',
+      // This suite asserts the kit's canonical output: parse as the import
+      // does (the default `email` mode would keep the authored `<p>`).
+      parseMode: 'repair',
       attributes: { role: 'textbox' },
       onUpdate: (e) => updates.push(e.getHTML()),
     });

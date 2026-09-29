@@ -41,7 +41,7 @@ export function templateGroup(templates: Templates): SuggestionGroup {
           title: row.name,
           keywords: [row.dialect],
           icon: 'article',
-          command: insertHTML(row.html),
+          command: insertHTML(row.html, { mode: 'email' }),
         })),
         nextCursor: rows.length === TEMPLATE_PAGE_SIZE ? String(skip + TEMPLATE_PAGE_SIZE) : null,
       };

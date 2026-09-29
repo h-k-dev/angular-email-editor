@@ -389,7 +389,8 @@ describe('button', () => {
       editor.exec(undo);
       // The typed "!" is still there (it took the bold); only the button went.
       expect(editor.getHTML()).toBe(
-        '<div>Buy <strong style="font-weight: bold;">now!</strong></div>',
+        // The authored `<b>` stays a `<b>` (`email` parse), bold all the same.
+        '<div>Buy <b>now!</b></div>',
       );
       unmount();
     });
@@ -511,7 +512,8 @@ describe('button', () => {
       );
       expect(html).toContain('<td');
       expect(html).not.toContain('</table><a');
-      expect(roundTrip(html)).toBe(html);
+      // The editor's own round trip: its default (`email`) parse.
+      expect(serializeToHTML(parseHTML(html, schema, { mode: 'email' }), schema)).toBe(html);
     } finally {
       editor.destroy();
       host.remove();

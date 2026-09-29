@@ -83,7 +83,13 @@ describe('createAiWriter', () => {
       await vi.runAllTimersAsync();
       await run.done;
       expect(isStreaming(streamed.state)).toBe(false);
-      const whole = createEditor({ parent: host, extensions: emailExtensions, content: email });
+      // The stream lands as canonical blocks: compare with the same parse.
+      const whole = createEditor({
+        parent: host,
+        extensions: emailExtensions,
+        content: email,
+        parseMode: 'repair',
+      });
       expect(streamed.getHTML()).toBe(whole.getHTML());
       const gaps = (html: string) => html.split('<div><br></div>').length - 1;
       expect(gaps(streamed.getHTML())).toBe(gaps(email));

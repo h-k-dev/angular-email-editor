@@ -22,7 +22,12 @@ describe('createContentProposal / proposeContent', () => {
   const html = () => editor.getHTML();
   /** The kit's canonical form of an HTML — what `getHTML` makes of it. */
   const canon = (content: string) => {
-    const other = createEditor({ parent: host, extensions: richTextExtensions, content });
+    const other = createEditor({
+      parent: host,
+      extensions: richTextExtensions,
+      content,
+      parseMode: 'repair',
+    });
     const out = other.getHTML();
     other.destroy();
     return out;
@@ -59,6 +64,8 @@ describe('createContentProposal / proposeContent', () => {
         createContentProposal({ onChange: (state) => changes.push(state) }),
       ],
       content: ORIGINAL,
+      // Proposals land as canonical blocks; this suite compares against them.
+      parseMode: 'repair',
     });
     editor.view.dispatch(
       editor.state.tr.setSelection(TextSelection.create(editor.state.doc, end())),

@@ -30,6 +30,7 @@ import {
   formatHTML,
   htmlSourceExtensions,
   lintHTML,
+  SourceOptions,
   TYPING_REST,
 } from 'angular-email-editor';
 import { isTyping } from '../is-typing';
@@ -39,6 +40,10 @@ import { isTyping } from '../is-typing';
  * autocomplete), mounted directly into the host element — the template holds
  * only the autocomplete listbox.
  */
+/** The source is read the way the visual editor parses it — the library's
+    default `email` mode: markup kept as authored, lint on what it drops. */
+const SOURCE: SourceOptions = { mode: 'email' };
+
 @Component({
   selector: 'section[html-email-compose]',
   templateUrl: './html-email-compose.html',
@@ -96,7 +101,9 @@ export class HtmlEmailCompose {
       untracked(() => {
         if (!editor || isTyping(editor.view)) return;
         if (!active) {
-          this.diagnostics.set(lintHTML(formatHTML(this.html())));
+          this.diagnostics.set(
+            lintHTML(formatHTML(this.html(), undefined, undefined, SOURCE), undefined, SOURCE),
+          );
           return;
         }
         this.#applyIncoming(editor);
@@ -108,7 +115,7 @@ export class HtmlEmailCompose {
   #applyIncoming(editor: Editor): void {
     const incoming = this.html();
     if (incoming === editor.getText()) return;
-    editor.setText(formatHTML(incoming));
+    editor.setText(formatHTML(incoming, undefined, undefined, SOURCE));
   }
 
   #mountEditor(): void {

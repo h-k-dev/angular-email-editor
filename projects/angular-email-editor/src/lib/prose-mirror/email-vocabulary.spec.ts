@@ -1,4 +1,4 @@
-import { TextSelection } from 'prosemirror-state';
+import { NodeSelection, TextSelection } from 'prosemirror-state';
 import { createSchema } from './schema';
 import { parseHTML, serializeToHTML } from './html';
 import { lintHTML } from './html-source';
@@ -140,7 +140,7 @@ describe('authored markup on the composer’s own nodes', () => {
     );
     expect(doc.child(0).attrs['html']).toBeNull();
     expect(doc.child(1).type.name).toBe('paragraph');
-    expect(doc.child(1).attrs['html']).toEqual({ tag: 'p', attrs: [['class', 'lead']] });
+    expect(doc.child(1).attrs['html'].path).toEqual([{ tag: 'p', attrs: [['class', 'lead']] }]);
     expect(doc.child(2).type.name).toBe('heading');
     expect(doc.child(2).attrs['level']).toBe(2);
     expect(serializeToHTML(doc, schema)).toBe(
@@ -157,7 +157,7 @@ describe('authored markup on the composer’s own nodes', () => {
     );
     const images: unknown[] = [];
     doc.descendants((node) => {
-      if (node.type.name === 'image') images.push(node.attrs['html']);
+      if (node.type.name === 'image') images.push(node.attrs['html'].path[0]);
       return true;
     });
     expect(images).toEqual([
@@ -183,11 +183,11 @@ describe('authored markup on the composer’s own nodes', () => {
     );
   });
 
-  it('a linked image is the image node under a link, the link keeping its own attributes', () => {
+  it('a linked image is the image node under a link, the link exactly as written', () => {
     const source =
       '<table><tr><td><a href="https://x.io" target="_blank" style="color:inherit"><img src="a.png" alt="a"></a></td></tr></table>';
     expect(email(source)).toBe(
-      '<table><tbody><tr><td><a href="https://x.io" target="_blank" rel="noopener noreferrer" style="color:inherit"><img src="a.png" alt="a"></a></td></tr></tbody></table>',
+      '<table><tbody><tr><td><a href="https://x.io" target="_blank" style="color:inherit"><img src="a.png" alt="a"></a></td></tr></tbody></table>',
     );
   });
 });
@@ -316,5 +316,97 @@ describe('lint names exactly what the email parse drops', () => {
     const messages = lintHTML('<!-- note --><video></video>').map((d) => d.message);
     expect(messages.some((m) => m.includes('drops them'))).toBe(true);
     expect(messages.some((m) => m.includes('not email-safe'))).toBe(true);
+  });
+});
+
+describe('editing authored markup patches the edit in, nothing else', () => {
+  const mount = (html: string) => {
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const editor = createEditor({ parent, extensions: emailExtensions });
+    editor.setContent(html);
+    return {
+      editor,
+      done: () => {
+        editor.destroy();
+        parent.remove();
+      },
+    };
+  };
+  const posOf = (editor: ReturnType<typeof createEditor>, name: string) => {
+    let found = -1;
+    editor.state.doc.descendants((node, pos) => {
+      if (found < 0 && node.type.name === name) found = pos;
+      return found < 0;
+    });
+    return found;
+  };
+
+  it('a cell fill lands in the authored cell’s own style, beside what it had', () => {
+    const { editor, done } = mount(
+      '<table class="t" cellpadding="0"><tbody><tr><td class="c" style="font-size:0px;padding:10px 25px;">x</td></tr></tbody></table>',
+    );
+    const cell = posOf(editor, 'tableCell');
+    editor.view.dispatch(
+      editor.state.tr.setSelection(TextSelection.create(editor.state.doc, cell + 1)),
+    );
+    expect(editor.commands['setCellBackground']('#e6f4ea')).toBe(true);
+    const html = editor.getHTML();
+    expect(html).toContain('<table class="t" cellpadding="0"><tbody><tr><td class="c" style="');
+    expect(html).toMatch(
+      /font-size:0px;padding:10px 25px;background-color:\s?rgb\(230, 244, 234\);/,
+    );
+    done();
+  });
+
+  it('a new row in an authored table is the composer’s own, the authored rows untouched', () => {
+    const { editor, done } = mount(
+      '<table class="t"><tbody><tr class="r"><td class="c">a</td></tr></tbody></table>',
+    );
+    const cell = posOf(editor, 'tableCell');
+    editor.view.dispatch(
+      editor.state.tr.setSelection(TextSelection.create(editor.state.doc, cell + 1)),
+    );
+    expect(editor.commands['addRowAfter']()).toBe(true);
+    const html = editor.getHTML();
+    expect(
+      html.startsWith('<table class="t"><tbody><tr class="r"><td class="c">a</td></tr><tr>'),
+    ).toBe(true);
+    done();
+  });
+
+  it('an image’s alt is written into its authored attributes, in place', () => {
+    const { editor, done } = mount(
+      '<div><img alt="old" src="a.png" style="border:0;display:block;" height="auto"></div>',
+    );
+    const image = posOf(editor, 'image');
+    editor.view.dispatch(
+      editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, image)),
+    );
+    expect(editor.commands['setImageAlt']('new')).toBe(true);
+    expect(editor.getHTML()).toBe(
+      '<div><img alt="new" src="a.png" style="border:0;display:block;" height="auto"></div>',
+    );
+    done();
+  });
+
+  it('an authored <b class> stays itself while bold, and goes when bold is taken off', () => {
+    const { editor, done } = mount('<div><b class="k">bold</b> text</div>');
+    expect(editor.getHTML()).toBe('<div><b class="k">bold</b> text</div>');
+    editor.view.dispatch(
+      editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 5)),
+    );
+    editor.commands['toggleBold']();
+    expect(editor.getHTML()).toBe('<div>bold text</div>');
+    done();
+  });
+
+  it('the editor view keeps its editing-only attributes on an authored link', () => {
+    const { editor, done } = mount('<div><a class="x" href="https://x.io">go</a></div>');
+    const anchor = editor.view.dom.querySelector('a')!;
+    expect(anchor.getAttribute('class')).toBe('x');
+    expect(anchor.getAttribute('tabindex')).toBe('-1');
+    expect(editor.getHTML()).toBe('<div><a class="x" href="https://x.io">go</a></div>');
+    done();
   });
 });

@@ -203,7 +203,8 @@ describe('inline atoms: an image or a button selected like a character', () => {
       editor.commands['toggleBold']();
       expect(editor.state.doc.nodeAt(imagePos)?.marks).toHaveLength(0);
       expect(editor.getHTML()).toBe(
-        '<div><strong style="font-weight: bold;">hello </strong><img src="x.png" alt="dot" style="max-width: 100%; height: auto;"><strong style="font-weight: bold;"> world</strong></div>',
+        // The image stays as written (`email` parse): marks never touch it.
+        '<div><strong style="font-weight: bold;">hello </strong><img src="x.png" alt="dot"><strong style="font-weight: bold;"> world</strong></div>',
       );
       unmount();
     });

@@ -1,3 +1,4 @@
+import { applyAuthoredAttributes } from '../authored';
 import { Plugin, PluginKey } from 'prosemirror-state';
 import { Node } from 'prosemirror-model';
 import { EditorView, ViewMutationRecord } from 'prosemirror-view';
@@ -108,6 +109,8 @@ class ColumnsView {
 
   #render(node: Node): void {
     this.#box.setAttribute('style', containerStyle(node.attrs['align']));
+    // An authored columns block shows its own attributes (authored.ts).
+    applyAuthoredAttributes(this.#box, node, 0);
 
     const caps = columnCaps(node);
     const boundaries = Math.max(caps.length - 1, 0);

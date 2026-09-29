@@ -1018,58 +1018,81 @@ apply, keep exactly what MJML put into its tags, and still parse it into
 the editor** — with a `preserve` escape hatch only for markup no floor
 client applies.
 
-**What landed — three parse modes, one schema** (`ParseMode`,
-`parseHTML(html, schema, { mode })`, `createEditor({ parseMode })`):
+**Decided (2026-09-29): `email` is the default.** Three parse modes, one
+schema (`ParseMode`, `parseHTML(html, schema, { mode })`,
+`createEditor({ parseMode })`):
 
-| Mode       | What it keeps                                                                                     |
-| ---------- | ------------------------------------------------------------------------------------------------- |
-| `repair`   | Default everywhere, unchanged: the canonical blocks, via the import pipeline.                     |
-| `email`    | Every tag, attribute and CSS property at least one floor client applies (`email-vocabulary.ts`), byte for byte; the document envelope (doctype, `<html>`/`<body>` attributes, the head) on `doc.attrs.envelope`; comments and conditionals as nodes. |
-| `preserve` | Like `email`, minus the vocabulary filter — custom elements, `data-*`, invented CSS. Opt-in for special needs. |
+| Mode       | Default of                                                         | What it keeps                                                                                     |
+| ---------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `email`    | `createEditor`, `createHtmlLanguage`, `createSourceMarks`, the app | Every tag, attribute and CSS property at least one floor client applies (`email-vocabulary.ts`), exactly as authored; the document envelope; comments and conditionals. |
+| `preserve` | opt-in                                                             | Like `email`, minus the vocabulary filter — custom elements, `data-*`, invented CSS.              |
+| `repair`   | `parseHTML`, `lintHTML`/`formatHTML`, paste, reply/import seeds, AI proposals | The canonical blocks, via the import pipeline — unchanged.                                  |
 
-- **Recognized, not opaque.** In `email`/`preserve`, text lines (`div`,
-  `p`), headings and images parse into the composer's own nodes, their
-  authored tag and attributes riding along in an `html` attr
-  (`authored.ts`) and rendered verbatim; alignment and indent write back
-  into the authored style, Enter continues an authored line with its markup,
-  Enter in an authored table cell breaks the line instead of adding a cell,
-  links keep their authored `class`/`style` (`extra`). Layout structure the
-  schema has no node for stays structure (`htmlElement`, `htmlTextElement`,
-  void and comment atoms, the `htmlInline` mark — `preserve.ts`). Our own
-  canonical output is recognized exactly (a canonical node claims an
-  element only if it would re-emit it identically), so **every golden
-  string parses back as itself, into the same nodes, in all three modes**
-  (pinned over `fixtures/golden.ts`); the columns' own Outlook comments are
-  dropped on parse and written again, as in `repair`.
-- **MJML's "Worldly" template** (`fixtures/mjml-worldly.ts`): identical in
-  `email` and `preserve`, a byte-stable fixpoint, the same rendering outline
-  as its source, and its text/images/links as editor nodes.
-- **The source language follows the mode** (`lintHTML`/`formatHTML`
-  `SourceOptions`, `createHtmlLanguage({ parseMode })`,
-  `createSourceMarks({ parseMode })`): `repair` lints and formats exactly as
-  before; `email` warns on exactly what its parse drops and accepts comments
-  and the envelope; `email`/`preserve` format a whole document as one (head
-  in the parse's own canonical lines) and break a wide `style` only where
-  the parse undoes it, so formatting stays presentation-only for markup kept
-  byte for byte.
-- **Visual pane** (`DocumentStyles`, email kit): a document's own
-  stylesheets apply to the editor view inside `@scope`, the body's style on
-  the editor root (`aee-document`).
+- **Every block recognizes usable markup — generically** (`preserve.ts`
+  `recognize`, `authored.ts`). A node or mark claims whatever its own parse
+  rule accepts, and its tag and attributes ride along in an `html` overlay,
+  every element down to its content included (a table and its `<tbody>`).
+  A plain `<table><tr><td>` is a real table with grips, `<b class="x">` is
+  bold and stays `<b class="x">`, an MJML text `<div>` is a paragraph, its
+  `<td><img>` an image in a table cell, its inline-block anchors buttons.
+  Recognition is refused — the preserve family keeps the element verbatim
+  instead — only when taking it would change the *structure*: the node
+  could not stand there without an invented wrapper, the authored elements
+  down to the content are not the ones the node renders (MJML's section
+  bands, which lack the inner `<div>` ours writes), the content would not
+  fit the node, or it holds comments the node has no place for (MJML's
+  columns with their conditionals). Our own canonical output is recognized
+  exactly, overlay `null`, so the golden corpus is an identity in all modes.
+- **Verbatim until edited, then only the edit.** An authored node renders
+  its markup as written while its modelled attributes are what the parse
+  read. Once a command changes them, the canonical rendering is computed
+  for what was parsed and for what is now, and only that difference is
+  patched in: an attribute set or dropped, a declaration replaced in place,
+  appended in the style's own punctuation, or removed (`text-align`/
+  `vertical-align` land on a legacy `align`/`valign` when that is where the
+  author stated them; a paragraph writes `text-align: left` rather than
+  removing it — `authoredStyleDefaults`). A cell fill lands in the cell's
+  own style, an image's alt in place, a link's href without our
+  `target`/`rel`; a new row in an authored table is canonical. The editor
+  view keeps its editing-only attributes (a link's `tabindex`) beside the
+  authored ones; NodeViews apply the overlay to the elements they build
+  (`applyAuthoredAttributes`: the table, the columns box); an authored
+  image's wrapper takes no pixel width of its own.
+- **MJML's "Worldly" template** (`fixtures/mjml-worldly.ts`; also the app's
+  "MJML" example set): byte-identical in `email` and `preserve`, a
+  fixpoint, and parsed into 14 paragraphs, 13 images, 17 tables, 4 buttons
+  and 10 links. In the app it loads from the `/` menu's Examples; measured
+  in Chromium, every navbar link, column, image, button, line and cell
+  padding in the visual pane is the size it is in a plain page of the same
+  HTML, and an edit (type, Enter) reaches the source pane and the preview.
+- **The source language follows the mode** (`SourceOptions`): `email` warns
+  on exactly what its parse drops and accepts comments and the envelope,
+  formats a whole document as one (head in the parse's canonical lines),
+  and breaks a wide `style` only where the parse undoes it.
+- **Visual pane**: a document's stylesheets apply inside `@scope`
+  (`DocumentStyles`), the body's style on the editor root (`aee-document`,
+  which the app uses to drop the composer typography); authored tables get
+  `aee-table-wrap--authored`, and the app's table chrome (gutter, cell
+  padding, reserved grid border) applies only to the composer's own tables.
+- **Specs**: suites that assert canonical output or the import pipeline
+  now say `parseMode: 'repair'`; suites about editing expect the authored
+  markup to stay.
 
-**Open — the decision this milestone waits on.** `repair` is still the
-default for `createEditor` and the app, because the rest of the kit — and
-its specs — expect plain markup to *become* our blocks: a bare
-`<table><tr><td>` is a `prosemirror-tables` table with grips, a legacy button
-anchor is a button atom, an MJML section is a section. In `email` mode those
-stay authored markup until each block learns to recognize a *usable* shape
-leniently and carry its authored attributes (the paragraph/heading/image
-pattern above), not only its canonical one. Two roads: (a) extend that
-pattern block by block (table, button, section, columns) and then flip the
-default to `email`; or (b) keep `repair` as the editor default and use
-`email` where templates are edited. The app is not wired to `email` yet —
-when it is, `.aee-editor table td` editor chrome must be scoped to the
-table NodeView (`.aee-table-wrap td`), or it pads and borders authored
-tables in the visual pane.
+Known trade-offs, accepted for now:
+
+- Mixed content (text beside blocks, `[[DELIVERY_INFO]] <p>…</p>`) and an
+  inline image or button standing among blocks get a line of their own —
+  laid out like the anonymous block box the browser would have used.
+- An emptied authored line serializes with the `<br>` every empty line gets.
+- Converting an authored line to a heading (a type change) starts from
+  canonical markup; a structural edit that rebuilds a node (some table
+  commands) keeps the overlay only where the command carries attributes.
+- Head `<style>` text is kept as written in every mode; only style
+  *attributes* are filtered by the vocabulary.
+- **Import and reply still repair.** An `.eml` body is email HTML, so the
+  email parse is the natural next step for `importedDocument` — one argument.
+- Outlook fidelity of kept markup is by construction (verbatim); only
+  browser rendering is measured.
 
 ## Non-goals (so we stay opinionated)
 
@@ -1103,11 +1126,12 @@ tables in the visual pane.
 
 - **Three parse modes, one schema** (M7). `parseHTML`'s rule set is rebuilt
   from the public `parseDOM` specs and filtered by scope (`ruleForScope`:
-  `repair` vs `authored`); no ProseMirror internals. A node that should
-  *understand* authored markup declares `...AUTHORED_ATTRS` and renders via
-  `renderAuthored` when `html` is set — the parser then passes its rule
-  through leniently; every other canonical node rule is made strict in the
-  authored scope (claims only what it would re-emit identically).
+  `repair` vs `authored`); no ProseMirror internals. In the authored scope
+  every node and mark rule is wrapped once (`recognize`/`recognizeMark`),
+  and `createSchema` gives every spec the `html` overlay attribute and the
+  authored rendering (`withAuthoredMarkup`) — a new block needs nothing to
+  take part. A spec opts out with `authoredMarkup: false`; a NodeView that
+  builds its own elements calls `applyAuthoredAttributes` on them.
 - **Authored markup never goes through the CSSOM.** An array `toDOM` spec
   assigns `style.cssText`, which reformats declarations and drops unknown
   ones (`mso-*` first); authored elements are built with `setAttribute`

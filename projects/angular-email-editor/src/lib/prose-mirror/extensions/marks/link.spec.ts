@@ -43,7 +43,9 @@ describe('link editing', () => {
   it('setLink from a bare cursor rewrites the whole link', () => {
     cursorAt(9);
     expect(editor.commands['setLink']({ href: 'https://new.io' })).toBe(true);
-    expect(editor.getHTML()).toBe(`<div>visit ${linkOpen('https://new.io')}site</a> now</div>`);
+    // The authored link keeps what it was written with (no target/rel of
+    // ours): only the href is patched in.
+    expect(editor.getHTML()).toBe('<div>visit <a href="https://new.io">site</a> now</div>');
   });
 
   it('unsetLink from a bare cursor removes the whole link', () => {

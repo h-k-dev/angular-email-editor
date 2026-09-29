@@ -4,7 +4,6 @@ export * from './html';
 export * from './import-html';
 export * from './html-tags';
 export * from './parse-mode';
-export * from './safe-url';
 export * from './preserve';
 export * from './envelope';
 export * from './email-vocabulary';

@@ -21,14 +21,15 @@ export interface EditorOptions {
   extensions: Extension[];
   /** Initial content as HTML. */
   content?: string;
-  /** How `content` and `setContent` parse markup. Default `repair`: markup
-      is rewritten into the composer's canonical blocks — a builder's export
-      (MJML) is imported through the import pipeline (import-html.ts).
-      `email` keeps every tag, attribute and CSS property Apple Mail, Outlook
-      or Gmail applies exactly as authored (MJML's output survives byte for
-      byte, head and conditional comments included), with text lines,
-      headings and images as editor nodes; `preserve` additionally keeps what
-      no floor client applies — the opt-in for special needs. */
+  /** How `content` and `setContent` parse markup. Default `email`: every
+      tag, attribute and CSS property Apple Mail, Outlook or Gmail applies is
+      recognized — as the kit's own nodes and marks wherever their rules
+      accept it (a table is a table, `<b>` is bold) — and kept exactly as
+      authored (authored.ts); a whole document keeps its head and
+      conditional comments. `preserve` additionally keeps what no floor
+      client applies — the opt-in for special needs. `repair` rewrites into
+      canonical blocks through the import pipeline (import-html.ts), as the
+      paste path always does. */
   parseMode?: ParseMode;
   /** DOM attributes for the editable element. */
   attributes?: Record<string, string>;
@@ -78,7 +79,7 @@ export interface Editor {
 export function createEditor(options: EditorOptions): Editor {
   const schema = createSchema(options.extensions);
   const ctx: ExtensionContext = { schema, extensions: options.extensions };
-  const parse = (html: string) => parseHTML(html, schema, { mode: options.parseMode ?? 'repair' });
+  const parse = (html: string) => parseHTML(html, schema, { mode: options.parseMode ?? 'email' });
 
   // Extension plugins run before all keymaps so interactive plugins (slash
   // menu, ...) can claim keys like Enter ahead of node bindings.

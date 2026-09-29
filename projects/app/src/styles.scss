@@ -144,7 +144,7 @@ html {
  *   2. the pointer hovers the block     (:hover — reveals the whole block)
  *   3. Ctrl is held (~300ms)            (.aee-guides-peek on the editor root)
  */
-.aee-editor table td,
+.aee-editor .aee-table-wrap:not(.aee-table-wrap--authored) td,
 .aee-editor .aee-column {
   border: 1px solid transparent;
   // Ease the guides in rather than snapping them on: motion starting early is
@@ -159,7 +159,7 @@ html {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .aee-editor table td,
+  .aee-editor .aee-table-wrap:not(.aee-table-wrap--authored) td,
   .aee-editor .aee-column {
     transition: none;
   }
@@ -248,7 +248,7 @@ html {
 .aee-editor .aee-table-wrap--resizing td,
 .aee-editor .aee-columns-wrap--resizing .aee-column,
 /* 3. peek: every layout block at once */
-.aee-editor.aee-guides-peek table td,
+.aee-editor.aee-guides-peek .aee-table-wrap:not(.aee-table-wrap--authored) td,
 .aee-editor.aee-guides-peek .aee-column {
   border-color: var(--email-layout-guide, var(--email-table-grid, rgb(224, 224, 224)));
   transition-delay: 0ms;
@@ -269,7 +269,7 @@ html {
  * while mail clients lay the same table out by content — an editor/email
  * divergence we don't accept for a look.
  */
-.aee-editor table td {
+.aee-editor .aee-table-wrap:not(.aee-table-wrap--authored) td {
   position: relative;
   /* Editorial spacing: the serialized email carries only *authored* padding
    * (an inline style, which wins over this rule). This default keeps the
@@ -528,6 +528,27 @@ html {
   /* No overflow trap here: a fixed-layout table at ≤ 100% can never outgrow
    * the wrapper, and an `overflow-x: auto` would turn the edge handles'
    * half-out-of-bounds grab strips into a phantom scrollbar. */
+}
+
+/* An authored table (a template's, kept as written by the `email` parse) is
+ * drawn the way the email draws it: no editorial gutter round it, no
+ * comfortable cell padding, no reserved grid-line border — the rules above
+ * are for the composer's own tables only. Its handles still work. */
+.aee-editor .aee-table-wrap--authored {
+  padding: 0;
+  margin-inline: 0;
+}
+
+/* A whole document (a compiled template, envelope and all) is drawn by a
+ * client with browser defaults, not with the composer's typography: while
+ * one is loaded the visual pane drops ours, as the preview does. Its own
+ * head styles arrive scoped through the library's DocumentStyles. */
+.aee-editor.aee-document {
+  font-family: initial;
+  font-size: initial;
+  font-weight: initial;
+  line-height: initial;
+  color: initial;
 }
 
 /* The geometry layer fills the block's box (inside the editorial gutter), so

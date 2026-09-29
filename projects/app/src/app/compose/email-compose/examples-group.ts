@@ -37,7 +37,9 @@ export function examplesGroup(examples: Examples): SuggestionGroup {
         // The file's HTML is the message's original from here on.
         command: (state, dispatch, view) => {
           if (dispatch) examples.loaded.set(doc.html);
-          return replaceHTML(doc.html)(state, dispatch, view);
+          // Parsed as the editor parses (`email`): an example — a compiled
+          // MJML template included — comes in exactly as written.
+          return replaceHTML(doc.html, { mode: 'email' })(state, dispatch, view);
         },
       }));
     },

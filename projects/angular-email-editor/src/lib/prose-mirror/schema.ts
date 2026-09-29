@@ -1,5 +1,6 @@
 import { MarkSpec, NodeSpec, Schema } from 'prosemirror-model';
 import { Extension } from './extension';
+import { withAuthoredMarkup } from './authored';
 
 /**
  * Builds a ProseMirror {@link Schema} from a list of extensions.
@@ -17,7 +18,7 @@ export function createSchema(extensions: Extension[]): Schema {
         if (nodes[extension.name]) {
           throw new Error(`Duplicate node extension "${extension.name}"`);
         }
-        nodes[extension.name] = extension.spec;
+        nodes[extension.name] = withAuthoredMarkup(extension.spec);
         if (extension.topNode) {
           topNode = extension.name;
         }
@@ -26,7 +27,7 @@ export function createSchema(extensions: Extension[]): Schema {
         if (marks[extension.name]) {
           throw new Error(`Duplicate mark extension "${extension.name}"`);
         }
-        marks[extension.name] = extension.spec;
+        marks[extension.name] = withAuthoredMarkup(extension.spec);
         break;
       case 'extension':
         break;

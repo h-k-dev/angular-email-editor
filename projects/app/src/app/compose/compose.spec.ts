@@ -302,7 +302,8 @@ describe('Compose', () => {
     await fixture.whenStable();
     expect(dialog()).toBeNull();
     expect(pane.value()).not.toContain('inline-block');
-    expect(pane.value()).toContain('the report</strong>');
+    // The authored `<b>` stays itself (the editor's `email` parse).
+    expect(pane.value()).toContain('<b>the report</b>');
 
     // Typed: the button goes there.
     await convert('the report');
@@ -425,7 +426,10 @@ describe('Compose', () => {
     bold.click();
     italic.click();
     await fixture.whenStable();
-    expect(pane.value()).toContain('font-weight: normal; font-style: italic;');
+    // The button was written without our target/rel, so it keeps its own
+    // markup: the edit replaces its weight in place and adds the slant.
+    expect(pane.value()).toContain('font-weight: normal;');
+    expect(pane.value()).toContain('font-style: italic;');
     expect(pane.value()).not.toMatch(/<strong|<em/);
     expect(bold.getAttribute('aria-pressed')).toBe('false');
     expect(italic.getAttribute('aria-pressed')).toBe('true');

@@ -1,3 +1,4 @@
+import { applyAuthoredAttributes } from '../authored';
 import { Command, EditorState, Plugin, PluginKey } from 'prosemirror-state';
 import { Node } from 'prosemirror-model';
 import { Decoration, DecorationSet, EditorView, ViewMutationRecord } from 'prosemirror-view';
@@ -483,7 +484,9 @@ class TableView {
     // table feel like it is flying apart — Tiptap's TableView skips this
     // path for the same reason. Persistent node identity makes the compare
     // a handful of pointer checks on the rows that did not change.
-    if (!sameTableChrome(this.#node, node)) this.#render(node);
+    if (!sameTableChrome(this.#node, node) || node.attrs['html'] !== this.#node.attrs['html']) {
+      this.#render(node);
+    }
     this.#node = node;
     return true;
   }
@@ -530,6 +533,12 @@ class TableView {
     // gutter), so a child's `left` percentage is a share of the table's own
     // area — table-relative shares are converted once, here.
     this.#table.setAttribute('style', tableStyle(tableWidth, offset));
+    // An authored table (a template's, parsed in the `email` mode) shows its
+    // own attributes, as the email does — see authored.ts.
+    applyAuthoredAttributes(this.#table, node, 0);
+    applyAuthoredAttributes(this.contentDOM, node, 1);
+    // The hook for drawing it without the composer's table chrome.
+    this.dom.classList.toggle('aee-table-wrap--authored', !!node.attrs['html']);
     this.#edges.left.style.left = `${offset}%`;
     this.#edges.right.style.left = `${offset + tableWidth}%`;
     // At the container's own edges the *grab strip* tucks fully inside — a

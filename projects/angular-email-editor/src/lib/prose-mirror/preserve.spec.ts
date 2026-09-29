@@ -122,9 +122,9 @@ describe('email parse — the MJML target', () => {
     expect(canonical).toContain('<p>SUNNIEST DESTINATIONS</p>');
   });
 
-  it('keeps a styled link as designed — class, style and target ride along', () => {
+  it('keeps a styled link exactly as written — attribute order included', () => {
     expect(canonical).toContain(
-      '<a href="https://mjml.iohttps://mjml.io" target="_blank" rel="noopener noreferrer" class="mj-link" style="display: inline-block; color: #000000;',
+      '<a class="mj-link" href="https://mjml.iohttps://mjml.io" target="_blank" style="display: inline-block; color: #000000;',
     );
   });
 
@@ -132,10 +132,9 @@ describe('email parse — the MJML target', () => {
     // `<a style="display: inline-block"> home </a>` → `home`: the spaces never
     // rendered in a client, and in the editor's pre-wrap view they would.
     expect(canonical).toContain('padding: 0 35px;">home</a>');
-    expect(canonical).toContain('border-radius: 3px;">BOOK NOW</a>');
-    // Ordinary inline whitespace follows the same rules as the repair parse.
-    const inline = '<div>a <b> b </b> c</div>';
-    expect(email(inline)).toBe(repair(inline));
+    expect(canonical).toContain('border-radius: 3px;" target="_blank">BOOK NOW</a>');
+    // Ordinary inline whitespace collapses as in every parse, nothing more.
+    expect(email('<div>a <b> b </b> c</div>')).toBe('<div>a <b>b </b>c</div>');
   });
 
   it('drops nothing: MJML emits only what floor clients apply, so email mode == preserve mode', () => {
@@ -149,7 +148,7 @@ describe('email parse — the MJML target', () => {
     ).toBe(false);
   });
 
-  it('parses into the composer’s own nodes — text lines, images, links — not opaque markup', () => {
+  it('parses into the composer’s own nodes — lines, images, tables, buttons, links — not opaque markup', () => {
     const doc = emailDoc(MJML_WORLDLY_HTML);
     const counts = new Map<string, number>();
     const htmlOf: Record<string, unknown> = {};
@@ -164,10 +163,14 @@ describe('email parse — the MJML target', () => {
     // footer's loose "[[DELIVERY_INFO]]" run.
     expect(counts.get('paragraph')).toBe(14);
     expect(counts.get('image')).toBe(13);
+    // The one-cell tables round every picture and every button are tables
+    // (their cells hold a line's content); the four "BOOK NOW" are buttons.
+    expect(counts.get('table')).toBe(17);
+    expect(counts.get('tableCell')).toBe(17);
+    expect(counts.get('button')).toBe(4);
     // The navbar's <input> checkbox, between blocks.
     expect(counts.get('htmlVoidBlock')).toBe(1);
-    expect(counts.get('htmlVoid') ?? 0).toBe(0);
-    expect(htmlOf['paragraph']).toEqual({
+    expect((htmlOf['paragraph'] as { path: unknown[] }).path[0]).toEqual({
       tag: 'div',
       attrs: [
         [
@@ -176,13 +179,11 @@ describe('email parse — the MJML target', () => {
         ],
       ],
     });
-    expect((htmlOf['image'] as { attrs: [string, string][] }).attrs.map(([name]) => name)).toEqual([
-      'alt',
-      'src',
-      'style',
-      'width',
-      'height',
-    ]);
+    expect(
+      (htmlOf['image'] as { path: { attrs: [string, string][] }[] }).path[0].attrs.map(
+        ([name]) => name,
+      ),
+    ).toEqual(['alt', 'src', 'style', 'width', 'height']);
     // The navbar entries and the buttons are links over editable text.
     const links: string[] = [];
     doc.descendants((node) => {
@@ -190,9 +191,7 @@ describe('email parse — the MJML target', () => {
         links.push(node.text!);
       return true;
     });
-    expect(links).toEqual(
-      expect.arrayContaining(['home', 'Summer deals', 'BOOK NOW', '[[HEADLINE]]']),
-    );
+    expect(links).toEqual(expect.arrayContaining(['home', 'Summer deals', '[[HEADLINE]]']));
   });
 
   it('is a fixpoint: parsing its own output changes nothing', () => {
@@ -381,12 +380,16 @@ describe('the composer’s own output parses back as itself, in every mode', () 
     expect(email(out)).toBe(out);
   });
 
-  it('a foreign row makes the whole table foreign — no canonical node inside a preserved one', () => {
+  it('an authored row keeps its markup inside a table that stays a table', () => {
     const table = GOLDEN_HTML.find((html) => html.startsWith('<table'))!;
     const mixed = table.replace('<tr>', '<tr class="x">');
-    expect(preserve(mixed)).toBe(mixed);
-    const doc = parseHTML(mixed, schema, { mode: 'preserve' });
-    expect(doc.child(0).type.name).toBe('htmlElement');
+    expect(email(mixed)).toBe(mixed);
+    const doc = parseHTML(mixed, schema, { mode: 'email' });
+    expect(doc.child(0).type.name).toBe('table');
+    expect(doc.child(0).attrs['html']).toBeNull();
+    expect(doc.child(0).child(0).attrs['html'].path).toEqual([
+      { tag: 'tr', attrs: [['class', 'x']] },
+    ]);
   });
 
   it('marks stay lenient: a decorated <b> is still bold', () => {

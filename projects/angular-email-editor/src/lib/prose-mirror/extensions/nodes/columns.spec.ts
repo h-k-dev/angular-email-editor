@@ -32,7 +32,11 @@ describe('outlookColumns — the hybrid’s Outlook half', () => {
     );
     expect(out).toContain('</div><!--[if mso]></td></tr></table><![endif]--></div>');
     // The round trip: the comments go on parse, the block writes them again.
-    expect(serializeToHTML(parseHTML(out, editor.schema), editor.schema)).toBe(out);
+    // (in the editor's own parse — the default `email` mode keeps the
+    // authored `<p>` beside the block).
+    expect(serializeToHTML(parseHTML(out, editor.schema, { mode: 'email' }), editor.schema)).toBe(
+      out,
+    );
     editor.destroy();
     host.remove();
   });

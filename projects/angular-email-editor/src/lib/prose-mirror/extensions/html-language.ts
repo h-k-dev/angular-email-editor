@@ -32,7 +32,8 @@ export interface HtmlLanguageOptions {
       {@link TYPING_REST}. */
   rescanDelay?: number;
   /** The parse mode of the visual editor this source feeds — lint and
-      format follow it (see `SourceOptions`). Default `repair`. */
+      format follow it (see `SourceOptions`). Default `email`, the editor's
+      own default. */
   parseMode?: ParseMode;
 }
 
@@ -128,7 +129,7 @@ export function createOffsetMapper(doc: Node): (offset: number) => number {
 function buildDecorations(doc: Node, options: HtmlLanguageOptions): DecorationSet {
   const source = docText(doc);
   const scan = scanHTML(source);
-  const diagnostics = lintHTML(source, scan, { mode: options.parseMode });
+  const diagnostics = lintHTML(source, scan, { mode: options.parseMode ?? 'email' });
   const toPm = createOffsetMapper(doc);
 
   const decorations: Decoration[] = [];
@@ -268,7 +269,8 @@ function handleCodePaste(state: EditorState, text: string | undefined): Slice | 
  * serialized output never changes.
  */
 export const createHtmlLanguage = (options: HtmlLanguageOptions = {}): FunctionalExtension => {
-  const formatDocument = formatDocumentFor(options.parseMode);
+  const mode = options.parseMode ?? 'email';
+  const formatDocument = formatDocumentFor(mode);
   const key = new PluginKey<HtmlLanguageState>('htmlLanguage');
   const scanned = (doc: Node): HtmlLanguageState => ({
     decorations: buildDecorations(doc, options),
@@ -342,11 +344,7 @@ export const createHtmlLanguage = (options: HtmlLanguageOptions = {}): Functiona
             // (Shift-Alt-F). Never returns true: blur must proceed normally.
             blur: (view) => {
               const source = docText(view.state.doc);
-              if (
-                lintHTML(source, undefined, { mode: options.parseMode }).some(
-                  (d) => d.severity === 'error',
-                )
-              ) {
+              if (lintHTML(source, undefined, { mode }).some((d) => d.severity === 'error')) {
                 return false;
               }
               formatDocument(view.state, view.dispatch);

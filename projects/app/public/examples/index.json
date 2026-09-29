@@ -154,6 +154,18 @@
           "file": "everyday/feedback-erbeten.html"
         }
       ]
+    },
+    {
+      "key": "mjml",
+      "label": "MJML template example",
+      "short": "MJML",
+      "kind": "html",
+      "examples": [
+        {
+          "name": "Worldly (compiled MJML)",
+          "file": "mjml/worldly.html"
+        }
+      ]
     }
   ]
 }

@@ -24,9 +24,8 @@ export interface SourceMarksOptions {
       pass the same kit the visual editor runs so both sides toggle alike. */
   extensions: Extension[];
   /** The parse mode of the visual editor this source pane mirrors. Default
-      `repair`, the editor's own default; pass the visual editor's mode when
-      it opted into `email` or `preserve`, so a toggle never drops markup the
-      visual side keeps. */
+      `email`, the editor's own default; pass the visual editor's mode when it
+      chose another, so a toggle never drops markup the visual side keeps. */
   parseMode?: ParseMode;
 }
 
@@ -43,7 +42,7 @@ export interface SourceMarksOptions {
  */
 export const createSourceMarks = ({
   extensions,
-  parseMode = 'repair',
+  parseMode = 'email',
 }: SourceMarksOptions): FunctionalExtension => {
   const schema = createSchema(extensions);
   const ctx: ExtensionContext = { schema, extensions };

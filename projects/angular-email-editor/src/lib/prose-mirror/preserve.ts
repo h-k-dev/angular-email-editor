@@ -38,6 +38,7 @@
  */
 import {
   Attrs,
+  ContentMatch,
   DOMOutputSpec,
   DOMParser as ProseMirrorDOMParser,
   DOMSerializer,
@@ -48,6 +49,11 @@ import {
   TagParseRule,
 } from 'prosemirror-model';
 import { defineMark, defineNode } from './extension';
+import { AttributePairs, verbatimElement } from './verbatim';
+import { AUTHORED_ATTR, AUTHORED_SPEC_KEY, canonicalRender, renderedPath } from './authored';
+
+export type { AttributePairs } from './verbatim';
+export { verbatimElement } from './verbatim';
 import { isSafeUrl } from './safe-url';
 import { Command } from 'prosemirror-state';
 import { ParseMode, RuleScope, ruleForScope, ruleScope, scopeOf } from './parse-mode';
@@ -59,10 +65,6 @@ import {
   VOID_TAGS,
   isBlockLevel,
 } from './html-tags';
-
-/** Attributes as an ordered list of pairs — JSON-plain, so ProseMirror can
-    compare node attrs, and ordered, so the round trip keeps authored order. */
-export type AttributePairs = [string, string][];
 
 /** Placeholder element the comment pre-pass turns DOM comments into:
     ProseMirror's parser never sees comment nodes, elements it does. */
@@ -215,11 +217,13 @@ function isGenericBlockTag(tag: string): boolean {
 
 // Per-parse bookkeeping — keyed by the throwaway DOM elements a parse walks,
 // so nothing outlives them.
-const preserved = new WeakSet<Element>();
-const canonical = new WeakSet<Element>();
-/** Canonical elements whose node cannot hold a comment (`column+`,
-    `tableRow+`): a comment inside one is the node's own serializer output
-    (the columns' Outlook ghost table) and is written again on the way out. */
+/** What each element was parsed as: the node type's name, the preserve
+    family's included. An element no rule claimed has no entry. */
+const decided = new WeakMap<Element, string>();
+/** Elements recognized as a node that cannot hold a comment (`column+`,
+    `tableRow+`) in its canonical form: a comment inside one is the node's
+    own serializer output (the columns' Outlook ghost table) and is written
+    again on the way out. */
 const commentless = new WeakSet<Element>();
 
 /** The nearest ancestor that is a node of its own (table sections are walked
@@ -230,43 +234,28 @@ function structuralParent(element: Element): Element | null {
   return parent;
 }
 
-/** Whether every ancestor decided so far is canonical — a canonical node
-    inside a preserved subtree would have nowhere to live. */
-function canonicalContext(element: Element): boolean {
+/** The name of the node the element's content lands in: the nearest decided
+    ancestor's, or null at the parse root (the document). */
+function parentDecision(element: Element): string | null {
   for (let parent = structuralParent(element); parent; parent = structuralParent(parent)) {
-    if (preserved.has(parent)) return false;
-    if (canonical.has(parent)) return true;
+    const name = decided.get(parent);
+    if (name) return name;
   }
-  return true;
+  return null;
 }
 
+/** Whether the element sits inside markup the preserve family keeps. */
 function underPreserved(element: Element): boolean {
-  return !canonicalContext(element);
+  const parent = parentDecision(element);
+  return parent === 'htmlElement' || parent === 'htmlTextElement';
 }
 
-const claim = (element: Element): Attrs => {
-  preserved.add(element);
-  return { tag: tagOf(element), attrs: preservedAttributes(element) };
-};
-
-/**
- * A DOM element with its attributes set **verbatim**. Array output specs run
- * `style` through the CSSOM (`style.cssText = …`), which reformats it and
- * drops every declaration the browser does not know — MJML's `mso-*` hints
- * for Outlook would vanish. Preserved markup therefore builds its own
- * elements; `setAttribute` keeps the string as authored.
- */
-export function verbatimElement(
-  tag: string,
-  attrs: Iterable<[string, string | null | undefined]>,
-  content: boolean,
-): { dom: HTMLElement; contentDOM?: HTMLElement } {
-  const dom = document.createElement(tag);
-  for (const [name, value] of attrs) {
-    if (value != null) dom.setAttribute(name, value);
-  }
-  return content ? { dom, contentDOM: dom } : { dom };
-}
+const claimAs =
+  (name: string) =>
+  (element: Element): Attrs => {
+    decided.set(element, name);
+    return { tag: tagOf(element), attrs: preservedAttributes(element) };
+  };
 
 const elementAttrs = { tag: {}, attrs: { default: [] as AttributePairs } };
 const renderElement = (node: Node): DOMOutputSpec =>
@@ -298,6 +287,7 @@ const preserveRule = (rule: TagParseRule): TagParseRule =>
 export const HtmlElement = defineNode({
   name: 'htmlElement',
   spec: {
+    authoredMarkup: false,
     content: 'block*',
     group: 'block',
     attrs: elementAttrs,
@@ -310,7 +300,7 @@ export const HtmlElement = defineNode({
         getAttrs: (element) => {
           const tag = tagOf(element);
           if (!INLINE_TAGS.has(tag) || REFUSED_TAGS.has(tag)) return false;
-          return hasBlockChildren(element) ? claim(element) : false;
+          return hasBlockChildren(element) ? claimAs('htmlElement')(element) : false;
         },
       }),
       preserveRule({
@@ -319,7 +309,7 @@ export const HtmlElement = defineNode({
           const tag = tagOf(element);
           if (!isGenericBlockTag(tag) || !hasBlockChildren(element)) return false;
           if (TABLE_SECTION_TAGS.has(tag) && !underPreserved(element)) return false;
-          return claim(element);
+          return claimAs('htmlElement')(element);
         },
       }),
     ],
@@ -335,6 +325,7 @@ export const HtmlElement = defineNode({
 export const HtmlTextElement = defineNode({
   name: 'htmlTextElement',
   spec: {
+    authoredMarkup: false,
     content: 'inline*',
     group: 'block',
     attrs: elementAttrs,
@@ -345,7 +336,7 @@ export const HtmlTextElement = defineNode({
           const tag = tagOf(element);
           if (!isGenericBlockTag(tag) || hasBlockChildren(element)) return false;
           if (TABLE_SECTION_TAGS.has(tag) && !underPreserved(element)) return false;
-          return claim(element);
+          return claimAs('htmlTextElement')(element);
         },
       }),
     ],
@@ -357,13 +348,14 @@ const voidAttrs = (element: Element, inline: boolean): Attrs | false => {
   const tag = tagOf(element);
   if (!VOID_TAGS.has(tag) || REFUSED_TAGS.has(tag)) return false;
   if (inBlockContext(element) === inline) return false;
-  return claim(element);
+  return claimAs(inline ? 'htmlVoid' : 'htmlVoidBlock')(element);
 };
 
 /** A foreign void element among inline content (`<img>` in a cell, `<input>`). */
 export const HtmlVoid = defineNode({
   name: 'htmlVoid',
   spec: {
+    authoredMarkup: false,
     inline: true,
     group: 'inline',
     atom: true,
@@ -377,6 +369,7 @@ export const HtmlVoid = defineNode({
 export const HtmlVoidBlock = defineNode({
   name: 'htmlVoidBlock',
   spec: {
+    authoredMarkup: false,
     group: 'block',
     atom: true,
     attrs: elementAttrs,
@@ -399,6 +392,7 @@ const commentAttrs = (element: Element, inline: boolean): Attrs | false => {
 export const HtmlComment = defineNode({
   name: 'htmlComment',
   spec: {
+    authoredMarkup: false,
     group: 'block',
     atom: true,
     selectable: false,
@@ -413,6 +407,7 @@ export const HtmlComment = defineNode({
 export const HtmlCommentInline = defineNode({
   name: 'htmlCommentInline',
   spec: {
+    authoredMarkup: false,
     inline: true,
     group: 'inline',
     atom: true,
@@ -434,6 +429,7 @@ export const HtmlCommentInline = defineNode({
 export const HtmlRaw = defineNode({
   name: 'htmlRaw',
   spec: {
+    authoredMarkup: false,
     group: 'block',
     atom: true,
     selectable: false,
@@ -464,6 +460,7 @@ export const HtmlRaw = defineNode({
 export const HtmlInline = defineMark({
   name: 'htmlInline',
   spec: {
+    authoredMarkup: false,
     attrs: elementAttrs,
     excludes: '',
     parseDOM: [
@@ -552,22 +549,6 @@ function sameOpeningTag(a: Element, b: Element): boolean {
   return true;
 }
 
-/** Whether the node type, given these attrs, would emit `element`'s opening
-    tag unchanged — the general "would the round trip rewrite this?" test. */
-function emitsIdentically(type: NodeType, attrs: Attrs, element: Element): boolean {
-  let node: Node;
-  try {
-    node = type.create(attrs);
-  } catch {
-    return false;
-  }
-  const render =
-    (type.spec['emitDOM'] as ((node: Node) => DOMOutputSpec) | undefined) ?? type.spec.toDOM;
-  if (!render) return false;
-  const { dom } = DOMSerializer.renderSpec(document, render(node));
-  return dom instanceof Element && sameOpeningTag(dom, element);
-}
-
 /** Element children that take part in block structure, table sections
     walked through. Phrasing elements and comments are marks/inline atoms and
     never affect whether a parent is canonical. */
@@ -579,91 +560,229 @@ function* structuralChildren(element: Element): Iterable<Element> {
   }
 }
 
-type CanonicalTypeOf = (element: Element) => NodeType | null;
-
-/**
- * A rule for a node that carries authored markup (`html` attr — paragraph,
- * heading, image): it claims the element whatever its attributes, and keeps
- * them verbatim unless they are exactly what the node emits on its own
- * (then `html` stays `null`, and the output is canonical). Textblocks decline
- * elements laying out blocks; a block atom declines an element that sits
- * inside a line of text.
- */
-function passthrough(schema: Schema, rule: TagParseRule): TagParseRule {
-  const type = schema.nodes[rule.node!];
-  const memo = new WeakMap<Element, Attrs | false>();
-
-  const decide = (element: HTMLElement): Attrs | false => {
-    const own = rule.getAttrs ? rule.getAttrs(element) : null;
-    if (own === false) return false;
-    if (type.isTextblock && hasBlockChildren(element)) return false;
-    if (type.isBlock && !type.isTextblock && !isBlockish(element)) return false;
-    const attrs = { ...(rule.attrs ?? {}), ...(own ?? {}), html: null };
-    if (emitsIdentically(type, attrs, element)) return attrs;
-    return { ...attrs, html: { tag: tagOf(element), attrs: preservedAttributes(element) } };
+/** Every node type a node of `type` may hold directly, anywhere in its
+    content — what the parse may put inside it without inventing a wrapper. */
+const childTypesCache = new WeakMap<NodeType, Set<NodeType>>();
+function childTypes(type: NodeType): Set<NodeType> {
+  let types = childTypesCache.get(type);
+  if (types) return types;
+  types = new Set<NodeType>();
+  const seen = new Set<ContentMatch>();
+  const visit = (match: ContentMatch) => {
+    if (seen.has(match)) return;
+    seen.add(match);
+    for (let i = 0; i < match.edgeCount; i++) {
+      const edge = match.edge(i);
+      types!.add(edge.type);
+      visit(edge.next);
+    }
   };
-
-  return {
-    ...rule,
-    getAttrs: (element) => {
-      if (memo.has(element)) return memo.get(element)!;
-      const result = decide(element);
-      memo.set(element, result);
-      return result;
-    },
-  };
+  visit(type.contentMatch);
+  childTypesCache.set(type, types);
+  return types;
 }
 
 /**
- * A canonical node rule, made strict for the authored scope: it claims an element
- * only when the node would re-emit it identically, its ancestors are
- * canonical, and — for content expressions that cannot hold a foreign block
- * (`tableRow+`, `column+`, `inline*`, …) — its structural children are
- * canonical and fit its content expression in sequence.
+ * The authored elements from `element` down to where its content is read,
+ * following the canonical rendering's own path (`expected`, tag by tag): the
+ * rule's `contentElement` when it names one, else the only child of the
+ * expected tag at each level — the `<tbody>` a browser inserts into every
+ * `<table>`, which the parser walks through the same way. Null when the
+ * authored markup does not have that shape.
  */
-function strictify(
-  schema: Schema,
+function authoredElements(
+  element: HTMLElement,
   rule: TagParseRule,
-  foreignBlock: NodeType,
-  canonicalTypeOf: CanonicalTypeOf,
-): TagParseRule {
-  const type = schema.nodes[rule.node!];
-  const acceptsForeignBlocks = type.contentMatch.matchType(foreignBlock) !== null;
-  const comment = schema.nodes[HtmlComment.name];
-  const holdsComments =
-    type.inlineContent || !comment || type.contentMatch.matchType(comment) !== null;
-  const memo = new WeakMap<Element, Attrs | false | null>();
+  expected: Element[],
+): Element[] | null {
+  if (expected.length === 1) return [element];
+  const selector = rule.contentElement;
+  if (selector) {
+    const content =
+      typeof selector === 'string'
+        ? element.querySelector(selector)
+        : typeof selector === 'function'
+          ? selector(element)
+          : selector;
+    if (!(content instanceof Element)) return null;
+    const path: Element[] = [];
+    for (let el: Element | null = content; el; el = el.parentElement) {
+      path.unshift(el);
+      if (el === element) return path;
+    }
+    return null;
+  }
+  const path: Element[] = [element];
+  for (let i = 1; i < expected.length; i++) {
+    const tag = expected[i].tagName;
+    const matches = Array.from(path[i - 1].children).filter((child) => child.tagName === tag);
+    if (matches.length !== 1) return null;
+    path.push(matches[0]);
+  }
+  return path;
+}
 
-  const decide = (element: HTMLElement): Attrs | false | null => {
+/** Whether an element holds anything besides `next` — text, or other
+    elements (comments included). */
+function hasSiblingsOf(element: Element, next: Element): boolean {
+  for (const child of Array.from(element.childNodes)) {
+    if (child === next) continue;
+    if (child.nodeType === globalThis.Node.TEXT_NODE && !(child.nodeValue ?? '').trim()) continue;
+    return true;
+  }
+  return false;
+}
+
+/** Whether an element's content holds a comment where the node keeps none. */
+function holdsCommentChild(element: Element): boolean {
+  for (const child of Array.from(element.children)) {
+    const tag = tagOf(child);
+    if (tag === COMMENT_TAG) return true;
+    if (TABLE_SECTION_TAGS.has(tag) && holdsCommentChild(child)) return true;
+  }
+  return false;
+}
+
+/** Same tag and attributes, element by element. */
+function samePath(a: Element[], b: Element[]): boolean {
+  return a.length === b.length && a.every((element, i) => sameOpeningTag(element, b[i]));
+}
+
+type TypeOf = (element: Element, parent: NodeType) => NodeType | null;
+
+/**
+ * A node rule for the authored scope: the node **recognizes** whatever
+ * markup its own rule accepts, and keeps that markup as authored (the `html`
+ * overlay, see `authored.ts`) wherever it is not exactly the node's own
+ * canonical rendering. Recognition is refused — and the preserve family
+ * keeps the element verbatim instead — whenever taking it would change the
+ * markup's *structure*:
+ *
+ * - the node could not stand where the element stands (no wrapper is ever
+ *   invented: a `<tr>` outside a table, a column outside a columns block);
+ * - the authored elements down to the content are not the ones the node
+ *   renders (a section's band without the inner `<div>` it writes), or carry
+ *   anything beside that path;
+ * - the content would not fit: a textblock laying out blocks, or a node
+ *   that holds only certain children (`tableRow+`, `column+`, `inline*`)
+ *   given ones it cannot hold, in order;
+ * - it holds comments the node has no place for (MJML's conditionals in a
+ *   columns block) — only the node's own canonical rendering may, because
+ *   it writes them itself.
+ */
+function recognize(schema: Schema, rule: TagParseRule, typeOf: TypeOf): TagParseRule {
+  const type = schema.nodes[rule.node!];
+  const comment = schema.nodes[HtmlComment.name];
+  const foreignBlock = schema.nodes[HtmlElement.name];
+  const leaf = type.isLeaf;
+  const holdsComments = leaf || type.inlineContent || !comment || childTypes(type).has(comment);
+  const holdsForeignBlocks = !!foreignBlock && childTypes(type).has(foreignBlock);
+  const memo = new WeakMap<Element, Map<NodeType | null, Attrs | false | null>>();
+
+  const decide = (element: HTMLElement, parent: NodeType): Attrs | false | null => {
     const own = rule.getAttrs ? rule.getAttrs(element) : null;
     if (own === false) return false;
-    const attrs = { ...(rule.attrs ?? {}), ...(own ?? {}) };
-    // Context matters for structure only: an inline node (a `<br>`) lives in
-    // any line, authored or not.
-    if (!type.isInline && !canonicalContext(element)) return false;
-    if (!emitsIdentically(type, attrs, element)) return false;
+    // Inline nodes (an image, a button) stand in whatever line holds them —
+    // among blocks, the parser gives them one, as it does loose text.
+    if (!type.isInline && !childTypes(parent).has(type)) return false;
+    if (type.isTextblock && hasBlockChildren(element)) return false;
 
-    if (!acceptsForeignBlocks) {
+    const attrs: Record<string, unknown> = { ...(rule.attrs ?? {}), ...(own ?? {}) };
+    delete attrs[AUTHORED_ATTR];
+    let rendered;
+    try {
+      rendered = canonicalRender(type.create({ ...attrs, [AUTHORED_ATTR]: null }), true);
+    } catch {
+      return false;
+    }
+    const canonicalPath = rendered && renderedPath(rendered);
+    const path = canonicalPath && authoredElements(element, rule, canonicalPath);
+    if (!canonicalPath || !path || path.length !== canonicalPath.length) return false;
+    for (let i = 1; i < path.length; i++) {
+      if (path[i].tagName !== canonicalPath[i].tagName) return false;
+    }
+    const exact = samePath(path, canonicalPath);
+    if (!exact) {
+      for (let i = 0; i < path.length - 1; i++) {
+        if (hasSiblingsOf(path[i], path[i + 1])) return false;
+      }
+    }
+
+    const content = path[path.length - 1];
+    if (!leaf && !type.inlineContent && !holdsForeignBlocks) {
       let match = type.contentMatch;
-      for (const child of structuralChildren(element)) {
-        const childType = canonicalTypeOf(child);
+      for (const child of structuralChildren(content)) {
+        const childType = typeOf(child, type);
         const next = childType && match.matchType(childType);
         if (!next) return false;
         match = next;
       }
     }
-    canonical.add(element);
-    if (!holdsComments) commentless.add(element);
-    return own;
+    if (!holdsComments && holdsCommentChild(content)) {
+      if (!exact) return false;
+      commentless.add(content);
+      commentless.add(element);
+    }
+
+    const html = exact
+      ? null
+      : {
+          path: path.map((el) => ({ tag: tagOf(el), attrs: preservedAttributes(el) })),
+          parsed: attrs,
+        };
+    return { ...attrs, [AUTHORED_ATTR]: html };
+  };
+
+  const decideMemo = (element: HTMLElement, parent: NodeType): Attrs | false | null => {
+    let byParent = memo.get(element);
+    if (!byParent) memo.set(element, (byParent = new Map()));
+    if (!byParent.has(parent)) byParent.set(parent, decide(element, parent));
+    return byParent.get(parent)!;
   };
 
   return {
     ...rule,
     getAttrs: (element) => {
-      if (memo.has(element)) return memo.get(element)!;
-      const result = decide(element);
-      memo.set(element, result);
+      const parentName = parentDecision(element);
+      const parent = parentName ? schema.nodes[parentName] : schema.topNodeType;
+      const result = decideMemo(element, parent);
+      if (result !== false) decided.set(element, type.name);
       return result;
+    },
+    // The same decision, asked by a parent about a child it would hold.
+    [PROBE_KEY]: (element: HTMLElement, parent: NodeType) => decideMemo(element, parent),
+  } as TagParseRule;
+}
+
+const PROBE_KEY = 'aeeProbe';
+type TypeOfProbe = (element: HTMLElement, parent: NodeType) => Attrs | false | null;
+
+/**
+ * A mark rule for the authored scope: the mark keeps the element as
+ * authored (`<b class="x">`, a link's own `style`) wherever it is not
+ * exactly the mark's canonical rendering.
+ */
+function recognizeMark(schema: Schema, rule: TagParseRule): TagParseRule {
+  const type = schema.marks[rule.mark!];
+  if (type.spec[AUTHORED_SPEC_KEY] === false || !type.spec.attrs?.[AUTHORED_ATTR]) return rule;
+  return {
+    ...rule,
+    getAttrs: (element) => {
+      const own = rule.getAttrs ? rule.getAttrs(element) : null;
+      if (own === false) return false;
+      const attrs: Record<string, unknown> = { ...(rule.attrs ?? {}), ...(own ?? {}) };
+      delete attrs[AUTHORED_ATTR];
+      let rendered;
+      try {
+        rendered = canonicalRender(type.create({ ...attrs, [AUTHORED_ATTR]: null }), true);
+      } catch {
+        return false;
+      }
+      const exact = rendered?.dom instanceof Element && sameOpeningTag(rendered.dom, element);
+      const html = exact
+        ? null
+        : { path: [{ tag: tagOf(element), attrs: preservedAttributes(element) }], parsed: attrs };
+      return { ...attrs, [AUTHORED_ATTR]: html };
     },
   };
 }
@@ -720,25 +839,24 @@ export function createDOMParser(schema: Schema, mode: ParseMode): ProseMirrorDOM
   });
 
   let rules: ParseRule[] = all;
-  const foreignBlock = schema.nodes[HtmlElement.name];
-  if (scope === 'authored' && foreignBlock) {
-    const strict: TagParseRule[] = [];
-    const canonicalTypeOf: CanonicalTypeOf = (element) => {
-      for (const rule of strict) {
-        if (!element.matches(rule.tag)) continue;
-        if (rule.getAttrs!(element as HTMLElement) !== false) return schema.nodes[rule.node!];
+  if (scope === 'authored' && schema.nodes[HtmlElement.name]) {
+    const recognized: TagParseRule[] = [];
+    const typeOf: TypeOf = (element, parent) => {
+      for (const rule of recognized) {
+        if (!element.matches(rule.tag!)) continue;
+        const probe = (rule as unknown as Record<string, TypeOfProbe>)[PROBE_KEY];
+        if (probe(element as HTMLElement, parent) !== false) return schema.nodes[rule.node!];
       }
       return null;
     };
     rules = all.map((rule) => {
       const tagRule = rule as TagParseRule;
-      // Only canonical node rules change: marks stay lenient (a `<b class>`
-      // is still bold), and the preserve family is the fallback.
-      if (!tagRule.node || ruleScope(rule)) return rule;
-      const made = schema.nodes[tagRule.node].spec.attrs?.['html']
-        ? passthrough(schema, tagRule)
-        : strictify(schema, tagRule, foreignBlock, canonicalTypeOf);
-      strict.push(made);
+      // The preserve family is the fallback, verbatim by construction.
+      if (ruleScope(rule)) return rule;
+      if (tagRule.mark && tagRule.tag) return recognizeMark(schema, tagRule);
+      if (!tagRule.node || !tagRule.tag || tagRule.ignore) return rule;
+      const made = recognize(schema, tagRule, typeOf);
+      recognized.push(made);
       return made;
     });
   }
