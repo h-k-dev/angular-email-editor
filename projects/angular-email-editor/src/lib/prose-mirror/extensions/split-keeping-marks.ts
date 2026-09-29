@@ -5,9 +5,10 @@ import {
   newlineInCode,
   splitBlockAs,
 } from 'prosemirror-commands';
-import { Command, EditorState } from 'prosemirror-state';
+import { Command, EditorState, Transaction } from 'prosemirror-state';
 import { Mark, Node } from 'prosemirror-model';
 import { defineExtension } from '../extension';
+import { authoredMarkup, inheritedMarkup } from '../authored';
 
 /**
  * The marks active at the cursor that should *continue past a break* — dropping
@@ -52,9 +53,26 @@ const splitBlockKeepingMarks: Command = (state, dispatch) =>
       ((tr) => {
         const marks = marksAcrossBreak(state);
         if (marks) tr.ensureMarks(marks);
+        inheritAuthoredMarkup(state, tr);
         dispatch(tr);
       }),
   );
+
+/**
+ * A line split off an authored one (MJML's `<div style="font-size:11px;…">`)
+ * inherits its markup, minus the `id`. ProseMirror's split clones attributes
+ * mid-line but creates a *default* block at the end of one — a bare `<div>`
+ * that, inside an MJML cell (`font-size: 0px`), would be invisible text.
+ */
+function inheritAuthoredMarkup(state: EditorState, tr: Transaction): void {
+  const original = state.selection.$from.parent;
+  const html = authoredMarkup(original);
+  if (!html) return;
+  const $pos = tr.selection.$from;
+  const block = $pos.parent;
+  if (block.type !== original.type || $pos.depth === 0) return;
+  tr.setNodeMarkup($pos.before(), undefined, { ...original.attrs, html: inheritedMarkup(html) });
+}
 
 /**
  * Binds Enter to a mark-preserving paragraph split. Must sit *after* the list

@@ -1006,6 +1006,71 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
     image work meeting M6's import law, and it is the only thing between M6
     and done.
 
+## Milestone 7 — Markup kept as authored (parse modes)
+
+**Why (2026-09-27 → 09-29).** The import pipeline (`import-html.ts`) turns a
+builder's export into our blocks — folding the stylesheet in at 600px,
+unwrapping wrapper tables, dropping comments and hidden elements. That is
+repair, and it stays. But it rewrites the template: MJML's head, its media
+queries, its Outlook conditionals and every legacy table attribute are gone
+after one round trip. The ask: **recognize what Apple Mail, Outlook or Gmail
+apply, keep exactly what MJML put into its tags, and still parse it into
+the editor** — with a `preserve` escape hatch only for markup no floor
+client applies.
+
+**What landed — three parse modes, one schema** (`ParseMode`,
+`parseHTML(html, schema, { mode })`, `createEditor({ parseMode })`):
+
+| Mode       | What it keeps                                                                                     |
+| ---------- | ------------------------------------------------------------------------------------------------- |
+| `repair`   | Default everywhere, unchanged: the canonical blocks, via the import pipeline.                     |
+| `email`    | Every tag, attribute and CSS property at least one floor client applies (`email-vocabulary.ts`), byte for byte; the document envelope (doctype, `<html>`/`<body>` attributes, the head) on `doc.attrs.envelope`; comments and conditionals as nodes. |
+| `preserve` | Like `email`, minus the vocabulary filter — custom elements, `data-*`, invented CSS. Opt-in for special needs. |
+
+- **Recognized, not opaque.** In `email`/`preserve`, text lines (`div`,
+  `p`), headings and images parse into the composer's own nodes, their
+  authored tag and attributes riding along in an `html` attr
+  (`authored.ts`) and rendered verbatim; alignment and indent write back
+  into the authored style, Enter continues an authored line with its markup,
+  Enter in an authored table cell breaks the line instead of adding a cell,
+  links keep their authored `class`/`style` (`extra`). Layout structure the
+  schema has no node for stays structure (`htmlElement`, `htmlTextElement`,
+  void and comment atoms, the `htmlInline` mark — `preserve.ts`). Our own
+  canonical output is recognized exactly (a canonical node claims an
+  element only if it would re-emit it identically), so **every golden
+  string parses back as itself, into the same nodes, in all three modes**
+  (pinned over `fixtures/golden.ts`); the columns' own Outlook comments are
+  dropped on parse and written again, as in `repair`.
+- **MJML's "Worldly" template** (`fixtures/mjml-worldly.ts`): identical in
+  `email` and `preserve`, a byte-stable fixpoint, the same rendering outline
+  as its source, and its text/images/links as editor nodes.
+- **The source language follows the mode** (`lintHTML`/`formatHTML`
+  `SourceOptions`, `createHtmlLanguage({ parseMode })`,
+  `createSourceMarks({ parseMode })`): `repair` lints and formats exactly as
+  before; `email` warns on exactly what its parse drops and accepts comments
+  and the envelope; `email`/`preserve` format a whole document as one (head
+  in the parse's own canonical lines) and break a wide `style` only where
+  the parse undoes it, so formatting stays presentation-only for markup kept
+  byte for byte.
+- **Visual pane** (`DocumentStyles`, email kit): a document's own
+  stylesheets apply to the editor view inside `@scope`, the body's style on
+  the editor root (`aee-document`).
+
+**Open — the decision this milestone waits on.** `repair` is still the
+default for `createEditor` and the app, because the rest of the kit — and
+its specs — expect plain markup to *become* our blocks: a bare
+`<table><tr><td>` is a `prosemirror-tables` table with grips, a legacy button
+anchor is a button atom, an MJML section is a section. In `email` mode those
+stay authored markup until each block learns to recognize a *usable* shape
+leniently and carry its authored attributes (the paragraph/heading/image
+pattern above), not only its canonical one. Two roads: (a) extend that
+pattern block by block (table, button, section, columns) and then flip the
+default to `email`; or (b) keep `repair` as the editor default and use
+`email` where templates are edited. The app is not wired to `email` yet —
+when it is, `.aee-editor table td` editor chrome must be scoped to the
+table NodeView (`.aee-table-wrap td`), or it pads and borders authored
+tables in the visual pane.
+
 ## Non-goals (so we stay opinionated)
 
 - **No envelope UI — ever.** To/cc/subject, addressing, transport: all the
@@ -1036,6 +1101,17 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
 
 ## Architecture notes for future us
 
+- **Three parse modes, one schema** (M7). `parseHTML`'s rule set is rebuilt
+  from the public `parseDOM` specs and filtered by scope (`ruleForScope`:
+  `repair` vs `authored`); no ProseMirror internals. A node that should
+  *understand* authored markup declares `...AUTHORED_ATTRS` and renders via
+  `renderAuthored` when `html` is set — the parser then passes its rule
+  through leniently; every other canonical node rule is made strict in the
+  authored scope (claims only what it would re-emit identically).
+- **Authored markup never goes through the CSSOM.** An array `toDOM` spec
+  assigns `style.cssText`, which reformats declarations and drops unknown
+  ones (`mso-*` first); authored elements are built with `setAttribute`
+  (`verbatimElement`).
 - **The table model is `prosemirror-tables` (adopted 2026-08-20).** We ran a
   hand-rolled rectangular grid for a while and it was wrong in the way
   hand-rolled grids always are: real mail arrives ragged, our indices assumed

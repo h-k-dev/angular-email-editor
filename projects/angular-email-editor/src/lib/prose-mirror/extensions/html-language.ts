@@ -11,6 +11,7 @@ import {
 import { Fragment, Node, Slice } from 'prosemirror-model';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import { FunctionalExtension, defineExtension } from '../extension';
+import { ParseMode } from '../parse-mode';
 import {
   HtmlDiagnostic,
   HtmlTokenType,
@@ -30,6 +31,9 @@ export interface HtmlLanguageOptions {
       only moves the existing decorations along. Default
       {@link TYPING_REST}. */
   rescanDelay?: number;
+  /** The parse mode of the visual editor this source feeds — lint and
+      format follow it (see `SourceOptions`). Default `repair`. */
+  parseMode?: ParseMode;
 }
 
 /**
@@ -124,7 +128,7 @@ export function createOffsetMapper(doc: Node): (offset: number) => number {
 function buildDecorations(doc: Node, options: HtmlLanguageOptions): DecorationSet {
   const source = docText(doc);
   const scan = scanHTML(source);
-  const diagnostics = lintHTML(source, scan);
+  const diagnostics = lintHTML(source, scan, { mode: options.parseMode });
   const toPm = createOffsetMapper(doc);
 
   const decorations: Decoration[] = [];
@@ -168,22 +172,24 @@ function buildDecorations(doc: Node, options: HtmlLanguageOptions): DecorationSe
 }
 
 /** Replaces the document with its pretty-printed (and thereby repaired) form. */
-const formatDocument: Command = (state, dispatch) => {
-  const lineType = state.schema.nodes['codeLine'];
-  if (!lineType) return false;
+const formatDocumentFor =
+  (mode?: ParseMode): Command =>
+  (state, dispatch) => {
+    const lineType = state.schema.nodes['codeLine'];
+    if (!lineType) return false;
 
-  const source = docText(state.doc);
-  const formatted = formatHTML(source);
-  if (formatted === source) return true;
+    const source = docText(state.doc);
+    const formatted = formatHTML(source, undefined, undefined, { mode });
+    if (formatted === source) return true;
 
-  if (dispatch) {
-    const lines = formatted
-      .split('\n')
-      .map((line) => lineType.create(null, line ? state.schema.text(line) : null));
-    dispatch(state.tr.replaceWith(0, state.doc.content.size, lines).scrollIntoView());
-  }
-  return true;
-};
+    if (dispatch) {
+      const lines = formatted
+        .split('\n')
+        .map((line) => lineType.create(null, line ? state.schema.text(line) : null));
+      dispatch(state.tr.replaceWith(0, state.doc.content.size, lines).scrollIntoView());
+    }
+    return true;
+  };
 
 /** Maps a ProseMirror position to its offset in the joined source text. */
 export function textOffsetAt(doc: Node, pos: number): number {
@@ -262,6 +268,7 @@ function handleCodePaste(state: EditorState, text: string | undefined): Slice | 
  * serialized output never changes.
  */
 export const createHtmlLanguage = (options: HtmlLanguageOptions = {}): FunctionalExtension => {
+  const formatDocument = formatDocumentFor(options.parseMode);
   const key = new PluginKey<HtmlLanguageState>('htmlLanguage');
   const scanned = (doc: Node): HtmlLanguageState => ({
     decorations: buildDecorations(doc, options),
@@ -335,7 +342,13 @@ export const createHtmlLanguage = (options: HtmlLanguageOptions = {}): Functiona
             // (Shift-Alt-F). Never returns true: blur must proceed normally.
             blur: (view) => {
               const source = docText(view.state.doc);
-              if (lintHTML(source).some((d) => d.severity === 'error')) return false;
+              if (
+                lintHTML(source, undefined, { mode: options.parseMode }).some(
+                  (d) => d.severity === 'error',
+                )
+              ) {
+                return false;
+              }
               formatDocument(view.state, view.dispatch);
               return false;
             },

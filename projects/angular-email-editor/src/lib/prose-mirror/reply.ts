@@ -2,6 +2,7 @@ import { Fragment, Node, Schema } from 'prosemirror-model';
 import { createSchema } from './schema';
 import { parseHTML, serializeToHTML } from './html';
 import { emailExtensions } from './extensions/kits';
+import { ruleScope } from './parse-mode';
 
 /**
  * The inbound message a reply or forward is built from. Everything here is
@@ -223,15 +224,18 @@ export function importLoss(inbound: InboundMessage): ImportLoss {
   return { removedElements, removedTags, inlineImages };
 }
 
-/** Tags with a parse rule somewhere in the schema — the vocabulary. tbody &
-    friends have no rule of their own, but the parser walks through them and
-    our serializer emits `<tbody>`, so they are structure, not loss. */
+/** Tags with a parse rule somewhere in the schema — the vocabulary of the
+    repair-mode parse the import runs. tbody & friends have no rule of their
+    own, but the parser walks through them and our serializer emits `<tbody>`,
+    so they are structure, not loss. Preserve-only rules (which would claim
+    any tag) and refusals (which drop a tag on purpose) are not vocabulary. */
 let knownTags: Set<string> | undefined;
 function schemaTags(schema: Schema): Set<string> {
   if (knownTags) return knownTags;
   const tags = new Set<string>(['tbody', 'thead', 'tfoot']);
   const collect = (parseDOM: unknown) => {
-    for (const rule of (parseDOM as Array<{ tag?: string }>) ?? []) {
+    for (const rule of (parseDOM as Array<{ tag?: string; ignore?: boolean }>) ?? []) {
+      if (rule.ignore || ruleScope(rule as never) === 'authored') continue;
       const tag = rule.tag?.split(/[\s\[.:,>]/)[0]?.toLowerCase();
       if (tag) tags.add(tag);
     }

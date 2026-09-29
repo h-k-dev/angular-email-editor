@@ -1,11 +1,4 @@
-import {
-  DOMOutputSpec,
-  DOMParser as ProseMirrorDOMParser,
-  DOMSerializer,
-  Node,
-  Schema,
-  Slice,
-} from 'prosemirror-model';
+import { DOMOutputSpec, DOMSerializer, Node, Schema, Slice } from 'prosemirror-model';
 import { Command, Selection } from 'prosemirror-state';
 import { repairTables } from './extensions/nodes/table';
 import {
@@ -18,6 +11,16 @@ import {
 import { promoteMergeTags } from './extensions/nodes/merge-tag';
 import { bareButtons } from './extensions/nodes/button';
 import { outlookColumns } from './extensions/nodes/columns';
+import {
+  DocumentEnvelope,
+  hasDocumentEnvelope,
+  parseDocument,
+  readEnvelope,
+  serializeDocument,
+} from './envelope';
+import { ParseMode } from './parse-mode';
+import { createDOMParser, materializeComments, realizeComments, trimInlineBoxes } from './preserve';
+import { applyEmailVocabulary } from './email-vocabulary';
 
 const serializerCache = new WeakMap<Schema, DOMSerializer>();
 
@@ -70,7 +73,9 @@ function getSerializer(schema: Schema): DOMSerializer {
   return serializer;
 }
 
-/** Serializes a document (or any node) to an HTML string, e.g. for the email body. */
+/** Serializes a document (or any node) to an HTML string, e.g. for the email
+    body. A document carrying an envelope (see {@link DocumentEnvelope})
+    serializes as a whole document — doctype, head and all. */
 export function serializeToHTML(doc: Node, schema: Schema): string {
   const fragment = getSerializer(schema).serializeFragment(doc.content);
   const container = document.createElement('div');
@@ -78,35 +83,69 @@ export function serializeToHTML(doc: Node, schema: Schema): string {
   // The Outlook half of the columns hybrid: comments between the columns,
   // where no node's own emit can put them (columns.ts).
   if (schema.nodes['columns']) outlookColumns(container);
-  return container.innerHTML;
+  realizeComments(container);
+  const body = container.innerHTML;
+  const envelope = doc.attrs['envelope'] as DocumentEnvelope | null | undefined;
+  return envelope ? serializeDocument(envelope, body) : body;
+}
+
+export interface ParseOptions {
+  /** `repair` (this function's default — canonical form), `email` (the
+      editor's default — the email vocabulary, kept exactly as authored) or
+      `preserve` (anything but executable content). See {@link ParseMode}. */
+  mode?: ParseMode;
 }
 
 /**
  * Parses an HTML string into a document conforming to the schema.
  *
- * Parsing is repair (principle 2), and tables are where foreign markup breaks
- * the rules hardest: real mail arrives with rows of unequal length and spans
- * that reach past the grid. `repairTables` normalizes them here, so every pure
- * consumer of the parser — `importedDocument`, `replyDocument`, the source
- * pane's round trip — sees the same rectangle the editor would.
+ * - `repair` (the default here; paste, seeds, templates): parsing is repair
+ *   (principle 2). A builder's export leans on its stylesheet, on wrapper
+ *   tables and on hiding what a client cannot show; the canonical schema
+ *   reads none of those, so the import pipeline (import-html.ts) folds,
+ *   unwraps and drops them first.
+ * - `email` (the editor's default) and `preserve`: the markup is kept as
+ *   authored — comments survive as nodes, a document envelope (`<!doctype>`,
+ *   `<html>`, `<head>`, `<body>` attributes) lands on the document node's
+ *   `envelope` attribute, and `email` first drops whatever no floor client
+ *   applies (email-vocabulary.ts).
  *
- * The same principle promotes `{{path}}` tokens in running text into
- * `mergeTag` pills (`promoteMergeTags`): the serialized email carries the raw
- * Handlebars-flavoured text, and parse restores the structured form. Button
- * atoms lose marks the parser painted from their own `font-weight`
+ * Every mode then shares the structural repairs. Tables are where foreign
+ * markup breaks the rules hardest: real mail arrives with rows of unequal
+ * length and spans that reach past the grid, and `repairTables` normalizes
+ * the composer's own tables so every pure consumer of the parser —
+ * `importedDocument`, `replyDocument`, the source pane's round trip — sees
+ * the same rectangle the editor would. `{{path}}` tokens in running text
+ * become `mergeTag` pills (`promoteMergeTags`): the serialized email carries
+ * the raw Handlebars-flavoured text, and parse restores the structured form.
+ * Button atoms lose marks the parser painted from their own `font-weight`
  * (`bareButtons`) — the box is already bold.
  */
-export function parseHTML(html: string, schema: Schema): Node {
-  const dom = new window.DOMParser().parseFromString(html, 'text/html');
-  // A builder's export leans on its stylesheet, on wrapper tables and on
-  // hiding what a client cannot show; the schema reads none of those
-  // (import-html.ts).
-  noteOwnWidths(dom.body);
-  inlineStyles(dom);
-  dropHidden(dom.body);
-  unwrapLayoutTables(dom.body);
-  inheritTextStyles(dom.body);
-  const parsed = ProseMirrorDOMParser.fromSchema(schema).parse(dom.body);
+export function parseHTML(html: string, schema: Schema, options: ParseOptions = {}): Node {
+  const mode = options.mode ?? 'repair';
+  const parser = createDOMParser(schema, mode);
+  let parsed: Node;
+
+  if (mode === 'repair') {
+    const dom = new window.DOMParser().parseFromString(html, 'text/html');
+    noteOwnWidths(dom.body);
+    inlineStyles(dom);
+    dropHidden(dom.body);
+    unwrapLayoutTables(dom.body);
+    inheritTextStyles(dom.body);
+    parsed = parser.parse(dom.body);
+  } else {
+    const dom = parseDocument(html);
+    if (mode === 'email') applyEmailVocabulary(dom.documentElement);
+    materializeComments(dom.body);
+    trimInlineBoxes(dom.body);
+    const docType = schema.topNodeType;
+    const topNode =
+      hasDocumentEnvelope(html) && docType.spec.attrs?.['envelope']
+        ? docType.create({ envelope: readEnvelope(dom) })
+        : undefined;
+    parsed = parser.parse(dom.body, topNode ? { topNode } : undefined);
+  }
   return bareButtons(promoteMergeTags(repairTables(parsed, schema), schema), schema);
 }
 
@@ -117,22 +156,29 @@ export function parseHTML(html: string, schema: Schema): Node {
  * dropped into an empty paragraph takes its place.
  */
 export const insertHTML =
-  (html: string): Command =>
+  (html: string, options?: ParseOptions): Command =>
   (state, dispatch) => {
-    const doc = parseHTML(html, state.schema);
+    const doc = parseHTML(html, state.schema, options);
     dispatch?.(state.tr.replaceSelection(new Slice(doc.content, 0, 0)).scrollIntoView());
     return true;
   };
 
 /** A command that puts `html` in the whole document's place — an example
     loaded over what is written, as one undoable change; the caret lands at
-    its end. */
+    its end. A whole document parsed in the `email` or `preserve` mode brings
+    its envelope along. */
 export const replaceHTML =
-  (html: string): Command =>
+  (html: string, options?: ParseOptions): Command =>
   (state, dispatch) => {
-    const doc = parseHTML(html, state.schema);
+    const doc = parseHTML(html, state.schema, options);
     if (dispatch) {
       const tr = state.tr.replaceWith(0, state.doc.content.size, doc.content);
+      if (
+        JSON.stringify(state.doc.attrs['envelope'] ?? null) !==
+        JSON.stringify(doc.attrs['envelope'] ?? null)
+      ) {
+        tr.setDocAttribute('envelope', doc.attrs['envelope'] ?? null);
+      }
       dispatch(tr.setSelection(Selection.atEnd(tr.doc)).scrollIntoView());
     }
     return true;

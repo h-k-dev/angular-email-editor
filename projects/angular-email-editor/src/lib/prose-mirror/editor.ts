@@ -13,6 +13,7 @@ import {
 import { createSchema } from './schema';
 import { parseHTML, serializeToHTML } from './html';
 import { markAttrsOf, soleInlineAtom } from './extensions/inline-atoms';
+import { ParseMode } from './parse-mode';
 
 export interface EditorOptions {
   /** Element the editable view is mounted into. */
@@ -20,6 +21,15 @@ export interface EditorOptions {
   extensions: Extension[];
   /** Initial content as HTML. */
   content?: string;
+  /** How `content` and `setContent` parse markup. Default `repair`: markup
+      is rewritten into the composer's canonical blocks — a builder's export
+      (MJML) is imported through the import pipeline (import-html.ts).
+      `email` keeps every tag, attribute and CSS property Apple Mail, Outlook
+      or Gmail applies exactly as authored (MJML's output survives byte for
+      byte, head and conditional comments included), with text lines,
+      headings and images as editor nodes; `preserve` additionally keeps what
+      no floor client applies — the opt-in for special needs. */
+  parseMode?: ParseMode;
   /** DOM attributes for the editable element. */
   attributes?: Record<string, string>;
   /** Called after every transaction that changed the document. */
@@ -68,6 +78,7 @@ export interface Editor {
 export function createEditor(options: EditorOptions): Editor {
   const schema = createSchema(options.extensions);
   const ctx: ExtensionContext = { schema, extensions: options.extensions };
+  const parse = (html: string) => parseHTML(html, schema, { mode: options.parseMode ?? 'repair' });
 
   // Extension plugins run before all keymaps so interactive plugins (slash
   // menu, ...) can claim keys like Enter ahead of node bindings.
@@ -97,7 +108,7 @@ export function createEditor(options: EditorOptions): Editor {
 
   const view = new EditorView(options.parent, {
     state: EditorState.create({
-      doc: options.content ? parseHTML(options.content, schema) : undefined,
+      doc: options.content ? parse(options.content) : undefined,
       schema,
       plugins,
     }),
@@ -149,7 +160,7 @@ export function createEditor(options: EditorOptions): Editor {
     },
     getHTML: () => serializeToHTML(view.state.doc, schema),
     setContent(html) {
-      syncDoc(view, parseHTML(html, schema));
+      syncDoc(view, parse(html));
     },
     getText() {
       const lines: string[] = [];
@@ -186,35 +197,43 @@ function syncDoc(view: EditorView, doc: Node): void {
   const previous = view.state.doc;
   if (previous.eq(doc)) return;
 
-  const start = previous.content.findDiffStart(doc.content);
-  if (start === null) return;
-  const end = previous.content.findDiffEnd(doc.content);
-  if (!end) return;
-  let { a: endA, b: endB } = end;
-  // With overlapping diffs (repeated content) the end can fall before the
-  // start; widen both ends so the replaced range stays valid.
-  const overlap = start - Math.min(endA, endB);
-  if (overlap > 0) {
-    endA += overlap;
-    endB += overlap;
-  }
-
   let tr = view.state.tr;
-  try {
-    tr.replace(start, endA, doc.slice(start, endB));
-  } catch {
-    tr = null!;
+  const start = previous.content.findDiffStart(doc.content);
+  const end = start === null ? null : previous.content.findDiffEnd(doc.content);
+  if (start !== null && end) {
+    let { a: endA, b: endB } = end;
+    // With overlapping diffs (repeated content) the end can fall before the
+    // start; widen both ends so the replaced range stays valid.
+    const overlap = start - Math.min(endA, endB);
+    if (overlap > 0) {
+      endA += overlap;
+      endB += overlap;
+    }
+
+    try {
+      tr.replace(start, endA, doc.slice(start, endB));
+    } catch {
+      tr = null!;
+    }
+    // The slice is open at both ends, and where its ends stand at different
+    // depths ProseMirror *fits* it rather than refusing: it closes and reopens
+    // the nodes around the gap, leaving a duplicated row here, a column at its
+    // default width there. Neither is the document that was asked for. A
+    // slice the schema cannot fit at all throws instead. Either way, fall
+    // back to replacing the whole document — still one transaction, so the
+    // history semantics hold; only the selection lands less precisely.
+    if (!tr || !tr.doc.content.eq(doc.content)) {
+      tr = view.state.tr.replaceWith(0, previous.content.size, doc.content);
+    }
   }
-  // The slice is open at both ends, and where its ends stand at different
-  // depths ProseMirror *fits* it rather than refusing: it closes and reopens
-  // the nodes around the gap, leaving a duplicated row here, a column at its
-  // default width there. Neither is the document that was asked for. A
-  // slice the schema cannot fit at all throws instead. Either way, fall
-  // back to replacing the whole document — still one transaction, so the
-  // history semantics hold; only the selection lands less precisely.
-  if (!tr || !tr.doc.eq(doc)) {
-    tr = view.state.tr.replaceWith(0, previous.content.size, doc.content);
+  // The document's own attributes (the envelope: doctype, head, body attrs)
+  // are not content — a head-only edit is an attribute step, not a diff.
+  for (const [name, value] of Object.entries(doc.attrs)) {
+    if (JSON.stringify(previous.attrs[name]) !== JSON.stringify(value)) {
+      tr.setDocAttribute(name, value);
+    }
   }
+  if (!tr.steps.length) return;
   view.dispatch(tr.setMeta('addToHistory', false).setMeta('externalSync', true));
 }
 

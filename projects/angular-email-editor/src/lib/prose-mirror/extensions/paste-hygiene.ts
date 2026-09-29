@@ -1,5 +1,6 @@
 import { Plugin, PluginKey } from 'prosemirror-state';
 import { defineExtension } from '../extension';
+import { createDOMParser } from '../preserve';
 
 /** Subtrees that are pure noise in pasted markup. `<style>` is the dangerous
     one: ProseMirror descends into unknown elements, so a pasted style block
@@ -38,14 +39,18 @@ export function sanitizePastedHTML(html: string): string {
   return body.innerHTML;
 }
 
-/** Cleans clipboard HTML before it reaches the schema parse. */
+/** Cleans clipboard HTML before it reaches the schema parse — and parses it
+    in `repair` mode: the source pane may be law, the clipboard never is.
+    Pasted class soup, foreign tables and Word's markup are still repaired
+    into canonical form, exactly as before the preserving parse existed. */
 export const PasteHygiene = defineExtension({
   name: 'pasteHygiene',
-  plugins: () => [
+  plugins: ({ schema }) => [
     new Plugin({
       key: new PluginKey('pasteHygiene'),
       props: {
         transformPastedHTML: sanitizePastedHTML,
+        clipboardParser: createDOMParser(schema, 'repair'),
       },
     }),
   ],

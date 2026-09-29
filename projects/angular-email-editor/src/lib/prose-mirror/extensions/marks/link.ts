@@ -1,4 +1,7 @@
 import { defineMark } from '../../extension';
+import { isSafeUrl } from '../../safe-url';
+import { ruleForScope } from '../../parse-mode';
+import { AttributePairs, preservedAttributes, verbatimElement } from '../../preserve';
 import { EditorState, Plugin, PluginKey } from 'prosemirror-state';
 import { Mark } from 'prosemirror-model';
 import { InputRule } from 'prosemirror-inputrules';
@@ -7,6 +10,8 @@ export interface LinkAttrs {
   href: string;
   title?: string | null;
   target?: string;
+  /** Authored attributes beyond the modelled ones, preserved verbatim. */
+  extra?: AttributePairs | null;
 }
 
 export interface LinkRange {
@@ -52,12 +57,7 @@ const AUTO_LINK = /(?:^|\s)((?:https?:\/\/|www\.)[^\s]+)\s$/;
 /** A simple security check to prevent XSS. Shared by every URL-bearing
     extension (links, images): script URLs are refused on parse and on the
     inserting command alike — the schema is the sanitizer. */
-export function isSafeUrl(url: string | null): boolean {
-  if (!url) return false;
-  // Block javascript: and vbscript: protocols (case-insensitive, ignoring leading spaces)
-  const isMalicious = /^\s*(javascript|vbscript):/i.test(url);
-  return !isMalicious;
-}
+export { isSafeUrl };
 
 /**
  * What a person typed into a link field → the href it means: a scheme or a
@@ -164,6 +164,39 @@ export const linkClickPlugin = new Plugin({
   },
 });
 
+/** Attributes the mark models itself; everything else an authored link
+    carries (`class`, `style`, `data-*`, …) rides in `extra`. */
+const OWN_ATTRIBUTES = new Set(['href', 'title', 'target', 'rel']);
+
+function extraAttributes(node: HTMLElement): AttributePairs | null {
+  const pairs = preservedAttributes(node).filter(([name]) => !OWN_ATTRIBUTES.has(name));
+  return pairs.length ? pairs : null;
+}
+
+/** The link's element, its modelled attributes first, then the authored
+    extras verbatim (built directly, so a preserved `style` never passes
+    through the CSSOM — see `verbatimElement`). */
+function linkElement(
+  own: Record<string, string | null | undefined>,
+  extra: AttributePairs | null,
+): { dom: HTMLElement; contentDOM?: HTMLElement } {
+  return verbatimElement('a', [...Object.entries(own), ...(extra ?? [])], true);
+}
+
+const linkAttrs = (node: HTMLElement, extra: boolean) => {
+  const href = node.getAttribute('href');
+
+  // If the link is dangerous, reject the mark entirely
+  if (!isSafeUrl(href)) return false;
+
+  return {
+    href,
+    title: node.getAttribute('title'),
+    target: node.getAttribute('target') || '_blank',
+    extra: extra ? extraAttributes(node) : null,
+  };
+};
+
 export const Link = defineMark({
   name: 'link',
   spec: {
@@ -172,33 +205,23 @@ export const Link = defineMark({
       title: { default: null },
       target: { default: '_blank' }, // Force new tabs
       rel: { default: 'noopener noreferrer' }, // Security best practice for _blank
+      /** Authored attributes beyond the modelled ones (an MJML link's `class`
+          and `style`), verbatim and in order — kept in preserve mode so the
+          link still renders as designed, dropped in repair mode. */
+      extra: { default: null },
     },
     inclusive: false,
     // A Shift-Enter inside a link shouldn't drag the link onto the next line.
     splittable: false,
     parseDOM: [
-      {
-        tag: 'a[href]',
-        getAttrs: (node) => {
-          const href = node.getAttribute('href');
-
-          // If the link is dangerous, reject the mark entirely
-          if (!isSafeUrl(href)) return false;
-
-          return {
-            href,
-            title: node.getAttribute('title'),
-            target: node.getAttribute('target') || '_blank',
-          };
-        },
-      },
+      ruleForScope('authored', { tag: 'a[href]', getAttrs: (node) => linkAttrs(node, true) }),
+      ruleForScope('repair', { tag: 'a[href]', getAttrs: (node) => linkAttrs(node, false) }),
     ],
     toDOM: (mark) => {
-      const { href, title, target, rel } = mark.attrs;
-      // Editor-view styling only — see emitDOM for what the email carries.
-      // No stop in the page's Tab order: in the editor a link is text.
-      return [
-        'a',
+      const { href, title, target, rel, extra } = mark.attrs;
+      // Editor-view styling only — see emitDOM for what the email carries. An
+      // authored style wins over it: a preserved link renders as designed.
+      return linkElement(
         {
           href,
           title,
@@ -207,30 +230,32 @@ export const Link = defineMark({
           tabindex: '-1',
           style: 'color: var(--mat-sys-primary,#0056b3); text-decoration: underline;',
         },
-        0,
-      ];
+        extra,
+      );
     },
     // Serialization-only override (see serializeToHTML): mail clients style
     // links natively, `var()` colors mean nothing to them, and re-parsing an
     // inline `text-decoration: underline` would misread it as an Underline
     // mark — the canonical email link is a clean <a>.
     emitDOM: (mark: { attrs: Record<string, any> }) => {
-      const { href, title, target, rel } = mark.attrs;
-      return ['a', { href, title, target, rel }, 0];
+      const { href, title, target, rel, extra } = mark.attrs;
+      return linkElement({ href, title, target, rel }, extra);
     },
   },
   commands: ({ schema }) => ({
     setLink: (attrs: LinkAttrs) => (state, dispatch) => {
       if (!isSafeUrl(attrs.href)) return false;
 
-      // A bare cursor inside an existing link edits that whole link.
+      // A bare cursor inside an existing link edits that whole link — and
+      // keeps whatever else it carried (a preserved link's class and style).
       let { from, to } = state.selection;
+      const existing = linkRangeAt(state, from);
       if (state.selection.empty) {
-        const range = linkRangeAt(state, from);
-        if (!range) return false;
-        ({ from, to } = range);
+        if (!existing) return false;
+        ({ from, to } = existing);
       }
-      dispatch?.(state.tr.addMark(from, to, schema.marks['link'].create(attrs)));
+      const extra = existing?.attrs.extra ?? null;
+      dispatch?.(state.tr.addMark(from, to, schema.marks['link'].create({ extra, ...attrs })));
       return true;
     },
     unsetLink: () => (state, dispatch) => {

@@ -1,6 +1,7 @@
 import { setBlockType } from 'prosemirror-commands';
 import { textblockTypeInputRule } from 'prosemirror-inputrules';
 import { defineNode } from '../../extension';
+import { AUTHORED_ATTRS, authoredMarkup, renderAuthored } from '../../authored';
 
 const LEVELS = [1, 2, 3, 4, 5, 6];
 
@@ -15,19 +16,21 @@ export const HEADING_SIZES: Record<number, number> = { 1: 24, 2: 20, 3: 18, 4: 1
 export const headingStyle = (level: number): string =>
   `margin: 0px; font-size: ${HEADING_SIZES[level] ?? 16}px;`;
 
+/** Headings. An authored heading (`<h1 style="…">`) keeps its markup verbatim
+    in `html` in the `email` parse mode — see `authored.ts`. */
 export const Heading = defineNode({
   name: 'heading',
   spec: {
-    attrs: { level: { default: 1 } },
+    attrs: { level: { default: 1 }, ...AUTHORED_ATTRS },
     content: 'inline*',
     group: 'block',
     defining: true,
     parseDOM: LEVELS.map((level) => ({ tag: `h${level}`, attrs: { level } })),
-    toDOM: (node) => [
-      `h${node.attrs['level']}`,
-      { style: headingStyle(node.attrs['level'] as number) },
-      0,
-    ],
+    toDOM: (node) => {
+      const html = authoredMarkup(node);
+      if (html) return renderAuthored(html, true);
+      return [`h${node.attrs['level']}`, { style: headingStyle(node.attrs['level'] as number) }, 0];
+    },
   },
   commands: ({ schema }) => ({
     setHeading: (level: number) => setBlockType(schema.nodes['heading'], { level }),

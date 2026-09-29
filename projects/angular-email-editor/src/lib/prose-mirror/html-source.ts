@@ -7,6 +7,18 @@
 import { clientList, findCssIssues } from './client-support';
 import { normalizeMergeTagText } from './extensions/nodes/merge-tag';
 import { escapeAttribute, escapeText } from './utils/escape';
+import { VOID_TAGS } from './html-tags';
+import {
+  isEmailAttribute,
+  isEmailCssProperty,
+  isEmailTag,
+  splitDeclarations as splitStyleExactly,
+} from './email-vocabulary';
+import { hasDocumentEnvelope, openTag as tagString, parseDocument, readEnvelope } from './envelope';
+import { normalizeCommentText, normalizeCss } from './preserve';
+import { ParseMode } from './parse-mode';
+
+export { VOID_TAGS };
 
 export type HtmlTokenType =
   'delimiter' | 'tagName' | 'attributeName' | 'attributeValue' | 'comment';
@@ -45,6 +57,15 @@ export const MIN_FONT_SIZE = 14;
     sideways. */
 export const MAX_UNBROKEN_RUN = 40;
 
+/** How the source is read: the parse mode of the visual editor it feeds.
+    `repair` (the default) lints and formats for the canonical import;
+    `email` and `preserve` for markup kept as authored — the document
+    envelope formats whole, a wide style breaks reversibly, comments are
+    content, and `email` warns on whatever the email vocabulary drops. */
+export interface SourceOptions {
+  mode?: ParseMode;
+}
+
 export interface HtmlDiagnostic {
   from: number;
   to: number;
@@ -52,24 +73,8 @@ export interface HtmlDiagnostic {
   message: string;
 }
 
-export const VOID_TAGS = new Set([
-  'area',
-  'base',
-  'br',
-  'col',
-  'embed',
-  'hr',
-  'img',
-  'input',
-  'link',
-  'meta',
-  'source',
-  'track',
-  'wbr',
-]);
-
-/** Tags the email schema understands; anything else risks being stripped or
-    mangled by mail clients, so the linter flags it. */
+/** Tags the composer's own blocks are built from — the autocomplete's
+    suggestions. What the parse *accepts* is wider: see `email-vocabulary.ts`. */
 export const EMAIL_SAFE_TAGS = new Set([
   'a',
   'b',
@@ -249,10 +254,19 @@ function attributeValue(source: string, scan: HtmlScan, tag: HtmlTag, name: stri
 }
 
 /** Balance-checks the tag stream: unclosed tags, stray closers, closed void
-    elements, warnings for tags outside the email-safe set — and for
-    comments, which are never email content: the schema drops them on parse
-    (loudly here, never silently). */
-export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): HtmlDiagnostic[] {
+    elements, and an error for a comment that never closes. What else is
+    flagged follows the parse mode (see {@link SourceOptions}): in `repair`,
+    tags outside the email-safe set and comments the schema drops; in
+    `email`, every tag, attribute and CSS property outside the email
+    vocabulary — exactly what that parse drops (the document envelope is
+    inside it: Gmail strips the head, and that is fine). */
+export function lintHTML(
+  source: string,
+  scan: HtmlScan = scanHTML(source),
+  options: SourceOptions = {},
+): HtmlDiagnostic[] {
+  const mode = options.mode ?? 'repair';
+  const vocabulary = mode === 'email';
   const diagnostics: HtmlDiagnostic[] = [];
   const stack: HtmlTag[] = [];
 
@@ -358,7 +372,9 @@ export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): Htm
     const hasFluidWidth = /(^|;)\s*width:\s*100%/.test(style.value);
 
     let offset = 0;
-    for (const declaration of style.value.split(';')) {
+    // Split at top-level semicolons only: `url(data:image/png;base64,…)` is
+    // one declaration.
+    for (const declaration of splitStyleExactly(style.value)) {
       const declarationFrom = style.from + offset;
       offset += declaration.length + 1;
 
@@ -390,6 +406,15 @@ export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): Htm
 
       const leading = /^\s*/.exec(declaration)![0].length;
       const trimmed = declaration.trimEnd().length;
+      if (vocabulary && !isEmailCssProperty(property)) {
+        diagnostics.push({
+          from: declarationFrom + leading,
+          to: declarationFrom + trimmed,
+          severity: 'warning',
+          message: `"${property}" isn't applied by Apple Mail, Outlook or Gmail — dropped on parse (preserve mode keeps it)`,
+        });
+        continue;
+      }
 
       // The responsiveness ledger, enforced: sizes that reflow on iOS, and
       // fixed widths that overflow a phone (the image hybrid pairs its width
@@ -425,6 +450,25 @@ export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): Htm
     }
   }
 
+  // Attributes no floor client applies (`data-*`, framework bindings, typos):
+  // the email parse drops them, so say so where they are written.
+  let owner = 0;
+  for (const token of vocabulary ? scan.tokens : []) {
+    if (token.type !== 'attributeName') continue;
+    while (owner < scan.tags.length && scan.tags[owner].to <= token.from) owner++;
+    const tag = scan.tags[owner];
+    if (!tag || tag.from > token.from || tag.kind !== 'open') continue;
+    const name = source.slice(token.from, token.to).toLowerCase();
+    if (!isEmailAttribute(name, tag.name)) {
+      diagnostics.push({
+        from: token.from,
+        to: token.to,
+        severity: 'warning',
+        message: `"${name}" isn't applied by Apple Mail, Outlook or Gmail — dropped on parse (preserve mode keeps it)`,
+      });
+    }
+  }
+
   // Script URL schemes in attribute values: the email schema refuses them on
   // parse and mail clients block them — an error, not a taste question.
   let lastAttribute = '';
@@ -445,14 +489,17 @@ export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): Htm
     }
   }
 
+  // A comment that never closes swallows the rest of the document, in every
+  // mode. A closed one is content where the markup is kept as authored; in
+  // `repair` only a conditional comment is — Outlook's own content: the Word
+  // engine reads what stands inside `[if mso]`, and the columns block and
+  // the section's picture write one for it — any other the schema drops.
   for (const token of scan.tokens) {
     if (token.type !== 'comment') continue;
     const comment = source.slice(token.from, token.to);
-    // A conditional comment is Outlook's own content — the Word engine
-    // reads what stands inside `[if mso]`, and the columns block and the
-    // section's picture write one for it — not a note the schema drops.
-    if (/^<!--\[if\s/i.test(comment) || /^<!--<!\[endif\]-->$/i.test(comment)) continue;
     if (comment.endsWith('-->')) {
+      if (mode !== 'repair') continue;
+      if (/^<!--\[if\s/i.test(comment) || /^<!--<!\[endif\]-->$/i.test(comment)) continue;
       diagnostics.push({
         from: token.from,
         to: token.to,
@@ -489,7 +536,14 @@ export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): Htm
     }
 
     if (tag.kind === 'open') {
-      if (!EMAIL_SAFE_TAGS.has(tag.name)) {
+      if (vocabulary && !isEmailTag(tag.name)) {
+        diagnostics.push({
+          from: tag.nameFrom,
+          to: tag.nameTo,
+          severity: 'warning',
+          message: `<${tag.name}> isn't applied by Apple Mail, Outlook or Gmail — dropped on parse (preserve mode keeps it)`,
+        });
+      } else if (mode === 'repair' && !EMAIL_SAFE_TAGS.has(tag.name)) {
         diagnostics.push({
           from: tag.nameFrom,
           to: tag.nameTo,
@@ -680,6 +734,11 @@ const BLOCK_TAGS = new Set([
  * Pretty-prints HTML for the source editor: block tags on their own indented
  * lines, inline content kept together. Parses through the browser's DOM, so
  * malformed input comes back auto-corrected — formatting is also repair.
+ *
+ * A whole document (doctype, `<html>`, `<head>`) formats as one: the head is
+ * printed in exactly the canonical line form the parse stores (see
+ * `canonicalHead`), so the pretty source and the canonical document can never
+ * disagree about it.
  */
 /** The width the formatter optimizes for — Prettier's. Email HTML is built
     for arbitrary line lengths; the formatter only ever adds whitespace the
@@ -688,17 +747,50 @@ const BLOCK_TAGS = new Set([
     attributes. A word wider than the line stays whole and overflows. */
 export const FORMAT_WIDTH = 80;
 
-export function formatHTML(html: string, indent = '  ', width = FORMAT_WIDTH): string {
-  const doc = new DOMParser().parseFromString(html, 'text/html');
+export function formatHTML(
+  html: string,
+  indent = '  ',
+  width = FORMAT_WIDTH,
+  options: SourceOptions = {},
+): string {
   const lines: string[] = [];
-  // A whole document's stylesheet — a builder's export leans on it, and the
-  // parse folds it in (`inlineStyles`) — comes first, then the body: the
-  // head has nothing else the email keeps. Formatting stays presentation
-  // only: what the parse read before, it reads after.
-  for (const style of Array.from(doc.head.querySelectorAll('style'))) {
-    formatNode(style, 0, lines, indent, width);
+  if ((options.mode ?? 'repair') === 'repair') {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    // A whole document's stylesheet — a builder's export leans on it, and the
+    // parse folds it in (`inlineStyles`) — comes first, then the body: the
+    // head has nothing else the email keeps. Formatting stays presentation
+    // only: what the parse read before, it reads after.
+    for (const style of Array.from(doc.head.querySelectorAll('style'))) {
+      formatNode(style, 0, lines, indent, width, false);
+    }
+    for (const child of Array.from(doc.body.childNodes)) {
+      formatNode(child, 0, lines, indent, width, false);
+    }
+    return lines.join('\n');
   }
-  for (const child of Array.from(doc.body.childNodes)) formatNode(child, 0, lines, indent, width);
+
+  // Markup kept as authored: the whole document formats as one — the head in
+  // exactly the canonical line form the parse stores (`canonicalHead`), so
+  // the pretty source and the canonical document never disagree about it —
+  // and a wide style breaks only where the parse can undo it.
+  const dom = parseDocument(html);
+  if (!hasDocumentEnvelope(html)) {
+    for (const child of Array.from(dom.body.childNodes)) {
+      formatNode(child, 0, lines, indent, width, true);
+    }
+    return lines.join('\n');
+  }
+  const envelope = readEnvelope(dom);
+  if (envelope.doctype) lines.push(envelope.doctype);
+  lines.push(tagString('html', envelope.html), `${indent}<head>`);
+  if (envelope.head) {
+    for (const line of envelope.head.split('\n')) lines.push(indent + indent + line);
+  }
+  lines.push(`${indent}</head>`, indent + tagString('body', envelope.body));
+  for (const child of Array.from(dom.body.childNodes)) {
+    formatNode(child, 2, lines, indent, width, true);
+  }
+  lines.push(`${indent}</body>`, '</html>');
   return lines.join('\n');
 }
 
@@ -708,6 +800,7 @@ function formatNode(
   lines: string[],
   indent: string,
   width: number,
+  authored: boolean,
 ): void {
   const pad = indent.repeat(depth);
 
@@ -715,28 +808,38 @@ function formatNode(
     // Tokens at their canonical padding — the same form the schema serializes,
     // so formatting stays presentation-only (the invariance test pins it).
     const text = normalizeMergeTagText(collapseWhitespace(node.nodeValue ?? '').trim());
-    if (text) lines.push(...wrapInline(escapeText(text), pad, width));
+    if (text) lines.push(...wrapInline(escapeText(text), pad, width, authored));
     return;
   }
   if (node.nodeType === Node.COMMENT_NODE) {
-    lines.push(`${pad}<!--${node.nodeValue}-->`);
+    // Inner lines re-indented to the comment's depth; the parse drops that
+    // indentation again, so this is presentation only.
+    const text = normalizeCommentText(node.nodeValue ?? '').replace(/\n/g, `\n${pad}`);
+    lines.push(`${pad}<!--${text}-->`);
     return;
   }
   if (!(node instanceof Element)) return;
 
   const tag = node.tagName.toLowerCase();
   if (VOID_TAGS.has(tag)) {
-    lines.push(...openTagLines(node, pad, indent, width));
+    lines.push(...openTagLines(node, pad, indent, width, authored));
     return;
   }
-  // Raw text elements: the CSS is kept as written, line by line — escaped
-  // or re-wrapped it would no longer be the stylesheet it was.
+  // Raw text elements: kept as written, line by line — escaped or re-wrapped
+  // they would no longer be the stylesheet they were. A stylesheet is
+  // re-indented by nesting, exactly as the parse stores it (`normalizeCss`),
+  // so formatting never changes a preserved `<style>`.
   if (tag === 'style' || tag === 'script') {
     lines.push(`${pad}${openTag(node)}`);
-    for (const line of (node.textContent ?? '').split('\n')) {
-      const trimmed = line.trim();
-      if (trimmed) lines.push(`${pad}${indent}${trimmed}`);
-    }
+    const text = node.textContent ?? '';
+    const body =
+      tag === 'style' && authored
+        ? normalizeCss(text)
+        : text
+            .split('\n')
+            .map((line) => line.trim())
+            .filter(Boolean);
+    for (const line of body) lines.push(`${pad}${indent}${line}`);
     lines.push(`${pad}</${tag}>`);
     return;
   }
@@ -753,29 +856,35 @@ function formatNode(
     // part), the content wrapped one level in, the close tag back on the
     // margin — every added break is whitespace the parser drops at a block's
     // edges or collapses to the one space that was already there.
-    lines.push(...openTagLines(node, pad, indent, width));
-    if (content) lines.push(...wrapInline(content, pad + indent, width));
+    lines.push(...openTagLines(node, pad, indent, width, authored));
+    if (content) lines.push(...wrapInline(content, pad + indent, width, authored));
     lines.push(pad + close);
     return;
   }
 
-  lines.push(...openTagLines(node, pad, indent, width));
+  lines.push(...openTagLines(node, pad, indent, width, authored));
   for (const child of Array.from(node.childNodes)) {
     if (child.nodeType === Node.TEXT_NODE && !(child.nodeValue ?? '').trim()) continue;
-    formatNode(child, depth + 1, lines, indent, width);
+    formatNode(child, depth + 1, lines, indent, width, authored);
   }
   lines.push(`${pad}</${tag}>`);
 }
 
 /** The open tag on one line when it fits, else one attribute per line with
     the `>` back on the margin — whitespace inside a tag is free. */
-function openTagLines(element: Element, pad: string, indent: string, width: number): string[] {
+function openTagLines(
+  element: Element,
+  pad: string,
+  indent: string,
+  width: number,
+  authored = false,
+): string[] {
   const whole = pad + openTag(element);
   if (whole.length <= width || !element.attributes.length) return [whole];
   const lines = [`${pad}<${element.tagName.toLowerCase()}`];
   for (const attr of element.attributes) {
     const value = attr.value === '' ? null : escapeAttribute(attr.value);
-    lines.push(...attributeLines(attr.name, value, pad + indent, indent, width));
+    lines.push(...attributeLines(attr.name, value, pad + indent, indent, width, authored));
   }
   lines.push(`${pad}>`);
   return lines;
@@ -784,21 +893,51 @@ function openTagLines(element: Element, pad: string, indent: string, width: numb
 /** One attribute of a broken-up tag on its own line at `pad` — or, for a
     `style` that still does not fit, Prettier's embedded-CSS form: one
     declaration per line one level in, the closing quote back at `pad`.
-    Whitespace between declarations is nothing to CSS (and to every parse
-    rule, which read the style through the CSSOM or a whitespace-tolerant
-    regex), so the parsed style is unchanged. `value` is already escaped. */
+    `value` is already escaped.
+
+    For the canonical import, whitespace between declarations is nothing
+    (every parse rule reads the style through the CSSOM or a whitespace-
+    tolerant regex). Markup kept as authored (`authored`) keeps its style
+    byte for byte, so there the breaks are the only thing added: each goes
+    *after* a separator and its own spacing (`a: b; ⏎ c: d;`, `a:b;⏎c:d;`),
+    and the parse drops a line break together with the indentation after it
+    inside a style (`preservedAttributes`) — the style reads back exactly as
+    written. */
 function attributeLines(
   name: string,
   value: string | null,
   pad: string,
   indent: string,
   width: number,
+  authored = false,
 ): string[] {
   const line = value === null ? `${pad}${name}` : `${pad}${name}="${value}"`;
   if (line.length <= width || name !== 'style' || value === null) return [line];
-  const declarations = splitDeclarations(value);
-  if (declarations.length < 2) return [line];
-  return [`${pad}style="`, ...declarations.map((d) => `${pad}${indent}${d};`), `${pad}"`];
+  if (!authored) {
+    const declarations = splitDeclarations(value);
+    if (declarations.length < 2) return [line];
+    return [`${pad}style="`, ...declarations.map((d) => `${pad}${indent}${d};`), `${pad}"`];
+  }
+  // Split the unescaped value, so an `&quot;` never looks like a separator —
+  // and read it the way the parse does, so a style broken by an earlier
+  // format is re-broken from its original, never broken twice.
+  const raw = value
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/\r?\n[ \t]*/g, '');
+  const parts = splitStyleExactly(raw);
+  if (parts.filter((part) => part.trim()).length < 2) return [line];
+  const leading = (part: string) => /^\s*/.exec(part)![0];
+  const lines = [`${pad}style="${leading(parts[0])}`];
+  for (let i = 0; i < parts.length; i++) {
+    const body = parts[i].slice(leading(parts[i]).length);
+    const last = i === parts.length - 1;
+    if (last && !body) break;
+    const separator = last ? '' : `;${leading(parts[i + 1])}`;
+    lines.push(`${pad}${indent}${escapeAttribute(body + separator)}`);
+  }
+  lines.push(`${pad}"`);
+  return lines;
 }
 
 /** CSS declarations of a style value, split at the `;` between them (not
@@ -881,7 +1020,7 @@ function breakableWords(content: string): string[] {
 /** Greedy fill of inline content to the width, every line at `pad`. A word
     that is a tag and does not fit even alone breaks at its attributes (see
     {@link tagWordLines}); any other over-wide word simply overflows. */
-function wrapInline(content: string, pad: string, width: number): string[] {
+function wrapInline(content: string, pad: string, width: number, authored = false): string[] {
   const lines: string[] = [];
   let line = '';
   for (const word of breakableWords(content)) {
@@ -893,7 +1032,7 @@ function wrapInline(content: string, pad: string, width: number): string[] {
     line = '';
     const expanded =
       (pad + word).length > width
-        ? (tagWordLines(word, pad, width) ?? tokenWordLines(word, pad, width))
+        ? (tagWordLines(word, pad, width, authored) ?? tokenWordLines(word, pad, width))
         : null;
     if (expanded) lines.push(...expanded);
     else line = pad + word;
@@ -967,7 +1106,7 @@ function tokenWordLines(word: string, pad: string, width: number): string[] | nu
     word begins and ends at a break opportunity, so the added line breaks
     are exactly the whitespace that was there — or a block edge. Null when
     the word is not a tag with attributes. */
-function tagWordLines(word: string, pad: string, width: number): string[] | null {
+function tagWordLines(word: string, pad: string, width: number, authored = false): string[] | null {
   const match = /^<([A-Za-z][\w-]*)((?:\s+[^\s"'>=]+(?:="[^"]*"|='[^']*')?)+)\s*>([\s\S]*)$/.exec(
     word,
   );
@@ -979,7 +1118,7 @@ function tagWordLines(word: string, pad: string, width: number): string[] | null
     const eq = attribute.indexOf('=');
     const attrName = eq < 0 ? attribute : attribute.slice(0, eq);
     const attrValue = eq < 0 ? null : attribute.slice(eq + 2, -1);
-    lines.push(...attributeLines(attrName, attrValue, indent, '  ', width));
+    lines.push(...attributeLines(attrName, attrValue, indent, '  ', width, authored));
   }
   lines.push(`${pad}>${tail}`);
   return lines.some((line) => line.length > width) && lines.length <= 2 ? null : lines;
@@ -992,31 +1131,36 @@ function hasBlockChild(element: Element): boolean {
   return false;
 }
 
-function inlineContent(element: Element): string {
+/** An element's inline content on one line. Whitespace is collapsed, never
+    moved: a space inside a `<span>` stays inside it, because the parse keeps
+    it there too and a moved space would change the canonical document.
+    Only the block's own edges are trimmed — the parse drops those as well. */
+function inlineContent(element: Element, trimEdges = true): string {
   const parts: string[] = [];
   for (const child of element.childNodes) {
     if (child.nodeType === Node.TEXT_NODE) {
       // Tokens at their canonical padding here too (inline text is the common case).
       parts.push(escapeText(normalizeMergeTagText(collapseWhitespace(child.nodeValue ?? ''))));
     } else if (child.nodeType === Node.COMMENT_NODE) {
-      parts.push(`<!--${child.nodeValue}-->`);
+      parts.push(`<!--${normalizeCommentText(child.nodeValue ?? '')}-->`);
     } else if (child instanceof Element) {
       const tag = child.tagName.toLowerCase();
       parts.push(
-        VOID_TAGS.has(tag) ? openTag(child) : openTag(child) + inlineContent(child) + `</${tag}>`,
+        VOID_TAGS.has(tag)
+          ? openTag(child)
+          : openTag(child) + inlineContent(child, false) + `</${tag}>`,
       );
     }
   }
-  // Whitespace between inline siblings is significant; only the edges are not.
-  return parts.join('').replace(/^ +| +$/g, '');
+  const joined = parts.join('');
+  return trimEdges ? joined.replace(/^ +| +$/g, '') : joined;
 }
 
 function openTag(element: Element): string {
-  let attrs = '';
-  for (const attr of element.attributes) {
-    attrs += attr.value === '' ? ` ${attr.name}` : ` ${attr.name}="${escapeAttribute(attr.value)}"`;
-  }
-  return `<${element.tagName.toLowerCase()}${attrs}>`;
+  return tagString(
+    element.tagName.toLowerCase(),
+    Array.from(element.attributes, (attr) => [attr.name, attr.value]),
+  );
 }
 
 function collapseWhitespace(text: string): string {

@@ -35,6 +35,8 @@ import { PasteHygiene } from './paste-hygiene';
 import { ClearFormatting } from './clear-formatting';
 import { QuoteFold } from './quote-fold';
 import { Section } from './nodes/section';
+import { DocumentStyles } from './document-styles';
+import { AuthoredEnter, preserveExtensions } from '../preserve';
 
 /** Everything but the paragraph flavour, which is what the kits swap. */
 const withParagraph = (paragraph: NodeExtension): Extension[] => [
@@ -79,12 +81,20 @@ const withParagraph = (paragraph: NodeExtension): Extension[] => [
   // One editor-only outline mechanism for every layout block (table, columns).
   LayoutGuides,
   NoTextDrag,
+  // Enter in a structural text cell (an MJML `<td>`) breaks the line instead
+  // of splitting the cell. Before SplitKeepingMarks, which would split it.
+  AuthoredEnter,
   // After lists/blockquote (their Enter wins inside those), before BaseKeymap
   // (whose plain splitBlock this replaces): keeps font/colour across Enter.
   SplitKeepingMarks,
   BaseKeymap,
   PasteHygiene,
   ClearFormatting,
+  // The structural family: authored layout markup kept verbatim in the
+  // `email` and `preserve` modes (the source pane, `setContent`); inert in
+  // `repair` mode (paste, seeds). Last, so the canonical nodes stay the
+  // defaults of every group.
+  ...preserveExtensions,
 ];
 
 /** Semantic HTML output (`<p>` paragraphs) for content rendered in the app. */
@@ -96,6 +106,10 @@ export const richTextExtensions: Extension[] = withParagraph(Paragraph);
  */
 export const emailExtensions: Extension[] = [
   ...withParagraph(EmailParagraph),
+  // A preserved document's head styles, applied to the editor view scoped to
+  // this editor only — the visual pane renders a template as the recipient
+  // sees it.
+  DocumentStyles,
   // Reply-specific (so not in the rich-text kit): the quoted history folds
   // behind Gmail's `⋯`. Last on purpose — its ArrowDown must run after the
   // table/columns escapes fall through.
