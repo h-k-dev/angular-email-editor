@@ -20,15 +20,24 @@ import {
   AddressChip,
   AddressChipRemove,
   isMailbox,
+  parseMailbox,
+  separatesAt,
   splitAddresses,
 } from 'angular-email-editor/address-chip';
 
 let nextId = 0;
 
+/** What makes two entries one recipient: the address, whatever its case or
+    the name in front of it. */
+function identity(raw: string): string {
+  return parseMailbox(raw).address.toLowerCase();
+}
+
 /**
  * An address field the way Gmail's works: committed addresses as chips,
  * free typing after them. Enter, comma, semicolon or a paste commits what
- * was typed; Backspace on the empty input takes the chip before the caret
+ * was typed — a comma or semicolon inside a quoted name or angle brackets is
+ * just typed, and no key commits while an IME is composing; Backspace on the empty input takes the chip before the caret
  * back for editing; `limit` caps the count (From takes one) and hides the
  * input once reached.
  *
@@ -59,7 +68,7 @@ let nextId = 0;
  * **The arrow keys rove the chips; the caret stays in the input.** With
  * the caret at the start of the typing, ← puts a highlight on the last chip
  * and walks back along the list; → walks forward, and past the last chip
- * returns to the caret. Enter — or a double click on
+ * returns to the caret. Enter or F2 — or a double click on
  * any chip — edits it,
  * Backspace or Delete removes it, Escape drops the highlight, and so does
  * typing. A click on a chip highlights it. Reaching a chip either way is
@@ -71,7 +80,9 @@ let nextId = 0;
  *
  * A display name is kept — `Ada Lovelace <ada@example.com>` is one chip
  * that shows "Ada Lovelace" — and the value stays `string[]` in header
- * form, ready for a `To:` line.
+ * form, ready for a `To:` line. Typed bare, `Ada Lovelace ada@example.com`
+ * becomes that same chip. An address is in the list once: another entry
+ * with the same address — in any case, under any name — is dropped.
  *
  * **The control, not the row.** It owns no label and draws no row: the
  * template that holds the form puts it in a row of its own making, beside a
@@ -249,7 +260,8 @@ export class AddressInput implements FormValueControl<string[]> {
   protected readonly flagged = computed(() => this.invalid() && this.touched());
 
   /** Splits a run into addresses and adds the new ones to the end of the
-      list, up to `limit`. Duplicates are dropped; a malformed one is kept and
+      list, up to `limit`. Duplicates — by address, case-insensitively —
+      are dropped; a malformed one is kept and
       flagged — this is the host's way in, and the host decides what it
       holds. */
   commit(raw: string): void {
@@ -382,6 +394,8 @@ export class AddressInput implements FormValueControl<string[]> {
   }
 
   protected onKeydown(event: KeyboardEvent, input: HTMLInputElement): void {
+    // An IME's own Enter picks its candidate; nothing here may act on it.
+    if (event.isComposing) return;
     const active = this.active();
     if (active !== null && this.#onActiveKey(event, active, input)) return;
     switch (event.key) {
@@ -396,9 +410,15 @@ export class AddressInput implements FormValueControl<string[]> {
         if (last >= 0) this.active.set(last);
         return;
       }
-      case 'Enter':
       case ',':
       case ';':
+        // Inside a quoted name or angle brackets the character is the
+        // mailbox's own: `"Lovelace, Ada"`.
+        if (!separatesAt(input.value, input.selectionStart ?? input.value.length)) return;
+        event.preventDefault();
+        this.#settle(input, input.value);
+        return;
+      case 'Enter':
         // Swallowed even with nothing typed: Enter in an address row must
         // never submit the form around it. The subject line is where Enter
         // sends.
@@ -450,6 +470,7 @@ export class AddressInput implements FormValueControl<string[]> {
         this.active.set(null);
         break;
       case 'Enter':
+      case 'F2':
         this.edit(chips[active], input);
         break;
       case 'Backspace':
@@ -515,14 +536,19 @@ export class AddressInput implements FormValueControl<string[]> {
     this.refused.set(!!input.value);
   }
 
-  /** Adds the new addresses to the end of the list, up to `limit`. */
+  /** Adds the new addresses to the end of the list, up to `limit` — each
+      only if its address is not in the list yet; the entry already there
+      keeps its name. */
   #insert(incoming: readonly string[]): void {
     if (!incoming.length) return;
     this.value.update((current) => {
       const next = [...current];
+      const seen = new Set(next.map(identity));
       for (const address of incoming) {
         if (next.length >= this.limit()) break;
-        if (!next.includes(address)) next.push(address);
+        if (seen.has(identity(address))) continue;
+        seen.add(identity(address));
+        next.push(address);
       }
       return next;
     });

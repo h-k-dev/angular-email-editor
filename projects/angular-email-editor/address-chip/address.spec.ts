@@ -1,4 +1,11 @@
-import { formatMailbox, isEmailAddress, isMailbox, parseMailbox, splitAddresses } from './address';
+import {
+  formatMailbox,
+  isEmailAddress,
+  isMailbox,
+  parseMailbox,
+  separatesAt,
+  splitAddresses,
+} from './address';
 
 describe('address helpers', () => {
   describe('isEmailAddress', () => {
@@ -78,6 +85,44 @@ describe('address helpers', () => {
     it('drops empty tokens', () => {
       expect(splitAddresses(' , ;\n')).toEqual([]);
       expect(splitAddresses('a@x.io,,b@x.io,')).toEqual(['a@x.io', 'b@x.io']);
+    });
+
+    it('does not end a quoted name at an escaped quote', () => {
+      expect(splitAddresses('"Ada \\"the, Countess\\" L" <ada@x.io>, b@x.io')).toEqual([
+        '"Ada \\"the, Countess\\" L" <ada@x.io>',
+        'b@x.io',
+      ]);
+    });
+
+    it('repairs a bare name typed in front of an address', () => {
+      expect(splitAddresses('Ada Lovelace ada@x.io')).toEqual(['Ada Lovelace <ada@x.io>']);
+      expect(splitAddresses('Dr. Ada ada@x.io')).toEqual(['"Dr. Ada" <ada@x.io>']);
+      // Each run of words names the address after it.
+      expect(splitAddresses('a@x.io Grace Hopper g@x.io')).toEqual([
+        'a@x.io',
+        'Grace Hopper <g@x.io>',
+      ]);
+    });
+
+    it('keeps words that name no address as one token, not one per word', () => {
+      expect(splitAddresses('not an address')).toEqual(['not an address']);
+      // A name still being typed after an address stays whole, after it.
+      expect(splitAddresses('ada@x.io Grace Ho')).toEqual(['ada@x.io', 'Grace Ho']);
+    });
+  });
+
+  describe('separatesAt', () => {
+    it('is true outside quotes and angle brackets, false inside either', () => {
+      expect(separatesAt('ada@x.io', 8)).toBe(true);
+      expect(separatesAt('"Lovelace', 9)).toBe(false);
+      expect(separatesAt('Ada <ada@x', 10)).toBe(false);
+      expect(separatesAt('"Lovelace, Ada" <ada@x.io>', 26)).toBe(true);
+      expect(separatesAt('"Ada \\"the', 10)).toBe(false);
+    });
+
+    it('judges the caret, not the end of the text', () => {
+      expect(separatesAt('"Lovelace" x', 1)).toBe(false);
+      expect(separatesAt('"Lovelace" x', 10)).toBe(true);
     });
   });
 });

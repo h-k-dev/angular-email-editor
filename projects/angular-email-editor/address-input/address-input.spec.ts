@@ -134,6 +134,74 @@ describe('AddressInput', () => {
     expect(key(part.input(), 'Enter').defaultPrevented).toBe(true);
   });
 
+  it('leaves the keys that confirm an IME composition to the IME', () => {
+    type(part.input(), 'ada@example.com');
+    for (const name of ['Enter', ',', ';', 'Tab', 'Backspace', 'ArrowLeft']) {
+      const event = new KeyboardEvent('keydown', {
+        key: name,
+        isComposing: true,
+        cancelable: true,
+        bubbles: true,
+      });
+      part.input().dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(false);
+    }
+    expect(host.addresses()).toEqual([]);
+    expect(part.input().value).toBe('ada@example.com');
+  });
+
+  it('types a comma or semicolon inside a quoted name or angle brackets, instead of committing', async () => {
+    const at = (text: string) => {
+      type(part.input(), text);
+      part.input().setSelectionRange(text.length, text.length);
+    };
+    at('"Lovelace');
+    expect(key(part.input(), ',').defaultPrevented).toBe(false);
+    at('Ada <ada@example.com');
+    expect(key(part.input(), ';').defaultPrevented).toBe(false);
+    expect(host.addresses()).toEqual([]);
+
+    // Outside them again, the comma commits.
+    at('"Lovelace, Ada" <ada@example.com>');
+    expect(key(part.input(), ',').defaultPrevented).toBe(true);
+    await fixture.whenStable();
+    expect(host.addresses()).toEqual(['"Lovelace, Ada" <ada@example.com>']);
+  });
+
+  it('drops a duplicate by its address — whatever its case or display name — and clears it', async () => {
+    host.addresses.set(['Ada <ada@example.com>']);
+    await fixture.whenStable();
+    type(part.input(), 'ADA@Example.com');
+    key(part.input(), 'Enter');
+    await fixture.whenStable();
+    expect(host.addresses()).toEqual(['Ada <ada@example.com>']);
+    expect(part.input().value).toBe('');
+
+    control().commit('Ada Lovelace <ada@EXAMPLE.com>, grace@example.com, Grace@example.com');
+    await fixture.whenStable();
+    expect(host.addresses()).toEqual(['Ada <ada@example.com>', 'grace@example.com']);
+  });
+
+  it('repairs a name typed in front of an address into one chip', async () => {
+    type(part.input(), 'Ada Lovelace ada@example.com');
+    key(part.input(), 'Enter');
+    await fixture.whenStable();
+    expect(host.addresses()).toEqual(['Ada Lovelace <ada@example.com>']);
+    expect(part.chips()[0].querySelector('[data-slot=name]')?.textContent?.trim()).toBe(
+      'Ada Lovelace',
+    );
+  });
+
+  it('F2 on a picked chip takes it back for editing, as Enter does', async () => {
+    host.addresses.set(['ada@example.com', 'grace@example.com']);
+    await fixture.whenStable();
+    key(part.input(), 'ArrowLeft');
+    expect(key(part.input(), 'F2').defaultPrevented).toBe(true);
+    await fixture.whenStable();
+    expect(host.addresses()).toEqual(['ada@example.com']);
+    expect(part.input().value).toBe('grace@example.com');
+  });
+
   it('commits on blur and reports the touch', async () => {
     type(part.input(), 'ada@example.com');
     part.input().dispatchEvent(new Event('blur'));

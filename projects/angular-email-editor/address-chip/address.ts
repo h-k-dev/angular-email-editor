@@ -53,36 +53,77 @@ export function isMailbox(raw: string): boolean {
   return isEmailAddress(parseMailbox(raw).address);
 }
 
+/** What separates the mailboxes of a typed run. RFC 5322 knows only the
+    comma; every client also takes a semicolon, and a pasted list arrives
+    one per line. */
+const SEPARATORS = ',;\n\r';
+
+/**
+ * Walks a run to `end`: the indices of the separators that separate — those
+ * outside a quoted name (where `\"` does not close it) and outside angle
+ * brackets — and whether the walk ended inside either.
+ */
+function scan(raw: string, end = raw.length): { separators: number[]; open: boolean } {
+  const separators: number[] = [];
+  let quoted = false;
+  let escaped = false;
+  let angled = false;
+  for (let i = 0; i < Math.min(end, raw.length); i++) {
+    const char = raw[i];
+    if (escaped) escaped = false;
+    else if (quoted) {
+      if (char === '\\') escaped = true;
+      else if (char === '"') quoted = false;
+    } else if (char === '"' && !angled) quoted = true;
+    else if (char === '<') angled = true;
+    else if (char === '>') angled = false;
+    else if (!angled && SEPARATORS.includes(char)) separators.push(i);
+  }
+  return { separators, open: quoted || angled };
+}
+
+/** Whether a separator typed at `caret` would separate — false inside a
+    quoted name or angle brackets, where a comma is part of the mailbox:
+    `"Lovelace, Ada"`. */
+export function separatesAt(raw: string, caret: number): boolean {
+  return !scan(raw, caret).open;
+}
+
 /**
  * Splits a typed or pasted run into mailboxes. Commas, semicolons and line
  * breaks separate — except inside quotes or angle brackets, so
- * `"Lovelace, Ada" <ada@example.com>, grace@example.com` is two. A run of
- * bare addresses that only whitespace separates (a copied column, a
- * space-separated list) splits on that too; a token with a display name
- * keeps its spaces. Empty tokens are dropped; duplicates are the caller's.
+ * `"Lovelace, Ada" <ada@example.com>, grace@example.com` is two. Empty
+ * tokens are dropped; duplicates are the caller's.
+ *
+ * A bare run — no brackets, no quotes — is read the way people type it: the
+ * words in front of an address name it (`Ada Lovelace ada@example.com` is
+ * `Ada Lovelace <ada@example.com>`, which the grammar has no production for
+ * but every client accepts), addresses that only whitespace separates are
+ * several (a copied column), and words naming no address stay one token —
+ * one typo to fix, not one per word.
  */
 export function splitAddresses(raw: string): string[] {
   const tokens: string[] = [];
-  let current = '';
-  let quoted = false;
-  let angled = false;
-  for (const char of raw) {
-    if (char === '"' && !angled) quoted = !quoted;
-    else if (char === '<' && !quoted) angled = true;
-    else if (char === '>' && !quoted) angled = false;
-    if (!quoted && !angled && (char === ',' || char === ';' || char === '\n' || char === '\r')) {
-      tokens.push(current);
-      current = '';
+  let start = 0;
+  for (const index of [...scan(raw).separators, raw.length]) {
+    tokens.push(raw.slice(start, index).trim());
+    start = index + 1;
+  }
+  return tokens.filter(Boolean).flatMap((token) => (/[<"]/.test(token) ? [token] : bareRun(token)));
+}
+
+/** A bare run's mailboxes: each run of words names the address after it. */
+function bareRun(token: string): string[] {
+  const mailboxes: string[] = [];
+  let name: string[] = [];
+  for (const word of token.split(/\s+/)) {
+    if (!isEmailAddress(word)) {
+      name.push(word);
       continue;
     }
-    current += char;
+    mailboxes.push(formatMailbox({ name: name.join(' ') || undefined, address: word }));
+    name = [];
   }
-  tokens.push(current);
-  return tokens.flatMap((token) => {
-    const trimmed = token.trim();
-    if (!trimmed) return [];
-    // A bare run — no name, no brackets — may be several addresses that only
-    // whitespace separates.
-    return /[<"]/.test(trimmed) ? [trimmed] : trimmed.split(/\s+/);
-  });
+  if (name.length) mailboxes.push(name.join(' '));
+  return mailboxes;
 }
