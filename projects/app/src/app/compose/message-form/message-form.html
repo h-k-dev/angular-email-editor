@@ -269,6 +269,7 @@
   <section
     email-compose
     [formField]="envelope.html"
+    [(quoted)]="quoted"
     (send)="send()"
     (fileDrop)="onAttachmentDrop($event)"
     [(sourceView)]="sourceView"

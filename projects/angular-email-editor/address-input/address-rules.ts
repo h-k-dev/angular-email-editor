@@ -5,7 +5,7 @@ import {
   type ValidationError,
   validate,
 } from '@angular/forms/signals';
-import { isMailbox } from 'angular-email-editor/address-chip';
+import { isMailbox } from 'angular-email-editor/address';
 
 /** The error kinds `addressList` reports, for a host that switches on them. */
 export const ADDRESS_LIST_EMPTY = 'addressList.empty';

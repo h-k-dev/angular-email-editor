@@ -25,6 +25,12 @@ export default {
     sent: 'Nachricht gesendet',
   },
   editor: {
+    quoted: {
+      show: 'Zitierten Text anzeigen',
+      hide: 'Zitierten Text ausblenden',
+      edit: 'Zitierten Text bearbeiten',
+      remove: 'Zitierten Text entfernen',
+    },
     actions: {
       text: { title: 'Text', keywords: 'absatz, fließtext' },
       'heading-1': { title: 'Überschrift 1', keywords: 'überschrift, titel' },

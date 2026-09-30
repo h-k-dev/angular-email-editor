@@ -38,7 +38,7 @@
     email-preview
     [hidden]="!previewOpen()"
     [active]="previewOpen()"
-    [html]="sheet.html()"
+    [html]="previewHtml()"
     [original]="sheet.original()"
     aria-label="Email preview"
   ></section>

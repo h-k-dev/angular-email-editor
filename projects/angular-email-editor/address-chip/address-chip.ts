@@ -12,7 +12,7 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { isEmailAddress, parseMailbox } from './address';
+import { isEmailAddress, parseMailbox } from 'angular-email-editor/address';
 import { AddressChipRemove, AddressChipRemoveContext } from './address-chip.slots';
 
 /** The copy command, on a throwaway selection: the fallback for a clipboard

@@ -13,6 +13,8 @@ import {
 import { createSchema } from './schema';
 import { parseHTML, serializeToHTML } from './html';
 import { markAttrsOf, soleInlineAtom } from './extensions/inline-atoms';
+import { CONTENT_ATTRS } from './extensions/nodes/document';
+import { quotedHistory, setQuotedHistory } from './extensions/quoted-history';
 import { ParseMode } from './parse-mode';
 
 export interface EditorOptions {
@@ -21,6 +23,10 @@ export interface EditorOptions {
   extensions: Extension[];
   /** Initial content as HTML. */
   content?: string;
+  /** The quoted history a reply or forward answers, as HTML (`replyQuote`,
+      `forwardQuote`) — kept beside the body, never replaced with it. See
+      `QuotedHistory`. */
+  quoted?: string | null;
   /** How `content` and `setContent` parse markup. Default `email`: every
       tag, attribute and CSS property Apple Mail, Outlook or Gmail applies is
       recognized — as the kit's own nodes and marks wherever their rules
@@ -67,6 +73,12 @@ export interface Editor {
       the undo history and never fires `onUpdate`, so editors mirroring each
       other cannot echo. */
   setContent(html: string): void;
+  /** The quoted history, as canonical HTML, or null — the part of the
+      message {@link getHTML} leaves out and the send intent puts back. */
+  getQuoted(): string | null;
+  /** Replaces the quoted history — sanitized through the schema — or drops
+      it. Same external-sync semantics as {@link setContent}. */
+  setQuoted(html: string | null): void;
   /** The document as plain text: top-level blocks joined with newlines. */
   getText(): string;
   /** Replaces the document with plain text, one default block per line.
@@ -133,6 +145,10 @@ export function createEditor(options: EditorOptions): Editor {
 
   const exec = (command: Command) => command(view.state, view.dispatch, view);
   const listeners = new Set<(editor: Editor) => void>();
+  const setQuoted = (html: string | null) =>
+    setQuotedHistory(html)(view.state, (tr) =>
+      view.dispatch(tr.setMeta('addToHistory', false).setMeta('externalSync', true)),
+    );
 
   const commands: Editor['commands'] = {};
   for (const [name, factory] of Object.entries(commandFactories)) {
@@ -163,6 +179,8 @@ export function createEditor(options: EditorOptions): Editor {
     setContent(html) {
       syncDoc(view, parse(html));
     },
+    getQuoted: () => quotedHistory(view.state),
+    setQuoted,
     getText() {
       const lines: string[] = [];
       view.state.doc.forEach((node) => lines.push(node.textContent));
@@ -183,6 +201,7 @@ export function createEditor(options: EditorOptions): Editor {
     },
   };
 
+  if (options.quoted) setQuoted(options.quoted);
   return editor;
 }
 
@@ -229,8 +248,10 @@ function syncDoc(view: EditorView, doc: Node): void {
   }
   // The document's own attributes (the envelope: doctype, head, body attrs)
   // are not content — a head-only edit is an attribute step, not a diff.
-  for (const [name, value] of Object.entries(doc.attrs)) {
-    if (JSON.stringify(previous.attrs[name]) !== JSON.stringify(value)) {
+  // Only those that come with content follow it; the quoted history stays.
+  for (const name of CONTENT_ATTRS) {
+    const value = doc.attrs[name] ?? null;
+    if (JSON.stringify(previous.attrs[name] ?? null) !== JSON.stringify(value)) {
       tr.setDocAttribute(name, value);
     }
   }

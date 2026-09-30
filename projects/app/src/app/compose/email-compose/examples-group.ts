@@ -1,5 +1,10 @@
 // Library
-import { SuggestionCommandItem, SuggestionGroup, replaceHTML } from 'angular-email-editor';
+import {
+  SuggestionCommandItem,
+  SuggestionGroup,
+  replaceHTML,
+  withQuotedHistory,
+} from 'angular-email-editor';
 
 import { Examples } from '../../../services/examples';
 
@@ -36,10 +41,17 @@ export function examplesGroup(examples: Examples): SuggestionGroup {
         icon: 'article',
         // The file's HTML is the message's original from here on.
         command: (state, dispatch, view) => {
-          if (dispatch) examples.loaded.set(doc.html);
+          const { html, quoted } = doc;
+          if (dispatch) examples.loaded.set(quoted ? withQuotedHistory(html, quoted) : html);
           // Parsed as the editor parses (`email`): an example — a compiled
           // MJML template included — comes in exactly as written.
-          return replaceHTML(doc.html, { mode: 'email' })(state, dispatch, view);
+          const load = replaceHTML(html, { mode: 'email' });
+          // A document example replaces the body and leaves any quoted
+          // history as it is. A reply example is a new conversation: its
+          // history comes with it, in the same step (`replyQuote` is
+          // canonical already).
+          if (!quoted || !dispatch) return load(state, dispatch, view);
+          return load(state, (tr) => dispatch(tr.setDocAttribute('quoted', quoted)), view);
         },
       }));
     },

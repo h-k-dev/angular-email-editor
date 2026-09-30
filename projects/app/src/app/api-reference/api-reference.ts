@@ -43,14 +43,14 @@ export class ApiReference {
         },
         {
           name: 'EditorOptions',
-          signature: '{ parent, extensions, content?, attributes?, onUpdate? }',
-          does: 'parent is the element the editable mounts into, content the initial HTML, attributes the DOM attributes for the editable, onUpdate a callback after every document-changing transaction.',
+          signature: '{ parent, extensions, content?, quoted?, parseMode?, attributes?, onUpdate? }',
+          does: 'parent is the element the editable mounts into, content the initial HTML, quoted the quoted history a reply or forward answers (kept beside the body), attributes the DOM attributes for the editable, onUpdate a callback after every document-changing transaction.',
         },
         {
           name: 'Editor',
           signature:
-            '{ view, schema, state, commands, exec(), isActive(), getHTML(), setContent(), getText(), setText(), focus(), destroy() }',
-          does: 'commands are the extensions’ named commands bound to the live view (editor.commands.toggleBold()). setContent/setText apply a minimal diff as an external sync — selection, scroll and plugin state survive, nothing enters the undo history and onUpdate does not fire, so two editors mirroring each other cannot echo.',
+            '{ view, schema, state, commands, exec(), isActive(), getHTML(), setContent(), getQuoted(), setQuoted(), getText(), setText(), focus(), destroy() }',
+          does: 'commands are the extensions’ named commands bound to the live view (editor.commands.toggleBold()). setContent/setText apply a minimal diff as an external sync — selection, scroll and plugin state survive, nothing enters the undo history and onUpdate does not fire, so two editors mirroring each other cannot echo. getHTML is the body alone; getQuoted/setQuoted read and replace the quoted history, which no setContent touches.',
         },
         {
           name: 'createSchema',
@@ -149,9 +149,9 @@ export class ApiReference {
           does: 'The source pane’s language service: highlighting plus lint diagnostics, tag and attribute completion, and mark shortcuts that round-trip the selection through the email schema. Paced for the fastest typist: a keystroke only moves the highlighting along; the whole text is rescanned — and onDiagnostics called — once typing rests (rescanDelay, default TYPING_REST = 200 ms), and at once for a mirrored write or a large edit.',
         },
         {
-          name: 'LayoutGuides, QuoteFold, PasteHygiene, ClearFormatting',
+          name: 'LayoutGuides, QuotedHistory, PasteHygiene, ClearFormatting',
           signature: 'Extension',
-          does: 'Table and column guides that peek on hover, the folded quoted history, paste sanitizing, and formatting removal.',
+          does: 'Table and column guides that peek on hover, the quoted history (kept beside the body, folded behind ⋯, removed by its trash or moved into the body by Edit — both undoable; createQuotedHistory({ labels }) for other languages), paste sanitizing, and formatting removal.',
         },
         {
           name: 'ColumnResize, ColumnsResize, History, BaseKeymap, Gapcursor, NoTextDrag, SplitKeepingMarks',
@@ -246,7 +246,7 @@ export class ApiReference {
       entries: [
         {
           name: 'InboundMessage',
-          signature: '{ html?, text?, from?, date?, subject?, to? }',
+          signature: '{ html?, text?, from?, date?, subject?, to?, cc?, replyTo? }',
           does: 'The inbound message as document content only — the attribution line and the forwarded-message header. The envelope stays the host’s.',
         },
         {
@@ -255,9 +255,24 @@ export class ApiReference {
           does: 'Bridges a parser result into the seeds, duck-typed so the library depends on no parser.',
         },
         {
+          name: 'replyQuote / forwardQuote',
+          signature: '(inbound, options?: ComposeSeedOptions) => string',
+          does: 'The quoted history alone — attribution and blockquote (reply), header block and message (forward) — for createEditor({ quoted }) / setQuoted, where no template, import or source edit replaces it.',
+        },
+        {
+          name: 'withQuotedHistory',
+          signature: '(html, quoted: string | null) => string',
+          does: 'A body with its quoted history under it — the message as it goes out, for a host holding the two as strings (a preview). A whole document keeps its head.',
+        },
+        {
           name: 'replyDocument / forwardDocument',
           signature: '(inbound, options?: ComposeSeedOptions) => string',
-          does: 'The seed document: an empty composing area above the quoted history, with the attribution line (reply) or the forwarded header block (forward). options.locale formats a Date-typed date; a string date is used verbatim.',
+          does: 'The seed as one document, the history in the body as ordinary text (for a host without the kept history): an empty composing area above it, with the attribution line (reply) or the forwarded header block (forward). options.locale formats a Date-typed date; a string date is used verbatim. options.labels words it in the host’s language: attribution({ from, date }) for the reply line, forwarded / from / date / subject / to for the forward header — each left out stays English.',
+        },
+        {
+          name: 'replyEnvelope',
+          signature: "(inbound, kind: 'reply' | 'reply-all' | 'forward', options?: ReplyEnvelopeOptions) => { to, cc, subject }",
+          does: 'Who an answer goes to and what it is called: Reply-To over From, a reply-all copying everyone but options.self, each address once; the subject takes labels.re / labels.fwd once, replacing same-family prefixes in any language (AW: Re: x → Re: x). Takes the same options as replyDocument.',
         },
         {
           name: 'importedDocument',

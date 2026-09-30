@@ -33,7 +33,7 @@ import { SplitKeepingMarks } from './split-keeping-marks';
 import { BaseKeymap } from './base-keymap';
 import { PasteHygiene } from './paste-hygiene';
 import { ClearFormatting } from './clear-formatting';
-import { QuoteFold } from './quote-fold';
+import { QuotedHistory } from './quoted-history';
 import { Section } from './nodes/section';
 import { DocumentStyles } from './document-styles';
 import { AuthoredEnter, preserveExtensions } from '../preserve';
@@ -110,10 +110,10 @@ export const emailExtensions: Extension[] = [
   // this editor only — the visual pane renders a template as the recipient
   // sees it.
   DocumentStyles,
-  // Reply-specific (so not in the rich-text kit): the quoted history folds
-  // behind Gmail's `⋯`. Last on purpose — its ArrowDown must run after the
-  // table/columns escapes fall through.
-  QuoteFold,
+  // Reply-specific (so not in the rich-text kit): the quoted history, kept
+  // beside the body and folded behind Gmail's `⋯`. A host in another
+  // language swaps it for its own `createQuotedHistory({ labels })`.
+  QuotedHistory,
 ];
 
 /**

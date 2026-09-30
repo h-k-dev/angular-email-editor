@@ -16,22 +16,10 @@ import {
   viewChildren,
 } from '@angular/core';
 import type { FormValueControl } from '@angular/forms/signals';
-import {
-  AddressChip,
-  AddressChipRemove,
-  isMailbox,
-  parseMailbox,
-  separatesAt,
-  splitAddresses,
-} from 'angular-email-editor/address-chip';
+import { addressKey, isMailbox, separatesAt, splitAddresses } from 'angular-email-editor/address';
+import { AddressChip, AddressChipRemove } from 'angular-email-editor/address-chip';
 
 let nextId = 0;
-
-/** What makes two entries one recipient: the address, whatever its case or
-    the name in front of it. */
-function identity(raw: string): string {
-  return parseMailbox(raw).address.toLowerCase();
-}
 
 /**
  * An address field the way Gmail's works: committed addresses as chips,
@@ -543,11 +531,11 @@ export class AddressInput implements FormValueControl<string[]> {
     if (!incoming.length) return;
     this.value.update((current) => {
       const next = [...current];
-      const seen = new Set(next.map(identity));
+      const seen = new Set(next.map(addressKey));
       for (const address of incoming) {
         if (next.length >= this.limit()) break;
-        if (seen.has(identity(address))) continue;
-        seen.add(identity(address));
+        if (seen.has(addressKey(address))) continue;
+        seen.add(addressKey(address));
         next.push(address);
       }
       return next;

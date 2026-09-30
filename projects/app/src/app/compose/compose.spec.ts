@@ -987,6 +987,46 @@ describe('Compose', () => {
   });
 });
 
+describe('Compose answering a message', () => {
+  const QUOTE =
+    '<div>Jane wrote:</div><blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div>Original message</div></blockquote>';
+
+  it('restores a draft’s quoted history under the body, and a body written over it keeps it', async () => {
+    const draft: DraftContent = {
+      from: ['you@example.com'],
+      to: ['jane@example.com'],
+      cc: [],
+      bcc: [],
+      subject: 'Re: Hello',
+      html: '<div>My answer</div>',
+      quoted: QUOTE,
+      attachments: [],
+    };
+    localStorage.setItem(DRAFT_KEY, serializeDraft(draft)!);
+    await TestBed.configureTestingModule({
+      imports: [Compose],
+      providers: [{ provide: EMAIL_SEND_LATENCY, useValue: 0 }],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(Compose);
+    await fixture.whenStable();
+
+    const sheet = (fixture.componentInstance as any).sheet();
+    const pm = fixture.nativeElement.querySelector('[aria-label="Message body"]') as HTMLElement;
+    // The editor mounted after the draft was read: its empty history must
+    // not have overwritten the one the draft brought.
+    expect(sheet.quoted()).toBe(QUOTE);
+    expect(pm.querySelector('.aee-quoted')).not.toBeNull();
+
+    // A template, an .eml, the source pane: the body is replaced, the
+    // history stays.
+    sheet.emailPane().value.set('<div>A template</div>');
+    await fixture.whenStable();
+    expect(pm.textContent).toContain('A template');
+    expect(sheet.quoted()).toBe(QUOTE);
+    expect(sheet.emailPane().intent().html).toBe('<div>A template</div>' + QUOTE);
+  });
+});
+
 describe('Compose below the docking breakpoint', () => {
   it('drops the pane toggles from the writer bar and collapses a docked pane', async () => {
     const narrow = signal(false);

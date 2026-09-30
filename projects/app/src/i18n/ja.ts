@@ -24,6 +24,12 @@ export default {
     sent: 'メッセージを送信しました',
   },
   editor: {
+    quoted: {
+      show: '引用テキストを表示',
+      hide: '引用テキストを隠す',
+      edit: '引用テキストを編集',
+      remove: '引用テキストを削除',
+    },
     actions: {
       text: { title: 'テキスト', keywords: '段落, 本文, だんらく' },
       'heading-1': { title: '見出し 1', keywords: '見出し, タイトル, みだし' },

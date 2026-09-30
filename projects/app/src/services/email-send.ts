@@ -1,6 +1,6 @@
 import { InjectionToken, Service, computed, inject, signal } from '@angular/core';
 import { SendIntent } from 'angular-email-editor';
-import { parseMailbox } from 'angular-email-editor/address-chip';
+import { parseMailbox } from 'angular-email-editor/address';
 import { AttachmentRef } from './attachment-uploads';
 
 /** What the transport is handed: the editor's send intent (body, its text

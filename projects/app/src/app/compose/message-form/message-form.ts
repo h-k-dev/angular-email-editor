@@ -45,7 +45,7 @@ import {
   importedDocument,
   toInboundMessage,
 } from 'angular-email-editor';
-import { isEmailAddress, parseMailbox } from 'angular-email-editor/address-chip';
+import { isEmailAddress, parseMailbox } from 'angular-email-editor/address';
 import { AddressInput, addressList } from 'angular-email-editor/address-input';
 import {
   Attachment,
@@ -207,6 +207,15 @@ export class MessageForm {
     computation: (original) => original,
     set: (original) =>
       this.message.update((m) => (m.original === original ? m : { ...m, original })),
+  });
+
+  /** The quoted history a reply or forward answers — beside `html`, never
+      replaced with it; the editor's trash and Edit are the only ways it
+      changes on the sheet. */
+  readonly quoted = linkedSignal<string | null, string | null>({
+    source: () => this.message().quoted,
+    computation: (quoted) => quoted,
+    set: (quoted) => this.message.update((m) => (m.quoted === quoted ? m : { ...m, quoted })),
   });
 
   /** Where the frame shows the HTML source; the editor steps out of code

@@ -1,4 +1,5 @@
 import {
+  addressKey,
   formatMailbox,
   isEmailAddress,
   isMailbox,
@@ -54,6 +55,15 @@ describe('address helpers', () => {
       expect(formatMailbox({ name: 'Ada "the" Lovelace', address: 'a@b.co' })).toBe(
         '"Ada \\"the\\" Lovelace" <a@b.co>',
       );
+    });
+  });
+
+  describe('addressKey', () => {
+    it('is the same for one recipient under any name or case', () => {
+      expect(addressKey('Ada <ADA@Example.com>')).toBe('ada@example.com');
+      expect(addressKey('"Lovelace, Ada" <ada@example.com>')).toBe('ada@example.com');
+      expect(addressKey(' ada@example.com ')).toBe('ada@example.com');
+      expect(addressKey('grace@example.com')).not.toBe(addressKey('ada@example.com'));
     });
   });
 

@@ -25,7 +25,12 @@ import { MatIcon } from '@angular/material/icon';
 import { AngularFileDrop, FileDropEvent } from '@h-k-dev/angular-file-drop';
 
 // Angular Email Editor
-import { HtmlDiagnostic, InlineImages, emailSizeBudget } from 'angular-email-editor';
+import {
+  HtmlDiagnostic,
+  InlineImages,
+  emailSizeBudget,
+  withQuotedHistory,
+} from 'angular-email-editor';
 
 import { SourceView } from './email-compose/email-compose';
 import { releaseEditingSurface } from './is-typing';
@@ -157,6 +162,12 @@ export class Compose {
     });
   }
   protected sourcePane = viewChild.required(HtmlEmailCompose);
+
+  /** The message as it goes out, for the preview: the body with its quoted
+      history under it. */
+  protected previewHtml = computed(() =>
+    withQuotedHistory(this.sheet().html(), this.sheet().quoted()),
+  );
 
   /** Live word/line counter, measured mathematically by the email pane. */
   protected metrics = computed(() => this.sheet().metrics());

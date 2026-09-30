@@ -1020,9 +1020,71 @@ html {
   }
 }
 
-/* Gmail's `⋯` pill: the stand-in for folded quoted history (the QuoteFold
- * extension). Behaviour — hiding, expanding, keyboard escapes — ships with
- * the library; these are only the pixels. Token cascade as always. */
+/* The quoted history (the QuotedHistory extension): kept beside the body,
+ * drawn after its last block — a bar of ⋯ / Edit / trash over the read-only
+ * history. Behaviour and structure ship with the library (`data-slot`
+ * parts); these are only the pixels. Token cascade as always. */
+.aee-editor .aee-quoted {
+  margin-top: 8px;
+  cursor: default;
+  user-select: text;
+
+  [data-slot='bar'] {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  /* Edit and trash: quiet icon buttons that come up on hover or focus of
+     the history, always there for touch — and a 40px target either way. */
+  [data-slot='edit'],
+  [data-slot='remove'] {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: var(--email-quote-fold-corner, var(--mat-sys-corner-small, 6px));
+    background: none;
+    color: var(--mat-sys-on-surface-variant, #555555);
+    font-size: 18px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 120ms ease;
+
+    &::before {
+      content: '';
+      position: absolute;
+      inset: -6px;
+    }
+
+    &:hover {
+      background-color: var(
+        --email-quote-fold-background,
+        var(--mat-sys-surface-container-high, #e2e2e2)
+      );
+    }
+  }
+
+  &:hover,
+  &:focus-within {
+    [data-slot='edit'],
+    [data-slot='remove'] {
+      opacity: 1;
+    }
+  }
+
+  @media (hover: none) {
+    [data-slot='edit'],
+    [data-slot='remove'] {
+      opacity: 1;
+    }
+  }
+}
+
+/* Gmail's `⋯` pill: the fold toggle of the quoted history. */
 .aee-editor .aee-quote-fold {
   display: inline-block;
   margin: 6px 0;

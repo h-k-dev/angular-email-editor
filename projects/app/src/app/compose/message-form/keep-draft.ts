@@ -144,6 +144,7 @@ export class KeepDraft {
       subject: content.subject,
       previewText: content.previewText ?? '',
       original: content.original ?? null,
+      quoted: content.quoted ?? null,
       html: content.html,
       attachments: [
         ...content.attachments.map(
@@ -164,6 +165,6 @@ function toDraft(message: Envelope): DraftContent | null {
   if (isBlank({ ...message, attachments: message.attachments.filter((a) => a.id !== null) })) {
     return null;
   }
-  const { from, to, cc, bcc, subject, previewText, html, original } = message;
-  return { from, to, cc, bcc, subject, previewText, html, original, attachments };
+  const { from, to, cc, bcc, subject, previewText, html, original, quoted } = message;
+  return { from, to, cc, bcc, subject, previewText, html, original, quoted, attachments };
 }

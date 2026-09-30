@@ -79,6 +79,7 @@ import {
   InlineImages,
   mergeTagAt,
   emailExtensions,
+  createQuotedHistory,
 } from 'angular-email-editor';
 import {
   SuggestionMenu,
@@ -176,6 +177,11 @@ export class EmailCompose implements FormValueControl<string> {
       as `[(value)]`. This editor owns the canonical form: whatever comes in
       is parsed through the email schema and re-published as what survived. */
   value = model('');
+
+  /** The quoted history a reply or forward answers — kept beside `value`,
+      never replaced with it (a template, an `.eml`, the source pane), and
+      sent under it. The editor's trash and Edit change it; two-way. */
+  quoted = model<string | null>(null);
 
   /** Focus left the editor — the form marks the body field touched on it. */
   touch = output<void>();
@@ -387,6 +393,28 @@ export class EmailCompose implements FormValueControl<string> {
         this.#applyIncoming(editor);
       });
     });
+
+    // A language switch: the editor's own widgets (the quoted history's
+    // buttons) ask their words when the view updates — an empty
+    // transaction is that update, and changes nothing else.
+    effect(() => {
+      this.i18n.lang();
+      const editor = this.editor();
+      untracked(() => editor?.view.dispatch(editor.state.tr.setMeta('addToHistory', false)));
+    });
+
+    // The quoted history from outside — a reply seeded, a draft restored.
+    // One string, set rarely: applied at once, re-published as what the
+    // schema kept. The editor's own changes come back equal and stop here.
+    effect(() => {
+      const quoted = this.quoted();
+      const editor = this.editor();
+      untracked(() => {
+        if (!editor || quoted === editor.getQuoted()) return;
+        editor.setQuoted(quoted);
+        this.#publishQuoted(editor);
+      });
+    });
   }
 
   /** `value`, settled: see the effect above. This editor's own publishes
@@ -407,6 +435,19 @@ export class EmailCompose implements FormValueControl<string> {
   #publish(editor: Editor): void {
     this.#published = editor.getHTML();
     this.value.set(this.#published);
+  }
+
+  /** The quoted history this editor last published, like `#published`: a
+      quote from outside that has not reached the editor yet (a draft
+      restored before it mounted) is never overwritten by the editor's
+      older one — only a change of the editor's own goes out. */
+  #publishedQuoted: string | null = null;
+
+  #publishQuoted(editor: Editor): void {
+    const quoted = editor.getQuoted();
+    if (quoted === this.#publishedQuoted) return;
+    this.#publishedQuoted = quoted;
+    this.quoted.set(quoted);
   }
 
   /** Applies the signal's current value to the editor and re-publishes the
@@ -430,7 +471,15 @@ export class EmailCompose implements FormValueControl<string> {
         createAiWriter({ onAsk: (ask) => this.suggestion().show(ask) }),
         createContentStream(),
         createContentProposal(),
-        ...emailExtensions,
+        ...emailExtensions.filter((extension) => extension.name !== 'quotedHistory'),
+        createQuotedHistory({
+          labels: {
+            show: () => this.i18n.t('editor.quoted.show', 'Show quoted text'),
+            hide: () => this.i18n.t('editor.quoted.hide', 'Hide quoted text'),
+            edit: () => this.i18n.t('editor.quoted.edit', 'Edit quoted text'),
+            remove: () => this.i18n.t('editor.quoted.remove', 'Remove quoted text'),
+          },
+        }),
         createBubbleMenu({
           updateDelay: 150,
           onStateChange: (state) => this.bubbleMenuState.set(state),
@@ -529,7 +578,10 @@ export class EmailCompose implements FormValueControl<string> {
         }),
       ],
       attributes: { role: 'textbox', 'aria-multiline': 'true', 'aria-label': 'Message body' },
-      onUpdate: (editor) => this.#publish(editor),
+      onUpdate: (editor) => {
+        this.#publish(editor);
+        this.#publishQuoted(editor);
+      },
     });
     // External writes must survive focus: the sync effect skips while this
     // editor is focused — so on blur, catch up with whatever the signal says

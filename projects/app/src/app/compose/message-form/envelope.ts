@@ -21,6 +21,10 @@ export interface Envelope {
       loaded whole — before the editor read it; null for a message written
       here. The preview draws it beside the editor's reading, per client. */
   original: string | null;
+  /** The quoted history a reply or forward answers (`replyQuote`,
+      `forwardQuote`) — kept beside `html`, never replaced with it, sent
+      under it; null for a message that answers nothing. */
+  quoted: string | null;
   attachments: AttachmentRef[];
 }
 
@@ -35,6 +39,7 @@ export const BLANK: Envelope = {
   previewText: '',
   original: null,
   html: '',
+  quoted: null,
   attachments: [],
 };
 
@@ -47,11 +52,12 @@ export function hasContent(html: string): boolean {
 }
 
 /** Nobody has written anything: no recipient, subject, preview text,
-    attachment or body, and the sender as it started. An attachment still
-    uploading counts — the user put it there. */
+    attachment, body or quoted history, and the sender as it started. An
+    attachment still uploading counts — the user put it there. */
 export function isBlank(message: Envelope): boolean {
-  const { from, to, cc, bcc, subject, previewText, html, attachments } = message;
+  const { from, to, cc, bcc, subject, previewText, html, quoted, attachments } = message;
   return (
+    !quoted &&
     !to.length &&
     !cc.length &&
     !bcc.length &&

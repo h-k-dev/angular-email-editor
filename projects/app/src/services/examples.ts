@@ -1,5 +1,16 @@
 import { DOCUMENT, Service, inject, signal } from '@angular/core';
-import { InboundMessage, replyDocument } from 'angular-email-editor';
+import { InboundMessage, replyDocument, replyQuote } from 'angular-email-editor';
+
+/** A reply example's file as the inbound message. A date written as ISO is
+    a `Date`, formatted by the locale; anything else is a preformatted
+    string, shown as it is. */
+function inbound(text: string): InboundMessage {
+  const message = JSON.parse(text) as InboundMessage;
+  if (typeof message.date === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(message.date)) {
+    message.date = new Date(message.date);
+  }
+  return message;
+}
 
 /** One example document, as the catalogue lists it: a name for the strip
     and the file it is in, under {@link EXAMPLES_PATH}. */
@@ -34,8 +45,11 @@ export interface ExampleCatalogue {
 export interface ExampleDocument {
   set: ExampleSet;
   entry: ExampleEntry;
-  /** Canonical email HTML — a reply example rendered into its reply. */
+  /** Canonical email HTML — a reply example's body, empty to write on. */
   html: string;
+  /** A reply example's quoted history (`replyQuote`), for the editor to
+      keep beside the body; absent for a document example. */
+  quoted?: string;
 }
 
 /** Where the examples live: `public/examples`, served under the app's base. */
@@ -89,14 +103,16 @@ export class Examples {
       inbound message rendered into the reply it seeds. */
   async document(set: ExampleSet, entry: ExampleEntry): Promise<string> {
     const text = await this.#file(entry.file);
-    if (set.kind !== 'reply') return text;
-    const inbound = JSON.parse(text) as InboundMessage;
-    // A date written as ISO is a `Date`, formatted by the locale; anything
-    // else is a preformatted string, shown as it is.
-    if (typeof inbound.date === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(inbound.date)) {
-      inbound.date = new Date(inbound.date);
-    }
-    return replyDocument(inbound);
+    return set.kind === 'reply' ? replyDocument(inbound(text)) : text;
+  }
+
+  /** An example as the message it seeds: a document example is the body; a
+      reply example is an empty body over the inbound message's quoted
+      history, which the editor keeps beside it. */
+  async #seed(set: ExampleSet, entry: ExampleEntry): Promise<ExampleDocument> {
+    const text = await this.#file(entry.file);
+    if (set.kind !== 'reply') return { set, entry, html: text };
+    return { set, entry, html: '<div><br></div>', quoted: replyQuote(inbound(text)) };
   }
 
   /** All the examples, once: the catalogue, then every file. */
@@ -104,13 +120,7 @@ export class Examples {
     try {
       const sets = await this.sets();
       const documents = await Promise.all(
-        sets.flatMap((set) =>
-          set.examples.map(async (entry) => ({
-            set,
-            entry,
-            html: await this.document(set, entry),
-          })),
-        ),
+        sets.flatMap((set) => set.examples.map((entry) => this.#seed(set, entry))),
       );
       this.documents.set(documents);
     } catch {

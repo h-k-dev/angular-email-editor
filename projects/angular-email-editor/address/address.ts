@@ -7,6 +7,9 @@
  * carries names without a second type and goes into a `To:` header as it
  * is. These helpers take it apart (to draw a chip) and put it back (to
  * commit what was typed).
+ *
+ * Plain functions, no Angular: the address chips and input use them, the
+ * engine uses them for a reply's recipients, and a host may use them alone.
  */
 export interface Mailbox {
   /** The display name, if the mailbox has one; quotes already removed. */
@@ -51,6 +54,13 @@ export function formatMailbox(mailbox: Mailbox): string {
 /** Whether a header-form string is a mailbox whose address is well-formed. */
 export function isMailbox(raw: string): boolean {
   return isEmailAddress(parseMailbox(raw).address);
+}
+
+/** What makes two entries one recipient: the address, lowercased — the
+    name in front of it and its case make no second one. For a list that
+    holds each recipient once. */
+export function addressKey(raw: string): string {
+  return parseMailbox(raw).address.toLowerCase();
 }
 
 /** What separates the mailboxes of a typed run. RFC 5322 knows only the

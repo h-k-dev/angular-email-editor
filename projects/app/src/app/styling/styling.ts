@@ -349,8 +349,8 @@ export class Styling {
         'The personalization pill, and the underline under an expression the dialect rejects.',
     },
     {
-      name: '.aee-quote-fold, .aee-quote-folded',
-      applies: 'The quoted-history fold button, and the document while the history is folded.',
+      name: '.aee-quoted, .aee-quote-fold',
+      applies: 'The quoted history after the body (data-folded while folded; parts bar, fold, edit, remove, content as data-slot), and its ⋯ fold button.',
     },
     {
       name: '.aee-drop-line',

@@ -79,6 +79,12 @@ describe('Draft', () => {
     }
   });
 
+  it('keeps the quoted history beside the body, and leaves it out when there is none', () => {
+    const reply = content({ quoted: '<blockquote><div>Original</div></blockquote>' });
+    expect(parseDraft(serializeDraft(reply))).toEqual(reply);
+    expect(serializeDraft(content({ quoted: null }))).toBe(serializeDraft(content()));
+  });
+
   it('opens with the stored draft', () => {
     localStorage.setItem(DRAFT_KEY, serializeDraft(content())!);
     expect(start().incoming().content).toEqual(content());

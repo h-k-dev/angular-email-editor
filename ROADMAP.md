@@ -1283,6 +1283,12 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   behaviour directive, starts as its own entry; the library never imports
   a UI kit — a framework that needs code gets an entry of its own
   (`/primeng`), after a recipe in the demo has shown it must.
+  **Plain-function entries (2026-09-29):** `/address` holds the mailbox
+  helpers (`parseMailbox`, `splitAddresses`, `addressKey`, …) with no Angular
+  and no imports; the chip, the input and the main entry (`replyEnvelope`)
+  all import it — the first time the main entry depends on a secondary one.
+  Helpers that more than one entry needs live in such an entry, never in a
+  UI piece's.
   Behaviour directives so far (2026-09-17), each proven by the demo's own
   glue before it was written: `/focus` — `emailKeepFocus`, which replaced
   nine hand-written `mousedown` handlers; `/anchor` — `emailAnchor`, which

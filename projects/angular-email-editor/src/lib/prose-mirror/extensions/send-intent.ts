@@ -5,6 +5,7 @@ import { emailPlainText } from '../plain-text';
 import { mergeTagFields } from './nodes/merge-tag';
 import { expressionDialect } from './dialects/dialect';
 import { InlineImage, inlineImageRegistry, promoteInlineImages } from './inline-images';
+import { withQuoted } from './quoted-history';
 
 /**
  * What the composer hands the host when the user asks to send: the canonical
@@ -58,7 +59,8 @@ export const createSendIntent = (options: SendIntentOptions): FunctionalExtensio
     if (dispatch) {
       // The promotion lives in the payload only — no transaction, the
       // document is not touched, the editor keeps showing its data URLs.
-      const { doc, images } = promoteInlineImages(state.doc, inlineImageRegistry(state));
+      // The quoted history goes out under the body, its images promoted too.
+      const { doc, images } = promoteInlineImages(withQuoted(state.doc), inlineImageRegistry(state));
       const html = serializeToHTML(doc, state.schema);
       options.onSend({
         html,
