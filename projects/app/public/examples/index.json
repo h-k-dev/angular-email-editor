@@ -164,6 +164,10 @@
         {
           "name": "Worldly (compiled MJML)",
           "file": "mjml/worldly.html"
+        },
+        {
+          "name": "Happy New Year (compiled MJML, Mailjet)",
+          "file": "mjml/happy-new-year.html"
         }
       ]
     }

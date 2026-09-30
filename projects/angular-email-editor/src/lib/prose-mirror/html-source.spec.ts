@@ -90,9 +90,12 @@ describe('html-source linter', () => {
     expect(lintHTML('<div>Tom & Jerry, 5 &lt; 6 &amp; &#169; fine</div>')).toEqual([]);
   });
 
-  it('warns on images without alt text, including empty alt', () => {
+  it('warns on an image with no alt attribute — an empty alt marks it decorative, and is right', () => {
     expect(lintHTML('<div><img src="x.png"></div>')[0].message).toContain('alt text');
-    expect(lintHTML('<div><img src="x.png" alt=""></div>')[0].message).toContain('alt text');
+    // WCAG: alt="" says "decorative, skip me" — MJML writes it for spacers
+    // and logos beside their own text. A bare `alt` is the same attribute.
+    expect(lintHTML('<div><img src="x.png" alt=""></div>')).toEqual([]);
+    expect(lintHTML('<div><img src="x.png" alt></div>')).toEqual([]);
     expect(lintHTML('<div><img src="x.png" alt="chart"></div>')).toEqual([]);
   });
 
@@ -385,6 +388,56 @@ describe('html-source formatter — 80 characters', () => {
       '</a>',
     ]);
     expect(canonicalEmail(formatted)).toBe(canonicalEmail(button));
+  });
+
+  it('breaks a tag only where that helps: one attribute that cannot shrink stays whole', () => {
+    // MJML's footer: the strong and the link are glued — one word. Breaking
+    // the strong open for its lone attribute would leave the rest as wide as
+    // before; the word stays whole and overflows instead (the pane scrolls).
+    const glued =
+      '<div>Simply created on <strong style="font-weight: bold;"><a href="http://www.mailjet.com" target="_blank" rel="noopener noreferrer" style="color:#ffffff">Mailjet Passport</a></strong></div>';
+    const formatted = formatHTML(glued, '  ', 80, { mode: 'email' });
+    expect(formatted).not.toMatch(/<strong\s*\n/);
+    expect(formatted).toContain('<strong style="font-weight: bold;"><a href="http://www.mailjet.com"');
+    expect(canonicalEmail(formatted)).toBe(canonicalEmail(glued));
+
+    // A block's open tag with a single long attribute: kept on its line.
+    const title = `<div title="${'x'.repeat(90)}">Hi</div>`;
+    expect(formatHTML(title).split('\n')[0]).toBe(`<div title="${'x'.repeat(90)}">`);
+
+    // A lone style that *can* shrink still breaks — at its declarations.
+    const td = `${'<div>'.repeat(8)}<div style="direction:ltr;font-size:0px;padding:20px 0;text-align:center;"><img src="a.png"></div>${'</div>'.repeat(8)}`;
+    expect(formatHTML(td, '  ', 80, { mode: 'email' })).toContain(
+      [
+        '                <div',
+        '                  style="',
+        '                    direction:ltr;',
+        '                    font-size:0px;',
+        '                    padding:20px 0;',
+        '                    text-align:center;',
+        '                  "',
+        '                >',
+      ].join('\n'),
+    );
+  });
+
+  it('gives deep nesting room: three quarters of the width for content, whatever the indent', () => {
+    // 19 levels deep, as MJML nests: 38 columns of indent. Counting them into
+    // the 80 would leave 42 for content and fold every line.
+    const text = 'we wish you all the best for this New Year to';
+    const deep = `${'<div><p>x</p>'.repeat(19)}<div>${text}</div>${'</div>'.repeat(19)}`;
+    const line = formatHTML(deep)
+      .split('\n')
+      .find((l) => l.includes(text))!;
+    expect(line.trim()).toBe(`<div>${text}</div>`);
+    expect(line.length).toBeGreaterThan(80);
+    expect(line.length).toBeLessThanOrEqual(line.length - line.trimStart().length + 60);
+  });
+
+  it('writes an empty attribute value out: alt="" is a decision, not a leftover', () => {
+    expect(formatHTML('<img src="a.png" alt="">')).toBe('<img src="a.png" alt="">');
+    const wide = `<img src="https://example.com/${'a'.repeat(50)}.png" alt="" width="600">`;
+    expect(formatHTML(wide)).toContain('\n  alt=""\n');
   });
 
   it('keeps content that fits on one line, and honours a custom width', () => {

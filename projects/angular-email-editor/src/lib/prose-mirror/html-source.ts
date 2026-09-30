@@ -14,7 +14,13 @@ import {
   isEmailTag,
   splitDeclarations as splitStyleExactly,
 } from './email-vocabulary';
-import { hasDocumentEnvelope, openTag as tagString, parseDocument, readEnvelope } from './envelope';
+import {
+  hasDocumentEnvelope,
+  isBooleanAttribute,
+  openTag as tagString,
+  parseDocument,
+  readEnvelope,
+} from './envelope';
 import { normalizeCommentText, normalizeCss } from './preserve';
 import { ParseMode } from './parse-mode';
 
@@ -249,6 +255,18 @@ function attributeValueToken(
 
 /** The value of a named attribute within a tag's span: `null` when absent,
     `''` when present without a value. */
+/** Whether the tag carries the attribute at all — with a value, an empty one,
+    or bare. */
+function hasAttribute(source: string, scan: HtmlScan, tag: HtmlTag, name: string): boolean {
+  return scan.tokens.some(
+    (token) =>
+      token.type === 'attributeName' &&
+      token.from >= tag.from &&
+      token.to <= tag.to &&
+      source.slice(token.from, token.to).toLowerCase() === name,
+  );
+}
+
 function attributeValue(source: string, scan: HtmlScan, tag: HtmlTag, name: string): string | null {
   return attributeValueToken(source, scan, tag, name)?.value ?? null;
 }
@@ -321,8 +339,9 @@ export function lintHTML(
       });
       continue;
     }
-    const alt = attributeValue(source, scan, tag, 'alt');
-    if (!alt?.trim()) {
+    // An empty alt is a decision — WCAG's "decorative, skip me" (MJML writes
+    // it for logos beside their own text) — so only a missing one warns.
+    if (!hasAttribute(source, scan, tag, 'alt')) {
       diagnostics.push({
         from: tag.nameFrom,
         to: tag.nameTo,
@@ -747,6 +766,15 @@ const BLOCK_TAGS = new Set([
     attributes. A word wider than the line stays whole and overflows. */
 export const FORMAT_WIDTH = 80;
 
+/** The room a line at this indent has: the width — or, deeper than a quarter
+    of it, three quarters of the width after the indent. MJML nests 19 levels
+    (38 columns): counted into the 80 they would leave 42 and fold every
+    line; this keeps 60. Prettier counts the indent in; Prettier is not
+    formatting email tables. */
+function room(pad: string, width: number): number {
+  return Math.max(width, pad.length + Math.round(width * 0.75));
+}
+
 export function formatHTML(
   html: string,
   indent = '  ',
@@ -848,7 +876,7 @@ function formatNode(
     const content = inlineContent(node);
     const close = `</${tag}>`;
     const oneLine = pad + open + content + close;
-    if (oneLine.length <= width) {
+    if (oneLine.length <= room(pad, width)) {
       lines.push(oneLine);
       return;
     }
@@ -871,7 +899,10 @@ function formatNode(
 }
 
 /** The open tag on one line when it fits, else one attribute per line with
-    the `>` back on the margin — whitespace inside a tag is free. */
+    the `>` back on the margin — whitespace inside a tag is free. A break only
+    where it helps: a lone attribute that stays one line would be as wide one
+    line down, so the tag stays whole and overflows instead (the source pane
+    scrolls). */
 function openTagLines(
   element: Element,
   pad: string,
@@ -880,14 +911,15 @@ function openTagLines(
   authored = false,
 ): string[] {
   const whole = pad + openTag(element);
-  if (whole.length <= width || !element.attributes.length) return [whole];
+  if (whole.length <= room(pad, width) || !element.attributes.length) return [whole];
   const lines = [`${pad}<${element.tagName.toLowerCase()}`];
   for (const attr of element.attributes) {
-    const value = attr.value === '' ? null : escapeAttribute(attr.value);
+    const value =
+      attr.value === '' && isBooleanAttribute(attr.name) ? null : escapeAttribute(attr.value);
     lines.push(...attributeLines(attr.name, value, pad + indent, indent, width, authored));
   }
   lines.push(`${pad}>`);
-  return lines;
+  return element.attributes.length === 1 && lines.length === 3 ? [whole] : lines;
 }
 
 /** One attribute of a broken-up tag on its own line at `pad` — or, for a
@@ -912,7 +944,7 @@ function attributeLines(
   authored = false,
 ): string[] {
   const line = value === null ? `${pad}${name}` : `${pad}${name}="${value}"`;
-  if (line.length <= width || name !== 'style' || value === null) return [line];
+  if (line.length <= room(pad, width) || name !== 'style' || value === null) return [line];
   if (!authored) {
     const declarations = splitDeclarations(value);
     if (declarations.length < 2) return [line];
@@ -1024,14 +1056,14 @@ function wrapInline(content: string, pad: string, width: number, authored = fals
   const lines: string[] = [];
   let line = '';
   for (const word of breakableWords(content)) {
-    if (line && line.length + 1 + word.length <= width) {
+    if (line && line.length + 1 + word.length <= room(pad, width)) {
       line += ` ${word}`;
       continue;
     }
     if (line) lines.push(line);
     line = '';
     const expanded =
-      (pad + word).length > width
+      (pad + word).length > room(pad, width)
         ? (tagWordLines(word, pad, width, authored) ?? tokenWordLines(word, pad, width))
         : null;
     if (expanded) lines.push(...expanded);
@@ -1047,7 +1079,7 @@ function fillWords(words: string[], pad: string, width: number): string[] {
   let line = '';
   for (const word of words) {
     if (!line) line = pad + word;
-    else if (line.length + 1 + word.length > width) {
+    else if (line.length + 1 + word.length > room(pad, width)) {
       lines.push(line);
       line = pad + word;
     } else line += ` ${word}`;
@@ -1121,7 +1153,8 @@ function tagWordLines(word: string, pad: string, width: number, authored = false
     lines.push(...attributeLines(attrName, attrValue, indent, '  ', width, authored));
   }
   lines.push(`${pad}>${tail}`);
-  return lines.some((line) => line.length > width) && lines.length <= 2 ? null : lines;
+  // A lone attribute that stayed one line: breaking it off gained nothing.
+  return lines.length === 3 ? null : lines;
 }
 
 function hasBlockChild(element: Element): boolean {

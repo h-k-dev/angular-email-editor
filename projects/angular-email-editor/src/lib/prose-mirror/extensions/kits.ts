@@ -5,6 +5,7 @@ import { EmailParagraph } from './nodes/email-paragraph';
 import { CodeLine } from './nodes/code-line';
 import { Text } from './nodes/text';
 import { HtmlLanguage } from './html-language';
+import { CodeLineIndent } from './code-line-indent';
 import { createSourceMarks } from './html-source-marks';
 import { HardBreak } from './nodes/hard-break';
 import { MergeTag } from './nodes/merge-tag';
@@ -127,6 +128,8 @@ export const htmlSourceExtensions: Extension[] = [
   CodeLine,
   Text,
   HtmlLanguage,
+  // Each line's indentation on it, for a host's VS Code-style soft wrap.
+  CodeLineIndent,
   // The email kit's mark shortcuts (Mod-B, Mod-I, ...) work on the source
   // too, by round-tripping the selection through the email schema itself —
   // toggling is identical on both sides by construction.

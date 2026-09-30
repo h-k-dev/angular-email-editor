@@ -8,6 +8,7 @@ import {
   TextSelection,
   Transaction,
 } from 'prosemirror-state';
+import { closeHistory } from 'prosemirror-history';
 import { Fragment, Node, Slice } from 'prosemirror-model';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import { FunctionalExtension, defineExtension } from '../extension';
@@ -333,9 +334,30 @@ export const createHtmlLanguage = (options: HtmlLanguageOptions = {}): Functiona
           decorations: (state) => key.getState(state)?.decorations,
           handleTextInput: handleTagTyping,
           handlePaste: (view, event) => {
-            const slice = handleCodePaste(view.state, event.clipboardData?.getData('text/plain'));
+            const text = event.clipboardData?.getData('text/plain');
+            const { state } = view;
+            // A paste that *is* the document — into an empty pane, or over
+            // everything — is a template handed over (the MJML playground's
+            // beautified output, a minified export): it goes in as pasted, then
+            // formats as a step of its own, so one undo gives the paste back.
+            // Markup with errors stays as pasted, as on blur.
+            const { from, to } = state.selection;
+            const lineType = state.schema.nodes['codeLine'];
+            if (text && lineType && from <= 1 && to >= state.doc.content.size - 1) {
+              const lines = text
+                .split(/\r?\n/)
+                .map((line) => lineType.create(null, line ? state.schema.text(line) : null));
+              view.dispatch(state.tr.replaceWith(0, state.doc.content.size, lines).scrollIntoView());
+              const source = docText(view.state.doc);
+              if (!lintHTML(source, undefined, { mode }).some((d) => d.severity === 'error')) {
+                // Its own undo step: history would merge two changes this close.
+                formatDocument(view.state, (tr) => view.dispatch(closeHistory(tr)));
+              }
+              return true;
+            }
+            const slice = handleCodePaste(state, text);
             if (!slice) return false;
-            view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView());
+            view.dispatch(state.tr.replaceSelection(slice).scrollIntoView());
             return true;
           },
           handleDOMEvents: {

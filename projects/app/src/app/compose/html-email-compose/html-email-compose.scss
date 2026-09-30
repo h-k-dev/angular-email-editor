@@ -1,7 +1,9 @@
 :host {
   position: relative; // anchors the autocomplete dropdown
   display: block;
-  overflow-y: auto;
+  // Both ways: source lines are never folded (styles.scss), so a line wider
+  // than the pane scrolls it sideways.
+  overflow: auto;
   cursor: text;
 
   background-color: var(--mat-sys-surface-container-low);

@@ -1118,6 +1118,32 @@ section[html-email-compose] .aee-editor {
   max-width: none;
 }
 
+/* The source pane's word wrap — VS Code's, toggled by Alt+Z like there.
+ *
+ * On (the default): a line wider than the pane wraps at word boundaries —
+ * a word wider than a whole row breaks where it must — and every row it
+ * wraps into continues under the line's own indentation (VS Code's
+ * `wrappingIndent: "same"`), not at the margin. The library puts each line's
+ * indentation on it (`--aee-line-indent`, CodeLineIndent); the hanging indent
+ * is the padding, pulled back for the first row, whose spaces fill it. */
+section[html-email-compose]:not([data-wrap='off']) .aee-code-line {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  padding-inline-start: calc(var(--aee-line-indent, 0) * 1ch);
+  text-indent: calc(var(--aee-line-indent, 0) * -1ch);
+}
+
+/* Off: a line is a line. What the formatter cannot break — an Outlook
+ * conditional, an image URL — stays one line and the pane scrolls sideways.
+ * The surface grows with its longest line, so a click out there lands in it. */
+section[html-email-compose][data-wrap='off'] .aee-editor {
+  white-space: pre;
+  overflow-wrap: normal;
+  word-wrap: normal;
+  width: max-content;
+  min-width: 100%;
+}
+
 /* HTML source editor: token and lint classes applied via ProseMirror
  * decorations, which render outside Angular's encapsulation like .ProseMirror.
  */

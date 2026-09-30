@@ -119,11 +119,50 @@ export function serializeDocument(envelope: DocumentEnvelope, body: string): str
     written bare (`<td nowrap>`), matching how the browser serializes it. */
 export function openTag(tag: string, attrs: AttributePairs): string {
   let out = `<${tag}`;
-  for (const [name, value] of attrs) {
-    out += value === '' ? ` ${name}` : ` ${name}="${escapeAttribute(value)}"`;
-  }
+  for (const [name, value] of attrs) out += ` ${attributeString(name, value)}`;
   return `${out}>`;
 }
+
+/** One attribute as the source writes it: `name="value"` — bare only for an
+    HTML boolean, where the name alone is the value. An empty value anywhere
+    else is spelled out (`alt=""` is a decision, not a leftover). */
+export function attributeString(name: string, value: string): string {
+  return value === '' && isBooleanAttribute(name) ? name : `${name}="${escapeAttribute(value)}"`;
+}
+
+/** Whether the attribute is one of HTML's booleans — written bare. */
+export function isBooleanAttribute(name: string): boolean {
+  return BOOLEAN_ATTRIBUTES.has(name.toLowerCase());
+}
+
+/** HTML's boolean attributes: present means true, and the value is moot. */
+const BOOLEAN_ATTRIBUTES = new Set([
+  'allowfullscreen',
+  'async',
+  'autofocus',
+  'autoplay',
+  'checked',
+  'controls',
+  'default',
+  'defer',
+  'disabled',
+  'formnovalidate',
+  'hidden',
+  'inert',
+  'ismap',
+  'itemscope',
+  'loop',
+  'multiple',
+  'muted',
+  'nomodule',
+  'novalidate',
+  'open',
+  'playsinline',
+  'readonly',
+  'required',
+  'reversed',
+  'selected',
+]);
 
 export function escapeText(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

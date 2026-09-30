@@ -30,6 +30,33 @@ describe('HtmlEmailCompose', () => {
     expect(component).toBeTruthy();
   });
 
+  it('wraps by default; Alt+Z switches to scrolling and back, remembered by this browser', async () => {
+    const host = fixture.nativeElement as HTMLElement;
+    const altZ = () => {
+      const event = new KeyboardEvent('keydown', {
+        key: 'z',
+        code: 'KeyZ',
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      });
+      host.querySelector('.aee-editor')!.dispatchEvent(event);
+      return event;
+    };
+    expect(component.wrap()).toBe(true);
+    expect(host.hasAttribute('data-wrap')).toBe(false);
+
+    expect(altZ().defaultPrevented).toBe(true);
+    await fixture.whenStable();
+    expect(host.getAttribute('data-wrap')).toBe('off');
+    expect(localStorage.getItem('angular-email-editor:source-wrap')).toBe('off');
+
+    altZ();
+    await fixture.whenStable();
+    expect(host.hasAttribute('data-wrap')).toBe(false);
+    expect(localStorage.getItem('angular-email-editor:source-wrap')).toBeNull();
+  });
+
   it('applies incoming html to its editor while active', async () => {
     component.html.set('<p>One</p><p>Two</p>');
     await paced();

@@ -44,10 +44,25 @@ import { isTyping } from '../is-typing';
     default `email` mode: markup kept as authored, lint on what it drops. */
 const SOURCE: SourceOptions = { mode: 'email' };
 
+/** Where this browser remembers the wrap choice — a viewer's convenience. */
+const WRAP_KEY = 'angular-email-editor:source-wrap';
+
+function storedWrap(): boolean {
+  try {
+    return localStorage.getItem(WRAP_KEY) !== 'off';
+  } catch {
+    return true;
+  }
+}
+
 @Component({
   selector: 'section[html-email-compose]',
   templateUrl: './html-email-compose.html',
   styleUrl: './html-email-compose.scss',
+  host: {
+    '[attr.data-wrap]': "wrap() ? null : 'off'",
+    '(keydown)': 'onKeydown($event)',
+  },
 })
 export class HtmlEmailCompose {
   #destroyRef = inject(DestroyRef);
@@ -56,6 +71,13 @@ export class HtmlEmailCompose {
   /** Two-way bound by the parent composer. This editor publishes raw source
       text; the canonical form comes back once the email schema parsed it. */
   html = model('');
+
+  /** VS Code's word wrap, and its Alt+Z: on, a line wider than the pane
+      wraps at word boundaries and continues under its own indentation
+      (`CodeLineIndent`, the styles in styles.scss); off, it stays one line
+      and the pane scrolls sideways. On by default; this browser remembers the
+      choice. Two-way, for a host's own toggle. */
+  wrap = model(storedWrap());
 
   /** Live lint results, published upward for the composer's problems strip. */
   diagnostics = model<HtmlDiagnostic[]>([]);
@@ -74,7 +96,24 @@ export class HtmlEmailCompose {
   /** `html` once typing in the email editor rests — see the effect below. */
   readonly #rest = debounced(() => this.html(), TYPING_REST);
 
+  /** Alt+Z, as in VS Code: word wrap on or off. */
+  protected onKeydown(event: KeyboardEvent): void {
+    if (!event.altKey || event.ctrlKey || event.metaKey || event.code !== 'KeyZ') return;
+    event.preventDefault();
+    this.wrap.update((wrap) => !wrap);
+  }
+
   constructor() {
+    effect(() => {
+      const wrap = this.wrap();
+      try {
+        if (wrap) localStorage.removeItem(WRAP_KEY);
+        else localStorage.setItem(WRAP_KEY, 'off');
+      } catch {
+        // No storage (a private window): the choice lasts the page.
+      }
+    });
+
     // No phase: mounting ProseMirror writes the DOM and reads it back in
     // one go.
     afterNextRender(() => this.#mountEditor());
