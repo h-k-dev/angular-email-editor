@@ -1284,11 +1284,19 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   a UI kit — a framework that needs code gets an entry of its own
   (`/primeng`), after a recipe in the demo has shown it must.
   **Plain-function entries (2026-09-29):** `/address` holds the mailbox
-  helpers (`parseMailbox`, `splitAddresses`, `addressKey`, …) with no Angular
-  and no imports; the chip, the input and the main entry (`replyEnvelope`)
-  all import it — the first time the main entry depends on a secondary one.
-  Helpers that more than one entry needs live in such an entry, never in a
-  UI piece's.
+  helpers (`parseMailbox`, `splitAddresses`, `addressKey`, …) with no UI;
+  the chip, the input and the main entry (`replyEnvelope`) all import it —
+  the first time the main entry depends on a secondary one. Helpers that
+  more than one entry needs live in such an entry, never in a UI piece's.
+  **The address rule is pluggable (2026-09-30):** `address/rules.ts` is our
+  rule — RFC 5322/5321/6531/2047, its header the living list of what it
+  implements and where it deliberately deviates — behind the `AddressRules`
+  contract (`split`, `parse`, `format`, `isValid`, `identity`). A host puts
+  its own in force, whole or in part, with `provideAddressRules` (the
+  `ADDRESS_RULES` token — the entry's one Angular import); the input, the
+  chip and `addressList` read it, `replyEnvelope`/`toInboundMessage` take it
+  as `addressRules`. No parser library is a dependency; postal-mime's
+  `addressParser` fits `split`/`parse` as a recipe.
   Behaviour directives so far (2026-09-17), each proven by the demo's own
   glue before it was written: `/focus` — `emailKeepFocus`, which replaced
   nine hand-written `mousedown` handlers; `/anchor` — `emailAnchor`, which

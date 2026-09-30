@@ -1,3 +1,4 @@
+import { defaultAddressRules } from 'angular-email-editor/address';
 import { createSchema } from './schema';
 import { parseHTML, serializeToHTML } from './html';
 import { lintHTML } from './html-source';
@@ -149,6 +150,16 @@ describe('toInboundMessage', () => {
     expect(inbound.to).toBe('"Miller, Bob" <bob@example.com>');
     expect(inbound.cc).toBe('carol@example.com, Dan <dan@example.com>');
     expect(inbound.replyTo).toBe('Support <help@example.com>');
+  });
+
+  it('takes a group as its members, as a parser hands it over (RFC 5322 §3.4)', () => {
+    const inbound = toInboundMessage({
+      to: [
+        { name: 'Team', group: [{ address: 'a@example.com' }, { name: 'Bo', address: 'b@example.com' }] },
+        { name: 'undisclosed-recipients', group: [] },
+      ],
+    });
+    expect(inbound.to).toBe('a@example.com, Bo <b@example.com>');
   });
 
   it('composes end-to-end: parsed email → imported document, schema-sanitized', () => {
@@ -367,6 +378,15 @@ describe('replyEnvelope', () => {
       '"Miller, Bob" <bob@ext.com>',
       'carol@ext.com',
     ]);
+  });
+
+  it('reads the headers by the host’s address rule when it is given one', () => {
+    const rules = { ...defaultAddressRules, isValid: (address: string) => address.endsWith('.com') };
+    expect(replyEnvelope(MESSAGE, 'reply-all', { self, addressRules: rules }).cc).toEqual([
+      '"Miller, Bob" <bob@ext.com>',
+      'carol@ext.com',
+    ]);
+    expect(replyEnvelope({ from: 'Hong <hong@iusta.io>' }, 'reply', { addressRules: rules }).to).toEqual([]);
   });
 
   it('a forward addresses nobody yet and says Fwd:', () => {

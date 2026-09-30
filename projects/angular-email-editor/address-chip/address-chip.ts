@@ -12,7 +12,7 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { isEmailAddress, parseMailbox } from 'angular-email-editor/address';
+import { ADDRESS_RULES } from 'angular-email-editor/address';
 import { AddressChipRemove, AddressChipRemoveContext } from './address-chip.slots';
 
 /** The copy command, on a throwaway selection: the fallback for a clipboard
@@ -233,10 +233,13 @@ export class AddressChip {
     () => this.removeSlot()?.template ?? this.removeTemplate(),
   );
 
-  protected readonly mailbox = computed(() => parseMailbox(this.address()));
+  /** The address rule in force — ours, or the host's. */
+  readonly #rules = inject(ADDRESS_RULES);
+
+  protected readonly mailbox = computed(() => this.#rules.parse(this.address()));
 
   /** Whether the address part is well-formed. Public so a list can count. */
-  readonly valid = computed(() => isEmailAddress(this.mailbox().address));
+  readonly valid = computed(() => this.#rules.isValid(this.mailbox().address));
 
   /** The remove control's accessible name — "Remove ada@example.com". */
   protected readonly removeName = computed(() => `${this.removeLabel()} ${this.address()}`);

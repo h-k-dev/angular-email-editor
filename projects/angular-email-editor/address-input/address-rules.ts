@@ -1,3 +1,4 @@
+import { inject } from '@angular/core';
 import {
   type PathKind,
   type SchemaPath,
@@ -5,7 +6,12 @@ import {
   type ValidationError,
   validate,
 } from '@angular/forms/signals';
-import { isMailbox } from 'angular-email-editor/address';
+import {
+  ADDRESS_RULES,
+  AddressRules,
+  defaultAddressRules,
+  isMailbox,
+} from 'angular-email-editor/address';
 
 /** The error kinds `addressList` reports, for a host that switches on them. */
 export const ADDRESS_LIST_EMPTY = 'addressList.empty';
@@ -17,6 +23,9 @@ export interface AddressListOptions {
   readonly min?: number;
   /** Most addresses the list may hold. Unbounded by default; 1 for From. */
   readonly max?: number;
+  /** The address rule to judge by. By default the one in force where the
+      form is made (`provideAddressRules`), else ours. */
+  readonly rules?: AddressRules;
   /** The messages, for a host that words them itself or translates them. */
   readonly messages?: {
     readonly empty?: (min: number) => string;
@@ -60,13 +69,14 @@ export function addressList<TPathKind extends PathKind = PathKind.Root>(
 ): void {
   const { min = 1, max = Infinity } = options;
   const messages = { ...MESSAGES, ...options.messages };
+  const rules = options.rules ?? rulesInForce();
   validate(path, ({ value }) => {
     const addresses = value();
     const errors: ValidationError[] = [];
     if (addresses.length < min) {
       errors.push({ kind: ADDRESS_LIST_EMPTY, message: messages.empty(min) });
     }
-    const offenders = addresses.filter((address) => !isMailbox(address));
+    const offenders = addresses.filter((address) => !isMailbox(address, rules));
     if (offenders.length) {
       errors.push({ kind: ADDRESS_LIST_INVALID, message: messages.invalid(offenders) });
     }
@@ -75,4 +85,14 @@ export function addressList<TPathKind extends PathKind = PathKind.Root>(
     }
     return errors.length ? errors : null;
   });
+}
+
+/** The rule provided where the schema runs — the form's injection context,
+    when it was made in one — or ours. */
+function rulesInForce(): AddressRules {
+  try {
+    return inject(ADDRESS_RULES);
+  } catch {
+    return defaultAddressRules;
+  }
 }

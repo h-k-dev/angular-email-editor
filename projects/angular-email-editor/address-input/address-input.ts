@@ -16,7 +16,7 @@ import {
   viewChildren,
 } from '@angular/core';
 import type { FormValueControl } from '@angular/forms/signals';
-import { addressKey, isMailbox, separatesAt, splitAddresses } from 'angular-email-editor/address';
+import { ADDRESS_RULES, addressKey, isMailbox, separatesAt } from 'angular-email-editor/address';
 import { AddressChip, AddressChipRemove } from 'angular-email-editor/address-chip';
 
 let nextId = 0;
@@ -185,6 +185,12 @@ export class AddressInput implements FormValueControl<string[]> {
 
   readonly #host = inject<ElementRef<HTMLElement>>(ElementRef);
 
+  /** The address rule in force — ours, or the host's (`provideAddressRules`):
+      how typing splits, what is an address, what is one recipient. */
+  readonly #rules = inject(ADDRESS_RULES);
+  #isMailbox = (raw: string) => isMailbox(raw, this.#rules);
+  #key = (raw: string) => addressKey(raw, this.#rules);
+
   /** Focus is somewhere in the control — the input or a chip's remove
       button. The chips are chips only then. */
   protected readonly focused = signal(false);
@@ -231,7 +237,7 @@ export class AddressInput implements FormValueControl<string[]> {
   readonly #trailingMalformed = computed(() => {
     const value = this.value();
     let start = value.length;
-    while (start > 0 && !isMailbox(value[start - 1])) start--;
+    while (start > 0 && !this.#isMailbox(value[start - 1])) start--;
     return value.slice(start);
   });
 
@@ -253,7 +259,7 @@ export class AddressInput implements FormValueControl<string[]> {
       flagged — this is the host's way in, and the host decides what it
       holds. */
   commit(raw: string): void {
-    this.#insert(splitAddresses(raw));
+    this.#insert(this.#rules.split(raw));
   }
 
   /** Drops one address — the picked chip's by default. Identity by string:
@@ -299,11 +305,11 @@ export class AddressInput implements FormValueControl<string[]> {
       does every chip that is not an address — but `keep`, the one about to
       be edited. */
   #endPending(input: HTMLInputElement, keep?: string): void {
-    this.#insert(splitAddresses(input.value).filter((token) => isMailbox(token)));
+    this.#insert(this.#rules.split(input.value).filter((token) => this.#isMailbox(token)));
     input.value = '';
     this.refused.set(false);
     const value = this.value();
-    const kept = value.filter((address) => isMailbox(address) || address === keep);
+    const kept = value.filter((address) => this.#isMailbox(address) || address === keep);
     if (kept.length !== value.length) this.value.set(kept);
   }
 
@@ -391,7 +397,7 @@ export class AddressInput implements FormValueControl<string[]> {
         // From the start of the typing, ← reaches the last chip — the
         // typing becoming chips first, when it holds an address.
         if (input.selectionStart !== 0 || input.selectionEnd !== 0 || this.locked()) return;
-        const typed = splitAddresses(input.value).some((token) => isMailbox(token));
+        const typed = this.#rules.split(input.value).some((token) => this.#isMailbox(token));
         if (typed) this.#settle(input, input.value);
         const last = this.value().length - 1;
         if (typed || last >= 0) event.preventDefault();
@@ -418,7 +424,7 @@ export class AddressInput implements FormValueControl<string[]> {
         // the next one — the list is not left until there is nothing more
         // to commit. Tab on nothing, on a typo, or backwards leaves the
         // field as ever, and leaving commits and flags what was typed.
-        if (event.shiftKey || !splitAddresses(input.value).some((token) => isMailbox(token))) {
+        if (event.shiftKey || !this.#rules.split(input.value).some((token) => this.#isMailbox(token))) {
           return;
         }
         event.preventDefault();
@@ -478,7 +484,7 @@ export class AddressInput implements FormValueControl<string[]> {
       input, so a name with spaces can still be edited before it commits. */
   protected onPaste(event: ClipboardEvent, input: HTMLInputElement): void {
     const text = event.clipboardData?.getData('text') ?? '';
-    if (splitAddresses(text).length < 2) return;
+    if (this.#rules.split(text).length < 2) return;
     event.preventDefault();
     this.#settle(input, `${input.value}, ${text}`);
   }
@@ -502,9 +508,9 @@ export class AddressInput implements FormValueControl<string[]> {
       not leaving. */
   protected onBlur(event: FocusEvent, input: HTMLInputElement): void {
     if (this.#within(event)) return;
-    const tokens = splitAddresses(input.value);
-    this.#insert(tokens.filter((token) => isMailbox(token)));
-    this.#insert(tokens.filter((token) => !isMailbox(token)));
+    const tokens = this.#rules.split(input.value);
+    this.#insert(tokens.filter((token) => this.#isMailbox(token)));
+    this.#insert(tokens.filter((token) => !this.#isMailbox(token)));
     input.value = '';
     this.refused.set(false);
     this.touch.emit();
@@ -518,9 +524,9 @@ export class AddressInput implements FormValueControl<string[]> {
 
   /** Commits the addresses in a run and leaves the rest in the input. */
   #settle(input: HTMLInputElement, raw: string): void {
-    const tokens = splitAddresses(raw);
-    this.#insert(tokens.filter((token) => isMailbox(token)));
-    input.value = tokens.filter((token) => !isMailbox(token)).join(', ');
+    const tokens = this.#rules.split(raw);
+    this.#insert(tokens.filter((token) => this.#isMailbox(token)));
+    input.value = tokens.filter((token) => !this.#isMailbox(token)).join(', ');
     this.refused.set(!!input.value);
   }
 
@@ -531,11 +537,11 @@ export class AddressInput implements FormValueControl<string[]> {
     if (!incoming.length) return;
     this.value.update((current) => {
       const next = [...current];
-      const seen = new Set(next.map(addressKey));
+      const seen = new Set(next.map(this.#key));
       for (const address of incoming) {
         if (next.length >= this.limit()) break;
-        if (seen.has(addressKey(address))) continue;
-        seen.add(addressKey(address));
+        if (seen.has(this.#key(address))) continue;
+        seen.add(this.#key(address));
         next.push(address);
       }
       return next;

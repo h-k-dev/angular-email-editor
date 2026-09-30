@@ -1,5 +1,10 @@
 import { Fragment, Node, Schema } from 'prosemirror-model';
-import { addressKey, formatMailbox, isMailbox, splitAddresses } from 'angular-email-editor/address';
+import {
+  AddressRules,
+  addressKey,
+  defaultAddressRules,
+  isMailbox,
+} from 'angular-email-editor/address';
 import { createSchema } from './schema';
 import { ParseOptions, parseHTML, serializeToHTML } from './html';
 import { withQuoted } from './extensions/quoted-history';
@@ -123,6 +128,8 @@ export interface ParsedEmailLike {
 export interface ParsedAddressLike {
   name?: string | null;
   address?: string | null;
+  /** A group's members (postal-mime's shape): the group's name is no mailbox. */
+  group?: ParsedAddressLike[] | null;
 }
 
 /**
@@ -139,13 +146,18 @@ export interface ParsedAddressLike {
  * a sensible document. A parseable date becomes a `Date` (the seeds format
  * it via Intl with your locale); anything else passes through verbatim.
  */
-export function toInboundMessage(parsed: ParsedEmailLike): InboundMessage {
+export function toInboundMessage(
+  parsed: ParsedEmailLike,
+  options: { addressRules?: AddressRules } = {},
+): InboundMessage {
+  const rules = options.addressRules ?? defaultAddressRules;
+  const formatAddresses = (list: ParsedAddressLike[] | null | undefined) => formatList(list, rules);
   return {
     html: parsed.html ?? undefined,
     text: parsed.text ?? undefined,
     subject: parsed.subject ?? undefined,
     date: normalizeDate(parsed.date),
-    from: formatAddress(parsed.from),
+    from: formatAddress(parsed.from, rules),
     to: formatAddresses(parsed.to),
     cc: formatAddresses(parsed.cc),
     replyTo: formatAddresses(parsed.replyTo),
@@ -154,18 +166,27 @@ export function toInboundMessage(parsed: ParsedEmailLike): InboundMessage {
 
 /** One header-form mailbox — the name quoted when it has to be, so
     `Miller, Bob` stays one mailbox in a list. */
-function formatAddress(address: ParsedAddressLike | null | undefined): string | undefined {
+function formatAddress(
+  address: ParsedAddressLike | null | undefined,
+  rules: AddressRules,
+): string | undefined {
   if (!address) return undefined;
   const name = address.name?.trim();
   const email = address.address?.trim();
-  if (email) return formatMailbox({ name: name || undefined, address: email });
+  if (email) return rules.format({ name: name || undefined, address: email });
   return name || undefined;
 }
 
-function formatAddresses(addresses: ParsedAddressLike[] | null | undefined): string | undefined {
+/** A list in header form — a group (RFC 5322 §3.4, as a parser hands it
+    over) as its members: the group's name addresses nobody. */
+function formatList(
+  addresses: ParsedAddressLike[] | null | undefined,
+  rules: AddressRules,
+): string | undefined {
   return (
     (addresses ?? [])
-      .map((address) => formatAddress(address))
+      .flatMap((address) => (address.group ? address.group : [address]))
+      .map((address) => formatAddress(address, rules))
       .filter(Boolean)
       .join(', ') || undefined
   );
@@ -289,6 +310,9 @@ export interface ReplyEnvelopeOptions extends ComposeSeedOptions {
   /** Who the answer goes to instead of the sender — a CRM's customer, say.
       A reply-all then copies the sender with everyone else. */
   to?: readonly string[];
+  /** The address rule to read the headers by — the host's, when it has one
+      (the same it provides to the address input). Ours by default. */
+  addressRules?: AddressRules;
 }
 
 /** The envelope an answer starts with. Addresses in header form, each
@@ -332,16 +356,19 @@ export function replyEnvelope(
     return { to: [], cc: [], subject: prefixed(inbound.subject, labels.fwd, FORWARD_PREFIXES) };
   }
 
-  const own = new Set([options.self ?? []].flat().map(addressKey));
-  const mine = (address: string) => own.has(addressKey(address));
-  const to = options.to ? mailboxes(...options.to) : answerTo(inbound, mine);
+  const rules = options.addressRules ?? defaultAddressRules;
+  const key = (address: string) => addressKey(address, rules);
+  const list = (...lists: Array<string | undefined>) => mailboxes(rules, lists);
+  const own = new Set([options.self ?? []].flat().map(key));
+  const mine = (address: string) => own.has(key(address));
+  const to = options.to ? list(...options.to) : answerTo(inbound, mine, list);
 
   const cc: string[] = [];
   if (kind === 'reply-all') {
-    const taken = new Set(to.map(addressKey));
-    for (const address of mailboxes(inbound.from, inbound.to, inbound.cc)) {
-      if (mine(address) || taken.has(addressKey(address))) continue;
-      taken.add(addressKey(address));
+    const taken = new Set(to.map(key));
+    for (const address of list(inbound.from, inbound.to, inbound.cc)) {
+      if (mine(address) || taken.has(key(address))) continue;
+      taken.add(key(address));
       cc.push(address);
     }
   }
@@ -350,11 +377,15 @@ export function replyEnvelope(
 
 /** Where a reply goes: Reply-To over From — and one's own message is
     answered to the people it went to. */
-function answerTo(inbound: InboundMessage, mine: (address: string) => boolean): string[] {
-  const replyTo = mailboxes(inbound.replyTo);
-  const sender = replyTo.length ? replyTo : mailboxes(inbound.from);
+function answerTo(
+  inbound: InboundMessage,
+  mine: (address: string) => boolean,
+  list: (...lists: Array<string | undefined>) => string[],
+): string[] {
+  const replyTo = list(inbound.replyTo);
+  const sender = replyTo.length ? replyTo : list(inbound.from);
   if (sender.length && sender.every(mine)) {
-    const recipients = mailboxes(inbound.to).filter((address) => !mine(address));
+    const recipients = list(inbound.to).filter((address) => !mine(address));
     if (recipients.length) return recipients;
   }
   return sender;
@@ -362,12 +393,12 @@ function answerTo(inbound: InboundMessage, mine: (address: string) => boolean): 
 
 /** The mailboxes in header-form lists, each address once — what is no
     mailbox (a group's `undisclosed-recipients:;`, a bare name) dropped. */
-function mailboxes(...lists: Array<string | undefined>): string[] {
+function mailboxes(rules: AddressRules, lists: Array<string | undefined>): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
-  for (const address of lists.flatMap((list) => (list ? splitAddresses(list) : []))) {
-    if (!isMailbox(address) || seen.has(addressKey(address))) continue;
-    seen.add(addressKey(address));
+  for (const address of lists.flatMap((list) => (list ? rules.split(list) : []))) {
+    if (!isMailbox(address, rules) || seen.has(addressKey(address, rules))) continue;
+    seen.add(addressKey(address, rules));
     out.push(address);
   }
   return out;

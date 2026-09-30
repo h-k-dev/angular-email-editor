@@ -251,8 +251,8 @@ export class ApiReference {
         },
         {
           name: 'toInboundMessage',
-          signature: '(parsed: ParsedEmailLike) => InboundMessage',
-          does: 'Bridges a parser result into the seeds, duck-typed so the library depends on no parser.',
+          signature: '(parsed: ParsedEmailLike, options?: { addressRules? }) => InboundMessage',
+          does: 'Bridges a parser result into the seeds, duck-typed so the library depends on no parser. A group comes in as its members; addresses are written by the address rule in force (options.addressRules, ours by default).',
         },
         {
           name: 'replyQuote / forwardQuote',
@@ -272,7 +272,7 @@ export class ApiReference {
         {
           name: 'replyEnvelope',
           signature: "(inbound, kind: 'reply' | 'reply-all' | 'forward', options?: ReplyEnvelopeOptions) => { to, cc, subject }",
-          does: 'Who an answer goes to and what it is called: Reply-To over From, a reply-all copying everyone but options.self, each address once; the subject takes labels.re / labels.fwd once, replacing same-family prefixes in any language (AW: Re: x → Re: x). Takes the same options as replyDocument.',
+          does: 'Who an answer goes to and what it is called: Reply-To over From, a reply-all copying everyone but options.self, each address once; the subject takes labels.re / labels.fwd once, replacing same-family prefixes in any language (AW: Re: x → Re: x). Takes the same options as replyDocument, plus addressRules to read the headers by the host’s rule.',
         },
         {
           name: 'importedDocument',
@@ -283,6 +283,46 @@ export class ApiReference {
           name: 'importLoss',
           signature: '(inbound: InboundMessage) => ImportLoss',
           does: 'What the import will drop, computed from the same HTML importedDocument consumes: { removedElements, removedTags, inlineImages }. Surface it — silent loss is the failure mode.',
+        },
+      ],
+    },
+    {
+      title: 'Addresses',
+      hint:
+        'One rule decides what an address is, how a mailbox is read and written and how typed ' +
+        'text splits: ours (angular-email-editor/address, rules.ts — RFC 5322, 5321, 6531 and ' +
+        '2047, its deviations listed in the file) unless the host puts its own in force. Every ' +
+        'address piece asks the rule in force, so a host keeps the rule its backend enforces.',
+      entries: [
+        {
+          name: 'AddressRules',
+          signature: '{ split(raw), parse(raw), format(mailbox), isValid(address), identity(address) }',
+          does: 'The contract: a typed, pasted or header run as mailboxes in header form; a mailbox as { name?, address }; back again, quoted where it must be; whether a bare address is well-formed; what makes two addresses one recipient.',
+        },
+        {
+          name: 'defaultAddressRules',
+          signature: 'AddressRules',
+          does: 'Ours: quoted strings and escapes, comments (a comment after a bare address names it), groups, obsolete routes, RFC 2047 names, quoted local parts, IPv4/IPv6 literals, lengths in octets, IDN — and on purpose stricter where a typo hides (a domain needs a dot) and lenient where people type (, ; and line breaks separate; Ada Lovelace ada@x.io is one mailbox).',
+        },
+        {
+          name: 'provideAddressRules',
+          signature: '(rules: Partial<AddressRules>) => Provider',
+          does: 'Puts a host’s rule in force through the ADDRESS_RULES token, whole or in part — the parts left out stay ours. The address input, the address chip and addressList read it; replyEnvelope and toInboundMessage take it as addressRules.',
+        },
+        {
+          name: 'isMailbox / addressKey',
+          signature: '(raw: string, rules?: AddressRules) => boolean | string',
+          does: 'Whether a header-form entry is a well-formed mailbox, and its identity for keeping each recipient once — by the given rule, ours by default.',
+        },
+        {
+          name: 'parseMailbox / formatMailbox / splitAddresses / isEmailAddress / addressIdentity',
+          signature: 'the parts of defaultAddressRules',
+          does: 'Our rule’s functions, for a host composing its own rule from some of ours.',
+        },
+        {
+          name: 'addressList',
+          signature: '(path, { min?, max?, rules?, messages? }) => void',
+          does: 'The signal-forms rule for an address field (angular-email-editor/address-input): at least min, at most max, every entry a mailbox by the rule in force where the form is made — or by options.rules.',
         },
       ],
     },

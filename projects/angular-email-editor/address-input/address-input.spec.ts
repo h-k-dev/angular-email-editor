@@ -2,6 +2,7 @@ import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormField, form } from '@angular/forms/signals';
 import { By } from '@angular/platform-browser';
+import { defaultAddressRules, provideAddressRules } from 'angular-email-editor/address';
 import { AddressChipRemove } from 'angular-email-editor/address-chip';
 import { AddressInput } from './address-input';
 import {
@@ -736,6 +737,51 @@ describe('AddressInput in a signal form', () => {
 class SlotHost {
   readonly addresses = signal(['ada@example.com', 'grace@example.com']);
 }
+
+describe('AddressInput under a host’s address rule', () => {
+  /** A backend that only mails its own domain — the host's rule. */
+  const isValid = (address: string) => address.endsWith('@iusta.io');
+
+  it('the input, its chips and the form rule all judge by the rule in force', async () => {
+    await TestBed.configureTestingModule({
+      imports: [FormHost],
+      providers: [provideAddressRules({ isValid })],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(FormHost);
+    await fixture.whenStable();
+    const to = parts(fixture.nativeElement.querySelectorAll('[email-address-input]')[1]);
+
+    // Ours would take it; the host's rule leaves it in the input, refused.
+    type(to.input(), 'ada@example.com');
+    key(to.input(), 'Enter');
+    await fixture.whenStable();
+    expect(fixture.componentInstance.model().to).toEqual([]);
+    expect(to.input().hasAttribute('data-refused')).toBe(true);
+
+    type(to.input(), 'hong@iusta.io');
+    key(to.input(), 'Enter');
+    await fixture.whenStable();
+    expect(fixture.componentInstance.model().to).toEqual(['hong@iusta.io']);
+    expect(fixture.componentInstance.envelope.to().valid()).toBe(true);
+
+    // A value set from outside: the chip flags it, and the form rule —
+    // made in the component, so under the host's providers — refuses it.
+    fixture.componentInstance.model.update((m) => ({ ...m, to: ['hong@iusta.io', 'ada@example.com'] }));
+    await fixture.whenStable();
+    expect(to.chips()[1].getAttribute('data-invalid')).toBe('true');
+    expect(fixture.componentInstance.envelope.to().errors().map((e) => e.kind)).toContain(
+      ADDRESS_LIST_INVALID,
+    );
+  });
+
+  it('a rule passed to addressList wins over the one in force', () => {
+    const model = signal({ to: ['hong@iusta.io'] });
+    const envelope = TestBed.runInInjectionContext(() =>
+      form(model, (p) => addressList(p.to, { rules: { ...defaultAddressRules, isValid: () => false } })),
+    );
+    expect(envelope.to().valid()).toBe(false);
+  });
+});
 
 describe('AddressInput remove slot', () => {
   it('hands the host’s remove template to every chip, in place of the default button', async () => {
