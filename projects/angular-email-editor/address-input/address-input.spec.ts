@@ -5,6 +5,7 @@ import { By } from '@angular/platform-browser';
 import { defaultAddressRules, provideAddressRules } from 'angular-email-editor/address';
 import { AddressChipRemove } from 'angular-email-editor/address-chip';
 import { AddressInput } from './address-input';
+import { AddressInputLabel } from './address-input.slots';
 import {
   ADDRESS_LIST_EMPTY,
   ADDRESS_LIST_INVALID,
@@ -737,6 +738,50 @@ describe('AddressInput in a signal form', () => {
 class SlotHost {
   readonly addresses = signal(['ada@example.com', 'grace@example.com']);
 }
+
+/** A host that opts into the label slot — iusta core's form: the label in
+    the control, first in its row. */
+@Component({
+  imports: [AddressInput, AddressInputLabel],
+  template: `
+    <div email-address-input [(value)]="addresses">
+      <ng-template emailAddressLabel><b>To</b></ng-template>
+    </div>
+    <div email-address-input aria-label="Copy to">
+      <ng-template emailAddressLabel>Cc</ng-template>
+    </div>
+  `,
+})
+class LabelledHost {
+  readonly addresses = signal(['ada@example.com']);
+}
+
+describe('AddressInput label slot', () => {
+  it('owns no label by default', () => {
+    const fixture = TestBed.createComponent(Host);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-slot=label]')).toBeNull();
+  });
+
+  it('opted into, renders the label first in the row and names the text input by it', async () => {
+    const fixture = TestBed.createComponent(LabelledHost);
+    await fixture.whenStable();
+    const [to, cc] = [...fixture.nativeElement.querySelectorAll('[email-address-input]')].map((el) =>
+      parts(el as HTMLElement),
+    );
+    const label = to.field().querySelector<HTMLElement>('[data-slot=label]')!;
+    expect(label.innerHTML).toContain('<b>To</b>');
+    // First in the row: the chips follow it, and wrap under it.
+    expect(to.field().querySelector('[data-slot=chips]')!.firstElementChild).toBe(label);
+    expect(label.getAttribute('aria-hidden')).toBe('true');
+    expect(to.input().getAttribute('aria-labelledby')).toBe(label.id);
+
+    // A name the host gave the input itself wins.
+    expect(cc.field().querySelector('[data-slot=label]')!.textContent!.trim()).toBe('Cc');
+    expect(cc.input().getAttribute('aria-labelledby')).toBeNull();
+    expect(cc.input().getAttribute('aria-label')).toBe('Copy to');
+  });
+});
 
 describe('AddressInput under a host’s address rule', () => {
   /** A backend that only mails its own domain — the host's rule. */

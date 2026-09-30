@@ -76,21 +76,45 @@
        row is a div holding a label and the control — a label may not
        wrap the control's list — so the label names the control's input
        by id, and the row forwards its clicks. -->
+  <!-- Two ways to frame a row, one look (`fields`): bare on the page; in a
+       window, the whole row is a Material form field at density -4 —
+       exactly the 40px row — as in iusta core: an address row's label is
+       the control's own (the emailAddressLabel slot, the chips wrapping
+       under it), a text row's a prefix, the buttons a prefix or suffix —
+       so the field's error styling, the red line, runs under the whole row. It is the only difference: no message
+       under the row. Cc and Bcc are prefixes placed at the row's end by CSS
+       (`order`), so the tab order stays the page's: From, Cc, Bcc, To. -->
   <div
     class="writer-field"
     envelope
     emailKeepFocus
+    [class.writer-field--material]="material()"
     [emailKeepFocusExcept]="rowControls"
-    (click)="fromField.focus()"
+    (click)="fromField()?.focus()"
   >
-    <label class="writer-field__label" [for]="fromField.id">From</label>
-    <div
-      email-address-input
-      #fromField
-      limit="1"
-      placeholder="you@example.com"
-      [formField]="envelope.from"
-    ></div>
+    @if (material()) {
+      <mat-form-field class="writer-field__form-field" subscriptSizing="dynamic">
+        <div
+          email-address-input
+          emailMatFormField
+          #fromField
+          limit="1"
+          placeholder="you@example.com"
+          [formField]="envelope.from"
+        >
+          <ng-template emailAddressLabel><span class="writer-field__label">From</span></ng-template>
+        </div>
+      </mat-form-field>
+    } @else {
+      <label class="writer-field__label" [for]="fromField.id">From</label>
+      <div
+        email-address-input
+        #fromField
+        limit="1"
+        placeholder="you@example.com"
+        [formField]="envelope.from"
+      ></div>
+    }
   </div>
   <!-- The recipients, one group for focus: while focus is elsewhere and
        a copy row is open, the rows merge into one line, and an empty Cc
@@ -114,7 +138,7 @@
         aria-hidden="true"
         emailKeepFocus
         [emailKeepFocusExcept]="rowControls"
-        (click)="toField.focus()"
+        (click)="toField()?.focus()"
       >
         <span class="writer-summary__label">{{ groups.at(0)?.label ?? 'To' }}</span>
         <span class="writer-summary__line">
@@ -140,10 +164,10 @@
     <div
       class="writer-field"
       emailKeepFocus
+      [class.writer-field--material]="material()"
       [emailKeepFocusExcept]="rowControls"
-      (click)="toField.focus()"
+      (click)="toField()?.focus()"
     >
-      <label class="writer-field__label" [for]="toField.id">To</label>
       <!-- Gmail's Cc and Bcc: text buttons drawn at the row's end (CSS order),
            each opening its row and stepping aside. They come before the
            control in the source, so the tab order runs From, Cc, Bcc, To,
@@ -152,8 +176,7 @@
            the caret back in To — and the mousedown must not take focus:
            the button is removed the moment its row opens, and a focused
            element removed leaves focus nowhere. -->
-      @if (!showCc() || !showBcc()) {
-        <span class="writer-field__actions">
+      <ng-template #copyButtons>
           @if (!showCc()) {
             <button
               type="button"
@@ -174,20 +197,53 @@
               Bcc
             </button>
           }
-        </span>
+      </ng-template>
+      @if (material()) {
+        <mat-form-field class="writer-field__form-field" subscriptSizing="dynamic">
+          @if (!showCc() || !showBcc()) {
+            <span matPrefix class="writer-field__actions">
+              <ng-container [ngTemplateOutlet]="copyButtons" />
+            </span>
+          }
+          <div
+            email-address-input
+            emailMatFormField
+            #toField
+            placeholder="Recipients"
+            [formField]="envelope.to"
+          >
+            <ng-template emailAddressLabel><span class="writer-field__label">To</span></ng-template>
+          </div>
+        </mat-form-field>
+      } @else {
+        <label class="writer-field__label" [for]="toField.id">To</label>
+        @if (!showCc() || !showBcc()) {
+          <span class="writer-field__actions">
+            <ng-container [ngTemplateOutlet]="copyButtons" />
+          </span>
+        }
+        <div email-address-input #toField placeholder="Recipients" [formField]="envelope.to"></div>
       }
-      <div email-address-input #toField placeholder="Recipients" [formField]="envelope.to"></div>
     </div>
     <!-- Each copy row lives only while open or filled. -->
     @if (showCc()) {
       <div
         class="writer-field"
         emailKeepFocus
+        [class.writer-field--material]="material()"
         [emailKeepFocusExcept]="rowControls"
-        (click)="ccField.focus()"
+        (click)="ccField()?.focus()"
       >
-        <label class="writer-field__label" [for]="ccField.id">Cc</label>
-        <div email-address-input #ccField [formField]="envelope.cc"></div>
+        @if (material()) {
+          <mat-form-field class="writer-field__form-field" subscriptSizing="dynamic">
+            <div email-address-input emailMatFormField #ccField [formField]="envelope.cc">
+              <ng-template emailAddressLabel><span class="writer-field__label">Cc</span></ng-template>
+            </div>
+          </mat-form-field>
+        } @else {
+          <label class="writer-field__label" [for]="ccField.id">Cc</label>
+          <div email-address-input #ccField [formField]="envelope.cc"></div>
+        }
       </div>
     }
 
@@ -195,11 +251,20 @@
       <div
         class="writer-field"
         emailKeepFocus
+        [class.writer-field--material]="material()"
         [emailKeepFocusExcept]="rowControls"
-        (click)="bccField.focus()"
+        (click)="bccField()?.focus()"
       >
-        <label class="writer-field__label" [for]="bccField.id">Bcc</label>
-        <div email-address-input #bccField [formField]="envelope.bcc"></div>
+        @if (material()) {
+          <mat-form-field class="writer-field__form-field" subscriptSizing="dynamic">
+            <div email-address-input emailMatFormField #bccField [formField]="envelope.bcc">
+              <ng-template emailAddressLabel><span class="writer-field__label">Bcc</span></ng-template>
+            </div>
+          </mat-form-field>
+        } @else {
+          <label class="writer-field__label" [for]="bccField.id">Bcc</label>
+          <div email-address-input #bccField [formField]="envelope.bcc"></div>
+        }
       </div>
     }
   </div>
@@ -210,34 +275,58 @@
     class="writer-field"
     envelope
     emailKeepFocus
+    [class.writer-field--material]="material()"
     [emailKeepFocusExcept]="rowControls"
-    (click)="subjectField.focus()"
+    (click)="subjectField().nativeElement.focus()"
   >
-    <label class="writer-field__label" [for]="subjectId">Subject</label>
-    <input
-      #subjectField
-      class="writer-field__input"
-      type="text"
-      autocomplete="off"
-      [id]="subjectId"
-      [formField]="envelope.subject"
-    />
     <!-- Preview text opens the way Cc and Bcc do: a text button at the
          row's end that steps aside while its row is shown. Unlike theirs it
          comes *after* its control in the source, so Tab runs To, Subject,
          Preview — the subject first, the snippet as its follow-up. -->
-    @if (!showPreview()) {
-      <span class="writer-field__actions">
-        <button
-          type="button"
-          class="writer-field__action"
-          title="Text shown after the subject in the inbox"
-          emailKeepFocus
-          (click)="openPreview(); $event.stopPropagation()"
-        >
-          Preview
-        </button>
-      </span>
+    <ng-template #previewButton>
+      <button
+        type="button"
+        class="writer-field__action"
+        title="Text shown after the subject in the inbox"
+        emailKeepFocus
+        (click)="openPreview(); $event.stopPropagation()"
+      >
+        Preview
+      </button>
+    </ng-template>
+    @if (material()) {
+      <mat-form-field class="writer-field__form-field" subscriptSizing="dynamic">
+        <label matPrefix class="writer-field__label" [for]="subjectId">Subject</label>
+        <input
+          matInput
+          #subjectField
+          class="writer-field__input"
+          type="text"
+          autocomplete="off"
+          [id]="subjectId"
+          [formField]="envelope.subject"
+        />
+        @if (!showPreview()) {
+          <span matSuffix class="writer-field__actions">
+            <ng-container [ngTemplateOutlet]="previewButton" />
+          </span>
+        }
+      </mat-form-field>
+    } @else {
+      <label class="writer-field__label" [for]="subjectId">Subject</label>
+      <input
+        #subjectField
+        class="writer-field__input"
+        type="text"
+        autocomplete="off"
+        [id]="subjectId"
+        [formField]="envelope.subject"
+      />
+      @if (!showPreview()) {
+        <span class="writer-field__actions">
+          <ng-container [ngTemplateOutlet]="previewButton" />
+        </span>
+      }
     }
   </div>
   <!-- The inbox snippet: lives only while open or filled, and folds when
@@ -247,20 +336,37 @@
       class="writer-field"
       envelope
       emailKeepFocus
+      [class.writer-field--material]="material()"
       [emailKeepFocusExcept]="rowControls"
-      (click)="previewField.focus()"
+      (click)="previewField()?.nativeElement?.focus()"
       (focusout)="leavePreview()"
     >
-      <label class="writer-field__label" [for]="previewId">Preview</label>
-      <input
-        #previewField
-        class="writer-field__input"
-        type="text"
-        autocomplete="off"
-        placeholder="Shown after the subject in the inbox"
-        [id]="previewId"
-        [formField]="envelope.previewText"
-      />
+      @if (material()) {
+        <mat-form-field class="writer-field__form-field" subscriptSizing="dynamic">
+          <label matPrefix class="writer-field__label" [for]="previewId">Preview</label>
+          <input
+            matInput
+            #previewField
+            class="writer-field__input"
+            type="text"
+            autocomplete="off"
+            placeholder="Shown after the subject in the inbox"
+            [id]="previewId"
+            [formField]="envelope.previewText"
+          />
+        </mat-form-field>
+      } @else {
+        <label class="writer-field__label" [for]="previewId">Preview</label>
+        <input
+          #previewField
+          class="writer-field__input"
+          type="text"
+          autocomplete="off"
+          placeholder="Shown after the subject in the inbox"
+          [id]="previewId"
+          [formField]="envelope.previewText"
+        />
+      }
     </div>
   }
   <!-- The editor is the body field's control: the form drives its value

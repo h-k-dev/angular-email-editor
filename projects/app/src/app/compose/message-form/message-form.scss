@@ -175,3 +175,29 @@ section[email-compose] {
 ul[email-attachment-chips] {
   --email-attachment-chips-inset: var(--mat-sys-inner-spacing, 16px);
 }
+
+// The Material frame (`fields="material"`): the row *is* the form field —
+// iusta core's rows — so the row gives it all its padding (the field puts
+// the row's inset back, global styles), and the red line of an invalid
+// field runs under the whole row.
+.writer-field--material {
+  padding: 0;
+}
+
+.writer-field__form-field {
+  flex: 1 1 0;
+  min-width: 0;
+
+  // The form field lines its input up in a 24px line of its own — the 2px
+  // the bare input pads itself with to make that line would be counted twice.
+  .writer-field__input {
+    padding-block: 0;
+  }
+
+  // A text row's label and the row's buttons are the field's prefix and
+  // suffix: they keep the row's line — at the top, 8px in.
+  :is([matPrefix], [matSuffix]) {
+    align-self: flex-start;
+    padding-block: 8px;
+  }
+}

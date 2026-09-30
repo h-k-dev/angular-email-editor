@@ -52,6 +52,19 @@
   list-style: none;
 }
 
+// The opt-in label: first in the row, the chips wrapping under it; 8px to
+// the first chip, as a row's own label stands off its control.
+:host :where([data-slot='label']) {
+  flex: none;
+  margin-inline-end: var(--email-address-input-label-gap, 4px);
+  color: var(
+    --email-address-input-label-color,
+    var(--mat-sys-on-surface-variant, light-dark(#444746, #c4c7c5))
+  );
+  line-height: var(--email-address-input-label-line-height, 24px);
+  white-space: nowrap;
+}
+
 // Not focused: the chips are a line of text — each address but the last
 // followed by a comma, a word space between them, no buttons — starting
 // where the caret starts.

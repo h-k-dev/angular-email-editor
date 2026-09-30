@@ -1297,6 +1297,24 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   chip and `addressList` read it, `replyEnvelope`/`toInboundMessage` take it
   as `addressRules`. No parser library is a dependency; postal-mime's
   `addressParser` fits `split`/`parse` as a recipe.
+  **The first framework entry (2026-09-30): `/material`.** A Material form
+  field finds its control through Material's own `MatFormFieldControl`
+  token, so that glue cannot exist without importing Material — the case
+  this rule keeps an entry for. `AddressFormField`
+  (`[email-address-input][emailMatFormField]`, opt-in per field) is its own
+  object provided as the control, so the input's signal-forms contract is
+  untouched; `@angular/material` and `rxjs` are optional peers only this
+  entry imports. What it needed of the input was generic and landed there:
+  `aria-describedby` passthrough, `describe(ids)` for a frame's own lines,
+  read-only `focused` and `text` signals, and an opt-in label slot
+  (`ng-template[emailAddressLabel]` — by default the control owns no label;
+  opted in, the label is first in its row, the chips wrap under it and the
+  input is named by it). The demo's compose windows make each envelope row
+  a form field with it, iusta core's form: density -4 (the row's 40px),
+  label in the control (text rows: a prefix), Cc/Bcc prefixes placed at the
+  end by `order` so the tab order stays the page's, no message — the red
+  line runs under the whole row. The page keeps its bare rows; the two
+  measure alike.
   Behaviour directives so far (2026-09-17), each proven by the demo's own
   glue before it was written: `/focus` — `emailKeepFocus`, which replaced
   nine hand-written `mousedown` handlers; `/anchor` — `emailAnchor`, which

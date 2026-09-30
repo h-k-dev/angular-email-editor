@@ -49,3 +49,10 @@
   line-height: 1.5;
   color: var(--mat-sys-on-surface);
 }
+
+/* The Material recipe's live field: as wide as the email column. */
+.doc-recipe-field {
+  width: 100%;
+  max-width: 600px;
+  margin-top: 16px;
+}

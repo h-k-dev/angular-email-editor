@@ -1,5 +1,9 @@
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
+import { FormField, form } from '@angular/forms/signals';
+import { MatError, MatFormField, MatHint, MatLabel } from '@angular/material/form-field';
 import { RouterLink } from '@angular/router';
+import { AddressInput, addressList } from 'angular-email-editor/address-input';
+import { AddressFormField } from 'angular-email-editor/material';
 
 /** One custom property, as the token tables render it. */
 interface TokenEntry {
@@ -30,11 +34,31 @@ interface ClassHook {
  */
 @Component({
   selector: 'app-styling',
-  imports: [RouterLink],
+  imports: [
+    RouterLink,
+    AddressInput,
+    AddressFormField,
+    FormField,
+    MatFormField,
+    MatLabel,
+    MatHint,
+    MatError,
+  ],
   templateUrl: './styling.html',
   styleUrl: './styling.scss',
 })
 export class Styling {
+  /** The Material recipe, live: an address input as a form field's control. */
+  protected readonly recipient = signal({ to: [] as string[] });
+  protected readonly recipientForm = form(this.recipient, (p) => addressList(p.to));
+
+  readonly materialRecipe = `<mat-form-field>
+  <mat-label>To</mat-label>
+  <div email-address-input emailMatFormField [formField]="envelope.to"></div>
+  <mat-hint>Separate addresses with a comma</mat-hint>
+  <mat-error>{{ envelope.to().errors()[0]?.message }}</mat-error>
+</mat-form-field>`;
+
   /** The whole contract in six lines — one override, at point of use. */
   readonly example = `/* Global, because the editable is created outside Angular's encapsulation. */
 .aee-editor {

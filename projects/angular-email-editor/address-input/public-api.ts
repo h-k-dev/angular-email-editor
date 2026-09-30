@@ -3,4 +3,5 @@
  */
 
 export * from './address-input';
+export * from './address-input.slots';
 export * from './address-rules';

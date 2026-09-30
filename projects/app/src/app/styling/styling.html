@@ -62,6 +62,24 @@
   </section>
 }
 
+<section class="doc-card" aria-label="Inside an Angular Material form field">
+  <h2 class="doc-card-title">Inside an Angular Material form field</h2>
+  <p class="doc-card-hint">
+    The address input is a control, never its own row &mdash; in a Material app the row is a
+    <code>mat-form-field</code>. Opt in per field with <code>emailMatFormField</code>
+    (<code>angular-email-editor/material</code>, the one entry that imports Material): the label
+    floats, <code>mat-error</code> shows once the field is touched and invalid, hint and error are
+    read out, and a click anywhere in the field puts the caret in.
+  </p>
+  <pre class="doc-snippet"><code>{{ materialRecipe }}</code></pre>
+  <mat-form-field class="doc-recipe-field">
+    <mat-label>To</mat-label>
+    <div email-address-input emailMatFormField [formField]="recipientForm.to"></div>
+    <mat-hint>Separate addresses with a comma</mat-hint>
+    <mat-error>{{ recipientForm.to().errors()[0]?.message }}</mat-error>
+  </mat-form-field>
+</section>
+
 <section class="doc-card" aria-label="Class hooks">
   <h2 class="doc-card-title">Class hooks</h2>
   <p class="doc-card-hint">

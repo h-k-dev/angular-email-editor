@@ -56,6 +56,12 @@ describe('Compose', () => {
     expect(component).toBeTruthy();
   });
 
+  it('the page frames nothing: its envelope rows hold the bare controls, no Material form field', () => {
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelectorAll('.writer-field').length).toBeGreaterThan(0);
+    expect(root.querySelectorAll('mat-form-field')).toHaveLength(0);
+  });
+
   it('an external html write during focus applies on blur — a draft restore is never dropped', async () => {
     // Put the user "in" the editor (mount focuses it too, but not reliably
     // under the test harness — make it explicit).

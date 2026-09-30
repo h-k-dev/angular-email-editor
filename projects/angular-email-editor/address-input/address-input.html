@@ -1,6 +1,14 @@
 <!-- No label here: the row around this control names it, through
      aria-labelledby or aria-label, both passed down to the text input. -->
 <ul data-slot="chips" role="list">
+  <!-- The opt-in label (emailAddressLabel): first in the row, so the chips
+       wrap under it. Hidden from assistive tech as text — it names the
+       text input instead, through aria-labelledby. -->
+  @if (labelSlot(); as slot) {
+    <li data-slot="label" aria-hidden="true" [id]="labelId">
+      <ng-container [ngTemplateOutlet]="slot.template" />
+    </li>
+  }
   @for (address of value(); track address) {
     <li
       email-address-chip
@@ -37,15 +45,16 @@
       [disabled]="disabled()"
       [readOnly]="readonly()"
       [placeholder]="value().length ? '' : placeholder()"
-      [attr.aria-labelledby]="ariaLabelledby()"
+      [attr.aria-labelledby]="labelledBy()"
       [attr.aria-label]="ariaLabel()"
+      [attr.aria-describedby]="describedBy()"
       [attr.aria-required]="required() || null"
       [attr.aria-invalid]="flagged() || refused() || null"
       [attr.aria-activedescendant]="activeId()"
       [attr.data-refused]="refused() || null"
       (keydown)="onKeydown($event, field)"
       (paste)="onPaste($event, field)"
-      (input)="onInput()"
+      (input)="onInput(field)"
       (mousedown)="active.set(null)"
       (focus)="onFocus(field)"
       (blur)="onBlur($event, field)"

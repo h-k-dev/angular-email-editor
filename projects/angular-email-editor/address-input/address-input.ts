@@ -18,6 +18,8 @@ import {
 import type { FormValueControl } from '@angular/forms/signals';
 import { ADDRESS_RULES, addressKey, isMailbox, separatesAt } from 'angular-email-editor/address';
 import { AddressChip, AddressChipRemove } from 'angular-email-editor/address-chip';
+import { NgTemplateOutlet } from '@angular/common';
+import { AddressInputLabel } from './address-input.slots';
 
 let nextId = 0;
 
@@ -72,7 +74,7 @@ let nextId = 0;
  * becomes that same chip. An address is in the list once: another entry
  * with the same address — in any case, under any name — is dropped.
  *
- * **The control, not the row.** It owns no label and draws no row: the
+ * **The control, not the row.** By default it owns no label and draws no row: the
  * template that holds the form puts it in a row of its own making, beside a
  * label of its own making, exactly as it does for a plain `<input>` — and
  * names the control through `aria-labelledby` (the label's id) or
@@ -123,7 +125,7 @@ let nextId = 0;
  */
 @Component({
   selector: '[email-address-input]',
-  imports: [AddressChip],
+  imports: [AddressChip, NgTemplateOutlet],
   templateUrl: './address-input.html',
   styleUrl: './address-input.scss',
   host: {
@@ -134,7 +136,7 @@ let nextId = 0;
     '(pointerdown)': 'onPointerdown($event)',
     '(mousedown)': 'keepCaret($event)',
     '(click)': 'focus()',
-    '(focusin)': 'focused.set(true)',
+    '(focusin)': 'onFocusin()',
     '(focusout)': 'onFocusout($event)',
   },
 })
@@ -150,6 +152,27 @@ export class AddressInput implements FormValueControl<string[]> {
 
   /** A name for the text input when there is no visible label. */
   readonly ariaLabel = input<string | null>(null, { alias: 'aria-label' });
+
+  /** The ids of whatever describes the field — a hint, an error line —
+      passed through to the text input, where assistive tech reads them. */
+  readonly ariaDescribedby = input<string | null>(null, { alias: 'aria-describedby' });
+
+  readonly #frameIds = signal<readonly string[]>([]);
+
+  /** What the text input's `aria-describedby` says: the host's own ids and a
+      frame's, each once. */
+  protected readonly describedBy = computed(() => {
+    const ids = new Set([...(this.ariaDescribedby()?.split(/\s+/) ?? []), ...this.#frameIds()]);
+    ids.delete('');
+    return ids.size ? [...ids].join(' ') : null;
+  });
+
+  /** Adds the ids of a frame's own lines — a form field's hint and error —
+      to what describes the text input, beside the host's `aria-describedby`;
+      each call replaces the frame's previous ids. */
+  describe(ids: readonly string[]): void {
+    this.#frameIds.set(ids);
+  }
 
   /** Most addresses the field takes; the input hides once reached. Named
       `limit`, not `max`: the form contract keeps that name for the `max` rule. */
@@ -178,6 +201,19 @@ export class AddressInput implements FormValueControl<string[]> {
   /** The text input's id, for a host label's `for`. */
   readonly id = `email-address-input-${nextId++}`;
 
+  /** The host's label template, if it opted into one — rendered first in
+      the row; the text input is named by it. */
+  protected readonly labelSlot = contentChild(AddressInputLabel);
+
+  /** The label box's id, for the text input's `aria-labelledby`. */
+  protected readonly labelId = `${this.id}-label`;
+
+  /** What names the text input: the host's own `aria-labelledby`; else the
+      label slot — unless the host gave an `aria-label` instead. */
+  protected readonly labelledBy = computed(
+    () => this.ariaLabelledby() ?? (this.labelSlot() && !this.ariaLabel() ? this.labelId : null),
+  );
+
   /** The host's remove template, passed on to every chip. */
   protected readonly removeSlot = contentChild(AddressChipRemove);
 
@@ -191,9 +227,18 @@ export class AddressInput implements FormValueControl<string[]> {
   #isMailbox = (raw: string) => isMailbox(raw, this.#rules);
   #key = (raw: string) => addressKey(raw, this.#rules);
 
+  readonly #focused = signal(false);
+
   /** Focus is somewhere in the control — the input or a chip's remove
-      button. The chips are chips only then. */
-  protected readonly focused = signal(false);
+      button. The chips are chips only then. Read-only; for a host's own
+      frame (a form field whose label floats on it). */
+  readonly focused = this.#focused.asReadonly();
+
+  readonly #text = signal('');
+
+  /** What is typed in the input and not committed yet — for a host's own
+      frame, where a field with typing in it is not empty. */
+  readonly text = this.#text.asReadonly();
 
   /** The input holds text a commit left behind: not an address yet. */
   protected readonly refused = signal(false);
@@ -295,7 +340,7 @@ export class AddressInput implements FormValueControl<string[]> {
     this.#endPending(input, address);
     if (!this.value().includes(address)) return;
     this.remove(address);
-    input.value = address;
+    this.#write(input, address);
     input.focus();
     input.setSelectionRange(input.value.length, input.value.length);
   }
@@ -306,7 +351,7 @@ export class AddressInput implements FormValueControl<string[]> {
       be edited. */
   #endPending(input: HTMLInputElement, keep?: string): void {
     this.#insert(this.#rules.split(input.value).filter((token) => this.#isMailbox(token)));
-    input.value = '';
+    this.#write(input, '');
     this.refused.set(false);
     const value = this.value();
     const kept = value.filter((address) => this.#isMailbox(address) || address === keep);
@@ -382,7 +427,12 @@ export class AddressInput implements FormValueControl<string[]> {
     this.active.set(address === undefined ? null : this.value().indexOf(address));
   }
 
-  protected onInput(): void {
+  protected onFocusin(): void {
+    this.#focused.set(true);
+  }
+
+  protected onInput(input: HTMLInputElement): void {
+    this.#text.set(input.value);
     this.refused.set(false);
     this.active.set(null);
   }
@@ -497,7 +547,7 @@ export class AddressInput implements FormValueControl<string[]> {
     const typos = this.#trailingMalformed();
     if (input.value || !typos.length || this.locked()) return;
     this.value.update((current) => current.slice(0, current.length - typos.length));
-    input.value = typos.join(', ');
+    this.#write(input, typos.join(', '));
     input.setSelectionRange(input.value.length, input.value.length);
     this.refused.set(false);
   }
@@ -511,14 +561,14 @@ export class AddressInput implements FormValueControl<string[]> {
     const tokens = this.#rules.split(input.value);
     this.#insert(tokens.filter((token) => this.#isMailbox(token)));
     this.#insert(tokens.filter((token) => !this.#isMailbox(token)));
-    input.value = '';
+    this.#write(input, '');
     this.refused.set(false);
     this.touch.emit();
   }
 
   protected onFocusout(event: FocusEvent): void {
     if (this.#within(event)) return;
-    this.focused.set(false);
+    this.#focused.set(false);
     this.active.set(null);
   }
 
@@ -526,7 +576,7 @@ export class AddressInput implements FormValueControl<string[]> {
   #settle(input: HTMLInputElement, raw: string): void {
     const tokens = this.#rules.split(raw);
     this.#insert(tokens.filter((token) => this.#isMailbox(token)));
-    input.value = tokens.filter((token) => !this.#isMailbox(token)).join(', ');
+    this.#write(input, tokens.filter((token) => !this.#isMailbox(token)).join(', '));
     this.refused.set(!!input.value);
   }
 
@@ -546,6 +596,12 @@ export class AddressInput implements FormValueControl<string[]> {
       }
       return next;
     });
+  }
+
+  /** Puts text in the input — the one way it is written, so `text` follows. */
+  #write(input: HTMLInputElement, text: string): void {
+    input.value = text;
+    this.#text.set(text);
   }
 
   /** Whether focus is moving to somewhere else inside the control. */

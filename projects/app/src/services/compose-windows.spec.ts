@@ -163,6 +163,23 @@ describe('ComposeWindows', () => {
     expect(frames().every((frame) => frame.getAttribute('role') === 'dialog')).toBe(true);
   });
 
+  it('a window frames its rows in Material form fields: a Send held back marks the row, and says nothing', async () => {
+    await windows.open();
+    await settle();
+    const [frame] = frames();
+    const fields = [...frame.querySelectorAll('.writer-field mat-form-field')];
+    // From, To and Subject — each control inside a field of its own.
+    expect(fields.length).toBe(3);
+    const to = fields.find((field) => field.querySelector('[placeholder="Recipients"]'))!;
+    expect(to.classList).not.toContain('mat-form-field-invalid');
+
+    [...frame.querySelectorAll('button')].find((b) => b.textContent!.trim() === 'Send')!.click();
+    await settle();
+    // The red line is the whole of it — iusta core's rows: no message.
+    expect(to.classList).toContain('mat-form-field-invalid');
+    expect(frame.querySelectorAll('mat-error, mat-hint')).toHaveLength(0);
+  });
+
   it('the dialog and back leaves every window exactly where it was, dragged or not', async () => {
     const first = await windows.open();
     const second = await windows.open();

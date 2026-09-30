@@ -16,6 +16,7 @@ import {
 } from '@angular/core';
 
 // Angular CDK
+import { NgTemplateOutlet } from '@angular/common';
 import { Portal } from '@angular/cdk/portal';
 
 // Angular Signal Forms
@@ -31,6 +32,8 @@ import {
 
 // Angular Material
 import { MatIconButton } from '@angular/material/button';
+import { MatFormField, MatPrefix, MatSuffix } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 import { MatIcon } from '@angular/material/icon';
 
 // Angular File Drop
@@ -46,7 +49,7 @@ import {
   toInboundMessage,
 } from 'angular-email-editor';
 import { isEmailAddress, parseMailbox } from 'angular-email-editor/address';
-import { AddressInput, addressList } from 'angular-email-editor/address-input';
+import { AddressInput, AddressInputLabel, addressList } from 'angular-email-editor/address-input';
 import {
   Attachment,
   AttachmentChip,
@@ -55,6 +58,7 @@ import {
 } from 'angular-email-editor/attachment-chip';
 import { AttachmentChips } from 'angular-email-editor/attachment-chips';
 import { KeepFocus } from 'angular-email-editor/focus';
+import { AddressFormField } from 'angular-email-editor/material';
 
 import { DropHint } from '../drop-hint/drop-hint';
 import { EmailCompose, SourceView } from '../email-compose/email-compose';
@@ -105,6 +109,15 @@ let nextSheetId = 0;
     DropHint,
     AngularFileDrop,
     KeepFocus,
+
+    // Material form fields (the `material` frame)
+    MatFormField,
+    MatPrefix,
+    MatSuffix,
+    AddressInputLabel,
+    NgTemplateOutlet,
+    MatInput,
+    AddressFormField,
   ],
   templateUrl: './message-form.html',
   styleUrl: './message-form.scss',
@@ -227,6 +240,14 @@ export class MessageForm {
   readonly codePortal = input<Portal<unknown> | null>(null);
   readonly codeEditor = input<Editor | undefined>();
 
+  /** How the envelope rows frame their controls: `plain` — the control
+      alone in the row (the page); `material` — inside an Angular Material
+      form field at density -4, exactly the row's 40px (a compose window).
+      The two look the same; the form field adds its error styling — the red
+      line under an invalid control — and no message: iusta core's rows. */
+  readonly fields = input<'plain' | 'material'>('plain');
+  protected readonly material = computed(() => this.fields() === 'material');
+
   /** A send went through — the receipt, as the page's status strip words
       it. The sheet has started over by then. */
   readonly sent = output<string>();
@@ -260,7 +281,13 @@ export class MessageForm {
 
   /** The To row: where a message starts, so the caret lands there on
       arrival. */
-  protected readonly toField = viewChild.required<AddressInput>('toField');
+  protected readonly toField = viewChild<AddressInput>('toField');
+
+  /** From and Subject, by reference: their rows forward clicks and name
+      them, whichever frame the control sits in. From (like To) is optional:
+      its label reads it in the very pass that creates it. */
+  protected readonly fromField = viewChild<AddressInput>('fromField');
+  protected readonly subjectField = viewChild.required<ElementRef<HTMLInputElement>>('subjectField');
 
   constructor() {
     // Focus is a DOM write: the write phase, batched ahead of the reads of
@@ -270,7 +297,7 @@ export class MessageForm {
 
   /** Puts the caret in To, where a message starts. */
   focus(): void {
-    this.toField().focus();
+    this.toField()?.focus();
   }
 
   /** Nothing written — the message is as it started. */
