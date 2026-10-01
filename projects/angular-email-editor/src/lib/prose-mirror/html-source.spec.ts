@@ -512,6 +512,19 @@ describe('html-source formatter', () => {
     expect(formatHTML(formatted)).toBe(formatted);
   });
 
+  it('keeps Unicode spaces — content, not formatting whitespace', () => {
+    const html =
+      '<div><a href="#">Privacy</a>&#xA0;&#xA0;&#xA0;<a href="#">Unsubscribe</a></div>' +
+      '<div>&nbsp;</div><div style="height:30px">&#8202;</div>';
+    expect(formatHTML(html)).toBe(
+      [
+        '<div><a href="#">Privacy</a>&nbsp;&nbsp;&nbsp;<a href="#">Unsubscribe</a></div>',
+        '<div>&nbsp;</div>',
+        '<div style="height:30px">&#8202;</div>',
+      ].join('\n'),
+    );
+  });
+
   it('repairs unclosed tags through the DOM parse', () => {
     expect(formatHTML('<div>Hello <b>world</div>')).toBe('<div>Hello <b>world</b></div>');
   });

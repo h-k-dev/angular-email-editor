@@ -2,6 +2,7 @@ import { createEditor, Editor } from '../editor';
 import { emailPlainText } from '../plain-text';
 import { emailExtensions } from './kits';
 import { SendIntent, createSendIntent } from './send-intent';
+import { FOLD_WIDTH } from '../fold';
 
 describe('send intent', () => {
   let host: HTMLElement;
@@ -30,6 +31,31 @@ describe('send intent', () => {
     expect(sent[0].html).toBe(editor.getHTML());
     expect(sent[0].text).toBe(emailPlainText(sent[0].html));
     expect(sent[0].text).toBe('Hello world');
+  });
+
+  it('folds its HTML for any transport: no line over the width, the same email to every parser', () => {
+    const cells = Array.from(
+      { length: 60 },
+      (_, i) =>
+        `<td style="padding: 10px 25px; font-size: 14px; color: rgb(85, 87, 93);">Zelle ${i} — Grüße</td>`,
+    ).join('');
+    editor.setContent(`<table><tbody><tr>${cells}</tr></tbody></table><div>after</div>`);
+    const unfolded = editor.getHTML();
+    expect(Math.max(...unfolded.split('\n').map((l) => l.length))).toBeGreaterThan(FOLD_WIDTH);
+
+    editor.commands['requestSend']();
+    const { html, text } = sent[0];
+    const octets = (line: string) => new TextEncoder().encode(line).length;
+    expect(Math.max(...html.split('\n').map(octets))).toBeLessThanOrEqual(FOLD_WIDTH);
+    expect(html).not.toBe(unfolded);
+    // Only spaces inside tags became breaks: the editor reads the same email,
+    // and so does a browser.
+    expect(html.replace(/\n/g, ' ')).toBe(unfolded.replace(/\n/g, ' '));
+    editor.setContent(html);
+    expect(editor.getHTML()).toBe(unfolded);
+    const dom = (markup: string) => new DOMParser().parseFromString(markup, 'text/html').body.innerHTML;
+    expect(dom(html)).toBe(dom(unfolded));
+    expect(text).toBe(emailPlainText(unfolded));
   });
 
   it('reports the fields the body requires', () => {

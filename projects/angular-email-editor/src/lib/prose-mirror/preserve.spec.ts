@@ -137,6 +137,21 @@ describe('email parse — the MJML target', () => {
     expect(email('<div>a <b> b </b> c</div>')).toBe('<div>a <b>b </b>c</div>');
   });
 
+  it('keeps an empty line empty — MJML’s divider gains no <br>, and no line’s height', () => {
+    const divider =
+      '<p style="border-top:solid 4px #000000;font-size:1px;margin:0px auto;width:100%;">\n</p>';
+    expect(email(`<div>a</div>${divider}<div>b</div>`)).toBe(
+      '<div>a</div><p style="border-top:solid 4px #000000;font-size:1px;margin:0px auto;width:100%;"></p><div>b</div>',
+    );
+    // MJML's empty gutter column: a table with no rows gains none.
+    const gutter = '<table role="presentation" width="100%"><tbody></tbody></table>';
+    expect(email(`<div>a</div>${gutter}`)).toBe(`<div>a</div>${gutter}`);
+    // Our own empty line still carries its marker, and still parses as a line.
+    expect(email('<div>a</div><div><br></div><div>b</div>')).toBe(
+      '<div>a</div><div><br></div><div>b</div>',
+    );
+  });
+
   it('drops nothing: MJML emits only what floor clients apply, so email mode == preserve mode', () => {
     expect(canonical).toBe(
       serializeToHTML(parseHTML(MJML_WORLDLY_HTML, schema, { mode: 'preserve' }), schema),

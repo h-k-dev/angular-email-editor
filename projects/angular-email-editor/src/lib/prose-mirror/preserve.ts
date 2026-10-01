@@ -643,6 +643,11 @@ function holdsCommentChild(element: Element): boolean {
   return false;
 }
 
+/** No elements and no text but HTML whitespace. */
+function isBare(element: Element): boolean {
+  return element.children.length === 0 && /^[ \t\n\f\r]*$/.test(element.textContent ?? '');
+}
+
 /** Same tag and attributes, element by element. */
 function samePath(a: Element[], b: Element[]): boolean {
   return a.length === b.length && a.every((element, i) => sameOpeningTag(element, b[i]));
@@ -709,6 +714,10 @@ function recognize(schema: Schema, rule: TagParseRule, typeOf: TypeOf): TagParse
     }
 
     const content = path[path.length - 1];
+    // Nothing inside, where the node's own rendering of nothing puts
+    // something: MJML's divider is an empty `<p>` drawing a border, and the
+    // `<br>` an empty line is written with would give it a line's height.
+    if (isBare(content) && canonicalPath[canonicalPath.length - 1].hasChildNodes()) return false;
     if (!leaf && !type.inlineContent && !holdsForeignBlocks) {
       let match = type.contentMatch;
       for (const child of structuralChildren(content)) {
@@ -717,6 +726,9 @@ function recognize(schema: Schema, rule: TagParseRule, typeOf: TypeOf): TagParse
         if (!next) return false;
         match = next;
       }
+      // Too few is a misfit too: MJML's empty gutter column is a `<table>`
+      // with no rows, and the parse would invent the row a table needs.
+      if (!match.validEnd) return false;
     }
     if (!holdsComments && holdsCommentChild(content)) {
       if (!exact) return false;

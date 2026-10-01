@@ -835,8 +835,8 @@ function formatNode(
   if (node.nodeType === Node.TEXT_NODE) {
     // Tokens at their canonical padding — the same form the schema serializes,
     // so formatting stays presentation-only (the invariance test pins it).
-    const text = normalizeMergeTagText(collapseWhitespace(node.nodeValue ?? '').trim());
-    if (text) lines.push(...wrapInline(escapeText(text), pad, width, authored));
+    const text = normalizeMergeTagText(trimWhitespace(collapseWhitespace(node.nodeValue ?? '')));
+    if (text) lines.push(...wrapInline(sourceText(text), pad, width, authored));
     return;
   }
   if (node.nodeType === Node.COMMENT_NODE) {
@@ -1173,7 +1173,7 @@ function inlineContent(element: Element, trimEdges = true): string {
   for (const child of element.childNodes) {
     if (child.nodeType === Node.TEXT_NODE) {
       // Tokens at their canonical padding here too (inline text is the common case).
-      parts.push(escapeText(normalizeMergeTagText(collapseWhitespace(child.nodeValue ?? ''))));
+      parts.push(sourceText(normalizeMergeTagText(collapseWhitespace(child.nodeValue ?? ''))));
     } else if (child.nodeType === Node.COMMENT_NODE) {
       parts.push(`<!--${normalizeCommentText(child.nodeValue ?? '')}-->`);
     } else if (child instanceof Element) {
@@ -1196,6 +1196,20 @@ function openTag(element: Element): string {
   );
 }
 
+/** HTML's whitespace only — `\s` would also match U+00A0 and the other
+    Unicode spaces, which are content: MJML spaces footer links with eight
+    non-breaking spaces, and a spacer row holds a lone hair space. */
 function collapseWhitespace(text: string): string {
-  return text.replace(/\s+/g, ' ');
+  return text.replace(/[ \t\n\f\r]+/g, ' ');
 }
+
+const trimWhitespace = (text: string): string => text.replace(/^ | $/g, '');
+
+/** Text for the source pane: a Unicode space shows as its reference
+    (`&nbsp;`, `&#8202;`) — the raw character is invisible there and reads
+    as a plain space, or as nothing. */
+const sourceText = (text: string): string =>
+  escapeText(text).replace(
+    /[\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]/g,
+    (ch) => (ch === '\u00a0' ? '&nbsp;' : `&#${ch.charCodeAt(0)};`),
+  );

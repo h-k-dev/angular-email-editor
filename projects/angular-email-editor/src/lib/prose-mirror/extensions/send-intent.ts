@@ -1,6 +1,7 @@
 import { Command } from 'prosemirror-state';
 import { FunctionalExtension, defineExtension } from '../extension';
 import { serializeToHTML } from '../html';
+import { foldHTML } from '../fold';
 import { emailPlainText } from '../plain-text';
 import { mergeTagFields } from './nodes/merge-tag';
 import { expressionDialect } from './dialects/dialect';
@@ -18,7 +19,11 @@ import { withQuoted } from './quoted-history';
 export interface SendIntent {
   /** The canonical HTML — with every data-URL image already promoted to a
       `cid:` reference (see {@link promoteInlineImages}); the document in the
-      editor keeps its data URLs. */
+      editor keeps its data URLs. Folded for the wire (see {@link foldHTML}):
+      no line longer than the width wherever a space between a tag's
+      attributes allows it, so a relay's 998-octet cut never lands in the
+      middle of a tag — the same email to every parser, only line breaks
+      where spaces were. */
   html: string;
   text: string;
   /** Every inline image `html` references, in document order: promoted
@@ -61,7 +66,7 @@ export const createSendIntent = (options: SendIntentOptions): FunctionalExtensio
       // document is not touched, the editor keeps showing its data URLs.
       // The quoted history goes out under the body, its images promoted too.
       const { doc, images } = promoteInlineImages(withQuoted(state.doc), inlineImageRegistry(state));
-      const html = serializeToHTML(doc, state.schema);
+      const html = foldHTML(serializeToHTML(doc, state.schema));
       options.onSend({
         html,
         text: emailPlainText(html),

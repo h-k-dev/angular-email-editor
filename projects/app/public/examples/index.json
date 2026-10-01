@@ -168,6 +168,18 @@
         {
           "name": "Happy New Year (compiled MJML, Mailjet)",
           "file": "mjml/happy-new-year.html"
+        },
+        {
+          "name": "Austin (compiled MJML, Mailjet)",
+          "file": "mjml/austin.html"
+        },
+        {
+          "name": "Appointment Alert (compiled MJML, Mautic)",
+          "file": "mjml/appointment-alert.html"
+        },
+        {
+          "name": "Arturia iSpark (compiled MJML, Mailjet)",
+          "file": "mjml/arturia.html"
         }
       ]
     }
