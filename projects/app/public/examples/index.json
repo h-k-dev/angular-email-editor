@@ -180,6 +180,14 @@
         {
           "name": "Arturia iSpark (compiled MJML, Mailjet)",
           "file": "mjml/arturia.html"
+        },
+        {
+          "name": "Say hello to card (compiled MJML, Mailjet)",
+          "file": "mjml/card.html"
+        },
+        {
+          "name": "Food Delivery receipt (compiled MJML, Mautic)",
+          "file": "mjml/food-delivery.html"
         }
       ]
     }
