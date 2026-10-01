@@ -196,6 +196,10 @@
         {
           "name": "NYA abandoned cart (compiled MJML)",
           "file": "mjml/nya-cart.html"
+        },
+        {
+          "name": "Racoon spring promo (compiled MJML, Mailjet)",
+          "file": "mjml/racoon.html"
         }
       ]
     }

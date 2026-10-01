@@ -31,6 +31,7 @@ import loyalClient from '../../../../app/public/examples/mjml/loyal-client.html'
   loader: 'text',
 };
 import nyaCart from '../../../../app/public/examples/mjml/nya-cart.html' with { loader: 'text' };
+import racoon from '../../../../app/public/examples/mjml/racoon.html' with { loader: 'text' };
 import worldly from '../../../../app/public/examples/mjml/worldly.html' with { loader: 'text' };
 
 const EXAMPLES: Record<string, string> = {
@@ -42,6 +43,7 @@ const EXAMPLES: Record<string, string> = {
   'happy-new-year': happyNewYear,
   'loyal-client': loyalClient,
   'nya-cart': nyaCart,
+  racoon,
   worldly,
 };
 
