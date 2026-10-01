@@ -188,6 +188,14 @@
         {
           "name": "Food Delivery receipt (compiled MJML, Mautic)",
           "file": "mjml/food-delivery.html"
+        },
+        {
+          "name": "Loyal Client gift (compiled MJML, Mautic)",
+          "file": "mjml/loyal-client.html"
+        },
+        {
+          "name": "NYA abandoned cart (compiled MJML)",
+          "file": "mjml/nya-cart.html"
         }
       ]
     }

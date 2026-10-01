@@ -542,8 +542,13 @@ html {
 /* A whole document (a compiled template, envelope and all) is drawn by a
  * client with browser defaults, not with the composer's typography: while
  * one is loaded the visual pane drops ours, as the preview does. Its own
- * head styles arrive scoped through the library's DocumentStyles. */
+ * head styles arrive scoped through the library's DocumentStyles. The canvas
+ * is the client's too: white, light — not the app theme, which would show
+ * through every rounded corner and gap a template leaves. A body that paints
+ * its own background wins: its style lands inline on this root. */
 .aee-editor.aee-document {
+  color-scheme: light;
+  background-color: #fff;
   font-family: initial;
   font-size: initial;
   font-weight: initial;
