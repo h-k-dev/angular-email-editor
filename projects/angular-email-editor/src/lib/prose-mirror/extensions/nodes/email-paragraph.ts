@@ -78,7 +78,19 @@ function attrsOf(node: HTMLElement) {
   const spacing = spacingOf(node);
   // With a box of its own the line's margins are the box's: no indent read
   // off the same margin-left twice.
-  return { align: alignmentOf(node), indent: spacing ? 0 : indentOf(node), spacing };
+  return {
+    align: alignmentOf(node),
+    indent: spacing ? 0 : indentOf(node),
+    spacing,
+    lineHeight: lineHeightOf(node),
+  };
+}
+
+/** A line's own `line-height`: a number, a percentage or px, as written;
+    `normal` and anything else is the client's. */
+function lineHeightOf(node: HTMLElement): string | null {
+  const value = node.style?.lineHeight?.trim() ?? '';
+  return /^\d+(?:\.\d+)?(?:px|%)?$/.test(value) ? value : null;
 }
 
 /** The room a line keeps round itself — a builder's cell padding, carried
@@ -114,9 +126,13 @@ function spacingOf(node: HTMLElement): string | null {
 }
 
 /** The inline style a paragraph serializes with — none when it carries
-    neither an alignment, an indent nor a spacing. A spacing is written as
-    `margin`: what the Word engine honours on a block (a padding it does
-    not), and Gmail the same; the indent rides on its left side. */
+    neither an alignment, an indent, a spacing nor a line height. A spacing
+    is written as `margin`: what the Word engine honours on a block (a
+    padding it does not), and Gmail the same; the indent rides on its left
+    side. A line height is written as MJML writes it, bare: the Word engine
+    takes it as a minimum (an `mso-line-height-rule` would not survive —
+    the serializer sets a style through the CSSOM, which drops what it does
+    not know). */
 function styleOf(attrs: Record<string, any>): { style: string } | Record<never, never> {
   const indent = (attrs['indent'] ?? 0) * INDENT_STEP;
   const declarations = [
@@ -124,6 +140,7 @@ function styleOf(attrs: Record<string, any>): { style: string } | Record<never, 
     attrs['spacing']
       ? `margin: ${indent > 0 ? withLeft(attrs['spacing'], indent) : attrs['spacing']};`
       : indent > 0 && `margin-left: ${indent}px;`,
+    attrs['lineHeight'] && `line-height: ${attrs['lineHeight']};`,
   ].filter(Boolean);
   return declarations.length ? { style: declarations.join(' ') } : {};
 }
@@ -278,6 +295,9 @@ export const EmailParagraph = defineNode({
       /** The room round the line, `t r b l` in px — a builder's cell
           padding carried over; emitted as `margin`. Null for none. */
       spacing: { default: null },
+      /** The line's height as authored — `1`, `120%`, `22px` — a builder's
+          text block carries one; null for the client's own. */
+      lineHeight: { default: null },
     },
     parseDOM: [
       // The empty-line marker first (same tags, earlier rules win): its <br>

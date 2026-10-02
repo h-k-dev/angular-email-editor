@@ -20,11 +20,24 @@ describe('email document', () => {
     expect(html).not.toContain('lang=');
   });
 
-  it('carries the Outlook DPI settings and no style block', () => {
+  it('carries the Outlook DPI settings and one style rule: stacked columns full width on a phone', () => {
     const html = emailDocument('<div>x</div>');
     expect(html).toContain('<o:PixelsPerInch>96</o:PixelsPerInch>');
     expect(html).toContain('<meta name="x-apple-disable-message-reformatting">');
-    expect(html).not.toContain('<style');
+    expect(html.match(/<style/g)).toHaveLength(1);
+    expect(html).toContain(
+      '@media only screen and (max-width: 479px) { .aee-stack { max-width: 100% !important; } }',
+    );
+  });
+
+  it('hooks the rule onto stacking columns only — a held one keeps its share', () => {
+    const stacking =
+      '<div style="display: inline-block; width: 100%; max-width: 280px; vertical-align: top; box-sizing: border-box;">a</div>';
+    const held =
+      '<div style="display: inline-block; width: 50%; max-width: 280px; vertical-align: top; box-sizing: border-box;">b</div>';
+    const html = emailDocument(stacking + held);
+    expect(html).toContain('<div class="aee-stack" style="display: inline-block; width: 100%;');
+    expect(html).toContain('<div style="display: inline-block; width: 50%;');
   });
 
   it('puts hidden preview text first, escaped and padded', () => {

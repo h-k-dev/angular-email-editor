@@ -163,6 +163,16 @@ function fontFamilyKey(raw: string): string {
 
 const FONT_STACK_BY_KEY = new Map(emailFontFamilies.map((f) => [fontFamilyKey(f.stack), f.stack]));
 
+/** Each family a curated stack names — a face or its generic — to the first
+    stack naming it: `helvetica` and `sans-serif` to Sans-serif, `times` and
+    `serif` to Serif. */
+const FONT_STACK_BY_FAMILY = new Map<string, string>();
+for (const { stack } of emailFontFamilies) {
+  for (const family of fontFamilyKey(stack).split(',')) {
+    if (!FONT_STACK_BY_FAMILY.has(family)) FONT_STACK_BY_FAMILY.set(family, stack);
+  }
+}
+
 export function isSafeFontFamily(value: unknown): value is string {
   return typeof value === 'string' && FONT_STACK_BY_KEY.has(fontFamilyKey(value));
 }
@@ -170,12 +180,22 @@ export function isSafeFontFamily(value: unknown): value is string {
 /**
  * Parse a font-family value from the DOM into one of our curated stacks,
  * returning the *canonical* stack string (so a cosmetically different but
- * equivalent input normalises to the exact bytes we emit). Rejects anything
- * outside the curated set — the schema is law.
+ * equivalent input normalises to the exact bytes we emit). A stack of
+ * someone else's reads as the curated one it falls back to — the first of
+ * its families a curated stack names, its generic last: a builder's web
+ * font (`Ubuntu, Helvetica, Arial, sans-serif`) is Sans-serif, the face a
+ * client without that font draws anyway. Nothing to fall back to, no font.
  */
 export function parseFontFamily(raw: string | null | undefined): string | null {
   if (!raw) return null;
-  return FONT_STACK_BY_KEY.get(fontFamilyKey(raw)) ?? null;
+  const key = fontFamilyKey(raw);
+  const exact = FONT_STACK_BY_KEY.get(key);
+  if (exact) return exact;
+  for (const family of key.split(',')) {
+    const stack = FONT_STACK_BY_FAMILY.get(family.trim());
+    if (stack) return stack;
+  }
+  return null;
 }
 
 /**

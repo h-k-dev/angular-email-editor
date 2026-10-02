@@ -7,7 +7,10 @@
   cursor: text;
 
   background-color: var(--mat-sys-surface-container-low);
-  border-radius: var(--mat-sys-corner-medium);
+  // Rounded as a pane of its own; square where it stands in the editing
+  // surface's place (code view sets the token to 0), so switching between
+  // the two shows no corner.
+  border-radius: var(--html-email-compose-corner, var(--mat-sys-corner-medium));
   padding: var(--mat-sys-inner-spacing);
 
   // The .aee-editor surface inside reads these (see styles.scss).

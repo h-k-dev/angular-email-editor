@@ -4,6 +4,30 @@ import { emailExtensions } from '../kits';
 
 const schema = createSchema(emailExtensions);
 
+describe('email paragraph line height', () => {
+  const canonical = (html: string) => serializeToHTML(parseHTML(html, schema), schema);
+
+  it('keeps a line height as written — number, percentage, px — a round-trip fixpoint', () => {
+    for (const value of ['1', '120%', '22px']) {
+      const html = `<div style="line-height: ${value};">x</div>`;
+      expect(canonical(html)).toBe(html);
+    }
+  });
+
+  it('leaves the client its own: `normal`, and nothing else measurable', () => {
+    expect(canonical('<div style="line-height: normal;">x</div>')).toBe('<div>x</div>');
+  });
+
+  it('takes a line height a builder’s wrapping div declares, down onto its lines', () => {
+    const out = canonical(
+      '<div style="line-height: 30px; color: #ff0000;"><p>one</p><p>two</p></div>',
+    );
+    expect(out.match(/line-height: 30px;/g)).toHaveLength(2);
+    // Never onto the words: a span reads no line height.
+    expect(out).not.toMatch(/<span[^>]*line-height/);
+  });
+});
+
 describe('email paragraph empty-line marker', () => {
   it('parses <div><br></div> back to an EMPTY paragraph, bytes unchanged', () => {
     // The <br> is emit-side transport (mail clients collapse a bare empty

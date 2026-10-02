@@ -17,7 +17,7 @@ const DIVIDER =
   'margin-top: 12px; margin-bottom: 12px;">';
 const BUTTON_STYLE =
   'display: inline-block; background-color: rgb(26, 115, 232); color: rgb(255, 255, 255); ' +
-  'font-weight: bold; text-decoration: none; border-width: 14px 28px; border-style: solid; ' +
+  'font-weight: bold; text-decoration: none; white-space: nowrap; border-width: 14px 28px; border-style: solid; ' +
   'border-color: rgb(26, 115, 232);';
 
 describe('divider block', () => {
@@ -78,9 +78,10 @@ describe('button', () => {
     const out = roundTrip(
       '<div><a href="https://x.io" style="display: inline-block; color: #000000; padding: 0 35px; text-decoration: none;">home</a></div>',
     );
-    // A link — its colour kept, on a span inside (the import's inheritance).
+    // A link — its colour kept, on a span inside (the import's inheritance),
+    // and its nav item's room and bare face kept on the link itself.
     expect(out).toContain(
-      'rel="noopener noreferrer"><span style="color: rgb(0, 0, 0);">home</span></a>',
+      'rel="noopener noreferrer" style="display: inline-block; padding: 0px 35px; text-decoration: none;"><span style="color: rgb(0, 0, 0);">home</span></a>',
     );
     expect(out).not.toContain('background-color: rgb(26, 115, 232)');
     // A fill alone makes the box (in that fill, with the text it pairs); a
@@ -90,7 +91,7 @@ describe('button', () => {
         '<a href="https://x.io" style="display: inline-block; background-color: #333">Go</a>',
       ),
     ).toContain(
-      'style="display: inline-block; background-color: rgb(51, 51, 51); color: rgb(255, 255, 255); font-weight: bold; text-decoration: none; border-width: 14px 28px; border-style: solid; border-color: rgb(51, 51, 51);">Go</a>',
+      'style="display: inline-block; background-color: rgb(51, 51, 51); color: rgb(255, 255, 255); font-weight: bold; text-decoration: none; white-space: nowrap; border-width: 14px 28px; border-style: solid; border-color: rgb(51, 51, 51);">Go</a>',
     );
     expect(
       roundTrip(
@@ -108,7 +109,7 @@ describe('button', () => {
       '<div><a href="https://x.io" style="display: inline-block; background: #bd8714; color: #FFFFFF; padding: 10px 25px; border-radius: 3px;">Book</a></div>',
     );
     expect(out).toContain(
-      'style="display: inline-block; background-color: rgb(189, 135, 20); color: rgb(255, 255, 255); font-weight: bold; text-decoration: none; border-width: 14px 28px; border-style: solid; border-color: rgb(189, 135, 20);">Book</a>',
+      'style="display: inline-block; background-color: rgb(189, 135, 20); color: rgb(255, 255, 255); font-weight: bold; text-decoration: none; white-space: nowrap; border-width: 14px 28px; border-style: solid; border-color: rgb(189, 135, 20);">Book</a>',
     );
     expect(roundTrip(out)).toBe(out);
     // Our own blue is the default — not carried as a fill.

@@ -16,5 +16,9 @@ export const routes: Routes = [
     path: 'styling',
     loadComponent: () => import('./styling/styling').then((m) => m.Styling),
   },
+  {
+    path: 'render',
+    loadComponent: () => import('./render/render').then((m) => m.Render),
+  },
   { path: '**', redirectTo: '' },
 ];

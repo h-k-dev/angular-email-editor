@@ -284,11 +284,13 @@ function sectionAttrs(table: HTMLTableElement): Record<string, unknown> | false 
 }
 
 /** The vertical padding a card's centring div carries, as a section
-    padding (`top 0px bottom 0px`, normalised) — null where it has none. */
+    padding (`top 0px bottom 0px`, normalised) — null where it says none.
+    A zero it says is a padding too: a card written with `0px` above and
+    below must read back as one, not as the default band's 20px. */
 function cardPadding(div: HTMLElement): string | null {
-  const top = div.style?.paddingTop || '0px';
-  const bottom = div.style?.paddingBottom || '0px';
-  if (top === '0px' && bottom === '0px') return null;
+  if (!div.style?.paddingTop && !div.style?.paddingBottom) return null;
+  const top = div.style.paddingTop || '0px';
+  const bottom = div.style.paddingBottom || '0px';
   const probe = document.createElement('div');
   probe.style.padding = `${top} 0px ${bottom} 0px`;
   return parsePadding(probe);

@@ -150,13 +150,43 @@ export function setColumnsBoundary(columnsPos: number, boundary: number, leftCap
 
 /** The cap a column's `max-width` means: px as written; a percentage — a
     builder's share of the row (MJML's `mj-column-per-50`) — as that share
-    of the budget, so two halves sit side by side exactly as two of ours. */
+    of the budget, so two halves sit side by side exactly as two of ours.
+    Not held to {@link MIN_COLUMN_CAP}: that floor is the boundary drag's —
+    a builder's 2% gutter or 10% price column, widened to it, would push
+    the row past the container and stack it on a desktop. */
 function parseColumnMaxWidth(style: string | null): number {
   const m = /max-width:\s*(\d+(?:\.\d+)?)(px|%)/i.exec(style ?? '');
   if (!m) return columnMaxWidth(2);
   if (m[2] === 'px') return Math.round(+m[1]);
   const budget = CONTAINER_MAX - 2 * CLIENT_PADDING_BUDGET;
-  return Math.max(MIN_COLUMN_CAP, Math.min(budget, Math.floor((budget * +m[1]) / 100)));
+  return Math.max(1, Math.min(budget, Math.floor((budget * +m[1]) / 100)));
+}
+
+/**
+ * The class a stacking column carries in the sent email — the hook of the
+ * one rule the email document's head holds ({@link STACK_RULE}): on a phone
+ * a stacked column takes the whole width instead of its desktop cap. Where
+ * a client drops the head, the column keeps its cap: narrower, still whole.
+ * The editor's HTML never carries it ({@link markStackingColumns} adds it
+ * at send), so the canonical form stays class-free.
+ */
+export const STACK_CLASS = 'aee-stack';
+
+/** The phone rule for {@link STACK_CLASS} — MJML's breakpoint. */
+export const STACK_RULE =
+  `@media only screen and (max-width: 479px) { ` +
+  `.${STACK_CLASS} { max-width: 100% !important; } }`;
+
+/** The opening of a stacking column as {@link columnStyle} writes it — a
+    held column's `width` is a percentage, and never matches. */
+const STACKING_COLUMN = /<div style="display: inline-block; width: 100%; max-width: \d+px;/g;
+
+/** Canonical HTML with every stacking column carrying {@link STACK_CLASS}
+    — for the email document only. */
+export function markStackingColumns(html: string): string {
+  return html.replace(STACKING_COLUMN, (open) =>
+    open.replace('<div style=', `<div class="${STACK_CLASS}" style=`),
+  );
 }
 
 /** A single column: an `inline-block` div, recognised on parse by that style

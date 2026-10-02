@@ -164,6 +164,31 @@ export const linkClickPlugin = new Plugin({
   },
 });
 
+/** A link's own look, as the email writes it: `text-decoration: none` for
+    one the author took the underline off (a builder's navbar, a footer
+    link), the room round a nav item as an inline-block's padding. Nothing
+    for the client's own blue underlined link. */
+function linkStyle(attrs: Record<string, any>, view: boolean): string | null {
+  const declarations = [
+    attrs['spacing'] && `display: inline-block; padding: ${attrs['spacing']};`,
+    attrs['decoration'] === 'none'
+      ? 'text-decoration: none;'
+      : view && 'text-decoration: underline;',
+  ].filter(Boolean);
+  return declarations.length ? declarations.join(' ') : null;
+}
+
+/** The padding of an inline-block link — a builder's nav item — in the
+    shorthand the CSSOM prints, null for none. A padded block is no link's:
+    without the inline-block the padding is the client's to ignore. */
+function linkSpacingOf(node: HTMLElement): string | null {
+  if (!/^inline-block$/i.test(node.style?.display ?? '')) return null;
+  const padding = node.style?.padding ?? '';
+  return /^(\d+(?:\.\d+)?px\s*){1,4}$/.test(padding.trim()) && /[1-9]/.test(padding)
+    ? padding.trim()
+    : null;
+}
+
 export const Link = defineMark({
   name: 'link',
   spec: {
@@ -172,6 +197,12 @@ export const Link = defineMark({
       title: { default: null },
       target: { default: '_blank' }, // Force new tabs
       rel: { default: 'noopener noreferrer' }, // Security best practice for _blank
+      /** `none` where the author took the underline off; null for the
+          client's own underlined link. */
+      decoration: { default: null },
+      /** A nav item's room, `t r b l` in px — emitted as an inline-block's
+          padding. Null for none. */
+      spacing: { default: null },
     },
     inclusive: false,
     // A Shift-Enter inside a link shouldn't drag the link onto the next line.
@@ -185,10 +216,13 @@ export const Link = defineMark({
           // If the link is dangerous, reject the mark entirely
           if (!isSafeUrl(href)) return false;
 
+          const decoration = node.style?.textDecorationLine || node.style?.textDecoration || '';
           return {
             href,
             title: node.getAttribute('title'),
             target: node.getAttribute('target') || '_blank',
+            decoration: /^none\b/i.test(decoration.trim()) ? 'none' : null,
+            spacing: linkSpacingOf(node),
           };
         },
       },
@@ -205,7 +239,7 @@ export const Link = defineMark({
           target,
           rel,
           tabindex: '-1',
-          style: 'color: var(--mat-sys-primary,#0056b3); text-decoration: underline;',
+          style: `color: var(--mat-sys-primary,#0056b3); ${linkStyle(mark.attrs, true)}`,
         },
         0,
       ];
@@ -213,10 +247,12 @@ export const Link = defineMark({
     // Serialization-only override (see serializeToHTML): mail clients style
     // links natively, `var()` colors mean nothing to them, and re-parsing an
     // inline `text-decoration: underline` would misread it as an Underline
-    // mark — the canonical email link is a clean <a>.
+    // mark — the canonical email link is a clean <a>, styled only where the
+    // author took the underline off or gave a nav item its room.
     emitDOM: (mark: { attrs: Record<string, any> }) => {
       const { href, title, target, rel } = mark.attrs;
-      return ['a', { href, title, target, rel }, 0];
+      const style = linkStyle(mark.attrs, false);
+      return ['a', { href, title, target, rel, ...(style ? { style } : {}) }, 0];
     },
   },
   commands: ({ schema }) => ({

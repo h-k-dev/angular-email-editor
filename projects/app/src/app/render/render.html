@@ -1,0 +1,133 @@
+<!-- Two 600px boxes on one line — the replica in our editor, the original
+   as a client draws it — under a header that serves both, and the stepper
+   in its own thin column. -->
+<div class="render" [style.--render-box.px]="boxWidth()">
+  <header class="render-header">
+    <h1 class="render-title">{{ pair()?.name ?? '' }}</h1>
+    <div class="render-choice" role="radiogroup" [attr.aria-label]="i18n.t('render.view', 'View')">
+      <button
+        type="button"
+        role="radio"
+        [attr.aria-checked]="sourceView() !== 'code'"
+        (click)="showSource(false)"
+      >
+        {{ i18n.t('render.editor', 'Editor') }}
+      </button>
+      <button
+        type="button"
+        role="radio"
+        [attr.aria-checked]="sourceView() === 'code'"
+        (click)="showSource(true)"
+      >
+        {{ i18n.t('render.html', 'HTML') }}
+      </button>
+    </div>
+    <span class="render-header-spacer"></span>
+    <div
+      class="render-choice"
+      role="radiogroup"
+      [attr.aria-label]="i18n.t('render.client', 'Mail client')"
+    >
+      @for (client of clients; track client) {
+        <button
+          type="button"
+          role="radio"
+          [attr.aria-checked]="client === this.client()"
+          (click)="this.client.set(client)"
+        >
+          {{ clientLabels[client] }}
+        </button>
+      }
+    </div>
+    <div
+      class="render-choice"
+      role="radiogroup"
+      [attr.aria-label]="i18n.t('render.device', 'Reading pane')"
+    >
+      <button
+        type="button"
+        role="radio"
+        [attr.aria-checked]="device() === 'desktop'"
+        (click)="device.set('desktop')"
+      >
+        {{ i18n.t('render.desktop', 'Desktop') }}
+      </button>
+      <button
+        type="button"
+        role="radio"
+        [attr.aria-checked]="device() === 'phone'"
+        (click)="device.set('phone')"
+      >
+        {{ i18n.t('render.phone', 'Phone') }}
+      </button>
+    </div>
+    <div
+      class="render-choice"
+      role="radiogroup"
+      [attr.aria-label]="i18n.t('render.surface', 'Surface')"
+    >
+      <button type="button" role="radio" [attr.aria-checked]="!dark()" (click)="dark.set(false)">
+        {{ i18n.t('render.light', 'Light') }}
+      </button>
+      <button type="button" role="radio" [attr.aria-checked]="dark()" (click)="dark.set(true)">
+        {{ i18n.t('render.dark', 'Dark') }}
+      </button>
+    </div>
+  </header>
+
+  @if (pair(); as pair) {
+    <section
+      class="render-editor"
+      email-compose
+      [(value)]="replica"
+      [(sourceView)]="sourceView"
+      [codePortal]="codePortal()"
+      [codeEditor]="sourcePane()?.editor()"
+      [attr.aria-label]="i18n.t('render.replica', 'Replica in our editor')"
+    ></section>
+
+    <!-- The replica's HTML: out of sight here, it moves into the editor's
+       box in HTML view. -->
+    <section
+      html-email-compose
+      #sourceEl
+      [hidden]="sourceView() !== 'code'"
+      [active]="sourceView() === 'code'"
+      [(html)]="replica"
+      [attr.aria-label]="i18n.t('render.source', 'Replica HTML')"
+    ></section>
+
+    <iframe
+      class="render-original"
+      sandbox
+      [srcdoc]="original()"
+      [title]="i18n.t('render.original', 'Original MJML, as a client draws it')"
+    ></iframe>
+  } @else {
+    <p class="render-empty">{{ i18n.t('render.loading', 'Loading the MJML examples…') }}</p>
+  }
+
+  <nav class="render-stepper" [attr.aria-label]="i18n.t('render.examples', 'MJML examples')">
+    <button
+      mat-icon-button
+      type="button"
+      (click)="step(-1)"
+      [disabled]="pairs().length < 2"
+      [attr.aria-label]="i18n.t('render.previous', 'Previous example')"
+    >
+      <mat-icon>keyboard_arrow_up</mat-icon>
+    </button>
+    <span class="render-count" aria-live="polite">
+      {{ pairs().length ? index() + 1 : 0 }} / {{ pairs().length }}
+    </span>
+    <button
+      mat-icon-button
+      type="button"
+      (click)="step(1)"
+      [disabled]="pairs().length < 2"
+      [attr.aria-label]="i18n.t('render.next', 'Next example')"
+    >
+      <mat-icon>keyboard_arrow_down</mat-icon>
+    </button>
+  </nav>
+</div>

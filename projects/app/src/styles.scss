@@ -112,6 +112,11 @@ html {
   display: block;
   height: 100%;
   box-sizing: border-box;
+  // The room above and below the text, inside the editor: where a host sets
+  // it (the composer does, email-compose.scss), the first line starts that
+  // far down and scrolls up through it. None elsewhere — the source pane's
+  // editor has its own padding round it.
+  padding-block: var(--email-editor-padding-block, 0);
   // The text column is the email's box, capped at its 600px ceiling — the
   // same one the columns block and the image cap use. A max-width, not a
   // width, and the host normally gives it less: the app's writer sheet is
@@ -545,8 +550,13 @@ html {
  * head styles arrive scoped through the library's DocumentStyles. The canvas
  * is the client's too: white, light — not the app theme, which would show
  * through every rounded corner and gap a template leaves. A body that paints
- * its own background wins: its style lands inline on this root. */
-.aee-editor.aee-document {
+ * its own background wins: its style lands inline on this root. The render
+ * bench's editor (/render) is drawn the same way, a fragment though it holds:
+ * its replica stands beside a client's drawing of the original, on the
+ * client's canvas. Only the editor's own surface (`.editor`): the HTML
+ * source, moved into the same box in HTML view, keeps its own look. */
+.aee-editor.aee-document,
+.render-editor .editor > .aee-editor {
   color-scheme: light;
   background-color: #fff;
   font-family: initial;

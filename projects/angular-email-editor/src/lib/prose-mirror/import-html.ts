@@ -237,7 +237,16 @@ export function unwrapLayoutTables(root: ParentNode): void {
 function cellContent(cell: HTMLTableCellElement, table: HTMLTableElement): globalThis.Node[] {
   const children = Array.from(cell.childNodes);
   if (cell.style.direction === 'rtl' || table.style.direction === 'rtl') children.reverse();
-  const align = alignmentOf(cell);
+  // Left said in so many words is an alignment too: the cell's blocks keep
+  // it, rather than take a centre from further up (MJML centres a section
+  // and aligns a column's cell left). A button's own cell — its fill round
+  // the one anchor — aligns the label inside the box, not the box in its
+  // line: that is the cell round it's to say.
+  const ownButton =
+    !!(cell.getAttribute('bgcolor') || cell.style.backgroundColor) &&
+    cell.children.length === 1 &&
+    cell.children[0].tagName === 'A';
+  const align = ownButton ? null : (alignmentOf(cell) ?? (alignsItself(cell) ? 'left' : null));
   const box = paddingOf(cell);
   if (!align && !box) return children;
   const out: globalThis.Node[] = [];
@@ -467,8 +476,11 @@ function inlineValue(el: HTMLElement, property: string): string {
 
 /** What an ancestor's style hands down to the words: the properties CSS
     inherits that the schema reads — a colour, a size, a face off a
-    `<span>`, an alignment off the block. */
-const INHERITED = ['color', 'font-size', 'font-family', 'text-transform'] as const;
+    `<span>`, an alignment and a line height off the block. */
+const INHERITED = ['color', 'font-size', 'font-family', 'text-transform', 'line-height'] as const;
+
+/** The inherited properties only a block reads — never written onto a run. */
+const BLOCK_ONLY: ReadonlySet<string> = new Set(['line-height']);
 
 /**
  * Writes down what CSS would inherit. A builder puts `color`, `font-size`,
@@ -477,7 +489,7 @@ const INHERITED = ['color', 'font-size', 'font-family', 'text-transform'] as con
  * schema reads a colour off a `<span>` and an alignment off the paragraph
  * itself, so the cascade is materialised: each declaring element hands
  * the properties to the blocks under it that declare none of their own
- * (alignment among them), and wraps its runs of inline content in a
+ * (alignment and line height among them), and wraps its runs of inline content in a
  * `<span>` carrying the colour, the size and the face — an anchor's own
  * colour included, which is how a navbar's black links stay black. Top
  * down, so a grandchild takes the nearer ancestor's word. A `font-size`
@@ -495,42 +507,78 @@ export function inheritTextStyles(root: ParentNode): void {
     for (const property of INHERITED) {
       const value = inlineValue(el, property);
       if (!value || /^(inherit|initial|unset|transparent)$/i.test(value)) continue;
-      if (property === 'font-size' && /^0(px|em|rem|%)?$/.test(value)) continue;
+      // A size or a line height of 0 is a builder's way to close the gaps
+      // round inline-block columns, not a measure for the words.
+      if (/^(font-size|line-height)$/.test(property) && /^0(px|em|rem|%)?$/.test(value)) continue;
+      if (property === 'line-height' && !/^\d+(?:\.\d+)?(?:px|%)?$/.test(value)) continue;
       if (property === 'color' && fill && isFillTextColor(value, fill)) continue;
       out[property] = value;
     }
     return out;
   };
-  const visit = (el: HTMLElement): void => {
+  /** `carried`: what the span round this element's run says — the words
+      here sit in it, and a span of their own must say it too: the schema
+      keeps one text style on a word, the innermost. */
+  const visit = (el: HTMLElement, carried: Record<string, string> = {}): void => {
+    resolveLineHeight(el);
     const inherited = declared(el);
     // A heading's size is the heading's own (the schema's headings say
     // theirs), not a size to write onto its words.
     if (/^H[1-6]$/.test(el.tagName)) delete inherited['font-size'];
     const align = alignmentOf(el);
+    const own = Object.entries(inherited).filter(([property]) => !BLOCK_ONLY.has(property));
+    const onRuns = Object.entries({ ...carried, ...Object.fromEntries(own) });
     // A span (or a legacy font) is read for its own styles by the schema:
-    // nothing to hand down, and a span inside it would stand in its way.
-    const passes = Object.keys(inherited).length > 0 && !/^(SPAN|FONT)$/.test(el.tagName);
+    // nothing to hand down, and a span inside it would stand in its way —
+    // what the run round it says is written onto it instead.
+    if (/^(SPAN|FONT)$/.test(el.tagName)) {
+      for (const [property, value] of Object.entries(carried)) {
+        if (!el.style.getPropertyValue(property)) el.style.setProperty(property, value);
+      }
+    }
+    const passes = own.length > 0 && !/^(SPAN|FONT)$/.test(el.tagName);
+    // A nav item's line height is its row's: an inline-block link's box
+    // sets the line it stands in, and the schema reads a line's height off
+    // the line.
+    if (el.tagName === 'A' && /^inline-block$/i.test(el.style.display)) {
+      const line = blockAround(el);
+      if (line && !line.style.lineHeight && /px$/.test(el.style.lineHeight)) {
+        line.style.lineHeight = el.style.lineHeight;
+      }
+    }
     const made = new Set<Element>();
     // A run of inline content beside blocks (a builder's loose words before
     // a `<p>`) is a line of its own, and takes the alignment as a block.
     const mixed = !!align && Array.from(el.children).some((child) => isBlock(child));
+    // A list item's words stand in a line the parser makes up, which reads
+    // nothing off the item: one of ours carries its line height.
+    const itemLine = el.tagName === 'LI' ? el.style.lineHeight : '';
     let run: globalThis.Node[] = [];
     const flush = () => {
       const words = run.some((node) =>
         node.nodeType === Node.TEXT_NODE ? !!node.textContent?.trim() : node.nodeType === 1,
       );
-      if (words && (passes || mixed)) {
+      if (words && (passes || mixed || itemLine)) {
         let holder: HTMLElement = el;
-        if (mixed) {
+        if (mixed || itemLine) {
           const line = doc.createElement('div');
-          line.style.textAlign = align!;
+          if (align) line.style.textAlign = align;
+          // The loose words' line is as tall as the element says its lines
+          // are — a factor worked out against its size, as on any line.
+          const lineHeight = itemLine || inherited['line-height'];
+          if (lineHeight) {
+            line.style.lineHeight = lineHeight;
+            line.style.fontSize = el.style.fontSize;
+            resolveLineHeight(line);
+            line.style.fontSize = '';
+          }
           el.insertBefore(line, run[0]);
           holder = line;
           made.add(line);
         }
         if (passes) {
           const span = doc.createElement('span');
-          for (const [property, value] of Object.entries(inherited)) {
+          for (const [property, value] of onRuns) {
             span.style.setProperty(property, value);
           }
           if (holder === el) el.insertBefore(span, run[0]);
@@ -546,7 +594,7 @@ export function inheritTextStyles(root: ParentNode): void {
     for (const child of Array.from(el.childNodes)) {
       if (child instanceof HTMLElement && isBlock(child)) {
         flush();
-        for (const [property, value] of Object.entries(inherited)) {
+        for (const [property, value] of Object.entries({ ...carried, ...inherited })) {
           if (!child.style.getPropertyValue(property)) child.style.setProperty(property, value);
         }
         if (align && !alignsItself(child) && child.tagName !== 'TABLE') {
@@ -572,15 +620,41 @@ export function inheritTextStyles(root: ParentNode): void {
     }
     // Down into the children with what they were handed. A span just made
     // holds what stood here — an anchor with a colour of its own among it,
-    // which is visited in turn.
+    // which is visited in turn, carrying what that span says.
+    const runCarry = passes ? Object.fromEntries(onRuns) : carried;
     const descend = (parent: HTMLElement): void => {
       for (const child of Array.from(parent.children)) {
         if (!(child instanceof HTMLElement)) continue;
         if (made.has(child)) descend(child);
-        else visit(child);
+        else visit(child, isBlock(child) ? {} : runCarry);
       }
     };
     descend(el);
   };
   for (const child of Array.from(root.children)) if (child instanceof HTMLElement) visit(child);
+}
+
+/** The block an inline element stands in. */
+function blockAround(el: HTMLElement): HTMLElement | null {
+  for (let up = el.parentElement; up; up = up.parentElement) if (isBlock(up)) return up;
+  return null;
+}
+
+/**
+ * An element's line height in px where CSS would hold it in px: a
+ * percentage is worked out where it is declared, against the size there,
+ * and inherited as that length; a bare number is a factor of each line's
+ * own size, worked out on the line itself (a block with no blocks in it).
+ * The schema keeps a line's size on its words, not on the line — a factor
+ * or a percentage left on the line would multiply the line's default size
+ * instead. Without a px size to work from, left as written.
+ */
+function resolveLineHeight(el: HTMLElement): void {
+  const value = el.style.lineHeight.trim();
+  const factor = /^(\d+(?:\.\d+)?)(%?)$/.exec(value);
+  const size = /^(\d+(?:\.\d+)?)px$/.exec(el.style.fontSize.trim());
+  if (!factor || !size) return;
+  if (!factor[2] && Array.from(el.children).some((child) => isBlock(child))) return;
+  const px = (parseFloat(size[1]) * parseFloat(factor[1])) / (factor[2] ? 100 : 1);
+  el.style.lineHeight = `${Math.round(px * 100) / 100}px`;
 }

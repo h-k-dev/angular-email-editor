@@ -11,7 +11,7 @@ import { EditorView } from 'prosemirror-view';
 import { closeHistory } from 'prosemirror-history';
 import { FunctionalExtension, defineExtension, defineNode } from '../../extension';
 import { isSafeUrl } from '../marks/link';
-import { isSafeColor, toEmailSafeColor } from '../marks/text-style';
+import { isSafeColor, parseFontFamily, toEmailSafeColor } from '../marks/text-style';
 import { fillTextColor } from '../../dual-contrast';
 import { soleInlineAtom } from '../inline-atoms';
 
@@ -50,11 +50,13 @@ export function buttonStyle({
   italic,
   background,
   color,
+  fontFamily,
 }: {
   bold: boolean;
   italic: boolean;
   background?: string | null;
   color?: string | null;
+  fontFamily?: string | null;
 }): string {
   const fill = background ? hexToRgb(background) : BUTTON_FILL;
   const text = color
@@ -66,7 +68,11 @@ export function buttonStyle({
     `display: inline-block; background-color: ${fill}; color: ${text}; ` +
     `font-weight: ${bold ? 'bold' : 'normal'}; ` +
     (italic ? 'font-style: italic; ' : '') +
+    (fontFamily ? `font-family: ${fontFamily}; ` : '') +
     'text-decoration: none; ' +
+    // One line, however narrow the column: a label broken in two reads as
+    // two buttons, and the box's 28px sides leave a short label little room.
+    'white-space: nowrap; ' +
     // Longhands in the CSSOM's own order (width, style, color) and at the end,
     // where every serializer puts them — the canonical string is a fixpoint.
     `border-width: 14px 28px; border-style: solid; border-color: ${fill};`
@@ -120,6 +126,9 @@ export const Button = defineNode({
       background: { default: null },
       /** The words' colour, as hex — null for the one the fill pairs. */
       color: { default: null },
+      /** The label's face, one of the curated stacks (a builder's web font
+          read as the one it falls back to) — null for the client's. */
+      fontFamily: { default: null },
     },
     parseDOM: [
       {
@@ -139,10 +148,20 @@ export const Button = defineNode({
           const label = (dom.textContent ?? '').replace(/\s+/g, ' ').trim();
           // Bold unless the weight is said to be less; italic where the
           // slant is said — the label's styling reads off the box alone.
-          const bold = !/^(normal|lighter|[1-4]\d\d)$/i.test(inlineValue(dom, 'font-weight'));
+          // A 500 is a medium, drawn as the regular by every email-safe face.
+          const bold = !/^(normal|lighter|[1-5]\d\d)$/i.test(inlineValue(dom, 'font-weight'));
           const italic = /^(italic|oblique)/i.test(inlineValue(dom, 'font-style'));
           const background = buttonFill(dom);
-          return { href, label, bold, italic, background, color: buttonText(dom, background) };
+          const fontFamily = parseFontFamily(inlineValue(dom, 'font-family'));
+          return {
+            href,
+            label,
+            bold,
+            italic,
+            background,
+            color: buttonText(dom, background),
+            fontFamily,
+          };
         },
       },
     ],
@@ -262,6 +281,7 @@ function buttonAttrs(node: Node): Record<string, string> {
         italic: boolean;
         background: string | null;
         color: string | null;
+        fontFamily: string | null;
       },
     ),
   };

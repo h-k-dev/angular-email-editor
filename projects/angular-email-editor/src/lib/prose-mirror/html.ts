@@ -132,6 +132,9 @@ export function parseHTML(html: string, schema: Schema, options: ParseOptions = 
     inlineStyles(dom);
     dropHidden(dom.body);
     unwrapLayoutTables(dom.body);
+    // `<a> home </a>`: a client drops a box's edge spaces, and left in they
+    // would collapse into the link beside them, joining a navbar's items.
+    trimInlineBoxes(dom.body);
     inheritTextStyles(dom.body);
     parsed = parser.parse(dom.body);
   } else {

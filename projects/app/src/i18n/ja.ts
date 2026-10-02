@@ -9,7 +9,7 @@
  */
 export default {
   app: {
-    nav: { composer: '作成', api: 'API', styling: 'スタイル' },
+    nav: { composer: '作成', api: 'API', styling: 'スタイル', render: 'レンダリング' },
     language: '言語',
     compose: '作成',
     theme: { light: 'ライトモードに切り替え', dark: 'ダークモードに切り替え' },

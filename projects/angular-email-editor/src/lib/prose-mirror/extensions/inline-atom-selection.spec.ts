@@ -9,7 +9,7 @@ import { createButtonEdit, selectedButton } from './nodes/button';
 import { selectedImage, fitImageWidth } from './nodes/image';
 
 const BUTTON =
-  '<a href="https://x.y" style="display: inline-block; background-color: rgb(26, 115, 232); color: rgb(255, 255, 255); font-weight: bold; text-decoration: none; border-width: 14px 28px; border-style: solid; border-color: rgb(26, 115, 232);">Buy</a>';
+  '<a href="https://x.y" style="display: inline-block; background-color: rgb(26, 115, 232); color: rgb(255, 255, 255); font-weight: bold; text-decoration: none; white-space: nowrap; border-width: 14px 28px; border-style: solid; border-color: rgb(26, 115, 232);">Buy</a>';
 
 const mount = (content: string, extra: Parameters<typeof createEditor>[0]['extensions'] = []) => {
   const host = document.createElement('div');

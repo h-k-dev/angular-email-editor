@@ -1,0 +1,118 @@
+:host {
+  display: block;
+  block-size: 100%;
+  min-block-size: 0;
+}
+
+/* Two boxes of the email's own 600px, a gap between them, the stepper in a
+   thin column beside: a header row serving both, then the boxes on one
+   line — their tops level, so the replica and the original read line for
+   line. Each box scrolls inside itself. */
+.render {
+  --render-box: 600px;
+
+  display: grid;
+  grid-template-columns: var(--render-box) var(--render-box) 56px;
+  grid-template-rows: auto minmax(0, 1fr);
+  justify-content: center;
+  column-gap: 24px;
+  row-gap: 12px;
+  block-size: 100%;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+.render-header {
+  grid-column: 1 / 3;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-inline-size: 0;
+}
+
+.render-title {
+  min-inline-size: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: var(--mat-sys-title-medium);
+}
+
+/* The title and the view switch at the editor's end of the header, the
+   original's choices at the other. */
+.render-header-spacer {
+  flex: 1;
+}
+
+/* A choice of one, as a row of joined buttons. */
+.render-choice {
+  display: flex;
+  border: 1px solid var(--mat-sys-outline-variant, #cccccc);
+  border-radius: var(--mat-sys-corner-full, 999px);
+  overflow: hidden;
+
+  button {
+    padding: 4px 12px;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: var(--mat-sys-label-large);
+    cursor: pointer;
+
+    &[aria-checked='true'] {
+      background-color: var(--mat-sys-secondary-container);
+      color: var(--mat-sys-on-secondary-container);
+    }
+  }
+}
+
+/* The editor as the email's box: no inset of its own round the text, no
+   room above it — the first line where the frame's first line is. */
+.render-editor {
+  --email-compose-surface-padding-inline: 0px;
+  --email-compose-surface-padding-block: 0px;
+  // No scrollbar taking width out of the box: the frame beside has none
+  // either (render.ts), so the two columns of text are the same width.
+  --email-compose-scrollbar-width: none;
+
+  grid-row: 2;
+  min-block-size: 0;
+}
+
+.render-original {
+  grid-row: 2;
+  inline-size: var(--render-box);
+  block-size: 100%;
+  border: 0;
+  background-color: #ffffff;
+}
+
+/* The source pane's home, out of sight: its own `display: block` would beat
+   [hidden] and stand it in the grid as a box of its own. In HTML view it is
+   in the editor's box, not here. */
+section[html-email-compose][hidden] {
+  display: none;
+}
+
+.render-empty {
+  grid-row: 2;
+  grid-column: 1 / 3;
+  align-self: center;
+  justify-self: center;
+  opacity: 0.7;
+}
+
+.render-stepper {
+  grid-column: 3;
+  grid-row: 1 / 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.render-count {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}

@@ -44,6 +44,7 @@ export class App {
     { path: '/', icon: 'edit_note', key: 'app.nav.composer', label: 'Composer' },
     { path: '/api', icon: 'api', key: 'app.nav.api', label: 'API' },
     { path: '/styling', icon: 'palette', key: 'app.nav.styling', label: 'Styling' },
+    { path: '/render', icon: 'compare', key: 'app.nav.render', label: 'Render' },
   ];
 
   /** Starts at the system preference; the toggle takes over from there. */

@@ -10,7 +10,7 @@
  */
 export default {
   app: {
-    nav: { composer: 'Editor', api: 'API', styling: 'Gestaltung' },
+    nav: { composer: 'Editor', api: 'API', styling: 'Gestaltung', render: 'Darstellung' },
     language: 'Sprache',
     compose: 'Verfassen',
     theme: { light: 'Zum hellen Design wechseln', dark: 'Zum dunklen Design wechseln' },

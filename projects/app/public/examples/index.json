@@ -202,6 +202,54 @@
           "file": "mjml/racoon.html"
         }
       ]
+    },
+    {
+      "key": "mjml-induce",
+      "label": "MJML template induced as our own blocks",
+      "short": "MJML induced",
+      "kind": "html",
+      "examples": [
+        {
+          "name": "Worldly (our blocks)",
+          "file": "mjml-induce/worldly.html"
+        },
+        {
+          "name": "Happy New Year (our blocks)",
+          "file": "mjml-induce/happy-new-year.html"
+        },
+        {
+          "name": "Austin (our blocks)",
+          "file": "mjml-induce/austin.html"
+        },
+        {
+          "name": "Appointment Alert (our blocks)",
+          "file": "mjml-induce/appointment-alert.html"
+        },
+        {
+          "name": "Arturia iSpark (our blocks)",
+          "file": "mjml-induce/arturia.html"
+        },
+        {
+          "name": "Say hello to card (our blocks)",
+          "file": "mjml-induce/card.html"
+        },
+        {
+          "name": "Food Delivery receipt (our blocks)",
+          "file": "mjml-induce/food-delivery.html"
+        },
+        {
+          "name": "Loyal Client gift (our blocks)",
+          "file": "mjml-induce/loyal-client.html"
+        },
+        {
+          "name": "NYA abandoned cart (our blocks)",
+          "file": "mjml-induce/nya-cart.html"
+        },
+        {
+          "name": "Racoon spring promo (our blocks)",
+          "file": "mjml-induce/racoon.html"
+        }
+      ]
     }
   ]
 }

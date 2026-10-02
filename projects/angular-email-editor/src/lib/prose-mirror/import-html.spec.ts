@@ -286,9 +286,13 @@ describe('unwrapLayoutTables', () => {
     expect(out).not.toContain('\u2630');
     expect(out).not.toContain('\u2297');
     expect(out).not.toContain('<input');
-    expect(out.match(/<a href="https:\/\/x.io\/\d+"[^>]*rel="noopener noreferrer">/g)).toHaveLength(
-      3,
-    );
+    // Three links, never joined into one — each still its nav item: the
+    // room round it and no underline.
+    expect(
+      out.match(
+        /<a href="https:\/\/x.io\/\d+"[^>]*rel="noopener noreferrer" style="display: inline-block; padding: 0px 35px; text-decoration: none;">/g,
+      ),
+    ).toHaveLength(3);
     expect(out).not.toContain('background-color: rgb(26, 115, 232)');
     editor.destroy();
   });
@@ -317,14 +321,16 @@ describe('unwrapLayoutTables', () => {
     });
     const out = editor.getHTML();
     console.log('MJML COLUMN OUT', out);
-    // The title: centred, in the colour its wrapping div declared, its
-    // 15px snapped to the ladder's 16px.
+    // The title: centred, in the colour, the line height and the face its
+    // wrapping div declared — the web font read as the Sans-serif it falls
+    // back to, `line-height: 1` as the 15px a client draws it at — its 15px
+    // snapped to the ladder's 16px.
     expect(out).toContain(
-      '<div style="text-align: center; margin: 10px 25px;"><span style="color: rgb(189, 135, 20); font-size: 16px;">SUNNIEST DESTINATIONS</span></div>',
+      '<div style="text-align: center; margin: 10px 25px; line-height: 15px;"><span style="color: rgb(189, 135, 20); font-size: 16px; font-family: Arial, Helvetica, sans-serif;">SUNNIEST DESTINATIONS</span></div>',
     );
     // The button: ours, in MJML's colour, centred — and no section round it.
     expect(out).toContain(
-      '<div style="text-align: center; margin: 20px 25px;"><a href="https://mjml.io" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: rgb(189, 135, 20); color: rgb(255, 255, 255); font-weight: normal; text-decoration: none; border-width: 14px 28px; border-style: solid; border-color: rgb(189, 135, 20);">BOOK NOW</a></div>',
+      '<div style="text-align: center; margin: 20px 25px;"><a href="https://mjml.io" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: rgb(189, 135, 20); color: rgb(255, 255, 255); font-weight: normal; text-decoration: none; white-space: nowrap; border-width: 14px 28px; border-style: solid; border-color: rgb(189, 135, 20);">BOOK NOW</a></div>',
     );
     expect(out).not.toContain('bgcolor=');
     expect(out).not.toContain('<table');
@@ -378,7 +384,8 @@ describe('unwrapLayoutTables', () => {
       parseMode: 'repair',
     });
     const out = editor.getHTML();
-    expect(out).toContain('<div style="text-align: center;">');
+    // Centred, and as tall as its items: a nav item's line height is its row's.
+    expect(out).toContain('<div style="text-align: center; line-height: 22px;">');
     expect(out).toMatch(
       /<span style="color: rgb\(0, 0, 0\); font-size: 12px; text-transform: uppercase;">home ?<\/span>/,
     );

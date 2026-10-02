@@ -129,6 +129,21 @@ describe('textStyle font-family', () => {
     expect(isSafeFontFamily('georgia,times,serif')).toBe(true);
     expect(parseFontFamily('Wingdings')).toBe(null);
   });
+
+  it('reads a stack of someone else’s as the curated one it falls back to', () => {
+    // A builder's web font: the face a client without it draws anyway.
+    expect(parseFontFamily('Ubuntu, Helvetica, Arial, sans-serif')).toBe(
+      'Arial, Helvetica, sans-serif',
+    );
+    expect(parseFontFamily("'Helvetica Neue', Helvetica")).toBe('Arial, Helvetica, sans-serif');
+    expect(parseFontFamily('"Times New Roman", serif')).toBe('Georgia, Times, serif');
+    expect(parseFontFamily('Menlo, monospace')).toBe('Courier, monospace');
+    // Only what a curated stack names counts: a face nothing falls back from.
+    expect(parseFontFamily('Comic Sans MS, cursive')).toBe(null);
+    expect(
+      canonical('<div><span style="font-family: Montserrat, Helvetica, Arial;">hi</span></div>'),
+    ).toBe('<div><span style="font-family: Arial, Helvetica, sans-serif;">hi</span></div>');
+  });
 });
 
 describe('textStyle attribute merging', () => {

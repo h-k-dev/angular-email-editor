@@ -368,7 +368,7 @@ describe('html-source formatter — 80 characters', () => {
     // whose parse collapses it back (parsing is repair). Canonical wraps a
     // lone button in a div: the node is inline, like an image.
     const button =
-      '<a href="https://x.io" style="display: inline-block; background-color: rgb(26, 115, 232); color: rgb(255, 255, 255); font-weight: bold; text-decoration: none; border-width: 14px 28px; border-style: solid; border-color: rgb(26, 115, 232);">Shop now</a>';
+      '<a href="https://x.io" style="display: inline-block; background-color: rgb(26, 115, 232); color: rgb(255, 255, 255); font-weight: bold; text-decoration: none; white-space: nowrap; border-width: 14px 28px; border-style: solid; border-color: rgb(26, 115, 232);">Shop now</a>';
     const formatted = formatHTML(button);
     expect(formatted.split('\n')).toEqual([
       '<a',
@@ -379,6 +379,7 @@ describe('html-source formatter — 80 characters', () => {
       '    color: rgb(255, 255, 255);',
       '    font-weight: bold;',
       '    text-decoration: none;',
+      '    white-space: nowrap;',
       '    border-width: 14px 28px;',
       '    border-style: solid;',
       '    border-color: rgb(26, 115, 232);',

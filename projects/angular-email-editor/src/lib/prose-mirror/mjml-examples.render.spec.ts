@@ -14,6 +14,7 @@ import { createSchema } from './schema';
 import { parseHTML, serializeToHTML } from './html';
 import { formatHTML } from './html-source';
 import { emailExtensions } from './extensions/kits';
+import { emailDocument } from './email-document';
 
 import appointmentAlert from '../../../../app/public/examples/mjml/appointment-alert.html' with {
   loader: 'text',
@@ -82,15 +83,40 @@ async function render(html: string, width: number): Promise<HTMLIFrameElement> {
   document.body.append(frame);
   await loaded;
   const images = Array.from(frame.contentDocument!.images);
-  await Promise.race([
-    Promise.all(
-      images.map((img) =>
-        img.complete ? null : new Promise((done) => (img.onload = img.onerror = done)),
+  const settle = (list: HTMLImageElement[]) =>
+    Promise.race([
+      Promise.all(
+        list.map((img) =>
+          img.complete ? null : new Promise((done) => (img.onload = img.onerror = done)),
+        ),
       ),
-    ),
-    new Promise((done) => setTimeout(done, IMAGE_WAIT)),
-  ]);
+      new Promise((done) => setTimeout(done, IMAGE_WAIT)),
+    ]);
+  await settle(images);
+  // A remote image that failed (a slow redirect, a hiccup) draws as a 16px
+  // icon on one side only: asked for again, it comes — from the cache, when
+  // the other side has it.
+  for (let attempt = 0; attempt < IMAGE_RETRIES; attempt++) {
+    const failed = images.filter((img) => img.complete && !img.naturalWidth);
+    if (!failed.length) break;
+    for (const img of failed) img.src = img.src;
+    await settle(failed);
+  }
   return frame;
+}
+
+/** How often a failed image is asked for again. */
+const IMAGE_RETRIES = 3;
+
+/** Both renderings, one after the other: the second draws its images from
+    the cache the first filled, never racing it to the network. */
+async function renderBoth(
+  a: string,
+  b: string,
+  width: number,
+): Promise<[HTMLIFrameElement, HTMLIFrameElement]> {
+  const first = await render(a, width);
+  return [first, await render(b, width)];
 }
 
 const box = (r: DOMRect) => ({
@@ -169,7 +195,7 @@ function differences(source: Mark[], result: Mark[]): string[] {
 }
 
 async function layoutDifferences(source: string, result: string, width: number): Promise<string[]> {
-  const [a, b] = await Promise.all([render(source, width), render(result, width)]);
+  const [a, b] = await renderBoth(source, result, width);
   try {
     const docA = a.contentDocument!;
     const docB = b.contentDocument!;
@@ -220,4 +246,329 @@ describe('MJML examples render as authored after a paste', () => {
     expect(broken).not.toBe(card);
     expect((await layoutDifferences(card, broken, 600)).length).toBeGreaterThan(0);
   });
+});
+
+// --- The builder import: the same email in our own blocks --------------------
+
+/** What the builder import makes of a document — our own sections, columns
+    and buttons — sent in our email document. */
+function imported(html: string): string {
+  return emailDocument(serializeToHTML(parseHTML(html, schema), schema));
+}
+
+/** The original as the import is meant to keep it. Without its web fonts:
+    the import carries no head, so its words fall back to the stack's own
+    faces — compared on those, the test measures the blocks, not a font
+    download. Without MJML's menu checkbox: the hamburger is a trick only
+    some clients play, and the import brings a navbar in as the row of
+    links every other client shows — the original, with no checkbox for
+    the menu's rules to match. */
+const reference = (html: string): string =>
+  html
+    .replace(/<link[^>]*fonts\.googleapis[^>]*>/gi, '')
+    .replace(/@import url\([^)]*\);?/gi, '')
+    .replace(/<input[^>]*mj-menu-checkbox[^>]*>/gi, '');
+
+/** A face's kind, off the first family the browser knows the kind of. */
+const KINDS: Record<string, string> = {
+  'sans-serif': 'sans',
+  arial: 'sans',
+  helvetica: 'sans',
+  'system-ui': 'sans',
+  serif: 'serif',
+  georgia: 'serif',
+  times: 'serif',
+  'times new roman': 'serif',
+  monospace: 'mono',
+  courier: 'mono',
+};
+
+const kindOf = (family: string): string =>
+  family
+    .toLowerCase()
+    .split(',')
+    .map((part) => KINDS[part.replace(/["']/g, '').trim()])
+    .find(Boolean) ?? 'other';
+
+interface Word {
+  text: string;
+  color: string;
+  kind: string;
+  size: number;
+  bold: boolean;
+  underline: boolean;
+  /** Line height over font size — `normal` read as 1.2. */
+  leading: number;
+  /** The line height in px. */
+  lineHeight: number;
+  /** Where the box the word's line sits in starts, and how wide it is. */
+  left: number;
+  width: number;
+}
+
+/** The box a run lays its lines out in — a block, or a button's
+    inline-block. */
+function blockOf(node: Node): HTMLElement {
+  let el = node.parentElement!;
+  const view = el.ownerDocument.defaultView!;
+  while (
+    el.parentElement &&
+    !/^(block|inline-block|list-item|table-cell)$/.test(view.getComputedStyle(el).display)
+  ) {
+    el = el.parentElement;
+  }
+  return el;
+}
+
+/** Every visible word, in order, with how it is drawn. */
+function wordsOf(doc: Document): Word[] {
+  const view = doc.defaultView!;
+  const words: Word[] = [];
+  const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const text = (node.nodeValue ?? '').trim();
+    if (!text) continue;
+    const range = doc.createRange();
+    range.selectNodeContents(node);
+    const rect = range.getBoundingClientRect();
+    if (!rect.width || !rect.height) continue;
+    const style = view.getComputedStyle(node.parentElement!);
+    const size = parseFloat(style.fontSize);
+    const lineHeight = style.lineHeight === 'normal' ? size * 1.2 : parseFloat(style.lineHeight);
+    let underline = false;
+    for (let el: HTMLElement | null = node.parentElement; el; el = el.parentElement) {
+      if (/underline/.test(view.getComputedStyle(el).textDecorationLine)) underline = true;
+    }
+    const block = blockOf(node).getBoundingClientRect();
+    for (const word of text.split(/\s+/)) {
+      words.push({
+        text: word,
+        color: style.color,
+        kind: kindOf(style.fontFamily),
+        size,
+        bold: parseInt(style.fontWeight, 10) >= 600,
+        underline,
+        leading: lineHeight / size,
+        lineHeight,
+        left: Math.round(block.left),
+        width: Math.round(block.width),
+      });
+    }
+  }
+  return words;
+}
+
+/** Each text link: its words, and how many lines it takes. */
+function linksOf(doc: Document): { text: string; lines: number }[] {
+  return Array.from(doc.querySelectorAll('a'))
+    .filter((a) => (a.textContent ?? '').trim() && a.getBoundingClientRect().width)
+    .map((a) => {
+      const range = doc.createRange();
+      range.selectNodeContents(a);
+      const tops = new Set(Array.from(range.getClientRects(), (r) => Math.round(r.top)));
+      return { text: (a.textContent ?? '').replace(/\s+/g, ' ').trim(), lines: tops.size };
+    });
+}
+
+/** Each visible image: its file and its drawn width. */
+function imagesOf(doc: Document): { file: string; width: number }[] {
+  return Array.from(doc.images)
+    .filter((img) => img.getBoundingClientRect().width)
+    .map((img) => ({
+      file: (img.getAttribute('src') ?? '').split('/').pop() ?? '',
+      width: Math.round(img.getBoundingClientRect().width),
+    }));
+}
+
+/** Line height over size: the ladder's snapped size moves a px line height's ratio a little. */
+const LEADING_SLACK = 0.15;
+/** Our columns budget 560px of the 600 for a client's insets: a box may start that much off. */
+const BOX_SLACK = 30;
+/** Snapped sizes and our own spacing add up over a long email. */
+const HEIGHT_SLACK = 0.2;
+
+/** Where the import's rendering strays from the original's past what our
+    blocks allow — each kind of difference once, with its count and first
+    case. */
+async function importDifferences(source: string, result: string, width: number): Promise<string[]> {
+  const [a, b] = await renderBoth(source, result, width);
+  try {
+    const found: string[] = [];
+    const docA = a.contentDocument!;
+    const docB = b.contentDocument!;
+    const wordsA = wordsOf(docA);
+    const wordsB = wordsOf(docB);
+    const textA = wordsA.map((w) => w.text).join(' ');
+    const textB = wordsB.map((w) => w.text).join(' ');
+    if (textA.replace(/\s/g, '') !== textB.replace(/\s/g, '')) {
+      let i = 0;
+      while (textA[i] === textB[i]) i++;
+      return [
+        `words differ at ${JSON.stringify(textA.slice(Math.max(0, i - 20), i + 30))} → ${JSON.stringify(textB.slice(Math.max(0, i - 20), i + 30))}`,
+      ];
+    }
+    const strays = new Map<string, { count: number; first: string }>();
+    const stray = (kind: string, word: string, from: unknown, to: unknown) => {
+      const entry = strays.get(kind) ?? { count: 0, first: `"${word}" ${from} → ${to}` };
+      entry.count++;
+      strays.set(kind, entry);
+    };
+    // Words pair one to one once the joins agree.
+    const pairs = Math.min(wordsA.length, wordsB.length);
+    for (let i = 0; i < pairs; i++) {
+      const [x, y] = [wordsA[i], wordsB[i]];
+      if (x.color !== y.color) stray('colour', x.text, x.color, y.color);
+      if (x.kind !== y.kind) stray('face', x.text, x.kind, y.kind);
+      if (x.bold !== y.bold) stray('weight', x.text, x.bold, y.bold);
+      if (x.underline !== y.underline) stray('underline', x.text, x.underline, y.underline);
+      if (Math.abs(x.size - y.size) > Math.max(2, x.size * 0.25)) {
+        stray('size', x.text, x.size, y.size);
+      }
+      // Either measure holds: a px line height keeps its px on a snapped
+      // size, a factor keeps its ratio.
+      if (
+        Math.abs(x.leading - y.leading) > LEADING_SLACK &&
+        Math.abs(x.lineHeight - y.lineHeight) > 2
+      ) {
+        stray('line height', x.text, x.leading.toFixed(2), y.leading.toFixed(2));
+      }
+      if (Math.abs(x.left - y.left) > BOX_SLACK) stray('box start', x.text, x.left, y.left);
+      if (Math.abs(x.width - y.width) > Math.max(BOX_SLACK, x.width * 0.15)) {
+        stray('box width', x.text, x.width, y.width);
+      }
+    }
+    for (const [kind, { count, first }] of strays) {
+      found.push(`${kind}: ${count} words, first ${first}`);
+    }
+
+    const linksA = linksOf(docA);
+    const linksB = linksOf(docB);
+    if (linksA.map((l) => l.text).join('|') !== linksB.map((l) => l.text).join('|')) {
+      found.push(
+        `links: ${JSON.stringify(linksA.map((l) => l.text))} → ${JSON.stringify(linksB.map((l) => l.text))}`,
+      );
+    } else {
+      linksA.forEach((link, i) => {
+        if (linksB[i].lines > link.lines) {
+          found.push(`link "${link.text}" wraps: ${link.lines} → ${linksB[i].lines} lines`);
+        }
+      });
+    }
+
+    const imagesA = imagesOf(docA);
+    const imagesB = imagesOf(docB);
+    if (imagesA.map((i) => i.file).join('|') !== imagesB.map((i) => i.file).join('|')) {
+      found.push(`images: ${imagesA.length} → ${imagesB.length}`);
+    } else {
+      imagesA.forEach((img, i) => {
+        if (Math.abs(img.width - imagesB[i].width) > Math.max(4, img.width * 0.1)) {
+          found.push(`image ${img.file}: ${img.width}px → ${imagesB[i].width}px`);
+        }
+      });
+    }
+
+    const heights = [docA.documentElement.scrollHeight, docB.documentElement.scrollHeight];
+    if (Math.abs(heights[0] - heights[1]) > heights[0] * HEIGHT_SLACK) {
+      found.unshift(`height ${heights[0]} → ${heights[1]}`);
+    }
+    return found;
+  } finally {
+    a.remove();
+    b.remove();
+  }
+}
+
+/** Where our blocks cannot yet draw what MJML draws — gaps of the model, not
+    of the import — with the kind of difference each shows. A gap that no
+    longer shows fails the test as well: it is closed, and comes off. */
+const INSET = "the section keeps its own 16px inset, not MJML's side padding";
+const BUDGET = 'a lone column is capped at the 560px side-by-side budget, not 600px';
+const FIXED_WIDTH = "a button keeps no fixed width (MJML's `width`)";
+const LINKLESS = "a button without a link (MJML's `<p>` box) reads as a line";
+const ROW = 'a row narrower than the container sits left, not centred';
+
+const KNOWN: Record<string, [kind: string, why: string][]> = {
+  'appointment-alert@375': [['box width', INSET]],
+  'austin@375': [
+    ['box start', INSET],
+    ['box width', BUDGET],
+    ['link', BUDGET],
+    ['image', BUDGET],
+  ],
+  'austin@600': [
+    ['box start', INSET],
+    ['box width', FIXED_WIDTH],
+    ['image', BUDGET],
+  ],
+  'card@600': [['box start', ROW]],
+  'food-delivery@375': [['box width', INSET]],
+  'loyal-client@375': [
+    ['box width', INSET],
+    ['box start', LINKLESS],
+  ],
+  'loyal-client@600': [
+    ['box start', LINKLESS],
+    ['box width', LINKLESS],
+  ],
+  'worldly@600': [['box start', BUDGET]],
+};
+
+describe('MJML examples imported as our own blocks look like the original', () => {
+  for (const [name, html] of Object.entries(EXAMPLES)) {
+    for (const width of WIDTHS) {
+      it(
+        `${name} at ${width}px: the same words, drawn as our blocks allow`,
+        { timeout: 30_000 },
+        async () => {
+          const found = await importDifferences(reference(html), imported(html), width);
+          const known = KNOWN[`${name}@${width}`] ?? [];
+          expect(found.filter((f) => !known.some(([kind]) => f.startsWith(kind)))).toEqual([]);
+          expect(
+            known
+              .filter(([kind]) => !found.some((f) => f.startsWith(kind)))
+              .map(([kind, why]) => `closed: ${kind} — ${why}`),
+          ).toEqual([]);
+        },
+      );
+    }
+  }
+
+  // The harness itself: each of the import's fixes, undone on Racoon's
+  // import, is seen — the face, the line height, the phone width, the
+  // label on one line, the nav links' bare face.
+  const undone: [what: string, width: number, undo: (html: string) => string, kind: string][] = [
+    [
+      'the web font read as Sans-serif',
+      600,
+      (h) => h.replace(/font-family: Arial, Helvetica, sans-serif;?/g, ''),
+      'face',
+    ],
+    ['the line height', 600, (h) => h.replace(/line-height: [^;"]+;?/g, ''), 'line height'],
+    [
+      'a stacked column full width on a phone',
+      375,
+      (h) => h.replace(/class="aee-stack" /g, ''),
+      'box width',
+    ],
+    [
+      'a label on one line',
+      375,
+      (h) => h.replace(/class="aee-stack" /g, '').replace(/white-space: nowrap; /g, ''),
+      'link "BUY NOW" wraps',
+    ],
+    [
+      'a nav link without its underline',
+      600,
+      (h) => h.replace(/ text-decoration: none;/g, ''),
+      'underline',
+    ],
+  ];
+  for (const [what, width, undo, kind] of undone) {
+    it(`sees ${what} undone`, { timeout: 30_000 }, async () => {
+      const broken = undo(imported(racoon));
+      expect(broken).not.toBe(imported(racoon));
+      const found = await importDifferences(reference(racoon), broken, width);
+      expect(found.some((f) => f.startsWith(kind))).toBe(true);
+    });
+  }
 });

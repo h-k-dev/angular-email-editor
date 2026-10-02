@@ -1,4 +1,5 @@
 import { escapeAttribute, escapeText } from './utils/escape';
+import { STACK_RULE, markStackingColumns } from './extensions/nodes/columns';
 
 export interface EmailDocumentOptions {
   /** The body's language (`en`, `ja`, `de`, …) — screen readers pick their
@@ -31,9 +32,12 @@ export interface EmailDocumentOptions {
  * - The body sits in `role="article" aria-roledescription="email"`, which
  *   screen readers announce as the message, carrying `lang` and `dir`.
  *
- * Everything is inline — there is **no `<style>` block**: a client that
- * strips the head (Gmail's app with a non-Google account) loses nothing,
- * which is the same rule the canonical HTML already keeps.
+ * Everything the email needs is inline. The head's one `<style>` rule is an
+ * enhancement nothing depends on: on a phone a stacked column takes the
+ * whole width instead of its desktop cap (columns.ts, `STACK_RULE`). A
+ * client that strips the head (Gmail's app with a non-Google account)
+ * keeps the cap — narrower, still whole — and loses nothing else, which is
+ * the same rule the canonical HTML already keeps.
  *
  * The result is for the transport, not for the editor: parse and
  * `emailPlainText` take the fragment `serializeToHTML` returns (the preview
@@ -53,11 +57,12 @@ export function emailDocument(html: string, options: EmailDocumentOptions = {}):
     '<meta name="x-apple-disable-message-reformatting">' +
     `<title>${escapeText(title ?? '')}</title>` +
     OUTLOOK_SETTINGS +
+    `<style type="text/css">${STACK_RULE}</style>` +
     '</head>' +
     `<body style="${BODY_STYLE}">` +
     `<div role="article" aria-roledescription="email"${langAttr}${dirAttr}>` +
     (previewText ? previewBlock(previewText) : '') +
-    html +
+    markStackingColumns(html) +
     '</div>' +
     '</body>' +
     '</html>'

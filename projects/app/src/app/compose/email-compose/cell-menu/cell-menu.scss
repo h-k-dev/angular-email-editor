@@ -1,5 +1,12 @@
 @use '../../../../styles/menu' as menu;
 
+// Only where the panel is declared: no box in the composer's column — an
+// empty block there is a flex item, and the column's gap round it pushed the
+// text down.
+:host {
+  display: contents;
+}
+
 /* The cell's menu wears the app's one menu look (see styles/_menu.scss),
  * like the grip menus and the toolbar's dropdowns; a list of it is the
  * same box, standing beside its row. */

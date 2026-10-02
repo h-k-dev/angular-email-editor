@@ -334,7 +334,7 @@ describe('Compose', () => {
     const pane = (component as any).sheet().emailPane();
     const style =
       'display: inline-block; background-color: rgb(26, 115, 232); color: rgb(255, 255, 255); ' +
-      'font-weight: bold; text-decoration: none; border-width: 14px 28px; border-style: solid; ' +
+      'font-weight: bold; text-decoration: none; white-space: nowrap; border-width: 14px 28px; border-style: solid; ' +
       'border-color: rgb(26, 115, 232);';
     pane.value.set(`<div>Go <a href="https://x.io/shop" style="${style}">Shop</a> now</div>`);
     await fixture.whenStable();
@@ -405,7 +405,7 @@ describe('Compose', () => {
     const pane = (component as any).sheet().emailPane();
     const style =
       'display: inline-block; background-color: rgb(26, 115, 232); color: rgb(255, 255, 255); ' +
-      'font-weight: bold; text-decoration: none; border-width: 14px 28px; border-style: solid; ' +
+      'font-weight: bold; text-decoration: none; white-space: nowrap; border-width: 14px 28px; border-style: solid; ' +
       'border-color: rgb(26, 115, 232);';
     pane.value.set(`<div>Go <a href="https://x.io/shop" style="${style}">Shop</a> now</div>`);
     await fixture.whenStable();
