@@ -3,6 +3,7 @@ import { Command, Selection } from 'prosemirror-state';
 import { repairTables } from './extensions/nodes/table';
 import {
   dropHidden,
+  dropZeroSizedWhitespace,
   inheritTextStyles,
   inlineStyles,
   noteOwnWidths,
@@ -137,6 +138,7 @@ export function parseHTML(html: string, schema: Schema, options: ParseOptions = 
     noteOwnWidths(dom.body);
     inlineStyles(dom);
     dropHidden(dom.body);
+    dropZeroSizedWhitespace(dom.body);
     unwrapLayoutTables(dom.body);
     // `<a> home </a>`: a client drops a box's edge spaces, and left in they
     // would collapse into the link beside them, joining a navbar's items.

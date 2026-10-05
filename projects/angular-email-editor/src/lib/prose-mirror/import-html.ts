@@ -36,6 +36,48 @@
  * hidden text. Not `visibility` or `mso-hide`: those are a client's
  * concern, not a rendering's.
  */
+/**
+ * Drops the whitespace a client never shows: the text nodes of nothing but
+ * spaces inside a box whose own `font-size` is 0. A builder kills the gaps
+ * between a row of inline-block boxes that way — MJML's navbar links, its
+ * grouped columns — and the row is laid out as the boxes abutting, their
+ * own padding apart. Read as text, each gap would be a space at the
+ * paragraph's size: 13px over four links, and the last one wraps.
+ */
+export function dropZeroSizedWhitespace(root: ParentNode): void {
+  // The size is inherited: MJML sets it on the cell, and the links' own
+  // box inside says nothing.
+  const visit = (el: Element, inherited: boolean): void => {
+    const own = el instanceof HTMLElement ? inlineValue(el, 'font-size') : '';
+    const zero = own ? /^0(?:px|em|rem|%)?$/.test(own) : inherited;
+    if (zero) {
+      for (const node of Array.from(el.childNodes)) {
+        // The markup's own whitespace only — never a hair space, which a
+        // builder's spacer holds on purpose to keep its line.
+        if (node.nodeType !== Node.TEXT_NODE || !/^[ \t\r\n\f]*$/.test(node.textContent ?? ''))
+          continue;
+        // Two links alike on either side would join into one box without
+        // it (the schema holds one run for adjacent identical marks): the
+        // gap stays, as the lesser wrong.
+        if (joinsAlike(node.previousSibling, node.nextSibling)) continue;
+        node.remove();
+      }
+    }
+    for (const child of Array.from(el.children)) visit(child, zero);
+  };
+  for (const child of Array.from(root.children)) visit(child, false);
+}
+
+/** Whether two neighbours are anchors the schema would read as one link. */
+function joinsAlike(a: globalThis.Node | null, b: globalThis.Node | null): boolean {
+  return (
+    a instanceof HTMLAnchorElement &&
+    b instanceof HTMLAnchorElement &&
+    a.getAttribute('href') === b.getAttribute('href') &&
+    (a.getAttribute('style') ?? '') === (b.getAttribute('style') ?? '')
+  );
+}
+
 export function dropHidden(root: ParentNode): void {
   // Comments first — a builder's Outlook conditionals stand between the
   // elements, and the schema never reads one; gone, a wrapper's cell is

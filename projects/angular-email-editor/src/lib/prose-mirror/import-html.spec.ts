@@ -297,6 +297,61 @@ describe('unwrapLayoutTables', () => {
     editor.destroy();
   });
 
+  it('brings an MJML navbar in as its links abutting: the gaps a zero-sized box hides are no text', () => {
+    const mount = document('').body;
+    const link = (label: string, href: string) =>
+      `<a class="mj-link" href="${href}" target="_blank" style="display: inline-block; color: #000000; font-size: 12px; font-weight: bold; line-height: 22px; text-decoration: none; text-transform: uppercase; padding: 0 35px;"> ` +
+      label +
+      ' </a>';
+    // The zero size is the cell's; the links' own box inherits it.
+    const navbar = (links: string[]) =>
+      '<div class="mj-column-per-100" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;">' +
+      '<table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%"><tbody><tr>' +
+      '<td align="center" style="font-size:0px;padding:0px;word-break:break-word;">' +
+      '<div class="mj-inline-links">\n    ' +
+      links.join('\n    ') +
+      '\n  </div></td></tr></tbody></table></div>';
+    const imported = (html: string) => {
+      const editor = createEditor({
+        parent: mount,
+        extensions: emailExtensions,
+        content: html,
+        parseMode: 'repair',
+      });
+      const out = editor.getHTML();
+      editor.destroy();
+      return out;
+    };
+    // Four links in one line, back to back — their own padding keeps them
+    // apart, as in the original, where the cell's `font-size: 0` made the
+    // whitespace between them nothing. No space anywhere between an
+    // anchor's end and the next one's start.
+    const out = imported(
+      navbar([
+        link('home', 'https://x/home'),
+        link('Summer deals', 'https://x/deals'),
+        link('Our blog', 'https://x/blog'),
+        link('Follow us', 'https://x/follow'),
+      ]),
+    );
+    expect(out.match(/<a /g)?.length).toBe(4);
+    expect(out).not.toMatch(/<\/a>\s/);
+    expect(out).toContain('>home</span></a><a href="https://x/deals"');
+
+    // Links alike (a template's placeholder href on every item) would join
+    // into one box with nothing between them: the gap stays, and the row
+    // keeps its four links.
+    const alike = imported(
+      navbar([
+        link('home', 'https://x'),
+        link('Summer deals', 'https://x'),
+        link('Our blog', 'https://x'),
+        link('Follow us', 'https://x'),
+      ]),
+    );
+    expect(alike.match(/<a /g)?.length).toBe(4);
+  });
+
   it('brings an MJML column in whole: the centred title in its colour, the button in its own, no band round it', () => {
     const mount = document('').body;
     const html =
