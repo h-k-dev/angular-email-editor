@@ -43,7 +43,8 @@ export class ApiReference {
         },
         {
           name: 'EditorOptions',
-          signature: '{ parent, extensions, content?, quoted?, parseMode?, attributes?, onUpdate? }',
+          signature:
+            '{ parent, extensions, content?, quoted?, parseMode?, attributes?, onUpdate? }',
           does: 'parent is the element the editable mounts into, content the initial HTML, quoted the quoted history a reply or forward answers (kept beside the body), attributes the DOM attributes for the editable, onUpdate a callback after every document-changing transaction.',
         },
         {
@@ -108,7 +109,7 @@ export class ApiReference {
         {
           name: 'createBubbleMenu / createBlockMenu',
           signature: '(options) => FunctionalExtension',
-          does: 'Selection formatting and the block handle, as state plus a render callback. The library owns positioning and keyboard behaviour; the host owns the markup.',
+          does: 'Selection formatting and the block handle, as state plus a render callback. The library owns positioning and keyboard behaviour; the host owns the markup. Both take scroll: what the menu does when the editor scrolls under it — "close" (the default: the box it reported is stale the moment the editor moves), "follow" (the box is reported afresh, once per frame), "keep", or a function of the event for the host’s own say. Heard in the capture phase, so no cdkScrollable is needed, and only a scroll that moves the editor counts.',
         },
         {
           name: 'createSuggestionMenu',
@@ -271,7 +272,8 @@ export class ApiReference {
         },
         {
           name: 'replyEnvelope',
-          signature: "(inbound, kind: 'reply' | 'reply-all' | 'forward', options?: ReplyEnvelopeOptions) => { to, cc, subject }",
+          signature:
+            "(inbound, kind: 'reply' | 'reply-all' | 'forward', options?: ReplyEnvelopeOptions) => { to, cc, subject }",
           does: 'Who an answer goes to and what it is called: Reply-To over From, a reply-all copying everyone but options.self, each address once; the subject takes labels.re / labels.fwd once, replacing same-family prefixes in any language (AW: Re: x → Re: x). Takes the same options as replyDocument, plus addressRules to read the headers by the host’s rule.',
         },
         {
@@ -296,7 +298,8 @@ export class ApiReference {
       entries: [
         {
           name: 'AddressRules',
-          signature: '{ split(raw), parse(raw), format(mailbox), isValid(address), identity(address) }',
+          signature:
+            '{ split(raw), parse(raw), format(mailbox), isValid(address), identity(address) }',
           does: 'The contract: a typed, pasted or header run as mailboxes in header form; a mailbox as { name?, address }; back again, quoted where it must be; whether a bare address is well-formed; what makes two addresses one recipient.',
         },
         {

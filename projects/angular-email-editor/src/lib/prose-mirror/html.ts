@@ -8,6 +8,7 @@ import {
   noteOwnWidths,
   unwrapLayoutTables,
 } from './import-html';
+import { normalizeInlineStyles } from './inline-style';
 import { promoteMergeTags } from './extensions/nodes/merge-tag';
 import { bareButtons } from './extensions/nodes/button';
 import { outlookColumns } from './extensions/nodes/columns';
@@ -128,6 +129,11 @@ export function parseHTML(html: string, schema: Schema, options: ParseOptions = 
 
   if (mode === 'repair') {
     const dom = new window.DOMParser().parseFromString(html, 'text/html');
+    // First: what an engine's CSSOM might misread is rewritten so every
+    // engine reads it alike (a `background` shorthand, a box's longhand
+    // after its shorthand) — the import must come out the same wherever
+    // it runs.
+    normalizeInlineStyles(dom.body);
     noteOwnWidths(dom.body);
     inlineStyles(dom);
     dropHidden(dom.body);

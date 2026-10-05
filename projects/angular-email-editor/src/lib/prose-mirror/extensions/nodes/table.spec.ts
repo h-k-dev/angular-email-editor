@@ -24,7 +24,7 @@ describe('table serialization', () => {
   it('serializes a borderless presentation table with a tbody', () => {
     const html = canonical(SAMPLE);
     expect(html).toContain(
-      '<table style="width: 100%; table-layout: fixed; border-collapse: collapse;" role="presentation">',
+      '<table role="presentation" style="width: 100%; table-layout: fixed; border-collapse: collapse;">',
     );
     expect(html).toContain('<tbody>');
     // Borderless: grid lines are editor-only, never in the email itself.

@@ -328,9 +328,10 @@ describe('unwrapLayoutTables', () => {
     expect(out).toContain(
       '<div style="text-align: center; margin: 10px 25px; line-height: 15px;"><span style="color: rgb(189, 135, 20); font-size: 16px; font-family: Arial, Helvetica, sans-serif;">SUNNIEST DESTINATIONS</span></div>',
     );
-    // The button: ours, in MJML's colour, centred — and no section round it.
+    // The button: ours, in MJML's colour, centred, on a line as tall as
+    // its `line-height: 120%` of 13px — and no section round it.
     expect(out).toContain(
-      '<div style="text-align: center; margin: 20px 25px;"><a href="https://mjml.io" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: rgb(189, 135, 20); color: rgb(255, 255, 255); font-weight: normal; text-decoration: none; white-space: nowrap; border-width: 14px 28px; border-style: solid; border-color: rgb(189, 135, 20);">BOOK NOW</a></div>',
+      '<div style="text-align: center; margin: 20px 25px; line-height: 15.6px;"><a href="https://mjml.io" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: rgb(189, 135, 20); color: rgb(255, 255, 255); font-weight: normal; text-decoration: none; white-space: nowrap; border-width: 14px 28px; border-style: solid; border-color: rgb(189, 135, 20);">BOOK NOW</a></div>',
     );
     expect(out).not.toContain('bgcolor=');
     expect(out).not.toContain('<table');

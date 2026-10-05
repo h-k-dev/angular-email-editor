@@ -38,8 +38,11 @@ export function toEmailSafeColor(raw: string): string | null {
     return null;
   }
 
-  // Already hex — fast path
-  if (/^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(raw)) return raw;
+  // Already hex — fast path. Lower-cased, as the rgb path writes it: an
+  // engine that expands a builder's `background: #040B4F` shorthand hands
+  // the rgb over, one that does not hands the words over, and the import
+  // must come out the same in both.
+  if (/^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(raw)) return raw.toLowerCase();
 
   // Use the browser's own color parser: assign to a hidden element's style,
   // read back the computed value (always rgb(...) or rgba(...)), then hex-encode.

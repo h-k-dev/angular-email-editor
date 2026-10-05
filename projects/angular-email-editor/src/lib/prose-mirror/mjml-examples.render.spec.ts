@@ -35,6 +35,51 @@ import nyaCart from '../../../../app/public/examples/mjml/nya-cart.html' with { 
 import racoon from '../../../../app/public/examples/mjml/racoon.html' with { loader: 'text' };
 import worldly from '../../../../app/public/examples/mjml/worldly.html' with { loader: 'text' };
 
+import inducedAppointmentAlert from '../../../../app/public/examples/mjml-induce/appointment-alert.html' with {
+  loader: 'text',
+};
+import inducedArturia from '../../../../app/public/examples/mjml-induce/arturia.html' with {
+  loader: 'text',
+};
+import inducedAustin from '../../../../app/public/examples/mjml-induce/austin.html' with {
+  loader: 'text',
+};
+import inducedCard from '../../../../app/public/examples/mjml-induce/card.html' with {
+  loader: 'text',
+};
+import inducedFoodDelivery from '../../../../app/public/examples/mjml-induce/food-delivery.html' with {
+  loader: 'text',
+};
+import inducedHappyNewYear from '../../../../app/public/examples/mjml-induce/happy-new-year.html' with {
+  loader: 'text',
+};
+import inducedLoyalClient from '../../../../app/public/examples/mjml-induce/loyal-client.html' with {
+  loader: 'text',
+};
+import inducedNyaCart from '../../../../app/public/examples/mjml-induce/nya-cart.html' with {
+  loader: 'text',
+};
+import inducedRacoon from '../../../../app/public/examples/mjml-induce/racoon.html' with {
+  loader: 'text',
+};
+import inducedWorldly from '../../../../app/public/examples/mjml-induce/worldly.html' with {
+  loader: 'text',
+};
+
+/** The replicas `mjml-induce.spec.ts` writes under jsdom, by example. */
+const INDUCED: Record<string, string> = {
+  'appointment-alert': inducedAppointmentAlert,
+  arturia: inducedArturia,
+  austin: inducedAustin,
+  card: inducedCard,
+  'food-delivery': inducedFoodDelivery,
+  'happy-new-year': inducedHappyNewYear,
+  'loyal-client': inducedLoyalClient,
+  'nya-cart': inducedNyaCart,
+  racoon: inducedRacoon,
+  worldly: inducedWorldly,
+};
+
 const EXAMPLES: Record<string, string> = {
   'appointment-alert': appointmentAlert,
   arturia,
@@ -512,6 +557,20 @@ const KNOWN: Record<string, [kind: string, why: string][]> = {
   ],
   'worldly@600': [['box start', BUDGET]],
 };
+
+// The replica the bench shows is what the editor makes: the import must
+// come out the same in a browser as in the jsdom that wrote the file.
+// Where it does not, an engine's CSSOM is reading the markup differently
+// (jsdom drops a longhand written after its shorthand), and a pass is
+// reading through the CSSOM where it should read the authored text.
+describe('MJML examples induced in Chromium are the committed replicas', () => {
+  for (const [name, html] of Object.entries(EXAMPLES)) {
+    it(`${name}: the browser’s import is the file jsdom wrote`, () => {
+      const made = `${formatHTML(serializeToHTML(parseHTML(html, schema), schema))}\n`;
+      expect(made).toBe(INDUCED[name].replace(/\r\n/g, '\n'));
+    });
+  }
+});
 
 describe('MJML examples imported as our own blocks look like the original', () => {
   for (const [name, html] of Object.entries(EXAMPLES)) {

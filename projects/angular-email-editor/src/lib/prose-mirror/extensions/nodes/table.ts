@@ -40,6 +40,7 @@ import { defineNode } from '../../extension';
 import { fillTextColor } from '../../dual-contrast';
 import { isSafeColor, toEmailSafeColor } from '../marks/text-style';
 import { marksAcrossBreak } from '../split-keeping-marks';
+import { inlinePadding } from '../../inline-style';
 
 /**
  * Email data tables: a real `<table>` (the most client-compatible layout there
@@ -146,23 +147,13 @@ function parseCellVerticalAlign(dom: HTMLElement): CellVerticalAlignment {
  * reads the same.
  */
 export function parsePadding(dom: HTMLElement): string | null {
-  const style = dom.style;
-  if (!style) return null;
-  let raw = style.padding;
-  if (
-    !raw &&
-    (style.paddingTop || style.paddingRight || style.paddingBottom || style.paddingLeft)
-  ) {
-    raw =
-      `${style.paddingTop || '0px'} ${style.paddingRight || '0px'} ` +
-      `${style.paddingBottom || '0px'} ${style.paddingLeft || '0px'}`;
-  }
-  if (!raw) return null;
-  const parts = raw.trim().split(/\s+/);
-  if (parts.length > 4) return null;
-  if (!parts.every((part) => part === '0' || /^\d+(?:\.\d+)?px$/.test(part))) return null;
+  // Off the attribute's own text (`inlinePadding`), never the CSSOM's
+  // reading: jsdom drops a longhand written after its shorthand.
+  const sides = inlinePadding(dom);
+  if (!sides) return null;
+  if (!sides.every((side) => side === '0' || /^\d+(?:\.\d+)?px$/.test(side))) return null;
   const probe = document.createElement('div');
-  probe.style.padding = raw;
+  probe.style.padding = sides.join(' ');
   return probe.style.padding || null;
 }
 
@@ -383,11 +374,14 @@ export const Table = defineNode({
     parseDOM: [{ tag: 'table', getAttrs: (dom) => parseTableBox(dom) }],
     // <tbody> wrapper matches what mail clients expect and what the HTML
     // parser re-injects, so serialize → parse → serialize is a fixpoint.
+    // `style` last: ProseMirror writes it through `style.cssText`, and a
+    // browser materialises that attribute after any set later, where jsdom
+    // keeps insertion order — last in the spec, it is last in both.
     toDOM: (node) => [
       'table',
       {
-        style: tableStyle(node.attrs['width'] as number, node.attrs['offset'] as number),
         role: 'presentation',
+        style: tableStyle(node.attrs['width'] as number, node.attrs['offset'] as number),
       },
       ['tbody', 0],
     ],

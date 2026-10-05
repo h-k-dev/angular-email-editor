@@ -16,7 +16,7 @@ export const GOLDEN_HTML: string[] = [
   // Fills always pair an explicit near-black text colour (FILL_TEXT_COLOR):
   // default text flips to near-white in non-transforming dark modes.
   '<div><span style="color: rgb(32, 33, 36); background-color: rgb(254, 247, 224);">highlit</span></div>',
-  '<table style="width: 100%; table-layout: fixed; border-collapse: collapse;" role="presentation"><tbody><tr><td style="padding: 8px 12px; vertical-align: top; overflow-wrap: break-word; background-color: rgb(230, 244, 234); color: rgb(32, 33, 36);">cell</td></tr></tbody></table>',
+  '<table role="presentation" style="width: 100%; table-layout: fixed; border-collapse: collapse;"><tbody><tr><td style="padding: 8px 12px; vertical-align: top; overflow-wrap: break-word; background-color: rgb(230, 244, 234); color: rgb(32, 33, 36);">cell</td></tr></tbody></table>',
   // Clean canonical link: clients style links natively; editor styling is
   // toDOM-only (a styled link would re-parse its underline as a mark).
   '<div><a href="https://example.com" target="_blank" rel="noopener noreferrer">link</a></div>',

@@ -1,6 +1,7 @@
 import { Command, Plugin, PluginKey } from 'prosemirror-state';
 import { FunctionalExtension, defineExtension } from '../extension';
 import { LayoutBlockType, layoutBlockAt } from './layout-guides';
+import { MenuScroll, watchMenuScroll } from './menu-scroll';
 
 export interface BlockMenuState {
   isOpen: boolean;
@@ -22,6 +23,9 @@ export interface BlockMenuOptions {
    * still-active, which is what makes {@link BLOCK_MENU_FOCUS_KEY} usable.
    */
   menuElement?: () => HTMLElement | null | undefined;
+  /** What the menu does when the editor scrolls under it — closes, by
+      default. See {@link MenuScroll}. */
+  scroll?: MenuScroll;
 }
 
 /**
@@ -77,6 +81,11 @@ export const createBlockMenu = (options: BlockMenuOptions): FunctionalExtension 
         key: new PluginKey('blockMenu'),
         view: (view) => {
           let destroyed = false;
+          let open = false;
+          const report = (state: BlockMenuState) => {
+            open = state.isOpen;
+            options.onStateChange(state);
+          };
 
           const refresh = () => {
             if (destroyed) return;
@@ -87,22 +96,33 @@ export const createBlockMenu = (options: BlockMenuOptions): FunctionalExtension 
             // menu by keyboard would be what closes it. The selection stays put
             // while the editor is blurred, so the block is still resolvable.
             if (!block || !(view.hasFocus() || menuHasFocus())) {
-              options.onStateChange(CLOSED);
+              report(CLOSED);
               return;
             }
 
             const dom = view.nodeDOM(block.pos);
             if (!(dom instanceof HTMLElement)) {
-              options.onStateChange(CLOSED);
+              report(CLOSED);
               return;
             }
 
-            options.onStateChange({
+            report({
               isOpen: true,
               boundingBox: dom.getBoundingClientRect(),
               block: block.type,
             });
           };
+
+          // The block's box is viewport coordinates, stale once the editor
+          // scrolls under the menu — closed by default, see `MenuScroll`.
+          const stopScrollWatch = watchMenuScroll(view, options.scroll, {
+            close: () => {
+              if (open) report(CLOSED);
+            },
+            refresh: () => {
+              if (open) refresh();
+            },
+          });
 
           // Clicking a menu button blurs the editor for a tick; re-check on the
           // next frame rather than tearing the overlay down under the click.
@@ -129,7 +149,8 @@ export const createBlockMenu = (options: BlockMenuOptions): FunctionalExtension 
               view.dom.removeEventListener('blur', onBlur);
               view.dom.removeEventListener('focus', onFocus);
               document.removeEventListener('focusin', onFocusIn);
-              options.onStateChange(CLOSED);
+              stopScrollWatch();
+              report(CLOSED);
             },
           };
         },

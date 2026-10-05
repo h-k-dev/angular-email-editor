@@ -5,6 +5,7 @@ import { emailBackgroundPalette, fillTextColor } from '../../dual-contrast';
 import { isSafeColor, toEmailSafeColor } from '../marks/text-style';
 import { parsePadding } from './table';
 import { holdsBlock, holdsColumn, isPadded } from '../../import-html';
+import { inlinePadding } from '../../inline-style';
 
 /** How wide a section's content runs: the email's container, centred in
     the band. */
@@ -288,9 +289,16 @@ function sectionAttrs(table: HTMLTableElement): Record<string, unknown> | false 
     A zero it says is a padding too: a card written with `0px` above and
     below must read back as one, not as the default band's 20px. */
 function cardPadding(div: HTMLElement): string | null {
-  if (!div.style?.paddingTop && !div.style?.paddingBottom) return null;
-  const top = div.style.paddingTop || '0px';
-  const bottom = div.style.paddingBottom || '0px';
+  // Off the attribute's own text, never the CSSOM's reading (see
+  // `inlinePadding`); a side-only padding (`padding-left`/`-right`, our
+  // own inset) says nothing about the top or the bottom.
+  const sides = inlinePadding(div);
+  if (!sides) return null;
+  if (!/(?:^|;)\s*padding(?:-top|-bottom)?\s*:/i.test(div.getAttribute('style') ?? '')) {
+    return null;
+  }
+  const top = sides[0] === '0' ? '0px' : sides[0];
+  const bottom = sides[2] === '0' ? '0px' : sides[2];
   const probe = document.createElement('div');
   probe.style.padding = `${top} 0px ${bottom} 0px`;
   return parsePadding(probe);

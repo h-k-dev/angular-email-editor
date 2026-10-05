@@ -52,6 +52,7 @@ export function dropHidden(root: ParentNode): void {
 }
 
 import { isFillTextColor } from './dual-contrast';
+import { inlinePadding, isZeroSide, normalizeStyleText } from './inline-style';
 
 /**
  * Writes down, on each element, the `width` its author gave it inline —
@@ -112,7 +113,16 @@ export function inlineStyles(doc: Document, viewportWidth = IMPORT_VIEWPORT_WIDT
           const inlineImportant = element.style.getPropertyPriority(name) === 'important';
           if (inline && !own.has(name) && !important) continue;
           if (inline && inlineImportant && !important) continue;
-          element.style.setProperty(name, value, important ? 'important' : '');
+          // Appended to the attribute's own text, never set through the
+          // CSSOM: a `setProperty` re-serialises the whole attribute from
+          // the engine's reading, and jsdom's reading drops a longhand
+          // written after its shorthand (MJML's section padding). The
+          // cascade reads the text the same everywhere: later wins.
+          const authored = element.getAttribute('style')?.trim().replace(/;$/, '') ?? '';
+          const text = `${authored ? `${authored}; ` : ''}${name}: ${value}${important ? ' !important' : ''};`;
+          // A sheet's `background: #fff` is as unreadable to jsdom as an
+          // authored one: normalised on the way in, like the authored text.
+          element.setAttribute('style', normalizeStyleText(text) ?? text);
           own.add(name);
         }
       }
@@ -288,27 +298,9 @@ export function paddingOf(el: HTMLElement): Box | null {
     const m = /^(-?\d+(?:\.\d+)?)(?:px)?$/.exec(value.trim());
     return m ? parseFloat(m[1]) : 0;
   };
-  let box: Box;
-  if (
-    el.style.paddingTop ||
-    el.style.paddingRight ||
-    el.style.paddingBottom ||
-    el.style.paddingLeft
-  ) {
-    box = [
-      px(el.style.paddingTop),
-      px(el.style.paddingRight),
-      px(el.style.paddingBottom),
-      px(el.style.paddingLeft),
-    ];
-  } else {
-    const raw = inlineValue(el, 'padding');
-    if (!raw) return null;
-    const parts = raw.split(/\s+/).map(px);
-    if (!parts.length || parts.length > 4) return null;
-    const [t, r = t, b = t, l = r] = parts;
-    box = [t, r, b, l];
-  }
+  const sides = inlinePadding(el);
+  if (!sides) return null;
+  const box = sides.map(px) as Box;
   return box.some((side) => side > 0) ? box : null;
 }
 
@@ -442,13 +434,8 @@ function isBand(table: HTMLTableElement): boolean {
 
 /** Whether a cell declares a padding that is not all zeros. */
 export function isPadded(cell: Element): boolean {
-  const style = cell.getAttribute('style') ?? '';
-  const m = /(?:^|;)\s*padding(?:-top|-right|-bottom|-left)?\s*:\s*([^;]+)/gi;
-  let match: RegExpExecArray | null;
-  while ((match = m.exec(style))) {
-    if (!/^(0(?:px|em|rem|%)?\s*)+$/.test(match[1].trim())) return true;
-  }
-  return false;
+  const sides = inlinePadding(cell);
+  return !!sides && sides.some((side) => !isZeroSide(side));
 }
 
 /** Whether a cell holds a column — a builder's inline-block div, or our

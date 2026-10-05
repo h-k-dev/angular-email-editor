@@ -3,6 +3,7 @@ import { FunctionalExtension, defineExtension } from '../extension'; // Adjust p
 import { selectionInsideMergeTag } from './nodes/merge-tag';
 import { selectedImage } from './nodes/image';
 import { selectedButton } from './nodes/button';
+import { MenuScroll, watchMenuScroll } from './menu-scroll';
 
 export interface BubbleMenuState {
   isOpen: boolean;
@@ -24,6 +25,9 @@ export interface BubbleMenuOptions {
   updateDelay?: number;
   onStateChange: (state: BubbleMenuState) => void;
   shouldShow?: (state: EditorState) => boolean;
+  /** What the menu does when the editor scrolls under it — closes, by
+      default. See {@link MenuScroll}. */
+  scroll?: MenuScroll;
 }
 
 // Inside a merge tag the menu stays away: the token is text, but formatting
@@ -167,6 +171,16 @@ export const createBubbleMenu = (options: BubbleMenuOptions): FunctionalExtensio
           view.dom.addEventListener('blur', onBlur);
           view.dom.addEventListener('focus', onFocus);
 
+          // 3. Scroll: the box is viewport coordinates, stale once the
+          // editor scrolls under the menu — closed by default, see
+          // `MenuScroll`. Following re-reports the box of an open menu.
+          const stopScrollWatch = watchMenuScroll(view, options.scroll, {
+            close,
+            refresh: () => {
+              if (open) show();
+            },
+          });
+
           return {
             update(view, prevState) {
               const selectionChanged = !prevState || !prevState.selection.eq(view.state.selection);
@@ -185,6 +199,7 @@ export const createBubbleMenu = (options: BubbleMenuOptions): FunctionalExtensio
               window.removeEventListener('mouseup', onMouseup);
               view.dom.removeEventListener('blur', onBlur);
               view.dom.removeEventListener('focus', onFocus);
+              stopScrollWatch();
 
               close();
             },

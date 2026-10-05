@@ -157,7 +157,7 @@ describe('column resize', () => {
     expect(editor.exec(setTableWidth(tablePos(), 80))).toBe(true);
     const html = editor.getHTML();
     expect(html).toContain(
-      '<table style="width: 80%; table-layout: fixed; border-collapse: collapse;"',
+      '<table role="presentation" style="width: 80%; table-layout: fixed; border-collapse: collapse;"',
     );
     expect(canonical(html)).toBe(html);
 
@@ -215,7 +215,7 @@ describe('column resize', () => {
     editor.exec(setTableBox(tablePos(), 15, 70));
     const html = editor.getHTML();
     expect(html).toContain(
-      '<table style="width: 70%; margin-left: 15%; table-layout: fixed; border-collapse: collapse;"',
+      '<table role="presentation" style="width: 70%; margin-left: 15%; table-layout: fixed; border-collapse: collapse;"',
     );
     expect(canonical(html)).toBe(html);
     // Both edge handles track the model: left at the offset, right at its end.
@@ -234,7 +234,7 @@ describe('column resize', () => {
   it('a percentage table width round-trips as a fixpoint', () => {
     const html = canonical('<table style="width: 70%"><tbody><tr><td>a</td></tr></tbody></table>');
     expect(html).toContain(
-      '<table style="width: 70%; table-layout: fixed; border-collapse: collapse;"',
+      '<table role="presentation" style="width: 70%; table-layout: fixed; border-collapse: collapse;"',
     );
     expect(canonical(html)).toBe(html);
   });
