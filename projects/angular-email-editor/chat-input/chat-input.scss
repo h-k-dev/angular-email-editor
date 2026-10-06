@@ -4,8 +4,11 @@
   display: block;
   box-sizing: border-box;
   min-width: 0;
-  max-height: var(--email-chat-input-max-height, 30vh);
-  overflow-y: auto;
+  // The text's height, measured (`ChatInput`): a length, so it transitions.
+  // The box never scrolls; the text does, past its own cap (below).
+  height: var(--email-chat-input-height, auto);
+  overflow: hidden;
+  transition: height var(--email-chat-input-motion, 150ms ease);
   padding: var(--email-chat-input-padding, 6px 10px);
 
   color: var(--email-chat-input-color, var(--mat-sys-on-surface, light-dark(#1f1f1f, #e3e3e3)));
@@ -22,6 +25,12 @@
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  :host {
+    transition: none;
+  }
+}
+
 :host(.email-chat-input--disabled) {
   opacity: 0.6;
 }
@@ -30,6 +39,13 @@
 // component's own editor class.
 :host ::ng-deep .email-chat-input__editor {
   outline: none;
+  // The editor's own sizing is a page's (`.aee-editor`: the full height,
+  // an email's width): here it is the text's, up to five lines, then it
+  // scrolls — the box round it follows, never the other way round.
+  height: auto;
+  max-width: none;
+  max-height: var(--email-chat-input-max-height, 5lh);
+  overflow-y: auto;
 
   p,
   ul,

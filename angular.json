@@ -30,11 +30,11 @@
             "tsConfig": "projects/angular-email-editor/tsconfig.spec.json",
             "include": ["**/*.spec.ts", "../*/**/*.spec.ts"],
             "setupFiles": ["projects/angular-email-editor/src/test-setup.ts"],
-            "exclude": ["**/*.render.spec.ts"]
+            "exclude": ["**/*.render.spec.ts", "../*/**/*.render.spec.ts"]
           },
           "configurations": {
             "render": {
-              "include": ["**/*.render.spec.ts"],
+              "include": ["**/*.render.spec.ts", "../*/**/*.render.spec.ts"],
               "exclude": [],
               "browsers": ["ChromiumHeadless"],
               "watch": false
