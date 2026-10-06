@@ -33,6 +33,7 @@ import {
   createEditor,
   defineExtension,
 } from 'angular-email-editor';
+import { followTextHeight } from './chat-input.animation';
 
 /** The text as it is sent: a line per block, a list item as a dash line —
     the writer's points, kept as points. */
@@ -280,12 +281,9 @@ export class ChatInputField implements FormValueControl<string> {
  * `field` is the directive underneath; `editor`, `clear()` and `focus()`
  * are its, at hand.
  *
- * **The growing.** A height only transitions between lengths, never to or
- * from `auto` — so the text's own height is measured (a `ResizeObserver`
- * on the editor) and the box's written in pixels, the way ChatGPT's
- * composer does it. It is a layout transition: run on the main thread,
- * smooth with GPU acceleration off. `--email-chat-input-motion` is its
- * duration and easing (`150ms ease`); reduced motion turns it off. The
+ * **The growing** (chat-input.animation.ts): the box follows the text's
+ * measured height through a `height` transition — `--email-chat-input-motion`
+ * is its duration and easing (`150ms ease`); reduced motion turns it off. The
  * text grows to `--email-chat-input-max-height` (`5lh`, five lines) and
  * then scrolls inside the box.
  */
@@ -309,31 +307,8 @@ export class ChatInput {
   /** The editor inside, once mounted. */
   readonly editor = this.field.editor;
 
-  readonly #host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
-
   constructor() {
-    // The box's height, from the text's: written straight to the host in
-    // the observer — before the frame paints, so the transition starts
-    // with the line, not a frame behind it. The text sizes itself, capped
-    // and scrolling on its own (the stylesheet), so the box never scrolls:
-    // no scrollbar flashing while it catches up.
-    effect((onCleanup) => {
-      const editor = this.editor();
-      if (!editor || typeof ResizeObserver !== 'function') return;
-      const host = this.#host;
-      const observer = new ResizeObserver(([entry]) => {
-        const text = entry.borderBoxSize?.[0]?.blockSize ?? entry.target.getBoundingClientRect().height;
-        const style = getComputedStyle(host);
-        const frame =
-          parseFloat(style.paddingTop) +
-          parseFloat(style.paddingBottom) +
-          parseFloat(style.borderTopWidth) +
-          parseFloat(style.borderBottomWidth);
-        host.style.setProperty('--email-chat-input-height', `${text + frame}px`);
-      });
-      observer.observe(editor.view.dom);
-      onCleanup(() => observer.disconnect());
-    });
+    followTextHeight(this.editor);
   }
 
   /** Empties the field. */

@@ -1,4 +1,5 @@
 @use '../../../../styles/menu' as menu;
+@use 'angular-email-editor/styles/scroll';
 
 // Only where the panel is declared: no box in the composer's column — an
 // empty block there is a flex item, and the column's gap round it pushed the
@@ -44,6 +45,7 @@
   max-block-size: min(60vh, 480px);
   overflow-y: auto;
   box-shadow: var(--mat-sys-level2);
+  @include scroll.scroll;
 
   &[data-visible='false'] {
     display: none;

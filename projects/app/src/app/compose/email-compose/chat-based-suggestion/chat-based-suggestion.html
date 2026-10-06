@@ -70,11 +70,14 @@
 
 <!-- The one button, by what there is to do: stop while the assistant
      writes, send once there is text, and until then a place for voice
-     input — kept, nothing behind it yet. -->
+     input — kept, nothing behind it yet. Each comes in where it lands
+     (`animate.enter`) — in the strip, or at the toolbar's end when the
+     toolbar switches on and takes it. -->
 <ng-template #action>
   @if (busy()) {
     <button
       type="button"
+      animate.enter="chat-based-suggestion__icon--entering"
       class="chat-based-suggestion__icon chat-based-suggestion__send"
       [attr.aria-label]="i18n.t('editor.ai.stop', 'Stop')"
       (click)="stop()"
@@ -84,6 +87,7 @@
   } @else if (canSend()) {
     <button
       type="button"
+      animate.enter="chat-based-suggestion__icon--entering"
       class="chat-based-suggestion__icon chat-based-suggestion__send"
       [attr.aria-label]="i18n.t('editor.ai.send', 'Send')"
       (click)="ask()"
@@ -93,6 +97,7 @@
   } @else {
     <button
       type="button"
+      animate.enter="chat-based-suggestion__icon--entering"
       class="chat-based-suggestion__icon"
       [attr.aria-label]="i18n.t('editor.ai.voice', 'Voice input (coming soon)')"
       disabled

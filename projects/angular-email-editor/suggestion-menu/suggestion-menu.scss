@@ -1,3 +1,5 @@
+@use '../styles/scroll';
+
 // A suggestion menu's box. Parts are addressed by data-slot and held to one
 // attribute of specificity (`:where` around the part), like the chips'.
 //
@@ -124,6 +126,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   transition: opacity 150ms ease;
+  @include scroll.scroll;
 }
 
 // The rows answer the previous query while the new one is on its way: still

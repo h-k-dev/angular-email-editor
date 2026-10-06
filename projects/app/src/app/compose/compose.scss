@@ -29,11 +29,11 @@
   // same fluid rules that lay the email out on a phone lay it out here (see
   // its comment in styles.scss). The columns block keeps its side-by-side row
   // on the way — its caps sum to a 560px budget, 8px under the column here.
-  // The scrollbar gutter (`.scroll-container` in styles.scss) sits outside
+  // The scrollbar gutter (`.email-scroll` in styles.scss) sits outside
   // the 600: it is a scroll affordance, not part of the sheet's measure.
   // Declared, not measured: the text column is fluid, so an auto track would
   // size the column to whatever happens to be typed.
-  --compose-writer-width: calc(600px + var(--mat-sys-scrollbar-size, 6) * 1px);
+  --compose-writer-width: calc(600px + var(--email-scroll-size, 6px));
 
   // The writer is always centred on the screen: a middle column that takes
   // its natural width where there is room and shrinks with the screen where

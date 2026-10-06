@@ -177,6 +177,18 @@
   color: var(--mat-sys-on-surface, #1f1f1f);
 }
 
+// The button, coming in where it lands: the strip, or the toolbar's end.
+.chat-based-suggestion__icon--entering {
+  animation: chat-based-suggestion-pop 150ms ease-out both;
+}
+
+@keyframes chat-based-suggestion-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
 // A phone: the strip is the screen's width, flush to its sides and square,
 // the way a chat's message box sits on the keyboard — no line cap, and a
 // tighter row whose buttons are the toolbar's size (40px, the bar under
@@ -217,7 +229,8 @@
     }
   }
 
-  .chat-based-suggestion__field--rising {
+  .chat-based-suggestion__field--rising,
+  .chat-based-suggestion__icon--entering {
     animation: chat-based-suggestion-fade 120ms linear both;
   }
 

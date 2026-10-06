@@ -36,6 +36,7 @@ import { CellMenu } from './cell-menu/cell-menu';
 import { BubbleMenu } from './bubble-menu/bubble-menu';
 import { FormattingCommands } from './formatting-commands';
 import { FormattingToolbar } from './formatting-toolbar/formatting-toolbar';
+import { DockAnimation } from './dock.animation';
 import { LinkEditor } from './link-editor/link-editor';
 import { AltTextEditor } from './alt-text-editor/alt-text-editor';
 import { ChatBasedSuggestion } from './chat-based-suggestion/chat-based-suggestion';
@@ -119,6 +120,7 @@ export type SourceView = 'hidden' | 'code' | 'detached';
     LinkEditor,
     AltTextEditor,
     ChatBasedSuggestion,
+    DockAnimation,
     PopoverOutlet,
     SuggestionMenu,
     SuggestionMenuItem,

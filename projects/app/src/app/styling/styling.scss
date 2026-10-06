@@ -1,3 +1,5 @@
+@use 'angular-email-editor/styles/scroll';
+
 // Same reference column as the API page: the page owns its inset, because the
 // shell's <main> ships none (the composer's chrome must reach the aside).
 :host {
@@ -48,6 +50,7 @@
   font-size: 0.8125rem;
   line-height: 1.5;
   color: var(--mat-sys-on-surface);
+  @include scroll.scroll;
 }
 
 /* The Material recipe's live field: as wide as the email column. */

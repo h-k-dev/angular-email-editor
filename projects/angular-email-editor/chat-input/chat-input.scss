@@ -1,3 +1,5 @@
+@use '../styles/scroll';
+
 // A chat input's box: a field, on the field tokens — --email-chat-input-*
 // first, then Material's system token of the same meaning, then a fallback.
 :host {
@@ -46,6 +48,7 @@
   max-width: none;
   max-height: var(--email-chat-input-max-height, 5lh);
   overflow-y: auto;
+  @include scroll.scroll;
 
   p,
   ul,

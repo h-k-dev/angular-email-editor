@@ -20,7 +20,7 @@
   <!-- The editing surface is the attachment dropzone (see `fileDrop`).
        clickable=false: a click on the paper must never open a file picker. -->
   <div
-    class="editor scroll-container"
+    class="editor email-scroll"
     #editorHost
     dropZone
     #attachmentZone="dropZone"
@@ -113,23 +113,27 @@
      the field over the toolbar's row, the way a chat's composer holds its
      own tools — painted behind them from the field down (`.dock--chat`);
      Discard and Apply stand above it, over the text. With the chat away
-     the dock is nothing, and the toolbar is the bar it always was. -->
-<div class="dock" [class.dock--chat]="chat.open()">
-  <!-- The chat-based suggestion, above the toolbar while its proposal
-       stands in the text: Discard and Apply over the text, the chat that
-       steers it. Docked here rather than floating under the proposal,
-       which grows and scrolls. -->
-  <div chat-based-suggestion #chat [language]="language" [actionInToolbar]="toolbar()"></div>
+     the dock is nothing, and the toolbar is the bar it always was.
+     Switching the toolbar runs the dock's height from the one look to the
+     other (dock.animation.ts) — over its one child, which it measures. -->
+<div class="dock" [class.dock--chat]="chat.open()" [dockAnimation]="toolbar()">
+  <div class="dock__content">
+    <!-- The chat-based suggestion, above the toolbar while its proposal
+         stands in the text: Discard and Apply over the text, the chat that
+         steers it. Docked here rather than floating under the proposal,
+         which grows and scrolls. -->
+    <div chat-based-suggestion #chat [language]="language" [actionInToolbar]="toolbar()"></div>
 
-  <!-- The formatting toolbar sits *below* the editing surface: on a phone
-       the shell's height follows the virtual keyboard (see app.scss), so
-       the bar rides up and stays reachable right above the keys. Last in
-       DOM as on screen. The host can hide it (`toolbar`, the writer bar's
-       formatting button). -->
-  <div
-    formatting-toolbar
-    aria-label="Text formatting"
-    [shown]="toolbar()"
-    [end]="suggestionAction()"
-  ></div>
+    <!-- The formatting toolbar sits *below* the editing surface: on a phone
+         the shell's height follows the virtual keyboard (see app.scss), so
+         the bar rides up and stays reachable right above the keys. Last in
+         DOM as on screen. The host can hide it (`toolbar`, the writer bar's
+         formatting button). -->
+    <div
+      formatting-toolbar
+      aria-label="Text formatting"
+      [shown]="toolbar()"
+      [end]="suggestionAction()"
+    ></div>
+  </div>
 </div>

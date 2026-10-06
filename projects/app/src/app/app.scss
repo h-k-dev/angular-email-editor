@@ -1,3 +1,5 @@
+@use 'angular-email-editor/styles/scroll';
+
 // Shell fits the viewport; <main> is the single scroll container for pages.
 // Minus the virtual keyboard: where the browser does not shrink the layout
 // viewport for it (iOS), the Viewport service measures the cover and the
@@ -90,6 +92,7 @@
   flex: 1 1 auto;
   min-block-size: 0;
   overflow-y: auto;
+  @include scroll.scroll;
 }
 
 // Narrow screens: tighter chrome, and the labels carry the nav alone — three

@@ -1,0 +1,101 @@
+// The library's scrollbar, for anything that scrolls — after iusta-core's
+// `.iusta-scroll`, on our own tokens. A thin, round thumb on no track, out
+// of sight until the pointer is over the scroller or the focus is in it
+// (always there where nothing hovers: a touch screen); a stable gutter, so
+// the thumb coming and going never moves the content; sideways overscroll
+// kept in the scroller, so a pane scrolled to its edge never swipes the
+// page back a page.
+//
+//     @use 'angular-email-editor/styles/scroll';
+//
+//     .pane {
+//       overflow-y: auto;
+//       @include scroll.scroll;
+//     }
+//
+// A mixin, not a class: nothing reaches a stylesheet that does not include
+// it. Tokens — `--email-scroll-*` first, then Material's system token of the
+// same meaning, then a fallback:
+//
+// - `--email-scroll-size` — the thumb's thickness and the gutter's (6px).
+// - `--email-scroll-thumb` — the thumb at rest (the outline variant at 50%).
+// - `--email-scroll-thumb-hover` — under the pointer (at 75%).
+// - `--email-scroll-track` — the track (transparent).
+//
+// **Smooth scrolling is opt-in** (`$smooth: true`, and then only without
+// reduced motion). Most of what scrolls here is driven by a caret or by keys —
+// an editor following its caret, a menu following its active row — and a
+// smooth scroll there animates every one of those nudges: arrowing past the
+// edge reads as lag, a held key queues animations behind the cursor. iusta
+// turned it on everywhere and turns it off one scroller at a time; here it
+// is the other way round. Only a scroller a person drags or jumps through
+// by link wants it.
+//
+// Webkit and Blink draw the thumb from `::-webkit-scrollbar`; Firefox, which
+// has no pseudo-elements for it, gets the standard `scrollbar-width` and
+// `scrollbar-color` — kept to Firefox, because in Chrome either one switches
+// the pseudo-elements, and so the thickness and the round thumb, off.
+
+$_outline-variant: var(--mat-sys-outline-variant, light-dark(#c4c7c5, #444746));
+
+@mixin scroll($smooth: false) {
+  --_email-scroll-size: var(--email-scroll-size, 6px);
+  --_email-scroll-thumb: var(
+    --email-scroll-thumb,
+    color-mix(in srgb, #{$_outline-variant} 50%, transparent)
+  );
+  --_email-scroll-thumb-hover: var(
+    --email-scroll-thumb-hover,
+    color-mix(in srgb, #{$_outline-variant} 75%, transparent)
+  );
+  // The thumb's colour now: none until the scroller is in use. Declared on
+  // every scroller, so a nested one starts out of sight however its outer
+  // one stands.
+  --_email-scroll-current: transparent;
+
+  scrollbar-gutter: stable;
+  overscroll-behavior-x: contain;
+
+  @supports (-moz-appearance: none) {
+    scrollbar-width: thin;
+    scrollbar-color: var(--_email-scroll-current) var(--email-scroll-track, transparent);
+  }
+
+  &::-webkit-scrollbar {
+    width: var(--_email-scroll-size);
+    height: var(--_email-scroll-size);
+  }
+
+  &::-webkit-scrollbar-track {
+    background: var(--email-scroll-track, transparent);
+  }
+
+  &::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--_email-scroll-current);
+    border-radius: 1e3px;
+  }
+
+  &:hover,
+  &:focus-within {
+    --_email-scroll-current: var(--_email-scroll-thumb);
+
+    &::-webkit-scrollbar-thumb:hover {
+      background-color: var(--_email-scroll-thumb-hover);
+    }
+  }
+
+  // Nothing hovers on a touch screen: the thumb is simply there.
+  @media (hover: none) {
+    --_email-scroll-current: var(--_email-scroll-thumb);
+  }
+
+  @if $smooth {
+    @media (prefers-reduced-motion: no-preference) {
+      scroll-behavior: smooth;
+    }
+  }
+}

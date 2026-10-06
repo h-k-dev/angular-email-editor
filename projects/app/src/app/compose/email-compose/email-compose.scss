@@ -54,6 +54,22 @@
   flex: none;
   display: flex;
   flex-direction: column;
+  // A height held on it (DockAnimation) counts its padding, as measured.
+  box-sizing: border-box;
+}
+
+.dock__content {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+}
+
+// A switch of the toolbar, running (DockAnimation, dock.animation.ts —
+// DOCK_SWITCH is this duration): the dock's height held in pixels and
+// moved to the new look's, what does not fit yet clipped.
+.dock--switching {
+  overflow: clip;
+  transition: height 200ms ease;
 }
 
 // With the chat up, on a wide screen, the two are one box: the field and
