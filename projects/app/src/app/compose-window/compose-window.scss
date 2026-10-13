@@ -2,8 +2,9 @@
 
 // A window on the bottom edge: exactly 600px — the measure the email is
 // designed for, so the text in a window sits in the same column as on the
-// page — as tall as the screen allows
-// up to a sheet's worth, its top corners rounded and its foot on the edge.
+// page — as tall as the screen allows up to a sheet's worth, its top
+// corners rounded and its foot on the edge. A message longer than the sheet
+// pushes the window up with it, to a ceiling, and only then scrolls.
 // The window is the paper: the writer inside drops its own corners and
 // lift (its tokens), so there is one sheet, not a sheet on a sheet.
 :host {
@@ -15,6 +16,11 @@
   // that holds still while the browser's own chrome slides in and out, so
   // a window never resizes under the hands writing in it.
   --compose-window-height: min(640px, calc(100svh - 96px));
+  // How far a long message may push the window up the screen before the
+  // editor scrolls instead — the consumer's to set (any length). Never a
+  // ceiling under the sheet's own height: min-block-size wins over
+  // max-block-size, so on a short screen the window simply stays put.
+  --compose-window-max-height: 75svh;
   // The dialog: as large as the screen allows at 16:9, 32px clear of every
   // edge.
   --compose-window-dialog-width: min(calc(100vw - 64px), calc((100svh - 64px) * 16 / 9));
@@ -47,7 +53,14 @@
   // Only where the screen itself is narrower (between the phone breakpoint
   // and 632px) does the width give: nothing may hang off the side.
   max-inline-size: calc(100vw - 32px);
-  block-size: var(--compose-window-height);
+  // As tall as what it holds, between the sheet and the ceiling: the
+  // editor's chain (message-form, email-writer, email-compose) is all
+  // flex: 1 / min-height: 0, so under the floor the editor stretches to
+  // fill, and at the ceiling it shrinks and its own overflow takes over.
+  // Its foot is on the edge, so it grows upward.
+  block-size: auto;
+  min-block-size: var(--compose-window-height);
+  max-block-size: var(--compose-window-max-height);
   box-sizing: border-box;
   overflow: hidden;
   // The dock lets clicks through to the page; its windows take them.
@@ -73,7 +86,7 @@
 :host([data-mode='minimized']) {
   // The title bar, in the very place its window holds.
   --compose-window-width: 280px;
-  block-size: auto;
+  min-block-size: 0;
 }
 
 :host([data-mode='minimized']) .compose-window__sheet {
@@ -95,6 +108,8 @@
   inline-size: var(--compose-window-dialog-width);
   max-inline-size: none;
   block-size: calc(var(--compose-window-dialog-width) * 9 / 16);
+  min-block-size: 0;
+  max-block-size: none;
   // Square at the phone breakpoint like every other corner here — the
   // dialog does not exist below it (the rule under this one takes over),
   // and the clamp means it never draws rounded on the way there either.
@@ -129,6 +144,8 @@
     // keyboard is taken off separately — the shell measures the cover
     // (--keyboard-inset), which svh knows nothing about.
     block-size: calc(100svh - var(--keyboard-inset, 0px));
+    min-block-size: 0;
+    max-block-size: none;
   }
 }
 
