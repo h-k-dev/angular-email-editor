@@ -3,7 +3,7 @@
  * against the `@chenglou/pretext` the library declares (1.x): a canvas,
  * fonts, the browser's own line breaker.
  */
-import { createEditor, emailExtensions, Editor } from 'angular-email-editor';
+import { createEditor, emailExtensions, Editor } from '@h-k-dev/angular-email-editor';
 import { TextMetrics, createTextMetrics, readTypography } from './public-api';
 
 describe('text metrics (render)', () => {

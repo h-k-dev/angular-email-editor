@@ -1,7 +1,7 @@
 import { Component, ElementRef, afterNextRender, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { NodeSelection, TextSelection } from 'prosemirror-state';
-import { Editor, createEditor, emailExtensions } from 'angular-email-editor';
+import { Editor, createEditor, emailExtensions } from '@h-k-dev/angular-email-editor';
 import { ImageAlt } from './image-alt';
 
 /** A popover the way a host writes one: its own field and button, the

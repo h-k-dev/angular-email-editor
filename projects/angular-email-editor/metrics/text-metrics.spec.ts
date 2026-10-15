@@ -4,7 +4,7 @@
  * metrics only say why they are missing. Real measurement is the render
  * suite's (`text-metrics.render.spec.ts`, Chromium).
  */
-import { createEditor, emailExtensions, Editor } from 'angular-email-editor';
+import { createEditor, emailExtensions, Editor } from '@h-k-dev/angular-email-editor';
 import { TextMetrics, createTextMetrics } from './public-api';
 
 describe('text metrics without a canvas', () => {

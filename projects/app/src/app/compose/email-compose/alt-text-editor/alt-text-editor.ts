@@ -5,8 +5,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
 // Library
-import { AnchorRect } from 'angular-email-editor/anchor';
-import { ImageAlt } from 'angular-email-editor/image';
+import { AnchorRect } from '@h-k-dev/angular-email-editor/anchor';
+import { ImageAlt } from '@h-k-dev/angular-email-editor/image';
 
 import { I18n } from '../../../../services/i18n';
 import { FormattingCommands } from '../formatting-commands';

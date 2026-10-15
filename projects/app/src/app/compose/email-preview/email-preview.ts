@@ -20,7 +20,7 @@ import {
   RenderingClient,
   emailPlainText,
   renderForClient,
-} from 'angular-email-editor';
+} from '@h-k-dev/angular-email-editor';
 
 import { atRest } from '../at-rest';
 

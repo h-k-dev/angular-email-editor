@@ -6,8 +6,8 @@
     "outDir": "../../out-tsc/spec",
     "types": ["vitest/globals"],
     "paths": {
-      "angular-email-editor": ["./src/public-api.ts"],
-      "angular-email-editor/*": ["./*/public-api.ts"]
+      "@h-k-dev/angular-email-editor": ["./src/public-api.ts"],
+      "@h-k-dev/angular-email-editor/*": ["./*/public-api.ts"]
     }
   },
   "include": ["src/**/*.d.ts", "src/**/*.spec.ts", "*/**/*.spec.ts", "src/test-setup.ts"],

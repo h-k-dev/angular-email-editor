@@ -1,5 +1,5 @@
 import { Component, computed, inject, input } from '@angular/core';
-import { SuggestionItem } from 'angular-email-editor';
+import { SuggestionItem } from '@h-k-dev/angular-email-editor';
 import { SuggestionMenu } from './suggestion-menu';
 
 /**

@@ -23,8 +23,8 @@ import { Menu, MenuItem } from '@angular/aria/menu';
 import { ConnectedPosition } from '@angular/cdk/overlay';
 
 // Library
-import { PaletteColor, TableHandleTarget, caretCellPos } from 'angular-email-editor';
-import { injectPalette } from 'angular-email-editor/palette';
+import { PaletteColor, TableHandleTarget, caretCellPos } from '@h-k-dev/angular-email-editor';
+import { injectPalette } from '@h-k-dev/angular-email-editor/palette';
 import { TextSelection } from 'prosemirror-state';
 
 import { FormattingCommands } from '../formatting-commands';

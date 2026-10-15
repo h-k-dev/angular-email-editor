@@ -2,7 +2,7 @@ import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormField, form } from '@angular/forms/signals';
 import { MatError, MatFormField, MatHint, MatLabel } from '@angular/material/form-field';
-import { AddressInput, addressList } from 'angular-email-editor/address-input';
+import { AddressInput, addressList } from '@h-k-dev/angular-email-editor/address-input';
 import { AddressFormField } from './address-form-field';
 
 /** A host the way a Material app writes it: the label, hint and error are

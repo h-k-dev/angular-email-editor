@@ -12,7 +12,7 @@ import {
 import { ConnectedPosition } from '@angular/cdk/overlay';
 
 // Library
-import { AnchorRect } from 'angular-email-editor/anchor';
+import { AnchorRect } from '@h-k-dev/angular-email-editor/anchor';
 
 /** Above the anchor, centred; below when there is no room above. The bubble
     menu's, the link and alt-text editors': what floats over a selection

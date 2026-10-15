@@ -1,7 +1,7 @@
 @use '@angular/material' as mat;
 // The library's scrollbar — from its source, by the path a host imports it
 // by (`projects` is a Sass load path, angular.json).
-@use 'angular-email-editor/styles/scroll';
+@use '@h-k-dev/angular-email-editor/styles/scroll';
 
 html {
   @include mat.theme(
@@ -1198,7 +1198,7 @@ section[html-email-compose][data-wrap='off'] .aee-editor {
 
 // The library's scrollbar as a class, for a template's scroller (the
 // composer's editor pane, the source pane); a component's own stylesheet
-// includes the mixin instead. See angular-email-editor/styles/_scroll.scss.
+// includes the mixin instead. See @h-k-dev/angular-email-editor/styles/_scroll.scss.
 .email-scroll {
   @include scroll.scroll;
 }

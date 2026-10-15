@@ -1,5 +1,5 @@
 /*
- * Public API Surface of angular-email-editor/suggestion-menu
+ * Public API Surface of @h-k-dev/angular-email-editor/suggestion-menu
  */
 
 export * from './suggestion-menu';

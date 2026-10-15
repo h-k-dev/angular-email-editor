@@ -1,4 +1,4 @@
-@use 'angular-email-editor/styles/scroll';
+@use '@h-k-dev/angular-email-editor/styles/scroll';
 
 // Same reference column as the API page: the page owns its inset, because the
 // shell's <main> ships none (the composer's chrome must reach the aside).

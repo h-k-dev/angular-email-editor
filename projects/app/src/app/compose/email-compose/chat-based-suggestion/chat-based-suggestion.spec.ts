@@ -11,7 +11,7 @@ import {
   createEditor,
   emailExtensions,
   isProposing,
-} from 'angular-email-editor';
+} from '@h-k-dev/angular-email-editor';
 
 import { Ai, AiOptions, AiRequest } from '../../../../services/ai';
 import { FormattingCommands } from '../formatting-commands';

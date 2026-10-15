@@ -1,4 +1,4 @@
-import { defaultAddressRules } from 'angular-email-editor/address';
+import { defaultAddressRules } from '@h-k-dev/angular-email-editor/address';
 import { createSchema } from './schema';
 import { parseHTML, serializeToHTML } from './html';
 import { lintHTML } from './html-source';

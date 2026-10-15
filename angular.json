@@ -67,7 +67,7 @@
               }
             ],
             "stylePreprocessorOptions": {
-              "includePaths": ["projects/app/src/styles", "projects"]
+              "includePaths": ["projects/app/src/styles", "projects/app/sass"]
             },
             "styles": ["projects/app/src/styles/fonts/_fonts.scss", "projects/app/src/styles.scss"]
           },

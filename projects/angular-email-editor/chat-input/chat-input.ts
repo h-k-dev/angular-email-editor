@@ -32,7 +32,7 @@ import {
   Text,
   createEditor,
   defineExtension,
-} from 'angular-email-editor';
+} from '@h-k-dev/angular-email-editor';
 import { followTextHeight } from './chat-input.animation';
 
 /** The text as it is sent: a line per block, a list item as a dash line —

@@ -18,8 +18,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { ConnectedPosition } from '@angular/cdk/overlay';
 
 // Library
-import { TableHandleTarget, duplicateColumn, duplicateRow } from 'angular-email-editor';
-import { KeepFocus } from 'angular-email-editor/focus';
+import { TableHandleTarget, duplicateColumn, duplicateRow } from '@h-k-dev/angular-email-editor';
+import { KeepFocus } from '@h-k-dev/angular-email-editor/focus';
 
 import { FormattingCommands } from '../formatting-commands';
 import { Popover } from '../popover/popover';

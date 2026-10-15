@@ -1,5 +1,5 @@
 // Library
-import { SuggestionSource, insertMergeTag } from 'angular-email-editor';
+import { SuggestionSource, insertMergeTag } from '@h-k-dev/angular-email-editor';
 
 import { escapeLike } from '../../../services/loopback-filter';
 import { MergeTags } from '../../../services/merge-tags';

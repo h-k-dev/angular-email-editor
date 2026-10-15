@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { TextSelection } from 'prosemirror-state';
-import { Document, Paragraph, Text, createEditor, richTextExtensions } from 'angular-email-editor';
+import { Document, Paragraph, Text, createEditor, richTextExtensions } from '@h-k-dev/angular-email-editor';
 import {
   EMAIL_PALETTE,
   colorSuggestions,

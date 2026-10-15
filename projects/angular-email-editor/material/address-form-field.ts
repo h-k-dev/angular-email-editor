@@ -1,7 +1,7 @@
 import { DestroyRef, Directive, effect, inject } from '@angular/core';
 import { MatFormFieldControl } from '@angular/material/form-field';
 import { Subject } from 'rxjs';
-import { AddressInput } from 'angular-email-editor/address-input';
+import { AddressInput } from '@h-k-dev/angular-email-editor/address-input';
 
 /**
  * Makes an address input the control of an Angular Material form field —
@@ -35,7 +35,7 @@ import { AddressInput } from 'angular-email-editor/address-input';
  * The field's value is the input's — one header-form entry per recipient.
  * A backend that keeps the header as one string gets it with
  * `joinAddresses(list)` and hands it back through `splitAddresses(text)`
- * (`angular-email-editor/address`); the pair round-trips entry for entry.
+ * (`@h-k-dev/angular-email-editor/address`); the pair round-trips entry for entry.
  */
 @Directive({
   selector: '[email-address-input][emailMatFormField]',

@@ -49,19 +49,19 @@ import {
   importLoss,
   importedDocument,
   toInboundMessage,
-} from 'angular-email-editor';
-import { isEmailAddress, parseMailbox } from 'angular-email-editor/address';
-import { AddressInput, AddressInputLabel, addressList } from 'angular-email-editor/address-input';
+} from '@h-k-dev/angular-email-editor';
+import { isEmailAddress, parseMailbox } from '@h-k-dev/angular-email-editor/address';
+import { AddressInput, AddressInputLabel, addressList } from '@h-k-dev/angular-email-editor/address-input';
 import {
   Attachment,
   AttachmentChip,
   AttachmentChipIcon,
   AttachmentKind,
-} from 'angular-email-editor/attachment-chip';
-import { AttachmentChips } from 'angular-email-editor/attachment-chips';
-import { KeepFocus } from 'angular-email-editor/focus';
-import { ActionTrigger, injectActions } from 'angular-email-editor/actions';
-import { AddressFormField } from 'angular-email-editor/material';
+} from '@h-k-dev/angular-email-editor/attachment-chip';
+import { AttachmentChips } from '@h-k-dev/angular-email-editor/attachment-chips';
+import { KeepFocus } from '@h-k-dev/angular-email-editor/focus';
+import { ActionTrigger, injectActions } from '@h-k-dev/angular-email-editor/actions';
+import { AddressFormField } from '@h-k-dev/angular-email-editor/material';
 
 import { DropHint } from '../drop-hint/drop-hint';
 import { EmailCompose, SourceView } from '../email-compose/email-compose';

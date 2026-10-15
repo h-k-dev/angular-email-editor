@@ -2,7 +2,7 @@ import { Component, input, output } from '@angular/core';
 
 // Material
 import { MatIconModule } from '@angular/material/icon';
-import { KeepFocus } from 'angular-email-editor/focus';
+import { KeepFocus } from '@h-k-dev/angular-email-editor/focus';
 
 /**
  * A curated swatch picker: the text palette (dual-contrast — every swatch

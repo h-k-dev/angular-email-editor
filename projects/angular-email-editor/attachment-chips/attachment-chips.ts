@@ -8,7 +8,7 @@ import {
   model,
 } from '@angular/core';
 import type { FormValueControl } from '@angular/forms/signals';
-import { Attachment, AttachmentChip } from 'angular-email-editor/attachment-chip';
+import { Attachment, AttachmentChip } from '@h-k-dev/angular-email-editor/attachment-chip';
 
 /**
  * The row a message's attachment chips sit in — under the body, in Gmail's

@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { InlineImageStore } from 'angular-email-editor';
+import { InlineImageStore } from '@h-k-dev/angular-email-editor';
 import { BlobStore } from './blob-store';
 import { DRAFT_KEY, Draft, DraftContent, parseDraft, serializeDraft } from './draft';
 import { LocalStorage } from './local-storage';

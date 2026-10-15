@@ -10,7 +10,7 @@ import {
   createSuggestionMenu,
   extensionSuggestions,
   richTextExtensions,
-} from 'angular-email-editor';
+} from '@h-k-dev/angular-email-editor';
 import { SuggestionMenu } from './suggestion-menu';
 import { SuggestionMenuItem } from './suggestion-menu-item';
 import { SuggestionMenuHeader } from './suggestion-menu.slots';

@@ -1,6 +1,26 @@
 {
-  "name": "angular-email-editor",
+  "name": "@h-k-dev/angular-email-editor",
   "version": "0.0.1",
+  "description": "An email editor for Angular on ProseMirror — a visual composer and an HTML source editor over one schema that is the vocabulary of email HTML.",
+  "license": "MIT",
+  "author": "h-k-dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/h-k-dev/angular-email-editor.git",
+    "directory": "projects/angular-email-editor"
+  },
+  "homepage": "https://h-k-dev.github.io/angular-email-editor/",
+  "bugs": "https://github.com/h-k-dev/angular-email-editor/issues",
+  "keywords": [
+    "angular",
+    "email",
+    "email-editor",
+    "prosemirror",
+    "wysiwyg",
+    "html-email",
+    "rich-text",
+    "signals"
+  ],
   "peerDependencies": {
     "@angular/common": "^22.0.0",
     "@angular/core": "^22.0.0",

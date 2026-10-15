@@ -1272,7 +1272,7 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
 - **One entry point per UI piece (2026-09-17).** The main entry,
   `angular-email-editor`, is the engine and its Angular glue (the editor,
   every extension, `InlineImages`). Each UI piece is a secondary entry of
-  its own, Material-style — `angular-email-editor/address-chip`,
+  its own, Material-style — `@h-k-dev/angular-email-editor/address-chip`,
   `/address-input`, `/attachment-chip`, `/attachment-chips`,
   `/suggestion-menu` — a folder beside `src/` with its `ng-package.json`
   and `public-api.ts`. Smallest bundle and smallest install: an entry
@@ -1391,10 +1391,10 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   so a proposal follows the stream's range exactly); accept takes the same
   slice out and in again as one ordinary change — one undo — and discard
   leaves the document and its history as they were. Angular:
-  `angular-email-editor/proposal` — `injectProposal(editor)` (active,
+  `@h-k-dev/angular-email-editor/proposal` — `injectProposal(editor)` (active,
   streaming, range, the box to stand under, propose/stop/accept/discard)
   and two triggers for a host's own buttons, `[emailProposalAccept]` /
-  `[emailProposalDiscard]`; and `angular-email-editor/chat-input` — the
+  `[emailProposalDiscard]`; and `@h-k-dev/angular-email-editor/chat-input` — the
   chat input, a ProseMirror editor with lines and bullet/numbered lists
   (Enter sends outside a list and goes on to the next item inside, Ctrl-
   Enter always sends, `- ` / `1. ` begin a list), its text carried out as
@@ -1707,7 +1707,7 @@ client, { dark })` in the library — a simulation, in a browser, drawn
   and shows `[email-suggestion-menu-section]` where the section changes.
   Colours are rows too, the way a chat's slash menu lists them: "Red text",
   "Red background" — `colorSuggestions(ctx, palette)` in the new
-  `angular-email-editor/palette` entry, each row a `swatch`, picked onto the
+  `@h-k-dev/angular-email-editor/palette` entry, each row a `swatch`, picked onto the
   selection or the caret's next words. The palette is a token there,
   `EMAIL_PALETTE`: the library's by default, an app's own through
   `providePalette`, either side or a function of the defaults to mix; the

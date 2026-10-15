@@ -1,0 +1,82 @@
+# Releases the library — started by hand, never by a push.
+#
+# Pre-1.0 and deliberate: bump `version` in projects/angular-email-editor/
+# package.json in a commit, merge it to main, then run this (Actions → Release →
+# Run workflow, on main). It stages that version on npm through Trusted
+# Publishing (this file's name is what npm trusts — no token in the repo);
+# a staged version is not installable until a maintainer approves it with 2FA,
+# on npmjs.com or with `npm stage approve`. Then the commit is tagged v<version>.
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write # the v<version> tag
+  id-token: write # npm Trusted Publishing (OIDC)
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref_name == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      # Staged publishing and OIDC need a recent npm.
+      - name: Update npm
+        run: npm install -g npm@latest
+
+      - name: Read the version
+        id: version
+        run: echo "value=$(node -p "require('./projects/angular-email-editor/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # A version is released once: not tagged yet, not on npm yet.
+      - name: Check the version is new
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" > /dev/null; then
+            echo "::error::v$VERSION is already tagged — bump the version first."; exit 1
+          fi
+          if npm view "@h-k-dev/angular-email-editor@$VERSION" version > /dev/null 2>&1; then
+            echo "::error::$VERSION is already on npm — bump the version first."; exit 1
+          fi
+
+      - name: Install
+        run: npm ci
+
+      - name: Test library
+        run: npx ng test angular-email-editor --watch=false
+
+      - name: Build library
+        run: npx ng build angular-email-editor
+
+      # A pre-release (0.1.0-beta.1) goes out under `next`, never as `latest`.
+      - name: Stage on npm
+        working-directory: dist/angular-email-editor
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          if [[ "$VERSION" == *-* ]]; then
+            npm stage publish --tag next
+          else
+            npm stage publish
+          fi
+
+      - name: Tag the release
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          git tag "v$VERSION"
+          git push origin "v$VERSION"

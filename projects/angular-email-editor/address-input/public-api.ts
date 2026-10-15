@@ -1,5 +1,5 @@
 /*
- * Public API Surface of angular-email-editor/address-input
+ * Public API Surface of @h-k-dev/angular-email-editor/address-input
  */
 
 export * from './address-input';

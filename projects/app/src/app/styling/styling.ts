@@ -2,8 +2,8 @@ import { Component, signal } from '@angular/core';
 import { FormField, form } from '@angular/forms/signals';
 import { MatError, MatFormField, MatHint, MatLabel } from '@angular/material/form-field';
 import { RouterLink } from '@angular/router';
-import { AddressInput, addressList } from 'angular-email-editor/address-input';
-import { AddressFormField } from 'angular-email-editor/material';
+import { AddressInput, addressList } from '@h-k-dev/angular-email-editor/address-input';
+import { AddressFormField } from '@h-k-dev/angular-email-editor/material';
 
 /** One custom property, as the token tables render it. */
 interface TokenEntry {

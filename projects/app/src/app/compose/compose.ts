@@ -30,7 +30,7 @@ import {
   InlineImages,
   emailSizeBudget,
   withQuotedHistory,
-} from 'angular-email-editor';
+} from '@h-k-dev/angular-email-editor';
 
 import { SourceView } from './email-compose/email-compose';
 import { releaseEditingSurface } from './is-typing';

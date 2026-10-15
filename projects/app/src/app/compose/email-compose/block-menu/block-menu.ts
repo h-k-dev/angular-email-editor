@@ -18,8 +18,8 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
 
 // Library
-import { BlockMenuState, findSectionContext } from 'angular-email-editor';
-import { KeepFocus } from 'angular-email-editor/focus';
+import { BlockMenuState, findSectionContext } from '@h-k-dev/angular-email-editor';
+import { KeepFocus } from '@h-k-dev/angular-email-editor/focus';
 
 import { FormattingCommands } from '../formatting-commands';
 import { POPOVER_BELOW, Popover } from '../popover/popover';

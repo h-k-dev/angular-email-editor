@@ -1,5 +1,5 @@
 import { Directive, TemplateRef, inject } from '@angular/core';
-import { Mailbox } from 'angular-email-editor/address';
+import { Mailbox } from '@h-k-dev/angular-email-editor/address';
 
 /**
  * The chip's template slot. A host that wants its own remove control — a

@@ -1,8 +1,8 @@
 import { Component, inject, input, output } from '@angular/core';
 
 // Library
-import { KeepFocus } from 'angular-email-editor/focus';
-import { injectPalette } from 'angular-email-editor/palette';
+import { KeepFocus } from '@h-k-dev/angular-email-editor/focus';
+import { injectPalette } from '@h-k-dev/angular-email-editor/palette';
 
 import { I18n } from '../../../../../services/i18n';
 import { ColorPalette } from '../color-palette/color-palette';

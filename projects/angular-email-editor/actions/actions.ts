@@ -1,6 +1,6 @@
 import { Injector, Signal, computed, effect, inject, signal, untracked } from '@angular/core';
 import { EditorState } from 'prosemirror-state';
-import { Editor, EditorAction, isActionEnabled } from 'angular-email-editor';
+import { Editor, EditorAction, isActionEnabled } from '@h-k-dev/angular-email-editor';
 
 /**
  * An editor's state as a signal: the text, the selection, the stored marks —

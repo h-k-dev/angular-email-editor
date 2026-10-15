@@ -1,5 +1,5 @@
 /*
- * Public API Surface of angular-email-editor/actions
+ * Public API Surface of @h-k-dev/angular-email-editor/actions
  */
 
 export * from './actions';

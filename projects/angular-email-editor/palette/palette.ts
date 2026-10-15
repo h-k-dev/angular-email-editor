@@ -5,7 +5,7 @@ import {
   SuggestionCommandItem,
   emailBackgroundPalette,
   emailTextPalette,
-} from 'angular-email-editor';
+} from '@h-k-dev/angular-email-editor';
 
 /** The colours a host offers: for text, and for a background. */
 export interface EmailPalette {

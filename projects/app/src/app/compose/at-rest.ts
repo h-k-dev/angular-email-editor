@@ -1,7 +1,7 @@
 import { Resource, debounced } from '@angular/core';
 
 // Library
-import { TYPING_REST } from 'angular-email-editor';
+import { TYPING_REST } from '@h-k-dev/angular-email-editor';
 
 export interface AtRestOptions<T> {
   /** How long a burst must stop, in ms. Default {@link TYPING_REST}. */

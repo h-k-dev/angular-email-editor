@@ -9,8 +9,8 @@ import {
   linkedSignal,
   output,
 } from '@angular/core';
-import { Editor, selectedImage, selectedImageAlt } from 'angular-email-editor';
-import { editorState } from 'angular-email-editor/actions';
+import { Editor, selectedImage, selectedImageAlt } from '@h-k-dev/angular-email-editor';
+import { editorState } from '@h-k-dev/angular-email-editor/actions';
 
 /**
  * Makes the host's own text field the alt text of the editor's selected

@@ -12,8 +12,8 @@ import {
   isMarkActive,
   selectedButton,
   selectedImage,
-} from 'angular-email-editor';
-import { editorState, injectActions } from 'angular-email-editor/actions';
+} from '@h-k-dev/angular-email-editor';
+import { editorState, injectActions } from '@h-k-dev/angular-email-editor/actions';
 
 import { I18n } from '../../../services/i18n';
 import { FormattingItem, formattingItems } from './formatting-items';

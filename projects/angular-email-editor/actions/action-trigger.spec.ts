@@ -6,7 +6,7 @@ import {
   createEditor,
   htmlSourceExtensions,
   richTextExtensions,
-} from 'angular-email-editor';
+} from '@h-k-dev/angular-email-editor';
 import { ActionTrigger } from './action-trigger';
 import { injectActions } from './actions';
 

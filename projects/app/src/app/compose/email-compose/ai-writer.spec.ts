@@ -7,7 +7,7 @@ import {
   isActionEnabled,
   isStreaming,
   streamContent,
-} from 'angular-email-editor';
+} from '@h-k-dev/angular-email-editor';
 
 import { Ai } from '../../../services/ai';
 import { AiAsk, createAiWriter } from './ai-writer';

@@ -81,14 +81,14 @@ import {
   mergeTagAt,
   emailExtensions,
   createQuotedHistory,
-} from 'angular-email-editor';
+} from '@h-k-dev/angular-email-editor';
 import {
   SuggestionMenu,
   SuggestionMenuItem,
   SuggestionMenuSection,
-} from 'angular-email-editor/suggestion-menu';
-import { colorSuggestions, injectPalette } from 'angular-email-editor/palette';
-import { TextMetrics, createTextMetrics } from 'angular-email-editor/metrics';
+} from '@h-k-dev/angular-email-editor/suggestion-menu';
+import { colorSuggestions, injectPalette } from '@h-k-dev/angular-email-editor/palette';
+import { TextMetrics, createTextMetrics } from '@h-k-dev/angular-email-editor/metrics';
 
 /** Where the HTML source shows: nowhere, in the editing surface's place
     (code view), or beside the editor in its own column (detached). */

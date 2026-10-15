@@ -11,7 +11,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 
 import { CdkConnectedOverlay } from '@angular/cdk/overlay';
-import { AnchorRect } from 'angular-email-editor/anchor';
+import { AnchorRect } from '@h-k-dev/angular-email-editor/anchor';
 
 import { POPOVER_ABOVE, POPOVER_BELOW, Popover } from './popover';
 import { PopoverOutlet } from './popover-outlet';

@@ -148,7 +148,7 @@ export class ApiReference {
         {
           name: 'createTextMetrics',
           signature: '({ onMetrics, onError? }: TextMetricsOptions) => FunctionalExtension',
-          does: 'Streams live TextMetrics (words, characters, lines, estimated height) — measured mathematically over cached glyph widths, never by touching the DOM. Its own entry, angular-email-editor/metrics: the only part of the library that needs @chenglou/pretext (^1.0.0, an optional peer). Where nothing can measure (a server render, jsdom) onError hears why and the editor goes on unharmed.',
+          does: 'Streams live TextMetrics (words, characters, lines, estimated height) — measured mathematically over cached glyph widths, never by touching the DOM. Its own entry, @h-k-dev/angular-email-editor/metrics: the only part of the library that needs @chenglou/pretext (^1.0.0, an optional peer). Where nothing can measure (a server render, jsdom) onError hears why and the editor goes on unharmed.',
         },
         {
           name: 'createHtmlLanguage / createHtmlAutocomplete / createSourceMarks',
@@ -298,7 +298,7 @@ export class ApiReference {
       title: 'Addresses',
       hint:
         'One rule decides what an address is, how a mailbox is read and written and how typed ' +
-        'text splits: ours (angular-email-editor/address, rules.ts — RFC 5322, 5321, 6531 and ' +
+        'text splits: ours (@h-k-dev/angular-email-editor/address, rules.ts — RFC 5322, 5321, 6531 and ' +
         '2047, its deviations listed in the file) unless the host puts its own in force. Every ' +
         'address piece asks the rule in force, so a host keeps the rule its backend enforces.',
       entries: [
@@ -336,7 +336,7 @@ export class ApiReference {
         {
           name: 'addressList',
           signature: '(path, { min?, max?, rules?, messages? }) => void',
-          does: 'The signal-forms rule for an address field (angular-email-editor/address-input): at least min, at most max, every entry a mailbox by the rule in force where the form is made — or by options.rules.',
+          does: 'The signal-forms rule for an address field (@h-k-dev/angular-email-editor/address-input): at least min, at most max, every entry a mailbox by the rule in force where the form is made — or by options.rules.',
         },
       ],
     },
@@ -428,7 +428,7 @@ export class ApiReference {
           name: 'EMAIL_PALETTE · providePalette · injectPalette · colorSuggestions',
           signature:
             'InjectionToken<EmailPalette> · (config: Partial<EmailPalette> | (defaults) => Partial<EmailPalette>) => Provider · () => EmailPalette · (ctx, palette) => SuggestionCommandItem[]',
-          does: 'angular-email-editor/palette — the palette in use: the library’s unless the app provides its own, either side or a function of the defaults to mix; what the pickers offer, and the / menu’s colour rows ("Red text", "Red background", section color, each with its swatch).',
+          does: '@h-k-dev/angular-email-editor/palette — the palette in use: the library’s unless the app provides its own, either side or a function of the defaults to mix; what the pickers offer, and the / menu’s colour rows ("Red text", "Red background", section color, each with its swatch).',
         },
       ],
     },
@@ -453,7 +453,7 @@ export class ApiReference {
           name: 'readTypography / measureDoc / createBlockMeasureCache',
           signature:
             '(dom) => EditorTypography · (doc, contentWidth, typography, cache) => TextMetrics',
-          does: 'Read the editable’s typography once, then measure the whole document at a content width — pure arithmetic, no DOM access, results cached per node. From angular-email-editor/metrics.',
+          does: 'Read the editable’s typography once, then measure the whole document at a content width — pure arithmetic, no DOM access, results cached per node. From @h-k-dev/angular-email-editor/metrics.',
         },
       ],
     },
@@ -467,19 +467,19 @@ export class ApiReference {
         {
           name: 'emailKeepFocus',
           signature:
-            '[emailKeepFocus] · [emailKeepFocusExcept]="selector" — angular-email-editor/focus',
+            '[emailKeepFocus] · [emailKeepFocusExcept]="selector" — @h-k-dev/angular-email-editor/focus',
           does: 'A press on the element never takes focus from wherever it is: the editor keeps its caret and selection through a click on a tool, and the menus that depend on its focus stay open. One on a container covers everything in it; text entry inside is the default exception; the keyboard still reaches every tool.',
         },
         {
           name: 'injectActions · editorState · emailAction',
           signature:
-            '(editor: () => Editor | undefined) => EditorActions · => Signal<EditorState> · [emailAction]="actions.get(id)" — angular-email-editor/actions',
+            '(editor: () => Editor | undefined) => EditorActions · => Signal<EditorState> · [emailAction]="actions.get(id)" — @h-k-dev/angular-email-editor/actions',
           does: 'What the extensions declare as actions (editor.actions — id, title, icon, command, isActive, isEnabled), bound to a live editor as signals: pressed, disabled, run. The editor is read reactively, so a code view is one computed — the visible editor’s kit decides what exists. emailAction makes a host’s own control the trigger: aria-pressed and aria-disabled unless told not to, never the native disabled or a style; the caret returns to the editor after running. It listens through editor.subscribe, so nothing has to be in the kit before the editor is made. A host’s own buttons come in as HostAction — a run, never a command, because a command is asked on every transaction: host for what stands alone (a link dialog), override for a run over a kit’s action (a table size picker).',
         },
         {
           name: 'emailAnchor',
           signature:
-            '[emailAnchor]="rect | null" · exportAs emailAnchor — angular-email-editor/anchor',
+            '[emailAnchor]="rect | null" · exportAs emailAnchor — @h-k-dev/angular-email-editor/anchor',
           does: 'A real element kept over a box the editor reports (a selection, a caret, a block), for everything that floats from an element: cdkOverlayOrigin, matMenuTriggerFor, an Aria menu trigger, CSS anchor positioning, Floating UI. Holds its last place while the box is null, so what it carries closes in place.',
         },
       ],

@@ -1,5 +1,5 @@
 // Library
-import { SuggestionGroup, insertHTML } from 'angular-email-editor';
+import { SuggestionGroup, insertHTML } from '@h-k-dev/angular-email-editor';
 
 import { escapeLike } from '../../../services/loopback-filter';
 import { Templates } from '../../../services/templates';

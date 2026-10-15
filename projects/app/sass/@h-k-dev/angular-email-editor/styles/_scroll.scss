@@ -1,0 +1,5 @@
+// The library's Sass, under the name an app installs it by: the demo writes
+// `@use '@h-k-dev/angular-email-editor/styles/scroll'` exactly as a consumer
+// does (the package's `exports` resolve it from node_modules there), and this
+// forwards to the library's source, so the demo stays live while it is edited.
+@forward '../../../../../angular-email-editor/styles/scroll';

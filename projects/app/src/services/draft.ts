@@ -7,7 +7,7 @@ import {
   linkedSignal,
   signal,
 } from '@angular/core';
-import { InlineImageRegistry, inlineImageCids } from 'angular-email-editor';
+import { InlineImageRegistry, inlineImageCids } from '@h-k-dev/angular-email-editor';
 import { BlobStore } from './blob-store';
 import { LocalStorage } from './local-storage';
 

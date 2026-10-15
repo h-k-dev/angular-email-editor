@@ -1,6 +1,6 @@
 import { EditorState, Plugin, PluginKey } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
-import { FunctionalExtension, defineExtension } from 'angular-email-editor';
+import { FunctionalExtension, defineExtension } from '@h-k-dev/angular-email-editor';
 import { TextMetrics, createBlockMeasureCache, measureDoc, readTypography } from './measurement';
 
 export interface TextMetricsOptions {

@@ -8,7 +8,7 @@ import {
   createContentStream,
   createEditor,
   richTextExtensions,
-} from 'angular-email-editor';
+} from '@h-k-dev/angular-email-editor';
 import {
   EditorProposal,
   Proposal,

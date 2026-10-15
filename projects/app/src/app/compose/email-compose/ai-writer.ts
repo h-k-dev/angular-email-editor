@@ -1,7 +1,7 @@
 import { EditorState } from 'prosemirror-state';
 
 // Library
-import { FunctionalExtension, defineExtension } from 'angular-email-editor';
+import { FunctionalExtension, defineExtension } from '@h-k-dev/angular-email-editor';
 
 /** What the writer asked from: where the caret is and what stands before
     it — the assistant reads that, and the answer is proposed for there. */

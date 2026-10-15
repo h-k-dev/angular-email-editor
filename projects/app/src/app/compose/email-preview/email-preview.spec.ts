@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 // Library
-import { InlineImages } from 'angular-email-editor';
+import { InlineImages } from '@h-k-dev/angular-email-editor';
 
 import { EmailPreview } from './email-preview';
 

@@ -14,7 +14,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
-import { SuggestionItem, SuggestionMenuState, measureMenuPlacement } from 'angular-email-editor';
+import { SuggestionItem, SuggestionMenuState, measureMenuPlacement } from '@h-k-dev/angular-email-editor';
 import { SuggestionMenuHeader, SuggestionMenuHeaderContext } from './suggestion-menu.slots';
 
 /**

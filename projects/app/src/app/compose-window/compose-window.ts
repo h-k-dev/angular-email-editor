@@ -22,7 +22,7 @@ import { MatIcon } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 // Angular Email Editor
-import { InlineImages } from 'angular-email-editor';
+import { InlineImages } from '@h-k-dev/angular-email-editor';
 
 import { MessageForm } from '../compose/message-form/message-form';
 import { Viewport } from '../../services/viewport';

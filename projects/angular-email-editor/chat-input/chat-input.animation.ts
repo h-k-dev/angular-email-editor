@@ -1,5 +1,5 @@
 import { ElementRef, Signal, effect, inject } from '@angular/core';
-import type { Editor } from 'angular-email-editor';
+import type { Editor } from '@h-k-dev/angular-email-editor';
 
 /**
  * The chat input's motion — the part of it CSS alone cannot carry. The

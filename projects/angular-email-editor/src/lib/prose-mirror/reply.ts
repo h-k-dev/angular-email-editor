@@ -4,7 +4,7 @@ import {
   addressKey,
   defaultAddressRules,
   isMailbox,
-} from 'angular-email-editor/address';
+} from '@h-k-dev/angular-email-editor/address';
 import { createSchema } from './schema';
 import { ParseOptions, parseHTML, serializeToHTML } from './html';
 import { withQuoted } from './extensions/quoted-history';

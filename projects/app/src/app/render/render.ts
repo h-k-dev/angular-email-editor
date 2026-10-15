@@ -19,7 +19,7 @@ import {
   RENDERING_CLIENTS,
   RenderingClient,
   renderForClient,
-} from 'angular-email-editor';
+} from '@h-k-dev/angular-email-editor';
 
 import { EmailCompose, SourceView } from '../compose/email-compose/email-compose';
 import { HtmlEmailCompose } from '../compose/html-email-compose/html-email-compose';

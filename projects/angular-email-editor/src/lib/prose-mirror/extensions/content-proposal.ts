@@ -73,7 +73,7 @@ export const proposalRange = (state: EditorView['state']): ContentStreamRange | 
  *     }, { format: 'html' });
  *
  * The Angular side — `injectProposal`, the accept and discard triggers, an
- * input's keys — is `angular-email-editor/proposal`, its own entry: a host
+ * input's keys — is `@h-k-dev/angular-email-editor/proposal`, its own entry: a host
  * that brings its own panel imports what it uses.
  */
 export const createContentProposal = (

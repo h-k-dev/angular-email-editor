@@ -5,7 +5,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { CdkConnectedOverlay, OverlayModule } from '@angular/cdk/overlay';
 
 // Library
-import { Anchor, AnchorRect } from 'angular-email-editor/anchor';
+import { Anchor, AnchorRect } from '@h-k-dev/angular-email-editor/anchor';
 
 import { POPOVER_ABOVE, Popover } from './popover';
 

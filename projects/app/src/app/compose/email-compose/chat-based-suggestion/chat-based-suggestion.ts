@@ -15,14 +15,14 @@ import { NgTemplateOutlet } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 
 // Library
-import { ContentStreamWriter } from 'angular-email-editor';
-import { ChatInput } from 'angular-email-editor/chat-input';
+import { ContentStreamWriter } from '@h-k-dev/angular-email-editor';
+import { ChatInput } from '@h-k-dev/angular-email-editor/chat-input';
 import {
   ProposalAccept,
   ProposalDiscard,
   ProposalKeys,
   injectProposal,
-} from 'angular-email-editor/proposal';
+} from '@h-k-dev/angular-email-editor/proposal';
 
 import { Ai } from '../../../../services/ai';
 import { I18n } from '../../../../services/i18n';

@@ -10,7 +10,7 @@ import {
   inject,
   untracked,
 } from '@angular/core';
-import { InlineImages } from 'angular-email-editor';
+import { InlineImages } from '@h-k-dev/angular-email-editor';
 
 import { AttachmentUploads } from '../../../services/attachment-uploads';
 import {

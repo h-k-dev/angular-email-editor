@@ -1,7 +1,7 @@
 import { Service, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslateService } from '@ngx-translate/core';
-import type { SuggestionItemLabel } from 'angular-email-editor';
+import type { SuggestionItemLabel } from '@h-k-dev/angular-email-editor';
 
 import { AppLanguage, LANGUAGES } from '../i18n/loader';
 

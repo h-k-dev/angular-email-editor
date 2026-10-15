@@ -1,5 +1,5 @@
 /*
- * Public API Surface of angular-email-editor/address
+ * Public API Surface of @h-k-dev/angular-email-editor/address
  */
 
 export * from './address';

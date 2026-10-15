@@ -16,8 +16,8 @@ import {
   viewChildren,
 } from '@angular/core';
 import type { FormValueControl } from '@angular/forms/signals';
-import { ADDRESS_RULES, addressKey, isMailbox, isPending, separatesAt } from 'angular-email-editor/address';
-import { AddressChip, AddressChipRemove } from 'angular-email-editor/address-chip';
+import { ADDRESS_RULES, addressKey, isMailbox, isPending, separatesAt } from '@h-k-dev/angular-email-editor/address';
+import { AddressChip, AddressChipRemove } from '@h-k-dev/angular-email-editor/address-chip';
 import { NgTemplateOutlet } from '@angular/common';
 import { AddressInputLabel } from './address-input.slots';
 

@@ -1,5 +1,5 @@
 import { DOCUMENT, Service, inject, signal } from '@angular/core';
-import { InboundMessage, replyDocument, replyQuote } from 'angular-email-editor';
+import { InboundMessage, replyDocument, replyQuote } from '@h-k-dev/angular-email-editor';
 
 /** A reply example's file as the inbound message. A date written as ISO is
     a `Date`, formatted by the locale; anything else is a preformatted

@@ -4,7 +4,7 @@ import {
   SuggestionGroup,
   replaceHTML,
   withQuotedHistory,
-} from 'angular-email-editor';
+} from '@h-k-dev/angular-email-editor';
 
 import { Examples } from '../../../services/examples';
 

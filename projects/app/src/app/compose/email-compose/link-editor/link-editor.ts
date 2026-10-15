@@ -33,8 +33,8 @@ import {
   linkRangeAt,
   normalizeHref,
   selectedButton,
-} from 'angular-email-editor';
-import { ActionTrigger } from 'angular-email-editor/actions';
+} from '@h-k-dev/angular-email-editor';
+import { ActionTrigger } from '@h-k-dev/angular-email-editor/actions';
 
 import { I18n } from '../../../../services/i18n';
 import { FormattingCommands } from '../formatting-commands';

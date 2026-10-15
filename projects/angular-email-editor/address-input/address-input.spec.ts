@@ -2,8 +2,8 @@ import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormField, form } from '@angular/forms/signals';
 import { By } from '@angular/platform-browser';
-import { defaultAddressRules, provideAddressRules } from 'angular-email-editor/address';
-import { AddressChipRemove } from 'angular-email-editor/address-chip';
+import { defaultAddressRules, provideAddressRules } from '@h-k-dev/angular-email-editor/address';
+import { AddressChipRemove } from '@h-k-dev/angular-email-editor/address-chip';
 import { AddressInput } from './address-input';
 import { AddressInputLabel } from './address-input.slots';
 import {

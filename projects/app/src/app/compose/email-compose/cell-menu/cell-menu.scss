@@ -1,5 +1,5 @@
 @use '../../../../styles/menu' as menu;
-@use 'angular-email-editor/styles/scroll';
+@use '@h-k-dev/angular-email-editor/styles/scroll';
 
 // Only where the panel is declared: no box in the composer's column — an
 // empty block there is a flex item, and the column's gap round it pushed the

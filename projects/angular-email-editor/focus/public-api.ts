@@ -1,5 +1,5 @@
 /*
- * Public API Surface of angular-email-editor/focus
+ * Public API Surface of @h-k-dev/angular-email-editor/focus
  */
 
 export * from './keep-focus';

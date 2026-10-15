@@ -32,7 +32,7 @@ import {
   lintHTML,
   SourceOptions,
   TYPING_REST,
-} from 'angular-email-editor';
+} from '@h-k-dev/angular-email-editor';
 import { isTyping } from '../is-typing';
 /**
  * The HTML side of the composer: a ProseMirror editor over the source kit

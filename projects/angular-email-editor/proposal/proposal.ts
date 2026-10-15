@@ -22,9 +22,9 @@ import {
   proposeContent,
   reviseProposal,
   stopProposal,
-} from 'angular-email-editor';
-import { editorState } from 'angular-email-editor/actions';
-import { AnchorRect } from 'angular-email-editor/anchor';
+} from '@h-k-dev/angular-email-editor';
+import { editorState } from '@h-k-dev/angular-email-editor/actions';
+import { AnchorRect } from '@h-k-dev/angular-email-editor/anchor';
 
 /**
  * A proposal in an editor, as a host's panel sees it: what is proposed and

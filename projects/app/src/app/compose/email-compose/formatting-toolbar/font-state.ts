@@ -1,7 +1,7 @@
 import { Signal, computed } from '@angular/core';
 
 // Library
-import { emailFontFamilies, emailFontSizes } from 'angular-email-editor';
+import { emailFontFamilies, emailFontSizes } from '@h-k-dev/angular-email-editor';
 
 import { FormattingCommands } from '../formatting-commands';
 import { ToolbarMenuItem } from './toolbar-menu/toolbar-menu';

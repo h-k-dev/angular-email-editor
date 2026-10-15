@@ -37,7 +37,7 @@ import { TablePicker } from './table-picker/table-picker';
 import { ToolbarKeys } from './toolbar-keys';
 import { ToolbarMenu, ToolbarMenuItem } from './toolbar-menu/toolbar-menu';
 import { ToolbarOverflow, ToolbarOverflowItem } from './toolbar-overflow';
-import { KeepFocus } from 'angular-email-editor/focus';
+import { KeepFocus } from '@h-k-dev/angular-email-editor/focus';
 
 /** The buttons in the order people reach for them — marks, colour, then link,
     lists and their indent, the paragraph's shape, the rarer marks, the table — and so the

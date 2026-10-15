@@ -12,7 +12,7 @@ import {
   defaultAddressRules,
   isMailbox,
   isPending,
-} from 'angular-email-editor/address';
+} from '@h-k-dev/angular-email-editor/address';
 
 /** The error kinds `addressList` reports, for a host that switches on them. */
 export const ADDRESS_LIST_EMPTY = 'addressList.empty';

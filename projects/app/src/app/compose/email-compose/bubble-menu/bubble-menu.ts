@@ -10,9 +10,9 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
 
 // Library
-import { BubbleMenuState, selectedImageAlt } from 'angular-email-editor';
-import { ActionTrigger } from 'angular-email-editor/actions';
-import { KeepFocus } from 'angular-email-editor/focus';
+import { BubbleMenuState, selectedImageAlt } from '@h-k-dev/angular-email-editor';
+import { ActionTrigger } from '@h-k-dev/angular-email-editor/actions';
+import { KeepFocus } from '@h-k-dev/angular-email-editor/focus';
 
 import { I18n } from '../../../../services/i18n';
 import { FormattingCommands } from '../formatting-commands';

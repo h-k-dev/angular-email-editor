@@ -2,7 +2,7 @@ import { Component, output, signal } from '@angular/core';
 
 // Material
 import { MatIconModule } from '@angular/material/icon';
-import { KeepFocus } from 'angular-email-editor/focus';
+import { KeepFocus } from '@h-k-dev/angular-email-editor/focus';
 
 /**
  * The table-size picker: an 8×8 grid — sweep it to preview columns × rows,
