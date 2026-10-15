@@ -2,10 +2,11 @@
      the host's title, which is where a lone name recovers its address. -->
 <span data-slot="name">{{ mailbox().name ?? mailbox().address }}</span>
 
-@if (!valid()) {
-  <!-- Spoken, not shown: the flag is drawn by data-invalid on the host, and
-       a list item may not say aria-invalid — so the note says it. -->
-  <span data-slot="note">({{ invalidLabel() }})</span>
+@if (note(); as note) {
+  <!-- Spoken, not shown: the state is drawn by data-invalid or data-pending
+       on the host, and a list item may not say aria-invalid — so the note
+       says it. -->
+  <span data-slot="note">({{ note }})</span>
 }
 
 <!-- Spoken, not shown: a hold copied the address. The region is always

@@ -31,6 +31,8 @@ export interface AddressChipRemoveContext {
   readonly mailbox: Mailbox;
   /** Whether the address is well-formed. */
   readonly valid: boolean;
+  /** Whether the address is a placeholder a template fills in later. */
+  readonly pending: boolean;
   /** The remove control is out of play — the chip is `aria-disabled`. */
   readonly disabled: boolean;
   /** Whether the control belongs in the tab order. False in a list that

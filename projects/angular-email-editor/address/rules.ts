@@ -43,6 +43,13 @@ import type { AddressRules, Mailbox } from './address';
  * - A group needs whitespace, `;`, `,` or the end after its colon, so
  *   `hans:müller@x.de` stays one (invalid) address instead of silently
  *   becoming `müller@x.de` under a group called `hans`.
+ *
+ * **Placeholders** — not an RFC matter, a template one: an address holding
+ * a `{{…}}` token (`{{contact.email}}`, `"{{contact.name}}" <{{contact.email}}>`)
+ * is filled in later, so it is neither valid nor invalid yet
+ * (`isPlaceholder`), and a separator inside the braces is part of it
+ * (`{{join contacts ", "}}` is one entry). Only doubled braces count — a
+ * lone `{` is atext and stays an ordinary character.
  */
 
 // ── characters ───────────────────────────────────────────────────────────
@@ -107,20 +114,37 @@ function isIPv6(text: string): boolean {
 // ── the mailbox scanner ──────────────────────────────────────────────────
 
 /** Where the scan stands at one character: inside a quoted string, a
-    comment (nested), or angle brackets. */
+    comment (nested), angle brackets, or a `{{…}}` placeholder. */
 interface ScanState {
   quoted: boolean;
   comment: number;
   angled: boolean;
   escaped: boolean;
+  /** Inside `{{ … }}`. */
+  braced: boolean;
+  /** The character before was a `{` (outside) or a `}` (inside) — half
+      of a doubled brace. */
+  brace: boolean;
 }
 
-const at_top = (state: ScanState) => !state.quoted && !state.comment && !state.angled;
+const at_top = (state: ScanState) => !state.quoted && !state.comment && !state.angled && !state.braced;
 
 /** Steps the scan past one character; true when the character is structure
     (a quote, a bracket, part of a comment or an escape), not content at the
     top level. */
 function step(state: ScanState, char: string): boolean {
+  const half = state.brace;
+  state.brace = false;
+  if (state.braced) {
+    if (char === '}' && half) state.braced = false;
+    else state.brace = char === '}';
+    return true;
+  }
+  if (char === '{' && !state.quoted && !state.comment) {
+    if (half) state.braced = true;
+    else state.brace = true;
+    return half;
+  }
   if (state.escaped) {
     state.escaped = false;
     return true;
@@ -152,7 +176,14 @@ function step(state: ScanState, char: string): boolean {
   return true;
 }
 
-const fresh = (): ScanState => ({ quoted: false, comment: 0, angled: false, escaped: false });
+const fresh = (): ScanState => ({
+  quoted: false,
+  comment: 0,
+  angled: false,
+  escaped: false,
+  braced: false,
+  brace: false,
+});
 
 /** Whether a separator typed at `caret` would separate — false inside a
     quoted name, a comment or angle brackets, where a comma is part of the
@@ -384,11 +415,20 @@ function quotedPrintable(data: string): Uint8Array {
   return Uint8Array.from(bytes);
 }
 
+// ── placeholders ─────────────────────────────────────────────────────────
+
+/** Whether an address holds a `{{…}}` placeholder — one a template fills
+    in later, so neither valid nor invalid yet. */
+export function isAddressPlaceholder(address: string): boolean {
+  return /\{\{[^{}]*\}\}/.test(address);
+}
+
 /** Our rule, as the contract every part of the library asks through. */
 export const defaultAddressRules: AddressRules = {
   split: splitAddresses,
   parse: parseMailbox,
   format: formatMailbox,
   isValid: isEmailAddress,
+  isPlaceholder: isAddressPlaceholder,
   identity: addressIdentity,
 };

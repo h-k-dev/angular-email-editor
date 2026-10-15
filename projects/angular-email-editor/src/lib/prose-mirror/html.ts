@@ -23,6 +23,7 @@ import {
 import { ParseMode } from './parse-mode';
 import { createDOMParser, materializeComments, realizeComments, trimInlineBoxes } from './preserve';
 import { applyEmailVocabulary } from './email-vocabulary';
+import { correctStoredMistakes } from './corrections';
 
 const serializerCache = new WeakMap<Schema, DOMSerializer>();
 
@@ -109,8 +110,10 @@ export interface ParseOptions {
  * - `email` (the editor's default) and `preserve`: the markup is kept as
  *   authored — comments survive as nodes, a document envelope (`<!doctype>`,
  *   `<html>`, `<head>`, `<body>` attributes) lands on the document node's
- *   `envelope` attribute, and `email` first drops whatever no floor client
- *   applies (email-vocabulary.ts).
+ *   `envelope` attribute, and `email` first corrects what another editor
+ *   stored wrongly (corrections.ts: `mailto://`, Word's `<o:p>`, Bootstrap
+ *   borders, an inline around blocks, a video embed) and then drops whatever
+ *   no floor client applies (email-vocabulary.ts).
  *
  * Every mode then shares the structural repairs. Tables are where foreign
  * markup breaks the rules hardest: real mail arrives with rows of unequal
@@ -147,7 +150,11 @@ export function parseHTML(html: string, schema: Schema, options: ParseOptions = 
     parsed = parser.parse(dom.body);
   } else {
     const dom = parseDocument(html);
-    if (mode === 'email') applyEmailVocabulary(dom.documentElement);
+    if (mode === 'email') {
+      // Before the vocabulary: an embed becomes a link before it is refused.
+      correctStoredMistakes(dom);
+      applyEmailVocabulary(dom.documentElement);
+    }
     materializeComments(dom.body);
     trimInlineBoxes(dom.body);
     const docType = schema.topNodeType;

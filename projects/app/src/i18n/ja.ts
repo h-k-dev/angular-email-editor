@@ -23,6 +23,13 @@ export default {
     close: '閉じる',
     sent: 'メッセージを送信しました',
   },
+  composer: {
+    placeholders: {
+      filled: 'プレースホルダーを埋めました',
+      empty: '値のないプレースホルダー: {{count}}件',
+      failed: 'プレースホルダーを埋められませんでした',
+    },
+  },
   editor: {
     quoted: {
       show: '引用テキストを表示',
@@ -61,6 +68,10 @@ export default {
       outdent: { title: 'インデントを減らす', keywords: 'インデント, 字上げ' },
       'clear-formatting': { title: '書式をクリア', keywords: '書式, クリア, しょしき' },
       send: { title: '送信', keywords: '送信, そうしん' },
+      'resolve-placeholders': {
+        title: 'プレースホルダーを埋める',
+        keywords: 'プレースホルダー, 差し込み, 変数, さしこみ',
+      },
       templates: {
         title: 'テンプレート',
         keywords: 'テンプレート, 定型文, てんぷれーと',

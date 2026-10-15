@@ -31,6 +31,11 @@ import { AddressInput } from 'angular-email-editor/address-input';
  *
  * No `NgControl`: signal forms bind through `[formField]`, which the field
  * does not need to know.
+ *
+ * The field's value is the input's — one header-form entry per recipient.
+ * A backend that keeps the header as one string gets it with
+ * `joinAddresses(list)` and hands it back through `splitAddresses(text)`
+ * (`angular-email-editor/address`); the pair round-trips entry for entry.
  */
 @Directive({
   selector: '[email-address-input][emailMatFormField]',

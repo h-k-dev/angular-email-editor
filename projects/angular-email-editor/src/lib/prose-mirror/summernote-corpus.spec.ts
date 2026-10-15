@@ -60,21 +60,30 @@ const BLOCKS = new Set([
 ]);
 const INLINES = new Set(['span', 'b', 'strong', 'i', 'em', 'u', 's', 'strike', 'del', 'font', 'a']);
 
-/** `{{ x }}` and `{{x}}` as one spelling — whether the respacing is safe is
-    asked separately (see `KNOWN`). */
+/** `{{ x }}` and `{{x}}` as one spelling. The serializer writes a merge tag
+    with a space inside each brace, and that is safe for core: its backend
+    (iusta-utils' TextParser) finds `/{{(.*?)}}/` and compiles the inside
+    as an Angular expression, which ignores the whitespace at its edges. The
+    expression itself — string literals included — is never touched. */
 const tight = (text: string) => text.replace(/\{\{\s*(.*?)\s*\}\}/g, '{{$1}}');
 
-/** The words, in order, with every block boundary a break. */
-function words(html: string): string[] {
+/** A link the correction made out of one of `embeds` — new, not kept. */
+const madeFrom = (node: HtmlNode, embeds: string[]) =>
+  node.nodeName === 'a' && embeds.includes(video(attr(node, 'href')));
+
+/** The words, in order, with every block boundary a break; links made from
+    `embeds` left out. */
+function words(html: string, embeds: string[] = []): string[] {
   let text = '';
   const visit = (node: HtmlNode) => {
+    if (madeFrom(node, embeds)) return;
     if (node.nodeName === '#text') text += node.value;
     if (BLOCKS.has(node.nodeName)) text += '\n';
     node.childNodes?.forEach(visit);
     if (BLOCKS.has(node.nodeName)) text += '\n';
   };
   visit(tree(html));
-  return tight(text.replace(/ /g, ' ')).split(/\s+/).filter(Boolean);
+  return tight(text.replace(/\u00a0/g, ' ')).split(/\s+/).filter(Boolean);
 }
 
 /** Every `{{…}}`, in text and in attribute values, as written. */
@@ -92,16 +101,20 @@ const images = (html: string) => [...walk(tree(html))].filter((n) => n.nodeName 
 
 /** Embedded players (Summernote's video button): a client shows none, so
     the intent — "watch this" — must survive as a link to the same address. */
-const unschemed = (url: string | undefined) => (url ?? '').replace(/^(https?:)?\/\//, '');
+const video = (url: string | undefined) =>
+  /(?:\/embed\/|[?&]v=|vimeo\.com\/(?:video\/)?)([\w-]+)/.exec(url ?? '')?.[1] ??
+  (url ?? '').replace(/^(https?:)?\/\//, '');
 const media = (html: string) =>
   [...walk(tree(html))]
     .filter((n) => n.nodeName === 'iframe' || n.nodeName === 'video')
-    .map((n) => unschemed(attr(n, 'src')));
-const linked = (html: string) => links(html).map(unschemed);
+    .map((n) => video(attr(n, 'src')));
+const linked = (html: string) => links(html).map(video);
 
-/** Placeholders in running text — the ones the serializer respaces. */
-const textPlaceholders = (html: string) =>
-  [...walk(tree(html))].some((n) => n.nodeName === '#text' && /\{\{.*?\}\}/.test(n.value!));
+/** A link target as its author meant it — Summernote's scheme quirks undone
+    (the "corrected" checks prove they are; here they must not count as loss). */
+const meant = (href: string | undefined) =>
+  (href ?? '').replace(/^(mailto|tel):\/\//i, '$1:').replace(/^https?:\/\/(\{\{[^{}]*\}\})$/i, '$1');
+
 
 /** A style attribute as text — never through a CSSOM (jsdom's misreads). */
 function declarations(style: string | undefined): Map<string, string> {
@@ -142,7 +155,7 @@ function lookOf(node: HtmlNode, inherited: Look, depth: { list: number }): Look 
   if (name === 'i' || name === 'em') look['italic'] = 'yes';
   if (name === 'u') look['underline'] = 'yes';
   if (name === 's' || name === 'strike' || name === 'del') look['strike'] = 'yes';
-  if (name === 'a') look['link'] = attr(node, 'href') ?? '';
+  if (name === 'a') look['link'] = meant(attr(node, 'href'));
   if (name === 'font' && attr(node, 'color')) look['color'] = color(attr(node, 'color')!.toLowerCase());
   if (/^h[1-6]$/.test(name)) look['heading'] = name;
   if (name === 'blockquote') look['quote'] = 'yes';
@@ -167,12 +180,14 @@ function lookOf(node: HtmlNode, inherited: Look, depth: { list: number }): Look 
   return look;
 }
 
-/** Runs of text that look alike, whitespace aside: `[text, look]`. */
-function runs(html: string): [string, string][] {
+/** Runs of text that look alike, whitespace aside: `[text, look]`; links
+    made from `embeds` left out. */
+function runs(html: string, embeds: string[] = []): [string, string][] {
   const out: [string, string][] = [];
   const visit = (node: HtmlNode, look: Look, depth: { list: number }) => {
+    if (madeFrom(node, embeds)) return;
     if (node.nodeName === '#text') {
-      const text = tight(node.value!.replace(/ /g, ' ')).replace(/\s+/g, '');
+      const text = tight(node.value!.replace(/\u00a0/g, ' ')).replace(/\s+/g, '');
       if (!text) return;
       const key = Object.entries(look).sort().map(([k, v]) => `${k}=${v}`).join(' ');
       const last = out[out.length - 1];
@@ -234,33 +249,8 @@ const MISTAKES: Record<string, (html: string) => string[]> = {
 // ── what is not right yet ───────────────────────────────────────────────
 
 /** `file → check → why`. Each runs as `it.fails` until fixed. */
-const KNOWN: Record<string, Record<string, string>> = {
-  '10-links.html': {
-    'mailto:// links': 'the email parse keeps hrefs as authored; nothing repairs mailto://',
-    'scheme glued onto a placeholder': 'nothing strips http:// in front of {{…}}',
-  },
-  '09-table.html': {
-    'borders that were Bootstrap CSS': 'table-bordered is kept as a class; its borders are never inlined',
-  },
-  '12-hr-and-video.html': {
-    'kept: embedded media as a link': 'the YouTube iframe is dropped (right) without leaving a link to the video (wrong)',
-  },
-  '13-paste-word.html': {
-    'Office markup': '<o:p> and Mso classes pass the email parse',
-    'block inside an inline or a <p>': 'the email parse wraps text in a <div> line inside Word\'s <p><b><span>',
-    'kept: formatting': 'a client re-nests that <div>, closing the span: colour, size and font are lost',
-    'opens and saves as itself the second time': 'the invalid nesting above re-nests on the next open',
-  },
-  '14-paste-outlook-signature.html': {
-    'Office markup': 'Mso classes inside the pasted signature table pass the email parse',
-  },
-  '15-paste-gmail.html': {
-    'block inside an inline or a <p>': 'Gmail\'s <font> around the signature divs is kept around block lines',
-  },
-};
+const KNOWN: Record<string, Record<string, string>> = {};
 
-/** Every file: placeholders come back spelled as written. */
-const RESPACED = 'serializer writes {{x}} as {{ x }}; core writes {{cf_12}} — the backend parser must accept both';
 
 // ── the suite ───────────────────────────────────────────────────────────
 
@@ -282,21 +272,20 @@ function corpus(title: string, dir: string, known: Record<string, Record<string,
         };
 
         check('opens and saves as itself the second time', () => expect(open(opened)).toBe(opened));
-        check('kept: text', () => expect(words(opened)).toEqual(words(source)));
+        check('kept: text', () => expect(words(opened, media(source))).toEqual(words(source)));
         check('kept: placeholders', () => expect(placeholders(opened).map(tight)).toEqual(placeholders(source).map(tight)));
-        check('kept: link targets', () => expect(links(opened)).toEqual(links(source)));
+        check('kept: link targets', () =>
+          expect(links(opened).filter((href) => !media(source).includes(video(href)))).toEqual(links(source).map(meant)),
+        );
         check('kept: images', () => expect(images(opened)).toEqual(images(source)));
         check('kept: embedded media as a link', () =>
           expect(media(source).filter((src) => !linked(opened).includes(src))).toEqual([]),
         );
-        check('kept: formatting', () => expect(runs(opened)).toEqual(runs(source)));
+        check('kept: formatting', () => expect(runs(opened, media(source))).toEqual(runs(source)));
         for (const [name, mistakes] of Object.entries(MISTAKES)) {
           check(name, () => expect(mistakes(opened)).toEqual([]));
         }
 
-        const spelled = () => expect(placeholders(opened)).toEqual(placeholders(source));
-        if (textPlaceholders(source)) it.fails(`placeholders spelled as written — KNOWN: ${RESPACED}`, spelled);
-        else it('placeholders spelled as written', spelled);
       });
     }
   });
@@ -322,6 +311,10 @@ describe('Summernote corpus', () => {
     expect(words('<div>{{ a }}</div>')).toEqual(words('<div>{{a}}</div>'));
     expect(media('<iframe src="//www.youtube.com/embed/x"></iframe>')).toEqual(linked('<a href="https://www.youtube.com/embed/x">v</a>'));
     expect(media('<div></div>')).toEqual([]);
+    expect(linked('<a href="https://www.youtube.com/watch?v=x">v</a>')).toEqual(media('<iframe src="//www.youtube.com/embed/x"></iframe>'));
+    expect(meant('mailto://a@b.de')).toBe('mailto:a@b.de');
+    expect(meant('http://{{link}}')).toBe('{{link}}');
+    expect(meant('http://{{host}}/path')).toBe('http://{{host}}/path');
   });
 
   corpus('generated from Summernote 0.9.1 with core\'s patches', DIR, KNOWN);

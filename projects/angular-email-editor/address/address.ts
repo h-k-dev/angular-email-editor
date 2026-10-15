@@ -35,6 +35,11 @@ export interface AddressRules {
   format(mailbox: Mailbox): string;
   /** Whether a bare address — no name, no brackets — is well-formed. */
   isValid(address: string): boolean;
+  /** Whether an address is a placeholder a template fills in later
+      (`{{contact.email}}`) — neither valid nor invalid until then. A host
+      that sends what is typed, unresolved, turns it off with
+      `provideAddressRules({ isPlaceholder: () => false })`. */
+  isPlaceholder(address: string): boolean;
   /** What makes two addresses one recipient: equal identities are. */
   identity(address: string): string;
 }
@@ -62,9 +67,36 @@ export function isMailbox(raw: string, rules: AddressRules = defaultAddressRules
   return rules.isValid(rules.parse(raw).address);
 }
 
+/** Whether a header-form entry's address is a placeholder — pending: a
+    template fills it in later, so it is no mistake to flag. */
+export function isPending(raw: string, rules: AddressRules = defaultAddressRules): boolean {
+  return rules.isPlaceholder(rules.parse(raw).address);
+}
+
 /** What makes two header-form entries one recipient — the name in front of
     the address makes no second one. For a list that holds each recipient
     once. */
 export function addressKey(raw: string, rules: AddressRules = defaultAddressRules): string {
   return rules.identity(rules.parse(raw).address);
+}
+
+/**
+ * A list of header-form entries as one header value — `"Müller, Hans"
+ * <h@x.de>, b@c.de` — for a backend or a template that keeps To, Cc and Bcc
+ * as text. The way back is the rule's own `split`: `rules.split(joined)` is
+ * the list again, entry for entry. A well-formed mailbox is written in its
+ * canonical form (a name with a comma quoted); anything else — a typo, a
+ * `{{placeholder}}` — goes in as it is, for the backend to resolve or refuse.
+ *
+ * ```ts
+ * to: joinAddresses(form.to().value()),           // out to the backend
+ * form.to().value.set(splitAddresses(template.to)) // back in
+ * ```
+ */
+export function joinAddresses(list: readonly string[], rules: AddressRules = defaultAddressRules): string {
+  return list
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => (isMailbox(entry, rules) ? rules.format(rules.parse(entry)) : entry))
+    .join(', ');
 }

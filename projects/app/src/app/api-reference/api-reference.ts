@@ -140,6 +140,12 @@ export class ApiReference {
           does: 'Opts the document into the AngularJS-expression dialect: expressions parse, unknown syntax is diagnosed live, and angularRequiredFields reports what the body reads.',
         },
         {
+          name: 'createMergeTagResolution · mergeTagResolutionPending',
+          signature:
+            '({ resolve: (expressions) => Promise<(string | null)[]>, onResolved?, onError?, onPendingChange? }) => FunctionalExtension · (state) => boolean',
+          does: 'Fills the placeholders in with the host’s values: each distinct expression is asked for once, raw — read off the document, never the HTML, so && or > never arrives as &amp;&amp; — and every value goes back in as text, in its token’s place and with its formatting, in one undo step. Text and attributes alike (a link’s or button’s href, a button’s label, an image’s src). With a selection holding tokens, only those. A string replaces a token, "" removes it, null keeps it; onResolved reports filled, empty and kept. Mod-Shift-Enter, the resolve-placeholders action (a / row), the resolveMergeTags command; one request at a time, the scope following what is typed meanwhile.',
+        },
+        {
           name: 'createTextMetrics',
           signature: '(options: TextMetricsOptions) => FunctionalExtension',
           does: 'Streams live TextMetrics (words, characters, lines, estimated height) — measured mathematically over cached glyph widths, never by touching the DOM.',
@@ -316,6 +322,11 @@ export class ApiReference {
           name: 'isMailbox / addressKey',
           signature: '(raw: string, rules?: AddressRules) => boolean | string',
           does: 'Whether a header-form entry is a well-formed mailbox, and its identity for keeping each recipient once — by the given rule, ours by default.',
+        },
+        {
+          name: 'joinAddresses',
+          signature: '(list: readonly string[], rules?: AddressRules) => string',
+          does: 'The list as one header value (“"Müller, Hans" <h@x.de>, b@c.de”) for a backend that keeps To/Cc/Bcc as text; the rule’s split reads it back entry for entry. What is no mailbox — a typo, a {{placeholder}} — goes in as it is.',
         },
         {
           name: 'parseMailbox / formatMailbox / splitAddresses / isEmailAddress / addressIdentity',

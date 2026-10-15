@@ -398,12 +398,15 @@ const scenarios = {
     await h.paste(WEB, 'Ihre Rechte als Mandant …');
   },
 
-  /** A template body set through the code view, then touched up visually. */
+  /** A template body set through the code view, then touched up visually.
+      Core's placeholders are Angular expressions (iusta-utils' TextParser
+      compiles what `/{{(.*?)}}/` finds): ternaries, filters, operators. */
   async 'codeview-template'(h) {
     await h.code(
-      '<div style="font-family: Arial; font-size: 13px;">Sehr geehrte{{#if contact.female}} Frau{{else}}r Herr{{/if}} {{contact.lastName}},</div>' +
+      `<div style="font-family: Arial; font-size: 13px;">Sehr geehrte{{ customer_gender == 'f' ? ' Frau' : 'r Herr' }} {{customer_lastName}},</div>` +
         '<div><br></div>' +
-        '<div>Ihr Aktenzeichen: <b>{{case.reference}}</b></div>' +
+        '<div>Ihr Aktenzeichen: <b>{{case_reference}}</b>, Frist: {{ cf_12 | formatDateDE }}</div>' +
+        `<div>{{ cf_3 > 0 && cf_4 ? 'Kosten fallen an.' : '' }}</div>` +
         '<table style="width: 100%; border-collapse: collapse;" border="1"><tbody><tr><td style="padding: 4px;">Gericht</td><td style="padding: 4px;">{{court.name}}</td></tr></tbody></table>' +
         '<div><a href="{{portal.link}}" target="_blank">Portal öffnen</a></div>',
     );

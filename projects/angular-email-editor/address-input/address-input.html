@@ -21,6 +21,7 @@
       [removeLabel]="removeLabel()"
       [removeTemplate]="removeSlot()?.template ?? null"
       [invalidLabel]="invalidLabel()"
+      [pendingLabel]="pendingLabel()"
       [aria-disabled]="disabled()"
       (removed)="removeChip(address)"
       (click)="onChipClick($event, $index, field)"

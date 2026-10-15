@@ -34,4 +34,28 @@ export class MergeTags {
   find(filter: Filter<MergeTag> = {}, options: FindOptions = {}): Promise<MergeTag[]> {
     return respond(applyFilter(this.#rows, filter), options);
   }
+
+  /** The one contact the demo fills placeholders in for. */
+  readonly #sample: Readonly<Record<string, string>> = {
+    firstName: 'Ada',
+    lastName: 'Lovelace',
+    email: 'ada@example.com',
+    'company.name': 'Analytical Engines Ltd',
+    unsubscribeUrl: 'https://example.com/unsubscribe',
+  };
+
+  /**
+   * Values for placeholder expressions, in order. Stands in for
+   * `POST /api/TextParser/parseStrings` — iusta's evaluator, which compiles
+   * each `{{…}}` as an AngularJS expression against the case. This one
+   * knows the catalogue's paths only, filled from one sample contact; any
+   * other expression comes back empty, the way a real evaluator answers a
+   * field without a value.
+   */
+  resolve(expressions: readonly string[], options: FindOptions = {}): Promise<string[]> {
+    return respond(
+      expressions.map((expression) => this.#sample[expression] ?? ''),
+      options,
+    );
+  }
 }

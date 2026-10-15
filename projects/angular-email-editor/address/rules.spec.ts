@@ -1,8 +1,9 @@
-import { addressKey, isMailbox } from './address';
+import { addressKey, isMailbox, isPending, joinAddresses } from './address';
 import {
   addressIdentity,
   decodeEncodedWords,
   formatMailbox,
+  isAddressPlaceholder,
   isEmailAddress,
   parseMailbox,
   separatesAt,
@@ -284,6 +285,53 @@ describe('our address rule', () => {
     it('judges the caret, not the end of the text', () => {
       expect(separatesAt('"Lovelace" x', 1)).toBe(false);
       expect(separatesAt('"Lovelace" x', 10)).toBe(true);
+    });
+
+    it('is false inside a {{placeholder}}, true once it closes', () => {
+      expect(separatesAt('{{join contacts', 15)).toBe(false);
+      expect(separatesAt('{{join contacts}}', 17)).toBe(true);
+      expect(separatesAt('a{b', 3)).toBe(true);
+    });
+  });
+
+  describe('placeholders — a template fills them in later', () => {
+    it('are addresses holding a {{…}} token, whole or in part', () => {
+      expect(isAddressPlaceholder('{{contact.email}}')).toBe(true);
+      expect(isAddressPlaceholder('{{ contact.email }}')).toBe(true);
+      expect(isAddressPlaceholder('{{user}}@kanzlei.de')).toBe(true);
+      expect(isAddressPlaceholder('{{cf_12}}')).toBe(true);
+    });
+
+    it('are not a lone brace, an empty pair or an ordinary address', () => {
+      expect(isAddressPlaceholder('a{b}@x.io')).toBe(false);
+      expect(isAddressPlaceholder('{contact}')).toBe(false);
+      expect(isAddressPlaceholder('ada@x.io')).toBe(false);
+    });
+
+    it('are pending whatever the name, and never a mailbox', () => {
+      expect(isPending('"{{contact.name}}" <{{contact.email}}>')).toBe(true);
+      expect(isPending('{{contact.email}}')).toBe(true);
+      expect(isPending('Ada <ada@x.io>')).toBe(false);
+      expect(isMailbox('{{contact.email}}')).toBe(false);
+    });
+
+    it('stay one entry, a separator inside the braces included', () => {
+      expect(splitAddresses('{{join contacts ", "}}; b@c.de')).toEqual(['{{join contacts ", "}}', 'b@c.de']);
+      expect(splitAddresses('{{a}}, {{b}}')).toEqual(['{{a}}', '{{b}}']);
+      expect(splitAddresses('"{{contact.name}}" <{{contact.email}}>, x@y.de')).toEqual([
+        '"{{contact.name}}" <{{contact.email}}>',
+        'x@y.de',
+      ]);
+    });
+
+    it('leave a lone brace an ordinary character — it never swallows the list', () => {
+      expect(splitAddresses('a{@x.io, b@y.de')).toEqual(['a{@x.io', 'b@y.de']);
+      expect(splitAddresses('a}}@x.io, b@y.de')).toEqual(['a}}@x.io', 'b@y.de']);
+    });
+
+    it('round-trip through a header string', () => {
+      const list = ['{{join contacts ", "}}', '"{{contact.name}}" <{{contact.email}}>', 'x@y.de'];
+      expect(splitAddresses(joinAddresses(list))).toEqual(list);
     });
   });
 });

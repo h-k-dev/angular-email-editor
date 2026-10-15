@@ -35,6 +35,7 @@ import { MatIconButton } from '@angular/material/button';
 import { MatFormField, MatPrefix, MatSuffix } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatIcon } from '@angular/material/icon';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 // Angular File Drop
 import { AngularFileDrop, FileDropEvent } from '@h-k-dev/angular-file-drop';
@@ -43,6 +44,7 @@ import { AngularFileDrop, FileDropEvent } from '@h-k-dev/angular-file-drop';
 import {
   Editor,
   InlineImages,
+  MergeTagResolutionReport,
   emailDocument,
   importLoss,
   importedDocument,
@@ -58,12 +60,14 @@ import {
 } from 'angular-email-editor/attachment-chip';
 import { AttachmentChips } from 'angular-email-editor/attachment-chips';
 import { KeepFocus } from 'angular-email-editor/focus';
+import { ActionTrigger, injectActions } from 'angular-email-editor/actions';
 import { AddressFormField } from 'angular-email-editor/material';
 
 import { DropHint } from '../drop-hint/drop-hint';
 import { EmailCompose, SourceView } from '../email-compose/email-compose';
 import { EmailWriter } from '../email-writer/email-writer';
 import { Viewport } from '../../../services/viewport';
+import { I18n } from '../../../services/i18n';
 import { AttachmentUploads } from '../../../services/attachment-uploads';
 import { EmailSend, SendRejected } from '../../../services/email-send';
 import { BLANK, Envelope, hasContent, isBlank } from './envelope';
@@ -109,6 +113,7 @@ let nextSheetId = 0;
     DropHint,
     AngularFileDrop,
     KeepFocus,
+    ActionTrigger,
 
     // Material form fields (the `material` frame)
     MatFormField,
@@ -145,6 +150,42 @@ export class MessageForm {
   readonly #images = inject(InlineImages);
   readonly #injector = inject(Injector);
   protected readonly viewport = inject(Viewport);
+  protected readonly i18n = inject(I18n);
+  readonly #snackBar = inject(MatSnackBar);
+
+  /** The body's editor, for the bar's own action buttons — read through an
+      optional query, since the actions bind before the view exists. */
+  private readonly pane = viewChild(EmailCompose);
+
+  /** The editor's actions the bar offers beside Send. */
+  protected readonly actions = injectActions(() => this.pane()?.editor());
+
+  /** The fill's key, as the platform spells Mod-Shift-Enter. */
+  protected readonly fillShortcut = /Mac|iPhone|iPad/.test(navigator.userAgent)
+    ? '⇧⌘↩'
+    : 'Ctrl+Shift+Enter';
+
+  /** Says what the placeholder fill did: done, or how many came back
+      without a value — those tokens are gone, and the user should look. */
+  protected placeholdersFilled(report: MergeTagResolutionReport): void {
+    const empty = report.empty.length;
+    const message = empty
+      ? this.i18n.t(
+          'composer.placeholders.empty',
+          empty === 1 ? '1 placeholder had no value' : `${empty} placeholders had no value`,
+          { count: empty },
+        )
+      : this.i18n.t('composer.placeholders.filled', 'Placeholders filled in');
+    this.#snackBar.open(message, undefined, { duration: 4000 });
+  }
+
+  protected placeholdersFailed(): void {
+    this.#snackBar.open(
+      this.i18n.t('composer.placeholders.failed', 'Placeholders could not be filled in'),
+      undefined,
+      { duration: 6000 },
+    );
+  }
 
   /** The Subject input's id, unique on the page. */
   protected readonly subjectId = `message-subject-${nextSheetId}`;

@@ -24,6 +24,13 @@ export default {
     close: 'Schließen',
     sent: 'Nachricht gesendet',
   },
+  composer: {
+    placeholders: {
+      filled: 'Platzhalter eingesetzt',
+      empty: '{{count}} Platzhalter ohne Wert',
+      failed: 'Platzhalter konnten nicht eingesetzt werden',
+    },
+  },
   editor: {
     quoted: {
       show: 'Zitierten Text anzeigen',
@@ -65,6 +72,10 @@ export default {
       outdent: { title: 'Einzug verkleinern', keywords: 'einzug, ausrücken' },
       'clear-formatting': { title: 'Formatierung entfernen', keywords: 'formatierung, löschen' },
       send: { title: 'Senden', keywords: 'senden, abschicken' },
+      'resolve-placeholders': {
+        title: 'Platzhalter einsetzen',
+        keywords: 'platzhalter, einsetzen, parsen, variablen, felder',
+      },
       templates: {
         title: 'Vorlagen',
         keywords: 'vorlage, baustein',

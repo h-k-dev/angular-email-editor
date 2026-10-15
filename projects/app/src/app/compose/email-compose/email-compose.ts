@@ -72,6 +72,8 @@ import {
   createImageDrag,
   createInlineImages,
   createSendIntent,
+  createMergeTagResolution,
+  MergeTagResolutionReport,
   createSuggestionMenu,
   extensionSuggestions,
   SuggestionItem,
@@ -257,6 +259,13 @@ export class EmailCompose implements FormValueControl<string> {
       writer's Send button). Envelope and transport are the host's — this is
       the whole send API. */
   send = output<SendIntent>();
+
+  /** The placeholders were filled in — what became of them, for the
+      host's message. Mod-Shift-Enter, the `/` row and the writer's
+      button all end here. */
+  placeholdersFilled = output<MergeTagResolutionReport>();
+  /** The evaluator failed; the body is as it was. */
+  placeholdersFailed = output<unknown>();
 
   #capturing = false;
   #captured: SendIntent | undefined;
@@ -577,6 +586,14 @@ export class EmailCompose implements FormValueControl<string> {
             if (this.#capturing) this.#captured = intent;
             else this.send.emit(intent);
           },
+        }),
+        // Core's "Parse", done from the document: each distinct expression
+        // goes to the evaluator raw (no HTML, so no `&amp;&amp;`), every
+        // value comes back in as text in its token's place — one undo step.
+        createMergeTagResolution({
+          resolve: (expressions) => this.#mergeTags.resolve(expressions),
+          onResolved: (report) => this.placeholdersFilled.emit(report),
+          onError: (error) => this.placeholdersFailed.emit(error),
         }),
       ],
       attributes: { role: 'textbox', 'aria-multiline': 'true', 'aria-label': 'Message body' },

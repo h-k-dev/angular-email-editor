@@ -11,6 +11,7 @@ import {
   AddressRules,
   defaultAddressRules,
   isMailbox,
+  isPending,
 } from 'angular-email-editor/address';
 
 /** The error kinds `addressList` reports, for a host that switches on them. */
@@ -50,7 +51,10 @@ const MESSAGES: Required<NonNullable<AddressListOptions['messages']>> = {
  * string. This validates a `string[]` of mailboxes in header form — the
  * address input's value — as a list: at least `min` of them (one, unless
  * told otherwise), at most `max`, and every one a well-formed address, with
- * the offenders named in the message so a chip can be found and fixed.
+ * the offenders named in the message so a chip can be found and fixed. A
+ * placeholder a template fills in later (`{{contact.email}}`, by the rule's
+ * `isPlaceholder`) is no offender — it counts toward `min` and `max`;
+ * whether it may still be sent unresolved is the host's call.
  *
  * ```ts
  * const envelope = form(model, (p) => {
@@ -76,7 +80,9 @@ export function addressList<TPathKind extends PathKind = PathKind.Root>(
     if (addresses.length < min) {
       errors.push({ kind: ADDRESS_LIST_EMPTY, message: messages.empty(min) });
     }
-    const offenders = addresses.filter((address) => !isMailbox(address, rules));
+    const offenders = addresses.filter(
+      (address) => !isMailbox(address, rules) && !isPending(address, rules),
+    );
     if (offenders.length) {
       errors.push({ kind: ADDRESS_LIST_INVALID, message: messages.invalid(offenders) });
     }

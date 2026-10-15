@@ -105,6 +105,28 @@
   );
 }
 
+// A placeholder a template fills in later: neither right nor wrong yet, so
+// not flagged. Tinted the way the editor tints a merge tag (and through its
+// token), so `{{contact.email}}` reads as one thing in the To field and in
+// the body; the spoken note says it in words.
+:host([data-pending])::before {
+  background-color: var(
+    --email-address-chip-pending-background,
+    var(
+      --email-merge-tag-background,
+      color-mix(in srgb, var(--mat-sys-primary, #4c6ef5) 12%, transparent)
+    )
+  );
+}
+
+// Inline the tint stays — it is information, not chrome — hugging the text
+// like the editor's pill: painted over the box, never laid out.
+:host([data-pending][data-inline])::before {
+  content: '';
+  inset: 2px -3px;
+  border-radius: var(--email-address-chip-pending-corner, 4px);
+}
+
 :host([aria-disabled='true']) {
   opacity: 0.6;
 }

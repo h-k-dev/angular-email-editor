@@ -828,6 +828,64 @@ describe('AddressInput under a host’s address rule', () => {
   });
 });
 
+describe('AddressInput and placeholders a template fills in', () => {
+  async function setup(providers: unknown[] = []) {
+    await TestBed.configureTestingModule({ imports: [FormHost], providers: providers as never[] }).compileComponents();
+    const fixture = TestBed.createComponent(FormHost);
+    await fixture.whenStable();
+    const to = parts(fixture.nativeElement.querySelectorAll('[email-address-input]')[1]);
+    return { fixture, host: fixture.componentInstance, to };
+  }
+
+  it('chips a placeholder as pending — never flagged — and the form takes it', async () => {
+    const { fixture, host, to } = await setup();
+    to.input().focus();
+    type(to.input(), '{{contact.email}}, "{{contact.name}}" <{{contact.email2}}>');
+    key(to.input(), 'Enter');
+    await fixture.whenStable();
+    expect(host.model().to).toEqual(['{{contact.email}}', '"{{contact.name}}" <{{contact.email2}}>']);
+    expect(to.input().value).toBe('');
+    expect(to.input().hasAttribute('data-refused')).toBe(false);
+
+    const chips = to.chips();
+    expect(chips.map((c) => c.getAttribute('data-pending'))).toEqual(['true', 'true']);
+    expect(chips.map((c) => c.hasAttribute('data-invalid'))).toEqual([false, false]);
+    expect(chips[0].querySelector('[data-slot=note]')!.textContent).toBe('(filled in when sent)');
+    expect(chips[0].getAttribute('title')).toBe('{{contact.email}} — filled in when sent');
+
+    to.input().dispatchEvent(new Event('blur'));
+    await fixture.whenStable();
+    expect(host.envelope.to().valid()).toBe(true);
+    expect(to.field().hasAttribute('data-invalid')).toBe(false);
+  });
+
+  it('keeps a typo a typo beside a placeholder', async () => {
+    const { fixture, host, to } = await setup();
+    host.model.update((m) => ({ ...m, to: ['{{contact.email}}', 'nope'] }));
+    await fixture.whenStable();
+    expect(to.chips().map((c) => [c.getAttribute('data-pending'), c.getAttribute('data-invalid')])).toEqual([
+      ['true', null],
+      [null, 'true'],
+    ]);
+    expect(host.envelope.to().errors().map((e) => e.message)).toEqual(['“nope” is not an email address']);
+  });
+
+  it('a host that sends what is typed turns placeholders off: then they are typos', async () => {
+    const { fixture, host, to } = await setup([provideAddressRules({ isPlaceholder: () => false })]);
+    type(to.input(), '{{contact.email}}');
+    key(to.input(), 'Enter');
+    await fixture.whenStable();
+    expect(host.model().to).toEqual([]);
+    expect(to.input().hasAttribute('data-refused')).toBe(true);
+
+    host.model.update((m) => ({ ...m, to: ['{{contact.email}}'] }));
+    await fixture.whenStable();
+    expect(to.chips()[0].getAttribute('data-invalid')).toBe('true');
+    expect(to.chips()[0].hasAttribute('data-pending')).toBe(false);
+    expect(host.envelope.to().errors().map((e) => e.kind)).toContain(ADDRESS_LIST_INVALID);
+  });
+});
+
 describe('AddressInput remove slot', () => {
   it('hands the host’s remove template to every chip, in place of the default button', async () => {
     const fixture = TestBed.createComponent(SlotHost);

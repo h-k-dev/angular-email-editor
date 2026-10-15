@@ -48,7 +48,9 @@ function copyWithCommand(text: string): boolean {
  *
  * **State on the host.** `data-invalid` marks a malformed address (a list
  * item may not carry `aria-invalid`; the flag is spoken through the `note`
- * slot instead). `aria-disabled` takes the remove button out of play, and
+ * slot instead). `data-pending` marks a placeholder a template fills in
+ * later (`{{contact.email}}`) — no mistake, so never flagged as one; the
+ * note says what it is. `aria-disabled` takes the remove button out of play, and
  * `aria-current` marks the chip a list's keys act on; each is an input under
  * its ARIA name, reflected back, and a styling hook too.
  *
@@ -78,7 +80,8 @@ function copyWithCommand(text: string): boolean {
   templateUrl: './address-chip.html',
   styleUrl: './address-chip.scss',
   host: {
-    '[attr.data-invalid]': 'valid() ? null : true',
+    '[attr.data-invalid]': 'valid() || pending() ? null : true',
+    '[attr.data-pending]': 'pending() || null',
     '[attr.aria-disabled]': 'ariaDisabled() || null',
     '[attr.data-inline]': 'inline() || null',
     '[attr.aria-current]': 'ariaCurrent() || null',
@@ -124,6 +127,10 @@ export class AddressChip {
   /** What the flag on a malformed address says, for the title and for
       assistive tech. */
   readonly invalidLabel = input('not an email address');
+
+  /** What the note on a placeholder says, for the title and for assistive
+      tech. */
+  readonly pendingLabel = input('filled in when sent');
 
   /** The remove button is out of play — e.g. while the message sends. */
   readonly ariaDisabled = input(false, { alias: 'aria-disabled', transform: booleanAttribute });
@@ -241,6 +248,10 @@ export class AddressChip {
   /** Whether the address part is well-formed. Public so a list can count. */
   readonly valid = computed(() => this.#rules.isValid(this.mailbox().address));
 
+  /** Whether the address is a placeholder a template fills in later —
+      neither valid nor invalid yet. */
+  readonly pending = computed(() => this.#rules.isPlaceholder(this.mailbox().address));
+
   /** The remove control's accessible name — "Remove ada@example.com". */
   protected readonly removeName = computed(() => `${this.removeLabel()} ${this.address()}`);
 
@@ -248,6 +259,7 @@ export class AddressChip {
     $implicit: this.address(),
     mailbox: this.mailbox(),
     valid: this.valid(),
+    pending: this.pending(),
     disabled: this.ariaDisabled(),
     tabbable: this.removeTabbable(),
     label: this.removeName(),
@@ -260,7 +272,13 @@ export class AddressChip {
     if (!this.ariaDisabled()) this.removed.emit();
   };
 
-  protected readonly title = computed(() =>
-    this.valid() ? this.address() : `${this.address()} — ${this.invalidLabel()}`,
+  /** The note the chip carries, if any — said, and shown in the title. */
+  protected readonly note = computed(() =>
+    this.valid() ? null : this.pending() ? this.pendingLabel() : this.invalidLabel(),
   );
+
+  protected readonly title = computed(() => {
+    const note = this.note();
+    return note ? `${this.address()} — ${note}` : this.address();
+  });
 }

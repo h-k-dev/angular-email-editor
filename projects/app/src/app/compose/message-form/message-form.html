@@ -55,6 +55,21 @@
        the frame keeps one), so the one thing left to do with it by hand is
        throw it away. -->
   <ng-container ngProjectAs="[actions]">
+    <!-- Core's "Parse": offered while the body holds placeholders (the
+         action's own answer) and not while the evaluator works. The same as
+         Mod-Shift-Enter and the `/` row. -->
+    @let fill = actions.get('resolve-placeholders');
+    @if (fill && !fill.disabled()) {
+      <button
+        mat-icon-button
+        type="button"
+        [attr.aria-label]="i18n.t('editor.actions.resolve-placeholders.title', 'Fill in placeholders')"
+        [title]="i18n.t('editor.actions.resolve-placeholders.title', 'Fill in placeholders') + ' (' + fillShortcut + ')'"
+        [emailAction]="fill"
+      >
+        <mat-icon>data_object</mat-icon>
+      </button>
+    }
     <ng-content select="[actions]" />
     <button
       mat-icon-button
@@ -377,6 +392,8 @@
     [formField]="envelope.html"
     [(quoted)]="quoted"
     (send)="send()"
+    (placeholdersFilled)="placeholdersFilled($event)"
+    (placeholdersFailed)="placeholdersFailed()"
     (fileDrop)="onAttachmentDrop($event)"
     [(sourceView)]="sourceView"
     [toolbar]="toolbarShown()"
