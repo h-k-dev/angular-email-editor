@@ -47,3 +47,6 @@ Thumbs.db
 /.claude
 claude.md
 
+
+# Exported production templates for the Summernote corpus (customer data)
+/projects/angular-email-editor/src/lib/prose-mirror/fixtures/summernote/private/
