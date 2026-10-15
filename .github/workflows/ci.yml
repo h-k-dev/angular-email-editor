@@ -1,0 +1,84 @@
+# Checks every change, and deploys the demo from main.
+#
+# It never publishes to npm: the library is pre-v1 and released slowly, by
+# hand — a separate, manually started workflow (release.yml, the one npm's
+# Trusted Publishing names). A merge to main is not a release.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [development, main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # jsdom, against the library's sources.
+      - name: Test library
+        run: npx ng test angular-email-editor --watch=false
+
+      # The demo reads the library from dist/, so it is built before the app.
+      - name: Build library
+        run: npx ng build angular-email-editor
+
+      - name: Test demo
+        run: npx ng test app --watch=false
+
+      # Real Chromium: layout, fonts, the canvas text metrics measure with.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Test in Chromium
+        run: npm run test:render
+
+      # The demo as GitHub Pages serves it: under /angular-email-editor/, and
+      # 404.html is the app too, so a deep link (/angular-email-editor/api)
+      # reloads into the app instead of Pages' own 404.
+      - name: Build demo
+        run: |
+          npx ng build app --base-href /angular-email-editor/
+          cp dist/app/browser/index.html dist/app/browser/404.html
+
+      - name: Upload demo for Pages
+        if: github.event_name == 'push' && github.ref_name == 'main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/app/browser
+
+  deploy-pages:
+    needs: verify
+    if: github.event_name == 'push' && github.ref_name == 'main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    # One deployment at a time, and never cancel one half-way.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

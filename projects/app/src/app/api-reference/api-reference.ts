@@ -147,8 +147,8 @@ export class ApiReference {
         },
         {
           name: 'createTextMetrics',
-          signature: '(options: TextMetricsOptions) => FunctionalExtension',
-          does: 'Streams live TextMetrics (words, characters, lines, estimated height) — measured mathematically over cached glyph widths, never by touching the DOM.',
+          signature: '({ onMetrics, onError? }: TextMetricsOptions) => FunctionalExtension',
+          does: 'Streams live TextMetrics (words, characters, lines, estimated height) — measured mathematically over cached glyph widths, never by touching the DOM. Its own entry, angular-email-editor/metrics: the only part of the library that needs @chenglou/pretext (^1.0.0, an optional peer). Where nothing can measure (a server render, jsdom) onError hears why and the editor goes on unharmed.',
         },
         {
           name: 'createHtmlLanguage / createHtmlAutocomplete / createSourceMarks',
@@ -453,7 +453,7 @@ export class ApiReference {
           name: 'readTypography / measureDoc / createBlockMeasureCache',
           signature:
             '(dom) => EditorTypography · (doc, contentWidth, typography, cache) => TextMetrics',
-          does: 'Read the editable’s typography once, then measure the whole document at a content width — pure arithmetic, no DOM access, results cached per node.',
+          does: 'Read the editable’s typography once, then measure the whole document at a content width — pure arithmetic, no DOM access, results cached per node. From angular-email-editor/metrics.',
         },
       ],
     },

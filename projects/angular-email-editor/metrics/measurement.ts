@@ -56,10 +56,13 @@ export function readTypography(dom: HTMLElement): EditorTypography {
   const innerSpacing = cssPx(style, '--mat-sys-inner-spacing', 16);
 
   return {
-    fontFamily: style.fontFamily,
+    // Pretext refuses a font string the canvas would ignore: an editor with
+    // no family in its computed style (detached, unstyled) measures in the
+    // browser's sans-serif rather than not at all.
+    fontFamily: style.fontFamily.trim() || 'sans-serif',
     fontSize,
     fontWeight: parseInt(style.fontWeight, 10) || 400,
-    fontStyle: style.fontStyle,
+    fontStyle: style.fontStyle || 'normal',
     lineHeight,
     blockGap: cssPx(style, '--prose-gap', fontSize),
     headingScale: HEADING_SCALE,
@@ -89,7 +92,8 @@ export interface TextMetrics {
  * case in email) go through `prepare()` with `pre-wrap`, matching the editor
  * CSS exactly — hard breaks become `\n` in one prepared handle. Blocks with
  * mark-dependent fonts (bold/italic) use the rich-inline API, one prepared
- * handle per hard-break segment.
+ * handle per hard-break segment — `pre-wrap` too, so a bold word's line
+ * breaks and spaces count exactly as the plain line's.
  */
 type PreparedBlock =
   { kind: 'plain'; prepared: PreparedText } | { kind: 'rich'; segments: PreparedRichInline[] };
@@ -265,7 +269,7 @@ function prepareBlock(node: PMNode, typography: EditorTypography): CachedBlock {
   const block: PreparedBlock = mixedFonts
     ? {
         kind: 'rich',
-        segments: segments.map((runs) => prepareRichInline(runs)),
+        segments: segments.map((runs) => prepareRichInline(runs, { whiteSpace: 'pre-wrap' })),
       }
     : {
         // Single font: `prepare()` with pre-wrap mirrors the editor CSS

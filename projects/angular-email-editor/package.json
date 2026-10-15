@@ -6,7 +6,7 @@
     "@angular/core": "^22.0.0",
     "@angular/forms": "^22.0.0",
     "@angular/material": "^22.0.0",
-    "@chenglou/pretext": "^0.0.8",
+    "@chenglou/pretext": "^1.0.0",
     "prosemirror-commands": "^1.7.1",
     "prosemirror-gapcursor": "^1.4.1",
     "prosemirror-history": "^1.5.0",
@@ -25,6 +25,9 @@
       "optional": true
     },
     "@angular/material": {
+      "optional": true
+    },
+    "@chenglou/pretext": {
       "optional": true
     },
     "rxjs": {

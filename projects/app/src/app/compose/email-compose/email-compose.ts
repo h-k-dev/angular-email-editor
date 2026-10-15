@@ -59,7 +59,6 @@ import {
   Editor,
   SendIntent,
   SuggestionMenuState,
-  TextMetrics,
   caretInsideMergeTag,
   createBlockMenu,
   createTableHandles,
@@ -77,7 +76,6 @@ import {
   createSuggestionMenu,
   extensionSuggestions,
   SuggestionItem,
-  createTextMetrics,
   ExpressionDiagnostic,
   InlineImages,
   mergeTagAt,
@@ -90,6 +88,7 @@ import {
   SuggestionMenuSection,
 } from 'angular-email-editor/suggestion-menu';
 import { colorSuggestions, injectPalette } from 'angular-email-editor/palette';
+import { TextMetrics, createTextMetrics } from 'angular-email-editor/metrics';
 
 /** Where the HTML source shows: nowhere, in the editing surface's place
     (code view), or beside the editor in its own column (detached). */
