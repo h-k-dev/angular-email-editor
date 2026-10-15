@@ -66,15 +66,17 @@ jobs:
         run: npx ng build angular-email-editor
 
       # A pre-release (0.1.0-beta.1) goes out under `next`, never as `latest`.
+      # Verbose: npm says why a Trusted Publishing exchange failed only at
+      # that level — otherwise all that shows is ENEEDAUTH.
       - name: Stage on npm
         working-directory: dist/angular-email-editor
         env:
           VERSION: ${{ steps.version.outputs.value }}
         run: |
           if [[ "$VERSION" == *-* ]]; then
-            npm stage publish --tag next
+            npm stage publish --tag next --loglevel verbose
           else
-            npm stage publish
+            npm stage publish --loglevel verbose
           fi
 
       - name: Tag the release
