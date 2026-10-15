@@ -25,13 +25,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      # No `registry-url` here: with one, setup-node writes an .npmrc whose
+      # token comes from NODE_AUTH_TOKEN — a dummy placeholder when no secret
+      # is given — and npm sends that (E401) instead of using Trusted
+      # Publishing's OIDC exchange.
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
-          registry-url: https://registry.npmjs.org
 
       # Staged publishing and OIDC need a recent npm.
       - name: Update npm
