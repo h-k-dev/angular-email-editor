@@ -40,6 +40,11 @@ jobs:
       - name: Build library
         run: npx ng build angular-email-editor
 
+      # Native ESM, which throws on a load-time read of a later `const` that
+      # the esbuild-bundled specs above turn into a silent `undefined`.
+      - name: Load built entries
+        run: node scripts/load-entries.mjs
+
       - name: Test demo
         run: npx ng test app --watch=false
 

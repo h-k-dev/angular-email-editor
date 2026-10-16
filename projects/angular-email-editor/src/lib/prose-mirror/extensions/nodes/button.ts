@@ -15,6 +15,13 @@ import { isSafeColor, parseFontFamily, toEmailSafeColor } from '../marks/text-st
 import { fillTextColor } from '../../dual-contrast';
 import { soleInlineAtom } from '../inline-atoms';
 
+/* Declared before `BUTTON_STYLE`: it is built at module load and reads
+   `BUTTON_FILL` through `buttonStyle`, so a later declaration is a TDZ read. */
+/** The default button's fill — the primary blue — and the text on it. */
+export const BUTTON_FILL = 'rgb(26, 115, 232)';
+
+const BUTTON_FILL_HEX = '#1a73e8';
+
 /** The button's canonical styling — the *border-based* bulletproof button:
     the touch target (≥ 44px tall, per the ledger) comes from borders in the
     background colour, not from padding, because Outlook's Word engine ignores
@@ -32,11 +39,6 @@ export const BUTTON_STYLE = buttonStyle({
   background: null,
   color: null,
 });
-
-/** The default button's fill — the primary blue — and the text on it. */
-export const BUTTON_FILL = 'rgb(26, 115, 232)';
-
-const BUTTON_FILL_HEX = '#1a73e8';
 
 /** The canonical style of a button with that label styling and fill: bold
     is `font-weight: bold` and not bold `normal` (said, never left out — a
