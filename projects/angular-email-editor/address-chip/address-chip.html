@@ -9,11 +9,10 @@
   <span data-slot="note">({{ note }})</span>
 }
 
-<!-- Spoken, not shown: a hold copied the address. The region is always
-     there, so the text arriving in it is announced. -->
-<span data-slot="status" role="status">{{
-  justCopied() ? copiedLabel() + ' ' + address() : ''
-}}</span>
+<!-- Spoken, not shown: a hold copied the address, or the list said
+     something of the chip (`announce()`). The region is always there, so
+     the text arriving in it is announced. -->
+<span data-slot="status" role="status">{{ status() }}</span>
 
 @if (removable()) {
   <!-- The box at the chip's end: the host's remove template when it gave

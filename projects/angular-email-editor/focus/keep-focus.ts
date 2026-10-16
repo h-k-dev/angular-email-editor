@@ -26,6 +26,12 @@ export const KEEP_FOCUS_EXCEPT =
  *
  * It needs no editor: what keeps focus is whichever element has it, so the
  * same directive serves a composer's address rows.
+ *
+ * A press on something marked `draggable="true"` — an address chip that
+ * can be dragged to another row — is always left alone, exceptions or not:
+ * no engine starts a drag from a press whose default was declined. Such an
+ * element keeps focus in its own way (the address input parks it on its
+ * chip list).
  */
 @Directive({
   selector: '[emailKeepFocus]',
@@ -45,6 +51,9 @@ export class KeepFocus {
     if (!this.enabled()) return;
     const except = this.except();
     const target = event.target as Element | null;
+    // A drag starts only from a press that keeps its default.
+    const draggable = target?.closest?.('[draggable="true"]');
+    if (draggable && this.#host.contains(draggable)) return;
     // An exception counts inside this element only: standing in an editor's
     // contenteditable must not make every press here an exception.
     const excepted = except ? target?.closest?.(except) : null;

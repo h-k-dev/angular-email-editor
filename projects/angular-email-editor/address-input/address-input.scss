@@ -41,6 +41,8 @@
 // Lines sit 8px apart — with the 24px chip that is 32px a line, the remove
 // button's touch target, so targets on two lines never overlap.
 :host :where([data-slot='chips']) {
+  // The drop marker's frame.
+  position: relative;
   flex: 1 1 0;
   display: flex;
   flex-wrap: wrap;
@@ -50,6 +52,32 @@
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+// Focused only by a press on a draggable chip, never by the keyboard: no ring.
+:host :where([data-slot='chips']):focus {
+  outline: none;
+}
+
+// Where a drag would land: a caret-like line between two entries, placed
+// by the control in the list's coordinates. Out of the flow and of hit
+// testing, so nothing moves under the pointer and the drag never sees it.
+:host :where([data-slot='drop-marker']) {
+  position: absolute;
+  // Placed at the entry's height; reaching a little past it above and
+  // below, as Gmail's does, so it reads as a caret, not a border.
+  box-sizing: content-box;
+  margin-top: calc(-1 * var(--email-address-input-drop-overhang, 4px));
+  padding-block: var(--email-address-input-drop-overhang, 4px);
+  width: var(--email-address-input-drop-width, 2px);
+  // Centred on the point it is placed at (`left`, physical, as placed).
+  margin-left: calc(var(--email-address-input-drop-width, 2px) / -2);
+  border-radius: 1px;
+  background: var(
+    --email-address-input-drop-color,
+    var(--mat-sys-primary, light-dark(#0b57d0, #a8c7fa))
+  );
+  pointer-events: none;
 }
 
 // The opt-in label: first in the row, the chips wrapping under it; 8px to

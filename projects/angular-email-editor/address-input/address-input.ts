@@ -1,6 +1,8 @@
 import {
   Component,
   ElementRef,
+  Injector,
+  afterNextRender,
   inject,
 
   // Signals
@@ -17,11 +19,37 @@ import {
 } from '@angular/core';
 import type { FormValueControl } from '@angular/forms/signals';
 import { ADDRESS_RULES, addressKey, isMailbox, isPending, separatesAt } from '@h-k-dev/angular-email-editor/address';
-import { AddressChip, AddressChipRemove } from '@h-k-dev/angular-email-editor/address-chip';
+import {
+  ADDRESS_DRAG_TYPE,
+  AddressChip,
+  AddressChipRemove,
+} from '@h-k-dev/angular-email-editor/address-chip';
 import { NgTemplateOutlet } from '@angular/common';
+import { AddressDragGroup } from './address-drag-group';
 import { AddressInputLabel } from './address-input.slots';
 
 let nextId = 0;
+
+/** Where a drag over an input would land — the index in its list — and the
+    line drawn there, in the chip list's own coordinates. */
+interface DropMarker {
+  index: number;
+  x: number;
+  y: number;
+  height: number;
+}
+
+/** The chip drag in flight from an address input on this page: where it
+    came from, and whether an address input took it as a move. The drag
+    data can't be read until the drop, and `dropEffect` at the drag's end is
+    not to be trusted (WebKit reports `all`): this is how a target refuses
+    a duplicate before the drop and how the source learns to let go. */
+let drag: {
+  source: AddressInput;
+  group: AddressDragGroup | null;
+  address: string;
+  moved: boolean;
+} | null = null;
 
 /**
  * An address field the way Gmail's works: committed addresses as chips,
@@ -59,7 +87,7 @@ let nextId = 0;
  * the caret at the start of the typing, ← puts a highlight on the last chip
  * and walks back along the list; → walks forward, and past the last chip
  * returns to the caret. Enter or F2 — or a double click on
- * any chip — edits it,
+ * any chip — edits it, Alt+← and Alt+→ move it a place along the list,
  * Backspace or Delete removes it, Escape drops the highlight, and so does
  * typing. A click on a chip highlights it. Reaching a chip either way is
  * being done with the typing: an address in the input becomes a chip first,
@@ -111,6 +139,32 @@ let nextId = 0;
  * the input, and the selection with it — focus leaving the control clears
  * the selection.
  *
+ * **Chips move between inputs by drag and drop.** A chip of an editable
+ * input can be dragged to another — To into Cc, as Gmail and Outlook do —
+ * and leaves its own list when the other takes it. The other commits it
+ * as it was, flagged or pending alike. A chip whose address the other
+ * already holds is absorbed, as Gmail does: it leaves its list and the
+ * other keeps its own entry. A full list (From holds one) refuses the
+ * drop, and the chip stays. Dropped in its own list, a chip is reordered:
+ * it moves to the line; the line is not drawn where the chip already is. Alt (Option), or Ctrl, makes
+ * it a copy — onto a duplicate, a copy is nothing, so refused. Nothing
+ * moves while a drag is over a target: a thin line between its chips
+ * (`drop-marker`) shows where the chip will land, before or after the chip
+ * under the pointer, and the drop puts it there; the host carries
+ * `data-dropping` meanwhile. Only chips are places: a draft — typed in the
+ * input, or left at the end of the list when the row lost focus — is not,
+ * and a drop lands before it.
+ * A drop counts as working both fields: each is touched.
+ * A chip lands in an address input or nowhere: it carries no plain text,
+ * so a subject line or an editor can't take it. `emailAddressDragGroup` on
+ * the element around a writer's rows keeps its chips among them. Plain text
+ * dropped from elsewhere is a paste — the addresses become chips, the rest
+ * is left typed.
+ * `moveTo()` is the same move for the keyboard — a host's "Move to Cc" —
+ * and the moved chip says so (`movedLabel`). A touch is never a drag: on
+ * a phone the press is the chip's hold-to-copy. `allowDrag` turns it off;
+ * a disabled or read-only input is neither source nor target.
+ *
  * **The chips' remove control is a template slot.** An
  * `ng-template[emailAddressChipRemove]` in the input's content is handed to
  * every chip it renders, in place of the default × button.
@@ -133,11 +187,16 @@ let nextId = 0;
     '[attr.data-invalid]': 'flagged() || null',
     '[attr.data-full]': 'full() || null',
     '[attr.data-focused]': 'focused() || null',
+    '[attr.data-dropping]': 'dropping() || null',
     '(pointerdown)': 'onPointerdown($event)',
     '(mousedown)': 'keepCaret($event)',
     '(click)': 'focus()',
     '(focusin)': 'onFocusin()',
     '(focusout)': 'onFocusout($event)',
+    '(dragenter)': 'onDragover($event)',
+    '(dragover)': 'onDragover($event)',
+    '(dragleave)': 'onDragleave($event)',
+    '(drop)': 'onDrop($event)',
   },
 })
 export class AddressInput implements FormValueControl<string[]> {
@@ -187,6 +246,15 @@ export class AddressInput implements FormValueControl<string[]> {
   /** The chips' note on a placeholder a template fills in later. */
   readonly pendingLabel = input('filled in when sent');
 
+  /** What a chip moved into this input says, before its address — a host
+      with labelled rows says where: "Moved to Cc:". */
+  readonly movedLabel = input('Moved');
+
+  /** Chips may be dragged out of this input and dropped into it. Set false
+      for a row that only shows; a disabled or read-only input never takes
+      part either way. */
+  readonly allowDrag = input(true, { transform: booleanAttribute });
+
   // ── the form contract: pushed in by the field directive ───────────────
 
   /** The input's `name` attribute; the directive derives one from the path. */
@@ -222,7 +290,11 @@ export class AddressInput implements FormValueControl<string[]> {
 
   protected readonly field = viewChild.required<ElementRef<HTMLInputElement>>('field');
 
+  /** The list of chips, where a press on a draggable chip parks focus. */
+  protected readonly chipList = viewChild.required<ElementRef<HTMLElement>>('chipList');
+
   readonly #host = inject<ElementRef<HTMLElement>>(ElementRef);
+  readonly #injector = inject(Injector);
 
   /** The address rule in force — ours, or the host's (`provideAddressRules`):
       how typing splits, what is an address, what is one recipient. */
@@ -231,6 +303,15 @@ export class AddressInput implements FormValueControl<string[]> {
       template fills in later. Everything else is a typo to hand back. */
   #accepts = (raw: string) => isMailbox(raw, this.#rules) || isPending(raw, this.#rules);
   #key = (raw: string) => addressKey(raw, this.#rules);
+  /** The list has this address already — in any case, under any name. */
+  #holds = (raw: string) => this.#keys().has(this.#key(raw));
+  /** The list's addresses by key, parsed once a change — not on every
+      `dragover`. */
+  readonly #keys = computed(() => new Set(this.value().map(this.#key)));
+
+  /** The chips this input trades with: those of the nearest
+      `emailAddressDragGroup`, or of every input in none. */
+  readonly #group = inject(AddressDragGroup, { optional: true });
 
   readonly #focused = signal(false);
 
@@ -291,6 +372,12 @@ export class AddressInput implements FormValueControl<string[]> {
     return value.slice(start);
   });
 
+  /** Where the draft starts in the list: the trailing malformed entries are
+      the typing the row was left with — what focus hands back to the input
+      — and no chip is placed among or after them. A drop, or `moveTo()`,
+      lands before. */
+  readonly #draftStart = computed(() => this.value().length - this.#trailingMalformed().length);
+
   /** Full, and nothing in it to fix: the input hides — the chips say
       everything. A full list ending in a typo keeps it, so focus can hand
       the typo back. */
@@ -299,6 +386,28 @@ export class AddressInput implements FormValueControl<string[]> {
   /** Nothing may change: disabled or read-only. Chips lose their remove
       button, the input is out of play. */
   protected readonly locked = computed(() => this.disabled() || this.readonly());
+
+  /** Chips can be dragged out of the list, and dropped into it. */
+  protected readonly canDrag = computed(() => this.allowDrag() && !this.locked());
+
+  /** Where a drag over the input would land: the index in the list, and
+      the line drawn there — in the chip list's own coordinates. Null while
+      no drag the input would take is over it. Drawn on top, out of the
+      flow, so nothing moves under the pointer. */
+  protected readonly dropMarker = signal<DropMarker | null>(null, {
+    // A drag sends `dragover` every few dozen milliseconds, moving or not:
+    // the same place again is no change, and renders nothing.
+    equal: (a, b) =>
+      a === b ||
+      (!!a && !!b && a.index === b.index && a.x === b.x && a.y === b.y && a.height === b.height),
+  });
+
+  /** A drag the input would take is over it. */
+  protected readonly dropping = computed(() => this.dropMarker() !== null);
+
+  /** The press under way is a mouse's (or a pen's) on a draggable chip:
+      its default has to stay, or the browser never starts the drag. */
+  #dragPress = false;
 
   /** Invalid *and* touched — the moment the state becomes the user's business. */
   protected readonly flagged = computed(() => this.invalid() && this.touched());
@@ -386,7 +495,13 @@ export class AddressInput implements FormValueControl<string[]> {
       would move focus off again. */
   protected onPointerdown(event: PointerEvent): void {
     const input = this.field().nativeElement;
-    if (event.target === input || this.locked() || this.closed()) return;
+    const target = event.target as Element;
+    this.#dragPress =
+      event.pointerType !== 'touch' &&
+      this.canDrag() &&
+      !!target.closest?.('[email-address-chip]') &&
+      !target.closest('[data-slot=trailing]');
+    if (target === input || this.locked() || this.closed()) return;
     input.focus();
   }
 
@@ -394,9 +509,15 @@ export class AddressInput implements FormValueControl<string[]> {
       its button, the gap between — leaves the caret where it is. The
       browser would otherwise move focus to the body for the press and back
       on the click, and in that instant the row would drop to text and
-      reflow: a flash, and a blur that commits and touches for nothing. */
+      reflow: a flash, and a blur that commits and touches for nothing.
+      Except a mouse's press on a draggable chip: no engine starts a drag
+      from a press whose default was declined, so it keeps it, and the
+      press's focus lands on the chip list instead (`tabindex="-1"`) —
+      still inside the control, so nothing commits; the click or the drag's
+      end brings the caret back. */
   protected keepCaret(event: MouseEvent): void {
-    if (event.target !== this.field().nativeElement) event.preventDefault();
+    if (event.target === this.field().nativeElement || this.#dragPress) return;
+    event.preventDefault();
   }
 
   /** A click on a chip — not on its remove control — picks it, and only
@@ -421,6 +542,219 @@ export class AddressInput implements FormValueControl<string[]> {
   async copy(address: string | null = this.current()): Promise<boolean> {
     const chip = this.chips().find((candidate) => candidate.address() === address);
     return chip ? chip.copy() : false;
+  }
+
+  /** Moves a chip — the picked one by default — to another address input:
+      the keyboard's way to do what a drag does, for a host's own "Move to
+      Cc". The target takes it as it is, to the end of its list — before
+      a draft the row was left with — and it
+      leaves this one; both are touched, and the moved chip says so
+      (`movedLabel`). One the target already holds is absorbed: it leaves
+      here, and the target keeps its own entry. A full target, or either
+      input locked, moves nothing. Returns whether it moved. */
+  moveTo(target: AddressInput, address: string | null = this.current()): boolean {
+    if (address === null || target === this || this.locked() || target.locked()) return false;
+    if (!this.value().includes(address)) return false;
+    if (!target.#holds(address) && !target.#insert([address], target.#draftStart()).length) {
+      return false;
+    }
+    this.remove(address);
+    this.touch.emit();
+    target.touch.emit();
+    target.#announceMoved(address);
+    return true;
+  }
+
+  /** The chip that arrived by a move — or the entry that absorbed it —
+      says so, once it is drawn. */
+  #announceMoved(address: string): void {
+    const key = this.#key(address);
+    afterNextRender(
+      () =>
+        this.chips()
+          .find((chip) => this.#key(chip.address()) === key)
+          ?.announce(`${this.movedLabel()} ${address}`),
+      { injector: this.#injector },
+    );
+  }
+
+  // ── drag and drop ─────────────────────────────────────────────────────
+
+  /** A chip of this list started a drag: remember it, so a target on the
+      page can judge the drop before it happens and tell this list to let
+      go after. */
+  protected onChipDragstart(address: string): void {
+    drag = this.canDrag() ? { source: this, group: this.#group, address, moved: false } : null;
+  }
+
+  /** The drag ended: if an address input took the chip as a move, it
+      leaves — through `remove()`, as the × takes it — and the field is
+      touched. The press parked focus on the list; the caret comes back. */
+  protected onChipDragend(): void {
+    const ended = drag;
+    drag = null;
+    if (ended?.source === this && ended.moved) {
+      this.remove(ended.address);
+      this.touch.emit();
+    }
+    if (document.activeElement === this.chipList().nativeElement) this.focus();
+  }
+
+  /** What a drop here would be: `move` or `copy` for a drag the input
+      takes, `none` for one it refuses — said, so the text input inside
+      can't take the text in its place — and null for a drag that isn't an
+      address (files: the page's drop zone's), left to the page. A chip is
+      taken only from another input of the same group, while this page's
+      drag is in flight — a chip from anywhere else is refused. */
+  #dropEffect(event: DragEvent): 'move' | 'copy' | 'none' | null {
+    const types = event.dataTransfer?.types ?? [];
+    const chip = types.includes(ADDRESS_DRAG_TYPE);
+    if (!chip && !types.includes('text/plain')) return null;
+    if (!this.canDrag()) return chip ? 'none' : null;
+    if (!chip) return this.full() ? 'none' : 'copy';
+    const from = drag;
+    if (!from || from.group !== this.#group) return 'none';
+    const copy = event.altKey || event.ctrlKey;
+    // Its own list: a move is a reorder; a copy would add nothing.
+    if (from.source === this) return copy ? 'none' : 'move';
+    // Held already: a move is absorbed, even into a full list; a copy is
+    // nothing.
+    if (this.#holds(from.address)) return copy ? 'none' : 'move';
+    if (this.full()) return 'none';
+    return copy ? 'copy' : 'move';
+  }
+
+  protected onDragover(event: DragEvent): void {
+    const effect = this.#dropEffect(event);
+    if (effect === null) return;
+    event.preventDefault();
+    event.dataTransfer!.dropEffect = effect;
+    const marker = effect === 'none' ? null : this.#dropAt(event);
+    this.dropMarker.set(marker && this.#inPlace(marker.index) ? null : marker);
+  }
+
+  /** A drop at this index would leave the dragged chip where it is: right
+      before or right after itself, in its own list. No line there. */
+  #inPlace(index: number): boolean {
+    if (drag?.source !== this) return false;
+    const at = this.value().indexOf(drag.address);
+    return index === at || index === at + 1;
+  }
+
+  /** Moves a chip of the list to stand before the entry at `at` (the end,
+      past the last). True when it moved — not when it would stay put. */
+  #reorder(address: string, at: number): boolean {
+    const from = this.value().indexOf(address);
+    if (from < 0 || at < 0 || at > this.value().length || at === from || at === from + 1) {
+      return false;
+    }
+    const to = at > from ? at - 1 : at;
+    this.value.update((current) => {
+      const next = current.filter((held) => held !== address);
+      next.splice(to, 0, address);
+      return next;
+    });
+    return true;
+  }
+
+  /** Where a drop at the pointer lands, in reading order: before the first
+      entry that starts after the pointer — on a later line, or on its line
+      past the pointer's side of the entry's middle — else at the end. And
+      the line that says so: midway between two entries on one line, or
+      just outside the entry at a line's start or end. */
+  #dropAt(event: DragEvent): DropMarker {
+    const list = this.chipList().nativeElement;
+    const box = list.getBoundingClientRect();
+    const rtl = getComputedStyle(list).direction === 'rtl';
+    const x = event.clientX ?? 0;
+    const y = event.clientY ?? 0;
+    const chips = [...list.querySelectorAll(':scope > [email-address-chip]')];
+    // Only the chips before the draft are places; the draft is not.
+    const rects = chips.slice(0, this.#draftStart()).map((chip) => chip.getBoundingClientRect());
+    let index = rects.findIndex(
+      (r) =>
+        y < r.top || (y <= r.bottom && (rtl ? x > r.left + r.width / 2 : x < r.left + r.width / 2)),
+    );
+    if (index < 0) index = rects.length;
+    const start = (r: DOMRect) => (rtl ? r.right : r.left);
+    const end = (r: DOMRect) => (rtl ? r.left : r.right);
+    // At a line's start or end the line stands a gap off the entry, as Gmail's does.
+    const out = rtl ? 4 : -4;
+    const at = rects[index];
+    const before = rects[index - 1];
+    let line: { x: number; top: number; height: number };
+    if (at && before && Math.abs(before.top - at.top) < 1) {
+      line = { x: (end(before) + start(at)) / 2, top: at.top, height: at.height };
+    } else if (at) {
+      line = { x: start(at) + out, top: at.top, height: at.height };
+    } else if (before) {
+      line = { x: end(before) - out, top: before.top, height: before.height };
+    } else {
+      // No chip yet: at the start — of the draft, if the row was left with one.
+      const first = (chips[0] ?? list.querySelector('[data-slot=entry]')!).getBoundingClientRect();
+      line = { x: start(first) + (chips[0] ? out : 0), top: first.top, height: first.height };
+    }
+    return { index, x: line.x - box.left, y: line.top - box.top, height: line.height };
+  }
+
+  /** Leaving for somewhere outside the control: the drag is no longer over
+      it. (A leave with nowhere named — some engines — ends it too; the
+      next `dragover` inside brings it back.) */
+  protected onDragleave(event: DragEvent): void {
+    const to = event.relatedTarget as Node | null;
+    if (!to || !this.#host.nativeElement.contains(to)) this.dropMarker.set(null);
+  }
+
+  /** The drop: a chip is committed as it was; plain text from elsewhere is
+      a paste — its addresses become chips, the rest joins the typing. What
+      was typed stays. A chip the list holds already is absorbed by a move:
+      nothing is added, and the source lets it go. Nothing added otherwise
+      (the limit) is no drop: the source keeps its chip. */
+  protected onDrop(event: DragEvent): void {
+    const effect = this.#dropEffect(event);
+    this.dropMarker.set(null);
+    if (effect === null) return;
+    event.preventDefault();
+    const transfer = event.dataTransfer!;
+    if (effect === 'none') {
+      transfer.dropEffect = 'none';
+      return;
+    }
+    const entry = transfer.getData(ADDRESS_DRAG_TYPE);
+    const { index } = this.#dropAt(event);
+    let changed: boolean;
+    if (entry && drag?.source === this) {
+      // Its own chip: a reorder. The source is this list; nothing leaves.
+      changed = this.#reorder(entry, index);
+      if (changed) this.active.set(null);
+    } else if (entry) {
+      const absorbed = effect === 'move' && this.#holds(entry);
+      changed = absorbed || this.#insert([entry], index).length > 0;
+      if (changed && drag?.address === entry) {
+        drag.moved = effect === 'move';
+        if (drag.moved) this.#announceMoved(entry);
+      }
+    } else {
+      const tokens = this.#rules.split(transfer.getData('text/plain'));
+      changed =
+        this.#insert(
+          tokens.filter((token) => this.#accepts(token)),
+          index,
+        ).length > 0;
+      const rest = tokens.filter((token) => !this.#accepts(token));
+      if (rest.length) {
+        const input = this.field().nativeElement;
+        this.#write(input, [input.value, ...rest].filter(Boolean).join(', '));
+        this.refused.set(true);
+        input.focus();
+        changed = true;
+      }
+    }
+    if (!changed) {
+      transfer.dropEffect = 'none';
+      return;
+    }
+    this.touch.emit();
   }
 
   /** Picking a chip is being done with the typing: the addresses in it
@@ -503,6 +837,19 @@ export class AddressInput implements FormValueControl<string[]> {
       to the caret. */
   #onActiveKey(event: KeyboardEvent, active: number, input: HTMLInputElement): boolean {
     const chips = this.value();
+    if (event.altKey && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
+      // Alt+← / Alt+→ move the chip a place — the drag's reorder, by key.
+      // At either end there is nowhere to go, and the key is still the
+      // chip's: it never walks the highlight instead.
+      if (this.locked()) return false;
+      const address = chips[active];
+      if (this.#reorder(address, event.key === 'ArrowLeft' ? active - 1 : active + 2)) {
+        this.active.set(this.value().indexOf(address));
+        this.touch.emit();
+      }
+      event.preventDefault();
+      return true;
+    }
     switch (event.key) {
       case 'ArrowLeft':
         this.active.set(Math.max(0, active - 1));
@@ -563,6 +910,10 @@ export class AddressInput implements FormValueControl<string[]> {
       not leaving. */
   protected onBlur(event: FocusEvent, input: HTMLInputElement): void {
     if (this.#within(event)) return;
+    this.#leave(input);
+  }
+
+  #leave(input: HTMLInputElement): void {
     const tokens = this.#rules.split(input.value);
     this.#insert(tokens.filter((token) => this.#accepts(token)));
     this.#insert(tokens.filter((token) => !this.#accepts(token)));
@@ -573,6 +924,9 @@ export class AddressInput implements FormValueControl<string[]> {
 
   protected onFocusout(event: FocusEvent): void {
     if (this.#within(event)) return;
+    // Focus parked on the chip list by a press that came to nothing leaves
+    // from there: leaving is leaving, wherever the caret had got to.
+    if (event.target === this.chipList().nativeElement) this.#leave(this.field().nativeElement);
     this.#focused.set(false);
     this.active.set(null);
   }
@@ -585,22 +939,24 @@ export class AddressInput implements FormValueControl<string[]> {
     this.refused.set(!!input.value);
   }
 
-  /** Adds the new addresses to the end of the list, up to `limit` — each
-      only if its address is not in the list yet; the entry already there
-      keeps its name. */
-  #insert(incoming: readonly string[]): void {
-    if (!incoming.length) return;
+  /** Adds the new addresses to the list — at the end, or before the entry
+      at `at` (a drop) — up to `limit`, each only if its address is not in
+      the list yet; the entry already there keeps its name. Returns what
+      was added. */
+  #insert(incoming: readonly string[], at = Infinity): string[] {
+    const added: string[] = [];
+    if (!incoming.length) return added;
     this.value.update((current) => {
-      const next = [...current];
-      const seen = new Set(next.map(this.#key));
+      const seen = new Set(current.map(this.#key));
       for (const address of incoming) {
-        if (next.length >= this.limit()) break;
+        if (current.length + added.length >= this.limit()) break;
         if (seen.has(this.#key(address))) continue;
         seen.add(this.#key(address));
-        next.push(address);
+        added.push(address);
       }
-      return next;
+      return [...current.slice(0, at), ...added, ...current.slice(at)];
     });
+    return added;
   }
 
   /** Puts text in the input — the one way it is written, so `text` follows. */

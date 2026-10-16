@@ -217,6 +217,16 @@
   );
 }
 
+// ── dragging: the chip is in flight ─────────────────────────────────────
+// Left in place, faded, until the drop decides whether it goes.
+:host([data-dragging]) {
+  opacity: var(--email-address-chip-dragging-opacity, 0.4);
+}
+
+:host([draggable='true']) {
+  cursor: grab;
+}
+
 // ── note, status: spoken, not shown ─────────────────────────────────────
 :host :where([data-slot='note'], [data-slot='status']) {
   position: absolute;

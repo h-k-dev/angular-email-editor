@@ -2,6 +2,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import {
   Component,
   DestroyRef,
+  ElementRef,
   TemplateRef,
   booleanAttribute,
   computed,
@@ -14,6 +15,13 @@ import {
 } from '@angular/core';
 import { ADDRESS_RULES } from '@h-k-dev/angular-email-editor/address';
 import { AddressChipRemove, AddressChipRemoveContext } from './address-chip.slots';
+
+/** The drag data type that carries a chip's address between address
+    inputs — one entry, in header form, exactly as the list holds it. It is
+    the only thing a chip's drag carries: no plain text, so no text field,
+    editor or page drop zone can take it — a chip lands in an address input
+    or nowhere. */
+export const ADDRESS_DRAG_TYPE = 'application/x-email-address';
 
 /** The copy command, on a throwaway selection: the fallback for a clipboard
     API that refuses. True when the browser reports the copy done. */
@@ -67,6 +75,18 @@ function copyWithCommand(text: string): boolean {
  * and says "Copied" for a moment (`data-copied`, a live `status` slot) and
  * emits `copied`.
  *
+ * **Drag, when asked.** Marked `draggable`, the chip can be dragged — by a
+ * mouse or a pen; a touch keeps the press for the hold, so a phone's
+ * long-press never lifts the chip instead of copying it. The drag carries
+ * the header form as `ADDRESS_DRAG_TYPE` and nothing else — no text for
+ * another field to take — allows copy and move, and cancels a hold in progress: the browser starts a drag only
+ * once the press has moved, so the two gestures never both happen. A drag
+ * from the remove control is no drag. What travels under the pointer is
+ * the chip as a pill, whole — a copy with room around it, so no engine
+ * clips its edge or a ring it wears. `data-dragging` marks the chip while
+ * it is in flight. Where the drag lands, and whether the chip leaves its
+ * list, is the list's business — the address input does both.
+ *
  * **It asks, it does not do.** The chip holds no list: `removed` is a
  * request the host answers by dropping the address. The address input
  * renders these for its value; a host can render them on its own for a
@@ -86,6 +106,8 @@ function copyWithCommand(text: string): boolean {
     '[attr.data-inline]': 'inline() || null',
     '[attr.aria-current]': 'ariaCurrent() || null',
     '[attr.data-copied]': 'justCopied() || null',
+    '[attr.draggable]': 'draggable() && !touching() ? "true" : null',
+    '[attr.data-dragging]': 'dragging() || null',
     '[title]': 'title()',
     '(pointerdown)': 'onPointerdown($event)',
     '(pointermove)': 'onPointermove($event)',
@@ -93,6 +115,8 @@ function copyWithCommand(text: string): boolean {
     '(pointercancel)': 'cancelHold()',
     '(pointerleave)': 'cancelHold()',
     '(contextmenu)': 'onContextmenu($event)',
+    '(dragstart)': 'onDragstart($event)',
+    '(dragend)': 'dragging.set(false)',
   },
 })
 export class AddressChip {
@@ -155,6 +179,22 @@ export class AddressChip {
       as `data-copied`. */
   protected readonly justCopied = signal(false);
 
+  /** What the `status` slot says for a moment — a copy, or a list's
+      `announce()`. */
+  protected readonly status = signal('');
+
+  /** The chip may be dragged — to another address input, or as text into
+      any field. Off by default: a chip on its own has no list to leave; the
+      address input turns it on for an editable list. Reflected as
+      `draggable` for a mouse or pen, never for a touch. */
+  readonly draggable = input(false, { transform: booleanAttribute });
+
+  /** The last press was a touch: no drag, so the press stays the hold's. */
+  protected readonly touching = signal(false);
+
+  /** The chip is being dragged. Reflected as `data-dragging`. */
+  protected readonly dragging = signal(false);
+
   #hold: {
     id: number | undefined;
     x: number;
@@ -173,6 +213,7 @@ export class AddressChip {
   /** A press begins a hold — a primary pointer, mouse or touch alike, on
       the chip itself and not its remove control. */
   protected onPointerdown(event: PointerEvent): void {
+    this.touching.set(event.pointerType === 'touch');
     if (event.button !== 0 || event.isPrimary === false || !this.holdDelay()) return;
     if ((event.target as Element | null)?.closest('[data-slot=trailing]')) return;
     this.cancelHold();
@@ -198,15 +239,56 @@ export class AddressChip {
     this.#hold = null;
   }
 
+  /** A drag begins: the address goes along in header form, as the
+      library's own type only, and a hold in progress is over.
+      Not from the remove control. */
+  protected onDragstart(event: DragEvent): void {
+    if ((event.target as Element | null)?.closest('[data-slot=trailing]')) {
+      event.preventDefault();
+      return;
+    }
+    this.cancelHold();
+    const transfer = event.dataTransfer;
+    if (transfer) {
+      transfer.setData(ADDRESS_DRAG_TYPE, this.address());
+      transfer.effectAllowed = 'copyMove';
+      this.#dragImage(transfer, event);
+    }
+    this.dragging.set(true);
+  }
+
+  /** The drag image: an engine snapshots the chip's own box, cutting off
+      whatever it draws outside it — a picked chip's ring. So it gets a copy,
+      as a plain pill (not inline, not picked), inside a frame with room
+      around it, laid over the chip exactly for the snapshot and gone on
+      the next task. On screen, not off it: WebKit snapshots only what it
+      can paint. */
+  #dragImage(transfer: DataTransfer, event: DragEvent): void {
+    if (typeof transfer.setDragImage !== 'function') return;
+    const host = this.#host.nativeElement;
+    const box = host.getBoundingClientRect();
+    const room = 4;
+    const frame = document.createElement('div');
+    frame.style.cssText =
+      `position: fixed; left: ${box.left - room}px; top: ${box.top - room}px; ` +
+      `padding: ${room}px; z-index: 2147483647; pointer-events: none;`;
+    const copy = host.cloneNode(true) as HTMLElement;
+    for (const name of ['id', 'data-inline', 'aria-current', 'data-dragging', 'data-copied']) {
+      copy.removeAttribute(name);
+    }
+    copy.style.display = 'inline-flex';
+    frame.append(copy);
+    document.body.append(frame);
+    transfer.setDragImage(frame, event.clientX - box.left + room, event.clientY - box.top + room);
+    setTimeout(() => frame.remove());
+  }
+
   /** The hold is the chip's, not the browser's: no context menu on it, on
       a phone or under a right button. */
   protected onContextmenu(event: Event): void {
     if (this.#hold || this.justCopied()) event.preventDefault();
   }
 
-  /** Writes the address to the clipboard: the async API first, and when
-      it refuses — an unfocused document, a context without it — the old
-      copy command on a selection made for the purpose. */
   /** Copies the address, in header form, to the clipboard — what a hold
       does, and what a host's own control may ask for — and shows and says
       so. The async API first; when it refuses (an unfocused document, a
@@ -221,11 +303,22 @@ export class AddressChip {
       : Promise.resolve(false);
     const done = (await modern.catch(() => false)) || copyWithCommand(text);
     if (!done) return false;
+    this.announce(`${this.copiedLabel()} ${text}`);
     this.justCopied.set(true);
     this.copied.emit(text);
-    clearTimeout(this.#copiedTimer);
-    this.#copiedTimer = setTimeout(() => this.justCopied.set(false), 1500);
     return true;
+  }
+
+  /** Says something about the chip through its `status` slot, for a
+      moment — what a copy says, and what a list says of a chip it just
+      received ("Moved to Cc: …"). */
+  announce(message: string): void {
+    this.status.set(message);
+    clearTimeout(this.#copiedTimer);
+    this.#copiedTimer = setTimeout(() => {
+      this.status.set('');
+      this.justCopied.set(false);
+    }, 1500);
   }
 
   /** A remove template handed down by a list that renders the chip — the
@@ -242,6 +335,8 @@ export class AddressChip {
 
   /** The address rule in force — ours, or the host's. */
   readonly #rules = inject(ADDRESS_RULES);
+
+  readonly #host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   protected readonly mailbox = computed(() => this.#rules.parse(this.address()));
 

@@ -16,9 +16,12 @@
      Anything else dropped on the surface is an attachment like everywhere
      else on the message — the composer's own zone takes it and carries it
      out as `fileDrop`.
-     clickable=false — clicking the message must never open a file picker. -->
+     clickable=false — clicking the message must never open a file picker.
+     emailAddressDragGroup: the envelope rows trade chips among themselves
+     (To ⇄ Cc ⇄ Bcc, by drag) and with no other writer's. -->
 <form
   email-writer
+  emailAddressDragGroup
   [formRoot]="envelope"
   aria-label="Email writer"
   dropZone

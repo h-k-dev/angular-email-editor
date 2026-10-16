@@ -1,6 +1,9 @@
 <!-- No label here: the row around this control names it, through
      aria-labelledby or aria-label, both passed down to the text input. -->
-<ul data-slot="chips" role="list">
+<!-- Focusable by script and by a press only (tabindex -1, while chips can
+     be dragged): a press on a draggable chip must keep its default for the
+     drag to start, and its focus lands here — inside the control. -->
+<ul #chipList data-slot="chips" role="list" [attr.tabindex]="canDrag() ? -1 : null">
   <!-- The opt-in label (emailAddressLabel): first in the row, so the chips
        wrap under it. Hidden from assistive tech as text — it names the
        text input instead, through aria-labelledby. -->
@@ -16,6 +19,7 @@
       [address]="address"
       [removable]="!locked()"
       [inline]="!focused()"
+      [draggable]="canDrag()"
       [aria-current]="active() === $index"
       [removeTabbable]="closed()"
       [removeLabel]="removeLabel()"
@@ -26,6 +30,19 @@
       (removed)="removeChip(address)"
       (click)="onChipClick($event, $index, field)"
       (dblclick)="onChipDblclick($event, address, field)"
+      (dragstart)="onChipDragstart(address)"
+      (dragend)="onChipDragend()"
+    ></li>
+  }
+  <!-- Where a drag over the control would land: a line between entries,
+     drawn on top and out of the flow — nothing moves under the pointer. -->
+  @if (dropMarker(); as marker) {
+    <li
+      data-slot="drop-marker"
+      aria-hidden="true"
+      [style.left.px]="marker.x"
+      [style.top.px]="marker.y"
+      [style.height.px]="marker.height"
     ></li>
   }
   <!-- The entry is a list item too, so the chips and the typing sit in one

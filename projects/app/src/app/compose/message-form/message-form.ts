@@ -51,7 +51,12 @@ import {
   toInboundMessage,
 } from '@h-k-dev/angular-email-editor';
 import { isEmailAddress, parseMailbox } from '@h-k-dev/angular-email-editor/address';
-import { AddressInput, AddressInputLabel, addressList } from '@h-k-dev/angular-email-editor/address-input';
+import {
+  AddressDragGroup,
+  AddressInput,
+  AddressInputLabel,
+  addressList,
+} from '@h-k-dev/angular-email-editor/address-input';
 import {
   Attachment,
   AttachmentChip,
@@ -104,6 +109,7 @@ let nextSheetId = 0;
     // Components
     EmailWriter,
     EmailCompose,
+    AddressDragGroup,
     AddressInput,
     AttachmentChips,
     AttachmentChip,

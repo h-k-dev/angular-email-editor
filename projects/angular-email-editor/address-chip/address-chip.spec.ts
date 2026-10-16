@@ -1,6 +1,6 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { AddressChip } from './address-chip';
+import { ADDRESS_DRAG_TYPE, AddressChip } from './address-chip';
 import { AddressChipRemove } from './address-chip.slots';
 
 @Component({
@@ -11,6 +11,7 @@ import { AddressChipRemove } from './address-chip.slots';
     [removable]="removable()"
     [aria-disabled]="disabled()"
     [holdDelay]="holdDelay()"
+    [draggable]="draggable()"
     (removed)="removals = removals + 1"
     (copied)="copies.push($event)"
   ></li>`,
@@ -20,6 +21,7 @@ class Host {
   readonly removable = signal(true);
   readonly disabled = signal(false);
   readonly holdDelay = signal(500);
+  readonly draggable = signal(false);
   removals = 0;
   copies: string[] = [];
 }
@@ -188,6 +190,110 @@ class SlotHost {
   readonly disabled = signal(false);
   removals = 0;
 }
+
+/** A drag event as the engine would send it, with a data store of its own:
+    jsdom has neither `DragEvent` nor `DataTransfer`. */
+function dragEvent(target: Element, type: string, store = new Map<string, string>()) {
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  const transfer = {
+    effectAllowed: 'uninitialized',
+    dropEffect: 'none',
+    get types() {
+      return [...store.keys()];
+    },
+    getData: (format: string) => store.get(format) ?? '',
+    setData: (format: string, data: string) => void store.set(format, data),
+  };
+  Object.defineProperty(event, 'dataTransfer', { value: transfer });
+  target.dispatchEvent(event);
+  return { event, transfer, store };
+}
+
+describe('AddressChip drag', () => {
+  let fixture: ComponentFixture<Host>;
+  let host: Host;
+  let chip: HTMLElement;
+  const pointer = (type: string, pointerType: string) => {
+    const event = new MouseEvent(type, { bubbles: true, cancelable: true, button: 0 });
+    Object.defineProperty(event, 'pointerType', { value: pointerType });
+    chip.querySelector('[data-slot=name]')!.dispatchEvent(event);
+  };
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({ imports: [Host] }).compileComponents();
+    fixture = TestBed.createComponent(Host);
+    host = fixture.componentInstance;
+    await fixture.whenStable();
+    chip = (fixture.nativeElement as HTMLElement).querySelector('[email-address-chip]')!;
+  });
+
+  it('is no drag source unless asked', () => {
+    expect(chip.hasAttribute('draggable')).toBe(false);
+  });
+
+  it('carries the header form as its own type and nothing else, for a copy or a move', async () => {
+    host.draggable.set(true);
+    await fixture.whenStable();
+    expect(chip.getAttribute('draggable')).toBe('true');
+
+    const { transfer, store } = dragEvent(chip, 'dragstart');
+    expect(store.get(ADDRESS_DRAG_TYPE)).toBe('Ada Lovelace <ada@example.com>');
+    // No plain text: no other field can take a chip.
+    expect([...store.keys()]).toEqual([ADDRESS_DRAG_TYPE]);
+    expect(transfer.effectAllowed).toBe('copyMove');
+    await fixture.whenStable();
+    expect(chip.getAttribute('data-dragging')).toBe('true');
+
+    dragEvent(chip, 'dragend');
+    await fixture.whenStable();
+    expect(chip.hasAttribute('data-dragging')).toBe(false);
+  });
+
+  it('a drag cancels the hold: it never copies', async () => {
+    const written: string[] = [];
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: (text: string) => (written.push(text), Promise.resolve()) },
+      configurable: true,
+    });
+    host.holdDelay.set(20);
+    host.draggable.set(true);
+    await fixture.whenStable();
+    pointer('pointerdown', 'mouse');
+    dragEvent(chip, 'dragstart');
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(written).toEqual([]);
+  });
+
+  it('a touch is the hold’s: the chip is not draggable for it, a mouse again is', async () => {
+    host.draggable.set(true);
+    await fixture.whenStable();
+    pointer('pointerdown', 'touch');
+    await fixture.whenStable();
+    expect(chip.hasAttribute('draggable')).toBe(false);
+    pointer('pointercancel', 'touch');
+    pointer('pointerdown', 'mouse');
+    await fixture.whenStable();
+    expect(chip.getAttribute('draggable')).toBe('true');
+  });
+
+  it('no drag from the remove control', async () => {
+    host.draggable.set(true);
+    await fixture.whenStable();
+    const { event, store } = dragEvent(chip.querySelector('[data-slot=remove]')!, 'dragstart');
+    expect(event.defaultPrevented).toBe(true);
+    expect(store.size).toBe(0);
+  });
+
+  it('says what a list asks it to, for a moment, in its status slot', async () => {
+    const instance = fixture.debugElement.children[0].componentInstance as AddressChip;
+    instance.announce('Moved to Cc: Ada Lovelace <ada@example.com>');
+    await fixture.whenStable();
+    expect(chip.querySelector('[data-slot=status]')?.textContent?.trim()).toBe(
+      'Moved to Cc: Ada Lovelace <ada@example.com>',
+    );
+    expect(chip.hasAttribute('data-copied')).toBe(false);
+  });
+});
 
 describe('AddressChip remove slot', () => {
   it('renders the host’s template in the trailing box, with the address and a remove that respects disabled', async () => {

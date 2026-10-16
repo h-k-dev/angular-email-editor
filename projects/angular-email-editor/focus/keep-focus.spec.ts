@@ -21,6 +21,8 @@ class ComposedTool {}
     <div class="row" emailKeepFocus emailKeepFocusExcept="input, button, textarea">
       <label class="label">To</label>
       <button class="chip-remove">×</button>
+      <span class="chip" draggable="true"><span class="chip-name">Ada</span></span>
+      <span class="still" draggable="false">not a drag</span>
     </div>
 
     <div class="all" emailKeepFocus emailKeepFocusExcept="">
@@ -72,6 +74,12 @@ describe('KeepFocus', () => {
   it('takes the exceptions it is given', () => {
     expect(pressKept('.label')).toBe(true);
     expect(pressKept('.chip-remove')).toBe(false);
+  });
+
+  it('leaves a press on a draggable element alone — or no drag could start', () => {
+    expect(pressKept('.chip')).toBe(false);
+    expect(pressKept('.chip-name')).toBe(false);
+    expect(pressKept('.still')).toBe(true);
   });
 
   it('makes no exception when given none', () => {
