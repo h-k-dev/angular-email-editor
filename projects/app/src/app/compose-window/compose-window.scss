@@ -1,3 +1,4 @@
+@use '@angular/material' as mat;
 @use '../../styles/breakpoints' as bp;
 
 // A window on the bottom edge: exactly 600px — the measure the email is
@@ -110,14 +111,12 @@
   block-size: calc(var(--compose-window-dialog-width) * 9 / 16);
   min-block-size: 0;
   max-block-size: none;
+  // The window's own corner all round, no rounder for being large: a
+  // screen-sized sheet with a big radius reads as a bubble, not a page.
   // Square at the phone breakpoint like every other corner here — the
   // dialog does not exist below it (the rule under this one takes over),
   // and the clamp means it never draws rounded on the way there either.
-  border-radius: clamp(
-    0px,
-    (100vw - #{bp.$full-width-max}) * 100,
-    var(--mat-sys-corner-extra-large, 28px)
-  );
+  border-radius: var(--compose-window-radius);
   box-shadow: var(--mat-sys-level5);
 }
 
@@ -154,8 +153,8 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  // The icon buttons' 40px state layer is the bar; their 48px touch
-  // targets overhang into the sheet's top padding.
+  // The window's own buttons are smaller than the app's tools (see
+  // __controls): a title bar's chrome, not a row of actions.
   block-size: 40px;
   padding-inline: 16px 4px;
   background: var(--mat-sys-surface-container-high);
@@ -201,6 +200,17 @@
   flex: none;
   display: flex;
   align-items: center;
+
+  // Window chrome, as iusta core draws it: a 16px glyph in a 28px button —
+  // smaller than the app's 40px tools, which are actions on the message;
+  // these only move the window. 28px still clears WCAG's 24px target size.
+  @include mat.icon-button-overrides(
+    (
+      icon-size: 16px,
+      state-layer-size: 28px,
+      touch-target-size: 28px,
+    )
+  );
 }
 
 .compose-window__sheet {
