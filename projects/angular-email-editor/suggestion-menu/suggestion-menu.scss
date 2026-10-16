@@ -8,7 +8,9 @@
 // fallback. Type is Material's body-medium spelled out in full.
 //
 // `top`, `left` and `visibility` are written inline by the component once
-// its rows are rendered and measured; hidden here until then.
+// its rows are rendered and measured; hidden here until then. A box that fits
+// on neither side of the line also gets an inline max-height on its listbox,
+// so the box fits the side with more room.
 
 :host {
   position: absolute;

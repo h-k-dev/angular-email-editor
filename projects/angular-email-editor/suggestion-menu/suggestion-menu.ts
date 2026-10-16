@@ -255,11 +255,25 @@ export class SuggestionMenu {
     // Placing the box: after its rows are rendered, measured in one phase and
     // written in the next — the plugin never touches the element, so no read
     // follows a write inside a keystroke. Shown only once it is in place.
+    //
+    // A box that fits on neither side of the line is shrunk to the side with
+    // more room. The cap goes on the listbox, not the box: the box keeps its
+    // own max-height (the --email-suggestion-menu-max-height token) to be
+    // read, and its height without the cap is its rendered height plus what
+    // the capped list hides — a box measured at its last cap would choose its
+    // side by the old room and flip back and forth.
     afterRenderEffect({
       earlyRead: () => {
         const layout = this.#layout();
         const anchor = layout?.clientRect();
-        return layout && anchor ? measureMenuPlacement(anchor, this.#host, layout.offset) : null;
+        if (!layout || !anchor) return null;
+        const list = this.listbox().nativeElement;
+        const rendered = this.#host.offsetHeight;
+        const cap = parseFloat(getComputedStyle(this.#host).maxHeight);
+        const full = rendered + list.scrollHeight - list.clientHeight;
+        const height = cap >= 0 ? Math.min(full, cap) : full;
+        const place = measureMenuPlacement(anchor, this.#host, layout.offset, height);
+        return place && { ...place, chrome: rendered - list.offsetHeight };
       },
       write: (placement) => {
         const place = placement();
@@ -268,8 +282,12 @@ export class SuggestionMenu {
         if (place) {
           const left = `${place.left}px`;
           const top = `${place.top}px`;
+          const listHeight =
+            place.maxHeight === null ? '' : `${Math.max(place.maxHeight - place.chrome, 0)}px`;
+          const list = this.listbox().nativeElement.style;
           if (style.left !== left) style.left = left;
           if (style.top !== top) style.top = top;
+          if (list.maxHeight !== listHeight) list.maxHeight = listHeight;
         }
         if (style.visibility !== visibility) style.visibility = visibility;
       },
