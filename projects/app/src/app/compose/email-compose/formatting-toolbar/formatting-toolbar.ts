@@ -41,6 +41,7 @@ import { ToolbarKeys } from './toolbar-keys';
 import { ToolbarMenu, ToolbarMenuItem } from './toolbar-menu/toolbar-menu';
 import { ToolbarOverflow, ToolbarOverflowItem } from './toolbar-overflow';
 import { KeepFocus } from '@h-k-dev/angular-email-editor/focus';
+import { TableKind } from '@h-k-dev/angular-email-editor';
 
 /** The buttons in the order people reach for them — marks, colour, then link,
     lists and their indent, the paragraph's shape, the rarer marks, the table — and so the
@@ -192,8 +193,12 @@ export class FormattingToolbar {
     this.commands.applyBackground(color);
   }
 
+  /** The table kind the picker inserts — kept here, so the picker opens on
+      the one last used. */
+  protected readonly tableKind = signal<TableKind>('bordered');
+
   protected insertTable(size: { cols: number; rows: number }): void {
     this.picker.set(null);
-    this.commands.insertTable(size);
+    this.commands.insertTable({ ...size, kind: this.tableKind() });
   }
 }

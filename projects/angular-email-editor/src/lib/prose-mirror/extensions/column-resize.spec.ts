@@ -153,7 +153,7 @@ describe('column resize', () => {
   });
 
   it('setTableWidth commits a percentage table width, clamped to its range', () => {
-    editor.commands['insertTable'](2, 2);
+    editor.commands['insertTable'](2, 2, 'layout');
     expect(editor.exec(setTableWidth(tablePos(), 80))).toBe(true);
     const html = editor.getHTML();
     expect(html).toContain(
@@ -211,7 +211,7 @@ describe('column resize', () => {
   });
 
   it('offset serializes as margin-left and round-trips', () => {
-    editor.commands['insertTable'](2, 2);
+    editor.commands['insertTable'](2, 2, 'layout');
     editor.exec(setTableBox(tablePos(), 15, 70));
     const html = editor.getHTML();
     expect(html).toContain(

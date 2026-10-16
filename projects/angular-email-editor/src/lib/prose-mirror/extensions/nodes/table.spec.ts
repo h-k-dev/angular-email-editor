@@ -192,7 +192,7 @@ describe('table editing', () => {
   });
 
   it('setCellBackground fills only the current cell with a canonical rgb() bg', () => {
-    editor.commands['insertTable'](); // cursor is in cell (0,0)
+    editor.commands['insertTable'](3, 2, 'layout'); // cursor is in cell (0,0)
     editor.commands['setCellBackground']('#e6f4ea');
     const html = editor.getHTML();
     expect(html).toContain(
@@ -219,26 +219,110 @@ describe('table editing', () => {
     expect(dims()).toEqual({ rows: 1, cols: 1 });
   });
 
-  it('/bordered-table inserts the Excel grid, and new cells inherit it', () => {
-    const item = Table.actions!({ schema: editor.schema, extensions: [] }).find(
-      (entry) => entry.title === 'Bordered table',
-    )!;
-    editor.exec(item.command!);
+  const action = (id: string) =>
+    Table.actions!({ schema: editor.schema, extensions: [] }).find((entry) => entry.id === id)!;
+  const count = (html: string, pattern: RegExp) => (html.match(pattern) || []).length;
+  const BORDER = /border: 1px solid rgb\(208, 215, 229\);/g;
+  const PADDING = /padding: 8px 12px;/g;
+
+  it('/table inserts the bordered default — lines and real padding — and new cells inherit both', () => {
+    editor.exec(action('table').command!);
     let html = editor.getHTML();
     // Asked for by name, a table starts three rows by two.
     expect(dims()).toEqual({ rows: 3, cols: 2 });
-    expect((html.match(/border: 1px solid rgb\(208, 215, 229\);/g) || []).length).toBe(6);
+    expect(count(html, BORDER)).toBe(6);
+    expect(count(html, PADDING)).toBe(6);
     expect(canonical(html)).toBe(html);
     expect(lintHTML(html)).toEqual([]);
 
-    // Structural edits create default (borderless) cells; the repair pass
-    // keeps a uniformly bordered table uniform.
+    // Structural edits create bare cells; the repair pass keeps a preset
+    // table uniform.
     editor.commands['addRowAfter']();
     editor.commands['addColumnAfter']();
     html = editor.getHTML();
     expect(dims()).toEqual({ rows: 4, cols: 3 });
-    expect((html.match(/border: 1px solid rgb\(208, 215, 229\);/g) || []).length).toBe(12);
+    expect(count(html, BORDER)).toBe(12);
+    expect(count(html, PADDING)).toBe(12);
     expect(html).toContain(TABLE_BORDER_COLOR);
+  });
+
+  it('insertTable() is the bordered default too', () => {
+    editor.commands['insertTable']();
+    const html = editor.getHTML();
+    expect(count(html, BORDER)).toBe(6);
+    expect(count(html, PADDING)).toBe(6);
+  });
+
+  it('bordered and borderless tables keep real room above and below — block only', () => {
+    const spacing = 'margin-top: 16px; margin-bottom: 16px;';
+    for (const id of ['table', 'borderless-table']) {
+      editor.setContent('<div>start</div>');
+      editor.exec(action(id).command!);
+      const html = editor.getHTML();
+      expect(html).toContain(
+        `<table role="presentation" style="width: 100%; ${spacing} table-layout: fixed; border-collapse: collapse;">`,
+      );
+      // Never the sides: the table stays on the text column.
+      expect(html).not.toMatch(/margin-(left|right)|margin:/);
+      expect(canonical(html)).toBe(html);
+    }
+    editor.setContent('<div>start</div>');
+    editor.exec(action('layout-table').command!);
+    expect(editor.getHTML()).not.toContain('margin');
+  });
+
+  it('parses the room off markup only as the same px above and below', () => {
+    const table = (style: string) =>
+      canonical(`<table style="${style}"><tbody><tr><td>a</td></tr></tbody></table>`);
+    expect(table('margin-top: 10px; margin-bottom: 10px;')).toContain(
+      'margin-top: 10px; margin-bottom: 10px;',
+    );
+    expect(table('margin: 12px 0;')).toContain('margin-top: 12px; margin-bottom: 12px;');
+    // One side only, or not px: not a look the schema sells.
+    expect(table('margin-top: 10px;')).not.toContain('margin');
+    expect(table('margin-top: 1em; margin-bottom: 1em;')).not.toContain('margin');
+    expect(table('margin: 0 auto;')).not.toContain('margin');
+  });
+
+  it('/borderless-table ships real padding and no lines, kept on new cells', () => {
+    editor.exec(action('borderless-table').command!);
+    let html = editor.getHTML();
+    expect(count(html, BORDER)).toBe(0);
+    expect(count(html, PADDING)).toBe(6);
+    expect(canonical(html)).toBe(html);
+
+    editor.commands['addRowAfter']();
+    editor.commands['addColumnAt'](0);
+    html = editor.getHTML();
+    expect(dims()).toEqual({ rows: 4, cols: 3 });
+    expect(count(html, BORDER)).toBe(0);
+    expect(count(html, PADDING)).toBe(12);
+  });
+
+  it('/layout-table ships neither — its spacing is the editor’s alone', () => {
+    editor.exec(action('layout-table').command!);
+    editor.commands['addRowAfter']();
+    const html = editor.getHTML();
+    expect(dims()).toEqual({ rows: 4, cols: 2 });
+    expect(html).not.toContain('border:');
+    expect(html).not.toContain('padding');
+  });
+
+  it('an imported table padded only here and there keeps its bare cells bare', () => {
+    // A spacer cell is common in real mail; spreading its padding would
+    // change the email.
+    editor.setContent(
+      '<table><tbody><tr>' +
+        '<td style="padding: 4px;">a</td><td>b</td>' +
+        '</tr><tr><td>c</td><td>d</td></tr></tbody></table>',
+    );
+    expect(count(editor.getHTML(), /padding/g)).toBe(1);
+    // Not even once it is edited: only the cells an edit adds inherit.
+    editor.exec((state, dispatch) => {
+      dispatch?.(state.tr.insertText('x', state.doc.content.size - 3));
+      return true;
+    });
+    expect(count(editor.getHTML(), /padding/g)).toBe(1);
   });
 
   it('a table with mixed border colours is left as written', () => {
@@ -478,7 +562,7 @@ describe('table editing', () => {
   });
 
   it('the Align buttons align the cell the cursor is in', () => {
-    editor.commands['insertTable'](); // cursor is in cell (0,0)
+    editor.commands['insertTable'](3, 2, 'layout'); // cursor is in cell (0,0)
     editor.commands['setAlignment']('center');
     expect(editor.getHTML()).toContain(
       '<td style="vertical-align: top; overflow-wrap: break-word; text-align: center;">',
@@ -523,7 +607,7 @@ describe('table editing', () => {
   });
 
   it('setCellVerticalAlign writes the valign every client reads', () => {
-    editor.commands['insertTable']();
+    editor.commands['insertTable'](3, 2, 'layout');
     editor.commands['setCellVerticalAlign']('middle');
     expect(editor.getHTML()).toContain('<td style="vertical-align: middle;');
     expect(canonical(editor.getHTML())).toBe(editor.getHTML());

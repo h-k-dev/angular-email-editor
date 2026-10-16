@@ -113,6 +113,15 @@ export default {
       cellOptions: 'Cell options',
       rowOptions: 'Row {{number}} options',
       columnOptions: 'Column {{number}} options',
+      kinds: {
+        label: 'Table kind',
+        bordered: 'Bordered',
+        borderedHint: 'Lines and padding, in the email too',
+        borderless: 'Borderless',
+        borderlessHint: 'Padding in the email, no lines',
+        layout: 'Layout',
+        layoutHint: 'Neither — spacing only while you write',
+      },
     },
     menu: {
       slash: { label: 'Insert block', placeholder: 'Type to filter…' },

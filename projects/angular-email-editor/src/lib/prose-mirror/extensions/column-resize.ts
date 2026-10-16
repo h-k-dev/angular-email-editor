@@ -398,7 +398,11 @@ class TableView {
     this.#table = this.#box.appendChild(document.createElement('table'));
     this.#table.setAttribute(
       'style',
-      tableStyle(node.attrs['width'] as number, node.attrs['offset'] as number),
+      tableStyle(
+        node.attrs['width'] as number,
+        node.attrs['offset'] as number,
+        node.attrs['spacing'] as number | null,
+      ),
     );
     this.#table.setAttribute('role', 'presentation');
     this.#colgroup = this.#table.appendChild(document.createElement('colgroup'));
@@ -532,7 +536,10 @@ class TableView {
     // is CSS-inset to the wrapper's content box (inside the editor-only
     // gutter), so a child's `left` percentage is a share of the table's own
     // area — table-relative shares are converted once, here.
-    this.#table.setAttribute('style', tableStyle(tableWidth, offset));
+    this.#table.setAttribute(
+      'style',
+      tableStyle(tableWidth, offset, node.attrs['spacing'] as number | null),
+    );
     // An authored table (a template's, parsed in the `email` mode) shows its
     // own attributes, as the email does — see authored.ts.
     applyAuthoredAttributes(this.#table, node, 0);
@@ -728,7 +735,11 @@ class TableView {
     rows are the same object (ProseMirror's persistent tree), so a keystroke
     is one new cell and a handful of identity compares. */
 function sameTableChrome(a: Node, b: Node): boolean {
-  if (a.attrs['width'] !== b.attrs['width'] || a.attrs['offset'] !== b.attrs['offset']) {
+  if (
+    a.attrs['width'] !== b.attrs['width'] ||
+    a.attrs['offset'] !== b.attrs['offset'] ||
+    a.attrs['spacing'] !== b.attrs['spacing']
+  ) {
     return false;
   }
   if (a.childCount !== b.childCount) return false;

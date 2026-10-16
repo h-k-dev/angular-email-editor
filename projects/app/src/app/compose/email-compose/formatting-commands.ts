@@ -12,6 +12,7 @@ import {
   isMarkActive,
   selectedButton,
   selectedImage,
+  TableKind,
 } from '@h-k-dev/angular-email-editor';
 import { editorState, injectActions } from '@h-k-dev/angular-email-editor/actions';
 
@@ -255,12 +256,12 @@ export class FormattingCommands {
     editor.focus();
   }
 
-  /** Inserts a table. Pickers speak columns × rows; `insertTable` takes rows
-      first. */
-  insertTable({ cols, rows }: { cols: number; rows: number }): void {
+  /** Inserts a table of a kind (bordered when not said). Pickers speak
+      columns × rows; `insertTable` takes rows first. */
+  insertTable({ cols, rows, kind }: { cols: number; rows: number; kind?: TableKind }): void {
     const editor = this.editor();
     if (!editor) return;
-    editor.commands['insertTable'](rows, cols);
+    editor.commands['insertTable'](rows, cols, kind);
     editor.focus();
   }
 }

@@ -105,6 +105,13 @@ export class Styling {
           alters: 'Grid lines a table shows while it is being worked on',
         },
         {
+          name: '--email-grip-halo',
+          system: null,
+          fallback: '#ffffff',
+          alters:
+            'The halo round a table grip or add pill floating over text — set it to the paper colour',
+        },
+        {
           name: '--email-layout-guide',
           system: '--email-table-grid',
           fallback: 'rgb(224, 224, 224)',

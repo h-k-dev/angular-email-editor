@@ -564,19 +564,25 @@ html {
  * the drag. Nothing here is in the email.
  */
 /* The editor-only gutter around a layout block. It reserves the ground the
- * block's affordances live on — today the add pills and the resize edges,
- * tomorrow column actions above and row actions to the left — so none of them
- * has to hang over the text that follows or precedes the block. It is padding
- * on the NodeView *wrapper*, so it exists only while editing: the serialized
- * table and columns carry no margin of their own.
+ * block's affordances live on — the add pills, the resize edges, the row
+ * grips on the flank. It is padding on the NodeView *wrapper*, so it exists
+ * only while editing: the serialized table and columns carry no margin of
+ * their own.
  *
- * Both blocks get all four sides. The wrapper is *only* the gutter; the box
+ * Columns get all four sides; a table only the inline two. The wrapper is *only* the gutter; the box
  * inside it is the block's own area (for columns, the email's 600px
  * container), so this padding can never change what the email lays out in.
  * Each block declares its own values rather than sharing a rule, so neither
  * depends on where it sits in this file. */
+/* A table has no vertical gutter: the room above and below it is the email's
+ * own — a bordered or borderless table's real `margin-top`/`margin-bottom`
+ * (TABLE_BLOCK_SPACING), which collapses through the wrapper and box, so the
+ * editor shows exactly that room; a layout table has none and sits flush.
+ * Its column grips and add-row pill float into that room — or, flush, over
+ * the text itself — hit-testable only while revealed, and lifted off the
+ * words by a halo (see the grips below). */
 .aee-editor .aee-table-wrap {
-  --aee-block-gutter-y: 20px;
+  --aee-block-gutter-y: 0px;
   // Same token as the surface's inline inset — see the columns wrapper above.
   --aee-block-gutter-x: var(--mat-sys-inner-spacing, 16px);
   position: relative;
@@ -758,7 +764,8 @@ html {
   position: relative;
 }
 
-/* Always hit-testable, only sometimes seen: a grip that took no pointer
+/* Always hit-testable (the row grip; the column grip floats over text and is
+ * the exception), only sometimes seen: a grip that took no pointer
  * until something else revealed it could never be reached from *outside* the
  * table — the pointer coming in from the flank or from above would meet
  * nothing, which is exactly how the add-row pill used to fail. Hovering the
@@ -818,11 +825,25 @@ html {
   inset-block-start: 5px;
 }
 
-/* Above the column, in the wrapper's top gutter. */
+/* Above the column — floating over whatever text precedes the table, which
+ * has no top gutter. So unlike the row grip it takes the pointer only while
+ * it shows (its band hovered, the caret's column, its menu open): hidden, it
+ * must not eat clicks meant for the line above. A halo of the paper's colour
+ * lifts it off those words. It is a box-shadow, painted once and faded with
+ * the grip's own opacity — a compositor-only animation; a `backdrop-filter`
+ * blur would re-sample the text under it every frame of the fade. */
 .aee-editor .aee-grip--column {
   inset-inline: 0;
   inset-block-start: -14px;
   block-size: 10px;
+  pointer-events: none;
+  box-shadow:
+    0 0 0 2px var(--email-grip-halo, #ffffff),
+    0 0 6px 2px var(--email-grip-halo, #ffffff);
+}
+
+.aee-editor .aee-grip--column[aria-expanded='true'] {
+  pointer-events: auto;
 }
 
 .aee-editor .aee-grip--column > i::before {
@@ -837,7 +858,8 @@ html {
  * bridge the gap to its own band so the hover cannot drop while the pointer
  * crosses it; outward, into the margin, so a pointer arriving from off the
  * table meets the grip a few px early rather than having to land on 10px
- * exactly. Both are the grip's own, and invisible. */
+ * exactly. Both are the grip's own, and invisible. The column grip has only
+ * the inward one: outward is the text above the table. */
 .aee-editor .aee-grip::before,
 .aee-editor .aee-grip::after {
   content: '';
@@ -860,12 +882,6 @@ html {
   inset-inline: 0;
   inset-block-start: 100%;
   block-size: 4px;
-}
-
-.aee-editor .aee-grip--column::before {
-  inset-inline: 0;
-  inset-block-end: 100%;
-  block-size: 8px;
 }
 
 /* Revealed by the band under the pointer, and only that one. A row hovers
@@ -1025,13 +1041,21 @@ html {
   right: calc(var(--aee-block-gutter-x) * -1);
 }
 
-/* The row twin: hangs off the box into the wrapper's bottom gutter, and
- * spans only the table (inline `left` / `width`, model-derived). Approaching
- * from below still wakes the pill; nothing editable is covered. A right-edge
- * drag restamps the width on release, so the strip matches the new box. */
+/* The row twin: hangs off the box over the text below the table (there is no
+ * bottom gutter), and spans only the table (inline `left` / `width`,
+ * model-derived). Covering text, it takes the pointer only once the last row
+ * is hovered — and keeps it while hovered itself, so the way down to the pill
+ * never drops. A right-edge drag restamps the width on release, so the strip
+ * matches the new box. */
 .aee-editor .aee-add-zone--row {
   top: 100%;
-  height: var(--aee-block-gutter-y);
+  height: 18px;
+  pointer-events: none;
+}
+
+.aee-editor .aee-table-wrap:has(tr:last-child:hover) .aee-add-zone--row,
+.aee-editor .aee-add-zone--row:hover {
+  pointer-events: auto;
 }
 
 /* The pill sits on the table's right flank — the zone's *near* end — so a
@@ -1050,7 +1074,8 @@ html {
 
 /* The row twin, mirrored: it spans the table as the column pill spans
  * every row, 3px under the bottom edge so the last row stays visible.
- * Its length is the zone's, which is the table's. */
+ * Its length is the zone's, which is the table's. Over the text below, so it
+ * wears the column grip's halo — the same compositor-only fade. */
 .aee-editor .aee-add-pill--row {
   top: 3px;
   left: 0;
@@ -1059,6 +1084,9 @@ html {
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow:
+    0 0 0 2px var(--email-grip-halo, #ffffff),
+    0 0 6px 2px var(--email-grip-halo, #ffffff);
 }
 
 /* Both pills reveal on *hover only* — the last column / last row, or the

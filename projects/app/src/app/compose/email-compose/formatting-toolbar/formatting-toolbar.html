@@ -168,7 +168,7 @@
       ></div>
     }
     @case ('table') {
-      <div table-picker (picked)="insertTable($event)"></div>
+      <div table-picker [(kind)]="tableKind" (picked)="insertTable($event)"></div>
     }
   }
 </ng-template>

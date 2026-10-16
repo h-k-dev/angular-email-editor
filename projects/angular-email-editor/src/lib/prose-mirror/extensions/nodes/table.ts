@@ -69,11 +69,12 @@ import { inlinePadding } from '../../inline-style';
  * engine handles both — so merged cells are a real feature here, and imported
  * mail keeps its shape instead of being flattened.
  */
-// The serialized table is intentionally borderless — grid lines are an
-// editor-only editing aid (see the `.ProseMirror table` rules in the app's
-// global styles), not part of the email a recipient receives. Padding is a
-// fixed, responsive value (horizontal padding eats a phone's width, so it
-// stays modest).
+// The table element itself carries no border or padding — those are per cell
+// (`border` and `padding` attrs, which is what tells the three `TableKind`s
+// apart). The faint grid shown while editing is an editor-only aid (the
+// layout-guide rules in the app's global styles), not part of the email.
+// Preset padding is a fixed, modest value (horizontal padding eats a phone's
+// width).
 // `table-layout: fixed` is the difference between a table you can type in and
 // one that jumps: without it, column widths are computed from *content*, so
 // every keystroke re-lays out the whole grid and the column you are typing in
@@ -91,20 +92,25 @@ import { inlinePadding } from '../../inline-style';
     40% of the container, in every client and in the editor alike). The
     offset serializes as `margin-left` — inline margins on tables are what
     Outlook's own Word composer emits, so its engine reads them, and a client
-    that strips them degrades the table gracefully to left-aligned. */
-export const tableStyle = (width: number, offset: number): string =>
+    that strips them degrades the table gracefully to left-aligned.
+    `spacing` (px, or null for none) is the room above and below the table —
+    `margin-top`/`margin-bottom`, block only, never the sides: real space
+    between the table and the lines of text around it, which a client that
+    strips it degrades to a table flush against its neighbours. */
+export const tableStyle = (width: number, offset: number, spacing: number | null = null): string =>
   `width: ${formatPct(width)};` +
   (offset > 0 ? ` margin-left: ${formatPct(offset)};` : '') +
+  (spacing ? ` margin-top: ${spacing}px; margin-bottom: ${spacing}px;` : '') +
   ' table-layout: fixed; border-collapse: collapse;';
 // Fixed layout means a long unbroken word can no longer widen its column, so it
 // would spill out of the cell instead. The editor never showed that (the
 // editable root sets `word-wrap` for its own reasons, and it inherits), which
 // is exactly why it has to be said out loud here — otherwise the overflow shows
 // up only in the recipient's client.
-// No padding here: the email carries only *authored* padding (the `padding`
-// attr, parsed off user markup). The comfortable default spacing seen while
-// composing is editorial — an `.aee-editor` CSS rule the serializer never
-// sees — so it can also reserve the room the block affordances live in.
+// No padding here: the email carries only the cell's own `padding` attr
+// (authored, or a bordered/borderless preset's). The comfortable default
+// spacing seen while composing is editorial — an `.aee-editor` CSS rule the
+// serializer never sees, which an inline padding overrides.
 const cellStyle = (valign: CellVerticalAlignment): string =>
   `vertical-align: ${valign}; overflow-wrap: break-word;`;
 
@@ -165,13 +171,37 @@ export function parsePadding(dom: HTMLElement): string | null {
     it), with `border-collapse` on the table keeping the grid single-lined. */
 export const TABLE_BORDER_COLOR = 'rgb(208, 215, 229)';
 
-/** The bordered table's *real* cell padding — Excel-style breathing room, so
-    the rendered email is readable inside its grid. Deliberately the same
-    value as the editor's editorial default spacing (the app's `.aee-editor
-    table td` rule): a bordered and a plain table feel identical while
-    composing; only what the recipient gets differs — the preset ships its
-    padding, the plain table ships none unless authored. */
+/** The *real* cell padding a bordered or borderless table ships —
+    Excel-style breathing room, so the rendered email is readable. Deliberately
+    the same value as the editor's editorial default spacing (the app's
+    `.aee-editor .aee-table-wrap td` rule): all three kinds feel identical
+    while composing; only what the recipient gets differs — a layout table
+    ships no padding unless authored. */
 export const TABLE_CELL_PADDING = '8px 12px';
+
+/** The room a bordered or borderless table keeps above and below itself, in
+    px — real (`margin-top`/`margin-bottom` on the table, see `tableStyle`),
+    so the email sets the table off from the text around it exactly as the
+    editor does. Block only: the sides stay on the text column. */
+export const TABLE_BLOCK_SPACING = 16;
+
+/**
+ * The three tables the editor inserts, which differ only in what the email
+ * gets — in the editor all three are drawn with the same comfortable cells:
+ *  - `bordered` — the default: a grid line on every cell
+ *    (`TABLE_BORDER_COLOR`), real cell padding (`TABLE_CELL_PADDING`) and
+ *    real room above and below the table (`TABLE_BLOCK_SPACING`);
+ *  - `borderless` — the same real padding and room, no lines;
+ *  - `layout` — none of it: the table sits flush against its neighbours and
+ *    its cells flush in the email; the cell spacing seen while composing is
+ *    editorial CSS the serializer never sees. For arranging content side by
+ *    side, where the author owns every pixel.
+ *
+ * Not a node attr: the kind is just the cells' `border` and `padding` and
+ * the table's `spacing`, which is all the email carries, so a parsed table
+ * needs no hint to come back as the kind it was inserted as.
+ */
+export type TableKind = 'bordered' | 'borderless' | 'layout';
 
 /** Canonical percentage: one decimal at most, no trailing zero (25%, 33.3%). */
 export const formatPct = (n: number): string => `${Math.round(n * 10) / 10}%`;
@@ -197,13 +227,28 @@ function pctOf(raw: string): number | null {
     only, like the cells. A pixel width (the classic fixed-600px newsletter)
     repairs to full fluid width; the pair clamps so offset + width ≤ 100 and
     the width keeps its floor. */
-function parseTableBox(dom: HTMLElement): { width: number; offset: number } {
+function parseTableBox(dom: HTMLElement): {
+  width: number;
+  offset: number;
+  spacing: number | null;
+} {
   const width = Math.min(
     Math.max(pctOf(dom.style?.width || dom.getAttribute('width') || '') ?? 100, MIN_TABLE_PCT),
     100,
   );
   const offset = Math.min(Math.max(pctOf(dom.style?.marginLeft || '') ?? 0, 0), 100 - width);
-  return { width, offset };
+  return { width, offset, spacing: parseBlockSpacing(dom) };
+}
+
+/** The room above and below a table off parsed markup: px, the same above as
+    below — the one shape `tableStyle` writes. Anything else (one side only,
+    em, %, `auto`) is not a look this schema sells, and repairs to none. */
+function parseBlockSpacing(dom: HTMLElement): number | null {
+  const top = (dom.style?.marginTop || '').trim();
+  if (top !== (dom.style?.marginBottom || '').trim()) return null;
+  const match = /^(\d+(?:\.\d+)?)px$/.exec(top);
+  const spacing = match ? Number.parseFloat(match[1]) : 0;
+  return spacing > 0 ? spacing : null;
 }
 
 /** A `colspan`/`rowspan` off parsed markup: 1 when absent, malformed, zero or
@@ -312,12 +357,15 @@ export const TableCell = defineNode({
       // Same attr name the library's commands expect, different unit on
       // purpose; pixel widths never parse in (see the node docs).
       colwidth: { default: null },
-      // Authored padding only (px, via `parsePadding`); `null` — the default —
-      // serializes none, and the editor's comfortable spacing is CSS-only.
+      // Real padding (px, via `parsePadding`): authored, or the bordered and
+      // borderless presets' `TABLE_CELL_PADDING`. `null` — the default, and a
+      // layout table's — serializes none, and the editor's comfortable
+      // spacing is CSS-only. Cells added to a uniformly padded table inherit
+      // it (see `unifyCellPresets`).
       padding: { default: null },
       // The cell's grid-line colour (`border: 1px solid <color>`), or null
-      // for the borderless default. Set for every cell of a `/bordered-table`
-      // insert; kept uniform by the repair plugin (see `unifyCellBorders`).
+      // for no line. Set for every cell of a bordered insert (`/table`); kept
+      // uniform by the repair plugin (see `unifyCellPresets`).
       border: { default: null },
       // A fill colour on the cell (the most bulletproof background in email —
       // `background-color` on `<td>` renders even in Outlook). From the curated
@@ -370,7 +418,9 @@ export const Table = defineNode({
     allowGapCursor: false,
     // Width and left offset in percent of the container; the defaults
     // (100, 0) serialize identically to the pre-attr canonical form.
-    attrs: { width: { default: 100 }, offset: { default: 0 } },
+    // `spacing`: px of room above and below (`TABLE_BLOCK_SPACING` for the
+    // bordered and borderless kinds), null — the default — for none.
+    attrs: { width: { default: 100 }, offset: { default: 0 }, spacing: { default: null } },
     parseDOM: [{ tag: 'table', getAttrs: (dom) => parseTableBox(dom) }],
     // <tbody> wrapper matches what mail clients expect and what the HTML
     // parser re-injects, so serialize → parse → serialize is a fixpoint.
@@ -381,14 +431,20 @@ export const Table = defineNode({
       'table',
       {
         role: 'presentation',
-        style: tableStyle(node.attrs['width'] as number, node.attrs['offset'] as number),
+        style: tableStyle(
+          node.attrs['width'] as number,
+          node.attrs['offset'] as number,
+          node.attrs['spacing'] as number | null,
+        ),
       },
       ['tbody', 0],
     ],
   },
   commands: ({ schema }) => ({
-    /** The default shape is the one /table inserts — three rows by two. */
-    insertTable: (rows = 3, cols = 2): Command => insertTableFocused(schema, rows, cols),
+    /** The default shape and kind are the ones /table inserts — three rows
+        by two, bordered (see `TableKind`). */
+    insertTable: (rows = 3, cols = 2, kind: TableKind = 'bordered'): Command =>
+      insertTableFocused(schema, rows, cols, kind),
     // Selection-relative structure edits, straight from the library: each one
     // understands merged cells and multi-cell selections for free. The
     // add-column pair is wrapped: on a table with declared widths, the library
@@ -530,14 +586,14 @@ export const Table = defineNode({
     // a rectangle. Covers everything that reaches the editor as a transaction
     // — paste, drops, `setContent`, an import landing on the html signal —
     // while `repairTables` covers the pure parse path (see `html.ts`).
-    // `unifyCellBorders` rides the same pass: cells that structural edits add
-    // arrive with the default null border and inherit a uniform table's.
+    // `unifyCellPresets` rides the same pass: cells that structural edits add
+    // arrive with a null border and padding and inherit a uniform table's.
     new Plugin({
       key: new PluginKey('tableRepair'),
       appendTransaction: (transactions, oldState, newState) => {
         if (!transactions.some((tr) => tr.docChanged)) return undefined;
         const tr = fixTables(newState, oldState) ?? newState.tr;
-        unifyCellBorders(tr);
+        unifyCellPresets(tr, insertedRanges([...transactions, tr]));
         return tr.docChanged ? tr : undefined;
       },
     }),
@@ -548,23 +604,32 @@ export const Table = defineNode({
   // Three rows by two: a table asked for by name starts with somewhere to
   // write a heading line and two entries under it, which is what an email
   // table almost always turns out to be. A picker (the app's grid) says its
-  // own size; this is only what `/table` means on its own.
+  // own size; this is only what `/table` means on its own. One item per
+  // `TableKind`, the bordered default first.
   actions: ({ schema }) => [
     {
       id: 'table',
       section: 'layout',
       title: 'Table',
-      keywords: ['table', 'grid', 'rows', 'columns'],
-      icon: 'table_chart',
-      command: insertTableFocused(schema, 3, 2),
+      keywords: ['table', 'bordered', 'grid', 'rows', 'columns', 'excel', 'lines'],
+      icon: 'grid_on',
+      command: insertTableFocused(schema, 3, 2, 'bordered'),
     },
     {
-      id: 'bordered-table',
+      id: 'borderless-table',
       section: 'layout',
-      title: 'Bordered table',
-      keywords: ['bordered-table', 'table', 'borders', 'grid', 'excel', 'lines'],
-      icon: 'grid_on',
-      command: insertTableFocused(schema, 3, 2, TABLE_BORDER_COLOR),
+      title: 'Borderless table',
+      keywords: ['borderless-table', 'table', 'borderless', 'no lines', 'padding'],
+      icon: 'border_clear',
+      command: insertTableFocused(schema, 3, 2, 'borderless'),
+    },
+    {
+      id: 'layout-table',
+      section: 'layout',
+      title: 'Layout table',
+      keywords: ['layout-table', 'table', 'layout', 'invisible', 'side by side'],
+      icon: 'view_quilt',
+      command: insertTableFocused(schema, 3, 2, 'layout'),
     },
   ],
 });
@@ -596,13 +661,13 @@ function insertTableFocused(
   schema: Schema,
   rows: number,
   cols: number,
-  border: string | null = null,
+  kind: TableKind,
 ): Command {
   return (state, dispatch) => {
     // Asked, not told: answer before building anything — a toolbar asks on
     // every transaction.
     if (!dispatch) return true;
-    const table = buildTable(schema, rows, cols, border);
+    const table = buildTable(schema, rows, cols, kind);
 
     const from = state.selection.from;
     const tr = state.tr.replaceSelectionWith(table);
@@ -969,52 +1034,94 @@ function isColumnBoundaryClean(map: TableMap, index: number): boolean {
   return true;
 }
 
-function buildTable(schema: Schema, rows: number, cols: number, border: string | null): Node {
+function buildTable(schema: Schema, rows: number, cols: number, kind: TableKind): Node {
   const cellType = schema.nodes['tableCell'];
   const rowType = schema.nodes['tableRow'];
   const tableType = schema.nodes['table'];
-  // The bordered preset ships real padding with its grid (see
-  // TABLE_CELL_PADDING); a plain table ships none unless authored.
-  const attrs = { border, padding: border ? TABLE_CELL_PADDING : null };
+  // Bordered and borderless ship real padding (TABLE_CELL_PADDING); a layout
+  // table ships none — its spacing is the editor's alone.
+  const attrs = {
+    border: kind === 'bordered' ? TABLE_BORDER_COLOR : null,
+    padding: kind === 'layout' ? null : TABLE_CELL_PADDING,
+  };
   const makeRow = () =>
     rowType.create(
       null,
       Array.from({ length: cols }, () => cellType.createAndFill(attrs)!),
     );
-  return tableType.create(null, Array.from({ length: rows }, makeRow))!;
+  return tableType.create(
+    { spacing: kind === 'layout' ? null : TABLE_BLOCK_SPACING },
+    Array.from({ length: rows }, makeRow),
+  )!;
+}
+
+/** The ranges of the final document that the steps of `trs` (applied one
+    after another) inserted — what is *new* in it. Earlier ranges are mapped
+    through every later step, so all of them speak the last doc's positions. */
+function insertedRanges(trs: readonly Transaction[]): [number, number][] {
+  let ranges: [number, number][] = [];
+  for (const tr of trs) {
+    for (const map of tr.mapping.maps) {
+      ranges = ranges.map(([from, to]) => [map.map(from, -1), map.map(to, 1)]);
+      map.forEach((_oldStart, _oldEnd, newStart, newEnd) => {
+        if (newEnd > newStart) ranges.push([newStart, newEnd]);
+      });
+    }
+  }
+  return ranges;
 }
 
 /**
- * Keeps a *uniformly* bordered table uniform: when every bordered cell wears
- * the same colour and some cells have none — which is what any structural
- * edit produces, since `addRow`/`addColumn`/the pills create cells with the
- * default null border — the bare cells inherit it. A table with *mixed*
- * border colours (authored, imported) is left exactly as written: repair,
- * not opinion. `setNodeMarkup` never changes node sizes, so positions
- * collected up front stay valid as the jobs apply.
+ * Keeps a preset table uniform: `addRow`/`addColumn`/the pills/Tab past the
+ * end all create cells with a null `border` and `padding`, which would leave
+ * a bordered or borderless table with cells the email draws differently from
+ * their neighbours — while the editor's comfortable CSS spacing hides it.
+ *
+ *  - **Border**: when every bordered cell wears the same colour, the bare
+ *    cells inherit it. Mixed colours (authored, imported) stay as written.
+ *  - **Padding**: stricter — only cells *this transaction added* to a table
+ *    that was *already there* inherit a uniform padding. Real mail pads a
+ *    spacer cell here and there, and an import must not spread that over
+ *    every cell: repair, not opinion.
+ *
+ * `setNodeMarkup` never changes node sizes, so positions collected up front
+ * stay valid as the jobs apply.
  */
-function unifyCellBorders(tr: Transaction): void {
+function unifyCellPresets(tr: Transaction, inserted: [number, number][]): void {
+  const isNew = (from: number, to: number) => inserted.some(([f, t]) => f <= from && to <= t);
   const jobs: { pos: number; attrs: Record<string, unknown> }[] = [];
   tr.doc.descendants((node, pos) => {
     if (node.type.name !== 'table') return true;
 
-    const colors = new Set<string>();
-    let bare = 0;
+    const borders = new Set<string>();
+    const paddings = new Set<string>();
+    let unbordered = 0;
     node.descendants((cell) => {
       if (cell.type.name !== 'tableCell') return true;
       const border = cell.attrs['border'] as string | null;
-      if (border) colors.add(border);
-      else bare++;
-      return true;
+      const padding = cell.attrs['padding'] as string | null;
+      if (border) borders.add(border);
+      else unbordered++;
+      if (padding) paddings.add(padding);
+      return false;
     });
 
-    if (colors.size === 1 && bare > 0) {
-      const border = [...colors][0];
+    const border = borders.size === 1 && unbordered > 0 ? [...borders][0] : null;
+    const padding =
+      paddings.size === 1 && !isNew(pos, pos + node.nodeSize) ? [...paddings][0] : null;
+    if (border || padding) {
       node.descendants((cell, rel) => {
-        if (cell.type.name === 'tableCell' && !cell.attrs['border']) {
-          jobs.push({ pos: pos + 1 + rel, attrs: { ...cell.attrs, border } });
+        if (cell.type.name !== 'tableCell') return true;
+        const at = pos + 1 + rel;
+        const attrs = { ...cell.attrs };
+        if (border && !attrs['border']) attrs['border'] = border;
+        if (padding && !attrs['padding'] && isNew(at, at + cell.nodeSize)) {
+          attrs['padding'] = padding;
         }
-        return true;
+        if (attrs['border'] !== cell.attrs['border'] || attrs['padding'] !== cell.attrs['padding']) {
+          jobs.push({ pos: at, attrs });
+        }
+        return false;
       });
     }
     return false; // cells handled; nothing tabular nests deeper
