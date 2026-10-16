@@ -24,6 +24,8 @@ export default {
     sent: 'メッセージを送信しました',
   },
   composer: {
+    view: { title: '表示', editor: 'エディター', html: 'HTML' },
+    attach: 'ファイルを添付',
     more: 'その他のオプション',
     appearance: { title: '外観', light: 'ライト', dark: 'ダーク', app: 'アプリ' },
     placeholders: {

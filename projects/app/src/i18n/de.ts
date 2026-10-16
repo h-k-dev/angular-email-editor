@@ -25,6 +25,8 @@ export default {
     sent: 'Nachricht gesendet',
   },
   composer: {
+    view: { title: 'Ansicht', editor: 'Editor', html: 'HTML' },
+    attach: 'Dateien anhängen',
     more: 'Weitere Optionen',
     appearance: { title: 'Darstellung', light: 'Hell', dark: 'Dunkel', app: 'App' },
     placeholders: {

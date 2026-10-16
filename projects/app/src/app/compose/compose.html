@@ -60,6 +60,7 @@
     #sheet
     #draft="keepDraft"
     [(sourceView)]="sourceView"
+    sourceViews
     [codePortal]="codePortal()"
     [codeEditor]="sourcePane().editor()"
     (sent)="sentNote.set($event)"
@@ -78,21 +79,11 @@
             <mat-icon>dock_to_left</mat-icon>
           </button>
         }
-        <!-- Code view: marks and history keep working on the source (its
-           kit mirrors every mark command, so the toolbar routes to
-           whichever editor shows); block commands have no source-side
-           twin and lock. Pressed while the source is docked, it moves in;
-           detach pressed while in code view moves it back out. -->
-        <button
-          mat-icon-button
-          type="button"
-          aria-label="HTML source"
-          title="Edit the HTML source"
-          [attr.aria-pressed]="sourceView() === 'code'"
-          (click)="toggleCodeView()"
-        >
-          <mat-icon>code</mat-icon>
-        </button>
+        <!-- Code view is the ⋮ menu's View (Editor / HTML), the sheet's:
+           marks and history keep working on the source (its kit mirrors
+           every mark command, so the toolbar routes to whichever editor
+           shows); block commands have no source-side twin and lock. Detach
+           pressed while in code view moves the source back out. -->
         @if (!viewport.narrow()) {
           <button
             mat-icon-button

@@ -32,11 +32,14 @@
   [multiple]="true"
   (fileDrop)="onAttachmentDrop($event)"
 >
-  <!-- The bar's leading controls. First the formatting toolbar, shown or
-       hidden (Gmail's formatting options) — not on a phone: there the
-       toolbar is the bar on the keyboard and always stays (`toolbarShown`).
-       The composer keeps the toolbar; the sheet only decides whether it
-       shows. Then the frame's own leading controls (the page's views). -->
+  <!-- The bar's leading controls, after Send: the formatting toolbar,
+       shown or hidden (Gmail's formatting options) — not on a phone: there
+       the toolbar is the bar on the keyboard and always stays
+       (`toolbarShown`); the composer keeps the toolbar, the sheet only
+       decides whether it shows. Then Attach — the writer's own drop zone's
+       picker, so a picked file takes the dropped one's way
+       (`onAttachmentDrop`). Then the frame's own leading controls (the
+       page's views), and the ⋮ last. -->
   <ng-container ngProjectAs="[leading]">
     @if (!viewport.compact()) {
       <button
@@ -50,7 +53,18 @@
         <mat-icon>text_format</mat-icon>
       </button>
     }
-    <!-- More options for the message, beside the formatting switch: the
+    <button
+      mat-icon-button
+      type="button"
+      [attr.aria-label]="'composer.attach' | translate"
+      [title]="'composer.attach' | translate"
+      (click)="writerZone.openFilePicker($event)"
+    >
+      <mat-icon>attach_file</mat-icon>
+    </button>
+    <ng-content select="[leading]" />
+    <!-- More options for the message, last of the leading group: the View
+         (the editor or its HTML, where the frame has a source pane) and the
          editor’s Appearance (`editorAppearance`), on a phone too. -->
     <button
       mat-icon-button
@@ -69,15 +83,13 @@
       [label]="'composer.more' | translate"
       [trigger]="moreTrigger"
       [items]="moreItems()"
-      (selected)="editorAppearance.set($event)"
+      (selected)="onMoreAction($event)"
     ></div>
-    <ng-content select="[leading]" />
   </ng-container>
 
-  <!-- Beside Send in the writer's bar: the frame's own actions, then
-       Discard — a message needs no Save button (a draft keeps itself, where
-       the frame keeps one), so the one thing left to do with it by hand is
-       throw it away. -->
+  <!-- The bar's end: the frame's own actions, then Discard — a message
+       needs no Save button (a draft keeps itself, where the frame keeps
+       one), so the one thing left to do with it by hand is throw it away. -->
   <ng-container ngProjectAs="[actions]">
     <!-- Core's "Parse": offered while the body holds placeholders (the
          action's own answer) and not while the evaluator works. The same as

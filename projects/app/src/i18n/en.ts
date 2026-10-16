@@ -28,6 +28,8 @@ export default {
     sent: 'Message sent',
   },
   composer: {
+    view: { title: 'View', editor: 'Editor', html: 'HTML' },
+    attach: 'Attach files',
     more: 'More options',
     appearance: { title: 'Appearance', light: 'Light', dark: 'Dark', app: 'App' },
     placeholders: {

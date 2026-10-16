@@ -2,6 +2,7 @@ import {
   Component,
   ElementRef,
   Injector,
+  booleanAttribute,
 
   // Signals
   afterNextRender,
@@ -79,12 +80,29 @@ import {
   ToolbarMenuItem,
 } from '../email-compose/formatting-toolbar/toolbar-menu/toolbar-menu';
 import { EmailWriter } from '../email-writer/email-writer';
+import { releaseEditingSurface } from '../is-typing';
 import { Viewport } from '../../../services/viewport';
 import { Theme } from '../../../services/theme';
 import { I18n } from '../../../services/i18n';
 import { AttachmentUploads } from '../../../services/attachment-uploads';
 import { EmailSend, SendRejected } from '../../../services/email-send';
 import { BLANK, Envelope, hasContent, isBlank } from './envelope';
+
+/** A row of the bar's ⋮ menu, as the action it asks for — the menu decides
+    nothing; the form applies it (`onMoreAction`). Core's ⋮ emits the same. */
+export type MoreAction =
+  | { value: 'view'; view: 'editor' | 'html' }
+  | { value: 'appearance'; appearance: EditorAppearance };
+
+/** One object per row, for good: the rows' values stay the same objects
+    from one reading of the menu to the next. */
+const MORE_ACTIONS = {
+  editor: { value: 'view', view: 'editor' },
+  html: { value: 'view', view: 'html' },
+  light: { value: 'appearance', appearance: 'light' },
+  dark: { value: 'appearance', appearance: 'dark' },
+  app: { value: 'appearance', appearance: 'app' },
+} as const satisfies Record<string, MoreAction>;
 
 /** Tells the sheets on one page apart: every sheet's Subject input needs an
     id of its own for its label. */
@@ -297,6 +315,10 @@ export class MessageForm {
   readonly codePortal = input<Portal<unknown> | null>(null);
   readonly codeEditor = input<Editor | undefined>();
 
+  /** Whether the frame has a source pane to switch to: the ⋮ menu then
+      offers the View — the editor, or its HTML in the editor's place. */
+  readonly sourceViews = input(false, { transform: booleanAttribute });
+
   /** How the envelope rows frame their controls: `plain` — the control
       alone in the row (the page); `material` — inside an Angular Material
       form field at density -4, exactly the row's 40px (a compose window).
@@ -342,17 +364,52 @@ export class MessageForm {
     return appearance === 'app' ? this.#theme.scheme() : appearance;
   });
 
-  /** The bar's ⋮ menu: the editor's Appearance, one of three. */
-  protected readonly moreItems = computed<ToolbarMenuItem<EditorAppearance>[]>(() => {
+  /** The bar's ⋮ menu: the View — the editor or its HTML, where the frame
+      has a source pane and the screen room for it — then the editor's
+      Appearance, one of three. */
+  protected readonly moreItems = computed<ToolbarMenuItem<MoreAction>[]>(() => {
     const appearance = this.editorAppearance();
-    const section = this.i18n.t('composer.appearance.title');
-    const items: ToolbarMenuItem<EditorAppearance>[] = [
-      { value: 'light', label: this.i18n.t('composer.appearance.light'), section },
-      { value: 'dark', label: this.i18n.t('composer.appearance.dark') },
-      { value: 'app', label: this.i18n.t('composer.appearance.app') },
-    ];
-    return items.map((item) => ({ ...item, kind: 'radio', checked: item.value === appearance }));
+    const code = this.sourceView() === 'code';
+    const views: ToolbarMenuItem<MoreAction>[] =
+      this.sourceViews() && !this.viewport.compact()
+        ? [
+            {
+              value: MORE_ACTIONS.editor,
+              label: this.i18n.t('composer.view.editor'),
+              section: this.i18n.t('composer.view.title'),
+              checked: !code,
+            },
+            { value: MORE_ACTIONS.html, label: this.i18n.t('composer.view.html'), checked: code },
+          ]
+        : [];
+    const appearances: ToolbarMenuItem<MoreAction>[] = (['light', 'dark', 'app'] as const).map(
+      (id, i) => ({
+        value: MORE_ACTIONS[id],
+        label: this.i18n.t(`composer.appearance.${id}`),
+        section: i === 0 ? this.i18n.t('composer.appearance.title') : undefined,
+        checked: appearance === id,
+      }),
+    );
+    return [...views, ...appearances].map((item) => ({ ...item, kind: 'radio' }));
   });
+
+  /** The ⋮'s rows: a view moves the source into the editor's place or out
+      of it (from the docked view too, as the old </> did) — nothing for the
+      view already in effect; an appearance is the editor's. */
+  protected onMoreAction(action: MoreAction): void {
+    switch (action.value) {
+      case 'view': {
+        const code = this.sourceView() === 'code';
+        if ((action.view === 'html') === code) return;
+        releaseEditingSurface();
+        this.sourceView.set(action.view === 'html' ? 'code' : 'hidden');
+        break;
+      }
+      case 'appearance':
+        this.editorAppearance.set(action.appearance);
+        break;
+    }
+  }
 
   readonly emailPane = viewChild.required(EmailCompose);
 

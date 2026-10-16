@@ -126,13 +126,6 @@ export class Compose {
     computation: (narrow, previous): boolean => !narrow && (previous?.value ?? false),
   });
 
-  /** The writer bar's </>: the source in the editor's place, or gone. From
-      the docked view it moves the source in. */
-  protected toggleCodeView(): void {
-    releaseEditingSurface();
-    this.sourceView.update((view) => (view === 'code' ? 'hidden' : 'code'));
-  }
-
   /** The writer bar's detach button: the source beside the editor, or gone.
       From code view it moves the source out of the editor's place. */
   protected toggleDetached(): void {
