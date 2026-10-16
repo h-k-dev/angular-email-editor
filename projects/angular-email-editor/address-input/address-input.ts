@@ -51,6 +51,12 @@ let drag: {
   moved: boolean;
 } | null = null;
 
+/** The entry a chip on this page last put on the clipboard — by a hold, by
+    Ctrl+C or by Ctrl+X. A hold writes plain text only (the async clipboard
+    takes no type of ours), so a paste of exactly this text is known to be a
+    chip's, and comes back as one. */
+let clipboardEntry: string | null = null;
+
 /**
  * An address field the way Gmail's works: committed addresses as chips,
  * free typing after them. Enter, comma, semicolon or a paste commits what
@@ -88,6 +94,8 @@ let drag: {
  * and walks back along the list; → walks forward, and past the last chip
  * returns to the caret. Enter or F2 — or a double click on
  * any chip — edits it, Alt+← and Alt+→ move it a place along the list,
+ * Ctrl+C (Cmd+C) copies it, as a hold does, and Ctrl+X cuts it — unless
+ * text is selected in the input, which copies as ever —
  * Backspace or Delete removes it, Escape drops the highlight, and so does
  * typing. A click on a chip highlights it. Reaching a chip either way is
  * being done with the typing: an address in the input becomes a chip first,
@@ -883,12 +891,67 @@ export class AddressInput implements FormValueControl<string[]> {
 
   /** A paste of several addresses: the addresses become chips, the rest
       joins what the input already holds. A single token is left to the
-      input, so a name with spaces can still be edited before it commits. */
+      input, so a name with spaces can still be edited before it commits —
+      but a chip's own copy (Ctrl+C, Ctrl+X, a hold) comes back as a chip,
+      as it was. With a chip picked, what is pasted goes right after it. */
   protected onPaste(event: ClipboardEvent, input: HTMLInputElement): void {
-    const text = event.clipboardData?.getData('text') ?? '';
-    if (this.#rules.split(text).length < 2) return;
+    if (this.locked()) return;
+    const data = event.clipboardData;
+    const text = data?.getData('text') ?? '';
+    const chip = [...(data?.types ?? [])].includes(ADDRESS_DRAG_TYPE);
+    const entry =
+      (chip && data!.getData(ADDRESS_DRAG_TYPE)) || (text === clipboardEntry ? text : '');
+    const active = this.active();
+    const at = active === null ? this.#draftStart() : active + 1;
+    if (entry) {
+      event.preventDefault();
+      this.#insert([entry], at);
+      this.active.set(null);
+      return;
+    }
+    const tokens = this.#rules.split(text);
+    if (tokens.length < 2 && active === null) return;
     event.preventDefault();
-    this.#settle(input, `${input.value}, ${text}`);
+    if (active === null) {
+      this.#settle(input, `${input.value}, ${text}`);
+      return;
+    }
+    const addresses = tokens.filter((token) => this.#accepts(token));
+    this.#insert(addresses, at);
+    const rest = tokens.filter((token) => !this.#accepts(token));
+    if (rest.length) {
+      this.#write(input, [input.value, ...rest].filter(Boolean).join(', '));
+      this.refused.set(true);
+    }
+    this.active.set(null);
+  }
+
+  /** Ctrl+C or Ctrl+X (Cmd on a Mac, or the Edit menu) with a chip picked
+      and no text selected: the chip goes on the clipboard — its header
+      form, as text and as the library's own type, so a paste into an
+      address input brings it back as a chip — and shows and says so, as a
+      hold does. A cut then removes it, as the × would. */
+  protected onClipboard(event: ClipboardEvent, input: HTMLInputElement, cut: boolean): void {
+    const address = this.current();
+    const data = event.clipboardData;
+    if (address === null || !data || input.selectionStart !== input.selectionEnd) return;
+    if (cut && this.locked()) return;
+    event.preventDefault();
+    data.setData('text/plain', address);
+    data.setData(ADDRESS_DRAG_TYPE, address);
+    clipboardEntry = address;
+    if (cut) {
+      this.remove(address);
+      return;
+    }
+    this.chips()
+      .find((chip) => chip.address() === address)
+      ?.showCopied();
+  }
+
+  /** A chip's hold copied it: remembered, so a paste of it is a chip. */
+  protected onChipCopied(address: string): void {
+    clipboardEntry = address;
   }
 
   /** Focus arrived in the input: the typos at the end of the list come back

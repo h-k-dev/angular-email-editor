@@ -73,7 +73,8 @@ function copyWithCommand(text: string): boolean {
  * to the clipboard, mouse or touch alike; a release or a drag before that
  * does not, and the browser's own context menu stays away. The chip shows
  * and says "Copied" for a moment (`data-copied`, a live `status` slot) and
- * emits `copied`.
+ * emits `copied`. A list that copies the chip itself — the address input
+ * on Ctrl+C or Cmd+C — shows the same through `showCopied()`.
  *
  * **Drag, when asked.** Marked `draggable`, the chip can be dragged — by a
  * mouse or a pen; a touch keeps the press for the hold, so a phone's
@@ -303,10 +304,19 @@ export class AddressChip {
       : Promise.resolve(false);
     const done = (await modern.catch(() => false)) || copyWithCommand(text);
     if (!done) return false;
+    this.showCopied();
+    return true;
+  }
+
+  /** Shows and says, for a moment, that the address is on the clipboard,
+      and emits `copied` — what a copy does once the clipboard has it. For a
+      list that put it there itself: the address input's Ctrl+C, which
+      writes the clipboard in the copy event, synchronously. */
+  showCopied(): void {
+    const text = this.address();
     this.announce(`${this.copiedLabel()} ${text}`);
     this.justCopied.set(true);
     this.copied.emit(text);
-    return true;
   }
 
   /** Says something about the chip through its `status` slot, for a
