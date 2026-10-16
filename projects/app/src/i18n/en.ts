@@ -120,7 +120,7 @@ export default {
         borderless: 'Borderless',
         borderlessHint: 'Padding in the email, no lines',
         layout: 'Layout',
-        layoutHint: 'Neither — spacing only while you write',
+        layoutHint: 'No lines, no padding — content sits flush',
       },
     },
     menu: {

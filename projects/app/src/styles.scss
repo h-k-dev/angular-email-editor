@@ -328,16 +328,16 @@ html {
  * while mail clients lay the same table out by content — an editor/email
  * divergence we don't accept for a look.
  */
+/* No padding of the editor's own: a cell is drawn with exactly the padding the
+ * email gives it — a bordered or borderless table's real 8px 12px (inline,
+ * per cell), a layout table's none. */
 .aee-editor .aee-table-wrap:not(.aee-table-wrap--authored) td {
   position: relative;
-  /* Editorial spacing: the serialized email carries only *authored* padding
-   * (an inline style, which wins over this rule). This default keeps the
-   * composing surface comfortable without shipping our taste in the email. */
-  padding: 8px 12px;
 }
 
-/* The columns' editorial gutter — same contract as the cells above: the email
- * has no padding unless the author wrote one (inline style wins here too),
+/* The columns' editorial gutter — unlike a table's cells, padded while
+ * editing: the email has no padding unless the author wrote one (inline
+ * style wins here too),
  * and this spacing doubles as the room the boundary drags live in. Between
  * columns only: the block's outer text edges align with the surrounding
  * paragraphs, like the email itself. */
@@ -597,7 +597,7 @@ html {
 
 /* An authored table (a template's, kept as written by the `email` parse) is
  * drawn the way the email draws it: no editorial gutter round it, no
- * comfortable cell padding, no reserved grid-line border — the rules above
+ * reserved grid-line border — the rules above
  * are for the composer's own tables only. Its handles still work. */
 .aee-editor .aee-table-wrap--authored {
   padding: 0;
@@ -684,8 +684,10 @@ html {
   inset: 0;
 }
 
-/* The grab strip: 9px of hit area centred on the boundary — comfortably
- * inside the cells' 12px padding, so it never sits over text. */
+/* The grab strip: 9px of hit area centred on the boundary — inside a
+ * bordered or borderless table's 12px cell padding, so it never sits over
+ * text there; a layout table's flush cells let it overlap their edges by
+ * 4.5px, the price of drawing them as the email does. */
 .aee-editor .aee-col-line {
   position: absolute;
   top: 0;

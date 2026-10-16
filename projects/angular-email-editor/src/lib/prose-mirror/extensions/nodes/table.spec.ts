@@ -96,8 +96,7 @@ describe('table serialization', () => {
   });
 
   it('keeps authored cell padding — px only — and drops the rest', () => {
-    // Padding in the email is the author's choice; the editor's comfortable
-    // default is CSS-only and never serializes.
+    // Padding in the email is the author's (or a preset's) choice.
     const padded = canonical(
       '<table><tbody><tr><td style="padding: 4px 10px;">a</td></tr></tbody></table>',
     );

@@ -108,9 +108,8 @@ export const tableStyle = (width: number, offset: number, spacing: number | null
 // is exactly why it has to be said out loud here — otherwise the overflow shows
 // up only in the recipient's client.
 // No padding here: the email carries only the cell's own `padding` attr
-// (authored, or a bordered/borderless preset's). The comfortable default
-// spacing seen while composing is editorial — an `.aee-editor` CSS rule the
-// serializer never sees, which an inline padding overrides.
+// (authored, or a bordered/borderless preset's), and the editor draws exactly
+// that — it adds no cell spacing of its own.
 const cellStyle = (valign: CellVerticalAlignment): string =>
   `vertical-align: ${valign}; overflow-wrap: break-word;`;
 
@@ -172,11 +171,8 @@ export function parsePadding(dom: HTMLElement): string | null {
 export const TABLE_BORDER_COLOR = 'rgb(208, 215, 229)';
 
 /** The *real* cell padding a bordered or borderless table ships —
-    Excel-style breathing room, so the rendered email is readable. Deliberately
-    the same value as the editor's editorial default spacing (the app's
-    `.aee-editor .aee-table-wrap td` rule): all three kinds feel identical
-    while composing; only what the recipient gets differs — a layout table
-    ships no padding unless authored. */
+    Excel-style breathing room, so the rendered email is readable. A layout
+    table ships none unless authored, and is drawn flush in the editor too. */
 export const TABLE_CELL_PADDING = '8px 12px';
 
 /** The room a bordered or borderless table keeps above and below itself, in
@@ -186,16 +182,15 @@ export const TABLE_CELL_PADDING = '8px 12px';
 export const TABLE_BLOCK_SPACING = 16;
 
 /**
- * The three tables the editor inserts, which differ only in what the email
- * gets — in the editor all three are drawn with the same comfortable cells:
+ * The three tables the editor inserts — drawn in the editor exactly as the
+ * email draws them:
  *  - `bordered` — the default: a grid line on every cell
  *    (`TABLE_BORDER_COLOR`), real cell padding (`TABLE_CELL_PADDING`) and
  *    real room above and below the table (`TABLE_BLOCK_SPACING`);
  *  - `borderless` — the same real padding and room, no lines;
  *  - `layout` — none of it: the table sits flush against its neighbours and
- *    its cells flush in the email; the cell spacing seen while composing is
- *    editorial CSS the serializer never sees. For arranging content side by
- *    side, where the author owns every pixel.
+ *    its content flush in its cells, in the editor and the email alike. For
+ *    arranging content side by side, where the author owns every pixel.
  *
  * Not a node attr: the kind is just the cells' `border` and `padding` and
  * the table's `spacing`, which is all the email carries, so a parsed table
@@ -359,8 +354,7 @@ export const TableCell = defineNode({
       colwidth: { default: null },
       // Real padding (px, via `parsePadding`): authored, or the bordered and
       // borderless presets' `TABLE_CELL_PADDING`. `null` — the default, and a
-      // layout table's — serializes none, and the editor's comfortable
-      // spacing is CSS-only. Cells added to a uniformly padded table inherit
+      // layout table's — serializes none, and the editor draws none. Cells added to a uniformly padded table inherit
       // it (see `unifyCellPresets`).
       padding: { default: null },
       // The cell's grid-line colour (`border: 1px solid <color>`), or null
@@ -1075,7 +1069,7 @@ function insertedRanges(trs: readonly Transaction[]): [number, number][] {
  * Keeps a preset table uniform: `addRow`/`addColumn`/the pills/Tab past the
  * end all create cells with a null `border` and `padding`, which would leave
  * a bordered or borderless table with cells the email draws differently from
- * their neighbours — while the editor's comfortable CSS spacing hides it.
+ * their neighbours.
  *
  *  - **Border**: when every bordered cell wears the same colour, the bare
  *    cells inherit it. Mixed colours (authored, imported) stay as written.

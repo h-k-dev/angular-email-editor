@@ -132,7 +132,7 @@ export default {
         borderless: '罫線なし',
         borderlessHint: 'メールに余白だけが入ります',
         layout: 'レイアウト',
-        layoutHint: '余白は編集中だけ表示されます',
+        layoutHint: '罫線も余白もなし — 内容をそのまま配置',
       },
     },
     color: {

@@ -16,6 +16,10 @@
 
   position: relative;
   min-inline-size: 200px;
+  // The panel's `overflow: clip` would cut away its own lists, which stand
+  // past its edge (`.cell-menu__sub`). Its rows sit inside the padding band,
+  // so nothing else paints past the rounded corner.
+  overflow: visible;
 }
 
 .cell-menu__item {

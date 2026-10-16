@@ -136,7 +136,7 @@ export default {
         borderless: 'Ohne Linien',
         borderlessHint: 'Innenabstand in der E-Mail, keine Linien',
         layout: 'Layout',
-        layoutHint: 'Weder noch — Abstand nur beim Schreiben',
+        layoutHint: 'Keine Linien, kein Abstand — Inhalt bündig',
       },
     },
     color: {
