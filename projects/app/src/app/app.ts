@@ -1,4 +1,4 @@
-import { Component, DestroyRef, DOCUMENT, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule, MatIconRegistry } from '@angular/material/icon';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -6,6 +6,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { ComposeWindows } from '../services/compose-windows';
 import { I18n } from '../services/i18n';
 import { LanguageMenu } from './language-menu/language-menu';
+import { Theme } from '../services/theme';
 import { Viewport } from '../services/viewport';
 
 /** App shell: a top bar (page nav, Compose, language, theme) and the routed page below it.
@@ -32,9 +33,6 @@ import { Viewport } from '../services/viewport';
   },
 })
 export class App {
-  readonly #document = inject(DOCUMENT);
-  readonly #window = this.#document.defaultView;
-  readonly #destroyRef = inject(DestroyRef);
   protected readonly viewport = inject(Viewport);
   protected readonly i18n = inject(I18n);
   readonly #composeWindows = inject(ComposeWindows);
@@ -47,10 +45,11 @@ export class App {
     { path: '/render', icon: 'compare', key: 'app.nav.render', label: 'Render' },
   ];
 
-  /** Starts at the system preference; the toggle takes over from there. */
-  protected readonly theme = signal<'light' | 'dark'>(
-    this.#window?.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
-  );
+  readonly #theme = inject(Theme);
+
+  /** The app's light or dark (the `Theme` service): the system preference,
+      until the toggle takes over. */
+  protected readonly theme = this.#theme.scheme;
 
   protected readonly themeLabel = computed(() =>
     this.theme() === 'dark'
@@ -63,17 +62,6 @@ export class App {
     // the classic 'material-icons' ligature class; point every icon at the
     // new font's class instead.
     inject(MatIconRegistry).setDefaultFontSetClass('material-symbols-outlined');
-
-    // Follow the OS while the user has not chosen — a toggle overrides the
-    // signal, and the next OS change overrides it back, which is what a demo
-    // shell should do (nothing here is persisted).
-    const query = this.#window?.matchMedia?.('(prefers-color-scheme: dark)');
-    if (query) {
-      const onChange = (event: MediaQueryListEvent) =>
-        this.theme.set(event.matches ? 'dark' : 'light');
-      query.addEventListener('change', onChange);
-      this.#destroyRef.onDestroy(() => query.removeEventListener('change', onChange));
-    }
   }
 
   /** Compose: a new message in a window, whatever page is open. */
@@ -82,11 +70,6 @@ export class App {
   }
 
   protected toggleTheme(): void {
-    const flip = () => this.theme.update((theme) => (theme === 'light' ? 'dark' : 'light'));
-    if (this.#document.startViewTransition) {
-      this.#document.startViewTransition(flip);
-      return;
-    }
-    flip();
+    this.#theme.toggle();
   }
 }

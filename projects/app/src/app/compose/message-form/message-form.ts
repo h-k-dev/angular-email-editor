@@ -37,6 +37,9 @@ import { MatInput } from '@angular/material/input';
 import { MatIcon } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
+// Aria
+import { MenuTrigger } from '@angular/aria/menu';
+
 // Angular File Drop
 import { AngularFileDrop, FileDropEvent } from '@h-k-dev/angular-file-drop';
 
@@ -69,9 +72,14 @@ import { ActionTrigger, injectActions } from '@h-k-dev/angular-email-editor/acti
 import { AddressFormField } from '@h-k-dev/angular-email-editor/material';
 
 import { DropHint } from '../drop-hint/drop-hint';
-import { EmailCompose, SourceView } from '../email-compose/email-compose';
+import { EditorColorScheme, EmailCompose, SourceView } from '../email-compose/email-compose';
+import {
+  ToolbarMenu,
+  ToolbarMenuItem,
+} from '../email-compose/formatting-toolbar/toolbar-menu/toolbar-menu';
 import { EmailWriter } from '../email-writer/email-writer';
 import { Viewport } from '../../../services/viewport';
+import { Theme } from '../../../services/theme';
 import { I18n } from '../../../services/i18n';
 import { AttachmentUploads } from '../../../services/attachment-uploads';
 import { EmailSend, SendRejected } from '../../../services/email-send';
@@ -80,6 +88,9 @@ import { BLANK, Envelope, hasContent, isBlank } from './envelope';
 /** Tells the sheets on one page apart: every sheet's Subject input needs an
     id of its own for its label. */
 let nextSheetId = 0;
+
+/** How the editor looks: light or dark of its own, or the app's. */
+type EditorAppearance = EditorColorScheme | 'app';
 
 /**
  * One message, and everything it is written with: the form over it, the
@@ -120,6 +131,8 @@ let nextSheetId = 0;
     AngularFileDrop,
     KeepFocus,
     ActionTrigger,
+    MenuTrigger,
+    ToolbarMenu,
 
     // Material form fields (the `material` frame)
     MatFormField,
@@ -156,6 +169,7 @@ export class MessageForm {
   readonly #images = inject(InlineImages);
   readonly #injector = inject(Injector);
   protected readonly viewport = inject(Viewport);
+  readonly #theme = inject(Theme);
   protected readonly i18n = inject(I18n);
   readonly #snackBar = inject(MatSnackBar);
 
@@ -318,6 +332,31 @@ export class MessageForm {
   protected readonly toolbarShown = computed(
     () => this.viewport.compact() || this.formattingOpen(),
   );
+
+  /** The editor's appearance, the ⋮ menu's choice: a light or dark of its
+      own, apart from the app's theme — the text's paper only — or `app`,
+      the app's, following its top-bar toggle. Light by default: the
+      message as it is sent. */
+  protected readonly editorAppearance = signal<EditorAppearance>('light');
+
+  /** The scheme the editor draws in: the appearance, with `app` read as the
+      app's theme of the moment. */
+  protected readonly editorScheme = computed<EditorColorScheme>(() => {
+    const appearance = this.editorAppearance();
+    return appearance === 'app' ? this.#theme.scheme() : appearance;
+  });
+
+  /** The bar's ⋮ menu: the editor's Appearance, one of three. */
+  protected readonly moreItems = computed<ToolbarMenuItem<EditorAppearance>[]>(() => {
+    const appearance = this.editorAppearance();
+    const section = this.i18n.t('composer.appearance.title', 'Appearance');
+    const items: ToolbarMenuItem<EditorAppearance>[] = [
+      { value: 'light', label: this.i18n.t('composer.appearance.light', 'Light'), section },
+      { value: 'dark', label: this.i18n.t('composer.appearance.dark', 'Dark') },
+      { value: 'app', label: this.i18n.t('composer.appearance.app', 'App') },
+    ];
+    return items.map((item) => ({ ...item, kind: 'radio', checked: item.value === appearance }));
+  });
 
   readonly emailPane = viewChild.required(EmailCompose);
 

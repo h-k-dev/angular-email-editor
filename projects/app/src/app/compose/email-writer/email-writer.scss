@@ -8,9 +8,13 @@
 // compose.scss), with the bar above the envelope on a phone and under the
 // editor anywhere wider.
 :host {
+  // The room between blocks — a token, so a block the host wants flush
+  // against its neighbour (the editor's paper, message-form.scss) can take
+  // back exactly this much.
+  --writer-gap: 8px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--writer-gap);
   min-height: 0;
   // The containing block for the writer's drop hint, which overlays the sheet
   // (projected in by the composer, last).

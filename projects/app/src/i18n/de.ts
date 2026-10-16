@@ -25,6 +25,8 @@ export default {
     sent: 'Nachricht gesendet',
   },
   composer: {
+    more: 'Weitere Optionen',
+    appearance: { title: 'Darstellung', light: 'Hell', dark: 'Dunkel', app: 'App' },
     placeholders: {
       filled: 'Platzhalter eingesetzt',
       empty: '{{count}} Platzhalter ohne Wert',

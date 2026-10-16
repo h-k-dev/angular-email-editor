@@ -20,6 +20,9 @@
       @if (item.separated) {
         <div class="toolbar-menu__separator" role="separator"></div>
       }
+      @if (item.section) {
+        <div class="toolbar-menu__section" role="none">{{ item.section }}</div>
+      }
       <div
         ngMenuItem
         class="toolbar-menu__item"

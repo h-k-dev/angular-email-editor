@@ -94,6 +94,10 @@ import { TextMetrics, createTextMetrics } from '@h-k-dev/angular-email-editor/me
     (code view), or beside the editor in its own column (detached). */
 export type SourceView = 'hidden' | 'code' | 'detached';
 
+/** How the editing surface draws the message: on pure white, as it is sent,
+    or the way a dark-mode client shows that same message (`colorScheme`). */
+export type EditorColorScheme = 'light' | 'dark';
+
 /**
  * The composer: the editing surface with the editor mounted on it, and the
  * chrome that formats what is in it — the toolbar below, the bubble and
@@ -215,6 +219,15 @@ export class EmailCompose implements FormValueControl<string> {
       writer bar's formatting button); hidden, the text keeps its keyboard
       shortcuts, the slash menu and the bubble menu. */
   toolbar = input(true);
+
+  /** The editing surface's own scheme — the text only, never the chrome
+      around it, and apart from the app's theme: an email has no theme of
+      its own to follow. `light` is the message on pure white, as it is
+      written; `dark` is that same light rendering put through a client's
+      dark-mode filter (Apple Mail's surface — see `[data-color-scheme]` in
+      styles.scss). Light unless the host switches it; two-way, for a host
+      whose switch lives outside. */
+  colorScheme = model<EditorColorScheme>('light');
 
   /** Files let go over the editing surface that the editor did not take for
       itself — attachments, by the host's reading. The surface is the

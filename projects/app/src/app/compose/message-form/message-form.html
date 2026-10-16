@@ -50,6 +50,27 @@
         <mat-icon>text_format</mat-icon>
       </button>
     }
+    <!-- More options for the message, beside the formatting switch: the
+         editor’s Appearance (`editorAppearance`), on a phone too. -->
+    <button
+      mat-icon-button
+      type="button"
+      [attr.aria-label]="i18n.t('composer.more', 'More options')"
+      [title]="i18n.t('composer.more', 'More options')"
+      ngMenuTrigger
+      #moreTrigger="ngMenuTrigger"
+      [menu]="moreMenu.menu()"
+    >
+      <mat-icon>more_vert</mat-icon>
+    </button>
+    <div
+      toolbar-menu
+      #moreMenu
+      [label]="i18n.t('composer.more', 'More options')"
+      [trigger]="moreTrigger"
+      [items]="moreItems()"
+      (selected)="editorAppearance.set($event)"
+    ></div>
     <ng-content select="[leading]" />
   </ng-container>
 
@@ -400,6 +421,7 @@
     (fileDrop)="onAttachmentDrop($event)"
     [(sourceView)]="sourceView"
     [toolbar]="toolbarShown()"
+    [colorScheme]="editorScheme()"
     [codePortal]="codePortal()"
     [codeEditor]="codeEditor()"
     aria-label="Email editor"

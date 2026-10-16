@@ -24,6 +24,8 @@ export default {
     sent: 'メッセージを送信しました',
   },
   composer: {
+    more: 'その他のオプション',
+    appearance: { title: '外観', light: 'ライト', dark: 'ダーク', app: 'アプリ' },
     placeholders: {
       filled: 'プレースホルダーを埋めました',
       empty: '値のないプレースホルダー: {{count}}件',

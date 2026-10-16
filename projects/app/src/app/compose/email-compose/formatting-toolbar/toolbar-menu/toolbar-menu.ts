@@ -22,6 +22,8 @@ export interface ToolbarMenuItem<V> {
   disabled?: boolean;
   /** Starts a new group: a separator stands before it. */
   separated?: boolean;
+  /** Starts a new group under this heading — the ⋮ menu's Appearance. */
+  section?: string;
   /** Sets the label in this font — the font menu previews its stacks. */
   font?: string;
 }

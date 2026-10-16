@@ -18,10 +18,14 @@
      container covers only its first screen. -->
 <div class="body">
   <!-- The editing surface is the attachment dropzone (see `fileDrop`).
-       clickable=false: a click on the paper must never open a file picker. -->
+       clickable=false: a click on the paper must never open a file picker.
+       data-color-scheme: the paper's own light or dark (`colorScheme`) —
+       the editor's root is ProseMirror's, so its look is the global
+       stylesheet's, keyed on this. -->
   <div
     class="editor email-scroll"
     #editorHost
+    [attr.data-color-scheme]="colorScheme()"
     dropZone
     #attachmentZone="dropZone"
     [clickable]="false"

@@ -36,3 +36,7 @@
 .toolbar-menu__separator {
   @include menu.separator;
 }
+
+.toolbar-menu__section {
+  @include menu.section;
+}
