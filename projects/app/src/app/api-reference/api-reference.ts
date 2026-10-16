@@ -109,7 +109,7 @@ export class ApiReference {
         {
           name: 'createBubbleMenu / createBlockMenu',
           signature: '(options) => FunctionalExtension',
-          does: 'Selection formatting and the block handle, as state plus a render callback. The library owns positioning and keyboard behaviour; the host owns the markup. Both take scroll: what the menu does when the editor scrolls under it — "close" (the default: the box it reported is stale the moment the editor moves), "follow" (the box is reported afresh, once per frame), "keep", or a function of the event for the host’s own say. Heard in the capture phase, so no cdkScrollable is needed, and only a scroll that moves the editor counts.',
+          does: 'Selection formatting and the block handle, as state plus a render callback. The library owns positioning and keyboard behaviour; the host owns the markup. Both take scroll: what the menu does when the editor scrolls under it — "close" (the default: the box it reported is stale the moment the editor moves), "follow" (the box is reported afresh, once per frame), "keep", or a function of the event for the host’s own say. Heard in the capture phase, so no cdkScrollable is needed, and only a scroll that moves the editor counts. The bubble menu also takes anchor: "first" (the default) keeps an open menu where it opened while the selection changes under it — only a followed scroll measures that place again — and "selection" reports the box of the selection of the moment.',
         },
         {
           name: 'createSuggestionMenu',
