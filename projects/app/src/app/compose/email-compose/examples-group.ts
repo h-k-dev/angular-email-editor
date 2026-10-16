@@ -6,14 +6,7 @@ import {
   withQuotedHistory,
 } from '@h-k-dev/angular-email-editor';
 
-import { Examples } from '../../../services/examples';
-
-/** The word a name becomes in an id: lowercased, spaces as hyphens. */
-const slug = (name: string): string =>
-  name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9äöüß]+/g, '-');
+import { Examples, exampleId } from '../../../services/examples';
 
 /**
  * The `/` menu's Examples group: every example document the app ships
@@ -34,7 +27,7 @@ export function examplesGroup(examples: Examples): SuggestionGroup {
     section: 'examples',
     get children(): SuggestionCommandItem[] {
       return examples.documents().map((doc) => ({
-        id: `${doc.set.key}-${slug(doc.entry.name)}`,
+        id: exampleId(doc.entry),
         title: doc.entry.name,
         keywords: [doc.set.short, doc.set.key, ...(doc.set.dialect ? [doc.set.dialect] : [])],
         detail: doc.set.short,

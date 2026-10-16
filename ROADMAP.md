@@ -1772,7 +1772,17 @@ client, { dark })` in the library — a simulation, in a browser, drawn
     highlight Columns, not the table whose keywords include it). `source` is
     the dynamic side:
     `{ query, cursor, signal } → items | { items, nextCursor }`, sync or async, appended unfiltered (the source owns its
-    matching). `debounce` (default 300ms, 0 = at once) holds a new query's
+    matching) — each id listed once, the first to list it keeping it
+    (2026-10-17: a skip-paged page repeating a row that moved between
+    requests added it twice). `pagedSource({ from, with, map, pageSize })`
+    writes offset paging once, in iusta core's select-source shape:
+    `with` → filter, `from.find(filter, signal)` → rows, `map` → item with
+    the row's own key as id. The demo injects its catalogues the way core
+    injects its sources: `MERGE_TAG_SOURCE` / `TEMPLATE_SOURCE` tokens —
+    tree-shakable (`providedIn: 'root'` + factory), since providers in the
+    app config put the catalogues in the lazy shell's initial chunk (over
+    budget) and compose windows come from the root injector, past any page's
+    providers. Example/template ids are their files, never slugs of names. `debounce` (default 300ms, 0 = at once) holds a new query's
     request, never a page's. A
     newer query, a dismissal or a destroyed editor **aborts** what is out
     (`signal`) and drops its answer; a failed answer is `error` in the state,

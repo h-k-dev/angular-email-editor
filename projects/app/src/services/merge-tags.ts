@@ -1,6 +1,6 @@
 import { Service } from '@angular/core';
 
-import { Filter, FindOptions, applyFilter, respond } from './loopback-filter';
+import { Filter, applyFilter, respond } from './loopback-filter';
 
 /** A personalization variable, as the backend's `MergeTag` model returns it. */
 export interface MergeTag {
@@ -31,18 +31,21 @@ export class MergeTags {
     })),
   ];
 
-  find(filter: Filter<MergeTag> = {}, options: FindOptions = {}): Promise<MergeTag[]> {
-    return respond(applyFilter(this.#rows, filter), options);
+  find(filter: Filter<MergeTag> = {}, signal?: AbortSignal): Promise<MergeTag[]> {
+    return respond(applyFilter(this.#rows, filter), signal);
   }
 
-  /** The one contact the demo fills placeholders in for. */
-  readonly #sample: Readonly<Record<string, string>> = {
-    firstName: 'Ada',
-    lastName: 'Lovelace',
-    email: 'ada@example.com',
-    'company.name': 'Analytical Engines Ltd',
-    unsubscribeUrl: 'https://example.com/unsubscribe',
-  };
+  /** The one contact the demo fills placeholders in for, by path. A Map,
+      not an object: the key is whatever the author typed between the braces,
+      and `{{ constructor }}` must find nothing, not what every object
+      inherits. */
+  readonly #sample: ReadonlyMap<string, string> = new Map([
+    ['firstName', 'Ada'],
+    ['lastName', 'Lovelace'],
+    ['email', 'ada@example.com'],
+    ['company.name', 'Analytical Engines Ltd'],
+    ['unsubscribeUrl', 'https://example.com/unsubscribe'],
+  ]);
 
   /**
    * Values for placeholder expressions, in order. Stands in for
@@ -52,10 +55,10 @@ export class MergeTags {
    * other expression comes back empty, the way a real evaluator answers a
    * field without a value.
    */
-  resolve(expressions: readonly string[], options: FindOptions = {}): Promise<string[]> {
+  resolve(expressions: readonly string[], signal?: AbortSignal): Promise<string[]> {
     return respond(
-      expressions.map((expression) => this.#sample[expression] ?? ''),
-      options,
+      expressions.map((expression) => this.#sample.get(expression) ?? ''),
+      signal,
     );
   }
 }

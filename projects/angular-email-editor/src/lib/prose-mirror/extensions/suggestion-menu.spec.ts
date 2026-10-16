@@ -662,6 +662,21 @@ describe('createSuggestionMenu — groups, paging, i18n and ARIA', () => {
       expect(state?.items).toHaveLength(10);
     });
 
+    it('lists a row once when the next page repeats it — rows that moved between requests', async () => {
+      type('/remote ');
+      await settle();
+      // A row comes in at the top on the server: skip 5 now starts a row early.
+      catalogue.unshift(leaf('new', 'Template new'));
+      try {
+        state!.loadMore();
+        await settle();
+      } finally {
+        catalogue.shift();
+      }
+      const ids = state!.items.map((item) => item.id);
+      expect(ids).toEqual(['t0', 't1', 't2', 't3', 't4', 't5', 't6', 't7', 't8']);
+    });
+
     it('loadMore() is a no-op while loading, at the end, or twice in a row', async () => {
       type('/remote ');
       state!.loadMore(); // first page still out
@@ -810,6 +825,18 @@ describe('createSuggestionMenu — groups, paging, i18n and ARIA', () => {
       expect(state?.level).toBe(2);
       expect(titles()).toEqual(['Willkommensmail']);
     });
+  });
+
+  it('reads a map’s own entries only: an id such as `constructor` finds nothing inherited', () => {
+    mount({
+      items: [{ ...leaf('constructor', 'Build'), section: 'toString' }],
+      i18n: {},
+      sections: {},
+    });
+    type('/');
+    expect(state?.items).toEqual([
+      expect.objectContaining({ id: 'constructor', title: 'Build', heading: 'toString' }),
+    ]);
   });
 
   describe('the editor as the combobox', () => {

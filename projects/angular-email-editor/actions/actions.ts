@@ -152,7 +152,9 @@ export function injectActions(
     if (!current) return byId;
     const hosted = new Map((options.host ?? []).map((over) => [over.id, over]));
     for (const action of current.actions) {
-      const given = options.override?.[action.id];
+      // Its own entry only: an id such as `constructor` overrides nothing.
+      const { override } = options;
+      const given = override && Object.hasOwn(override, action.id) ? override[action.id] : undefined;
       // A host action under a kit's id is an override by another name.
       const over = given ? { id: action.id, ...given } : hosted.get(action.id);
       hosted.delete(action.id);

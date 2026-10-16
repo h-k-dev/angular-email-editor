@@ -19,6 +19,12 @@ export interface ExampleEntry {
   file: string;
 }
 
+/** An example's id: its file, without the extension — `angularjs/rechnen-filter`.
+    Unique the way a path is and stable as long as the file is; never made
+    from the name, which is words for the eye and may be reworded or
+    translated. */
+export const exampleId = (entry: ExampleEntry): string => entry.file.replace(/\.[^./]+$/, '');
+
 /** A set of examples — one scenario: the replies, one templating dialect. */
 export interface ExampleSet {
   key: string;

@@ -47,11 +47,18 @@ describe('MergeTags', () => {
 
   it('rejects with an AbortError when the request is cancelled', async () => {
     const controller = new AbortController();
-    const pending = service.find({}, { signal: controller.signal });
+    const pending = service.find({}, controller.signal);
     controller.abort();
     await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
 
-    const already = service.find({}, { signal: controller.signal });
+    const already = service.find({}, controller.signal);
     await expect(already).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it('fills the sample contact by path, and nothing for a path it does not name', async () => {
+    const pending = service.resolve(['firstName', 'company.name', 'constructor', 'toString']);
+    await vi.runAllTimersAsync();
+    // Inherited keys of an object are no paths: the lookup is a Map's.
+    expect(await pending).toEqual(['Ada', 'Analytical Engines Ltd', '', '']);
   });
 });

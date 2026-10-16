@@ -23,12 +23,6 @@ export interface Filter<T> {
   skip?: number;
 }
 
-/** What a request may carry besides its filter. */
-export interface FindOptions {
-  /** Cancels the request: the promise rejects with an `AbortError`. */
-  signal?: AbortSignal;
-}
-
 /** Milliseconds a mock find takes — enough to see "Searching…" and
     "Loading more…". */
 export const LATENCY = 350;
@@ -46,7 +40,7 @@ export function applyFilter<T>(rows: readonly T[], filter: Filter<T> = {}): T[] 
 
 /** Answers `rows` after the latency, like a request would — or rejects with
     an `AbortError` the moment `signal` aborts, the timer cleared. */
-export function respond<T>(rows: T[], { signal }: FindOptions = {}): Promise<T[]> {
+export function respond<T>(rows: T[], signal?: AbortSignal): Promise<T[]> {
   return new Promise((resolve, reject) => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const abort = () => {

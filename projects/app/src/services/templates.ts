@@ -1,7 +1,7 @@
 import { Service, inject } from '@angular/core';
 
-import { ExampleSet, Examples } from './examples';
-import { Filter, FindOptions, applyFilter, respond } from './loopback-filter';
+import { ExampleSet, Examples, exampleId } from './examples';
+import { Filter, applyFilter, respond } from './loopback-filter';
 
 /** A stored email template, as the backend's `Template` model returns it. */
 export interface EmailTemplate {
@@ -35,9 +35,9 @@ export class Templates {
 
   async find(
     filter: Filter<EmailTemplate> = {},
-    options: FindOptions = {},
+    signal?: AbortSignal,
   ): Promise<EmailTemplate[]> {
-    return respond(applyFilter(await this.#all(), filter), options);
+    return respond(applyFilter(await this.#all(), filter), signal);
   }
 
   #all(): Promise<EmailTemplate[]> {
@@ -53,7 +53,7 @@ export class Templates {
   async #rowsOf(set: ExampleSet): Promise<EmailTemplate[]> {
     return Promise.all(
       set.examples.map(async (example) => ({
-        id: `${set.key}-${example.name.toLowerCase().replace(/[^a-z0-9äöüß]+/g, '-')}`,
+        id: exampleId(example),
         name: example.name,
         dialect: set.dialect!,
         html: await this.#examples.document(set, example),

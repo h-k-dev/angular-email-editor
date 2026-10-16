@@ -117,6 +117,12 @@ export class ApiReference {
           does: 'Every trigger-at-the-caret menu from one factory — the / command menu, the {{ merge-tag picker, an @ mention list: a trigger, the items (a list, or a paged { query, cursor, signal } → { items, nextCursor } source, debounced, aborted when stale), and what picking does (each item’s command). Groups open a second level read from the text; ids key i18n. One menu takes several triggers ({ element, onChange, triggers: [{ trigger: "/", … }, { trigger: "{{", … }, { trigger: "||", … }] }): they never open together — the trigger nearest the caret wins — so they share one element and one state, which names the open trigger, its label and its listbox id. A trigger’s i18n (a map, or a function of the item id), label and placeholder may be functions, asked whenever the menu opens: a translation service’s lookup makes a language switch reach the menu, and what i18n answers is added to the item’s own words, so it searches both languages.',
         },
         {
+          name: 'pagedSource',
+          signature:
+            '({ from: { find(filter, signal) }, with: (query, { skip, limit }) => filter, map: (row) => SuggestionItem, pageSize? = 20 }) => SuggestionSource',
+          does: 'A source for a backend that pages by offset, the paging written once — the shape iusta core’s select sources have: with turns a query and a page into the transport’s filter, from fetches it (the signal aborts a stale request), map makes each row a suggestion whose id is the row’s own key. The cursor is the next offset; a short page ends the list. The menu lists each id once, so a page repeating a row that moved between requests adds nothing.',
+        },
+        {
           name: 'email-suggestion-menu · extensionSuggestions · insertMergeTag',
           signature:
             '[email-suggestion-menu] + [email-suggestion-menu-item] · (ctx) => SuggestionItem[] · (path) => Command',

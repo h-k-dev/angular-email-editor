@@ -45,6 +45,7 @@ export * from './extensions/bubble-menu';
 export * from './extensions/block-menu';
 export * from './extensions/menu-scroll';
 export * from './extensions/suggestion-menu';
+export * from './extensions/paged-source';
 export * from './extensions/content-stream';
 export * from './extensions/content-proposal';
 export * from './extensions/menu-position';

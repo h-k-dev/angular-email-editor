@@ -330,8 +330,14 @@ const commandWord = (text: string): string => text.trim().toLowerCase().split(/\
 const groupWords = (group: SuggestionGroup): string[] =>
   [group.id, group.title, ...(group.keywords ?? [])].map(commandWord);
 
+/** A map's own entry for an id — never what every object inherits: an id
+    such as `constructor` or `toString` finds nothing in a map that does
+    not name it. */
+const own = <V>(map: Readonly<Record<string, V>> | undefined, id: string): V | undefined =>
+  map && Object.hasOwn(map, id) ? map[id] : undefined;
+
 function localize<T extends SuggestionItem>(item: T, i18n: SuggestionTrigger['i18n']): T {
-  const label = typeof i18n === 'function' ? i18n(item.id) : i18n?.[item.id];
+  const label = typeof i18n === 'function' ? i18n(item.id) : own(i18n, item.id);
   if (!label) return item;
   const keywords = [...(item.keywords ?? []), ...(label.keywords ?? [])];
   if (label.title && label.title !== item.title) keywords.push(item.title);
@@ -489,8 +495,8 @@ function createSuggestionMenuPlugin(
   const optionId = (index: number) => `${listboxId}-option-${index}`;
   const sectionTitle = (id: string): string => {
     const { sections } = options;
-    const words = typeof sections === 'function' ? sections(id) : sections?.[id];
-    return words ?? suggestionSectionTitles[id] ?? id;
+    const words = typeof sections === 'function' ? sections(id) : own(sections, id);
+    return words ?? own(suggestionSectionTitles, id) ?? id;
   };
 
   /** Each listed item with the heading it opens. A row is kept while its
@@ -603,8 +609,19 @@ function createSuggestionMenuPlugin(
     advanceOnLoad = false;
   };
 
+  /** Static matches, then the source's rows — each id once. The id is what a
+      renderer tracks a row by and what `optionId` names it after, so a row
+      under an id already listed adds nothing: a page that repeats a row of
+      the last (skip paging over rows that moved between requests), a source
+      row under a static row's id. The first to list an id keeps it. */
   const mergeItems = () => {
-    filtered = [...staticMatches, ...dynamicItems];
+    const ids = new Set<string>();
+    filtered = [];
+    for (const item of [...staticMatches, ...dynamicItems]) {
+      if (ids.has(item.id)) continue;
+      ids.add(item.id);
+      filtered.push(item);
+    }
     if (activeIndex >= filtered.length) activeIndex = Math.max(0, filtered.length - 1);
   };
 

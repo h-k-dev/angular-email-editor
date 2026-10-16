@@ -43,13 +43,12 @@ import { ChatBasedSuggestion } from './chat-based-suggestion/chat-based-suggesti
 import { Popover } from './popover/popover';
 import { PopoverOutlet } from './popover/popover-outlet';
 import { Examples } from '../../../services/examples';
-import { Templates } from '../../../services/templates';
 import { examplesGroup } from './examples-group';
 import { MergeTags } from '../../../services/merge-tags';
 import { I18n } from '../../../services/i18n';
 import { createAiWriter } from './ai-writer';
-import { mergeTagSource } from './merge-tag-source';
-import { templateGroup } from './template-group';
+import { MERGE_TAG_SOURCE } from './merge-tag-source';
+import { TEMPLATE_SOURCE, templateGroup } from './template-group';
 
 // Library
 import {
@@ -150,8 +149,9 @@ export class EmailCompose implements FormValueControl<string> {
   readonly #commands = inject(FormattingCommands);
   /** The composer's inline image registry — provided by the composer. */
   readonly #images = inject(InlineImages);
-  /** The template store the slash menu's /templates group searches. */
-  readonly #templates = inject(Templates);
+  /** The rows of the slash menu's /templates group — the template store,
+      as `TEMPLATE_SOURCE` gives it. */
+  readonly #templateSource = inject(TEMPLATE_SOURCE);
 
   /** The example documents the slash menu's /examples group lists. */
   readonly #examples = inject(Examples);
@@ -159,7 +159,9 @@ export class EmailCompose implements FormValueControl<string> {
   /** The palette in use — the pickers' swatches, and the slash menu's colour
       rows (`EMAIL_PALETTE`; the library's unless the app provides one). */
   readonly #palette = injectPalette();
-  /** The variable catalogue the `{{` menu searches. */
+  /** The variable catalogue: the `{{` menu's rows as the surface provides
+      them (`MERGE_TAG_SOURCE`), and the values Parse fills in. */
+  readonly #mergeTagSource = inject(MERGE_TAG_SOURCE);
   readonly #mergeTags = inject(MergeTags);
   /** The words of the language in use — the menu asks when it opens. */
   protected readonly i18n = inject(I18n);
@@ -538,7 +540,7 @@ export class EmailCompose implements FormValueControl<string> {
                   [
                     ...extensionSuggestions(ctx),
                     ...colorSuggestions(ctx, this.#palette),
-                    templateGroup(this.#templates),
+                    templateGroup(this.#templateSource),
                     examplesGroup(this.#examples),
                   ],
                   SLASH_SECTIONS,
@@ -558,7 +560,7 @@ export class EmailCompose implements FormValueControl<string> {
               // Not for a caret inside a token already written: those
               // braces are the token's, and a pick would land inside it.
               allow: ({ state }) => !caretInsideMergeTag(state),
-              source: mergeTagSource(this.#mergeTags),
+              source: this.#mergeTagSource,
             },
           ],
         }),
