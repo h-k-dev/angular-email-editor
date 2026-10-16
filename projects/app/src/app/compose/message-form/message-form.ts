@@ -70,6 +70,7 @@ import { AttachmentChips } from '@h-k-dev/angular-email-editor/attachment-chips'
 import { KeepFocus } from '@h-k-dev/angular-email-editor/focus';
 import { ActionTrigger, injectActions } from '@h-k-dev/angular-email-editor/actions';
 import { AddressFormField } from '@h-k-dev/angular-email-editor/material';
+import { TranslatePipe } from '@ngx-translate/core';
 
 import { DropHint } from '../drop-hint/drop-hint';
 import { EditorColorScheme, EmailCompose, SourceView } from '../email-compose/email-compose';
@@ -113,6 +114,7 @@ type EditorAppearance = EditorColorScheme | 'app';
 @Component({
   selector: 'div[message-form]',
   imports: [
+    TranslatePipe,
     // Form
     FormField,
     FormRoot,
@@ -190,21 +192,15 @@ export class MessageForm {
   protected placeholdersFilled(report: MergeTagResolutionReport): void {
     const empty = report.empty.length;
     const message = empty
-      ? this.i18n.t(
-          'composer.placeholders.empty',
-          empty === 1 ? '1 placeholder had no value' : `${empty} placeholders had no value`,
-          { count: empty },
-        )
-      : this.i18n.t('composer.placeholders.filled', 'Placeholders filled in');
+      ? this.i18n.t(`composer.placeholders.empty.${empty === 1 ? 'one' : 'other'}`, {
+          count: empty,
+        })
+      : this.i18n.t('composer.placeholders.filled');
     this.#snackBar.open(message, undefined, { duration: 4000 });
   }
 
   protected placeholdersFailed(): void {
-    this.#snackBar.open(
-      this.i18n.t('composer.placeholders.failed', 'Placeholders could not be filled in'),
-      undefined,
-      { duration: 6000 },
-    );
+    this.#snackBar.open(this.i18n.t('composer.placeholders.failed'), undefined, { duration: 6000 });
   }
 
   /** The Subject input's id, unique on the page. */
@@ -349,11 +345,11 @@ export class MessageForm {
   /** The bar's ⋮ menu: the editor's Appearance, one of three. */
   protected readonly moreItems = computed<ToolbarMenuItem<EditorAppearance>[]>(() => {
     const appearance = this.editorAppearance();
-    const section = this.i18n.t('composer.appearance.title', 'Appearance');
+    const section = this.i18n.t('composer.appearance.title');
     const items: ToolbarMenuItem<EditorAppearance>[] = [
-      { value: 'light', label: this.i18n.t('composer.appearance.light', 'Light'), section },
-      { value: 'dark', label: this.i18n.t('composer.appearance.dark', 'Dark') },
-      { value: 'app', label: this.i18n.t('composer.appearance.app', 'App') },
+      { value: 'light', label: this.i18n.t('composer.appearance.light'), section },
+      { value: 'dark', label: this.i18n.t('composer.appearance.dark') },
+      { value: 'app', label: this.i18n.t('composer.appearance.app') },
     ];
     return items.map((item) => ({ ...item, kind: 'radio', checked: item.value === appearance }));
   });

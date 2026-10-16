@@ -1,3 +1,8 @@
+import { TestBed } from '@angular/core/testing';
+import { beforeEach } from 'vitest';
+
+import { provideI18n } from './i18n/loader';
+
 /**
  * Node 26 ships Web Storage of its own: `localStorage` and `sessionStorage`
  * globals that are `undefined` unless Node was started with a storage file.
@@ -20,3 +25,11 @@ for (const name of ['localStorage', 'sessionStorage'] as const) {
     });
   }
 }
+
+/**
+ * Every spec speaks English, as the app does: templates read their words
+ * through ngx-translate's pipe, which needs its service, and English is
+ * bundled, so a rendered component shows words, not keys. A spec that
+ * configures its own TestBed adds to this.
+ */
+beforeEach(() => TestBed.configureTestingModule({ providers: [provideI18n()] }));

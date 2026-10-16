@@ -6,7 +6,7 @@
   <div
     class="chat-based-suggestion"
     role="region"
-    [attr.aria-label]="i18n.t('editor.ai.dialog', 'Writing assistant')"
+    [attr.aria-label]="'editor.ai.dialog' | translate"
     [attr.aria-busy]="proposal.streaming()"
     [emailProposalKeys]="proposal"
     (accepted)="applied()"
@@ -18,7 +18,7 @@
         <div
           class="chat-based-suggestion__thinking"
           role="status"
-          [attr.aria-label]="i18n.t('editor.ai.thinking', 'The assistant is thinking…')"
+          [attr.aria-label]="'editor.ai.thinking' | translate"
         >
           <span></span><span></span><span></span>
         </div>
@@ -35,7 +35,7 @@
         [disabled]="discard.disabled()"
         (click)="close()"
       >
-        {{ i18n.t('editor.ai.discard', 'Discard') }}
+        {{ 'editor.ai.discard' | translate }}
       </button>
       <button
         type="button"
@@ -45,7 +45,7 @@
         [disabled]="apply.disabled()"
         (click)="applied()"
       >
-        {{ i18n.t('editor.ai.apply', 'Apply') }}
+        {{ 'editor.ai.apply' | translate }}
       </button>
     </div>
 
@@ -56,8 +56,8 @@
       <div
         email-chat-input
         class="chat-based-suggestion__chat"
-        [placeholder]="i18n.t('editor.ai.prompt', 'Tell the assistant what else to change…')"
-        [label]="i18n.t('editor.ai.instructions', 'Instructions')"
+        [placeholder]="'editor.ai.prompt' | translate"
+        [label]="'editor.ai.instructions' | translate"
         [(value)]="instructions"
         (sent)="ask($event)"
       ></div>
@@ -79,7 +79,7 @@
       type="button"
       animate.enter="chat-based-suggestion__icon--entering"
       class="chat-based-suggestion__icon chat-based-suggestion__send"
-      [attr.aria-label]="i18n.t('editor.ai.stop', 'Stop')"
+      [attr.aria-label]="'editor.ai.stop' | translate"
       (click)="stop()"
     >
       <mat-icon>stop</mat-icon>
@@ -89,7 +89,7 @@
       type="button"
       animate.enter="chat-based-suggestion__icon--entering"
       class="chat-based-suggestion__icon chat-based-suggestion__send"
-      [attr.aria-label]="i18n.t('editor.ai.send', 'Send')"
+      [attr.aria-label]="'editor.ai.send' | translate"
       (click)="ask()"
     >
       <mat-icon>arrow_upward</mat-icon>
@@ -99,7 +99,7 @@
       type="button"
       animate.enter="chat-based-suggestion__icon--entering"
       class="chat-based-suggestion__icon"
-      [attr.aria-label]="i18n.t('editor.ai.voice', 'Voice input (coming soon)')"
+      [attr.aria-label]="'editor.ai.voice' | translate"
       disabled
     >
       <mat-icon>mic</mat-icon>

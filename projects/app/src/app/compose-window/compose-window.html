@@ -19,7 +19,7 @@
       [attr.aria-expanded]="!minimized()"
       (click)="toggleMinimized()"
     >
-      {{ sheet.message().subject.trim() || i18n.t('composeWindow.new', 'New message') }}
+      {{ sheet.message().subject.trim() || ('composeWindow.new' | translate) }}
     </button>
 
     <span class="compose-window__controls" data-slot="controls">
@@ -28,13 +28,13 @@
         type="button"
         [attr.aria-label]="
           minimized()
-            ? i18n.t('composeWindow.restore', 'Restore')
-            : i18n.t('composeWindow.minimize', 'Minimize')
+            ? ('composeWindow.restore' | translate)
+            : ('composeWindow.minimize' | translate)
         "
         [title]="
           minimized()
-            ? i18n.t('composeWindow.restore', 'Restore')
-            : i18n.t('composeWindow.minimize', 'Minimize')
+            ? ('composeWindow.restore' | translate)
+            : ('composeWindow.minimize' | translate)
         "
         (click)="toggleMinimized()"
       >
@@ -46,13 +46,13 @@
           type="button"
           [attr.aria-label]="
             expanded()
-              ? i18n.t('composeWindow.collapse', 'Exit full screen')
-              : i18n.t('composeWindow.expand', 'Full screen')
+              ? ('composeWindow.collapse' | translate)
+              : ('composeWindow.expand' | translate)
           "
           [title]="
             expanded()
-              ? i18n.t('composeWindow.collapse', 'Exit full screen')
-              : i18n.t('composeWindow.expand', 'Full screen')
+              ? ('composeWindow.collapse' | translate)
+              : ('composeWindow.expand' | translate)
           "
           (click)="toggleExpanded()"
         >
@@ -62,8 +62,8 @@
       <button
         mat-icon-button
         type="button"
-        [attr.aria-label]="i18n.t('composeWindow.close', 'Close')"
-        [title]="i18n.t('composeWindow.close', 'Close')"
+        [attr.aria-label]="'composeWindow.close' | translate"
+        [title]="'composeWindow.close' | translate"
         (click)="close()"
       >
         <mat-icon>close</mat-icon>

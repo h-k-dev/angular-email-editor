@@ -1,26 +1,23 @@
-import { Signal, computed } from '@angular/core';
+import { Signal, computed, inject } from '@angular/core';
 
 // Library
-import { emailFontFamilies, emailFontSizes } from '@h-k-dev/angular-email-editor';
+import {
+  EmailFont,
+  emailFontFamilies,
+  emailFontSizes,
+  fontClients,
+  fontFamilyKey,
+} from '@h-k-dev/angular-email-editor/fonts';
 
+import { I18n } from '../../../../services/i18n';
 import { FormattingCommands } from '../formatting-commands';
 import { ToolbarMenuItem } from './toolbar-menu/toolbar-menu';
 
-/** A `font-family` value as a comparison key — lower-cased, quotes dropped,
-    spacing around commas collapsed — so a computed style matches the curated
-    stack it came from (the library compares stacks the same way). */
-function fontKey(stack: string): string {
-  return stack
-    .toLowerCase()
-    .replace(/["']/g, '')
-    .replace(/\s*,\s*/g, ',')
-    .trim();
-}
-
-/** The curated stack a font is, if it is one. */
+/** The curated stack a font is, if it is one — compared as the library
+    compares stacks, so a computed style matches the stack it came from. */
 function curated(family: string): string | null {
-  const key = fontKey(family);
-  return emailFontFamilies.find((font) => fontKey(font.stack) === key)?.stack ?? null;
+  const key = fontFamilyKey(family);
+  return emailFontFamilies.find((font) => fontFamilyKey(font.stack) === key)?.stack ?? null;
 }
 
 const NO_FONT = { own: { family: '', size: null }, family: null, size: null };
@@ -38,6 +35,27 @@ const NO_FONT = { own: { family: '', size: null }, family: null, size: null };
  * surface's own font, and a choice applies to the source selection.
  */
 export function createFontState(commands: FormattingCommands, enabled: Signal<boolean>) {
+  const i18n = inject(I18n);
+
+  /** A font's label in the language in use: Gmail's word for it where it is
+      a word (Sans Serif, Fixed width), else the face's own name. */
+  const nameOf = (font: EmailFont): string => i18n.lookup(`editor.fonts.${font.id}`) ?? font.name;
+
+  /** G A O: which of the three clients draw the face itself, lit; the rest
+      dimmed. The tooltip names the ones that do. */
+  const badgesOf = (font: EmailFont) => ({
+    badges: fontClients.map((client) => ({
+      text: client.letter,
+      on: font.clients.includes(client.id),
+    })),
+    badgesTitle: i18n.t('editor.fonts.drawnBy', {
+      clients: fontClients
+        .filter((client) => font.clients.includes(client.id))
+        .map((client) => client.name)
+        .join(', '),
+    }),
+  });
+
   const font = computed<{
     own: { family: string; size: number | null };
     family: string | null;
@@ -79,9 +97,10 @@ export function createFontState(commands: FormattingCommands, enabled: Signal<bo
   /** The curated stack in effect — the chosen one, or the own when curated. */
   const family = computed(() => curated(font().family ?? font().own.family));
 
-  const familyLabel = computed(
-    () => emailFontFamilies.find((f) => f.stack === family())?.name ?? ownFamily() ?? '',
-  );
+  const familyLabel = computed(() => {
+    const font = emailFontFamilies.find((f) => f.stack === family());
+    return (font && nameOf(font)) ?? ownFamily() ?? '';
+  });
 
   const familyItems = computed<ToolbarMenuItem<string | null>[]>(() => {
     const own = ownFamily();
@@ -92,7 +111,8 @@ export function createFontState(commands: FormattingCommands, enabled: Signal<bo
         : []),
       ...emailFontFamilies.map((f, i) => ({
         value: f.stack,
-        label: f.name,
+        label: nameOf(f),
+        ...badgesOf(f),
         font: f.stack,
         kind: 'radio' as const,
         checked: current === f.stack,

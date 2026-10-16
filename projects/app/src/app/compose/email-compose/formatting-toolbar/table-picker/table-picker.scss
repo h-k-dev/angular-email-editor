@@ -1,3 +1,4 @@
+@use '../../../../../styles/menu' as menu;
 // Token cascade: --email-* → --mat-sys-* → fallback.
 :host {
   display: flex;
@@ -7,7 +8,7 @@
 
   background-color: var(--email-compose-menu-background, var(--mat-sys-surface-container, #f3f3f3));
   border-radius: var(--email-compose-menu-corner, var(--mat-sys-corner-medium, 8px));
-  box-shadow: var(--mat-sys-level2);
+  box-shadow: var(--mat-sys-float-shadow);
 }
 
 .table-picker__grid {
@@ -28,7 +29,7 @@
 
   &--selected {
     border-color: var(--mat-sys-primary, #0056b3);
-    background-color: var(--mat-sys-secondary-container, #e8e7f5);
+    background-color: menu.$active-wash;
   }
 }
 

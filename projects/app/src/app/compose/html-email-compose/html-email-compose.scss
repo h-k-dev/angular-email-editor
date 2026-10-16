@@ -1,4 +1,5 @@
 @use '@h-k-dev/angular-email-editor/styles/scroll';
+@use '../../../styles/menu' as menu;
 
 :host {
   position: relative; // anchors the autocomplete dropdown
@@ -60,6 +61,6 @@
 
   &--active {
     color: var(--mat-sys-primary, #0056b3);
-    background-color: var(--mat-sys-secondary-container, #dce6f5);
+    background-color: menu.$active-wash;
   }
 }

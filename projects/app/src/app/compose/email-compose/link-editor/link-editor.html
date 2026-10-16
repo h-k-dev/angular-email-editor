@@ -4,7 +4,7 @@
   <div
     class="link-editor"
     role="dialog"
-    [attr.aria-label]="i18n.t('editor.link.dialog', 'Edit link')"
+    [attr.aria-label]="'editor.link.dialog' | translate"
   >
     <!-- The fields and Apply are one signal form: Apply is its submit. A
          button's popover is its one menu, on two lines: its link, then its
@@ -23,23 +23,23 @@
           spellcheck="false"
           autocomplete="off"
           [formField]="linkForm.href"
-          [attr.aria-label]="i18n.t('editor.link.url', 'Link URL')"
+          [attr.aria-label]="'editor.link.url' | translate"
           [attr.aria-invalid]="refused() ? true : null"
-          [placeholder]="i18n.t('editor.link.url', 'Link URL')"
+          [placeholder]="'editor.link.url' | translate"
           (keydown.enter)="onEnter($event)"
         />
         <!-- The three actions, always: apply, go to the link, take it off. -->
         <button
           mat-icon-button
           type="submit"
-          [attr.aria-label]="i18n.t('editor.link.apply', 'Apply link')"
+          [attr.aria-label]="'editor.link.apply' | translate"
         >
           <mat-icon>check</mat-icon>
         </button>
         <button
           mat-icon-button
           type="button"
-          [attr.aria-label]="i18n.t('editor.link.open', 'Open link')"
+          [attr.aria-label]="'editor.link.open' | translate"
           (click)="visit()"
         >
           <mat-icon>open_in_new</mat-icon>
@@ -47,7 +47,7 @@
         <button
           mat-icon-button
           type="button"
-          [attr.aria-label]="i18n.t('editor.link.remove', 'Remove link')"
+          [attr.aria-label]="'editor.link.remove' | translate"
           (click)="remove()"
         >
           <mat-icon>link_off</mat-icon>
@@ -83,9 +83,9 @@
             dir="auto"
             autocomplete="off"
             [formField]="linkForm.label"
-            [attr.aria-label]="i18n.t('editor.button.label', 'Button text')"
+            [attr.aria-label]="'editor.button.label' | translate"
             [attr.aria-invalid]="labelRefused() ? true : null"
-            [placeholder]="i18n.t('editor.button.label', 'Button text')"
+            [placeholder]="'editor.button.label' | translate"
             (keydown.enter)="onEnter($event)"
           />
           <button

@@ -6,20 +6,19 @@ import type { SuggestionItemLabel } from '@h-k-dev/angular-email-editor';
 import { AppLanguage, LANGUAGES } from '../i18n/loader';
 
 /**
- * The app's words, over ngx-translate. English is what the code says; a
- * lookup that finds nothing gives the fallback it was handed — so a
- * component never shows a key, and a spec that provides no translations
- * reads English.
+ * The app's words, over ngx-translate, for code: a `computed`, a snackbar, a
+ * callback the library calls. A template reads them through ngx-translate's
+ * own pipe instead — `{{ 'composer.more' | translate }}` — never a method
+ * call (see `i18n/en.ts`).
  *
- * Reads are reactive: `t()` in a template or a `computed` follows a
- * language switch *and* a dictionary that arrives later — ngx-translate's
- * `currentLang` signal is set before a first language has loaded, so this
- * listens to its events instead.
+ * Reads are reactive: `t()` in a `computed` follows a language switch *and*
+ * a dictionary that arrives later — ngx-translate's `currentLang` signal is
+ * set before a first language has loaded, so this listens to its events
+ * instead.
  */
 @Service()
 export class I18n {
-  /** Optional: a spec that provides nothing still gets English. */
-  readonly #translate = inject(TranslateService, { optional: true });
+  readonly #translate = inject(TranslateService);
 
   /** Moves whenever the words may have: a switch, a dictionary landing. */
   readonly #version = signal(0);
@@ -29,25 +28,33 @@ export class I18n {
   /** The language in use. */
   readonly lang = computed<AppLanguage>(() => {
     this.#version();
-    const current = this.#translate?.getCurrentLang();
+    const current = this.#translate.getCurrentLang();
     return LANGUAGES.find((language) => language === current) ?? 'en';
   });
 
   constructor() {
     const bump = () => this.#version.update((version) => version + 1);
-    this.#translate?.onLangChange.pipe(takeUntilDestroyed()).subscribe(bump);
-    this.#translate?.onTranslationChange.pipe(takeUntilDestroyed()).subscribe(bump);
+    this.#translate.onLangChange.pipe(takeUntilDestroyed()).subscribe(bump);
+    this.#translate.onTranslationChange.pipe(takeUntilDestroyed()).subscribe(bump);
   }
 
   use(language: AppLanguage): void {
-    this.#translate?.use(language);
+    this.#translate.use(language);
   }
 
-  /** The words for `key` in the language in use, or `fallback` — the
-      English the code already has. Reactive. */
-  t(key: string, fallback: string, params?: Record<string, unknown>): string {
+  /** The words for `key` in the language in use — English where it has
+      none (`i18n/en.ts`). Reactive. */
+  t(key: string, params?: Record<string, unknown>): string {
     this.#version();
-    return this.#lookup(key, params) ?? fallback;
+    return this.#lookup(key, params) ?? key;
+  }
+
+  /** The words for `key`, or `undefined` where no dictionary has any — for a
+      key made of an id, whose English is someone else's (a library action's
+      title). Reactive. */
+  lookup(key: string, params?: Record<string, unknown>): string | undefined {
+    this.#version();
+    return this.#lookup(key, params);
   }
 
   /**
@@ -83,7 +90,7 @@ export class I18n {
 
   /** ngx-translate answers a missing key with the key itself. */
   #lookup(key: string, params?: Record<string, unknown>): string | undefined {
-    const found = this.#translate?.instant(key, params);
+    const found = this.#translate.instant(key, params);
     return typeof found === 'string' && found !== key ? found : undefined;
   }
 }

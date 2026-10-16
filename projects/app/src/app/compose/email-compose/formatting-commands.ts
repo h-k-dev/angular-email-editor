@@ -59,9 +59,10 @@ export class FormattingCommands {
       differ from the row's ("Insert table" / "Table"), else the action's
       title, else the English the item carries. Reactive. */
   label(item: FormattingItem): string {
-    return this.#i18n.t(
-      `editor.toolbar.${item.id}`,
-      this.#i18n.t(`editor.actions.${item.id}.title`, item.label),
+    return (
+      this.#i18n.lookup(`editor.toolbar.${item.id}`) ??
+      this.#i18n.lookup(`editor.actions.${item.id}.title`) ??
+      item.label
     );
   }
 

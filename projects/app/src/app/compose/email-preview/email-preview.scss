@@ -1,4 +1,5 @@
 @use '@h-k-dev/angular-email-editor/styles/scroll';
+@use '../../../styles/menu' as menu;
 
 // The preview column: controls on top, a client-surface stage below.
 // Token cascade: --email-preview-* → --mat-sys-* → fallback.
@@ -70,7 +71,7 @@
 
   &[aria-pressed='true'] {
     color: var(--mat-sys-primary, #0056b3);
-    background-color: var(--mat-sys-secondary-container, #dce6f5);
+    background-color: menu.$active-wash;
   }
 
   &:disabled {

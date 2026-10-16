@@ -26,6 +26,11 @@ export interface ToolbarMenuItem<V> {
   section?: string;
   /** Sets the label in this font — the font menu previews its stacks. */
   font?: string;
+  /** Small letters at the item's end, before its tick, each lit or dimmed —
+      the font menu's G A O: which mail clients draw the face. Decoration:
+      `badgesTitle` says it in words, as a tooltip. */
+  badges?: readonly { text: string; on: boolean }[];
+  badgesTitle?: string;
 }
 
 /**
@@ -67,7 +72,16 @@ export class ToolbarMenu<V> {
   protected readonly positions = computed<ConnectedPosition[]>(() => {
     const x = this.align();
     return [
-      { originX: x, originY: 'top', overlayX: x, overlayY: 'bottom', offsetY: -4 },
+      // `menu-above`: the pane says which way it opened, so the menu rises
+      // into place from the trigger's side (styles.scss).
+      {
+        originX: x,
+        originY: 'top',
+        overlayX: x,
+        overlayY: 'bottom',
+        offsetY: -4,
+        panelClass: 'menu-above',
+      },
       { originX: x, originY: 'bottom', overlayX: x, overlayY: 'top', offsetY: 4 },
     ];
   });

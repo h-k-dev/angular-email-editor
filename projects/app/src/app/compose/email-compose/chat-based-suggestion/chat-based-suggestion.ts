@@ -23,9 +23,9 @@ import {
   ProposalKeys,
   injectProposal,
 } from '@h-k-dev/angular-email-editor/proposal';
+import { TranslatePipe } from '@ngx-translate/core';
 
 import { Ai } from '../../../../services/ai';
-import { I18n } from '../../../../services/i18n';
 import { FormattingCommands } from '../formatting-commands';
 import { Popover } from '../popover/popover';
 import { AiAsk } from '../ai-writer';
@@ -66,6 +66,7 @@ import { AiAsk } from '../ai-writer';
 @Component({
   selector: 'div[chat-based-suggestion]',
   imports: [
+    TranslatePipe,
     NgTemplateOutlet,
 
     // Material
@@ -89,8 +90,6 @@ export class ChatBasedSuggestion {
   readonly #ai = inject(Ai);
 
   readonly #injector = inject(Injector);
-
-  protected readonly i18n = inject(I18n);
 
   /** The language the assistant writes in — the composer's, asked when the
       writing starts. */

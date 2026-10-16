@@ -13,6 +13,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { BubbleMenuState, selectedImageAlt } from '@h-k-dev/angular-email-editor';
 import { ActionTrigger } from '@h-k-dev/angular-email-editor/actions';
 import { KeepFocus } from '@h-k-dev/angular-email-editor/focus';
+import { TranslatePipe } from '@ngx-translate/core';
 
 import { I18n } from '../../../../services/i18n';
 import { FormattingCommands } from '../formatting-commands';
@@ -67,6 +68,7 @@ const IMAGE_LAYOUT: FormattingLayout = [
 @Component({
   selector: 'div[bubble-menu]',
   imports: [
+    TranslatePipe,
     NgTemplateOutlet,
 
     // Material
@@ -111,7 +113,7 @@ export class BubbleMenu {
       is the name. */
   protected readonly altLabel = computed(() => {
     const alt = this.alt();
-    return alt ? this.i18n.t('editor.image.altWithValue', `Alt text: ${alt}`, { alt }) : null;
+    return alt ? this.i18n.t('editor.image.altWithValue', { alt }) : null;
   });
 
   protected readonly i18n = inject(I18n);
@@ -125,11 +127,11 @@ export class BubbleMenu {
   protected menuLabel(): string {
     switch (this.state().kind) {
       case 'image':
-        return this.i18n.t('editor.image.menu', 'Image options');
+        return this.i18n.t('editor.image.menu');
       case 'button':
-        return this.i18n.t('editor.button.menu', 'Button options');
+        return this.i18n.t('editor.button.menu');
       default:
-        return this.i18n.t('editor.menu.selection', 'Selection formatting');
+        return this.i18n.t('editor.menu.selection');
     }
   }
 

@@ -109,7 +109,9 @@ describe('textStyle font-family', () => {
   for (const font of emailFontFamilies) {
     it(`applies "${font.name}" as its canonical stack and is a round-trip fixpoint`, () => {
       const once = applyToHello(commands['setFontFamily'](font.stack));
-      expect(once).toBe(`<div><span style="font-family: ${font.stack};">hello</span></div>`);
+      // A quoted family is `&quot;` inside the attribute — as Gmail writes it.
+      const attr = font.stack.replace(/"/g, '&quot;');
+      expect(once).toBe(`<div><span style="font-family: ${attr};">hello</span></div>`);
       // Re-parsing our own output must change nothing (the schema is law).
       expect(canonical(once)).toBe(once);
     });
@@ -121,12 +123,13 @@ describe('textStyle font-family', () => {
       doc,
       selection: TextSelection.create(doc, 1, doc.content.size - 1),
     });
-    expect(commands['setFontFamily']('Comic Sans MS, cursive')(state)).toBe(false);
+    expect(commands['setFontFamily']('Wingdings, fantasy')(state)).toBe(false);
   });
 
   it('normalises quotes and case when parsing a hand-typed value', () => {
     expect(parseFontFamily('"arial", Helvetica, SANS-SERIF')).toBe('Arial, Helvetica, sans-serif');
-    expect(isSafeFontFamily('georgia,times,serif')).toBe(true);
+    expect(isSafeFontFamily('georgia,serif')).toBe(true);
+    expect(isSafeFontFamily("'times new roman',times,serif")).toBe(true);
     expect(parseFontFamily('Wingdings')).toBe(null);
   });
 
@@ -136,10 +139,12 @@ describe('textStyle font-family', () => {
       'Arial, Helvetica, sans-serif',
     );
     expect(parseFontFamily("'Helvetica Neue', Helvetica")).toBe('Arial, Helvetica, sans-serif');
-    expect(parseFontFamily('"Times New Roman", serif')).toBe('Georgia, Times, serif');
-    expect(parseFontFamily('Menlo, monospace')).toBe('Courier, monospace');
+    expect(parseFontFamily('"Times New Roman", serif')).toBe('"Times New Roman", Times, serif');
+    expect(parseFontFamily('Menlo, monospace')).toBe('"Courier New", Courier, monospace');
     // Only what a curated stack names counts: a face nothing falls back from.
-    expect(parseFontFamily('Comic Sans MS, cursive')).toBe(null);
+    expect(parseFontFamily('Papyrus, fantasy')).toBe(null);
+    // The old Serif stack — Georgia first — is Georgia.
+    expect(parseFontFamily('Georgia, Times, serif')).toBe('Georgia, serif');
     expect(
       canonical('<div><span style="font-family: Montserrat, Helvetica, Arial;">hi</span></div>'),
     ).toBe('<div><span style="font-family: Arial, Helvetica, sans-serif;">hi</span></div>');
@@ -157,16 +162,16 @@ describe('textStyle attribute merging', () => {
       command(state, (tr) => (state = state.apply(tr)));
     apply(commands['setColor']('#1a73e8'));
     apply(commands['setFontSize'](18));
-    apply(commands['setFontFamily']('Georgia, Times, serif'));
+    apply(commands['setFontFamily']('Georgia, serif'));
 
     expect(serializeToHTML(state.doc, schema)).toBe(
-      '<div><span style="color: rgb(26, 115, 232); font-size: 18px; font-family: Georgia, Times, serif;">hello</span></div>',
+      '<div><span style="color: rgb(26, 115, 232); font-size: 18px; font-family: Georgia, serif;">hello</span></div>',
     );
   });
 
   it('unsetFontFamily clears only the family, keeping the rest', () => {
     const doc = parseHTML(
-      '<div><span style="color: #1a73e8; font-family: Georgia, Times, serif;">hello</span></div>',
+      '<div><span style="color: #1a73e8; font-family: Georgia, serif;">hello</span></div>',
       schema,
     );
     let state = EditorState.create({

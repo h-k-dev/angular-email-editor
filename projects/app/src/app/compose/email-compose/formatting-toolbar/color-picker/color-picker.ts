@@ -1,10 +1,10 @@
-import { Component, inject, input, output } from '@angular/core';
+import { Component, input, output } from '@angular/core';
 
 // Library
 import { KeepFocus } from '@h-k-dev/angular-email-editor/focus';
 import { injectPalette } from '@h-k-dev/angular-email-editor/palette';
+import { TranslatePipe } from '@ngx-translate/core';
 
-import { I18n } from '../../../../../services/i18n';
 import { ColorPalette } from '../color-palette/color-palette';
 
 let nextId = 0;
@@ -22,15 +22,13 @@ let nextId = 0;
  */
 @Component({
   selector: 'div[color-picker]',
-  imports: [ColorPalette],
+  imports: [TranslatePipe, ColorPalette],
   templateUrl: './color-picker.html',
   styleUrl: './color-picker.scss',
   hostDirectives: [KeepFocus],
   host: { role: 'group' },
 })
 export class ColorPicker {
-  protected readonly i18n = inject(I18n);
-
   /** The text colour at the selection, or null for automatic. */
   readonly color = input<string | null>(null);
   /** The background at the selection, or null for none. */

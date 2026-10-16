@@ -14,6 +14,8 @@
     ngMenu
     class="toolbar-menu"
     [attr.aria-label]="label()"
+    [animate.enter]="'menu-enter'"
+    [animate.leave]="'menu-leave'"
     (itemSelected)="selected.emit($event)"
   >
     @for (item of items(); track item.value) {
@@ -41,6 +43,13 @@
           <mat-icon>{{ item.icon }}</mat-icon>
         }
         <span [style.font-family]="item.font">{{ item.label }}</span>
+        @if (item.badges) {
+          <span class="toolbar-menu__badges" aria-hidden="true" [title]="item.badgesTitle ?? ''">
+            @for (badge of item.badges; track badge.text) {
+              <span [class.toolbar-menu__badge--off]="!badge.on">{{ badge.text }}</span>
+            }
+          </span>
+        }
         @if (item.kind === 'radio') {
           <mat-icon class="toolbar-menu__check">check</mat-icon>
         }

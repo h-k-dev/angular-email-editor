@@ -11,6 +11,9 @@ import {
   TemplateRef,
 } from '@angular/core';
 
+// ngx-translate
+import { TranslatePipe } from '@ngx-translate/core';
+
 // Material
 import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
@@ -70,6 +73,9 @@ const LAYOUT: FormattingLayout = [
   selector: 'div[formatting-toolbar]',
   imports: [
     NgTemplateOutlet,
+
+    // ngx-translate
+    TranslatePipe,
 
     // Material
     MatButtonModule,

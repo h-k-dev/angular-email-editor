@@ -88,7 +88,9 @@ import {
   SuggestionMenuSection,
 } from '@h-k-dev/angular-email-editor/suggestion-menu';
 import { colorSuggestions, injectPalette } from '@h-k-dev/angular-email-editor/palette';
+import { emailDefaultFont } from '@h-k-dev/angular-email-editor/fonts';
 import { TextMetrics, createTextMetrics } from '@h-k-dev/angular-email-editor/metrics';
+import { TranslatePipe } from '@ngx-translate/core';
 
 /** Where the HTML source shows: nowhere, in the editing surface's place
     (code view), or beside the editor in its own column (detached). */
@@ -109,6 +111,7 @@ export type EditorColorScheme = 'light' | 'dark';
 @Component({
   selector: 'section[email-compose]',
   imports: [
+    TranslatePipe,
     // Material
     MatIconModule,
 
@@ -135,10 +138,15 @@ export type EditorColorScheme = 'light' | 'dark';
   // share — one per composer, bound to its editor and code view — and the
   // one popover its floating menus are panels of.
   providers: [FormattingCommands, Popover],
+  // The surface is set in the email's default font, not the app's: what is
+  // written looks as it will in the recipient's Gmail, and the toolbar's
+  // font menu shows Sans Serif ticked rather than the app's Roboto.
+  host: { '[style.--mat-sys-prose-mirror-font-family]': 'surfaceFont' },
   templateUrl: './email-compose.html',
   styleUrl: './email-compose.scss',
 })
 export class EmailCompose implements FormValueControl<string> {
+  protected readonly surfaceFont = emailDefaultFont.stack;
   #destroyRef = inject(DestroyRef);
   readonly #commands = inject(FormattingCommands);
   /** The composer's inline image registry — provided by the composer. */
@@ -176,8 +184,8 @@ export class EmailCompose implements FormValueControl<string> {
       calls, so it is one instance and reads the language when called. */
   protected readonly resultsLabel = (count: number): string =>
     count === 1
-      ? this.i18n.t('editor.menu.results.one', '1 result')
-      : this.i18n.t('editor.menu.results.other', `${count} results`, { count });
+      ? this.i18n.t('editor.menu.results.one')
+      : this.i18n.t('editor.menu.results.other', { count });
 
   /** Canonical email HTML — the form's `html` field, bound with
       `[formField]` (this pane is a `FormValueControl<string>`), or two-way
@@ -497,10 +505,10 @@ export class EmailCompose implements FormValueControl<string> {
         ...emailExtensions.filter((extension) => extension.name !== 'quotedHistory'),
         createQuotedHistory({
           labels: {
-            show: () => this.i18n.t('editor.quoted.show', 'Show quoted text'),
-            hide: () => this.i18n.t('editor.quoted.hide', 'Hide quoted text'),
-            edit: () => this.i18n.t('editor.quoted.edit', 'Edit quoted text'),
-            remove: () => this.i18n.t('editor.quoted.remove', 'Remove quoted text'),
+            show: () => this.i18n.t('editor.quoted.show'),
+            hide: () => this.i18n.t('editor.quoted.hide'),
+            edit: () => this.i18n.t('editor.quoted.edit'),
+            remove: () => this.i18n.t('editor.quoted.remove'),
           },
         }),
         createBubbleMenu({
@@ -517,16 +525,7 @@ export class EmailCompose implements FormValueControl<string> {
         // need nothing of each other.
         createTableHandles({
           onOpen: (target) => this.tableHandle.set(target),
-          label: (kind, number) =>
-            this.i18n.t(
-              `editor.table.${kind}Options`,
-              kind === 'cell'
-                ? 'Cell options'
-                : kind === 'row'
-                  ? `Row ${number} options`
-                  : `Column ${number} options`,
-              { number },
-            ),
+          label: (kind, number) => this.i18n.t(`editor.table.${kind}Options`, { number }),
         }),
         // One suggestion menu, a trigger per list: `/` for the kit's commands
         // and the Templates group, `{{` for the variable catalogue — and any
@@ -541,8 +540,8 @@ export class EmailCompose implements FormValueControl<string> {
               trigger: '/',
               // Functions: asked whenever the menu opens, so a language
               // switch is heard without re-creating anything.
-              label: () => this.i18n.t('editor.menu.slash.label', 'Insert block'),
-              placeholder: () => this.i18n.t('editor.menu.slash.placeholder', 'Type to filter…'),
+              label: () => this.i18n.t('editor.menu.slash.label'),
+              placeholder: () => this.i18n.t('editor.menu.slash.placeholder'),
               // Rows by id — the kit's actions and the two groups below —
               // in the language in use, searched in it *and* in English.
               i18n: this.i18n.suggestionLabel,
@@ -558,12 +557,12 @@ export class EmailCompose implements FormValueControl<string> {
                 ),
               // The sections' headings, in the language in use — the
               // library words what the dictionary leaves out.
-              sections: (id) => this.i18n.t(`editor.menu.sections.${id}`, '') || undefined,
+              sections: (id) => this.i18n.lookup(`editor.menu.sections.${id}`),
             },
             {
               trigger: '{{',
-              label: () => this.i18n.t('editor.menu.tokens.label', 'Personalization tokens'),
-              placeholder: () => this.i18n.t('editor.menu.tokens.placeholder', 'Search tokens…'),
+              label: () => this.i18n.t('editor.menu.tokens.label'),
+              placeholder: () => this.i18n.t('editor.menu.tokens.placeholder'),
               // Right after any character, and only a path: one optional
               // space, then letters, digits, `_` and `.`.
               startOfWord: false,

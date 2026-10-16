@@ -45,11 +45,11 @@
       email-suggestion-menu
       #suggestionMenu
       [state]="suggestionState()"
-      [backLabel]="i18n.t('editor.menu.back', 'Back')"
-      [loadingLabel]="i18n.t('editor.menu.loading', 'Searching…')"
-      [loadingMoreLabel]="i18n.t('editor.menu.loadingMore', 'Loading more…')"
-      [emptyLabel]="i18n.t('editor.menu.empty', 'No results')"
-      [errorLabel]="i18n.t('editor.menu.error', 'Couldn’t load suggestions')"
+      [backLabel]="'editor.menu.back' | translate"
+      [loadingLabel]="'editor.menu.loading' | translate"
+      [loadingMoreLabel]="'editor.menu.loadingMore' | translate"
+      [emptyLabel]="'editor.menu.empty' | translate"
+      [errorLabel]="'editor.menu.error' | translate"
       [resultsLabel]="resultsLabel"
     >
       @for (item of suggestionState()?.items; track item.id) {

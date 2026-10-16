@@ -13,6 +13,8 @@
   min-inline-size: 11rem;
 }
 
+@include menu.motion;
+
 .toolbar-menu__item {
   @include menu.item;
 }
@@ -21,12 +23,37 @@
 // its room when unchecked, so every item is as wide as a ticked one; the
 // label starts where the menu's text does, with no icon before it.
 .toolbar-menu__item[role='menuitemradio'] {
-  padding-inline: 12px 8px;
+  padding-inline-end: calc(var(--mat-sys-spacing) * 2);
+}
+
+// The letters sit at the end, before the tick: small monospace capitals in a
+// fixed grid, so the columns line up down the menu and a dimmed one reads
+// as a gap in the row, not a different letter.
+.toolbar-menu__badges {
+  display: inline-flex;
+  gap: 0.25ch;
+  margin-inline-start: auto;
+  padding-inline-start: calc(var(--mat-sys-spacing) * 4);
+  color: var(--mat-sys-on-surface-variant);
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.625rem;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.toolbar-menu__badge--off {
+  opacity: 0.3;
 }
 
 .toolbar-menu__check {
   margin-inline-start: auto;
   visibility: hidden;
+
+  // The letters took the push to the end; the tick follows them.
+  .toolbar-menu__badges + & {
+    margin-inline-start: 0;
+  }
 
   [aria-checked='true'] > & {
     visibility: visible;

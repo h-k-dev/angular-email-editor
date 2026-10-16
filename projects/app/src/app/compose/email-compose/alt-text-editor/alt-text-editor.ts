@@ -7,8 +7,8 @@ import { MatIconModule } from '@angular/material/icon';
 // Library
 import { AnchorRect } from '@h-k-dev/angular-email-editor/anchor';
 import { ImageAlt } from '@h-k-dev/angular-email-editor/image';
+import { TranslatePipe } from '@ngx-translate/core';
 
-import { I18n } from '../../../../services/i18n';
 import { FormattingCommands } from '../formatting-commands';
 import { dismissOnPressOutside } from '../../dismiss-outside';
 import { POPOVER_ABOVE, Popover } from '../popover/popover';
@@ -25,6 +25,7 @@ import { POPOVER_ABOVE, Popover } from '../popover/popover';
 @Component({
   selector: 'div[alt-text-editor]',
   imports: [
+    TranslatePipe,
     // Material
     MatButtonModule,
     MatIconModule,
@@ -39,8 +40,6 @@ export class AltTextEditor {
   readonly #commands = inject(FormattingCommands);
 
   readonly #popover = inject(Popover);
-
-  protected readonly i18n = inject(I18n);
 
   protected readonly editor = this.#commands.editor;
   protected readonly open = signal(false);

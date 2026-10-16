@@ -11,6 +11,25 @@
 // Only the *look* lives here. What a menu is (a listbox the caret drives, an
 // Aria menu, a CDK overlay) stays with the menu, because those are different
 // things wearing the same clothes.
+//
+// The measures are core's (its `angular/aria/_menu.scss`), on the theme's
+// tokens (styles.scss): a 4px band round the rows, rows padded in spacing
+// units, a row's corner concentric with the panel's, the float shadow.
+
+/// The neutral wash a current row wears — core's `[ngMenu]` token: the
+/// on-surface ink at Material's hover opacity, over whatever container it
+/// sits on. Never a palette role: a host that repaints `secondary-container`
+/// as a brand colour (core's green) leaves it alone. The fallback is the same
+/// mix, for where the token is not set — core sets it on `[ngMenu]` only, so
+/// a select or a toggle outside a menu needs it.
+$active-wash: var(
+  --mat-sys-menu-item-active-background,
+  color-mix(
+    in oklch,
+    var(--mat-sys-on-surface) calc(var(--mat-sys-hover-state-layer-opacity, 0.08) * 100%),
+    transparent
+  )
+);
 
 /// The floating box. A menu with `aria-orientation="horizontal"` lays its
 /// rows out in a line, because that is what it told assistive tech it does.
@@ -18,7 +37,7 @@
   display: flex;
   flex-direction: column;
   min-inline-size: var(--email-suggestion-menu-min-width, 220px);
-  padding: var(--email-suggestion-menu-padding, 4px);
+  padding: var(--email-suggestion-menu-padding, var(--mat-sys-menu-inset, 4px));
   box-sizing: border-box;
   outline: none;
 
@@ -31,10 +50,9 @@
     var(--mat-sys-surface-container, light-dark(#f0f4f9, #1e1f20))
   );
   border-radius: var(--email-suggestion-menu-corner, var(--mat-sys-corner-medium, 12px));
-  box-shadow: var(
-    --email-suggestion-menu-shadow,
-    var(--mat-sys-level2, 0 2px 6px 2px rgb(0 0 0 / 15%), 0 1px 2px rgb(0 0 0 / 30%))
-  );
+  box-shadow: var(--email-suggestion-menu-shadow, var(--mat-sys-float-shadow));
+  // Rows are inset by the band; nothing paints past the rounded edge.
+  overflow: clip;
 
   font-family: var(
     --email-suggestion-menu-font-family,
@@ -73,20 +91,39 @@
 @mixin item {
   display: flex;
   align-items: center;
-  gap: var(--email-suggestion-menu-item-gap, 8px);
-  min-block-size: var(--email-suggestion-menu-item-height, 32px);
-  padding-block: var(--email-suggestion-menu-item-padding-block, 6px);
-  padding-inline: var(--email-suggestion-menu-item-padding-inline, 8px);
+  gap: var(--email-suggestion-menu-item-gap, calc(var(--mat-sys-spacing, 4px) * 3));
+  // 6px block padding puts a one-line row at 32px; the floor is the knob a
+  // denser or roomier menu turns (`--mat-sys-menu-item-min-height`).
+  min-block-size: var(
+    --mat-sys-menu-item-min-height,
+    var(--email-suggestion-menu-item-height, 2rem)
+  );
+  padding-block: var(
+    --email-suggestion-menu-item-padding-block,
+    calc(var(--mat-sys-spacing, 4px) * 1.5)
+  );
+  padding-inline: var(
+    --email-suggestion-menu-item-padding-inline,
+    calc(var(--mat-sys-spacing, 4px) * 3)
+  );
   box-sizing: border-box;
   border: none;
-  border-radius: var(--email-suggestion-menu-item-corner, var(--mat-sys-corner-small, 8px));
+  border-radius: var(
+    --email-suggestion-menu-item-corner,
+    max(0px, calc(var(--mat-sys-corner-medium, 8px) - var(--mat-sys-menu-inset, 4px)))
+  );
   background: none;
   color: inherit;
   font: inherit;
   text-align: start;
   cursor: pointer;
   user-select: none;
+  touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--mat-sys-transition-duration, 0.15s) var(--_menu-curve),
+    transform var(--mat-sys-transition-duration, 0.15s) var(--_menu-curve);
+  --_menu-curve: cubic-bezier(0.4, 0, 0.2, 1);
 
   mat-icon {
     --mat-icon-size: 20px;
@@ -97,10 +134,12 @@
   // Where the keyboard is, where the pointer is, and a submenu's open
   // trigger: one highlight, three ways of being the row in question.
   &:where(:hover, [aria-current='true'], [aria-expanded='true'], [data-active='true']) {
-    background-color: var(
-      --email-suggestion-menu-item-hover-background,
-      var(--mat-sys-surface-container-high, light-dark(#e9eef6, #282a2c))
-    );
+    background-color: var(--email-suggestion-menu-item-hover-background, #{$active-wash});
+  }
+
+  // Pressed: a squash too small to see as motion, enough to feel.
+  &:active:not(:disabled, [aria-disabled='true']) {
+    transform: scale(0.99);
   }
 
   // Focus is its own thing: it can sit on a row the pointer is not on.
@@ -109,13 +148,16 @@
     outline-offset: -2px;
   }
 
-  // Chosen — a menuitemradio/checkbox that is on, or a selected option.
+  // Chosen — a menuitemradio/checkbox that is on, or a selected option: the
+  // wash, as core's menus mark it, and the tick says which. No palette ink.
   &:where([aria-checked='true'], [aria-selected='true']) {
-    color: var(--mat-sys-primary);
+    background-color: $active-wash;
+  }
 
-    mat-icon {
-      color: var(--mat-sys-primary);
-    }
+  // Opened by the pointer, Aria focuses the first row; a choice nobody has
+  // reached by hover or keyboard must not look chosen (core's rule).
+  &[data-active='true'][aria-checked='false']:not(:hover, :focus-visible) {
+    background-color: transparent;
   }
 
   // Says there is more behind it, because it says so to assistive tech.
@@ -142,10 +184,12 @@
   }
 }
 
-/// The hairline between groups — the suggestion menu's own divider.
+/// The hairline between groups — the suggestion menu's own divider, edge to
+/// edge: it crosses the band the rows are inset by.
 @mixin separator {
   block-size: 1px;
-  margin-block: 4px;
+  margin-block: var(--mat-sys-menu-inset, 4px);
+  margin-inline: calc(var(--mat-sys-menu-inset, 4px) * -1);
   background-color: var(
     --email-suggestion-menu-divider-color,
     var(--mat-sys-outline-variant, light-dark(#c7c7c7, #444746))
@@ -158,7 +202,10 @@
 @mixin section {
   flex: none;
   padding-block: var(--email-suggestion-menu-section-padding-block, 14px 4px);
-  padding-inline: var(--email-suggestion-menu-section-padding-inline, 8px);
+  padding-inline: var(
+    --email-suggestion-menu-section-padding-inline,
+    calc(var(--mat-sys-spacing, 4px) * 3)
+  );
   box-sizing: border-box;
   color: var(
     --email-suggestion-menu-section-color,
@@ -184,5 +231,40 @@
 
   &:first-child {
     padding-block-start: var(--email-suggestion-menu-section-first-padding-block-start, 4px);
+  }
+}
+
+/// A menu coming and going — for `[animate.enter]` / `[animate.leave]` on the
+/// panel: a short rise into place, a shorter fall away. The origin is the
+/// edge nearest the trigger, so a menu that opens upward rises from below.
+/// Still for whoever asked for less motion.
+@mixin motion($enter: 'menu-enter', $leave: 'menu-leave') {
+  @keyframes menu-motion-enter {
+    from {
+      opacity: 0;
+      transform: translateY(var(--_menu-rise, -4px)) scale(0.98);
+    }
+  }
+
+  @keyframes menu-motion-leave {
+    to {
+      opacity: 0;
+      transform: translateY(var(--_menu-rise, -4px));
+    }
+  }
+
+  .#{$enter} {
+    animation: menu-motion-enter 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .#{$leave} {
+    animation: menu-motion-leave 0.12s cubic-bezier(0.4, 0, 1, 1) forwards;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .#{$enter},
+    .#{$leave} {
+      animation: none;
+    }
   }
 }

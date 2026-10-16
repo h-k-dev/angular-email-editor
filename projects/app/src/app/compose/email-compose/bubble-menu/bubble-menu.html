@@ -26,7 +26,7 @@
             [disabled]="altTrigger.disabled()"
           >
             <span class="bubble-menu__alt-text" dir="auto">{{
-              alt() || i18n.t('editor.image.addAlt', 'Add alt text')
+              alt() || ('editor.image.addAlt' | translate)
             }}</span>
           </button>
           <ng-container

@@ -23,6 +23,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 
 // Angular Email Editor
 import { InlineImages } from '@h-k-dev/angular-email-editor';
+import { TranslatePipe } from '@ngx-translate/core';
 
 import { MessageForm } from '../compose/message-form/message-form';
 import { Viewport } from '../../services/viewport';
@@ -74,7 +75,7 @@ interface Grab {
  */
 @Component({
   selector: 'section[compose-window]',
-  imports: [MessageForm, MatIcon, MatIconButton],
+  imports: [TranslatePipe, MessageForm, MatIcon, MatIconButton],
   // One inline image registry per composer: this window's message.
   providers: [InlineImages],
   hostDirectives: [CdkTrapFocus],
@@ -147,7 +148,7 @@ export class ComposeWindowFrame {
       message is called. The title bar shows it; a page, which has no title
       bar, says it to assistive tech instead. */
   protected readonly label = computed(
-    () => this.sheet()?.message().subject.trim() || this.i18n.t('composeWindow.new', 'New message'),
+    () => this.sheet()?.message().subject.trim() || this.i18n.t('composeWindow.new'),
   );
 
   #grab: Grab | null = null;
@@ -249,7 +250,7 @@ export class ComposeWindowFrame {
 
   /** The sheet sent its message: the window has done its job. */
   protected sent(): void {
-    this.#snackBar.open(this.i18n.t('composeWindow.sent', 'Message sent'), undefined, {
+    this.#snackBar.open(this.i18n.t('composeWindow.sent'), undefined, {
       duration: 4000,
     });
     this.close();

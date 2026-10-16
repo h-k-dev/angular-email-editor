@@ -3,7 +3,7 @@
   <div
     class="alt-text-editor"
     role="dialog"
-    [attr.aria-label]="i18n.t('editor.image.altLabel', 'Alt text')"
+    [attr.aria-label]="'editor.image.altLabel' | translate"
   >
     <!-- The library does the rest: the alt in the field, Enter and Escape,
          the caret back to the editor. `dir="auto"`: an alt in a
@@ -12,8 +12,8 @@
       class="alt-text-editor__input"
       type="text"
       dir="auto"
-      [attr.aria-label]="i18n.t('editor.image.altLabel', 'Alt text')"
-      [placeholder]="i18n.t('editor.image.altPlaceholder', 'Describe the image')"
+      [attr.aria-label]="'editor.image.altLabel' | translate"
+      [placeholder]="'editor.image.altPlaceholder' | translate"
       [emailImageAlt]="editor()"
       #alt="emailImageAlt"
       (emailImageAltClosed)="open.set(false)"
@@ -21,7 +21,7 @@
     <button
       mat-icon-button
       type="button"
-      [attr.aria-label]="i18n.t('editor.image.applyAlt', 'Apply alt text')"
+      [attr.aria-label]="'editor.image.applyAlt' | translate"
       (click)="alt.apply()"
     >
       <mat-icon>check</mat-icon>

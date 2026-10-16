@@ -14,7 +14,7 @@ const shiftEnter = HardBreak.keymap!(ctx)['Shift-Enter'];
 const setFontFamily = TextStyle.commands!(ctx)['setFontFamily'];
 const setLink = Link.commands!(ctx)['setLink'];
 
-const FONT = 'font-family: Georgia, Times, serif;';
+const FONT = 'font-family: Georgia, serif;';
 
 /** A cursor in a single empty `<div>` line. */
 function emptyLine(): EditorState {
@@ -41,7 +41,7 @@ function type(state: EditorState, text: string): EditorState {
 describe('font persistence across breaks (Gmail-style)', () => {
   it('carries a bare-cursor font across Enter onto the new line', () => {
     let state = emptyLine();
-    state = run(state, setFontFamily('Georgia, Times, serif')); // pick font, no selection
+    state = run(state, setFontFamily('Georgia, serif')); // pick font, no selection
     state = type(state, 'first');
     state = run(state, enter);
     state = type(state, 'second');
@@ -53,7 +53,7 @@ describe('font persistence across breaks (Gmail-style)', () => {
 
   it('carries the font across a Shift-Enter line break', () => {
     let state = emptyLine();
-    state = run(state, setFontFamily('Georgia, Times, serif'));
+    state = run(state, setFontFamily('Georgia, serif'));
     state = type(state, 'aaa');
     state = run(state, shiftEnter);
     state = type(state, 'bbb');

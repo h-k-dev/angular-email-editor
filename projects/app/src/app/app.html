@@ -8,7 +8,7 @@
         [routerLinkActiveOptions]="{ exact: true }"
       >
         <mat-icon class="app-nav-icon">{{ page.icon }}</mat-icon>
-        <span>{{ i18n.t(page.key, page.label) }}</span>
+        <span>{{ page.key | translate }}</span>
       </a>
     }
   </nav>
@@ -22,11 +22,11 @@
     matButton="tonal"
     type="button"
     class="app-compose"
-    [attr.aria-label]="i18n.t('app.compose', 'Compose')"
+    [attr.aria-label]="'app.compose' | translate"
     (click)="compose()"
   >
     <mat-icon>edit</mat-icon>
-    <span class="app-compose__label">{{ i18n.t('app.compose', 'Compose') }}</span>
+    <span class="app-compose__label">{{ 'app.compose' | translate }}</span>
   </button>
 
   <div language-menu></div>
@@ -48,7 +48,7 @@
   matFab
   type="button"
   class="app-fab"
-  [attr.aria-label]="i18n.t('app.compose', 'Compose')"
+  [attr.aria-label]="'app.compose' | translate"
   (click)="compose()"
 >
   <mat-icon>edit</mat-icon>

@@ -1,7 +1,7 @@
 /**
- * German. English is not a file: it is what the code says — the library's
- * action titles, the composer's labels — and every lookup falls back to it
- * (`I18n.t(key, fallback)`). A translation only has to say what differs.
+ * German. A translation only has to say what differs: a key it does not
+ * have reads as English (`en.ts`, the app's words; the library's action
+ * titles for `editor.actions.<id>`).
  *
  * `editor.actions.<id>` is keyed by the library's action ids — the same ids
  * a `/` menu's rows and a toolbar's buttons carry — plus the composer's own
@@ -29,7 +29,7 @@ export default {
     appearance: { title: 'Darstellung', light: 'Hell', dark: 'Dunkel', app: 'App' },
     placeholders: {
       filled: 'Platzhalter eingesetzt',
-      empty: '{{count}} Platzhalter ohne Wert',
+      empty: { one: '1 Platzhalter ohne Wert', other: '{{count}} Platzhalter ohne Wert' },
       failed: 'Platzhalter konnten nicht eingesetzt werden',
     },
   },
@@ -102,11 +102,30 @@ export default {
       apply: 'Übernehmen',
     },
     toolbar: {
+      font: 'Schriftart',
+      fontValue: 'Schriftart: {{font}}',
+      size: 'Schriftgröße',
+      sizeValue: 'Schriftgröße: {{size}}',
+      more: 'Weitere Formatierung',
+      undo: 'Rückgängig',
+      redo: 'Wiederholen',
       'image-alt': 'Alternativtext',
       color: 'Farbe',
       link: 'Link',
       strike: 'Durchgestrichen',
       table: 'Tabelle einfügen',
+    },
+    // Gmail's German names for its fonts.
+    fonts: {
+      drawnBy: 'Wird angezeigt in {{clients}}',
+      'fixed-width': 'Festbreitenschrift',
+      wide: 'Breit',
+      narrow: 'Schmal',
+    },
+    table: {
+      cellOptions: 'Zellenoptionen',
+      rowOptions: 'Optionen für Zeile {{number}}',
+      columnOptions: 'Optionen für Spalte {{number}}',
     },
     color: {
       text: 'Textfarbe',

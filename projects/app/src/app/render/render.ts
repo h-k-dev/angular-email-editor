@@ -20,12 +20,12 @@ import {
   RenderingClient,
   renderForClient,
 } from '@h-k-dev/angular-email-editor';
+import { TranslatePipe } from '@ngx-translate/core';
 
 import { EmailCompose, SourceView } from '../compose/email-compose/email-compose';
 import { HtmlEmailCompose } from '../compose/html-email-compose/html-email-compose';
 import { releaseEditingSurface } from '../compose/is-typing';
 import { Examples } from '../../services/examples';
-import { I18n } from '../../services/i18n';
 
 /** Appended to the drawn original: the frame scrolls, without a bar. */
 const NO_SCROLLBAR = '<style>html { scrollbar-width: none; }</style>';
@@ -48,7 +48,7 @@ interface RenderPair {
  */
 @Component({
   selector: 'app-render',
-  imports: [EmailCompose, HtmlEmailCompose, MatIconButton, MatIcon],
+  imports: [TranslatePipe, EmailCompose, HtmlEmailCompose, MatIconButton, MatIcon],
   templateUrl: './render.html',
   styleUrl: './render.scss',
   providers: [InlineImages],
@@ -56,7 +56,6 @@ interface RenderPair {
 export class Render {
   readonly #examples = inject(Examples);
   readonly #sanitizer = inject(DomSanitizer);
-  protected readonly i18n = inject(I18n);
 
   /** Every MJML example that has a replica, paired by file name, in the
       catalogue's order. */

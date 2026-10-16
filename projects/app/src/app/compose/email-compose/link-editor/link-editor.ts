@@ -35,8 +35,8 @@ import {
   selectedButton,
 } from '@h-k-dev/angular-email-editor';
 import { ActionTrigger } from '@h-k-dev/angular-email-editor/actions';
+import { TranslatePipe } from '@ngx-translate/core';
 
-import { I18n } from '../../../../services/i18n';
 import { FormattingCommands } from '../formatting-commands';
 import { FormattingItem } from '../formatting-items';
 import { dismissOnPressOutside } from '../../dismiss-outside';
@@ -78,6 +78,7 @@ import { POPOVER_ABOVE, Popover } from '../popover/popover';
 @Component({
   selector: 'div[link-editor]',
   imports: [
+    TranslatePipe,
     // Angular Signal Forms
     FormField,
     FormRoot,
@@ -99,8 +100,6 @@ export class LinkEditor {
   readonly #popover = inject(Popover);
 
   readonly #injector = inject(Injector);
-
-  protected readonly i18n = inject(I18n);
 
   protected readonly input = viewChild<ElementRef<HTMLInputElement>>('input');
 

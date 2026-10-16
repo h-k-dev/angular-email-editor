@@ -1,11 +1,11 @@
 <section class="color-picker__part">
   <h3 class="color-picker__heading" [id]="id + '-text'">
-    {{ i18n.t('editor.color.text', 'Text color') }}
+    {{ 'editor.color.text' | translate }}
   </h3>
   <div
     color-palette
     [attr.aria-labelledby]="id + '-text'"
-    [resetLabel]="i18n.t('editor.color.automatic', 'Automatic')"
+    [resetLabel]="'editor.color.automatic' | translate"
     [colors]="textPalette"
     [value]="color()"
     (picked)="colorPicked.emit($event)"
@@ -13,12 +13,12 @@
 </section>
 <section class="color-picker__part">
   <h3 class="color-picker__heading" [id]="id + '-background'">
-    {{ i18n.t('editor.color.background', 'Background color') }}
+    {{ 'editor.color.background' | translate }}
   </h3>
   <div
     color-palette
     [attr.aria-labelledby]="id + '-background'"
-    [resetLabel]="i18n.t('editor.color.none', 'None')"
+    [resetLabel]="'editor.color.none' | translate"
     [colors]="backgroundPalette"
     [value]="background()"
     (picked)="backgroundPicked.emit($event)"

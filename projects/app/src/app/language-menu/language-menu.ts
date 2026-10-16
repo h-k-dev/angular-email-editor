@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 
 // Aria
 import { MenuTrigger } from '@angular/aria/menu';
+import { TranslatePipe } from '@ngx-translate/core';
 
 import { AppLanguage } from '../../i18n/loader';
 import { I18n } from '../../services/i18n';
@@ -30,7 +31,7 @@ const NAMES: Record<AppLanguage, string> = {
  */
 @Component({
   selector: 'div[language-menu]',
-  imports: [MatButtonModule, MatIconModule, MenuTrigger, ToolbarMenu],
+  imports: [TranslatePipe, MatButtonModule, MatIconModule, MenuTrigger, ToolbarMenu],
   templateUrl: './language-menu.html',
   styleUrl: './language-menu.scss',
 })

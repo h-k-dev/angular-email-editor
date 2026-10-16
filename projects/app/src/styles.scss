@@ -1,4 +1,5 @@
 @use '@angular/material' as mat;
+@use 'styles/menu' as menu;
 // The library's scrollbar — from its source, by the path a host imports it
 // by (`projects` is a Sass load path, angular.json).
 @use '@h-k-dev/angular-email-editor/styles/scroll';
@@ -79,16 +80,66 @@ html {
  * bubble menu, the writer bar's toggles. State is ARIA: a toggle that is on
  * (aria-pressed), or a picker whose value the selection already carries
  * (data-applied — aria-pressed would misname a button that opens a popup). */
+/* The wash is the menus' (styles/_menu.scss) — neutral, so a host that
+ * repaints `secondary-container` (core's brand green) cannot tint it; the
+ * primary ink is what tells pressed from hovered. */
 .mat-mdc-icon-button:is([aria-pressed='true'], [data-applied]) {
   color: var(--mat-sys-primary);
-  background-color: var(--mat-sys-secondary-container);
+  background-color: menu.$active-wash;
 }
 
-:root {
-  // Spacing tokens the composer relies on (defined by the host app's theme
-  // in hongknop-frontend; recreated here for the example app).
-  --mat-sys-inner-spacing: 16px;
-  --mat-sys-outer-spacing: 24px;
+/* The host's system tokens over Material's — core's `_theme.scss`, recreated
+ * for the example so the kit looks here as it does there. One spacing unit,
+ * and every gap a multiple of it; one radius, and every corner a fraction of
+ * it; a hairline ring and a soft, wide shadow for anything that floats, in
+ * place of M3's darker elevation levels. On `html`, after `mat.theme`, so
+ * the corners win over Material's own. */
+html {
+  --mat-sys-spacing: 0.25rem;
+
+  --mat-sys-inner-spacing: calc(var(--mat-sys-spacing) * 4); // 16px
+  --mat-sys-mobile-edge: calc(var(--mat-sys-spacing) * 5); // 20px
+  --mat-sys-outer-spacing: calc(var(--mat-sys-spacing) * 6); // 24px
+
+  --mat-sys-corner-extra-small: 0.125rem;
+  --mat-sys-corner-small: calc(var(--radius, 0.625rem) * 0.6); // 6px
+  --mat-sys-corner-medium: calc(var(--radius, 0.625rem) * 0.8); // 8px
+  --mat-sys-corner-large: var(--radius, 0.625rem); // 10px
+  --mat-sys-corner-extra-large: calc(var(--radius, 0.625rem) * 1.4); // 14px
+
+  // A box-shadow is no colour, so light-dark() goes on its colour.
+  --mat-sys-ring-shadow: 0 0 0 1px light-dark(rgb(10 10 10 / 10%), rgb(250 250 250 / 10%));
+  --mat-sys-outer-shadow: 0 1px 1px rgb(0 0 0 / 4%), 0 8px 20px rgb(0 0 0 / 6%);
+  /* What floats — a menu, a picker, a bubble: the ring is its edge, the
+   * outer shadow its lift. */
+  --mat-sys-float-shadow: var(--mat-sys-ring-shadow), var(--mat-sys-outer-shadow);
+
+  /* A menu: the band between its edge and a row's highlight, and the
+   * highlight — the on-surface ink at Material's hover opacity, so it reads
+   * on any container colour. A row's corner is the panel's minus the band:
+   * two arcs of one radius at different offsets are not parallel. */
+  --mat-sys-menu-inset: var(--mat-sys-spacing);
+  --mat-sys-menu-item-active-background: color-mix(
+    in oklch,
+    var(--mat-sys-on-surface) calc(var(--mat-sys-hover-state-layer-opacity, 0.08) * 100%),
+    transparent
+  );
+
+  /* The library's `/` menu wears the same, so every menu in the app is one
+   * menu (styles/_menu.scss reads these too). */
+  --email-suggestion-menu-padding: var(--mat-sys-menu-inset);
+  --email-suggestion-menu-shadow: var(--mat-sys-float-shadow);
+  --email-suggestion-menu-item-corner: max(
+    0px,
+    calc(var(--mat-sys-corner-medium) - var(--mat-sys-menu-inset))
+  );
+  --email-suggestion-menu-item-hover-background: var(--mat-sys-menu-item-active-background);
+  --email-suggestion-menu-item-active-background: var(--mat-sys-menu-item-active-background);
+  --email-suggestion-menu-item-active-color: currentColor;
+  --email-suggestion-menu-item-padding-block: calc(var(--mat-sys-spacing) * 1.5);
+  --email-suggestion-menu-item-padding-inline: calc(var(--mat-sys-spacing) * 3);
+  --email-suggestion-menu-item-gap: calc(var(--mat-sys-spacing) * 3);
+  --email-suggestion-menu-section-padding-inline: calc(var(--mat-sys-spacing) * 3);
 }
 
 /* ProseMirror creates its editable DOM at runtime, outside Angular's emulated
@@ -1683,4 +1734,11 @@ section[html-email-compose][data-wrap='off'] .aee-editor {
   .mat-mdc-form-field-flex {
     column-gap: 8px;
   }
+}
+
+/* A menu that opened above its trigger rises into place from below
+ * (styles/_menu.scss `motion`); the CDK marks the pane with the position it
+ * took. */
+.cdk-overlay-pane.menu-above {
+  --_menu-rise: 4px;
 }

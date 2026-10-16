@@ -30,7 +30,7 @@ $side-by-side: 2 * $palette + $gap + 2 * $padding + 2 * 8px;
     var(--mat-sys-surface-container, #f3f3f3)
   );
   border-radius: var(--email-compose-palette-corner, var(--mat-sys-corner-medium, 8px));
-  box-shadow: var(--mat-sys-level2);
+  box-shadow: var(--mat-sys-float-shadow);
 }
 
 .color-picker__part {

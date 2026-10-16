@@ -1,7 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideTranslateLoader, provideTranslateService } from '@ngx-translate/core';
 
-import { LazyTranslations } from '../../i18n/loader';
 import { I18n } from '../../services/i18n';
 import { LanguageMenu } from './language-menu';
 
@@ -21,13 +19,6 @@ describe('LanguageMenu', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [LanguageMenu],
-      providers: [
-        provideTranslateService({
-          loader: provideTranslateLoader(LazyTranslations),
-          fallbackLang: 'en',
-          lang: 'en',
-        }),
-      ],
     }).compileComponents();
     fixture = TestBed.createComponent(LanguageMenu);
     i18n = TestBed.inject(I18n);
@@ -67,7 +58,7 @@ describe('LanguageMenu', () => {
     await open();
     items()[2].click();
     await vi.waitFor(() => expect(i18n.lang()).toBe('de'));
-    await vi.waitFor(() => expect(i18n.t('app.language', 'Language')).toBe('Sprache'));
+    await vi.waitFor(() => expect(i18n.t('app.language')).toBe('Sprache'));
     await fixture.whenStable();
     expect(trigger().textContent).toContain('Deutsch');
     expect(trigger().getAttribute('aria-label')).toBe('Sprache: Deutsch');

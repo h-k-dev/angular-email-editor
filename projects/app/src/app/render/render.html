@@ -4,14 +4,14 @@
 <div class="render" [style.--render-box.px]="boxWidth()">
   <header class="render-header">
     <h1 class="render-title">{{ pair()?.name ?? '' }}</h1>
-    <div class="render-choice" role="radiogroup" [attr.aria-label]="i18n.t('render.view', 'View')">
+    <div class="render-choice" role="radiogroup" [attr.aria-label]="'render.view' | translate">
       <button
         type="button"
         role="radio"
         [attr.aria-checked]="sourceView() !== 'code'"
         (click)="showSource(false)"
       >
-        {{ i18n.t('render.editor', 'Editor') }}
+        {{ 'render.editor' | translate }}
       </button>
       <button
         type="button"
@@ -19,14 +19,14 @@
         [attr.aria-checked]="sourceView() === 'code'"
         (click)="showSource(true)"
       >
-        {{ i18n.t('render.html', 'HTML') }}
+        {{ 'render.html' | translate }}
       </button>
     </div>
     <span class="render-header-spacer"></span>
     <div
       class="render-choice"
       role="radiogroup"
-      [attr.aria-label]="i18n.t('render.client', 'Mail client')"
+      [attr.aria-label]="'render.client' | translate"
     >
       @for (client of clients; track client) {
         <button
@@ -42,7 +42,7 @@
     <div
       class="render-choice"
       role="radiogroup"
-      [attr.aria-label]="i18n.t('render.device', 'Reading pane')"
+      [attr.aria-label]="'render.device' | translate"
     >
       <button
         type="button"
@@ -50,7 +50,7 @@
         [attr.aria-checked]="device() === 'desktop'"
         (click)="device.set('desktop')"
       >
-        {{ i18n.t('render.desktop', 'Desktop') }}
+        {{ 'render.desktop' | translate }}
       </button>
       <button
         type="button"
@@ -58,19 +58,19 @@
         [attr.aria-checked]="device() === 'phone'"
         (click)="device.set('phone')"
       >
-        {{ i18n.t('render.phone', 'Phone') }}
+        {{ 'render.phone' | translate }}
       </button>
     </div>
     <div
       class="render-choice"
       role="radiogroup"
-      [attr.aria-label]="i18n.t('render.surface', 'Surface')"
+      [attr.aria-label]="'render.surface' | translate"
     >
       <button type="button" role="radio" [attr.aria-checked]="!dark()" (click)="dark.set(false)">
-        {{ i18n.t('render.light', 'Light') }}
+        {{ 'render.light' | translate }}
       </button>
       <button type="button" role="radio" [attr.aria-checked]="dark()" (click)="dark.set(true)">
-        {{ i18n.t('render.dark', 'Dark') }}
+        {{ 'render.dark' | translate }}
       </button>
     </div>
   </header>
@@ -83,7 +83,7 @@
       [(sourceView)]="sourceView"
       [codePortal]="codePortal()"
       [codeEditor]="sourcePane()?.editor()"
-      [attr.aria-label]="i18n.t('render.replica', 'Replica in our editor')"
+      [attr.aria-label]="'render.replica' | translate"
     ></section>
 
     <!-- The replica's HTML: out of sight here, it moves into the editor's
@@ -94,26 +94,26 @@
       [hidden]="sourceView() !== 'code'"
       [active]="sourceView() === 'code'"
       [(html)]="replica"
-      [attr.aria-label]="i18n.t('render.source', 'Replica HTML')"
+      [attr.aria-label]="'render.source' | translate"
     ></section>
 
     <iframe
       class="render-original"
       sandbox
       [srcdoc]="original()"
-      [title]="i18n.t('render.original', 'Original MJML, as a client draws it')"
+      [title]="'render.original' | translate"
     ></iframe>
   } @else {
-    <p class="render-empty">{{ i18n.t('render.loading', 'Loading the MJML examples…') }}</p>
+    <p class="render-empty">{{ 'render.loading' | translate }}</p>
   }
 
-  <nav class="render-stepper" [attr.aria-label]="i18n.t('render.examples', 'MJML examples')">
+  <nav class="render-stepper" [attr.aria-label]="'render.examples' | translate">
     <button
       mat-icon-button
       type="button"
       (click)="step(-1)"
       [disabled]="pairs().length < 2"
-      [attr.aria-label]="i18n.t('render.previous', 'Previous example')"
+      [attr.aria-label]="'render.previous' | translate"
     >
       <mat-icon>keyboard_arrow_up</mat-icon>
     </button>
@@ -125,7 +125,7 @@
       type="button"
       (click)="step(1)"
       [disabled]="pairs().length < 2"
-      [attr.aria-label]="i18n.t('render.next', 'Next example')"
+      [attr.aria-label]="'render.next' | translate"
     >
       <mat-icon>keyboard_arrow_down</mat-icon>
     </button>

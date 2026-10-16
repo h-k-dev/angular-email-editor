@@ -34,7 +34,7 @@
   background-color: var(--mat-sys-surface-bright, #ffffff);
   color: var(--mat-sys-on-surface, #1f1f1f);
   border-radius: var(--mat-sys-corner-medium, 8px);
-  box-shadow: var(--mat-sys-level2);
+  box-shadow: var(--mat-sys-float-shadow);
 
   // Rises the short distance into place. A drag is already in motion, so the
   // card meeting it halfway reads as a response rather than an interruption.

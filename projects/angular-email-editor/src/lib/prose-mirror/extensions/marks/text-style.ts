@@ -4,6 +4,12 @@ import { defineMark } from '../../extension';
 import { fillTextColor, isFillTextColor } from '../../dual-contrast';
 import { setMark } from './set.utils';
 import { unsetMark } from './unset.utils';
+import {
+  FontSize,
+  allowedFontSizes,
+  isEmailFontStack,
+  matchEmailFont,
+} from '@h-k-dev/angular-email-editor/fonts';
 
 /**
  * Allow only color values that can't smuggle extra declarations into the
@@ -87,11 +93,12 @@ function isUppercase(state: EditorState, schema: Schema): boolean {
   return found;
 }
 
-const ALLOWED_SIZES = [10, 12, 14, 16, 18, 24, 32] as const;
-export type FontSize = (typeof ALLOWED_SIZES)[number];
+// The font set is its own entry, plain data a host's other composer shares;
+// the main entry carries it too, as it always has.
+export * from '@h-k-dev/angular-email-editor/fonts';
 
 export function isSafeFontSize(value: unknown): value is FontSize {
-  return ALLOWED_SIZES.includes(value as FontSize);
+  return allowedFontSizes.includes(value as FontSize);
 }
 
 /**
@@ -106,8 +113,8 @@ export function parseFontSize(raw: string | null | undefined): FontSize | null {
   // A size off the ladder — a builder's 11px, 13px, 15px — snaps to the
   // nearest rung, upward on a tie: read as the size it is nearest to, not
   // dropped to the default. (The schema still emits only its own rungs.)
-  let nearest: FontSize = ALLOWED_SIZES[0];
-  for (const size of ALLOWED_SIZES) {
+  let nearest: FontSize = allowedFontSizes[0];
+  for (const size of allowedFontSizes) {
     const better =
       Math.abs(size - n) < Math.abs(nearest - n) ||
       (Math.abs(size - n) === Math.abs(nearest - n) && size > nearest);
@@ -116,89 +123,20 @@ export function parseFontSize(raw: string | null | undefined): FontSize | null {
   return nearest;
 }
 
-/**
- * The sizes the toolbar picker offers: the phone-safe subset (≥14px). Below
- * ~13px iOS auto-inflates text and reflows the layout (responsiveness ledger,
- * principle 8), so we don't *offer* those — but {@link parseFontSize} still
- * accepts the full {@link ALLOWED_SIZES} range, because a hand-typed size in
- * the HTML source pane is the author's own responsibility, exactly like a
- * hand-typed hex colour.
- */
-export const emailFontSizes: FontSize[] = [14, 16, 18, 24, 32];
-
-/** A curated, email-safe font stack the toolbar offers. */
-export interface EmailFont {
-  /** Toolbar label. */
-  name: string;
-  /** The exact `font-family` value emitted — the canonical stored form. */
-  stack: string;
-}
-
-/**
- * The curated font stacks — the picker offers only these, no free-form fonts
- * (principle 7: if a mainstream client can't render it, we don't emit it).
- *
- * Deliberately built from *single-word* family identifiers plus a generic
- * fallback: a stack like `Courier New` would round-trip through the CSSOM
- * (serialization builds real elements and re-reads them) and come back quoted
- * as `"Courier New"` in Chrome but unquoted in jsdom — a byte-instability that
- * breaks canonical determinism and makes tests disagree with the runtime (the
- * same trap the longhand/`rgb()` rule guards against). Bare identifiers and
- * generic keywords serialize identically everywhere.
- */
-export const emailFontFamilies: EmailFont[] = [
-  { name: 'Sans-serif', stack: 'Arial, Helvetica, sans-serif' },
-  { name: 'Serif', stack: 'Georgia, Times, serif' },
-  { name: 'Monospace', stack: 'Courier, monospace' },
-  { name: 'System', stack: 'system-ui, sans-serif' },
-];
-
-/** Normalise a `font-family` value to a comparison key: lower-cased, quotes
-    dropped, whitespace around commas collapsed. Lets a hand-typed or CSSOM-
-    reserialized stack match a curated one regardless of cosmetic differences. */
-function fontFamilyKey(raw: string): string {
-  return raw
-    .toLowerCase()
-    .replace(/["']/g, '')
-    .replace(/\s*,\s*/g, ',')
-    .trim();
-}
-
-const FONT_STACK_BY_KEY = new Map(emailFontFamilies.map((f) => [fontFamilyKey(f.stack), f.stack]));
-
-/** Each family a curated stack names — a face or its generic — to the first
-    stack naming it: `helvetica` and `sans-serif` to Sans-serif, `times` and
-    `serif` to Serif. */
-const FONT_STACK_BY_FAMILY = new Map<string, string>();
-for (const { stack } of emailFontFamilies) {
-  for (const family of fontFamilyKey(stack).split(',')) {
-    if (!FONT_STACK_BY_FAMILY.has(family)) FONT_STACK_BY_FAMILY.set(family, stack);
-  }
-}
-
+/** Whether `value` is one of the curated stacks (`@h-k-dev/angular-email-editor/fonts`). */
 export function isSafeFontFamily(value: unknown): value is string {
-  return typeof value === 'string' && FONT_STACK_BY_KEY.has(fontFamilyKey(value));
+  return isEmailFontStack(value);
 }
 
 /**
- * Parse a font-family value from the DOM into one of our curated stacks,
+ * Parse a font-family value from the DOM into one of the curated stacks,
  * returning the *canonical* stack string (so a cosmetically different but
  * equivalent input normalises to the exact bytes we emit). A stack of
- * someone else's reads as the curated one it falls back to — the first of
- * its families a curated stack names, its generic last: a builder's web
- * font (`Ubuntu, Helvetica, Arial, sans-serif`) is Sans-serif, the face a
- * client without that font draws anyway. Nothing to fall back to, no font.
+ * someone else's reads as the curated one it falls back to
+ * ({@link matchEmailFont}). Nothing to fall back to, no font.
  */
 export function parseFontFamily(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  const key = fontFamilyKey(raw);
-  const exact = FONT_STACK_BY_KEY.get(key);
-  if (exact) return exact;
-  for (const family of key.split(',')) {
-    const stack = FONT_STACK_BY_FAMILY.get(family.trim());
-    if (stack) return stack;
-  }
-  return null;
+  return matchEmailFont(raw)?.stack ?? null;
 }
 
 /**

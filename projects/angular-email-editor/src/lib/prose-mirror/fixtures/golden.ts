@@ -12,7 +12,7 @@ export const GOLDEN_HTML: string[] = [
   '<blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div>quoted<br>line</div></blockquote>',
   '<div><em style="font-style: italic;">italic</em> and <u style="text-decoration: underline;">underlined</u></div>',
   '<div><s style="text-decoration: line-through;">gone</s></div>',
-  '<div><span style="font-size: 18px; font-family: Georgia, Times, serif;">styled</span></div>',
+  '<div><span style="font-size: 18px; font-family: Georgia, serif;">styled</span></div>',
   // Fills always pair an explicit near-black text colour (FILL_TEXT_COLOR):
   // default text flips to near-white in non-transforming dark modes.
   '<div><span style="color: rgb(32, 33, 36); background-color: rgb(254, 247, 224);">highlit</span></div>',

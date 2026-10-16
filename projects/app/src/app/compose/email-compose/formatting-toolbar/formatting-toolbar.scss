@@ -1,3 +1,4 @@
+@use '../../../../styles/menu' as menu;
 @use '../../../../styles/breakpoints' as bp;
 @use '../formatting-toolbar' as toolbar;
 
@@ -244,9 +245,10 @@
     outline-offset: -2px;
   }
 
+  // Open: the menu's own wash (styles/_menu.scss), never a palette role.
   &[aria-expanded='true'] {
-    background-color: var(--mat-sys-secondary-container);
-    color: var(--mat-sys-on-secondary-container);
+    background-color: menu.$active-wash;
+    color: var(--mat-sys-on-surface);
   }
 }
 

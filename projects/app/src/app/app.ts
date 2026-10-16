@@ -3,6 +3,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule, MatIconRegistry } from '@angular/material/icon';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { TranslatePipe } from '@ngx-translate/core';
 import { ComposeWindows } from '../services/compose-windows';
 import { I18n } from '../services/i18n';
 import { LanguageMenu } from './language-menu/language-menu';
@@ -16,6 +17,7 @@ import { Viewport } from '../services/viewport';
   // the viewport and the layout.
   selector: '[app-root]',
   imports: [
+    TranslatePipe,
     LanguageMenu,
     MatButtonModule,
     MatIconModule,
@@ -52,9 +54,7 @@ export class App {
   protected readonly theme = this.#theme.scheme;
 
   protected readonly themeLabel = computed(() =>
-    this.theme() === 'dark'
-      ? this.i18n.t('app.theme.light', 'Switch to light mode')
-      : this.i18n.t('app.theme.dark', 'Switch to dark mode'),
+    this.theme() === 'dark' ? this.i18n.t('app.theme.light') : this.i18n.t('app.theme.dark'),
   );
 
   constructor() {

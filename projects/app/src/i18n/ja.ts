@@ -28,7 +28,10 @@ export default {
     appearance: { title: '外観', light: 'ライト', dark: 'ダーク', app: 'アプリ' },
     placeholders: {
       filled: 'プレースホルダーを埋めました',
-      empty: '値のないプレースホルダー: {{count}}件',
+      empty: {
+        one: '値のないプレースホルダー: 1件',
+        other: '値のないプレースホルダー: {{count}}件',
+      },
       failed: 'プレースホルダーを埋められませんでした',
     },
   },
@@ -96,10 +99,29 @@ export default {
       apply: '適用',
     },
     toolbar: {
+      font: 'フォント',
+      fontValue: 'フォント: {{font}}',
+      size: 'フォントサイズ',
+      sizeValue: 'フォントサイズ: {{size}}',
+      more: 'その他の書式',
+      undo: '元に戻す',
+      redo: 'やり直す',
       'image-alt': '代替テキスト',
       color: '色',
       link: 'リンク',
       table: '表を挿入',
+    },
+    // Gmail's Japanese names for its fonts.
+    fonts: {
+      drawnBy: 'そのまま表示: {{clients}}',
+      'fixed-width': '固定幅',
+      wide: 'ワイド',
+      narrow: 'ナロー',
+    },
+    table: {
+      cellOptions: 'セルのオプション',
+      rowOptions: '{{number}}行目のオプション',
+      columnOptions: '{{number}}列目のオプション',
     },
     color: {
       text: '文字の色',

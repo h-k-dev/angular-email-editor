@@ -13,8 +13,8 @@
   <button
     type="button"
     class="formatting-toolbar__select formatting-toolbar__select--family formatting-toolbar__wide"
-    title="Font"
-    [attr.aria-label]="'Font: ' + font.familyLabel()"
+    [title]="'editor.toolbar.font' | translate"
+    [attr.aria-label]="'editor.toolbar.fontValue' | translate: { font: font.familyLabel() }"
     ngMenuTrigger
     #familyTrigger="ngMenuTrigger"
     [menu]="familyMenu.menu()"
@@ -25,7 +25,7 @@
   <div
     toolbar-menu
     #familyMenu
-    label="Font"
+    [label]="'editor.toolbar.font' | translate"
     [trigger]="familyTrigger"
     [items]="font.familyItems()"
     (selected)="commands.applyFontFamily($event)"
@@ -34,8 +34,8 @@
   <button
     type="button"
     class="formatting-toolbar__select formatting-toolbar__select--size formatting-toolbar__wide"
-    title="Font size"
-    [attr.aria-label]="'Font size: ' + (font.size() ?? '')"
+    [title]="'editor.toolbar.size' | translate"
+    [attr.aria-label]="'editor.toolbar.sizeValue' | translate: { size: font.size() ?? '' }"
     ngMenuTrigger
     #sizeTrigger="ngMenuTrigger"
     [menu]="sizeMenu.menu()"
@@ -46,7 +46,7 @@
   <div
     toolbar-menu
     #sizeMenu
-    label="Font size"
+    [label]="'editor.toolbar.size' | translate"
     [trigger]="sizeTrigger"
     [items]="font.sizeItems()"
     (selected)="commands.applyFontSize($event)"
@@ -90,8 +90,8 @@
   mat-icon-button
   type="button"
   class="formatting-toolbar__more"
-  aria-label="More formatting"
-  title="More formatting"
+  [attr.aria-label]="'editor.toolbar.more' | translate"
+  [title]="'editor.toolbar.more' | translate"
   [hidden]="row.overflowFrom() === null"
   ngMenuTrigger
   #moreTrigger="ngMenuTrigger"
@@ -102,7 +102,7 @@
 <div
   toolbar-menu
   #moreMenu
-  label="More formatting"
+  [label]="'editor.toolbar.more' | translate"
   align="end"
   [trigger]="moreTrigger"
   [items]="moreItems()"
@@ -116,7 +116,7 @@
   <button
     mat-icon-button
     type="button"
-    aria-label="Undo"
+    [attr.aria-label]="'editor.toolbar.undo' | translate"
     [disabled]="!commands.canUndo()"
     (click)="commands.run('undo')"
   >
@@ -125,7 +125,7 @@
   <button
     mat-icon-button
     type="button"
-    aria-label="Redo"
+    [attr.aria-label]="'editor.toolbar.redo' | translate"
     [disabled]="!commands.canRedo()"
     (click)="commands.run('redo')"
   >

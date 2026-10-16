@@ -55,8 +55,8 @@
     <button
       mat-icon-button
       type="button"
-      [attr.aria-label]="i18n.t('composer.more', 'More options')"
-      [title]="i18n.t('composer.more', 'More options')"
+      [attr.aria-label]="'composer.more' | translate"
+      [title]="'composer.more' | translate"
       ngMenuTrigger
       #moreTrigger="ngMenuTrigger"
       [menu]="moreMenu.menu()"
@@ -66,7 +66,7 @@
     <div
       toolbar-menu
       #moreMenu
-      [label]="i18n.t('composer.more', 'More options')"
+      [label]="'composer.more' | translate"
       [trigger]="moreTrigger"
       [items]="moreItems()"
       (selected)="editorAppearance.set($event)"
@@ -87,8 +87,8 @@
       <button
         mat-icon-button
         type="button"
-        [attr.aria-label]="i18n.t('editor.actions.resolve-placeholders.title', 'Fill in placeholders')"
-        [title]="i18n.t('editor.actions.resolve-placeholders.title', 'Fill in placeholders') + ' (' + fillShortcut + ')'"
+        [attr.aria-label]="'editor.actions.resolve-placeholders.title' | translate"
+        [title]="('editor.actions.resolve-placeholders.title' | translate) + ' (' + fillShortcut + ')'"
         [emailAction]="fill"
       >
         <mat-icon>data_object</mat-icon>
