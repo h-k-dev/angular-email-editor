@@ -67,6 +67,11 @@ HTML is allowed to be.
    diverge, because there is only one behavior.
 6. **Signals carry the truth.** One `html` signal per composer; each editor
    projects into it and reacts to it. No event soup, no manual sync calls.
+   A template reads signals and binds values; the only function it calls is
+   an event handler. An API whose natural template use is a lookup
+   (`actions.get(id)`, `sectionTitle(id)`) is shaped wrong: the lookup goes
+   behind a `computed` or into the state (`emailAction="bold"
+   [emailActionFrom]="actions"`, `item.heading` — 2026-10-17).
 7. **If a mainstream client can't render it, we don't emit it.** Gmail,
    Outlook (Word engine), Apple Mail, Yahoo, and the big webmailers define
    our floor. When in doubt: caniemail says no.
@@ -1332,7 +1337,9 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   `editor.subscribe(listener)` tells of every state change and can be asked
   of an editor that already exists — it replaced the demo's `angularSync`
   extension. `/actions` is the Angular side: `injectActions`,
-  `editorState`, `[emailAction]`. Host-only concerns stay the host's: order
+  `editorState`, `[emailAction]` (by id since 2026-10-17: `emailAction="bold"
+  [emailActionFrom]="actions"` — the lookup is the directive's `computed`,
+  not a call in the template). Host-only concerns stay the host's: order
   and grouping, responsive `wide`, labels shown (translated by id in the
   template), and items that open host UI (link, pickers) — to come in as
   `injectActions(editor, { host, override })`: a `HostAction` has a `run`,
@@ -1701,7 +1708,9 @@ client, { dark })` in the library — a simulation, in a browser, drawn
   Every suggestion row may declare a `section` — a stable id, worded by the
   trigger's `sections` (a map or a lookup, so a language switch reaches the
   headings) with the library's wording beneath (`suggestionSectionTitles`),
-  read through `state.sectionTitle(id)`; the library's actions declare
+  read through `state.sectionTitle(id)` (since 2026-10-17: each listed
+  item's `heading`, worded when the state is reported, so a template calls
+  nothing); the library's actions declare
   theirs (blocks, styling, media, layout, message), a host its own (the
   demo: ai, color, templates, examples), lists its rows in section order,
   and shows `[email-suggestion-menu-section]` where the section changes.

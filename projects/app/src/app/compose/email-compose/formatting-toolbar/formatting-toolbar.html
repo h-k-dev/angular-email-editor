@@ -57,13 +57,14 @@
   <!-- The buttons, from LAYOUT. A divider opens every group but the first;
        it moves with the group's first button, and a phone drops it with a
        group that is wide-only through and through. -->
+  @let movedFrom = row.overflowFrom();
   @for (entry of entries; track entry.item.id; let i = $index) {
     @let item = entry.item;
     @if (entry.separated) {
       <mat-divider
         [vertical]="true"
         [class.formatting-toolbar__wide]="entry.groupWide"
-        [attr.data-overflow]="row.movedAt(i) || null"
+        [attr.data-overflow]="(movedFrom !== null && i >= movedFrom) || null"
       />
     }
     <button
@@ -72,7 +73,7 @@
       toolbarOverflowItem
       #button="toolbarOverflowItem"
       [class.formatting-toolbar__wide]="item.wide"
-      [attr.aria-label]="commands.label(item)"
+      [attr.aria-label]="item.title()"
       [attr.aria-pressed]="item.pressed ? item.pressed() : null"
       [attr.aria-expanded]="item.picker ? picker() === item.picker : null"
       [attr.data-applied]="item.applied?.() || null"

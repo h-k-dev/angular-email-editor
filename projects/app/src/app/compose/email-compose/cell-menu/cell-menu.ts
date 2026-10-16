@@ -9,6 +9,7 @@ import {
   inject,
   input,
   output,
+  signal,
   untracked,
   viewChild,
 } from '@angular/core';
@@ -23,7 +24,7 @@ import { Menu, MenuItem } from '@angular/aria/menu';
 import { ConnectedPosition } from '@angular/cdk/overlay';
 
 // Library
-import { PaletteColor, TableHandleTarget, caretCellPos } from '@h-k-dev/angular-email-editor';
+import { TableHandleTarget, caretCellPos } from '@h-k-dev/angular-email-editor';
 import { injectPalette } from '@h-k-dev/angular-email-editor/palette';
 import { TextSelection } from 'prosemirror-state';
 
@@ -115,7 +116,9 @@ export class CellMenu {
       untracked(() =>
         afterNextRender(
           {
-            write: () => {
+            earlyRead: () => this.#measureSubTops(),
+            write: (tops) => {
+              this.subTops.set(tops);
               const row = menu.querySelector<HTMLElement>('[tabindex="0"], [ngMenuItem]');
               (row ?? menu).focus();
             },
@@ -126,13 +129,24 @@ export class CellMenu {
     });
   }
 
-  /** Where a list stands: its first row level with its row — the row's
-      offset in the menu less the menu's padding, which the list has again
-      above its own first row. */
-  protected subTop(item: MenuItem<CellAction>): number {
-    const menu = item.element.offsetParent;
-    const padding = menu ? parseFloat(getComputedStyle(menu).paddingTop) || 0 : 0;
-    return item.element.offsetTop - padding;
+  /** Where each list stands: its first row level with its row. Measured
+      once the menu is on screen — layout is read in a render's read phase,
+      never asked of the DOM from a binding. */
+  protected readonly subTops = signal({ color: 0, align: 0 });
+
+  private readonly colorItem = viewChild<MenuItem<CellAction>>('colorItem');
+  private readonly alignItem = viewChild<MenuItem<CellAction>>('alignItem');
+
+  /** A row's offset in the menu less the menu's padding, which the list has
+      again above its own first row. */
+  #measureSubTops(): { color: number; align: number } {
+    const top = (item: MenuItem<CellAction> | undefined) => {
+      if (!item) return 0;
+      const menu = item.element.offsetParent;
+      const padding = menu ? parseFloat(getComputedStyle(menu).paddingTop) || 0 : 0;
+      return item.element.offsetTop - padding;
+    };
+    return { color: top(this.colorItem()), align: top(this.alignItem()) };
   }
 
   protected pick(action: CellAction): void {
@@ -162,14 +176,6 @@ export class CellMenu {
   protected leave(): void {
     this.closed.emit();
     this.#commands.focus();
-  }
-
-  protected textRow(color: PaletteColor | null): string {
-    return `text:${color?.value ?? ''}`;
-  }
-
-  protected fillRow(color: PaletteColor | null): string {
-    return `fill:${color?.value ?? ''}`;
   }
 
   /** The cell's text colour: on all of the cell's words — the caret alone

@@ -28,16 +28,16 @@
       #colorMenu="ngMenu"
       class="cell-menu cell-menu__sub"
       aria-label="Color"
-      [style.top.px]="subTop(colorItem)"
+      [style.top.px]="subTops().color"
       (itemSelected)="pick($event)"
     >
       <div class="cell-menu__heading">Text color</div>
-      <div ngMenuItem class="cell-menu__item" [value]="textRow(null)">
+      <div ngMenuItem class="cell-menu__item" value="text:">
         <span class="cell-menu__swatch cell-menu__swatch--text">A</span>
         <span>Default text</span>
       </div>
       @for (color of palette.text; track color.value) {
-        <div ngMenuItem class="cell-menu__item" [value]="textRow(color)">
+        <div ngMenuItem class="cell-menu__item" [value]="'text:' + color.value">
           <span class="cell-menu__swatch cell-menu__swatch--text" [style.color]="color.value"
             >A</span
           >
@@ -46,12 +46,12 @@
       }
       <div class="cell-menu__separator" role="separator"></div>
       <div class="cell-menu__heading">Background</div>
-      <div ngMenuItem class="cell-menu__item" [value]="fillRow(null)">
+      <div ngMenuItem class="cell-menu__item" value="fill:">
         <span class="cell-menu__swatch cell-menu__swatch--none"></span>
         <span>No background</span>
       </div>
       @for (color of palette.background; track color.value) {
-        <div ngMenuItem class="cell-menu__item" [value]="fillRow(color)">
+        <div ngMenuItem class="cell-menu__item" [value]="'fill:' + color.value">
           <span class="cell-menu__swatch" [style.background-color]="color.value"></span>
           <span>{{ color.name }} background</span>
         </div>
@@ -73,7 +73,7 @@
       #alignMenu="ngMenu"
       class="cell-menu cell-menu__sub"
       aria-label="Alignment"
-      [style.top.px]="subTop(alignItem)"
+      [style.top.px]="subTops().align"
       (itemSelected)="pick($event)"
     >
       <div ngMenuItem class="cell-menu__item" value="align:left">

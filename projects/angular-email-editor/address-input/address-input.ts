@@ -358,15 +358,15 @@ export class AddressInput implements FormValueControl<string[]> {
   /** The chips as rendered, for the commands that are the chip's own. */
   protected readonly chips = viewChildren(AddressChip);
 
+  /** What a chip's id starts with; its index ends it. */
+  protected readonly chipIdPrefix = `${this.id}-chip-`;
+
   /** The active chip's id, for the input's `aria-activedescendant`. */
   protected readonly activeId = computed(() => {
     const index = this.active();
-    return index !== null && index < this.value().length ? this.chipId(index) : null;
+    return index !== null && index < this.value().length ? this.chipIdPrefix + index : null;
   });
 
-  protected chipId(index: number): string {
-    return `${this.id}-chip-${index}`;
-  }
 
   /** The cap is reached: a further address is refused. */
   readonly full = computed(() => this.value().length >= this.limit());

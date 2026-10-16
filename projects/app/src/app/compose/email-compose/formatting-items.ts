@@ -1,3 +1,4 @@
+import { Signal, computed } from '@angular/core';
 import type { FormattingCommands } from './formatting-commands';
 
 /** The pickers a formatting button can open instead of running a command.
@@ -35,7 +36,10 @@ export type FormattingItemId =
     which items it shows, and in which groups. */
 export interface FormattingItem {
   id: FormattingItemId;
+  /** The English words — what a language without its own falls back to. */
   label: string;
+  /** The words in the language in use (`FormattingCommands.label`). */
+  title: Signal<string>;
   icon: string;
   /** Wide screens only. A phone keeps what the text cannot do by itself:
       lists and quotes start from a line's first keys ("- ", "1. ", "> " —
@@ -45,10 +49,10 @@ export interface FormattingItem {
       keyboard — and on a phone it is rarely reached for. */
   wide?: boolean;
   /** Toggles: whether the format is on at the selection (`aria-pressed`). */
-  pressed?: () => boolean;
+  pressed?: Signal<boolean>;
   /** Pickers: whether the selection carries what the picker sets. */
-  applied?: () => boolean;
-  disabled?: () => boolean;
+  applied?: Signal<boolean>;
+  disabled?: Signal<boolean>;
   /** What pressing it does: a command, or a picker to open. */
   run?: () => void;
   picker?: FormattingPicker;
@@ -79,17 +83,20 @@ export function formattingItems(
   const action = (
     id: FormattingItemId,
     { steady = false, toggle = true } = {},
-  ): Pick<FormattingItem, 'pressed' | 'disabled' | 'run'> => ({
-    ...(toggle ? { pressed: () => commands.actions.get(id)?.pressed() ?? false } : {}),
-    disabled: () => {
-      const bound = commands.actions.get(id);
-      if (!bound) return commands.actions.state() !== undefined;
-      return steady ? false : bound.disabled();
-    },
-    run: () => commands.act(id),
-  });
+  ): Pick<FormattingItem, 'pressed' | 'disabled' | 'run'> => {
+    const bound = computed(() => commands.actions.get(id));
+    return {
+      ...(toggle ? { pressed: computed(() => bound()?.pressed() ?? false) } : {}),
+      disabled: computed(() => {
+        const current = bound();
+        if (!current) return commands.actions.state() !== undefined;
+        return steady ? false : current.disabled();
+      }),
+      run: () => commands.act(id),
+    };
+  };
 
-  return {
+  const items: Record<FormattingItemId, Omit<FormattingItem, 'title'>> = {
     bold: { id: 'bold', label: 'Bold', icon: 'format_bold', ...action('bold') },
     italic: { id: 'italic', label: 'Italic', icon: 'format_italic', ...action('italic') },
     underline: {
@@ -122,10 +129,10 @@ export function formattingItems(
       icon: 'format_color_text',
       wide: true,
       // The textStyle mark also carries font and size: ask for the colours.
-      applied: () => {
+      applied: computed(() => {
         const attrs = commands.markAttrs('textStyle');
         return !!(attrs?.['color'] || attrs?.['backgroundColor']);
-      },
+      }),
       picker: 'color',
     },
     // The composer's own action: it opens the link editor (see the commands).
@@ -232,6 +239,14 @@ export function formattingItems(
       ...action('remove-image', { toggle: false }),
     },
   };
+
+  // The words follow the language as a signal: a template reads them.
+  return Object.fromEntries(
+    Object.entries(items).map(([id, item]) => [
+      id,
+      { ...item, title: computed(() => commands.label(item)) },
+    ]),
+  ) as Record<FormattingItemId, FormattingItem>;
 }
 
 /** A layout as a flat run of buttons, each knowing whether a new group

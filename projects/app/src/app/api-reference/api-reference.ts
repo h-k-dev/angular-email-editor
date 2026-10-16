@@ -125,8 +125,8 @@ export class ApiReference {
         {
           name: 'SuggestionItem.section · sections · [email-suggestion-menu-section]',
           signature:
-            'section?: string · sections?: Record<string, string> | (id) => string · state.sectionTitle(id)',
-          does: 'Rows declare a section (blocks, styling, media, layout, message; a host adds ai, color, templates, examples); the trigger words the headings, the library’s own wording (suggestionSectionTitles) beneath; the section component is the heading a renderer shows where the section changes.',
+            'section?: string · sections?: Record<string, string> | (id) => string · state.items[i].heading',
+          does: 'Rows declare a section (blocks, styling, media, layout, message; a host adds ai, color, templates, examples); the trigger words the headings, the library’s own wording (suggestionSectionTitles) beneath; each listed item carries the heading it opens (null inside a section), so the template shows [email-suggestion-menu-section] with item.heading and calls nothing.',
         },
         {
           name: 'createContentStream · streamContent · isStreaming',
@@ -473,8 +473,8 @@ export class ApiReference {
         {
           name: 'injectActions · editorState · emailAction',
           signature:
-            '(editor: () => Editor | undefined) => EditorActions · => Signal<EditorState> · [emailAction]="actions.get(id)" — @h-k-dev/angular-email-editor/actions',
-          does: 'What the extensions declare as actions (editor.actions — id, title, icon, command, isActive, isEnabled), bound to a live editor as signals: pressed, disabled, run. The editor is read reactively, so a code view is one computed — the visible editor’s kit decides what exists. emailAction makes a host’s own control the trigger: aria-pressed and aria-disabled unless told not to, never the native disabled or a style; the caret returns to the editor after running. It listens through editor.subscribe, so nothing has to be in the kit before the editor is made. A host’s own buttons come in as HostAction — a run, never a command, because a command is asked on every transaction: host for what stands alone (a link dialog), override for a run over a kit’s action (a table size picker).',
+            '(editor: () => Editor | undefined) => EditorActions · => Signal<EditorState> · emailAction="id" [emailActionFrom]="actions" — @h-k-dev/angular-email-editor/actions',
+          does: 'What the extensions declare as actions (editor.actions — id, title, icon, command, isActive, isEnabled), bound to a live editor as signals: pressed, disabled, run. The editor is read reactively, so a code view is one computed — the visible editor’s kit decides what exists. emailAction makes a host’s own control the trigger of the action of that id, looked up in the list it is from inside the directive — a template calls no lookup: aria-pressed and aria-disabled unless told not to, never the native disabled or a style; the caret returns to the editor after running. It listens through editor.subscribe, so nothing has to be in the kit before the editor is made. A host’s own buttons come in as HostAction — a run, never a command, because a command is asked on every transaction: host for what stands alone (a link dialog), override for a run over a kit’s action (a table size picker).',
         },
         {
           name: 'emailAnchor',

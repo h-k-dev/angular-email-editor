@@ -200,6 +200,12 @@ export class MessageForm {
   /** The editor's actions the bar offers beside Send. */
   protected readonly actions = injectActions(() => this.pane()?.editor());
 
+  /** Core's "Parse" is on the bar while it can run: placeholders to fill,
+      and no evaluation under way. */
+  protected readonly fillOffered = computed(
+    () => this.actions.get('resolve-placeholders')?.disabled() === false,
+  );
+
   /** The fill's key, as the platform spells Mod-Shift-Enter. */
   protected readonly fillShortcut = /Mac|iPhone|iPad/.test(navigator.userAgent)
     ? '⇧⌘↩'

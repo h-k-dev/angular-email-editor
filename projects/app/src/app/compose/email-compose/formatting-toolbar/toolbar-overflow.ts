@@ -49,6 +49,17 @@ export class ToolbarOverflow {
       when all of them do. */
   readonly overflowFrom = computed(() => (this.enabled() ? this.#from() : null));
 
+  /** Each item's place in `items`, looked up once per list — an item asks
+      by identity, so n items cost n lookups, not n². */
+  readonly #indices = computed(
+    () => new Map<ToolbarOverflowItem, number>(this.items().map((item, index) => [item, index])),
+  );
+
+  /** Where `item` sits in `items`; -1 when it is not one of them. */
+  indexOf(item: ToolbarOverflowItem): number {
+    return this.#indices().get(item) ?? -1;
+  }
+
   /** Whether the item at an index has moved out of the row. */
   movedAt(index: number): boolean {
     const from = this.overflowFrom();
@@ -126,5 +137,9 @@ export class ToolbarOverflowItem {
   readonly element = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   readonly #overflow = inject(ToolbarOverflow);
 
-  readonly moved = computed(() => this.#overflow.movedAt(this.#overflow.items().indexOf(this)));
+  /** Its place in the row: asked again only when the items change, not
+      on every step of a resize. */
+  readonly #index = computed(() => this.#overflow.indexOf(this));
+
+  readonly moved = computed(() => this.#overflow.movedAt(this.#index()));
 }

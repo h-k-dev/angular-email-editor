@@ -1,14 +1,18 @@
 import { Directive, booleanAttribute, computed, input } from '@angular/core';
-import { BoundAction } from './actions';
+import { EditorActions } from './actions';
 
 /**
  * Makes the host's own control the trigger of an editor action: a click runs
  * it, and the control says what the action's state is.
  *
- *     <button mat-icon-button [emailAction]="actions.get('bold')" #bold="emailAction"
- *             [disabled]="bold.disabled()">
+ *     <button mat-icon-button emailAction="bold" [emailActionFrom]="actions"
+ *             #bold="emailAction" [disabled]="bold.disabled()">
  *       <mat-icon>format_bold</mat-icon>
  *     </button>
+ *
+ * The action is named by its id, and looked up in the list it is from
+ * (`injectActions`) here, in a `computed`: a template binds values and reads
+ * signals, it calls no lookup of its own.
  *
  * Behaviour only, and ARIA only where the host's widget has not spoken:
  * - `aria-pressed` for a toggle, and `aria-disabled` when it cannot run —
@@ -35,9 +39,15 @@ import { BoundAction } from './actions';
   },
 })
 export class ActionTrigger {
-  /** The action to trigger — `actions.get(id)`. `undefined` (no editor yet,
-      or a kit without it) is a trigger with nothing to do: disabled. */
-  readonly action = input.required<BoundAction | undefined>({ alias: 'emailAction' });
+  /** The id of the action to trigger. */
+  readonly id = input.required<string>({ alias: 'emailAction' });
+
+  /** The actions it is one of — what `injectActions` returned. */
+  readonly from = input.required<EditorActions>({ alias: 'emailActionFrom' });
+
+  /** The action itself. `undefined` (no editor yet, or a kit without it) is a
+      trigger with nothing to do: disabled. */
+  readonly action = computed(() => this.from().get(this.id()));
 
   /** Whether this directive writes `aria-pressed` and `aria-disabled`. */
   readonly aria = input(true, { alias: 'emailActionAria', transform: booleanAttribute });

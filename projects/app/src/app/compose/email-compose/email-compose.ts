@@ -75,7 +75,6 @@ import {
   MergeTagResolutionReport,
   createSuggestionMenu,
   extensionSuggestions,
-  SuggestionItem,
   ExpressionDiagnostic,
   InlineImages,
   mergeTagAt,
@@ -153,17 +152,6 @@ export class EmailCompose implements FormValueControl<string> {
   readonly #images = inject(InlineImages);
   /** The template store the slash menu's /templates group searches. */
   readonly #templates = inject(Templates);
-
-  /** The section a row begins, for its heading: the row's, when the row
-      before it is of another — null inside a section, or with none. */
-  protected sectionStartingAt(
-    items: readonly SuggestionItem[] | undefined,
-    index: number,
-  ): string | null {
-    const section = items?.[index]?.section;
-    if (!section) return null;
-    return index > 0 && items![index - 1].section === section ? null : section;
-  }
 
   /** The example documents the slash menu's /examples group lists. */
   readonly #examples = inject(Examples);

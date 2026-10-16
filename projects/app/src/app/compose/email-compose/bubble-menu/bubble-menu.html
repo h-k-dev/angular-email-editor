@@ -21,7 +21,8 @@
             [class.bubble-menu__alt--missing]="!alt()"
             aria-haspopup="dialog"
             [attr.aria-label]="altLabel()"
-            [emailAction]="actions.get(altItem.id)"
+            [emailAction]="altItem.id"
+            [emailActionFrom]="actions"
             #altTrigger="emailAction"
             [disabled]="altTrigger.disabled()"
           >
@@ -66,8 +67,9 @@
     <button
       mat-icon-button
       type="button"
-      [attr.aria-label]="label(item)"
-      [emailAction]="actions.get(item.id)"
+      [attr.aria-label]="item.title()"
+      [emailAction]="item.id"
+      [emailActionFrom]="actions"
       #trigger="emailAction"
       [disabled]="trigger.disabled()"
     >

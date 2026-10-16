@@ -94,14 +94,14 @@
     <!-- Core's "Parse": offered while the body holds placeholders (the
          action's own answer) and not while the evaluator works. The same as
          Mod-Shift-Enter and the `/` row. -->
-    @let fill = actions.get('resolve-placeholders');
-    @if (fill && !fill.disabled()) {
+    @if (fillOffered()) {
       <button
         mat-icon-button
         type="button"
         [attr.aria-label]="'editor.actions.resolve-placeholders.title' | translate"
         [title]="('editor.actions.resolve-placeholders.title' | translate) + ' (' + fillShortcut + ')'"
-        [emailAction]="fill"
+        emailAction="resolve-placeholders"
+        [emailActionFrom]="actions"
       >
         <mat-icon>data_object</mat-icon>
       </button>

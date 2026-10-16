@@ -38,7 +38,6 @@ import { ActionTrigger } from '@h-k-dev/angular-email-editor/actions';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { FormattingCommands } from '../formatting-commands';
-import { FormattingItem } from '../formatting-items';
 import { dismissOnPressOutside } from '../../dismiss-outside';
 import { POPOVER_ABOVE, Popover } from '../popover/popover';
 
@@ -261,8 +260,6 @@ export class LinkEditor {
   /** The visible editor's actions, which the alignment and style buttons
       trigger. */
   protected readonly actions = this.#commands.actions;
-
-  protected readonly label = (item: FormattingItem): string => this.#commands.label(item);
 
   /** Whether that button was just made from text (the button link): a
       button is a link, so one left without a link is taken back — undone,

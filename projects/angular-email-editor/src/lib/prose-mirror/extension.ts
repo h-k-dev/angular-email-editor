@@ -31,8 +31,8 @@ interface SuggestionItemBase {
   /** The heading a renderer groups rows under — a stable id (`'blocks'`,
       `'styling'`, `'color'`), worded by the trigger's `sections` (see
       `SuggestionTrigger`). Rows are listed in the order given, so a
-      section's rows are listed together, and a renderer shows the heading
-      where the section changes. */
+      section's rows are listed together, and the menu's state says the
+      heading where the section changes (`ListedSuggestion.heading`). */
   section?: string;
   /** A colour the row shows in an icon's place — a palette's rows. */
   swatch?: string;

@@ -20,23 +20,26 @@ import { injectActions } from './actions';
     <div #sourceSurface></div>
     <button
       class="bold"
-      [emailAction]="actions.get('bold')"
+      emailAction="bold"
+      [emailActionFrom]="actions"
       [emailActionFocus]="returnFocus()"
       #bold="emailAction"
       [disabled]="bold.disabled()"
     ></button>
-    <button class="table" [emailAction]="actions.get('table')"></button>
-    <button class="quiet" [emailAction]="actions.get('italic')" [emailActionAria]="false"></button>
-    <button class="unknown" [emailAction]="actions.get('no-such-action')"></button>
-    <button class="link" [emailAction]="hosted.get('link')"></button>
-    <button class="picker" [emailAction]="hosted.get('table')"></button>
-    <button class="quote" [emailAction]="hosted.get('quote')"></button>
+    <button class="table" emailAction="table" [emailActionFrom]="actions"></button>
+    <button class="quiet" emailAction="italic" [emailActionFrom]="actions" [emailActionAria]="false"></button>
+    <button class="unknown" emailAction="no-such-action" [emailActionFrom]="actions"></button>
+    <button class="link" emailAction="link" [emailActionFrom]="hosted"></button>
+    <button class="picker" emailAction="table" [emailActionFrom]="hosted"></button>
+    <button class="quote" emailAction="quote" [emailActionFrom]="hosted"></button>
+    <button class="named" [emailAction]="named()" [emailActionFrom]="actions"></button>
   `,
 })
 class Host {
   readonly surface = viewChild.required<ElementRef<HTMLElement>>('surface');
   readonly sourceSurface = viewChild.required<ElementRef<HTMLElement>>('sourceSurface');
   readonly returnFocus = signal(true);
+  readonly named = signal('bold');
 
   readonly rich = signal<Editor | undefined>(undefined);
   readonly source = signal<Editor | undefined>(undefined);
@@ -136,6 +139,14 @@ describe('injectActions + [emailAction]', () => {
     await fixture.whenStable();
     button('bold').click();
     expect(focus).toHaveBeenCalledTimes(1);
+  });
+
+  it('follows the id it is given: the lookup is the directive’s, not the template’s', async () => {
+    await caret(9);
+    expect(button('named').getAttribute('aria-pressed')).toBe('true');
+    host.named.set('table');
+    await fixture.whenStable();
+    expect(button('named').hasAttribute('aria-pressed')).toBe(false);
   });
 
   it('has no pressed state for what has no "on"', () => {

@@ -17,7 +17,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 
 import { I18n } from '../../../../services/i18n';
 import { FormattingCommands } from '../formatting-commands';
-import { FormattingItem, FormattingLayout, layoutEntries } from '../formatting-items';
+import { FormattingLayout, layoutEntries } from '../formatting-items';
 import { ToolbarKeys } from '../formatting-toolbar/toolbar-keys';
 import { POPOVER_ABOVE, Popover } from '../popover/popover';
 
@@ -118,13 +118,11 @@ export class BubbleMenu {
 
   protected readonly i18n = inject(I18n);
 
-  protected readonly label = (item: FormattingItem): string => this.#commands.label(item);
-
   /** The visible editor's actions, which the buttons trigger by id. */
   protected readonly actions = this.#commands.actions;
 
   /** The toolbar's name, by what it is for. */
-  protected menuLabel(): string {
+  protected readonly menuLabel = computed(() => {
     switch (this.state().kind) {
       case 'image':
         return this.i18n.t('editor.image.menu');
@@ -133,7 +131,7 @@ export class BubbleMenu {
       default:
         return this.i18n.t('editor.menu.selection');
     }
-  }
+  });
 
   // A query cannot be an ES-private field: TypeScript's `private` it is.
   private readonly panel = viewChild<TemplateRef<unknown>>('panel');

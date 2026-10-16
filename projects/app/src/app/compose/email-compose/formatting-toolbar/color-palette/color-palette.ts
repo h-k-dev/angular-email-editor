@@ -1,4 +1,4 @@
-import { Component, input, output } from '@angular/core';
+import { Component, computed, input, output } from '@angular/core';
 
 // Material
 import { MatIconModule } from '@angular/material/icon';
@@ -33,8 +33,10 @@ export class ColorPalette {
   /** A swatch was picked: its value, or null for the reset swatch. */
   readonly picked = output<string | null>();
 
-  /** Hex values from the palette, whatever case the document spelled them in. */
-  protected isValue(color: string): boolean {
-    return this.value()?.toLowerCase() === color.toLowerCase();
-  }
+  /** The palette's own spelling of the colour in effect — the document may
+      spell a hex value in either case. Null when no swatch is it. */
+  protected readonly selected = computed(() => {
+    const value = this.value()?.toLowerCase();
+    return this.colors().find((color) => color.value.toLowerCase() === value)?.value ?? null;
+  });
 }

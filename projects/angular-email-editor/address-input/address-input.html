@@ -15,7 +15,7 @@
   @for (address of value(); track address) {
     <li
       email-address-chip
-      [id]="chipId($index)"
+      [id]="chipIdPrefix + $index"
       [address]="address"
       [removable]="!locked()"
       [inline]="!focused()"

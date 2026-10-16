@@ -12,6 +12,26 @@ import {
   defineExtension,
 } from '../extension';
 
+/**
+ * An item as the menu lists it: the item, and the heading it opens. A
+ * renderer shows `heading` above the row — a template reads it, it works out
+ * nothing:
+ *
+ *     @for (item of state.items; track item.id) {
+ *       @if (item.heading; as heading) {
+ *         <div email-suggestion-menu-section>{{ heading }}</div>
+ *       }
+ *       …
+ *     }
+ */
+export type ListedSuggestion = SuggestionItem & {
+  /** The words of the item's section where the section starts — the first
+      row, or the previous row's section is another; null on every other row
+      and on an item with no section. Worded by the trigger's `sections`,
+      else the library's ({@link suggestionSectionTitles}), else the id. */
+  readonly heading: string | null;
+};
+
 export interface SuggestionMenuState {
   open: boolean;
   /** The trigger this state answers to — `/`, `{{`, `@`. A menu of several
@@ -31,8 +51,9 @@ export interface SuggestionMenuState {
   /** Items matching the query: static matches ranked title-first (given
       order within a tier), then what a source answered for this query — the
       menu's {@link SuggestionMenuOptions.source} at level 1, the group's
-      children source at level 2. Titles and keywords are already translated. */
-  items: SuggestionItem[];
+      children source at level 2. Titles and keywords are already translated,
+      and each item says the heading it opens ({@link ListedSuggestion}). */
+  items: ListedSuggestion[];
   /** Index of the keyboard-highlighted item. */
   activeIndex: number;
   /** A source's first page for the current query is in flight (or waiting
@@ -65,11 +86,6 @@ export interface SuggestionMenuState {
       editor points at the highlighted one (`aria-activedescendant`), and the
       pointer's highlight finds its row by it. */
   optionId: (index: number) => string;
-  /** The heading for a section id (an item's `section`): the trigger's
-      `sections` wording, else the library's own ({@link
-      suggestionSectionTitles}), else the id itself. Asked as headings are
-      rendered, so a function given as `sections` is heard afresh. */
-  sectionTitle: (id: string) => string;
   /** Applies an item. A command item removes the trigger and query text,
       then runs its command; a group rewrites the query to `<word> `,
       opening level 2. */
@@ -195,9 +211,10 @@ export interface SuggestionTrigger {
     | ((id: string) => SuggestionItemLabel | undefined);
   /**
    * The headings of the items' sections (`SuggestionItem.section`), by id:
-   * a map, or a function of the id, asked whenever a heading is rendered —
-   * hand it a translation service's lookup and a language switch reaches
-   * the headings too. What it leaves out is worded by the library
+   * a map, or a function of the id, asked whenever the menu reports its
+   * items (each item's {@link ListedSuggestion.heading}) — hand it a
+   * translation service's lookup and a language switch reaches the
+   * headings too. What it leaves out is worded by the library
    * ({@link suggestionSectionTitles}), and an id neither knows shows as it
    * is.
    */
@@ -475,6 +492,22 @@ function createSuggestionMenuPlugin(
     const words = typeof sections === 'function' ? sections(id) : sections?.[id];
     return words ?? suggestionSectionTitles[id] ?? id;
   };
+
+  /** Each listed item with the heading it opens. A row is kept while its
+      heading holds, so its identity survives a keystroke or an arrow press —
+      a renderer's row is not handed a new item for nothing. */
+  const rows = new WeakMap<SuggestionItem, ListedSuggestion>();
+  const listed = (): ListedSuggestion[] =>
+    filtered.map((item, index) => {
+      const { section } = item;
+      const opens = !!section && section !== filtered[index - 1]?.section;
+      const heading = opens ? sectionTitle(section) : null;
+      const kept = rows.get(item);
+      if (kept && kept.heading === heading) return kept;
+      const row = { ...item, heading };
+      rows.set(item, row);
+      return row;
+    });
 
   /**
    * An active session is derived from the document, not from keystrokes: a
@@ -781,7 +814,7 @@ function createSuggestionMenuPlugin(
       level: scope.parent ? 2 : 1,
       parent: scope.parent,
       query: scope.query,
-      items: filtered,
+      items: listed(),
       activeIndex,
       loading,
       stale,
@@ -792,7 +825,6 @@ function createSuggestionMenuPlugin(
       clientRect,
       listboxId,
       optionId,
-      sectionTitle,
       select,
       back,
       loadMore,

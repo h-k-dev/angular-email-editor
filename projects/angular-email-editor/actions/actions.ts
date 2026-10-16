@@ -96,7 +96,7 @@ export interface EditorActions {
  *
  *     readonly actions = injectActions(() => this.editor());
  *
- *     <button [emailAction]="actions.get('bold')">…</button>
+ *     <button emailAction="bold" [emailActionFrom]="actions">…</button>
  *
  * `editor` is read reactively: when it changes — a composer switching to its
  * code view — the actions are the new editor's. Its kit decides what exists:

@@ -55,8 +55,8 @@
       @for (item of suggestionState()?.items; track item.id) {
         <!-- A section's heading where the section changes — the library's
              wording, or the dictionary's. -->
-        @if (sectionStartingAt(suggestionState()?.items, $index); as section) {
-          <div email-suggestion-menu-section>{{ suggestionState()?.sectionTitle(section) }}</div>
+        @if (item.heading; as heading) {
+          <div email-suggestion-menu-section>{{ heading }}</div>
         }
         <div email-suggestion-menu-item [item]="item">
           <!-- A palette row shows its colour: as the letter, for a text

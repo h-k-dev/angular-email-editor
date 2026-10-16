@@ -105,7 +105,7 @@ export class SuggestionMenu {
   /** Each item's position in the list, looked up once per list — rows ask
       by identity, so a list of n rows costs n lookups, not n². */
   readonly #indices = computed(
-    () => new Map(this.#items()?.map((item, index) => [item, index]) ?? []),
+    () => new Map<SuggestionItem, number>(this.#items()?.map((item, index) => [item, index]) ?? []),
   );
 
   /** The keyboard-highlighted row's index; -1 before there is a state. */

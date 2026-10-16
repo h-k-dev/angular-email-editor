@@ -92,17 +92,25 @@ describe('createSuggestionMenu — the / menu', () => {
     expect(menu.hasAttribute('style')).toBe(false);
   });
 
-  it('carries each row’s section, and words the headings — the library’s, or the host’s', () => {
+  it('says the heading each section opens with — the library’s words, or the host’s', () => {
     type('/');
-    const sections = state!.items.map((item) => item.section);
-    expect(sections).toContain('blocks');
-    expect(sections).toContain('styling');
-    // The library's own wording, and an id nobody worded shows as it is.
-    expect(state!.sectionTitle('blocks')).toBe('Basic blocks');
-    expect(state!.sectionTitle('styling')).toBe('Styling');
-    expect(state!.sectionTitle('mine')).toBe('mine');
+    const items = state!.items;
+    // A heading where the section changes, and on no other row.
+    items.forEach((item, index) =>
+      expect(item.heading !== null).toBe(
+        !!item.section && item.section !== items[index - 1]?.section,
+      ),
+    );
+    const headings = items.map((item) => item.heading).filter((heading) => heading !== null);
+    expect(headings).toContain('Basic blocks');
+    expect(headings).toContain('Styling');
+    // An arrow press reports again, and hands a renderer the same rows.
+    keydown('ArrowDown');
+    expect(state!.activeIndex).toBe(1);
+    expect(state!.items[0]).toBe(items[0]);
 
-    // A host's wording, asked afresh: what it leaves out stays the library's.
+    // A host's wording, asked afresh: what it leaves out stays the library's,
+    // and an id nobody worded shows as it is.
     editor.destroy();
     let language = 'de';
     editor = createEditor({
@@ -112,16 +120,24 @@ describe('createSuggestionMenu — the / menu', () => {
         slashMenu({
           element: menu,
           onChange: (s) => (state = s),
+          items: (ctx) => [
+            ...extensionSuggestions(ctx),
+            { id: 'mine', title: 'Mine', section: 'mine', command: () => true },
+          ],
           sections: (id) => (language === 'de' && id === 'blocks' ? 'Grundbausteine' : undefined),
         }),
       ],
     });
     vi.spyOn(editor.view, 'coordsAtPos').mockReturnValue({ left: 0, right: 0, top: 0, bottom: 0 });
     type('/');
-    expect(state!.sectionTitle('blocks')).toBe('Grundbausteine');
-    expect(state!.sectionTitle('styling')).toBe('Styling');
+    const heading = (section: string) =>
+      state!.items.find((item) => item.section === section)!.heading;
+    expect(heading('blocks')).toBe('Grundbausteine');
+    expect(heading('styling')).toBe('Styling');
+    expect(heading('mine')).toBe('mine');
     language = 'en';
-    expect(state!.sectionTitle('blocks')).toBe('Basic blocks');
+    keydown('ArrowDown');
+    expect(heading('blocks')).toBe('Basic blocks');
   });
 
   it('only triggers at a block start or after whitespace', () => {

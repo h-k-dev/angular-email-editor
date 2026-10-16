@@ -14,7 +14,7 @@
     type="button"
     class="color-palette__swatch"
     role="option"
-    [attr.aria-selected]="isValue(color.value)"
+    [attr.aria-selected]="selected() === color.value"
     [title]="color.name"
     [attr.aria-label]="color.name"
     [style.--email-swatch]="color.value"

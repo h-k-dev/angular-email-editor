@@ -61,8 +61,9 @@
             <button
               mat-icon-button
               type="button"
-              [attr.aria-label]="label(item)"
-              [emailAction]="actions.get(item.id)"
+              [attr.aria-label]="item.title()"
+              [emailAction]="item.id"
+              [emailActionFrom]="actions"
               #align="emailAction"
               [disabled]="align.disabled()"
             >
@@ -91,8 +92,9 @@
           <button
             mat-icon-button
             type="button"
-            [attr.aria-label]="label(boldItem)"
-            [emailAction]="actions.get(boldItem.id)"
+            [attr.aria-label]="boldItem.title()"
+            [emailAction]="boldItem.id"
+            [emailActionFrom]="actions"
             emailActionFocus="false"
             #bold="emailAction"
             [disabled]="bold.disabled()"
@@ -102,8 +104,9 @@
           <button
             mat-icon-button
             type="button"
-            [attr.aria-label]="label(italicItem)"
-            [emailAction]="actions.get(italicItem.id)"
+            [attr.aria-label]="italicItem.title()"
+            [emailAction]="italicItem.id"
+            [emailActionFrom]="actions"
             emailActionFocus="false"
             #italic="emailAction"
             [disabled]="italic.disabled()"
