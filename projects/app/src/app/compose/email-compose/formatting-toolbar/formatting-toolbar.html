@@ -2,7 +2,7 @@
      the buttons past it are made invisible (`data-overflow`); on a phone it
      scrolls. -->
 <div
-  class="toolbar__scroll"
+  class="formatting-toolbar__scroll"
   [toolbarOverflow]="wide() && shown()"
   [toolbarOverflowMore]="moreTrigger.element"
   #row="toolbarOverflow"
@@ -12,14 +12,14 @@
        has no room for a text dropdown. -->
   <button
     type="button"
-    class="toolbar__select toolbar__select--family toolbar__wide"
+    class="formatting-toolbar__select formatting-toolbar__select--family formatting-toolbar__wide"
     title="Font"
     [attr.aria-label]="'Font: ' + font.familyLabel()"
     ngMenuTrigger
     #familyTrigger="ngMenuTrigger"
     [menu]="familyMenu.menu()"
   >
-    <span class="toolbar__select-value">{{ font.familyLabel() }}</span>
+    <span class="formatting-toolbar__select-value">{{ font.familyLabel() }}</span>
     <mat-icon>arrow_drop_down</mat-icon>
   </button>
   <div
@@ -33,14 +33,14 @@
 
   <button
     type="button"
-    class="toolbar__select toolbar__select--size toolbar__wide"
+    class="formatting-toolbar__select formatting-toolbar__select--size formatting-toolbar__wide"
     title="Font size"
     [attr.aria-label]="'Font size: ' + (font.size() ?? '')"
     ngMenuTrigger
     #sizeTrigger="ngMenuTrigger"
     [menu]="sizeMenu.menu()"
   >
-    <span class="toolbar__select-value">{{ font.size() }}</span>
+    <span class="formatting-toolbar__select-value">{{ font.size() }}</span>
     <mat-icon>arrow_drop_down</mat-icon>
   </button>
   <div
@@ -52,7 +52,7 @@
     (selected)="commands.applyFontSize($event)"
   ></div>
 
-  <mat-divider class="toolbar__wide" [vertical]="true" />
+  <mat-divider class="formatting-toolbar__wide" [vertical]="true" />
 
   <!-- The buttons, from LAYOUT. A divider opens every group but the first;
        it moves with the group's first button, and a phone drops it with a
@@ -62,7 +62,7 @@
     @if (entry.separated) {
       <mat-divider
         [vertical]="true"
-        [class.toolbar__wide]="entry.groupWide"
+        [class.formatting-toolbar__wide]="entry.groupWide"
         [attr.data-overflow]="row.movedAt(i) || null"
       />
     }
@@ -71,7 +71,7 @@
       type="button"
       toolbarOverflowItem
       #button="toolbarOverflowItem"
-      [class.toolbar__wide]="item.wide"
+      [class.formatting-toolbar__wide]="item.wide"
       [attr.aria-label]="commands.label(item)"
       [attr.aria-pressed]="item.pressed ? item.pressed() : null"
       [attr.aria-expanded]="item.picker ? picker() === item.picker : null"
@@ -89,7 +89,7 @@
 <button
   mat-icon-button
   type="button"
-  class="toolbar__more"
+  class="formatting-toolbar__more"
   aria-label="More formatting"
   title="More formatting"
   [hidden]="row.overflowFrom() === null"
@@ -111,7 +111,7 @@
 
 <!-- History, pinned to the line's end: outside the row, so it never
      scrolls away on a phone and never moves into the ⋯ on a wide screen. -->
-<div class="toolbar__history">
+<div class="formatting-toolbar__history">
   <mat-divider [vertical]="true" />
   <button
     mat-icon-button
@@ -136,7 +136,7 @@
 <!-- The line's end, for what a host pins there: the chat-based suggestion's
      one button, which joins the bar as if it were the bar's own. -->
 @if (end(); as template) {
-  <div class="toolbar__end">
+  <div class="formatting-toolbar__end">
     <ng-container *ngTemplateOutlet="template" />
   </div>
 }

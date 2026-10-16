@@ -12,7 +12,7 @@
   box-sizing: border-box;
 }
 
-.controls {
+.email-preview__controls {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -28,7 +28,7 @@
 
 // A row of the controls: its toggles in a line, wrapping only where the
 // pane is narrower than the row (a 320px phone pane holds each row whole).
-.controls__row {
+.email-preview__controls-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -38,7 +38,7 @@
 
 // A choice of one — the device, the client, the source — stands as a
 // group, a hair apart from the toggles beside it.
-.controls__group {
+.email-preview__controls-group {
   display: inline-flex;
   gap: 2px;
 
@@ -49,13 +49,13 @@
   }
 }
 
-.controls__toggle + .controls__group {
+.email-preview__controls-toggle + .email-preview__controls-group {
   margin-inline-start: 6px;
   padding-inline-start: 6px;
   border-inline-start: 1px solid var(--mat-sys-outline-variant, #cccccc);
 }
 
-.controls__toggle {
+.email-preview__controls-toggle {
   padding: 6px 10px;
   border: none;
   background: none;
@@ -79,7 +79,7 @@
   }
 }
 
-.stage {
+.email-preview__stage {
   flex: 1;
   min-height: 0;
   overflow: hidden;
@@ -96,13 +96,13 @@
 
 // The device's box: the scaled size, so the stage lays out round what it
 // sees; the frame inside is the full device, scaled from its top-left.
-.device {
+.email-preview__device {
   flex: none;
   position: relative;
   overflow: hidden;
 }
 
-.frame {
+.email-preview__frame {
   flex: none;
   position: absolute;
   inset-block-start: 0;
@@ -114,7 +114,7 @@
   box-shadow: var(--mat-sys-level1, 0 1px 3px rgba(0, 0, 0, 0.2));
 }
 
-.text {
+.email-preview__text {
   flex: none;
   position: absolute;
   inset-block-start: 0;

@@ -6,9 +6,9 @@ import { ToolbarKeys } from './toolbar-keys';
   imports: [ToolbarKeys],
   template: `
     <div role="toolbar" appToolbarKeys [attr.dir]="dir()">
-      <button class="a"></button>
-      <button class="b" disabled></button>
-      <button class="c"></button>
+      <button class="tool-a"></button>
+      <button class="tool-b" disabled></button>
+      <button class="tool-c"></button>
     </div>
   `,
 })
@@ -23,7 +23,7 @@ describe('ToolbarKeys', () => {
     document.body.appendChild(fixture.nativeElement);
     await fixture.whenStable();
     const root = fixture.nativeElement as HTMLElement;
-    const button = (name: string) => root.querySelector<HTMLButtonElement>(`.${name}`)!;
+    const button = (name: string) => root.querySelector<HTMLButtonElement>(`.tool-${name}`)!;
     const press = (from: HTMLElement, key: string) => {
       from.focus();
       from.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));

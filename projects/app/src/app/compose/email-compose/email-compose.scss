@@ -11,7 +11,7 @@
 // The body: the editing surface or the source in its place, and the hint
 // over whichever shows. Positioned so the hint has a box to cover — the
 // surface's own, which scrolls, would carry the hint away with the text.
-.body {
+.email-compose__body {
   position: relative;
   flex: 1;
   min-height: 0;
@@ -19,7 +19,7 @@
   flex-direction: column;
 }
 
-.editor {
+.email-compose__editor {
   position: relative;
   flex: 1;
   min-height: 0;
@@ -50,7 +50,7 @@
 
 // The dock at the sheet's foot: the chat-based suggestion over the
 // formatting toolbar, stacked flush.
-.dock {
+.email-compose__dock {
   flex: none;
   display: flex;
   flex-direction: column;
@@ -58,7 +58,7 @@
   box-sizing: border-box;
 }
 
-.dock__content {
+.email-compose__dock-content {
   flex: none;
   display: flex;
   flex-direction: column;
@@ -67,7 +67,7 @@
 // A switch of the toolbar, running (DockAnimation, dock.animation.ts —
 // DOCK_SWITCH is this duration): the dock's height held in pixels and
 // moved to the new look's, what does not fit yet clipped.
-.dock--switching {
+.email-compose__dock--switching {
   overflow: clip;
   transition: height 200ms ease;
 }
@@ -83,7 +83,7 @@
 // the sheet's edge. Inside, the toolbar's own inset sets the glyphs, and
 // the field's sets the text, on one line. A phone keeps its bar on the
 // keyboard: no box, the hairline above the field alone.
-.dock--chat {
+.email-compose__dock--chat {
   @include bp.wide {
     --dock-box-top: 32px;
     position: relative;
@@ -107,7 +107,7 @@
 // Code view: the projected source pane takes the editing surface's place.
 // A grid cell so the projected section stretches on both axes without the
 // composer having to style it; [hidden] must beat the display rules here.
-.code {
+.email-compose__code {
   flex: 1;
   min-height: 0;
   display: grid;
@@ -116,8 +116,8 @@
   --html-email-compose-corner: 0;
 }
 
-.editor[hidden],
-.code[hidden] {
+.email-compose__editor[hidden],
+.email-compose__code[hidden] {
   display: none;
 }
 
@@ -134,7 +134,7 @@
 
 // A palette row's colour, in the icon's box: the letter in the colour on
 // the row's own surface, or the fill behind a letter in the text's colour.
-.suggestion__swatch {
+.email-compose__suggestion-swatch {
   display: inline-flex;
   flex: none;
   align-items: center;
@@ -153,7 +153,7 @@
   }
 }
 
-.suggestion__title {
+.email-compose__suggestion-title {
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -162,7 +162,7 @@
 }
 
 // A merge tag's token, beside its label.
-.suggestion__detail {
+.email-compose__suggestion-detail {
   flex: none;
   padding-inline-start: 16px;
   color: var(--mat-sys-on-surface-variant, #777777);
@@ -170,6 +170,6 @@
 }
 
 // A group opens a second level: the chevron says so.
-.suggestion__more {
+.email-compose__suggestion-more {
   opacity: 0.7;
 }

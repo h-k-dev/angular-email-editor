@@ -4,7 +4,7 @@ import { DestroyRef, Directive, ElementRef, afterNextRender, effect, inject, inp
  * The dock's motion: its height, run across a switch — the formatting
  * toolbar shown or hidden under the chat, the send button moving between
  * the strip and the toolbar's end. The stylesheet owns the picture
- * (`.dock--switching`: the `height` transition, the clip); this file owns
+ * (`.email-compose__dock--switching`: the `height` transition, the clip); this file owns
  * the two numbers it runs between, which only exist on either side of the
  * switch. A layout transition, the chat input's own kind: run on the main
  * thread, smooth with GPU acceleration off.
@@ -27,8 +27,8 @@ export const DOCK_SWITCH = 200;
  * again. Nothing under reduced motion, on the server, or without a
  * `ResizeObserver`.
  *
- *     <div class="dock" [dockAnimation]="toolbar()">
- *       <div class="dock__content">…</div>
+ *     <div class="email-compose__dock" [dockAnimation]="toolbar()">
+ *       <div class="email-compose__dock-content">…</div>
  *     </div>
  */
 @Directive({ selector: '[dockAnimation]' })
@@ -91,10 +91,10 @@ export class DockAnimation {
       parseFloat(style.borderTopWidth) +
       parseFloat(style.borderBottomWidth);
     // Mid-switch, the dock is wherever the last one has it: from there.
-    const from = dock.classList.contains('dock--switching')
+    const from = dock.classList.contains('email-compose__dock--switching')
       ? dock.getBoundingClientRect().height
       : last + frame;
-    dock.classList.add('dock--switching');
+    dock.classList.add('email-compose__dock--switching');
     dock.style.height = `${from}px`;
     // The start, laid out — so the next height is a change to transition.
     void dock.offsetHeight;
@@ -109,7 +109,7 @@ export class DockAnimation {
     const settle = () => {
       this.#unwatch?.();
       dock.style.height = '';
-      dock.classList.remove('dock--switching');
+      dock.classList.remove('email-compose__dock--switching');
     };
     dock.addEventListener('transitionend', ended);
     const timer = setTimeout(settle, DOCK_SWITCH + 50);

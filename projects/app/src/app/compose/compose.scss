@@ -1,6 +1,6 @@
 @use '../../styles/breakpoints' as bp;
 
-// The host is only a box for the page to fill. The layout lives on `.page`
+// The host is only a box for the page to fill. The layout lives on `.compose__page`
 // below, which is also the import dropzone: the zone has to *contain* the
 // panes for `selfOnly` to route drops to the writer's attachment zone, and a
 // grid container cannot have a wrapper between it and its items.
@@ -20,7 +20,7 @@
 // zone was given a `position`. `selfOnly` says the same thing in the markup —
 // a drag landing inside a nested zone is never this one's — and holds however
 // the two are stacked.
-.page {
+.compose__page {
   display: grid;
   // The writer's natural width: 600px is the *sheet*, insets included — not
   // the text column. The sections' own inline inset (16px a side) comes out
@@ -66,7 +66,7 @@
   // (viewport.ts), and both are inclusive so the class and the clamp agree.
   padding: clamp(0px, (100vw - #{bp.$full-width-max}) * 100, var(--mat-sys-inner-spacing, 16px));
   // No background of its own: the page shows the shell's surface through.
-  // The lifted surface-bright is the editorial area's alone (`.editor` in
+  // The lifted surface-bright is the editorial area’s alone (`.email-compose__editor` in
   // email-compose.scss) — the paper, not the desk.
 }
 
@@ -80,7 +80,7 @@ section,
 // The page's hint draws its outline inside the page's own margin, on the
 // page's large corner. The writer's hint (projected into the sheet, so also
 // styled from here) keeps the component's tight default.
-.page > [drop-hint] {
+.compose__page > [drop-hint] {
   --drop-hint-outline-offset: -10px;
   --drop-hint-radius: var(--mat-sys-corner-large, 16px);
 }
@@ -91,7 +91,7 @@ section,
 // own children: the source pane leaves the page for the composer's code
 // slot (a grid too), and a placement that followed it there would make
 // that slot three columns wide with the source in the last.
-.page > section[email-preview] {
+.compose__page > section[email-preview] {
   grid-column: 1;
 }
 
@@ -101,7 +101,7 @@ section,
 // centred column even where nothing can dock: an empty flank costs only its
 // share of the free space, and the sheet reading as the middle of the screen
 // is worth more than the ~50px a tablet-width gutter gives back.
-:host(.compose--compact) .page {
+:host(.compose--compact) .compose__page {
   grid-template-columns: minmax(0, 1fr);
 
   [message-form] {
@@ -113,7 +113,7 @@ section,
   grid-column: 2;
 }
 
-.page > section[html-email-compose] {
+.compose__page > section[html-email-compose] {
   grid-column: 3;
 }
 
@@ -122,7 +122,7 @@ section,
 // gone from the grid: each pane's own :host display rule would otherwise
 // outrank the UA [hidden] rule and leave it occupying its column, invisible
 // only in name.
-.page > section[email-preview] {
+.compose__page > section[email-preview] {
   justify-self: end;
 }
 
@@ -146,7 +146,7 @@ section[html-email-compose][hidden] {
 // The problems strip: counts jump to the first offender in the source pane,
 // the size gauge tracks Gmail's clipping limit. Token cascade: --email-* →
 // --mat-sys-* → fallback.
-.status {
+.compose__status {
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
@@ -156,7 +156,7 @@ section[html-email-compose][hidden] {
   color: var(--mat-sys-on-surface-variant, #555555);
 }
 
-.status__issues {
+.compose__status-issues {
   padding: 2px 8px;
   border: none;
   background: none;
@@ -182,7 +182,7 @@ section[html-email-compose][hidden] {
 }
 
 // The form's complaint reads as an error: it is the one note that blocks.
-.status__send--problem {
+.compose__status-send--problem {
   color: var(--email-compose-status-error, var(--mat-sys-error, #b3261e));
   font-weight: 600;
 
@@ -192,18 +192,18 @@ section[html-email-compose][hidden] {
 }
 
 // What a real host would hand its transport, shown instead of sending.
-.status__send {
+.compose__status-send {
   color: var(--mat-sys-primary, #0056b3);
   white-space: nowrap;
 }
 
-.status__count {
+.compose__status-count {
   // Absorbs the free space so the counter + size form the right-hand group.
   margin-left: auto;
   white-space: nowrap;
 }
 
-.status__size {
+.compose__status-size {
   margin-left: auto;
 
   &--warning {

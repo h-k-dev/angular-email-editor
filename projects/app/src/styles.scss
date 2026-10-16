@@ -202,7 +202,7 @@ html {
    * model, at a calmer scale): negative inline margins put the block's edge
    * exactly where a text line starts, and the affordances hang into the
    * surface margin instead — which the host surface reserves (see the app's
-   * `.editor` inline padding). */
+   * `.email-compose__editor` inline padding). */
   margin-inline: calc(-1 * var(--aee-block-gutter-x));
 }
 
@@ -567,7 +567,7 @@ html {
  * through the inversion once more and comes out as itself, its contrast
  * eased into the page's range (#1e1e1e – #e1e1e1), as a dark client dims it.
  */
-.editor[data-color-scheme] {
+.email-compose__editor[data-color-scheme] {
   background-color: #fff;
 
   > .aee-editor {
@@ -577,7 +577,7 @@ html {
   }
 }
 
-.editor[data-color-scheme='dark'] {
+.email-compose__editor[data-color-scheme='dark'] {
   background-color: #1e1e1e;
 
   > .aee-editor {
@@ -598,10 +598,10 @@ html {
  * its own background wins: its style lands inline on this root. The render
  * bench's editor (/render) is drawn the same way, a fragment though it holds:
  * its replica stands beside a client's drawing of the original, on the
- * client's canvas. Only the editor's own surface (`.editor`): the HTML
+ * client's canvas. Only the editor's own surface (`.email-compose__editor`): the HTML
  * source, moved into the same box in HTML view, keeps its own look. */
 .aee-editor.aee-document,
-.render-editor .editor > .aee-editor {
+.render-editor .email-compose__editor > .aee-editor {
   color-scheme: light;
   background-color: #fff;
   font-family: initial;
@@ -1595,22 +1595,22 @@ section[html-email-compose][data-wrap='off'] .aee-editor {
  * link editor taking the bubble's spot. Those moves glide. Not the first
  * placement: the pane is made at the corner and placed a frame later, and
  * a glide from there would be a swoop — so only once the landing is over
- * (the outlet takes `.popover--landing` off when its spring ends). And
+ * (the outlet takes `.email-popover--landing` off when its spring ends). And
  * while it lands, the bubble's own tools do not fade in on top of it:
  * two entrances at once read as a stutter. */
-.popover-pane:has(> .popover:not(.popover--landing)) {
+.email-popover-pane:has(> .email-popover:not(.email-popover--landing)) {
   transition:
     top 160ms ease-out,
     left 160ms ease-out,
     transform 160ms ease-out;
 }
 
-.popover--landing .bubble-menu__tools--in {
+.email-popover--landing .bubble-menu__tools--in {
   animation: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .popover-pane {
+  .email-popover-pane {
     transition: none;
   }
 }

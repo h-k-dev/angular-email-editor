@@ -16,14 +16,14 @@
      that overlays whichever shows. A wrapper because the hint has to cover
      the surface without scrolling with it — an overlay inside a scroll
      container covers only its first screen. -->
-<div class="body">
+<div class="email-compose__body">
   <!-- The editing surface is the attachment dropzone (see `fileDrop`).
        clickable=false: a click on the paper must never open a file picker.
        data-color-scheme: the paper's own light or dark (`colorScheme`) —
        the editor's root is ProseMirror's, so its look is the global
        stylesheet's, keyed on this. -->
   <div
-    class="editor email-scroll"
+    class="email-compose__editor email-scroll"
     #editorHost
     [attr.data-color-scheme]="colorScheme()"
     dropZone
@@ -63,8 +63,8 @@
                colour; as the fill, for a background. -->
           @if (item.swatch) {
             <span
-              class="suggestion__swatch"
-              [class.suggestion__swatch--text]="item.id.startsWith('color-')"
+              class="email-compose__suggestion-swatch"
+              [class.email-compose__suggestion-swatch--text]="item.id.startsWith('color-')"
               [style.--email-swatch]="item.swatch"
               aria-hidden="true"
               >A</span
@@ -72,12 +72,12 @@
           } @else if (item.icon) {
             <mat-icon>{{ item.icon }}</mat-icon>
           }
-          <span class="suggestion__title">{{ item.title }}</span>
+          <span class="email-compose__suggestion-title">{{ item.title }}</span>
           @if (item.detail) {
-            <span class="suggestion__detail">{{ item.detail }}</span>
+            <span class="email-compose__suggestion-detail">{{ item.detail }}</span>
           }
           @if (item.children) {
-            <mat-icon class="suggestion__more">chevron_right</mat-icon>
+            <mat-icon class="email-compose__suggestion-more">chevron_right</mat-icon>
           }
         </div>
       }
@@ -87,11 +87,11 @@
   <!-- Code view: the composer's HTML source pane lands here, moved in as a
        DOM portal (never re-created — its editor, undo history and lint carry
        over) and moved back out when the view switches. -->
-  <div class="code" [hidden]="!codeView()">
+  <div class="email-compose__code" [hidden]="!codeView()">
     <ng-template [cdkPortalOutlet]="codePortal()" />
   </div>
 
-  <!-- The surface's hint. Over the surface, not inside it — see `.body`.
+  <!-- The surface's hint. Over the surface, not inside it — see `.email-compose__body`.
        Two states, and the zone knows only one: a file drag it would take
        (`isDragOver`), which attaches. The other — an image drag, which the
        editor takes and the zone therefore never sees — comes from the editor
@@ -115,13 +115,13 @@
 <!-- The dock: the chat-based suggestion and the formatting toolbar, one
      block at the sheet's foot. While the chat is up the two are one box —
      the field over the toolbar's row, the way a chat's composer holds its
-     own tools — painted behind them from the field down (`.dock--chat`);
+     own tools — painted behind them from the field down (`.email-compose__dock--chat`);
      Discard and Apply stand above it, over the text. With the chat away
      the dock is nothing, and the toolbar is the bar it always was.
      Switching the toolbar runs the dock's height from the one look to the
      other (dock.animation.ts) — over its one child, which it measures. -->
-<div class="dock" [class.dock--chat]="chat.open()" [dockAnimation]="toolbar()">
-  <div class="dock__content">
+<div class="email-compose__dock" [class.email-compose__dock--chat]="chat.open()" [dockAnimation]="toolbar()">
+  <div class="email-compose__dock-content">
     <!-- The chat-based suggestion, above the toolbar while its proposal
          stands in the text: Discard and Apply over the text, the chat that
          steers it. Docked here rather than floating under the proposal,

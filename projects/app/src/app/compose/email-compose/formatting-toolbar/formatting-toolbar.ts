@@ -93,7 +93,7 @@ const LAYOUT: FormattingLayout = [
   templateUrl: './formatting-toolbar.html',
   styleUrl: './formatting-toolbar.scss',
   host: {
-    class: 'toolbar',
+    class: 'formatting-toolbar',
     role: 'toolbar',
     '[hidden]': '!shown()',
   },

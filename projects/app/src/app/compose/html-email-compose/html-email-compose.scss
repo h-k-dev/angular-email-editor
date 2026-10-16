@@ -23,7 +23,7 @@
 // Email-safe vocabulary dropdown; visibility and top/left are driven by the
 // autocomplete extension. Token cascade: --html-email-* → --mat-sys-* →
 // fallback.
-.autocomplete {
+.html-email-compose__autocomplete {
   visibility: hidden;
   z-index: 2;
   display: flex;
@@ -42,7 +42,7 @@
   @include scroll.scroll;
 }
 
-.autocomplete__item {
+.html-email-compose__autocomplete-item {
   padding: 4px 8px;
   border: none;
   background: none;
@@ -58,7 +58,7 @@
     background-color: var(--mat-sys-surface-container-high, #e8e8e8);
   }
 
-  &.is-active {
+  &--active {
     color: var(--mat-sys-primary, #0056b3);
     background-color: var(--mat-sys-secondary-container, #dce6f5);
   }

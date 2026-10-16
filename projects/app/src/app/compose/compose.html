@@ -13,7 +13,7 @@
      angular-file-drop 1.2 this had to be done by keeping the zone painted
      *under* the panes, which broke the moment it was given a position. -->
 <div
-  class="page"
+  class="compose__page"
   dropZone
   #emlZone="dropZone"
   selfOnly
@@ -127,10 +127,10 @@
   <!-- The status strip (problems, examples, statistics) is desktop chrome:
      below the docking breakpoint it is not rendered at all. -->
   @if (!viewport.narrow()) {
-    <footer class="status" aria-live="polite">
+    <footer class="compose__status" aria-live="polite">
       <button
         type="button"
-        class="status__issues status__issues--error"
+        class="compose__status-issues compose__status-issues--error"
         [disabled]="!errors()"
         (click)="reveal('error')"
       >
@@ -138,7 +138,7 @@
       </button>
       <button
         type="button"
-        class="status__issues status__issues--warning"
+        class="compose__status-issues compose__status-issues--warning"
         [disabled]="!warnings()"
         (click)="reveal('warning')"
       >
@@ -146,31 +146,31 @@
       </button>
 
       @if (problem(); as note) {
-        <span class="status__send status__send--problem" aria-label="Form problem">{{ note }}</span>
+        <span class="compose__status-send compose__status-send--problem" aria-label="Form problem">{{ note }}</span>
       }
 
       @if (lastSend(); as note) {
-        <span class="status__send" aria-label="Last send">{{ note }}</span>
+        <span class="compose__status-send" aria-label="Last send">{{ note }}</span>
       }
 
       @if (draft.note(); as note) {
-        <span class="status__send" aria-label="Draft">{{ note }}</span>
+        <span class="compose__status-send" aria-label="Draft">{{ note }}</span>
       }
 
       @if (importNote(); as note) {
-        <span class="status__send" aria-label="Last import">{{ note }}</span>
+        <span class="compose__status-send" aria-label="Last import">{{ note }}</span>
       }
 
       @if (metrics(); as m) {
-        <span class="status__count" aria-label="Document length">
+        <span class="compose__status-count" aria-label="Document length">
           {{ m.words }} {{ m.words === 1 ? 'word' : 'words' }} · {{ m.lines }}
           {{ m.lines === 1 ? 'line' : 'lines' }}
         </span>
       }
       <span
-        class="status__size"
-        [class.status__size--warning]="size().level === 'warning'"
-        [class.status__size--error]="size().level === 'error'"
+        class="compose__status-size"
+        [class.compose__status-size--warning]="size().level === 'warning'"
+        [class.compose__status-size--error]="size().level === 'error'"
       >
         {{ sizeLabel() }}
       </span>

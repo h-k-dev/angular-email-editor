@@ -24,7 +24,7 @@ export type DropHintArt = 'import' | 'attach' | 'inline';
   templateUrl: './drop-hint.html',
   styleUrl: './drop-hint.scss',
   host: {
-    '[class.is-active]': 'active()',
+    '[class.drop-hint--active]': 'active()',
     '[attr.aria-hidden]': 'true',
   },
 })

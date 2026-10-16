@@ -4,7 +4,7 @@
       <button
         type="button"
         class="table-picker__cell"
-        [class.is-selected]="col < pick().cols && row < pick().rows"
+        [class.table-picker__cell--selected]="col < pick().cols && row < pick().rows"
         [attr.aria-label]="col + 1 + ' by ' + (row + 1) + ' table'"
         (mouseenter)="pick.set({ cols: col + 1, rows: row + 1 })"
         (focus)="pick.set({ cols: col + 1, rows: row + 1 })"

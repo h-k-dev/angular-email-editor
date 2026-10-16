@@ -3,11 +3,11 @@
      shows (HTML or text), the client's mode, the device. Row two: the
      client, and whose HTML — the editor's reading, or the original as it
      came in, which is there to choose only once the message has one. -->
-<header class="controls">
-  <div class="controls__row">
+<header class="email-preview__controls">
+  <div class="email-preview__controls-row">
     <button
       type="button"
-      class="controls__toggle"
+      class="email-preview__controls-toggle"
       [attr.aria-pressed]="view() === 'text'"
       (click)="view.set(view() === 'html' ? 'text' : 'html')"
     >
@@ -15,7 +15,7 @@
     </button>
     <button
       type="button"
-      class="controls__toggle"
+      class="email-preview__controls-toggle"
       [attr.aria-pressed]="mode() === 'dark'"
       title="The client's dark mode — Gmail's forced inversion, Apple Mail's and Outlook's dark surfaces"
       [disabled]="view() === 'text'"
@@ -23,10 +23,10 @@
     >
       {{ mode() === 'light' ? 'Light' : 'Dark' }}
     </button>
-    <div class="controls__group" role="radiogroup" aria-label="Device">
+    <div class="email-preview__controls-group" role="radiogroup" aria-label="Device">
       <button
         type="button"
-        class="controls__toggle"
+        class="email-preview__controls-toggle"
         role="radio"
         [attr.aria-checked]="device() === 'phone'"
         [attr.aria-pressed]="device() === 'phone'"
@@ -37,7 +37,7 @@
       </button>
       <button
         type="button"
-        class="controls__toggle"
+        class="email-preview__controls-toggle"
         role="radio"
         [attr.aria-checked]="device() === 'desktop'"
         [attr.aria-pressed]="device() === 'desktop'"
@@ -48,12 +48,12 @@
       </button>
     </div>
   </div>
-  <div class="controls__row">
-    <div class="controls__group" role="radiogroup" aria-label="Mail client">
+  <div class="email-preview__controls-row">
+    <div class="email-preview__controls-group" role="radiogroup" aria-label="Mail client">
       @for (option of clients; track option) {
         <button
           type="button"
-          class="controls__toggle"
+          class="email-preview__controls-toggle"
           role="radio"
           [attr.aria-checked]="client() === option"
           [attr.aria-pressed]="client() === option"
@@ -64,10 +64,10 @@
         </button>
       }
     </div>
-    <div class="controls__group" role="radiogroup" aria-label="Source">
+    <div class="email-preview__controls-group" role="radiogroup" aria-label="Source">
       <button
         type="button"
-        class="controls__toggle"
+        class="email-preview__controls-toggle"
         role="radio"
         [attr.aria-checked]="source() === 'editor'"
         [attr.aria-pressed]="source() === 'editor'"
@@ -79,7 +79,7 @@
       </button>
       <button
         type="button"
-        class="controls__toggle"
+        class="email-preview__controls-toggle"
         role="radio"
         [attr.aria-checked]="source() === 'original'"
         [attr.aria-pressed]="source() === 'original'"
@@ -103,15 +103,15 @@
 <!-- The stage holds a box the device's scaled size; the frame inside is the
      device's full width, scaled down as a whole where the flank has less
      room, so the email lays out for the device and not for the flank. -->
-<div class="stage">
+<div class="email-preview__stage">
   <div
-    class="device"
+    class="email-preview__device"
     [style.width.px]="deviceWidth() * scale()"
     [style.height.px]="stageHeight() ? stageHeight()! - 32 : null"
   >
     @if (active() && view() === 'html') {
       <iframe
-        class="frame"
+        class="email-preview__frame"
         sandbox
         title="Email preview"
         [style.width.px]="deviceWidth()"
@@ -121,7 +121,7 @@
       ></iframe>
     } @else if (view() === 'text') {
       <pre
-        class="text"
+        class="email-preview__text"
         [style.width.px]="deviceWidth()"
         [style.height.px]="stageHeight() ? (stageHeight()! - 32) / scale() : null"
         [style.transform]="'scale(' + scale() + ')'"

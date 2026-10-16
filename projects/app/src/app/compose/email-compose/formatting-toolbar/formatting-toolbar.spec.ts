@@ -13,20 +13,20 @@ const ROW_END = 260;
 /** jsdom has no layout: the row, its tools and the ⋯ get the boxes above. */
 function stubLayout(): void {
   const isItem = (el: Element) => el.hasAttribute('toolbaroverflowitem');
-  const isMore = (el: Element) => el.classList.contains('toolbar__more');
-  const more = () => document.querySelector<HTMLElement>('.toolbar__more');
+  const isMore = (el: Element) => el.classList.contains('formatting-toolbar__more');
+  const more = () => document.querySelector<HTMLElement>('.formatting-toolbar__more');
   const moreShown = () => !!more() && !more()!.hidden;
 
   vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function (
     this: HTMLElement,
   ) {
-    if (this.classList.contains('toolbar__scroll')) return ROW_END - (moreShown() ? TOOL : 0);
+    if (this.classList.contains('formatting-toolbar__scroll')) return ROW_END - (moreShown() ? TOOL : 0);
     if (isMore(this)) return this.hidden ? 0 : TOOL;
     return isItem(this) ? TOOL : 1;
   });
   vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
     let right = 0;
-    if (this.classList.contains('toolbar__scroll')) {
+    if (this.classList.contains('formatting-toolbar__scroll')) {
       right = ROW_END - (moreShown() ? TOOL : 0);
     } else if (isItem(this)) {
       const items = [...document.querySelectorAll('[toolbaroverflowitem]')];
@@ -60,8 +60,8 @@ describe('FormattingToolbar', () => {
   const compact = signal(false);
 
   const button = (label: string) =>
-    root.querySelector(`.toolbar__scroll [aria-label="${label}"]`) as HTMLElement;
-  const more = () => root.querySelector('.toolbar__more') as HTMLButtonElement;
+    root.querySelector(`.formatting-toolbar__scroll [aria-label="${label}"]`) as HTMLElement;
+  const more = () => root.querySelector('.formatting-toolbar__more') as HTMLButtonElement;
 
   beforeEach(async () => {
     (globalThis as { ResizeObserver?: unknown }).ResizeObserver = ResizeObserverStub;
@@ -134,8 +134,8 @@ describe('FormattingToolbar', () => {
   });
 
   it('keeps a phone row of marks, link and clearing — colour, lists, quote, alignment and table are wide-only', () => {
-    const phone = [...root.querySelectorAll<HTMLElement>('.toolbar__scroll > button')]
-      .filter((el) => !el.classList.contains('toolbar__wide'))
+    const phone = [...root.querySelectorAll<HTMLElement>('.formatting-toolbar__scroll > button')]
+      .filter((el) => !el.classList.contains('formatting-toolbar__wide'))
       .map((el) => el.getAttribute('aria-label'));
     expect(phone).toEqual([
       'Bold',
@@ -148,8 +148,8 @@ describe('FormattingToolbar', () => {
     ]);
     // A group that is wide-only through and through (quote and alignment,
     // the table) goes whole on a phone, so its divider goes with it.
-    const dividers = [...root.querySelectorAll('.toolbar__scroll > mat-divider')];
-    expect(dividers.filter((el) => !el.classList.contains('toolbar__wide')).length).toBe(2);
+    const dividers = [...root.querySelectorAll('.formatting-toolbar__scroll > mat-divider')];
+    expect(dividers.filter((el) => !el.classList.contains('formatting-toolbar__wide')).length).toBe(2);
   });
 
   it('says pressed only for what can be on: a toggle, never a plain command', () => {
@@ -164,8 +164,8 @@ describe('FormattingToolbar', () => {
       el.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
       return document.activeElement;
     };
-    const family = root.querySelector('.toolbar__select--family') as HTMLElement;
-    expect(press(family, 'ArrowRight')).toBe(root.querySelector('.toolbar__select--size'));
+    const family = root.querySelector('.formatting-toolbar__select--family') as HTMLElement;
+    expect(press(family, 'ArrowRight')).toBe(root.querySelector('.formatting-toolbar__select--size'));
     expect(press(button('Bold'), 'ArrowRight')).toBe(button('Italic'));
     expect(press(button('Italic'), 'ArrowLeft')).toBe(button('Bold'));
     // Link is the last tool on the line: Right passes the moved tail and

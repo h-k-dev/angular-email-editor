@@ -105,16 +105,16 @@ describe('Compose', () => {
     const root = fixture.nativeElement as HTMLElement;
     // The pane's home is the page wrapper, which is also the .eml import
     // dropzone (compose.html) — not the component host.
-    const page = root.querySelector('.page') as HTMLElement;
-    const editor = root.querySelector('.editor') as HTMLElement;
-    const code = root.querySelector('.code') as HTMLElement;
+    const page = root.querySelector('.compose__page') as HTMLElement;
+    const editor = root.querySelector('.email-compose__editor') as HTMLElement;
+    const code = root.querySelector('.email-compose__code') as HTMLElement;
     const source = root.querySelector('section[html-email-compose]') as HTMLElement;
     const sourceEditor = source.querySelector('[aria-label="Email HTML source"]');
     const toggle = root.querySelector(
       '.writer-bar [aria-label="HTML source"]',
     ) as HTMLButtonElement;
-    const bold = root.querySelector('.toolbar [aria-label="Bold"]') as HTMLButtonElement;
-    const quote = root.querySelector('.toolbar [aria-label="Quote"]') as HTMLButtonElement;
+    const bold = root.querySelector('.formatting-toolbar [aria-label="Bold"]') as HTMLButtonElement;
+    const quote = root.querySelector('.formatting-toolbar [aria-label="Quote"]') as HTMLButtonElement;
     const send = root.querySelector('.writer-bar__send') as HTMLButtonElement;
 
     // Hidden by default, in its own column (a sibling of the composer).
@@ -138,7 +138,7 @@ describe('Compose', () => {
     expect(bold.disabled).toBe(false);
     expect(quote.disabled).toBe(true);
     expect(send.disabled).toBe(false);
-    expect(root.querySelector('.toolbar [aria-label="Send"]')).toBeNull();
+    expect(root.querySelector('.formatting-toolbar [aria-label="Send"]')).toBeNull();
 
     toggle.click();
     await fixture.whenStable();
@@ -155,7 +155,7 @@ describe('Compose', () => {
     const button = root.querySelector(
       '.writer-bar [aria-label="Formatting options"]',
     ) as HTMLButtonElement;
-    const toolbar = root.querySelector('.toolbar') as HTMLElement;
+    const toolbar = root.querySelector('.formatting-toolbar') as HTMLElement;
 
     // Off by default, not pressed.
     expect(toolbar.hidden).toBe(true);
@@ -184,9 +184,9 @@ describe('Compose', () => {
   it('the font dropdowns lead the toolbar and apply the curated choice from their Aria menu', async () => {
     await showToolbar();
     const root = fixture.nativeElement as HTMLElement;
-    const row = root.querySelector('.toolbar__scroll') as HTMLElement;
-    const family = row.querySelector('.toolbar__select--family') as HTMLButtonElement;
-    const size = row.querySelector('.toolbar__select--size') as HTMLButtonElement;
+    const row = root.querySelector('.formatting-toolbar__scroll') as HTMLElement;
+    const family = row.querySelector('.formatting-toolbar__select--family') as HTMLButtonElement;
+    const size = row.querySelector('.formatting-toolbar__select--size') as HTMLButtonElement;
     expect(row.firstElementChild).toBe(family);
     // Never a "default": the value in effect, or nothing yet.
     expect(family.textContent).not.toContain('Default');
@@ -216,8 +216,8 @@ describe('Compose', () => {
   it('the colour button reads as applied for a colour, not for the font or size that share its mark', async () => {
     await showToolbar();
     const root = fixture.nativeElement as HTMLElement;
-    const color = root.querySelector('.toolbar [aria-label="Color"]') as HTMLButtonElement;
-    const size = root.querySelector('.toolbar__select--size') as HTMLButtonElement;
+    const color = root.querySelector('.formatting-toolbar [aria-label="Color"]') as HTMLButtonElement;
+    const size = root.querySelector('.formatting-toolbar__select--size') as HTMLButtonElement;
 
     // A size at the caret: the same textStyle mark, without a colour.
     size.click();
@@ -482,7 +482,7 @@ describe('Compose', () => {
       editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 9, 13)),
     );
     await fixture.whenStable();
-    (root.querySelector('.toolbar [aria-label="Link"]') as HTMLButtonElement).click();
+    (root.querySelector('.formatting-toolbar [aria-label="Link"]') as HTMLButtonElement).click();
     await fixture.whenStable();
 
     const dialog = () => document.querySelector('[role="dialog"][aria-label="Edit link"]')!;
@@ -561,7 +561,7 @@ describe('Compose', () => {
 
     const dialog = () => document.querySelector('[role="dialog"][aria-label="Edit link"]');
     expect(dialog()).toBeNull();
-    (root.querySelector('.toolbar [aria-label="Link"]') as HTMLButtonElement).click();
+    (root.querySelector('.formatting-toolbar [aria-label="Link"]') as HTMLButtonElement).click();
     await fixture.whenStable();
     expect(dialog()).not.toBeNull();
 
@@ -610,7 +610,7 @@ describe('Compose', () => {
 
     const dialog = () => document.querySelector('[role="dialog"][aria-label="Edit link"]');
     const openIt = async () => {
-      (root.querySelector('.toolbar [aria-label="Link"]') as HTMLButtonElement).click();
+      (root.querySelector('.formatting-toolbar [aria-label="Link"]') as HTMLButtonElement).click();
       await fixture.whenStable();
     };
     const key = (target: Element, key: string, init: KeyboardEventInit = {}) =>
@@ -643,13 +643,13 @@ describe('Compose', () => {
     const root = fixture.nativeElement as HTMLElement;
     // The pane's home is the page wrapper, which is also the .eml import
     // dropzone (compose.html) — not the component host.
-    const page = root.querySelector('.page') as HTMLElement;
-    const editor = root.querySelector('.editor') as HTMLElement;
-    const code = root.querySelector('.code') as HTMLElement;
+    const page = root.querySelector('.compose__page') as HTMLElement;
+    const editor = root.querySelector('.email-compose__editor') as HTMLElement;
+    const code = root.querySelector('.email-compose__code') as HTMLElement;
     const source = root.querySelector('section[html-email-compose]') as HTMLElement;
     const detach = root.querySelector('[aria-label="Detach HTML source"]') as HTMLButtonElement;
     const codeToggle = root.querySelector('[aria-label="HTML source"]') as HTMLButtonElement;
-    const quote = root.querySelector('.toolbar [aria-label="Quote"]') as HTMLButtonElement;
+    const quote = root.querySelector('.formatting-toolbar [aria-label="Quote"]') as HTMLButtonElement;
 
     detach.click();
     await fixture.whenStable();
@@ -928,7 +928,7 @@ describe('Compose', () => {
     await fixture.whenStable();
     (root.querySelector('[aria-label="HTML source"]') as HTMLButtonElement).click();
     await fixture.whenStable();
-    expect((root.querySelector('.code') as HTMLElement).hidden).toBe(false);
+    expect((root.querySelector('.email-compose__code') as HTMLElement).hidden).toBe(false);
 
     (root.querySelector('.writer-bar__send') as HTMLButtonElement).click();
     await settle();
@@ -936,7 +936,7 @@ describe('Compose', () => {
     expect(root.querySelector('[aria-label="Form problem"]')?.textContent).toContain(
       'Write something',
     );
-    expect((root.querySelector('.code') as HTMLElement).hidden).toBe(true);
+    expect((root.querySelector('.email-compose__code') as HTMLElement).hidden).toBe(true);
     expect(document.activeElement).toBe(root.querySelector('[aria-label="Message body"]'));
   });
 
@@ -970,7 +970,7 @@ describe('Compose', () => {
     const toggle = root.querySelector('.writer-bar [aria-label="Preview"]') as HTMLButtonElement;
     // The page's controls, not the editor's: the formatting toolbar holds
     // formatting alone — no view toggles.
-    const toolbar = root.querySelector('.toolbar') as HTMLElement;
+    const toolbar = root.querySelector('.formatting-toolbar') as HTMLElement;
     for (const label of ['Preview', 'HTML source', 'Detach HTML source']) {
       expect(toolbar.querySelector(`[aria-label="${label}"]`)).toBeNull();
     }
@@ -1068,14 +1068,14 @@ describe('Compose below the docking breakpoint', () => {
     expect(root.classList.contains('compose--detached')).toBe(false);
     expect(root.classList.contains('compose--preview')).toBe(false);
     // The status strip is desktop chrome.
-    expect(root.querySelector('footer.status')).toBeNull();
+    expect(root.querySelector('footer.compose__status')).toBeNull();
 
     // Wide again: the options return; nothing re-docks by itself.
     narrow.set(false);
     await fixture.whenStable();
     expect(btn('Preview')).not.toBeNull();
     expect(root.classList.contains('compose--preview')).toBe(false);
-    expect(root.querySelector('footer.status')).not.toBeNull();
+    expect(root.querySelector('footer.compose__status')).not.toBeNull();
   });
 
   it('folds code view at a phone width, where the bar offers no </> to leave it', async () => {
@@ -1092,7 +1092,7 @@ describe('Compose below the docking breakpoint', () => {
     const fixture = TestBed.createComponent(Compose);
     await fixture.whenStable();
     const root = fixture.nativeElement as HTMLElement;
-    const editor = root.querySelector('.editor') as HTMLElement;
+    const editor = root.querySelector('.email-compose__editor') as HTMLElement;
 
     (root.querySelector('.writer-bar [aria-label="HTML source"]') as HTMLButtonElement).click();
     await fixture.whenStable();
@@ -1119,7 +1119,7 @@ describe('Compose below the docking breakpoint', () => {
     const fixture = TestBed.createComponent(Compose);
     await fixture.whenStable();
     const root = fixture.nativeElement as HTMLElement;
-    const toolbar = root.querySelector('.toolbar') as HTMLElement;
+    const toolbar = root.querySelector('.formatting-toolbar') as HTMLElement;
     const toggle = () =>
       root.querySelector(
         '.writer-bar [aria-label="Formatting options"]',

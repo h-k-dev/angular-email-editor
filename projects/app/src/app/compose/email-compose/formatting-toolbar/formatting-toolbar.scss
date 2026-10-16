@@ -87,7 +87,7 @@
 }
 
 // The row: everything but the ⋯ and history.
-.toolbar__scroll {
+.formatting-toolbar__scroll {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -142,7 +142,7 @@
     // What a phone does without (`FormattingItem.wide`). Gone, not just
     // hidden: out of the tab order and the accessibility tree with the
     // picture.
-    > .toolbar__wide {
+    > .formatting-toolbar__wide {
       display: none;
     }
 
@@ -167,7 +167,7 @@
 }
 
 // The ⋯: only while something has moved, and never on a phone.
-.toolbar__more {
+.formatting-toolbar__more {
   flex: none;
 
   &[hidden] {
@@ -181,14 +181,14 @@
 
 // What a host pins at the line's end (`end`): the chat's button, the bar's
 // size, after history.
-.toolbar__end {
+.formatting-toolbar__end {
   display: flex;
   flex: none;
   align-items: center;
 }
 
 // Undo and Redo, pinned to the line's end.
-.toolbar__history {
+.formatting-toolbar__history {
   display: flex;
   flex: none;
   align-items: center;
@@ -207,7 +207,7 @@
 // value at the selection. Fixed widths, so the line never shifts as the caret
 // moves through differently styled text — and the overflow never re-flows
 // with it. Token cascade: --email-* → --mat-sys-* → fallback.
-.toolbar__select {
+.formatting-toolbar__select {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -250,15 +250,15 @@
   }
 }
 
-.toolbar__select--family {
+.formatting-toolbar__select--family {
   inline-size: 7.5rem;
 }
 
-.toolbar__select--size {
+.formatting-toolbar__select--size {
   inline-size: 5rem;
 }
 
-.toolbar__select-value {
+.formatting-toolbar__select-value {
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;

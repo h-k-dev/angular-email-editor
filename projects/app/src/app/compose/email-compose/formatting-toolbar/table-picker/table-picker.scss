@@ -26,7 +26,7 @@
   border: 1px solid var(--mat-sys-outline-variant, rgba(0, 0, 0, 0.12));
   border-radius: var(--mat-sys-corner-extra-small, 4px);
 
-  &.is-selected {
+  &--selected {
     border-color: var(--mat-sys-primary, #0056b3);
     background-color: var(--mat-sys-secondary-container, #e8e7f5);
   }

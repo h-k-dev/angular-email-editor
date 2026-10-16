@@ -21,7 +21,7 @@ import { PopoverOutlet } from './popover-outlet';
 @Component({
   selector: 'div[spec-toolbar]',
   template: `<ng-template #panel
-    ><div class="toolbar" #menu>{{ name() }} {{ words() }}</div></ng-template
+    ><div class="test-toolbar" #menu>{{ name() }} {{ words() }}</div></ng-template
   >`,
 })
 class ToolbarPanel {
@@ -46,7 +46,7 @@ class ToolbarPanel {
 /** A dialog-layer panel — the link editor's shape. */
 @Component({
   selector: 'div[spec-dialog]',
-  template: `<ng-template #panel><div class="dialog">dialog</div></ng-template>`,
+  template: `<ng-template #panel><div class="test-dialog">dialog</div></ng-template>`,
 })
 class DialogPanel {
   readonly open = signal(false);
@@ -88,8 +88,8 @@ describe('Popover', () => {
   let fixture: ComponentFixture<Host>;
   let host: Host;
 
-  const box = () => document.querySelector<HTMLElement>('.popover');
-  const shows = (selector: string) => !!document.querySelector(`.popover ${selector}`);
+  const box = () => document.querySelector<HTMLElement>('.email-popover');
+  const shows = (selector: string) => !!document.querySelector(`.email-popover ${selector}`);
   const anchor = () => {
     const span = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>(
       '[popover-outlet] span',
@@ -113,7 +113,7 @@ describe('Popover', () => {
 
     host.first().open.set(true);
     await settle();
-    expect(shows('.toolbar')).toBe(true);
+    expect(shows('.test-toolbar')).toBe(true);
     expect(box()!.textContent).toContain('first one');
     expect(anchor()).toEqual({ left: '10px', top: '20px', width: '30px', height: '40px' });
 
@@ -129,15 +129,15 @@ describe('Popover', () => {
 
     host.dialog().open.set(true);
     await settle();
-    expect(shows('.dialog')).toBe(true);
-    expect(shows('.toolbar')).toBe(false);
+    expect(shows('.test-dialog')).toBe(true);
+    expect(shows('.test-toolbar')).toBe(false);
     // The same element: no second popover, no second landing.
     expect(box()).toBe(before);
     expect(anchor()).toEqual({ left: '50px', top: '60px', width: '0px', height: '0px' });
 
     host.dialog().open.set(false);
     await settle();
-    expect(shows('.toolbar')).toBe(true);
+    expect(shows('.test-toolbar')).toBe(true);
     expect(box()).toBe(before);
     expect(anchor()).toEqual({ left: '10px', top: '20px', width: '30px', height: '40px' });
   });
@@ -214,7 +214,7 @@ describe('Popover', () => {
     expect(host.dialog().outside).toHaveBeenCalledTimes(1);
 
     // Escape does not detach the popover behind the panel's back.
-    expect(shows('.dialog')).toBe(true);
+    expect(shows('.test-dialog')).toBe(true);
   });
 
   it('exposes its element while up, for a press-outside test', async () => {

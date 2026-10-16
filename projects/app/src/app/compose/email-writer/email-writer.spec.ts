@@ -9,9 +9,9 @@ import { Viewport } from '../../../services/viewport';
 @Component({
   imports: [EmailWriter],
   template: `<form email-writer [formRoot]="envelope">
-    <button type="button" class="lead" leading>Panes</button>
-    <button type="button" class="action" actions>Discard</button>
-    <p class="field">projected</p>
+    <button type="button" class="test-lead" leading>Panes</button>
+    <button type="button" class="test-action" actions>Discard</button>
+    <p class="test-field">projected</p>
   </form>`,
 })
 class Host {
@@ -36,7 +36,7 @@ describe('EmailWriter', () => {
 
   const send = () => root.querySelector('.writer-bar__send') as HTMLButtonElement;
   const bar = () => root.querySelector('.writer-bar') as HTMLElement;
-  const field = () => root.querySelector('.field') as HTMLElement;
+  const field = () => root.querySelector('.test-field') as HTMLElement;
   const follows = (a: Node, b: Node) =>
     !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
 
@@ -65,11 +65,11 @@ describe('EmailWriter', () => {
   });
 
   it('follows Send with the leading controls, the spacer, and the actions last', () => {
-    expect(send().nextElementSibling).toBe(root.querySelector('.lead'));
-    expect(root.querySelector('.lead')?.nextElementSibling?.classList).toContain(
+    expect(send().nextElementSibling).toBe(root.querySelector('.test-lead'));
+    expect(root.querySelector('.test-lead')?.nextElementSibling?.classList).toContain(
       'writer-bar__spacer',
     );
-    expect(bar().lastElementChild).toBe(root.querySelector('.action'));
+    expect(bar().lastElementChild).toBe(root.querySelector('.test-action'));
   });
 
   it('closes the sheet with the bar, under the fields, where there is room', () => {
@@ -79,14 +79,14 @@ describe('EmailWriter', () => {
   });
 
   it('heads the sheet with the bar on a phone — the same buttons, moved', async () => {
-    const action = root.querySelector('.action');
+    const action = root.querySelector('.test-action');
     compact.set(true);
     await fixture.whenStable();
     expect(bar().tagName).toBe('HEADER');
     expect(follows(bar(), field())).toBe(true);
     expect(root.querySelectorAll('.writer-bar')).toHaveLength(1);
     // The host's action is its own node, carried along rather than re-created.
-    expect(root.querySelector('.action')).toBe(action);
+    expect(root.querySelector('.test-action')).toBe(action);
   });
 
   it("Send submits the host's form, and shows progress — never disabled — until the action settles", async () => {

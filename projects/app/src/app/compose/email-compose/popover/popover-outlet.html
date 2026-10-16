@@ -15,8 +15,8 @@
   [cdkConnectedOverlayDisableClose]="true"
   [cdkConnectedOverlayPush]="true"
   [cdkConnectedOverlayViewportMargin]="8"
-  cdkConnectedOverlayPanelClass="popover-pane"
-  cdkConnectedOverlayTransformOriginOn=".popover"
+  cdkConnectedOverlayPanelClass="email-popover-pane"
+  cdkConnectedOverlayTransformOriginOn=".email-popover"
   (overlayKeydown)="onKeydown($event)"
   (overlayOutsideClick)="onOutsideClick($event)"
 >
@@ -24,7 +24,7 @@
        side that faces the anchor — the CDK sets the transform origin for
        whichever position it chose. Created once per opening: the content
        inside changes with the panel, the box does not. -->
-  <div class="popover" animate.enter="popover--landing">
+  <div class="email-popover" animate.enter="email-popover--landing">
     <ng-container *ngTemplateOutlet="content()" />
   </div>
 </ng-template>

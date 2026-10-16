@@ -157,7 +157,7 @@ export class EmailPreview {
         });
         // The stage is in the DOM whenever the host is: observe it once; a
         // view toggle keeps the stage and swaps what stands in it.
-        const stage = this.#host.nativeElement.querySelector<HTMLElement>('.stage');
+        const stage = this.#host.nativeElement.querySelector<HTMLElement>('.email-preview__stage');
         if (stage) observer.observe(stage);
         this.#destroy.onDestroy(() => observer.disconnect());
       },

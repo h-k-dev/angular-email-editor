@@ -7,7 +7,7 @@
 // shadow — is each panel's own (the floating-toolbar and menu mixins), so
 // the link editor's field and the grip's menu keep their looks; this box
 // only carries the landing.
-.popover {
+.email-popover {
   display: block;
 }
 
@@ -48,7 +48,7 @@ $landing-spring: linear(
 // `animate.enter` puts the class on as the overlay's content is created and
 // takes it off when the animations end. Two of them: the scale rides the
 // spring, the fade is short and plain — opacity has nowhere to overshoot to.
-.popover--landing {
+.email-popover--landing {
   animation:
     popover-land 440ms $landing-spring both,
     popover-fade 120ms linear both;
@@ -68,7 +68,7 @@ $landing-spring: linear(
 
 // Less motion: it still fades in, it does not move.
 @media (prefers-reduced-motion: reduce) {
-  .popover--landing {
+  .email-popover--landing {
     animation: popover-fade 120ms linear both;
   }
 }
