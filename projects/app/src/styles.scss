@@ -241,9 +241,11 @@ html {
  * simply hide. No measurement, no observer. */
 /* Gutter only — the email's container style lives on the box inside, which is
  * what keeps this padding editorial in the strict sense: it reserves room for
- * affordances without touching the width the columns lay out in. */
+ * affordances without touching the width the columns lay out in. Inline only,
+ * like the layout table's: above and below, the block sits against the text
+ * exactly as the email has it. */
 .aee-editor .aee-columns-wrap {
-  --aee-block-gutter-y: 20px;
+  --aee-block-gutter-y: 0px;
   // Inline, the gutter *is* the host surface's inline inset — same token, so
   // the hang below can never outgrow the room the surface reserves for it.
   --aee-block-gutter-x: var(--mat-sys-inner-spacing, 16px);
@@ -335,24 +337,9 @@ html {
   position: relative;
 }
 
-/* The columns' editorial gutter — unlike a table's cells, padded while
- * editing: the email has no padding unless the author wrote one (inline
- * style wins here too),
- * and this spacing doubles as the room the boundary drags live in. Between
- * columns only: the block's outer text edges align with the surrounding
- * paragraphs, like the email itself. */
-.aee-editor .aee-column {
-  padding-left: 8px;
-  padding-right: 8px;
-}
-
-.aee-editor .aee-column:first-child {
-  padding-left: 0;
-}
-
-.aee-editor .aee-column:last-child {
-  padding-right: 0;
-}
+/* No spacing between columns of the editor's own, as in a layout table: a
+ * column is drawn with exactly the padding the email gives it (authored, an
+ * inline style) and none otherwise. */
 
 /* ProseMirror's own hide-selection contract, transcribed from
  * prosemirror-view/style/prosemirror.css (we ship scoped styles instead of
@@ -1110,6 +1097,64 @@ html {
 /* Out of the way while a resize drag is live — two affordances moving at
  * once is noise. */
 .aee-editor .aee-table-wrap--resizing .aee-add-pill {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* The columns block's stepper (the `ColumnsResize` NodeView) — the table's
+ * pills, mirrored: `+` in the right gutter appends a column, `−` in the left
+ * gutter takes the last one away. Each zone spans the block's height over
+ * the gutter beside the box — non-editable ground, so it stays hit-testable;
+ * both pills show while the block is hovered. */
+.aee-editor .aee-columns-box > .aee-add-zone--end,
+.aee-editor .aee-columns-box > .aee-add-zone--start {
+  top: 0;
+  bottom: 0;
+  width: var(--aee-block-gutter-x);
+}
+
+.aee-editor .aee-columns-box > .aee-add-zone--end {
+  left: 100%;
+}
+
+.aee-editor .aee-columns-box > .aee-add-zone--start {
+  right: 100%;
+}
+
+.aee-editor .aee-add-pill--end,
+.aee-editor .aee-add-pill--start {
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.aee-editor .aee-add-pill--end {
+  left: 2px;
+}
+
+.aee-editor .aee-add-pill--start {
+  right: 2px;
+}
+
+.aee-editor .aee-columns-wrap:hover .aee-add-pill {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Nothing to do — the most columns already, or the last one left: shown
+ * faded, and not pressable. */
+.aee-editor .aee-columns-wrap:hover .aee-add-pill[data-disabled] {
+  opacity: 0.38;
+  pointer-events: none;
+}
+
+/* Out of the way while a boundary drag is live, as on a table — specific
+ * enough to beat the hover above, which the drag keeps. */
+.aee-editor .aee-columns-wrap.aee-columns-wrap--resizing .aee-add-pill,
+.aee-editor .aee-columns-wrap.aee-columns-wrap--resizing .aee-add-pill[data-disabled] {
   opacity: 0;
   pointer-events: none;
 }

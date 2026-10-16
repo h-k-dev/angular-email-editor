@@ -1,9 +1,17 @@
 import { applyAuthoredAttributes } from '../authored';
-import { Plugin, PluginKey } from 'prosemirror-state';
+import { Command, Plugin, PluginKey } from 'prosemirror-state';
 import { Node } from 'prosemirror-model';
 import { EditorView, ViewMutationRecord } from 'prosemirror-view';
 import { defineExtension } from '../extension';
-import { MIN_COLUMN_CAP, columnCaps, containerStyle, setColumnsBoundary } from './nodes/columns';
+import {
+  MAX_COLUMNS,
+  MIN_COLUMN_CAP,
+  appendColumn,
+  columnCaps,
+  containerStyle,
+  removeLastColumn,
+  setColumnsBoundary,
+} from './nodes/columns';
 
 /**
  * Boundary drag for the `/columns` layout block — the table drag's twin, with
@@ -62,6 +70,8 @@ class ColumnsView {
   contentDOM: HTMLElement;
   #box: HTMLElement;
   #lines: HTMLElement;
+  #append: HTMLElement;
+  #remove: HTMLElement;
   #node: Node;
   #view: EditorView;
   #getPos: () => number;
@@ -85,6 +95,14 @@ class ColumnsView {
     this.#lines.className = 'aee-col-lines';
     this.#lines.contentEditable = 'false';
     this.#lines.setAttribute('aria-hidden', 'true');
+    // The block's two pills, the table's `+` turned into a stepper: `+` on
+    // the right flank appends a column, `−` on the left takes the last one
+    // away. Each sits in a sensor zone over the gutter beside the box — only
+    // non-editable ground, so the zone can stay hit-testable and the pointer
+    // never crosses dead space on its way over. No delete button: the block
+    // goes the table's way, selected whole and Delete.
+    this.#append = this.#pill('end', '+', 'Add column', appendColumn);
+    this.#remove = this.#pill('start', '−', 'Remove last column', removeLastColumn);
     this.#render(node);
   }
 
@@ -102,13 +120,42 @@ class ColumnsView {
       target === this.#box ||
       target === this.#lines ||
       this.#lines.contains(target) ||
+      // The pills and their zones are ours too.
+      (target instanceof Element && !!target.closest('.aee-add-zone')) ||
       // The contentDOM's own attributes are ours; its children are ProseMirror's.
       (target === this.contentDOM && record.type === 'attributes')
     );
   }
 
+  #pill(
+    side: 'start' | 'end',
+    glyph: string,
+    label: string,
+    command: (pos: number) => Command,
+  ): HTMLElement {
+    const zone = this.#box.appendChild(document.createElement('div'));
+    zone.className = `aee-add-zone aee-add-zone--${side}`;
+    zone.contentEditable = 'false';
+    zone.setAttribute('aria-hidden', 'true');
+    const pill = zone.appendChild(document.createElement('div'));
+    pill.className = `aee-add-pill aee-add-pill--${side}`;
+    pill.textContent = glyph;
+    pill.setAttribute('role', 'button');
+    pill.setAttribute('title', label);
+    // preventDefault keeps the caret where it is; the command runs on click.
+    pill.addEventListener('mousedown', (event) => event.preventDefault());
+    pill.addEventListener('click', () => {
+      command(this.#getPos())(this.#view.state, this.#view.dispatch);
+    });
+    return pill;
+  }
+
   #render(node: Node): void {
     this.#box.setAttribute('style', containerStyle(node.attrs['align']));
+    // A pill with nothing to do says so: no `+` past the most columns, no
+    // `−` on the last one.
+    this.#append.toggleAttribute('data-disabled', node.childCount >= MAX_COLUMNS);
+    this.#remove.toggleAttribute('data-disabled', node.childCount <= 1);
     // An authored columns block shows its own attributes (authored.ts).
     applyAuthoredAttributes(this.#box, node, 0);
 

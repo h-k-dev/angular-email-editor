@@ -1,10 +1,10 @@
-import { NodeSelection, TextSelection } from 'prosemirror-state';
+import { NodeSelection, Selection, TextSelection } from 'prosemirror-state';
 import { createEditor, Editor } from '../../editor';
 import { createSchema } from '../../schema';
 import { parseHTML, serializeToHTML } from '../../html';
 import { lintHTML } from '../../html-source';
 import { emailExtensions } from '../kits';
-import { findColumnsContext } from './columns';
+import { appendColumn, findColumnsContext, removeLastColumn } from './columns';
 
 const schema = createSchema(emailExtensions);
 const canonical = (html: string) => serializeToHTML(parseHTML(html, schema), schema);
@@ -131,6 +131,17 @@ describe('columns editing', () => {
     host.remove();
   });
 
+  /** Caret to the end of the column's last line — a fresh column is two
+      lines tall, and the hops happen at the column's edge. */
+  const toColumnEnd = () =>
+    editor.exec((state, dispatch) => {
+      const { $from } = state.selection;
+      let d = $from.depth;
+      while (d > 0 && $from.node(d).type.name !== 'column') d--;
+      dispatch?.(state.tr.setSelection(Selection.near(state.doc.resolve($from.end(d)), -1)));
+      return true;
+    });
+
   it('horizontal arrows at a column edge hop into the neighbouring column', () => {
     editor.commands['insertColumns'](2); // caret in column 0's empty block
     const key = (k: string, code: number) =>
@@ -151,12 +162,14 @@ describe('columns editing', () => {
       return -1;
     };
     expect(columnIndex()).toBe(0);
+    toColumnEnd();
     key('ArrowRight', 39);
     expect(columnIndex()).toBe(1);
     key('ArrowLeft', 37);
     expect(columnIndex()).toBe(0);
     // Past the last column: out of the block, into whatever follows.
     key('ArrowRight', 39);
+    toColumnEnd();
     key('ArrowRight', 39);
     expect(findColumnsContext(editor.state)).toBeNull();
   });
@@ -316,8 +329,107 @@ describe('columns editing', () => {
     expect(editor.getHTML()).not.toContain('inline-block');
   });
 
+  const blockPos = () => findColumnsContext(editor.state)!.pos;
+  const count = () => findColumnsContext(editor.state)!.node.childCount;
+  const typeIn = (text: string) =>
+    editor.exec((state, dispatch) => {
+      dispatch?.(state.tr.insertText(text));
+      return true;
+    });
+  const press = (key: string) =>
+    editor.view.someProp('handleKeyDown', (f) =>
+      f(editor.view, new KeyboardEvent('keydown', { key })),
+    );
+
+  it('a fresh column starts two lines tall — from /columns and from the + pill', () => {
+    editor.commands['insertColumns'](2);
+    const lines = () => {
+      const block = findColumnsContext(editor.state)!.node;
+      return Array.from({ length: block.childCount }, (_, i) => block.child(i).childCount);
+    };
+    expect(lines()).toEqual([2, 2]);
+    // The caret starts on the first column's first line.
+    expect(editor.state.selection.$from.index(-1)).toBe(0);
+    editor.exec(appendColumn(blockPos()));
+    editor.commands['addColumn']();
+    expect(lines()).toEqual([2, 2, 2, 2]);
+    // The email gets the same two blank lines the editor shows.
+    const html = editor.getHTML();
+    expect((html.match(/<div><br><\/div>/g) || []).length).toBe(8);
+    expect(canonical(html)).toBe(html);
+  });
+
+  it('the + pill appends a column at the end and leaves the caret alone', () => {
+    editor.commands['insertColumns'](2); // caret in the first column
+    typeIn('a');
+    const caret = editor.state.selection.from;
+    expect(editor.exec(appendColumn(blockPos()))).toBe(true);
+    expect(count()).toBe(3);
+    expect(editor.state.selection.from).toBe(caret);
+    expect(editor.getHTML()).toContain('max-width: 186px'); // re-split three ways
+    expect(editor.exec(appendColumn(blockPos()))).toBe(true); // 4
+    expect(editor.exec(appendColumn(blockPos()))).toBe(false); // capped at MAX_COLUMNS
+  });
+
+  it('the − pill takes the last column away, and refuses on the last one left', () => {
+    editor.commands['insertColumns'](3); // caret in the first column
+    typeIn('a');
+    expect(editor.exec(removeLastColumn(blockPos()))).toBe(true);
+    expect(count()).toBe(2);
+    expect(editor.getHTML()).toContain('>a<'); // the first column's text stays
+    expect(editor.exec(removeLastColumn(blockPos()))).toBe(true);
+    expect(editor.exec(removeLastColumn(blockPos()))).toBe(false);
+    expect(count()).toBe(1);
+  });
+
+  it('Delete over a whole column removes that column', () => {
+    editor.commands['insertColumns'](3); // caret in the first column
+    typeIn('a');
+    press('Tab'); // into the second column
+    typeIn('b');
+    // Mod-A scopes to the column's content; Delete then takes the column.
+    editor.view.someProp('handleKeyDown', (f) =>
+      f(editor.view, new KeyboardEvent('keydown', { key: 'a', ctrlKey: true })),
+    );
+    expect(press('Delete')).toBe(true);
+    expect(count()).toBe(2);
+    const html = editor.getHTML();
+    expect(html).toContain('>a<');
+    expect(html).not.toContain('>b<');
+  });
+
+  it('Delete over every column removes the block; less only clears text', () => {
+    editor.commands['insertColumns'](2);
+    typeIn('abc');
+    // Part of a column: an ordinary delete — the text goes, the block stays.
+    editor.exec((state, dispatch) => {
+      const at = state.selection.from;
+      dispatch?.(state.tr.setSelection(TextSelection.create(state.doc, at - 2, at)));
+      return true;
+    });
+    press('Delete');
+    expect(count()).toBe(2);
+    expect(editor.getHTML()).toContain('>a<');
+    expect(editor.getHTML()).not.toContain('abc');
+
+    press('Tab');
+    typeIn('d');
+    // From the first column's text start to the last column's text end.
+    editor.exec((state, dispatch) => {
+      const { pos, node } = findColumnsContext(state)!;
+      dispatch?.(
+        state.tr.setSelection(TextSelection.create(state.doc, pos + 3, pos + node.nodeSize - 3)),
+      );
+      return true;
+    });
+    expect(press('Delete')).toBe(true);
+    expect(findColumnsContext(editor.state)).toBeNull();
+    expect(editor.getHTML()).not.toContain('inline-block');
+  });
+
   it('ArrowDown from the last column block escapes to a paragraph below', () => {
     editor.commands['insertColumns'](2); // columns is now the last block
+    toColumnEnd();
     const escaped = editor.view.someProp('handleKeyDown', (f) =>
       f(editor.view, new KeyboardEvent('keydown', { key: 'ArrowDown' })),
     );

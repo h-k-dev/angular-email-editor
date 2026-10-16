@@ -43,6 +43,30 @@ describe('columns resize', () => {
   };
   const columnsNode = () => editor.state.doc.nodeAt(columnsPos())!;
 
+  it('wears a + pill on the right and a − pill on the left that step the count', () => {
+    editor.commands['insertColumns'](2);
+    const plus = host.querySelector<HTMLElement>('.aee-add-pill--end')!;
+    const minus = host.querySelector<HTMLElement>('.aee-add-pill--start')!;
+    expect(plus.textContent).toBe('+');
+    expect(minus.textContent).toBe('−');
+
+    plus.click();
+    expect(columnsNode().childCount).toBe(3);
+    plus.click();
+    expect(columnsNode().childCount).toBe(4);
+    // At the most columns the + says so; the − never was.
+    expect(plus.hasAttribute('data-disabled')).toBe(true);
+    expect(minus.hasAttribute('data-disabled')).toBe(false);
+
+    minus.click();
+    minus.click();
+    minus.click();
+    expect(columnsNode().childCount).toBe(1);
+    expect(minus.hasAttribute('data-disabled')).toBe(true);
+    // Editor chrome only.
+    expect(editor.getHTML()).not.toContain('aee-add-pill');
+  });
+
   it('renders the wrapper carrying the container style, lines at the px caps', () => {
     editor.commands['insertColumns'](3);
     const wrap = host.querySelector<HTMLElement>('.aee-columns-wrap')!;

@@ -31,12 +31,12 @@ import { POPOVER_BELOW, Popover } from '../popover/popover';
  * extension, whose state the composer feeds in; a panel of the composer's
  * one popover, under its block.
  *
- * No table section: every table operation lives on the table itself —
- * adding rows and columns is the + pills (Tab past the last cell also
- * appends a row), deleting a table, row or column is select the whole
- * unit and press Delete, widths are the boundary and edge drags, fill is
- * the toolbar palette. The menu remains for the columns block, which has
- * not (yet) grown the same affordances.
+ * Sections only. Every table and columns operation lives on the block
+ * itself — adding rows and columns is the + pills (Tab past the last cell
+ * also appends a row), a columns block's − pill takes its last column away,
+ * deleting a table, row, column or columns block is select the whole unit
+ * and press Delete, widths are the boundary and edge drags, fill is the
+ * toolbar palette.
  *
  * Reachable by keyboard: Alt-F10 moves focus in here (the extension's
  * gesture, which needs `element`); Escape hands it back to the text.
@@ -101,9 +101,7 @@ export class BlockMenu {
     // writing. Flips above only when the bottom has no room.
     inject(Popover).register({
       layer: 'toolbar',
-      open: () =>
-        this.state().isOpen &&
-        (this.state().block === 'columns' || this.state().block === 'section'),
+      open: () => this.state().isOpen && this.state().block === 'section',
       anchor: () => this.state().boundingBox,
       content: this.panel,
       positions: () => POPOVER_BELOW,

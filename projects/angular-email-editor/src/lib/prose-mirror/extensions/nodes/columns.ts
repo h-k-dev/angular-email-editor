@@ -302,7 +302,9 @@ export const Columns = defineNode({
     insertColumns: (count = 2): Command => insertColumns(schema, count),
     /** Fill the column the cursor is in (or clear it with `null`). */
     setColumnBackground: (color: string | null): Command => setColumnBackground(color),
-    // Structural edits for the block menu. Named apart from the table's
+    // Caret-relative structural edits, for a host's own controls (the
+    // block's pills use the position-addressed `appendColumn` /
+    // `removeLastColumn`). Named apart from the table's
     // `addColumnAfter`/`deleteColumn` — commands merge into one flat record.
     addColumn: (): Command => addColumn,
     removeColumn: (): Command => removeColumn,
@@ -322,12 +324,17 @@ export const Columns = defineNode({
   // column's edge hops straight into the neighbouring column — the layout
   // twin of the table's cell-to-cell arrows. Mod-A is the table's scoped
   // select-all applied here: column content first, block from an empty
-  // column, the stock whole-document one from the block selection on.
+  // column, the stock whole-document one from the block selection on. And
+  // Delete over whole columns removes them — the block's only delete.
   plugins: () => [
     keymap({
       ArrowLeft: columnArrow(-1),
       ArrowRight: columnArrow(1),
       'Mod-a': selectColumnContent,
+      Backspace: deleteFullySelectedColumns,
+      'Mod-Backspace': deleteFullySelectedColumns,
+      Delete: deleteFullySelectedColumns,
+      'Mod-Delete': deleteFullySelectedColumns,
     }),
   ],
   actions: ({ schema }) => [
@@ -362,16 +369,29 @@ function hasColumnChildren(dom: HTMLElement): boolean {
   return false;
 }
 
+/** How many empty lines a fresh column starts with. Two, not one: the block
+    has no padding of the editor's own, so a one-line column is a sliver the
+    eye reads as a stray rule rather than a place to write — two lines give
+    it the shape of a column, the way /table starts with rows to fill. */
+export const COLUMN_STARTING_LINES = 2;
+
+/** An empty column, {@link COLUMN_STARTING_LINES} lines tall. */
+function freshColumn(schema: Schema, attrs: Record<string, unknown> | null = null): Node {
+  const lines = Array.from({ length: COLUMN_STARTING_LINES }, () =>
+    schema.nodes['paragraph'].createAndFill()!,
+  );
+  return schema.nodes['column'].create(attrs, lines);
+}
+
 /** Inserts an n-column block and drops the cursor into the first column. */
 function insertColumns(schema: Schema, count: number): Command {
   return (state, dispatch) => {
     // Asked, not told: answer before building anything — a toolbar asks on
     // every transaction.
     if (!dispatch) return true;
-    const colType = schema.nodes['column'];
     const columnsType = schema.nodes['columns'];
     const maxWidth = columnMaxWidth(count);
-    const columns = Array.from({ length: count }, () => colType.createAndFill({ maxWidth })!);
+    const columns = Array.from({ length: count }, () => freshColumn(schema, { maxWidth }));
     const node = columnsType.create(null, columns);
 
     const from = state.selection.from;
@@ -481,9 +501,7 @@ export const addColumn: Command = (state, dispatch) => {
   const existing: Node[] = [];
   ctx.node.forEach((col) => existing.push(col));
   const columns = resplitColumns(existing, count);
-  const fresh = state.schema.nodes['column'].createAndFill({
-    maxWidth: columnMaxWidth(count),
-  })!;
+  const fresh = freshColumn(state.schema, { maxWidth: columnMaxWidth(count) });
   columns.splice(ctx.index + 1, 0, fresh);
 
   const tr = state.tr.replaceWith(
@@ -529,6 +547,115 @@ export const deleteColumns: Command = (state, dispatch) => {
   const ctx = findColumnsContext(state);
   if (!ctx) return false;
   dispatch?.(state.tr.delete(ctx.pos, ctx.pos + ctx.node.nodeSize).scrollIntoView());
+  return true;
+};
+
+/** Restructures the columns block at `pos` in place: drops the columns
+    `keep` refuses, optionally appends an empty one, and re-splits every cap
+    evenly. Step by step — never a whole-block replace — so the selection
+    maps through untouched: a caret in a kept column stays exactly where it
+    was, one in a removed column lands at the nearest valid spot. The pills'
+    and the select-to-delete gesture's shared tail. */
+function restructureColumns(
+  state: EditorState,
+  pos: number,
+  block: Node,
+  keep: (index: number) => boolean,
+  append = false,
+) {
+  const tr = state.tr;
+  const starts: number[] = [];
+  let at = pos + 1;
+  block.forEach((col) => {
+    starts.push(at);
+    at += col.nodeSize;
+  });
+  // Back to front, so the earlier starts stay valid.
+  for (let index = block.childCount - 1; index >= 0; index--) {
+    if (!keep(index)) tr.delete(starts[index], starts[index] + block.child(index).nodeSize);
+  }
+  if (append) {
+    const end = tr.mapping.map(pos + block.nodeSize - 1, -1);
+    tr.insert(end, freshColumn(state.schema));
+  }
+  const rebuilt = tr.doc.nodeAt(pos)!;
+  const maxWidth = columnMaxWidth(rebuilt.childCount);
+  rebuilt.forEach((col, offset) => {
+    tr.setNodeMarkup(pos + 1 + offset, undefined, { ...col.attrs, maxWidth });
+  });
+  return tr;
+}
+
+/** The `+` pill on the block's right flank: an empty column after the last,
+    up to {@link MAX_COLUMNS}; every cap re-splits evenly. Addressed by the
+    block's position, not the caret — the pill acts on the block it is on. */
+export function appendColumn(pos: number): Command {
+  return (state, dispatch) => {
+    const block = state.doc.nodeAt(pos);
+    if (block?.type.name !== 'columns' || block.childCount >= MAX_COLUMNS) return false;
+    dispatch?.(restructureColumns(state, pos, block, () => true, true));
+    return true;
+  };
+}
+
+/** The `−` pill on the block's left flank: the last column goes — the `+`'s
+    exact inverse — and the rest re-split evenly. Refuses on the last one
+    left: the block itself goes by selecting it whole and pressing Delete. */
+export function removeLastColumn(pos: number): Command {
+  return (state, dispatch) => {
+    const block = state.doc.nodeAt(pos);
+    if (block?.type.name !== 'columns' || block.childCount <= 1) return false;
+    dispatch?.(restructureColumns(state, pos, block, (index) => index < block.childCount - 1));
+    return true;
+  };
+}
+
+/**
+ * Backspace/Delete with whole columns selected — the table's gesture on the
+ * layout block: select a column's content end to end (Mod-A in it, or a
+ * drag) and the column goes; select several whole columns and they go;
+ * select every column and the block goes. Anything less falls through to
+ * the ordinary delete, which clears the selected text.
+ */
+const deleteFullySelectedColumns: Command = (state, dispatch) => {
+  const selection = state.selection;
+  if (!(selection instanceof TextSelection) || selection.empty) return false;
+  const { $from, $to } = selection;
+  let depth = -1;
+  for (let d = $from.depth; d > 0; d--) {
+    if ($from.node(d).type.name === 'columns') {
+      depth = d;
+      break;
+    }
+  }
+  if (depth < 0 || $to.depth < depth || $to.before(depth) !== $from.before(depth)) return false;
+
+  const block = $from.node(depth);
+  const pos = $from.before(depth);
+  const first = $from.index(depth);
+  const last = $to.index(depth);
+  // Whole columns: the selection starts where the first column's text starts
+  // and ends where the last column's text ends.
+  const start = (index: number) => {
+    let at = pos + 1;
+    for (let i = 0; i < index; i++) at += block.child(i).nodeSize;
+    return at;
+  };
+  const textStart = Selection.findFrom(state.doc.resolve(start(first) + 1), 1, true);
+  const textEnd = Selection.findFrom(
+    state.doc.resolve(start(last) + block.child(last).nodeSize - 1),
+    -1,
+    true,
+  );
+  if (!textStart || !textEnd || $from.pos > textStart.from || $to.pos < textEnd.to) return false;
+
+  if (!dispatch) return true;
+  if (first === 0 && last === block.childCount - 1) {
+    dispatch(state.tr.delete(pos, pos + block.nodeSize).scrollIntoView());
+    return true;
+  }
+  const keep = (index: number) => index < first || index > last;
+  dispatch(restructureColumns(state, pos, block, keep).scrollIntoView());
   return true;
 };
 
@@ -628,7 +755,11 @@ const selectColumnContent: Command = (state, dispatch) => {
   if (depth < 0) return false;
 
   const column = $from.node(depth);
-  const empty = column.childCount === 1 && column.firstChild!.childCount === 0;
+  // Empty: nothing but blank lines (a fresh column has two).
+  let empty = true;
+  column.forEach((block) => {
+    if (!block.isTextblock || block.childCount > 0) empty = false;
+  });
   if (dispatch) {
     if (empty) {
       dispatch(state.tr.setSelection(NodeSelection.create(state.doc, $from.before(depth - 1))));
