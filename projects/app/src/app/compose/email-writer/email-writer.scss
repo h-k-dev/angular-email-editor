@@ -54,39 +54,53 @@
 // No chrome of its own: only its buttons are. The same box in both places —
 // the column's gap already parts it from the envelope or the toolbar.
 .writer-bar {
+  // How far the glyph sits inside its icon button: half of what the state
+  // layer has over the glyph. The bar's inset and Send's margin take it
+  // back, so the glyphs land on the text edge at whatever size the bar's
+  // buttons are.
+  --writer-bar-glyph-inset: calc(
+    (var(--mat-icon-button-state-layer-size, 40px) - var(--mat-icon-button-icon-size, 20px)) / 2
+  );
   flex: none;
   display: flex;
   align-items: center;
   gap: 8px;
-  // Exactly the icon button's 40px state layer (styles.scss): the visible
-  // box, and the line the glyphs centre on. The 48px touch target overhangs
-  // it by 4px above and below — invisible, into the column's 8px gap and
-  // the sheet's padding, where nothing else is tappable. Whatever joins
-  // Send never changes the bar's height — a row that grows with its
-  // content would shift the sheet.
-  block-size: 40px;
-  // Optical, not geometric: the bar holds icon buttons, whose 40px state
-  // layer sits 10px clear of the 20px glyph inside it. Inset the box by that
-  // much less and the glyph — the only part anyone sees — lands on the same
-  // edge as the address labels and the body text.
-  padding-inline: calc(var(--mat-sys-inner-spacing, 16px) - 10px);
+  // Exactly the icon button's state layer: the visible box, and the line
+  // the glyphs centre on. Whatever joins Send never changes the bar's
+  // height — a row that grows with its content would shift the sheet.
+  block-size: var(--mat-icon-button-state-layer-size, 40px);
+  // Optical, not geometric: inset the box by the glyph's own inset less, and
+  // the glyph — the only part anyone sees — lands on the same edge as the
+  // address labels and the body text.
+  padding-inline: calc(var(--mat-sys-inner-spacing, 16px) - var(--writer-bar-glyph-inset));
+}
+
+// The footer — the bar under the text, on anything wider than a phone: a
+// compact row, every button 32px with its touch target no bigger (a pointer
+// needs no overhang; 32px still clears WCAG's 24px target size), 20px
+// glyphs in it. On a phone the bar heads the sheet and keeps the app's
+// 40/48px: there it is tapped.
+footer.writer-bar {
+  --mat-icon-button-state-layer-size: 32px;
+  --mat-icon-button-touch-target-size: 32px;
+  --mat-button-filled-touch-target-size: 32px;
 }
 
 .writer-bar__spacer {
   flex: 1 1 auto;
 }
 
-// Send: a filled button, one line tall rather than the bar's 40px — its
-// container height and inline padding set through Material's own button
-// tokens (material.angular.dev/components/button/styling), so the theme's
-// colours and type stay — its edge on the text edge: the bar is inset for
-// icon buttons, whose glyph sits 10px inside their state layer; a filled
-// button has no such margin, so it takes the 10px itself.
+// Send: a filled button, one line tall — its container height and inline
+// padding set through Material's own button tokens
+// (material.angular.dev/components/button/styling), so the theme's colours
+// and type stay — its edge on the text edge: the bar is inset for icon
+// buttons, whose glyph sits inside their state layer; a filled button has
+// no such margin, so it takes the glyph's inset itself.
 .writer-bar__send {
   --mat-button-filled-container-height: 32px;
   --mat-button-filled-horizontal-padding: 16px;
   flex: none;
-  margin-inline-start: 10px;
+  margin-inline-start: var(--writer-bar-glyph-inset);
 }
 
 // The writer's column. The sheet is as wide as its frame; what is written

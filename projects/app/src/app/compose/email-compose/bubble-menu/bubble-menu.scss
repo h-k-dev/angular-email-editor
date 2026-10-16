@@ -7,8 +7,15 @@
   display: contents;
 }
 
+// Compact, like the writer's footer: every button 32px with its touch
+// target no bigger — the alt text's words button too — 20px glyphs in the
+// icon buttons. Over the text, a smaller menu covers less of what is read.
 .bubble-menu {
   @include toolbar.floating-toolbar;
+  --mat-icon-button-state-layer-size: 32px;
+  --mat-icon-button-touch-target-size: 32px;
+  --mat-button-text-container-height: 32px;
+  --mat-button-text-touch-target-size: 32px;
 }
 
 // The row of tools for what is selected. It lays out as the toolbar does
