@@ -182,17 +182,18 @@ html {
   // far down and scrolls up through it. None elsewhere — the source pane's
   // editor has its own padding round it.
   padding-block: var(--email-editor-padding-block, 0);
-  // The text column is the email's box, capped at its 600px ceiling — the
-  // same one the columns block and the image cap use. A max-width, not a
-  // width, and the host normally gives it less: the app's writer sheet is
-  // 600px *including* its sections' inline inset, so the column composes in
-  // ~568px. That is the point of the cap being fluid — the email is designed
-  // for 600 *and below*, and the same rules that lay it out on a phone
-  // (columns stack, images shrink, tables are percentages) lay it out here.
-  // The columns block still goes side by side: its caps sum to a 560px
-  // budget, deliberately short of the ceiling for exactly this reason.
+  // The text column is as wide as its host makes it — no ceiling of its
+  // own: the parent container is the bound. The email is designed for 600
+  // *and below*, and the hosts here mostly give it that or less (the page's
+  // writer sheet and a compose window are 600px *including* their inline
+  // inset, so the column composes in ~568px), where the same rules that lay
+  // it out on a phone (columns stack, images shrink, tables are
+  // percentages) lay it out. A wider host — a zoomed window's document
+  // column, the HTML source pane — simply gets the room: the text runs
+  // wider, and what has a size of its own keeps it (the image cap and the
+  // columns block's 600px box; its caps sum to a 560px budget, so it still
+  // goes side by side at the usual ~568px).
   width: 100%;
-  max-width: 600px;
   text-align: inherit;
 
   // Typography
@@ -1408,15 +1409,6 @@ html {
       var(--mat-sys-surface-container-highest, #d4d4d4)
     );
   }
-}
-
-/* The HTML source editor is code, not the email's box: it takes its pane's
- * full width instead of the 600px cap above. The formatter prints 80 columns,
- * and 80 columns of 13px monospace are ~610px (Cascadia; Consolas ~575px) —
- * more than the email column holds, so a capped source pane wraps the very
- * lines the formatter just measured to fit. */
-section[html-email-compose] .aee-editor {
-  max-width: none;
 }
 
 /* The source pane's word wrap — VS Code's, toggled by Alt+Z like there.

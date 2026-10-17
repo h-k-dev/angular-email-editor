@@ -113,7 +113,9 @@
         mat-icon-button
         type="button"
         [attr.aria-label]="'editor.actions.resolve-placeholders.title' | translate"
-        [title]="('editor.actions.resolve-placeholders.title' | translate) + ' (' + fillShortcut + ')'"
+        [title]="
+          ('editor.actions.resolve-placeholders.title' | translate) + ' (' + fillShortcut + ')'
+        "
         emailAction="resolve-placeholders"
         [emailActionFrom]="actions"
       >
@@ -274,26 +276,26 @@
            the button is removed the moment its row opens, and a focused
            element removed leaves focus nowhere. -->
       <ng-template #copyButtons>
-          @if (!showCc()) {
-            <button
-              type="button"
-              class="writer-field__action"
-              emailKeepFocus
-              (click)="openCopy('cc'); $event.stopPropagation()"
-            >
-              Cc
-            </button>
-          }
-          @if (!showBcc()) {
-            <button
-              type="button"
-              class="writer-field__action"
-              emailKeepFocus
-              (click)="openCopy('bcc'); $event.stopPropagation()"
-            >
-              Bcc
-            </button>
-          }
+        @if (!showCc()) {
+          <button
+            type="button"
+            class="writer-field__action"
+            emailKeepFocus
+            (click)="openCopy('cc'); $event.stopPropagation()"
+          >
+            Cc
+          </button>
+        }
+        @if (!showBcc()) {
+          <button
+            type="button"
+            class="writer-field__action"
+            emailKeepFocus
+            (click)="openCopy('bcc'); $event.stopPropagation()"
+          >
+            Bcc
+          </button>
+        }
       </ng-template>
       @if (material()) {
         <mat-form-field class="writer-field__form-field" subscriptSizing="dynamic">
@@ -334,7 +336,9 @@
         @if (material()) {
           <mat-form-field class="writer-field__form-field" subscriptSizing="dynamic">
             <div email-address-input emailMatFormField #ccField [formField]="envelope.cc">
-              <ng-template emailAddressLabel><span class="writer-field__label">Cc</span></ng-template>
+              <ng-template emailAddressLabel
+                ><span class="writer-field__label">Cc</span></ng-template
+              >
             </div>
           </mat-form-field>
         } @else {
@@ -355,7 +359,9 @@
         @if (material()) {
           <mat-form-field class="writer-field__form-field" subscriptSizing="dynamic">
             <div email-address-input emailMatFormField #bccField [formField]="envelope.bcc">
-              <ng-template emailAddressLabel><span class="writer-field__label">Bcc</span></ng-template>
+              <ng-template emailAddressLabel
+                ><span class="writer-field__label">Bcc</span></ng-template
+              >
             </div>
           </mat-form-field>
         } @else {
