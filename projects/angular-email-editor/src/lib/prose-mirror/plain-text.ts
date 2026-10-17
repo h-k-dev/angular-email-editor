@@ -11,6 +11,29 @@ export function emailPlainText(html: string): string {
   return lines.join('\n');
 }
 
+/**
+ * Text as a plain-text message's document — the way back from
+ * {@link emailPlainText}: one email line (`<div>`) per line of text, an
+ * empty line as `<div><br></div>`, every character escaped. What an editor
+ * on `plainTextExtensions` takes when a message turns to plain text:
+ *
+ * ```ts
+ * editor.setContent(plainTextHTML(emailPlainText(html)));
+ * ```
+ *
+ * and `emailPlainText` reads it back as the same lines.
+ */
+export function plainTextHTML(text: string): string {
+  return text
+    .split(/\r\n?|\n/)
+    .map((line) => (line ? `<div>${escapeText(line)}</div>` : '<div><br></div>'))
+    .join('');
+}
+
+function escapeText(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 function renderChildren(parent: Element, lines: string[], prefix: string): void {
   for (const child of Array.from(parent.children)) renderBlock(child, lines, prefix);
 }

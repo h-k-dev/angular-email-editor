@@ -36,6 +36,7 @@ export default {
     sent: 'Message sent',
   },
   composer: {
+    format: { title: 'Format', html: 'HTML', text: 'Plain text' },
     view: { title: 'View', editor: 'Editor', html: 'HTML' },
     attach: 'Attach files',
     more: 'More options',

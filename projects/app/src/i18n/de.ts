@@ -39,6 +39,7 @@ export default {
     sent: 'Nachricht gesendet',
   },
   composer: {
+    format: { title: 'Format', html: 'HTML', text: 'Nur Text' },
     view: { title: 'Ansicht', editor: 'Editor', html: 'HTML' },
     attach: 'Dateien anhängen',
     more: 'Weitere Optionen',

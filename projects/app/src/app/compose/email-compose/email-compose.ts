@@ -82,6 +82,8 @@ import {
   InlineImages,
   mergeTagAt,
   emailExtensions,
+  plainTextExtensions,
+  Extension,
   createQuotedHistory,
   createPlaceholder,
   PlaceholderText,
@@ -103,6 +105,10 @@ export type SourceView = 'hidden' | 'code' | 'detached';
 /** How the editing surface draws the message: on pure white, as it is sent,
     or the way a dark-mode client shows that same message (`colorScheme`). */
 export type EditorColorScheme = 'light' | 'dark';
+
+/** What a message is written as: HTML (the email kit, formatting and all),
+    or plain text — lines, sent as `text/plain` only (`plainTextExtensions`). */
+export type BodyFormat = 'html' | 'text';
 
 /**
  * The composer: the editing surface with the editor mounted on it, and the
@@ -202,6 +208,16 @@ export class EmailCompose implements FormValueControl<string> {
 
   /** Focus left the editor — the form marks the body field touched on it. */
   touch = output<void>();
+
+  /** What the message is written as: HTML on the email kit, or plain text
+      on the plain-text kit. A schema is an editor's for life, so a switch
+      mounts a new editor on the other kit, in the old one's place, with
+      `value` as it then stands — the host converts it as it switches
+      (`plainTextHTML(emailPlainText(html))` into plain text). */
+  format = input<BodyFormat>('html');
+
+  /** The kit the editor in place was mounted with. */
+  #mountedFormat: BodyFormat | null = null;
 
   /** How the HTML source shows. Driven from outside — the composer's writer
       bar holds the toggles (in this surface's place, or beside it), and
@@ -462,6 +478,25 @@ export class EmailCompose implements FormValueControl<string> {
       untracked(() => editor?.commands['setPlaceholder'](text));
     });
 
+    // HTML or plain text: the other kit is another editor (a schema is an
+    // editor's for life), mounted in this one's place — after the render,
+    // as the first one is, once the value the host converted as it
+    // switched has reached this pane too. Until then the editor in place
+    // takes nothing in (`#applyIncoming`). Only once one is mounted — the
+    // first mount reads the format itself.
+    effect(() => {
+      this.format();
+      untracked(() => {
+        if (!this.#mountedFormat) return;
+        afterNextRender(
+          () => {
+            if (this.format() !== this.#mountedFormat) this.#remount();
+          },
+          { injector: this.#injector },
+        );
+      });
+    });
+
     // The quoted history from outside — a reply seeded, a draft restored.
     // One string, set rarely: applied at once, re-published as what the
     // schema kept. The editor's own changes come back equal and stop here.
@@ -512,137 +547,189 @@ export class EmailCompose implements FormValueControl<string> {
   /** Applies the signal's current value to the editor and re-publishes the
       canonical form (what survived the schema round-trip). */
   #applyIncoming(editor: Editor): void {
+    // An editor on the other kit — its replacement on the way — never takes
+    // the value in: it would read it down to its own schema (HTML through
+    // the plain-text kit loses its formatting) and publish that over it.
+    if (this.format() !== this.#mountedFormat) return;
     const incoming = this.value();
     if (incoming === (this.#published ??= editor.getHTML())) return;
     editor.setContent(incoming);
     this.#publish(editor);
   }
 
+  /** Puts an editor on the format's kit in place of the one there: the old
+      one goes with everything it drew (its menus close with it), and the
+      new one takes the value and the quoted history as they stand — the
+      quote is already published, so it is set, never published back over. */
+  #remount(): void {
+    this.editor()?.destroy();
+    this.bubbleMenuState.set({ isOpen: false, boundingBox: null });
+    this.blockMenuState.set({ isOpen: false, boundingBox: null, block: null });
+    this.tableHandle.set(null);
+    this.suggestionState.set(undefined);
+    this.#published = null;
+    this.#publishedQuoted = this.quoted();
+    this.#mountEditor();
+  }
+
+  /** The kit an HTML message is written with: the email kit and everything
+      the composer adds to it — the assistant, the menus, the grips, the
+      tokens, the images. */
+  #htmlKit(): Extension[] {
+    return [
+      // The writing assistant: an extension of the composer's own. It
+      // declares one action, `ai` — first in the kit, so first in the `/`
+      // menu — which opens the chat-based suggestion: the answer is *proposed*
+      // into the text under the caret (the library's content stream and
+      // proposal, opted into here), and is the message's only on Apply.
+      createAiWriter({ onAsk: (ask) => this.suggestion().show(ask) }),
+      createContentStream(),
+      createContentProposal(),
+      ...emailExtensions.filter((extension) => extension.name !== 'quotedHistory'),
+      this.#quotedHistory(),
+      createPlaceholder({ text: this.placeholder() }),
+      createBubbleMenu({
+        updateDelay: 150,
+        onStateChange: (state) => this.bubbleMenuState.set(state),
+      }),
+      createBlockMenu({
+        onStateChange: (state) => this.blockMenuState.set(state),
+        menuElement: () => this.blockMenu().element()?.nativeElement,
+      }),
+      // Notion's marquee: a drag from the paper's margin, or the room
+      // between and below the blocks, selects the blocks it touches. It
+      // starts only there, but on a paper island (a compose window) the
+      // box is drawn on the whole island — over the title bar and the
+      // envelope rows — while it still selects only blocks; elsewhere in
+      // the scrolling paper (the editor's parent, by default).
+      createBlockMarquee({ canvas: (view) => this.#island?.element ?? view.dom.parentElement! }),
+      // The grips on each row's flank and above each column: pressing one
+      // selects that band and hands the menu its target. Every command the
+      // menu then runs is selection-relative, which is why the two halves
+      // need nothing of each other.
+      createTableHandles({
+        onOpen: (target) => this.tableHandle.set(target),
+        label: (kind, number) => this.i18n.t(`editor.table.${kind}Options`, { number }),
+      }),
+      // One suggestion menu, a trigger per list: `/` for the kit's commands
+      // and the Templates group, `{{` for the variable catalogue — and any
+      // further one (`@`, `||`) is another entry here, nothing else. Both
+      // sources are server-backed and keep the default 300ms debounce;
+      // where their sessions overlap, the trigger nearest the caret opens.
+      createSuggestionMenu({
+        element: this.suggestionMenu().nativeElement,
+        onChange: (state) => this.suggestionState.set(state),
+        triggers: [
+          {
+            trigger: '/',
+            // Functions: asked whenever the menu opens, so a language
+            // switch is heard without re-creating anything.
+            label: () => this.i18n.t('editor.menu.slash.label'),
+            placeholder: () => this.i18n.t('editor.menu.slash.placeholder'),
+            // Rows by id — the kit's actions and the two groups below —
+            // in the language in use, searched in it *and* in English.
+            i18n: this.i18n.suggestionLabel,
+            items: (ctx) =>
+              bySection(
+                [
+                  ...extensionSuggestions(ctx),
+                  ...colorSuggestions(ctx, this.#palette),
+                  templateGroup(this.#templateSource),
+                  examplesGroup(this.#examples),
+                ],
+                SLASH_SECTIONS,
+              ),
+            // The sections' headings, in the language in use — the
+            // library words what the dictionary leaves out.
+            sections: (id) => this.i18n.lookup(`editor.menu.sections.${id}`),
+          },
+          {
+            trigger: '{{',
+            label: () => this.i18n.t('editor.menu.tokens.label'),
+            placeholder: () => this.i18n.t('editor.menu.tokens.placeholder'),
+            // Right after any character, and only a path: one optional
+            // space, then letters, digits, `_` and `.`.
+            startOfWord: false,
+            query: /^ ?[\w.]*$/,
+            // Not for a caret inside a token already written: those
+            // braces are the token's, and a pick would land inside it.
+            allow: ({ state }) => !caretInsideMergeTag(state),
+            source: this.#mergeTagSource,
+          },
+        ],
+      }),
+      // The dialect is the sponsor's: AngularJS expressions. Opt-in — a
+      // Handlebars host installs its own dialect here instead.
+      createAngularExpressions({ onDiagnostics: (d) => this.expressionDiagnostics.set(d) }),
+      createTextMetrics({ onMetrics: (metrics) => this.bodyMetrics.set(metrics) }),
+      createInlineImages({ registry: this.#images }),
+      // A click on a button never follows it: it opens the link editor on
+      // it, as on a text link — whose "Open link" is the way out. The caret
+      // stays in the editor, the button selected as an image is on a click:
+      // Delete removes it (and the popover with it); a click in the field
+      // edits the link.
+      createButtonEdit({ onEdit: () => this.linkEditor().show({ focus: false }) }),
+      createImageDrag({
+        // How the editor tells *this* zone an image drag is its own.
+        claim: claimDragEvent,
+        onChange: (over) => this.imageDrag.set(over),
+      }),
+      this.#sendIntent(),
+      // Core's "Parse", done from the document: each distinct expression
+      // goes to the evaluator raw (no HTML, so no `&amp;&amp;`), every
+      // value comes back in as text in its token's place — one undo step.
+      createMergeTagResolution({
+        resolve: (expressions) => this.#mergeTags.resolve(expressions),
+        onResolved: (report) => this.placeholdersFilled.emit(report),
+        onError: (error) => this.placeholdersFailed.emit(error),
+      }),
+    ];
+  }
+
+  /** The kit a plain-text message is written with: lines, and the few
+      things a plain-text mode keeps — its quoted history, the words on an
+      empty line, its measures, and Mod-Enter to send. No menu, no grip, no
+      token, nothing that formats. */
+  #plainTextKit(): Extension[] {
+    return [
+      ...plainTextExtensions.filter((extension) => extension.name !== 'quotedHistory'),
+      this.#quotedHistory(),
+      createPlaceholder({ text: this.placeholder() }),
+      createTextMetrics({ onMetrics: (metrics) => this.bodyMetrics.set(metrics) }),
+      this.#sendIntent(),
+    ];
+  }
+
+  /** The quoted history, in the language in use (labels are asked as the
+      widget draws). */
+  #quotedHistory(): Extension {
+    return createQuotedHistory({
+      labels: {
+        show: () => this.i18n.t('editor.quoted.show'),
+        hide: () => this.i18n.t('editor.quoted.hide'),
+        edit: () => this.i18n.t('editor.quoted.edit'),
+        remove: () => this.i18n.t('editor.quoted.remove'),
+      },
+    });
+  }
+
+  /** A user's gesture (Mod-Enter, /send) goes out as the send output; a
+      host asking for the payload (`intent()`) gets it handed back instead. */
+  #sendIntent(): Extension {
+    return createSendIntent({
+      onSend: (intent) => {
+        if (this.#capturing) this.#captured = intent;
+        else this.send.emit(intent);
+      },
+    });
+  }
+
   #mountEditor(): void {
+    const format = this.format();
+    this.#mountedFormat = format;
     const editor = createEditor({
       parent: this.editorHost().nativeElement,
-      extensions: [
-        // The writing assistant: an extension of the composer's own. It
-        // declares one action, `ai` — first in the kit, so first in the `/`
-        // menu — which opens the chat-based suggestion: the answer is *proposed*
-        // into the text under the caret (the library's content stream and
-        // proposal, opted into here), and is the message's only on Apply.
-        createAiWriter({ onAsk: (ask) => this.suggestion().show(ask) }),
-        createContentStream(),
-        createContentProposal(),
-        ...emailExtensions.filter((extension) => extension.name !== 'quotedHistory'),
-        createQuotedHistory({
-          labels: {
-            show: () => this.i18n.t('editor.quoted.show'),
-            hide: () => this.i18n.t('editor.quoted.hide'),
-            edit: () => this.i18n.t('editor.quoted.edit'),
-            remove: () => this.i18n.t('editor.quoted.remove'),
-          },
-        }),
-        createPlaceholder({ text: this.placeholder() }),
-        createBubbleMenu({
-          updateDelay: 150,
-          onStateChange: (state) => this.bubbleMenuState.set(state),
-        }),
-        createBlockMenu({
-          onStateChange: (state) => this.blockMenuState.set(state),
-          menuElement: () => this.blockMenu().element()?.nativeElement,
-        }),
-        // Notion's marquee: a drag from the paper's margin, or the room
-        // between and below the blocks, selects the blocks it touches. It
-        // starts only there, but on a paper island (a compose window) the
-        // box is drawn on the whole island — over the title bar and the
-        // envelope rows — while it still selects only blocks; elsewhere in
-        // the scrolling paper (the editor's parent, by default).
-        createBlockMarquee({ canvas: (view) => this.#island?.element ?? view.dom.parentElement! }),
-        // The grips on each row's flank and above each column: pressing one
-        // selects that band and hands the menu its target. Every command the
-        // menu then runs is selection-relative, which is why the two halves
-        // need nothing of each other.
-        createTableHandles({
-          onOpen: (target) => this.tableHandle.set(target),
-          label: (kind, number) => this.i18n.t(`editor.table.${kind}Options`, { number }),
-        }),
-        // One suggestion menu, a trigger per list: `/` for the kit's commands
-        // and the Templates group, `{{` for the variable catalogue — and any
-        // further one (`@`, `||`) is another entry here, nothing else. Both
-        // sources are server-backed and keep the default 300ms debounce;
-        // where their sessions overlap, the trigger nearest the caret opens.
-        createSuggestionMenu({
-          element: this.suggestionMenu().nativeElement,
-          onChange: (state) => this.suggestionState.set(state),
-          triggers: [
-            {
-              trigger: '/',
-              // Functions: asked whenever the menu opens, so a language
-              // switch is heard without re-creating anything.
-              label: () => this.i18n.t('editor.menu.slash.label'),
-              placeholder: () => this.i18n.t('editor.menu.slash.placeholder'),
-              // Rows by id — the kit's actions and the two groups below —
-              // in the language in use, searched in it *and* in English.
-              i18n: this.i18n.suggestionLabel,
-              items: (ctx) =>
-                bySection(
-                  [
-                    ...extensionSuggestions(ctx),
-                    ...colorSuggestions(ctx, this.#palette),
-                    templateGroup(this.#templateSource),
-                    examplesGroup(this.#examples),
-                  ],
-                  SLASH_SECTIONS,
-                ),
-              // The sections' headings, in the language in use — the
-              // library words what the dictionary leaves out.
-              sections: (id) => this.i18n.lookup(`editor.menu.sections.${id}`),
-            },
-            {
-              trigger: '{{',
-              label: () => this.i18n.t('editor.menu.tokens.label'),
-              placeholder: () => this.i18n.t('editor.menu.tokens.placeholder'),
-              // Right after any character, and only a path: one optional
-              // space, then letters, digits, `_` and `.`.
-              startOfWord: false,
-              query: /^ ?[\w.]*$/,
-              // Not for a caret inside a token already written: those
-              // braces are the token's, and a pick would land inside it.
-              allow: ({ state }) => !caretInsideMergeTag(state),
-              source: this.#mergeTagSource,
-            },
-          ],
-        }),
-        // The dialect is the sponsor's: AngularJS expressions. Opt-in — a
-        // Handlebars host installs its own dialect here instead.
-        createAngularExpressions({ onDiagnostics: (d) => this.expressionDiagnostics.set(d) }),
-        createTextMetrics({ onMetrics: (metrics) => this.bodyMetrics.set(metrics) }),
-        createInlineImages({ registry: this.#images }),
-        // A click on a button never follows it: it opens the link editor on
-        // it, as on a text link — whose "Open link" is the way out. The caret
-        // stays in the editor, the button selected as an image is on a click:
-        // Delete removes it (and the popover with it); a click in the field
-        // edits the link.
-        createButtonEdit({ onEdit: () => this.linkEditor().show({ focus: false }) }),
-        createImageDrag({
-          // How the editor tells *this* zone an image drag is its own.
-          claim: claimDragEvent,
-          onChange: (over) => this.imageDrag.set(over),
-        }),
-        // A user's gesture (Mod-Enter, /send) goes out as the send output; a
-        // host asking for the payload (`intent()`) gets it handed back instead.
-        createSendIntent({
-          onSend: (intent) => {
-            if (this.#capturing) this.#captured = intent;
-            else this.send.emit(intent);
-          },
-        }),
-        // Core's "Parse", done from the document: each distinct expression
-        // goes to the evaluator raw (no HTML, so no `&amp;&amp;`), every
-        // value comes back in as text in its token's place — one undo step.
-        createMergeTagResolution({
-          resolve: (expressions) => this.#mergeTags.resolve(expressions),
-          onResolved: (report) => this.placeholdersFilled.emit(report),
-          onError: (error) => this.placeholdersFailed.emit(error),
-        }),
-      ],
+      extensions: format === 'text' ? this.#plainTextKit() : this.#htmlKit(),
       attributes: { role: 'textbox', 'aria-multiline': 'true', 'aria-label': 'Message body' },
       onUpdate: (editor) => {
         this.#publish(editor);

@@ -38,6 +38,7 @@ export default {
     sent: 'メッセージを送信しました',
   },
   composer: {
+    format: { title: '形式', html: 'HTML', text: 'プレーンテキスト' },
     view: { title: '表示', editor: 'エディター', html: 'HTML' },
     attach: 'ファイルを添付',
     more: 'その他のオプション',

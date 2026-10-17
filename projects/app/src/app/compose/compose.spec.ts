@@ -1,6 +1,7 @@
 import { signal } from '@angular/core';
 import { TextSelection } from 'prosemirror-state';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { emailPlainText, plainTextHTML } from '@h-k-dev/angular-email-editor';
 
 import { Compose } from './compose';
 import { FormattingCommands } from './email-compose/formatting-commands';
@@ -46,9 +47,15 @@ async function chooseView(fixture: ComponentFixture<unknown>, view: 'Editor' | '
     (root.querySelector('.writer-bar [aria-label="More options"]') as HTMLButtonElement).click();
   }
   await fixture.whenStable();
-  const toggle = [
-    ...document.querySelectorAll<HTMLElement>('.toolbar-menu hk-tgb [role=radio]'),
-  ].find((item) => item.textContent?.trim() === view);
+  // The View row's toggle — the Format row has an "HTML" of its own.
+  const row = [...document.querySelectorAll<HTMLElement>('.toolbar-menu hk-tgb')].find(
+    (group) =>
+      document.getElementById(group.getAttribute('aria-labelledby') ?? '')?.textContent?.trim() ===
+      'View',
+  );
+  const toggle = [...(row?.querySelectorAll<HTMLElement>('[role=radio]') ?? [])].find(
+    (item) => item.textContent?.trim() === view,
+  );
   if (!toggle) throw new Error(`no ${view} toggle in the ⋮ menu`);
   toggle.click();
   await fixture.whenStable();
@@ -856,7 +863,7 @@ describe('Compose', () => {
 
     const sent = TestBed.inject(EmailSend).last()!.message;
     expect(sent.html).not.toContain('Numbers inside');
-    const doc = new DOMParser().parseFromString(sent.document, 'text/html');
+    const doc = new DOMParser().parseFromString(sent.document!, 'text/html');
     expect(doc.title).toBe('Q3');
     const article = doc.body.firstElementChild!;
     expect(article.getAttribute('role')).toBe('article');
@@ -864,6 +871,75 @@ describe('Compose', () => {
     expect(root.querySelector('[aria-label="Last send"]')?.textContent).toContain('preview text');
     // The sheet started over, the row with it.
     expect(labels()).toEqual(['From', 'To', 'Subject']);
+  });
+
+  it('the ⋮ Format turns the message to plain text and back, and sends plain text alone', async () => {
+    const root = fixture.nativeElement as HTMLElement;
+    const sheet = (component as any).sheet();
+    const rich = '<div>Hello <strong>world</strong></div><ul><li><div>one</div></li></ul>';
+    sheet.emailPane().value.set(rich);
+    await fixture.whenStable();
+    const richAsPublished = sheet.message().html;
+    expect(richAsPublished).toContain('<strong');
+
+    /** Picks a Format on the ⋮ menu's toggle — the menu stays open. */
+    const chooseFormat = async (label: 'HTML' | 'Plain text') => {
+      if (!document.querySelector('.toolbar-menu')) {
+        (
+          root.querySelector('.writer-bar [aria-label="More options"]') as HTMLButtonElement
+        ).click();
+        await fixture.whenStable();
+      }
+      const row = [...document.querySelectorAll<HTMLElement>('.toolbar-menu hk-tgb')].find(
+        (group) => group.textContent?.includes('Plain text'),
+      )!;
+      [...row.querySelectorAll<HTMLElement>('[role=radio]')]
+        .find((item) => item.textContent?.trim() === label)!
+        .click();
+      await settle();
+      await fixture.whenStable();
+    };
+    const marks = () => Object.keys(sheet.emailPane().editor().view.state.schema.marks);
+
+    expect(marks()).toContain('bold');
+    await chooseFormat('Plain text');
+    // Read down to its text, on an editor that has nothing to format with.
+    expect(sheet.message().format).toBe('text');
+    expect(emailPlainText(sheet.message().html)).toBe('Hello world\n- one');
+    expect(marks()).toEqual([]);
+    expect(root.querySelector('[aria-label="Formatting options"]')).toBeNull();
+
+    // Back before an edit: the formatting comes back as it was.
+    await chooseFormat('HTML');
+    expect(sheet.message().format).toBe('html');
+    expect(sheet.message().html).toBe(richAsPublished);
+    expect(marks()).toContain('bold');
+    // …in the new editor too, which never publishes the old text over it.
+    await settle();
+    await fixture.whenStable();
+    expect(sheet.emailPane().editor().getHTML()).toContain('<strong');
+    expect(sheet.message().html).toBe(richAsPublished);
+
+    // Edited as text, the text is what goes back.
+    await chooseFormat('Plain text');
+    sheet.emailPane().value.set(plainTextHTML('Hello world, edited'));
+    await fixture.whenStable();
+    await chooseFormat('HTML');
+    expect(sheet.message().html).not.toContain('<strong');
+    expect(emailPlainText(sheet.message().html)).toBe('Hello world, edited');
+
+    // Sent as plain text: the text alone, no HTML part.
+    await chooseFormat('Plain text');
+    sheet.message.update((m: object) => ({ ...m, to: ['ada@example.com'], subject: 'Plain' }));
+    await fixture.whenStable();
+    (root.querySelector('.writer-bar__send') as HTMLButtonElement).click();
+    await settle();
+    await fixture.whenStable();
+    const sent = TestBed.inject(EmailSend).last()!.message;
+    expect(sent.format).toBe('text');
+    expect(sent.text).toBe('Hello world, edited');
+    expect(sent.html).toBe('');
+    expect(sent.document).toBeNull();
   });
 
   it('starts with the caret in To, and tabs From, Cc, Bcc, To, Subject', async () => {

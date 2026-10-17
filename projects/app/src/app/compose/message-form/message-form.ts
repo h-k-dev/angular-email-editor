@@ -53,6 +53,8 @@ import {
   MergeTagResolutionReport,
   PlaceholderWords,
   emailDocument,
+  emailPlainText,
+  plainTextHTML,
   importLoss,
   importedDocument,
   toInboundMessage,
@@ -83,7 +85,12 @@ import { AddressFormField } from '@h-k-dev/angular-email-editor/material';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { DropHint } from '../drop-hint/drop-hint';
-import { EditorColorScheme, EmailCompose, SourceView } from '../email-compose/email-compose';
+import {
+  BodyFormat,
+  EditorColorScheme,
+  EmailCompose,
+  SourceView,
+} from '../email-compose/email-compose';
 import {
   ToolbarMenu,
   ToolbarMenuRow,
@@ -260,6 +267,8 @@ export class MessageForm {
   protected readonly subjectId = `message-subject-${nextSheetId}`;
   /** The ⋮ menu's View label's id, naming its toggle. */
   protected readonly viewLabelId = `message-view-${nextSheetId}`;
+  /** The ⋮ menu's Format label's id, naming its toggle. */
+  protected readonly formatLabelId = `message-format-${nextSheetId}`;
   /** The ⋮ menu's Theme label's id, naming its toggle. */
   protected readonly themeLabelId = `message-theme-${nextSheetId}`;
   /** The Preview text input's id, unique on the page. */
@@ -404,8 +413,43 @@ export class MessageForm {
       A choice made on a wide screen is kept for when the screen is wide
       again. */
   protected readonly toolbarShown = computed(
-    () => this.viewport.compact() || this.formattingOpen(),
+    () => !this.plainText() && (this.viewport.compact() || this.formattingOpen()),
   );
+
+  /** What the message is written and sent as — the ⋮ menu's Format:
+      HTML, or plain text (lines, sent as `text/plain` alone). */
+  protected readonly bodyFormat = computed<BodyFormat>(() => this.message().format);
+  protected readonly plainText = computed(() => this.bodyFormat() === 'text');
+
+  /** The HTML a switch to plain text left, and the text it became: back to
+      HTML with that text untouched brings the formatting back; once the
+      text is edited, the edited text goes back as it is. */
+  #beforePlain: { html: string; text: string } | null = null;
+
+  /**
+   * The Format toggle. To plain text: the body is read down to its text
+   * (`emailPlainText` — lists keep their bullets, quotes their `>`, links
+   * their URL) and written as lines (`plainTextHTML`); the editor mounts
+   * on the plain-text kit, and the HTML source steps aside — a plain-text
+   * message has none to show. No dialog in front of the loss: back to HTML
+   * before the text changes restores the formatting as it was.
+   */
+  protected onFormat(format: BodyFormat): void {
+    if (format === this.bodyFormat()) return;
+    releaseEditingSurface();
+    const message = this.message();
+    if (format === 'text') {
+      const text = emailPlainText(message.html);
+      this.#beforePlain = { html: message.html, text };
+      if (this.sourceView() === 'code') this.sourceView.set('hidden');
+      this.message.set({ ...message, format, html: plainTextHTML(text) });
+      return;
+    }
+    const kept = this.#beforePlain;
+    const untouched = kept !== null && emailPlainText(message.html) === kept.text;
+    this.#beforePlain = null;
+    this.message.set({ ...message, format, html: untouched ? kept.html : message.html });
+  }
 
   /** The editor's appearance, the ⋮ menu's toggle: a light or dark of its
       own, apart from the app's theme — the text's paper only — or `auto`,
@@ -423,9 +467,12 @@ export class MessageForm {
   });
 
   /** The bar's ⋮ menu offers its View row — the editor or its HTML — where
-      the frame has a source pane and the screen room for it. The Theme row
-      is always there (message-form.html). */
-  readonly viewOffered = computed(() => this.sourceViews() && !this.viewport.compact());
+      the frame has a source pane and the screen room for it, and the
+      message is HTML. The Format and Theme rows are always there
+      (message-form.html). */
+  readonly viewOffered = computed(
+    () => this.sourceViews() && !this.viewport.compact() && !this.plainText(),
+  );
 
   /** The View toggle's pick: the HTML in the editor's place (code view), or
       the editor — the docked source beside it included. */
@@ -534,7 +581,7 @@ export class MessageForm {
    */
   protected readonly previewOpen = signal(false);
   protected readonly showPreview = computed(
-    () => this.previewOpen() || this.message().previewText.length > 0,
+    () => !this.plainText() && (this.previewOpen() || this.message().previewText.length > 0),
   );
   protected readonly previewField = viewChild<ElementRef<HTMLInputElement>>('previewField');
 
@@ -746,17 +793,20 @@ export class MessageForm {
   async #deliver(field: FieldTree<Envelope>): Promise<TreeValidationResult> {
     const intent = this.emailPane().intent();
     if (!intent) return { kind: 'editor.unready', message: 'The editor is still loading' };
-    const { from, to, cc, bcc, subject, previewText, attachments } = field().value();
+    const { from, to, cc, bcc, subject, previewText, format, attachments } = field().value();
+    const html = format === 'html';
     try {
       const receipt = await this.#transport.send({
         ...intent,
+        // Plain text goes as its text alone: no HTML part, nothing inline.
+        format,
+        html: html ? intent.html : '',
+        inlineImages: html ? intent.inlineImages : [],
         // No `lang`: the app's language is the reader's UI, not the
         // message's — the article's `dir="auto"` still reads the text.
-        document: emailDocument(intent.html, {
-          title: subject,
-          previewText,
-          darkMode: this.#palette,
-        }),
+        document: html
+          ? emailDocument(intent.html, { title: subject, previewText, darkMode: this.#palette })
+          : null,
         from,
         to,
         cc,
@@ -764,13 +814,14 @@ export class MessageForm {
         subject,
         attachments,
       });
-      const kb = (new TextEncoder().encode(intent.html).length / 1024).toFixed(1);
-      const parts = intent.inlineImages.length;
+      const kb = (new TextEncoder().encode(receipt.message.html).length / 1024).toFixed(1);
+      const parts = receipt.message.inlineImages.length;
       const note =
         `Sent ${receipt.id} · to ${to.length} recipient${to.length === 1 ? '' : 's'}` +
         (subject ? ` · “${subject}”` : ' · no subject') +
         (previewText ? ' · preview text' : '') +
-        ` · ${kb} kB HTML · ${intent.text.length} chars text` +
+        (html ? ` · ${kb} kB HTML` : ' · plain text only') +
+        ` · ${intent.text.length} chars text` +
         (parts
           ? ` · ${parts} inline image${parts === 1 ? '' : 's'} as cid: part${parts === 1 ? '' : 's'}`
           : '') +

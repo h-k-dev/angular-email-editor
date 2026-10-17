@@ -1,4 +1,5 @@
 import { AttachmentRef } from '../../../services/attachment-uploads';
+import type { BodyFormat } from '../email-compose/email-compose';
 
 /**
  * The message as the form holds it: what the user controls, and nothing
@@ -16,6 +17,10 @@ export interface Envelope {
       preview text (`emailDocument`); empty lets the client take the body's
       first line, as every personal mail does. */
   previewText: string;
+  /** What the message is written and sent as: HTML, or plain text — lines
+      only, sent as `text/plain` alone. `html` is the body either way (a
+      plain-text body is its lines as email HTML, `plainTextHTML`). */
+  format: BodyFormat;
   html: string;
   /** The HTML as it came in — pasted into the source pane, or an example
       loaded whole — before the editor read it; null for a message written
@@ -37,6 +42,7 @@ export const BLANK: Envelope = {
   bcc: [],
   subject: '',
   previewText: '',
+  format: 'html',
   original: null,
   html: '',
   quoted: null,

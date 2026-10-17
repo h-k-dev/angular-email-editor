@@ -1,4 +1,6 @@
-import { emailPlainText } from './plain-text';
+import { createEditor, Editor } from './editor';
+import { plainTextExtensions } from './extensions/kits';
+import { emailPlainText, plainTextHTML } from './plain-text';
 
 describe('plain-text projection', () => {
   it('renders lines, empty lines and quotes Gmail-style', () => {
@@ -49,5 +51,61 @@ describe('plain-text projection', () => {
         '<blockquote><div>outer</div><blockquote><div>inner</div></blockquote></blockquote>',
       ),
     ).toBe('> outer\n> > inner');
+  });
+});
+
+describe('plainTextHTML', () => {
+  it('writes one email line per line, an empty line as <div><br></div>, escaped', () => {
+    expect(plainTextHTML('Hi <Ada> & co\n\nBye')).toBe(
+      '<div>Hi &lt;Ada&gt; &amp; co</div><div><br></div><div>Bye</div>',
+    );
+  });
+
+  it('is read back by emailPlainText as the same lines', () => {
+    for (const text of ['one line', 'a\nb', 'a\n\n\nb', '> quoted\n- item', 'x < y && y > z']) {
+      expect(emailPlainText(plainTextHTML(text))).toBe(text);
+    }
+  });
+});
+
+describe('plainTextExtensions', () => {
+  let host: HTMLElement;
+  let editor: Editor;
+
+  beforeEach(() => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    editor = createEditor({ parent: host, extensions: plainTextExtensions });
+  });
+
+  afterEach(() => {
+    editor.destroy();
+    host.remove();
+  });
+
+  it('has lines and line breaks, and nothing to format them with', () => {
+    const { schema } = editor.view.state;
+    expect(Object.keys(schema.marks)).toEqual([]);
+    expect(Object.keys(schema.nodes).sort()).toEqual(['doc', 'hardBreak', 'paragraph', 'text']);
+  });
+
+  it('reads formatted HTML down to its text', () => {
+    editor.setContent(
+      '<h1>Title</h1><div>Hello <strong>world</strong> and <a href="https://x.io">a link</a></div>',
+    );
+    const html = editor.getHTML();
+    expect(html).not.toMatch(/<(h1|strong|a)\b/);
+    expect(emailPlainText(html)).toBe('Title\nHello world and a link');
+  });
+
+  it('publishes what emailPlainText reads back as the text it was given', () => {
+    const text = 'Hi Ada,\n\nSure, by noon.\nGrace';
+    editor.setContent(plainTextHTML(text));
+    expect(emailPlainText(editor.getHTML())).toBe(text);
+  });
+
+  it('keeps the quoted history beside the text', () => {
+    editor.setQuoted('<div>On Monday, Ada wrote:</div><blockquote><div>hi</div></blockquote>');
+    expect(editor.getQuoted()).toContain('Ada wrote');
   });
 });

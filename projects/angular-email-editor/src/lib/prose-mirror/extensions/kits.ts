@@ -123,6 +123,30 @@ export const emailExtensions: Extension[] = [
 ];
 
 /**
+ * Plain text — a mail client's plain-text mode: the message as lines and
+ * nothing else. No marks, no blocks, no images, no tokens in the schema, so
+ * neither a shortcut (Mod-B has nothing to toggle) nor a paste (HTML is
+ * read down to its text) can bring formatting in. Lines are the email
+ * kit's `<div>` lines, Shift-Enter a `<br>` inside one, so what the editor
+ * publishes is still email HTML — `emailPlainText` reads it back as exactly
+ * the text written, the `text/plain` a plain-text message sends. The
+ * quoted history is kept beside it, as in the email kit.
+ *
+ * A host switches a message between the two by mounting a new editor on
+ * the other kit (a schema is fixed for an editor's life) with the content
+ * carried over: `plainTextHTML(emailPlainText(html))` on the way in.
+ */
+export const plainTextExtensions: Extension[] = [
+  Document,
+  EmailParagraph,
+  Text,
+  HardBreak,
+  History,
+  QuotedHistory,
+  BaseKeymap,
+];
+
+/**
  * The parallel source-editor kit: the document is HTML source text, one
  * `codeLine` per line, with highlighting, linting and formatting instead of
  * rich-text nodes. Developed alongside the email kit on the same extension

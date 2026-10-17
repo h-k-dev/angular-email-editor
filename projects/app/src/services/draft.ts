@@ -41,6 +41,9 @@ export interface DraftContent {
   readonly subject: string;
   /** The inbox snippet; absent in drafts written before it existed. */
   readonly previewText?: string;
+  /** Plain text or HTML; absent (HTML) in drafts written before it
+      existed. */
+  readonly format?: 'html' | 'text';
   readonly html: string;
   /** The HTML as it came in, before the editor read it; absent for a
       message written here, and in drafts written before it existed. */

@@ -47,7 +47,7 @@
        always stays (`toolbarShown`); the composer keeps the toolbar, the
        sheet only decides whether it shows. -->
   <ng-template #formatting>
-    @if (!viewport.compact()) {
+    @if (!viewport.compact() && !plainText()) {
       <button
         mat-icon-button
         type="button"
@@ -103,6 +103,22 @@
     >
       <!-- Rows of a word and its toggle button group. A pick is not a menu
            choice: the menu stays open, the sheet changes behind it. -->
+      <!-- The Format: HTML, or plain text — lines, sent as text/plain alone
+           (`onFormat` converts the body; back before an edit restores it). -->
+      <ng-template toolbarMenuRow>
+        <span class="menu-row__label" [id]="formatLabelId">{{
+          'composer.format.title' | translate
+        }}</span>
+        <hk-tgb
+          class="menu-row__toggle"
+          [attr.aria-labelledby]="formatLabelId"
+          [value]="bodyFormat()"
+          (valueChange)="onFormat($event)"
+        >
+          <button hkTgbText value="html">{{ 'composer.format.html' | translate }}</button>
+          <button hkTgbText value="text">{{ 'composer.format.text' | translate }}</button>
+        </hk-tgb>
+      </ng-template>
       <!-- The View: the editor, or its HTML in the editor's place. -->
       @if (viewOffered()) {
         <ng-template toolbarMenuRow>
@@ -441,16 +457,19 @@
          row's end that steps aside while its row is shown. Unlike theirs it
          comes *after* its control in the source, so Tab runs To, Subject,
          Preview — the subject first, the snippet as its follow-up. -->
+    <!-- Not for plain text: the snippet is a part of the HTML document. -->
     <ng-template #previewButton>
-      <button
-        type="button"
-        class="writer-field__action"
-        title="Text shown after the subject in the inbox"
-        emailKeepFocus
-        (click)="openPreview(); $event.stopPropagation()"
-      >
-        Preview
-      </button>
+      @if (!plainText()) {
+        <button
+          type="button"
+          class="writer-field__action"
+          title="Text shown after the subject in the inbox"
+          emailKeepFocus
+          (click)="openPreview(); $event.stopPropagation()"
+        >
+          Preview
+        </button>
+      }
     </ng-template>
     @if (material()) {
       <mat-form-field class="writer-field__form-field" subscriptSizing="dynamic">
@@ -545,6 +564,7 @@
     (fileDrop)="onAttachmentDrop($event)"
     [(sourceView)]="sourceView"
     [toolbar]="toolbarShown()"
+    [format]="bodyFormat()"
     [colorScheme]="editorScheme()"
     [codePortal]="codePortal()"
     [codeEditor]="codeEditor()"
