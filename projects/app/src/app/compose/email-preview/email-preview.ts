@@ -21,6 +21,7 @@ import {
   emailPlainText,
   renderForClient,
 } from '@h-k-dev/angular-email-editor';
+import { injectPalette } from '@h-k-dev/angular-email-editor/palette';
 
 import { atRest } from '../at-rest';
 
@@ -165,6 +166,8 @@ export class EmailPreview {
   }
 
   readonly #destroy = inject(DestroyRef);
+  /** The palette whose dark variants the email is sent with. */
+  readonly #palette = injectPalette();
 
   /** The HTML the frame draws for its client — the editor's, or the
       original — inside a fully sandboxed frame (no scripts, no
@@ -174,7 +177,11 @@ export class EmailPreview {
     const html =
       this.source() === 'original' && original ? original : this.#images.previewHtml(this.#shown());
     return this.#sanitizer.bypassSecurityTrustHtml(
-      renderForClient(html, this.client(), { dark: this.mode() === 'dark', pane: this.device() }),
+      renderForClient(html, this.client(), {
+        dark: this.mode() === 'dark',
+        pane: this.device(),
+        darkMode: this.#palette,
+      }),
     );
   });
 

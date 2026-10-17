@@ -1,4 +1,9 @@
-import { dropMediaQueries, keepGmailRules, renderForClient } from './client-rendering';
+import {
+  dropMediaQueries,
+  keepGmailRules,
+  renderForClient,
+  resolveColorScheme,
+} from './client-rendering';
 
 describe('renderForClient', () => {
   const body = (html: string) => /<body[^>]*>([\s\S]*)<\/body>/.exec(html)?.[1] ?? '';
@@ -64,6 +69,33 @@ describe('renderForClient', () => {
     expect(renderForClient('<p>x</p>', 'gmail', { dark: true })).toContain('invert(1)');
     expect(renderForClient('<p>x</p>', 'apple-mail', { dark: true })).toContain('#1e1e1e');
     expect(renderForClient('<p>x</p>', 'gmail')).not.toContain('invert(1)');
+    // Classic Outlook recolours the message onto its own #292929.
+    expect(renderForClient('<p>x</p>', 'outlook-desktop', { dark: true })).toContain(
+      'invert(0.8392)',
+    );
+  });
+
+  it('draws a fragment as it is sent: Apple’s dark mode reads the variants, Gmail never', () => {
+    const red = '<p><span style="color: #c5221f">x</span></p>';
+    const appleDark = renderForClient(red, 'apple-mail', { dark: true });
+    expect(appleDark).toContain('class="aee-dt-c5221f"');
+    expect(appleDark).toContain('@media (min-width: 0px) {.aee-dt-c5221f');
+    // No client drawn here sets Outlook.com’s marker.
+    expect(appleDark).not.toContain('data-ogsc');
+    expect(renderForClient(red, 'apple-mail')).toContain('@media (max-width: -1px)');
+    expect(renderForClient(red, 'gmail', { dark: true })).toContain('@media (max-width: -1px)');
+    expect(renderForClient(red, 'apple-mail', { dark: true, darkMode: false })).not.toContain(
+      'aee-dt-',
+    );
+  });
+
+  it('answers a document’s own scheme queries for the frame', () => {
+    expect(
+      resolveColorScheme(
+        '@media (prefers-color-scheme: dark) { a {} } @media ( prefers-color-scheme : light ) { b {} }',
+        true,
+      ),
+    ).toBe('@media (min-width: 0px) { a {} } @media (max-width: -1px) { b {} }');
   });
 });
 

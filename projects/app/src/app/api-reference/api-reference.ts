@@ -211,8 +211,8 @@ export class ApiReference {
         {
           name: 'renderForClient · RENDERING_CLIENTS',
           signature:
-            "(html, client: 'apple-mail' | 'gmail' | 'outlook-desktop', { dark? }) => string",
-          does: 'The email as a client would draw it — a whole document for a sandboxed frame, from the client-support data: the client’s surface laid under the HTML (a fragment or a whole pasted document, its head kept), and what the data says the client ignores taken out — Gmail’s dropped comments, form controls and unmatched style rules, Outlook’s opened conditional comments, lost media queries and ignored declarations, an inline-block column stacked — with the client’s dark mode on request.',
+            "(html, client: 'apple-mail' | 'gmail' | 'outlook-desktop', { dark?, pane?, darkMode? }) => string",
+          does: 'The email as a client would draw it — a whole document for a sandboxed frame, from the client-support data: the client’s surface laid under the HTML (a fragment or a whole pasted document, its head kept), and what the data says the client ignores taken out — Gmail’s dropped comments, form controls and unmatched style rules, Outlook’s opened conditional comments, lost media queries and ignored declarations, an inline-block column stacked — with the client’s dark mode on request: Apple Mail’s surface under the email’s own prefers-color-scheme rules (a fragment gets the dark-mode classes emailDocument sends), Gmail’s and classic Outlook’s inversion.',
         },
         {
           name: 'emailPlainText',
@@ -221,8 +221,9 @@ export class ApiReference {
         },
         {
           name: 'emailDocument',
-          signature: '(html: string, options?: { lang?, dir?, title?, previewText? }) => string',
-          does: 'The full document a transport sends: the Outlook DPI fix, iOS text-size and Apple reformatting guards, an article wrapper with lang/dir, and hidden inbox preview text. All inline, no <style> block.',
+          signature:
+            '(html: string, options?: { lang?, dir?, title?, previewText?, darkMode?: DarkModePalette | false }) => string',
+          does: 'The full document a transport sends: the Outlook DPI fix, iOS text-size and Apple reformatting guards, an article wrapper with lang/dir, and hidden inbox preview text. Inline, but for two enhancements nothing depends on: the phone rule for stacked columns, and dark mode — color-scheme light dark, and the palette’s colours given their dark variants (markDarkMode), in a <style> of its own.',
         },
         {
           name: 'scanHTML / lintHTML',
@@ -434,7 +435,13 @@ export class ApiReference {
         {
           name: 'emailTextPalette / emailBackgroundPalette',
           signature: 'PaletteColor[]',
-          does: 'The colours that pass on both sides — the swatches the composer’s pickers offer.',
+          does: 'The colours that pass on both sides — the swatches the composer’s pickers offer: AA on white, on every pale fill and inverted; each with its dark variant (PaletteColor.dark), AA on DARK_MODE_SURFACES and every dark fill. Black, the body’s text, AAA in both.',
+        },
+        {
+          name: 'markDarkMode · darkModeEditorCss · emailDarkModePalette',
+          signature:
+            '(html, palette?) => { html, css } · (scope: string, palette?) => string · DarkModePalette',
+          does: 'Dark mode written into the email: a palette fill goes dark (aee-db-<hex>) when nothing in it wears a colour outside the palette and every background round it goes dark too; a palette text colour lights up (aee-dt-<hex>) under no background that stays light. css is the prefers-color-scheme and [data-ogsc]/[data-ogsb] rules for exactly those classes. darkModeEditorCss is the same rendering as a stylesheet over the live text under scope — the editor’s dark paper.',
         },
         {
           name: 'EMAIL_PALETTE · providePalette · injectPalette · colorSuggestions',

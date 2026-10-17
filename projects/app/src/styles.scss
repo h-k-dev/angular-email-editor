@@ -616,16 +616,16 @@ html {
  * light-dark() pair resolved where it is used, so re-declaring the scheme on
  * the editor's root re-resolves everything in the text (guides, chips) too.
  *
- * Dark is not a second palette: it is that same light rendering put through
- * a filter, the way a dark-mode client recolours a message it is given —
- * Apple Mail's surface, #1e1e1e, the softest black it uses (the preview's
- * `apple-mail` dark rule). `invert(a)` takes white to 1 - a, so
- * a = 1 - 30/255 = 0.8824 lands the white page exactly on #1e1e1e and black
- * text on #e1e1e1; `hue-rotate(180deg)` turns the hues back, so red text
- * stays red. The paper round the 600px column is painted the same #1e1e1e,
- * so the filtered page and its margin are one surface. An image is put
- * through the inversion once more and comes out as itself, its contrast
- * eased into the page's range (#1e1e1e – #e1e1e1), as a dark client dims it.
+ * Dark is the sent email as Apple Mail draws it in dark mode — the client
+ * that reads the email's own dark-mode rules (the library's dark-mode.ts),
+ * and the preview's `apple-mail` dark rule: its surface, #1e1e1e, its white
+ * text, and every palette colour in the text in its dark variant, where the
+ * email's rules would move it (`injectDarkPaletteStyle` puts the same rules
+ * over the live text). A colour typed into the source stays as typed, as it
+ * does there, and so does a picture. The scheme turns dark with it, so the
+ * guides and chips in the text take their dark tokens. The paper round the
+ * 600px column is the same #1e1e1e: page and margin are one surface. Gmail
+ * and classic Outlook invert instead — the preview draws those.
  */
 .email-compose__editor[data-color-scheme] {
   background-color: #fff;
@@ -641,11 +641,9 @@ html {
   background-color: #1e1e1e;
 
   > .aee-editor {
-    filter: invert(0.8824) hue-rotate(180deg);
-  }
-
-  > .aee-editor img {
-    filter: invert(1) hue-rotate(180deg);
+    color-scheme: dark;
+    color: #fff;
+    background-color: #1e1e1e;
   }
 }
 

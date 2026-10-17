@@ -12,6 +12,7 @@ export * from './authored';
 export * from './fixtures/mjml-worldly';
 export * from './html-source';
 export * from './dual-contrast';
+export * from './dark-mode';
 export * from './client-support';
 export * from './client-rendering';
 export * from './plain-text';

@@ -50,9 +50,24 @@ export function passesDualContrast(hex: string): boolean {
   );
 }
 
+/**
+ * The dark surfaces the dark variants are held to: Apple Mail's reading pane
+ * and Outlook's (new Outlook for Windows, Outlook.com) — the clients that
+ * read the email's own dark-mode styles (dark-mode.ts). AA (4.5:1) for a
+ * colour on each, and AAA (7:1) for the body's black on each.
+ */
+export const DARK_MODE_SURFACES: readonly string[] = ['#1e1e1e', '#292929'];
+
 export interface PaletteColor {
   name: string;
   value: string;
+  /** What the colour turns into where a client reads the email's dark-mode
+      styles (Apple Mail, Outlook): the same hue, lit for a dark page — a
+      text colour reads on {@link DARK_MODE_SURFACES} and on every fill's
+      dark variant, a fill goes dark under its paired text's dark variant.
+      None, and the colour stays as it is in dark mode too (white text, the
+      black fill). */
+  dark?: string;
   /** Offered although it fails its palette's rule — and why. The palette
       tests hold every other swatch to the rule, and this one to failing it,
       so an exception is always a decision on record, never an accident. */
@@ -110,7 +125,7 @@ export const FILL_TEXT_COLOR_LIGHT = '#ffffff';
 
 /** A `#rgb`, `#rrggbb` or CSSOM `rgb()` / `rgba()` colour as `#rrggbb`, or
     null for anything else (a keyword, a function this does not read). */
-function toHex(raw: string): string | null {
+export function cssColorToHex(raw: string): string | null {
   const v = raw.trim().toLowerCase();
   if (/^#[0-9a-f]{6}$/.test(v)) return v;
   if (/^#[0-9a-f]{3}$/.test(v)) return '#' + [...v.slice(1)].map((c) => c + c).join('');
@@ -134,7 +149,7 @@ function cssomRgb(hex: string): string {
 /** The text a fill is paired with: white on a dark fill, near-black on
     anything else (a colour this cannot read included). */
 export function fillTextColor(background: string): string {
-  const hex = toHex(background);
+  const hex = cssColorToHex(background);
   if (!hex) return FILL_TEXT_COLOR;
   return contrastRatio(hex, FILL_TEXT_COLOR_LIGHT) > contrastRatio(hex, FILL_TEXT_COLOR)
     ? FILL_TEXT_COLOR_LIGHT
@@ -167,19 +182,24 @@ export function passesDualBackground(hex: string): boolean {
  * passing {@link passesDualBackground} — proven by test. Shared by every
  * background affordance (text highlight, table cells, column panels) so fills
  * read the same everywhere and survive inversion. Black carries white text.
+ *
+ * Each pale fill has a dark variant (dark-mode.ts): the same hue at about
+ * the luminance of a dark client's page, so its paired text's variant reads
+ * on it at AAA and every text colour's variant at AA. Black has none: white
+ * on it already reads on a dark page.
  */
 export const emailBackgroundPalette: PaletteColor[] = [
-  { name: 'White', value: '#ffffff' },
-  { name: 'Gray', value: '#f1f3f4' },
+  { name: 'White', value: '#ffffff', dark: '#1e1e1e' },
+  { name: 'Gray', value: '#f1f3f4', dark: '#2f3031' },
   { name: 'Black', value: '#202124' },
-  { name: 'Red', value: '#fce8e6' },
-  { name: 'Orange', value: '#feefe3' },
-  { name: 'Yellow', value: '#fef7e0' },
-  { name: 'Green', value: '#e6f4ea' },
-  { name: 'Teal', value: '#e0f2f1' },
-  { name: 'Blue', value: '#e8f0fe' },
-  { name: 'Purple', value: '#f3e8fd' },
-  { name: 'Pink', value: '#fce7f0' },
+  { name: 'Red', value: '#fce8e6', dark: '#4a2624' },
+  { name: 'Orange', value: '#feefe3', dark: '#462a10' },
+  { name: 'Yellow', value: '#fef7e0', dark: '#3b2f01' },
+  { name: 'Green', value: '#e6f4ea', dark: '#183624' },
+  { name: 'Teal', value: '#e0f2f1', dark: '#083635' },
+  { name: 'Blue', value: '#e8f0fe', dark: '#22304b' },
+  { name: 'Purple', value: '#f3e8fd', dark: '#3e264f' },
+  { name: 'Pink', value: '#fce7f0', dark: '#4a2437' },
 ];
 
 /**
@@ -187,33 +207,43 @@ export const emailBackgroundPalette: PaletteColor[] = [
  * — proven by test, not by promise. This is what a color picker should offer
  * instead of an arbitrary hex input.
  *
- * Black and white are the two exceptions (no neutral near either end passes:
- * the band runs from #616161 to #949494), offered because a writer needs
- * them — black to take coloured text back to plain, white for text on a dark
- * fill.
+ * Every colour reads at AA (4.5:1) on white and on every pale fill, and so
+ * does its inversion on black (Gmail's dark mode). Its dark variant reads at
+ * AA on {@link DARK_MODE_SURFACES} and on every fill's dark variant — what
+ * Apple Mail and Outlook show, where the email's dark-mode styles are read
+ * (dark-mode.ts). The tones are each hue's lightest that holds on the
+ * palest-but-one fill; the variants are the same hue, lit just enough.
+ *
+ * Black and white are the two exceptions to the mid-tone rule (no neutral
+ * near either end passes: the band runs from #616161 to #949494), offered
+ * because a writer needs them — black to take coloured text back to plain,
+ * white for text on a dark fill. Black is the body's text, so it is held to
+ * AAA (7:1) in both modes.
  */
 export const emailTextPalette: PaletteColor[] = [
   {
     name: 'Black',
     value: '#202124',
-    exception: 'Vanishes on a dark client that keeps explicit colours; inverters flip it.',
+    dark: '#e8eaed',
+    exception:
+      'Vanishes on a dark client that keeps explicit colours and reads no dark-mode styles; inverters flip it, the rest take its dark variant.',
   },
-  { name: 'Gray', value: '#5f6368' },
+  { name: 'Gray', value: '#5f6368', dark: '#969a9f' },
   {
     name: 'White',
     value: '#ffffff',
     exception: 'Invisible on a white page — it is for text on a dark fill.',
   },
-  { name: 'Brown', value: '#8d6e63' },
-  { name: 'Red', value: '#c5221f' },
-  { name: 'Orange', value: '#c2410c' },
-  { name: 'Amber', value: '#a05a00' },
-  { name: 'Olive', value: '#808000' },
-  { name: 'Green', value: '#188038' },
-  { name: 'Teal', value: '#0f766e' },
-  { name: 'Cyan', value: '#0e7490' },
-  { name: 'Blue', value: '#1a73e8' },
-  { name: 'Indigo', value: '#6366f1' },
-  { name: 'Purple', value: '#9333ea' },
-  { name: 'Pink', value: '#c2185b' },
+  { name: 'Brown', value: '#836459', dark: '#b39287' },
+  { name: 'Red', value: '#c5221f', dark: '#ff695b' },
+  { name: 'Orange', value: '#bf3e06', dark: '#f67145' },
+  { name: 'Amber', value: '#9e5a09', dark: '#d38943' },
+  { name: 'Olive', value: '#6e6e06', dark: '#9d9e34' },
+  { name: 'Green', value: '#0f7b33', dark: '#4dac61' },
+  { name: 'Teal', value: '#0f766e', dark: '#50a89f' },
+  { name: 'Cyan', value: '#0e7490', dark: '#4da4c1' },
+  { name: 'Blue', value: '#0366da', dark: '#5299ff' },
+  { name: 'Indigo', value: '#5858e2', dark: '#8590fe' },
+  { name: 'Purple', value: '#9333ea', dark: '#b77efe' },
+  { name: 'Pink', value: '#c2185b', dark: '#fd6490' },
 ];

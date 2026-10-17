@@ -55,6 +55,7 @@ import {
   toInboundMessage,
 } from '@h-k-dev/angular-email-editor';
 import { isEmailAddress, parseMailbox } from '@h-k-dev/angular-email-editor/address';
+import { injectPalette } from '@h-k-dev/angular-email-editor/palette';
 import {
   AddressDragGroup,
   AddressInput,
@@ -186,6 +187,8 @@ export class MessageForm {
     message: 'mail',
   };
   readonly #transport = inject(EmailSend);
+  /** The palette whose dark variants go out with the email. */
+  readonly #palette = injectPalette();
   readonly #images = inject(InlineImages);
   readonly #injector = inject(Injector);
   protected readonly viewport = inject(Viewport);
@@ -432,7 +435,8 @@ export class MessageForm {
       them, whichever frame the control sits in. From (like To) is optional:
       its label reads it in the very pass that creates it. */
   protected readonly fromField = viewChild<AddressInput>('fromField');
-  protected readonly subjectField = viewChild.required<ElementRef<HTMLInputElement>>('subjectField');
+  protected readonly subjectField =
+    viewChild.required<ElementRef<HTMLInputElement>>('subjectField');
 
   constructor() {
     // Focus is a DOM write: the write phase, batched ahead of the reads of
@@ -718,7 +722,11 @@ export class MessageForm {
         ...intent,
         // No `lang`: the app's language is the reader's UI, not the
         // message's — the article's `dir="auto"` still reads the text.
-        document: emailDocument(intent.html, { title: subject, previewText }),
+        document: emailDocument(intent.html, {
+          title: subject,
+          previewText,
+          darkMode: this.#palette,
+        }),
         from,
         to,
         cc,

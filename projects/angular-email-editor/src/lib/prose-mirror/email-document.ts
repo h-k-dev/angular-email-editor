@@ -1,5 +1,12 @@
 import { escapeAttribute, escapeText } from './utils/escape';
 import { STACK_RULE, markStackingColumns } from './extensions/nodes/columns';
+import {
+  COLOR_SCHEME_META,
+  COLOR_SCHEME_RULE,
+  DarkModePalette,
+  emailDarkModePalette,
+  markDarkMode,
+} from './dark-mode';
 
 export interface EmailDocumentOptions {
   /** The body's language (`en`, `ja`, `de`, …) — screen readers pick their
@@ -16,6 +23,11 @@ export interface EmailDocumentOptions {
   /** The inbox snippet shown next to the subject. Without it the client
       takes the first text it finds — often an image's alt or a greeting. */
   previewText?: string;
+  /** The colours that take a dark variant where a client reads the
+      email's dark-mode styles (dark-mode.ts) — the library's palette by
+      default; a host with its own palette passes it. `false` leaves dark
+      mode to the client: no `color-scheme`, no variants. */
+  darkMode?: DarkModePalette | false;
 }
 
 /**
@@ -39,12 +51,23 @@ export interface EmailDocumentOptions {
  * keeps the cap — narrower, still whole — and loses nothing else, which is
  * the same rule the canonical HTML already keeps.
  *
+ * Dark mode is the other enhancement (dark-mode.ts): the document says it
+ * is drawn for both schemes, and the palette's colours in it wear a class
+ * that their dark variant hangs on, in a `<style>` of its own — a client
+ * that reads none of it (Gmail, classic Outlook) inverts the light colours,
+ * which are chosen to read inverted.
+ *
  * The result is for the transport, not for the editor: parse and
  * `emailPlainText` take the fragment `serializeToHTML` returns (the preview
  * text would otherwise read as body text).
  */
 export function emailDocument(html: string, options: EmailDocumentOptions = {}): string {
-  const { lang, dir = 'auto', title, previewText } = options;
+  const { lang, dir = 'auto', title, previewText, darkMode = emailDarkModePalette } = options;
+  // Columns first: the stacking class goes in by pattern, on the markup as
+  // the editor wrote it; the dark-mode classes join it on the element.
+  const stacked = markStackingColumns(html);
+  const dark = darkMode ? markDarkMode(stacked, darkMode) : null;
+  const darkStyle = dark ? [COLOR_SCHEME_RULE, dark.css].filter(Boolean).join(' ') : '';
   const langAttr = lang ? ` lang="${escapeAttribute(lang)}"` : '';
   const dirAttr = ` dir="${dir}"`;
   return (
@@ -55,14 +78,16 @@ export function emailDocument(html: string, options: EmailDocumentOptions = {}):
     '<meta http-equiv="Content-Type" content="text/html; charset=utf-8">' +
     '<meta name="viewport" content="width=device-width, initial-scale=1">' +
     '<meta name="x-apple-disable-message-reformatting">' +
+    (dark ? COLOR_SCHEME_META : '') +
     `<title>${escapeText(title ?? '')}</title>` +
     OUTLOOK_SETTINGS +
     `<style type="text/css">${STACK_RULE}</style>` +
+    (dark ? `<style type="text/css">${darkStyle}</style>` : '') +
     '</head>' +
     `<body style="${BODY_STYLE}">` +
     `<div role="article" aria-roledescription="email"${langAttr}${dirAttr}>` +
     (previewText ? previewBlock(previewText) : '') +
-    markStackingColumns(html) +
+    (dark ? dark.html : stacked) +
     '</div>' +
     '</body>' +
     '</html>'

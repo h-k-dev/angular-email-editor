@@ -80,16 +80,26 @@ HTML is allowed to be.
    responsiveness is achieved _fluidly_ (max-widths, percentage widths,
    wrapping structures with inline styles), never via `<style>` media
    queries that half the clients strip.
-9. **We don't fight dark mode.** There is no reliable control — Gmail and
-   Outlook forcibly recolor, and the official mechanisms don't survive
-   transit — so we never emit dark-mode CSS or anti-inversion hacks. Instead
-   the output _inverts gracefully by construction_: colorless by default
-   (uncolored email is every inverter's happy path), and every color _we
-   offer_ passes the **dual-contrast rule** — readable against both white
-   and near-black. Enforcement lives at the affordance: the color picker is
-   a curated palette, not an arbitrary hex input. The source pane stays
-   free — a hand-typed hex is the author's own responsibility; we never
-   rewrite, block, or police colors from the code side.
+9. **We don't fight dark mode — we meet it.** Gmail and classic Outlook
+   forcibly recolor and read no dark-mode CSS, so the output _inverts
+   gracefully by construction_: colorless by default (uncolored email is
+   every inverter's happy path), and every color _we offer_ reads at AA
+   on white, on every pale fill, and once inverted. That alone cannot
+   hold on a client that keeps the email's colors on its own dark page
+   (Apple Mail, Outlook.com): AA on white needs a luminance at most 0.18,
+   AA on #1e1e1e at least 0.23 — no single value does both. So since
+   2026-10-17 each palette color carries a **dark variant**, and the sent
+   document (`emailDocument`, never the canonical HTML) says it is drawn
+   for both schemes and gives the palette's colors their variants —
+   `prefers-color-scheme` for Apple, `[data-ogsc]`/`[data-ogsb]` for
+   Outlook.com, in a `<style>` of its own that a stripping client loses
+   alone (dark-mode.ts). No anti-inversion hacks. Body text is AAA (7:1)
+   in both modes, colors AA (4.5:1). The editor's dark paper is that
+   rendering — Apple Mail's — not a filter. Enforcement lives at the
+   affordance: the color picker is a curated palette, not an arbitrary hex
+   input. The source pane stays free — a hand-typed hex is the author's
+   own responsibility; we never rewrite, block, or police colors from the
+   code side, and a fill holding one stays light.
 
 ## UI/UX & platform stance
 

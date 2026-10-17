@@ -49,6 +49,7 @@ import { I18n } from '../../../services/i18n';
 import { createAiWriter } from './ai-writer';
 import { MERGE_TAG_SOURCE } from './merge-tag-source';
 import { TEMPLATE_SOURCE, templateGroup } from './template-group';
+import { injectDarkPaletteStyle } from './dark-palette-style';
 
 // Library
 import {
@@ -231,10 +232,11 @@ export class EmailCompose implements FormValueControl<string> {
   /** The editing surface's own scheme — the text only, never the chrome
       around it, and apart from the app's theme: an email has no theme of
       its own to follow. `light` is the message on pure white, as it is
-      written; `dark` is that same light rendering put through a client's
-      dark-mode filter (Apple Mail's surface — see `[data-color-scheme]` in
-      styles.scss). Light unless the host switches it; two-way, for a host
-      whose switch lives outside. */
+      written; `dark` is the message as Apple Mail shows it in dark mode —
+      its surface and text, and the palette's colours in their dark
+      variants, the ones `emailDocument` sends (see `[data-color-scheme]`
+      in styles.scss, and `injectDarkPaletteStyle`). Light unless the host
+      switches it; two-way, for a host whose switch lives outside. */
   colorScheme = model<EditorColorScheme>('light');
 
   /** Files let go over the editing surface that the editor did not take for
@@ -389,6 +391,8 @@ export class EmailCompose implements FormValueControl<string> {
   }
 
   constructor() {
+    injectDarkPaletteStyle(".email-compose__editor[data-color-scheme='dark'] > .aee-editor");
+
     // No phase: mounting ProseMirror writes the DOM and reads it back (the
     // selection, the caret's coordinates) in one go.
     afterNextRender(() => this.#mountEditor());

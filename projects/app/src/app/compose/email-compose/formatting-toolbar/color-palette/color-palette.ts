@@ -5,10 +5,10 @@ import { MatIconModule } from '@angular/material/icon';
 import { KeepFocus } from '@h-k-dev/angular-email-editor/focus';
 
 /**
- * A curated swatch picker: the text palette (dual-contrast — every swatch
- * reads on both white and near-black, so it survives forced dark-mode
- * inversion) or the background one (pale tints that keep text readable
- * either way). No hex input: arbitrary colours live solely in the HTML
+ * A curated swatch picker: the text palette (every swatch reads at AA on
+ * white and once a client inverts it, and carries a dark variant for the
+ * clients that read the email's dark-mode styles) or the background one
+ * (pale tints that keep text readable either way, each with its dark tint). No hex input: arbitrary colours live solely in the HTML
  * source, on purpose.
  *
  * The host names the palette (`aria-label` / `aria-labelledby`) and draws
