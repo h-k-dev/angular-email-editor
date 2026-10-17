@@ -103,7 +103,7 @@ describe('prose-mirror core', () => {
     let state = stateFromHTML('<p>item</p>', 1, 1);
     state = runCommand(state, 'bulletList', 'toggleBulletList');
     expect(serializeToHTML(state.doc, schema)).toBe(
-      '<ul style="margin: 0px; padding-left: 24px;"><li><p dir="auto">item</p></li></ul>',
+      '<ul style="margin: 12px 0px; padding-left: 24px;"><li><p dir="auto">item</p></li></ul>',
     );
     state = runCommand(state, 'bulletList', 'toggleBulletList');
     expect(serializeToHTML(state.doc, schema)).toBe('<p dir="auto">item</p>');

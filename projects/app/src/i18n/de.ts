@@ -54,10 +54,21 @@ export default {
       'heading-1': { title: 'Überschrift 1', keywords: 'überschrift, titel' },
       'heading-2': { title: 'Überschrift 2', keywords: 'überschrift, titel' },
       'heading-3': { title: 'Überschrift 3', keywords: 'überschrift, titel' },
-      'heading-layout': { title: 'Überschrift (Layout)', keywords: 'überschrift, titel, bündig, ohne abstand' },
+      'heading-layout': {
+        title: 'Überschrift (Layout)',
+        keywords: 'überschrift, titel, bündig, ohne abstand',
+      },
       quote: { title: 'Zitat', keywords: 'zitat, zitieren' },
       'bulleted-list': { title: 'Aufzählung', keywords: 'liste, aufzählung, punkte' },
       'numbered-list': { title: 'Nummerierte Liste', keywords: 'liste, nummeriert' },
+      'bulleted-list-layout': {
+        title: 'Aufzählung (Layout)',
+        keywords: 'liste, aufzählung, punkte, bündig, ohne abstand',
+      },
+      'numbered-list-layout': {
+        title: 'Nummerierte Liste (Layout)',
+        keywords: 'liste, nummeriert, bündig, ohne abstand',
+      },
       image: { title: 'Bild', keywords: 'bild, foto, grafik' },
       'image-placeholder': { title: 'Bildplatzhalter', keywords: 'bild, platzhalter' },
       divider: { title: 'Trennlinie', keywords: 'linie, trenner' },

@@ -108,6 +108,19 @@ export function isZeroSide(side: string): boolean {
   return /^0(?:px|em|rem|%)?$/i.test(side.trim());
 }
 
+/** Whether an element says, inline, that it has no space above — its top
+    margin declared (`margin` or `margin-top`, the later winning) and zero.
+    One that says nothing had a client's default space above it. What marks
+    a heading or a list as **layout**: flush, its spacing left to the layout
+    around it. */
+export function declaresFlushTop(el: Element): boolean {
+  const top = parseDeclarations(el.getAttribute('style') ?? '')
+    .filter(({ name }) => name === 'margin' || name === 'margin-top')
+    .at(-1);
+  if (!top) return false;
+  return isZeroSide(top.name === 'margin' ? top.value.trim().split(/\s+/)[0] : top.value);
+}
+
 /**
  * Rewrites, under `root`, every `style` attribute whose text an engine
  * might read wrong — see the module note — into the same declarations in

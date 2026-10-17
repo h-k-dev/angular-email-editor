@@ -163,7 +163,7 @@ describe('createEditor', () => {
   it('toggles a bullet list on and off', () => {
     editor.commands['toggleBulletList']();
     expect(editor.getHTML()).toBe(
-      '<ul style="margin: 0px; padding-left: 24px;"><li><p dir="auto">Hello world</p></li></ul>',
+      '<ul style="margin: 12px 0px; padding-left: 24px;"><li><p dir="auto">Hello world</p></li></ul>',
     );
     expect(editor.isActive('bulletList')).toBe(true);
 
@@ -176,7 +176,7 @@ describe('createEditor', () => {
     editor.commands['toggleBulletList']();
     editor.commands['toggleOrderedList']();
     expect(editor.getHTML()).toBe(
-      '<ol style="margin: 0px; padding-left: 24px;"><li><p dir="auto">Hello world</p></li></ol>',
+      '<ol style="margin: 12px 0px; padding-left: 24px;"><li><p dir="auto">Hello world</p></li></ol>',
     );
     expect(editor.isActive('orderedList')).toBe(true);
     expect(editor.isActive('bulletList')).toBe(false);

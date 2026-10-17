@@ -56,10 +56,21 @@ export default {
       'heading-1': { title: '見出し 1', keywords: '見出し, タイトル, みだし' },
       'heading-2': { title: '見出し 2', keywords: '見出し, タイトル, みだし' },
       'heading-3': { title: '見出し 3', keywords: '見出し, タイトル, みだし' },
-      'heading-layout': { title: '見出し (レイアウト)', keywords: '見出し, タイトル, みだし, 余白なし' },
+      'heading-layout': {
+        title: '見出し (レイアウト)',
+        keywords: '見出し, タイトル, みだし, 余白なし',
+      },
       quote: { title: '引用', keywords: '引用, いんよう' },
       'bulleted-list': { title: '箇条書き', keywords: 'リスト, 箇条書き, かじょうがき' },
       'numbered-list': { title: '番号付きリスト', keywords: 'リスト, 番号, ばんごう' },
+      'bulleted-list-layout': {
+        title: '箇条書き (レイアウト)',
+        keywords: 'リスト, 箇条書き, かじょうがき, 余白なし',
+      },
+      'numbered-list-layout': {
+        title: '番号付きリスト (レイアウト)',
+        keywords: 'リスト, 番号, ばんごう, 余白なし',
+      },
       image: { title: '画像', keywords: '画像, 写真, がぞう' },
       'image-placeholder': { title: '画像プレースホルダー', keywords: '画像, 枠, がぞう' },
       divider: { title: '区切り線', keywords: '線, 区切り, くぎり' },

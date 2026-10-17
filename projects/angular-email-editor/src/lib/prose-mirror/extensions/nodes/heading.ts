@@ -3,7 +3,7 @@ import { NodeType } from 'prosemirror-model';
 import { setBlockType } from 'prosemirror-commands';
 import { textblockTypeInputRule } from 'prosemirror-inputrules';
 import { defineNode } from '../../extension';
-import { isZeroSide, parseDeclarations } from '../../inline-style';
+import { declaresFlushTop } from '../../inline-style';
 
 /** The levels the schema knows. No h5 or h6: an imported one is a plain
     line, and `##### ` stays the text it is. */
@@ -21,13 +21,13 @@ export const HEADING_SPACE_BELOW = 4;
 /**
  * A heading's canonical inline style. A heading sits nearer the words it
  * opens than the words before it (proximity): a margin above, a small one
- * below — the margins the schema writes (an exception to principle 3, for
- * headings only). Positive px margins render in Gmail, Outlook's Word engine
- * and Apple Mail alike (caniemail, 2026-09). Body lines carry none, so a
- * heading's margin meets another only heading-to-heading, where a browser
- * collapses the pair and Word may add it: the space below is one constant
- * 4px, and the space above is the size less it, so Outlook's worst case
- * lands on the size itself (24/20/18/16) and is never more than 4px off. A
+ * below — an exception to principle 3, with a list's (lists.ts). Positive px
+ * margins render in Gmail, Outlook's Word engine and Apple Mail alike
+ * (caniemail, 2026-09). Body lines carry none, so two margins meet only
+ * between headings and lists, where a browser collapses the pair and Word
+ * may add it: the space below is one constant 4px, and the space above is
+ * the size less it, so heading after heading Outlook's worst case lands on
+ * the size itself (24/20/18/16), never more than 4px off. A
  * **layout** heading — a band's title, a column's — sits flush: `margin: 0`,
  * spacing left to the layout around it. No `line-height` — Outlook
  * substitutes its own (the client-support module says so) and our output
@@ -39,18 +39,6 @@ export const headingStyle = (level: number, layout = false): string => {
   const above = HEADING_SPACE_ABOVE[level] ?? size - HEADING_SPACE_BELOW;
   const margin = layout ? '0px' : `${above}px 0px ${HEADING_SPACE_BELOW}px`;
   return `margin: ${margin}; font-size: ${size}px;`;
-};
-
-/** A heading written flush — its top margin said, and zero — is a layout
-    heading: the composer's own before headings were spaced, a builder's
-    reset title. One that says nothing had a client's default space above
-    it, and keeps space. */
-const isLayout = (el: HTMLElement): boolean => {
-  const top = parseDeclarations(el.getAttribute('style') ?? '')
-    .filter(({ name }) => name === 'margin' || name === 'margin-top')
-    .at(-1);
-  if (!top) return false;
-  return isZeroSide(top.name === 'margin' ? top.value.trim().split(/\s+/)[0] : top.value);
 };
 
 /** Makes the line a heading of `level`; a layout heading when `layout`. */
@@ -80,7 +68,9 @@ export const Heading = defineNode({
     defining: true,
     parseDOM: HEADING_LEVELS.map((level) => ({
       tag: `h${level}`,
-      getAttrs: (dom: HTMLElement) => ({ level, layout: isLayout(dom) }),
+      // Written flush — the composer's own before headings were spaced, a
+      // builder's reset title — it stays flush.
+      getAttrs: (dom: HTMLElement) => ({ level, layout: declaresFlushTop(dom) }),
     })),
     toDOM: (node) => [
       `h${node.attrs['level']}`,
