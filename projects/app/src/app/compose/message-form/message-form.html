@@ -23,6 +23,7 @@
   email-writer
   emailAddressDragGroup
   [formRoot]="envelope"
+  [bar]="bar()"
   aria-label="Email writer"
   dropZone
   #writerZone="dropZone"
@@ -32,15 +33,15 @@
   [multiple]="true"
   (fileDrop)="onAttachmentDrop($event)"
 >
-  <!-- The bar's leading controls, after Send: the formatting toolbar,
-       shown or hidden (Gmail's formatting options) — not on a phone: there
-       the toolbar is the bar on the keyboard and always stays
-       (`toolbarShown`); the composer keeps the toolbar, the sheet only
-       decides whether it shows. Then Attach — the writer's own drop zone's
-       picker, so a picked file takes the dropped one's way
-       (`onAttachmentDrop`). Then the frame's own leading controls (the
-       page's views), and the ⋮ last. -->
-  <ng-container ngProjectAs="[leading]">
+  <!-- The bar's controls, each drawn once and laid out below — in the
+       writer's order at the foot, mirrored where the bar heads the sheet (a
+       phone, the zoomed window: `mirrored`), so the row reads the same from
+       its Send end either way. -->
+  <!-- The formatting toolbar, shown or hidden (Gmail's formatting options)
+       — not on a phone: there the toolbar is the bar on the keyboard and
+       always stays (`toolbarShown`); the composer keeps the toolbar, the
+       sheet only decides whether it shows. -->
+  <ng-template #formatting>
     @if (!viewport.compact()) {
       <button
         mat-icon-button
@@ -53,6 +54,10 @@
         <mat-icon>text_format</mat-icon>
       </button>
     }
+  </ng-template>
+  <!-- Attach — the writer's own drop zone's picker, so a picked file takes
+       the dropped one's way (`onAttachmentDrop`). -->
+  <ng-template #attach>
     <button
       mat-icon-button
       type="button"
@@ -62,10 +67,16 @@
     >
       <mat-icon>attach_file</mat-icon>
     </button>
-    <ng-content select="[leading]" />
-    <!-- More options for the message, last of the leading group: the View
-         (the editor or its HTML, where the frame has a source pane) and the
-         editor’s Appearance (`editorAppearance`), on a phone too. -->
+  </ng-template>
+  <!-- The frame's own controls: its leading ones (the page's views), its
+       actions. -->
+  <ng-template #frameLeading><ng-content select="[leading]" /></ng-template>
+  <ng-template #frameActions><ng-content select="[actions]" /></ng-template>
+  <!-- More options for the message: the View (the editor or its HTML,
+       where the frame has a source pane) and the editor’s Appearance
+       (`editorAppearance`), on a phone too. Opens away from the sheet's
+       edge, lined up with the bar's near end. -->
+  <ng-template #more>
     <button
       mat-icon-button
       type="button"
@@ -83,17 +94,15 @@
       [label]="'composer.more' | translate"
       [trigger]="moreTrigger"
       [items]="moreItems()"
+      [side]="mirrored() ? 'below' : 'above'"
+      [align]="mirrored() ? 'end' : 'start'"
       (selected)="onMoreAction($event)"
     ></div>
-  </ng-container>
-
-  <!-- The bar's end: the frame's own actions, then Discard — a message
-       needs no Save button (a draft keeps itself, where the frame keeps
-       one), so the one thing left to do with it by hand is throw it away. -->
-  <ng-container ngProjectAs="[actions]">
-    <!-- Core's "Parse": offered while the body holds placeholders (the
-         action's own answer) and not while the evaluator works. The same as
-         Mod-Shift-Enter and the `/` row. -->
+  </ng-template>
+  <!-- Core's "Parse": offered while the body holds placeholders (the
+       action's own answer) and not while the evaluator works. The same as
+       Mod-Shift-Enter and the `/` row. -->
+  <ng-template #fill>
     @if (fillOffered()) {
       <button
         mat-icon-button
@@ -106,7 +115,11 @@
         <mat-icon>data_object</mat-icon>
       </button>
     }
-    <ng-content select="[actions]" />
+  </ng-template>
+  <!-- Discard — a message needs no Save button (a draft keeps itself, where
+       the frame keeps one), so the one thing left to do with it by hand is
+       throw it away. The bar's far end from Send. -->
+  <ng-template #discardButton>
     <button
       mat-icon-button
       type="button"
@@ -116,6 +129,34 @@
     >
       <mat-icon>delete</mat-icon>
     </button>
+  </ng-template>
+
+  <!-- Beside Send: formatting, Attach, the frame's leading controls, ⋮. -->
+  <ng-container ngProjectAs="[leading]">
+    @if (mirrored()) {
+      <ng-container [ngTemplateOutlet]="more" />
+      <ng-container [ngTemplateOutlet]="frameLeading" />
+      <ng-container [ngTemplateOutlet]="attach" />
+      <ng-container [ngTemplateOutlet]="formatting" />
+    } @else {
+      <ng-container [ngTemplateOutlet]="formatting" />
+      <ng-container [ngTemplateOutlet]="attach" />
+      <ng-container [ngTemplateOutlet]="frameLeading" />
+      <ng-container [ngTemplateOutlet]="more" />
+    }
+  </ng-container>
+
+  <!-- Across from Send: Parse, the frame's actions, Discard at the edge. -->
+  <ng-container ngProjectAs="[actions]">
+    @if (mirrored()) {
+      <ng-container [ngTemplateOutlet]="discardButton" />
+      <ng-container [ngTemplateOutlet]="frameActions" />
+      <ng-container [ngTemplateOutlet]="fill" />
+    } @else {
+      <ng-container [ngTemplateOutlet]="fill" />
+      <ng-container [ngTemplateOutlet]="frameActions" />
+      <ng-container [ngTemplateOutlet]="discardButton" />
+    }
   </ng-container>
 
   <!-- The envelope, as Gmail lays it out: one hairline row per field, each

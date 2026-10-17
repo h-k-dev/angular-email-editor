@@ -1,5 +1,5 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, input } from '@angular/core';
 
 // Form
 import { FormRoot } from '@angular/forms/signals';
@@ -11,6 +11,16 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 // Global
 import { Viewport } from '../../../services/viewport';
+
+/** Where the writer's bar sits: the viewport's call, or a frame's. */
+export type WriterBarPosition = 'auto' | 'top' | 'bottom';
+
+/** Whether a bar placed at `bar` heads the sheet on this screen — `auto`
+    on a phone does. The writer's rule, shared with a host that lays its
+    own bar controls out to match (mirrored). */
+export function writerBarOnTop(bar: WriterBarPosition, compact: boolean): boolean {
+  return bar === 'auto' ? compact : bar === 'top';
+}
 
 /**
  * The email writer: the sheet a message is written on, and the form it is
@@ -32,7 +42,10 @@ import { Viewport } from '../../../services/viewport';
  *
  * The bar has two places. On a phone it heads the sheet, above the envelope,
  * where the thumb and the eye start; wider, it closes the sheet under the
- * formatting toolbar, where the message ends and is sent.
+ * formatting toolbar, where the message ends and is sent. A frame that is
+ * a document rather than a window (the zoomed compose window) heads it
+ * anywhere (`bar`). Heading the sheet, the row is mirrored: the actions
+ * first, Send at the end.
  */
 @Component({
   selector: 'form[email-writer]',
@@ -53,6 +66,14 @@ export class EmailWriter {
 
   /** The full-width breakpoint puts the bar on top; above it, at the bottom. */
   protected readonly viewport = inject(Viewport);
+
+  /** Where the bar goes: `auto` — the viewport's call, on top on a phone
+      and at the bottom anywhere wider — or `top` / `bottom` wherever. Only
+      its place: how large its buttons are is still the screen's. */
+  readonly bar = input<WriterBarPosition>('auto');
+
+  /** The bar heads the sheet, mirrored: Send at its end. */
+  protected readonly barOnTop = computed(() => writerBarOnTop(this.bar(), this.viewport.compact()));
 
   /** The submission is running — the transport has the message. */
   protected readonly submitting = computed(() => this.#root.fieldTree()().submitting());

@@ -39,6 +39,7 @@ import { createFontState } from './font-state';
 import { TablePicker } from './table-picker/table-picker';
 import { ToolbarKeys } from './toolbar-keys';
 import { ToolbarMenu, ToolbarMenuItem } from './toolbar-menu/toolbar-menu';
+import { PaperIslandScheme } from '../../paper-island';
 import { ToolbarOverflow, ToolbarOverflowItem } from './toolbar-overflow';
 import { KeepFocus } from '@h-k-dev/angular-email-editor/focus';
 import { TableKind } from '@h-k-dev/angular-email-editor';
@@ -92,6 +93,7 @@ const LAYOUT: FormattingLayout = [
     ColorPicker,
     TablePicker,
     ToolbarMenu,
+    PaperIslandScheme,
     ToolbarOverflow,
     ToolbarOverflowItem,
   ],

@@ -67,7 +67,8 @@
   // The dock lets clicks through to the page; its windows take them.
   pointer-events: auto;
 
-  background: var(--mat-sys-surface-bright);
+  // The app's surface — or, zoomed, the island's paper (`scheme`).
+  background: var(--email-paper, var(--mat-sys-surface-bright));
   color: var(--mat-sys-on-surface);
   border-radius: var(--compose-window-radius) var(--compose-window-radius) 0 0;
   box-shadow: var(--mat-sys-level3);
@@ -102,10 +103,12 @@
   inset: 0;
   z-index: 4;
   margin: auto;
-  // The zoomed-out sheet is wider than a message is: the writer's blocks
-  // keep to a centred column of a long line's width (email-writer.scss),
-  // and the room at the sides is a side panel's to come.
-  --writer-column: 100ch;
+  // The zoomed-out sheet is a document, wider than a message is: the
+  // writer's blocks — the bar heading it, the envelope, the editor — keep
+  // to one centred column of a long line's width (email-writer.scss), a
+  // document's measure, and the room at the sides is a side panel's to
+  // come. The whole window is a paper island (paper-island.ts).
+  --writer-column: min(720px, 90ch);
   inline-size: var(--compose-window-dialog-width);
   max-inline-size: none;
   block-size: calc(var(--compose-window-dialog-width) * 9 / 16);
@@ -157,7 +160,10 @@
   // __controls): a title bar's chrome, not a row of actions.
   block-size: 40px;
   padding-inline: 16px 4px;
-  background: var(--mat-sys-surface-container-high);
+  // No band of its own: the window's surface shows through — the sheet's
+  // colour, or zoomed, the paper island's — so the title is part of the
+  // sheet, not a strip over it. Minimized it is the window's surface too.
+  background: none;
   color: var(--mat-sys-on-surface);
   user-select: none;
 }

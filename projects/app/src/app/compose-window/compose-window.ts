@@ -26,6 +26,7 @@ import { InlineImages } from '@h-k-dev/angular-email-editor';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { MessageForm } from '../compose/message-form/message-form';
+import { PaperIsland } from '../compose/paper-island';
 import { Viewport } from '../../services/viewport';
 import { I18n } from '../../services/i18n';
 import { BackButton } from '../../services/back-button';
@@ -76,8 +77,9 @@ interface Grab {
 @Component({
   selector: 'section[compose-window]',
   imports: [TranslatePipe, MessageForm, MatIcon, MatIconButton],
-  // One inline image registry per composer: this window's message.
-  providers: [InlineImages],
+  // One inline image registry per composer: this window's message. And
+  // the window is a paper island (`scheme`) for everything it holds.
+  providers: [InlineImages, { provide: PaperIsland, useExisting: ComposeWindowFrame }],
   hostDirectives: [CdkTrapFocus],
   templateUrl: './compose-window.html',
   styleUrl: './compose-window.scss',
@@ -91,13 +93,14 @@ interface Grab {
     '[class.compose-window--front]': 'front()',
     '[class.compose-window--full]': 'full()',
     '[attr.data-slot]': 'window().slot',
+    '[attr.data-paper-scheme]': 'scheme()',
     '[style.--compose-window-x.px]': 'x()',
     '(pointerdown)': 'windows.raise(window().id)',
     '(focusin)': 'windows.raise(window().id)',
     '(keydown.escape)': 'leaveDialog($event)',
   },
 })
-export class ComposeWindowFrame {
+export class ComposeWindowFrame implements PaperIsland {
   protected readonly windows = inject(ComposeWindows);
   protected readonly i18n = inject(I18n);
   protected readonly viewport = inject(Viewport);
@@ -143,6 +146,12 @@ export class ComposeWindowFrame {
 
   /** The message this window holds. */
   protected readonly sheet = viewChild(MessageForm);
+
+  /** Zoomed, the window is a document, not a window: a paper island in its
+      sheet's Appearance (the ⋮ menu's Light, Dark or App) — title bar,
+      writer bar, envelope rows and text one paper, and the menus opened
+      from it too (paper-island.ts). On the edge only the text wears it. */
+  readonly scheme = computed(() => (this.expanded() ? (this.sheet()?.editorScheme() ?? null) : null));
 
   /** What the window is called: the message's subject, or what an unnamed
       message is called. The title bar shows it; a page, which has no title

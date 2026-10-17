@@ -145,7 +145,8 @@
 <!-- The open picker, at its button — or at the ⋯, when the button has moved
      there. One overlay for both; (detach) keeps `picker` in step when the
      CDK closes it by itself on Escape. Pushed, never squeezed: the colour
-     pane wraps only when the viewport itself is too narrow for it. -->
+     pane wraps only when the viewport itself is too narrow for it. On a
+     paper island each picker wears the island's paper (paper-island.ts). -->
 <ng-template
   cdkConnectedOverlay
   [cdkConnectedOverlayOrigin]="pickerOrigin()"
@@ -162,6 +163,7 @@
     @case ('color') {
       <div
         color-picker
+        paperIslandScheme
         [color]="textColor()"
         [background]="backgroundColor()"
         (colorPicked)="applyColor($event)"
@@ -169,7 +171,7 @@
       ></div>
     }
     @case ('table') {
-      <div table-picker [(kind)]="tableKind" (picked)="insertTable($event)"></div>
+      <div table-picker paperIslandScheme [(kind)]="tableKind" (picked)="insertTable($event)"></div>
     }
   }
 </ng-template>

@@ -700,13 +700,18 @@ html {
  * 600px column is the same #1e1e1e: page and margin are one surface. Gmail
  * and classic Outlook invert instead — the preview draws those.
  */
+:root {
+  --email-paper-light: #fff;
+  --email-paper-dark: #1e1e1e;
+}
+
 .email-compose__editor[data-color-scheme] {
-  background-color: #fff;
+  background-color: var(--email-paper-light);
 
   > .aee-editor {
     color-scheme: light;
     color: var(--mat-sys-on-surface);
-    background-color: #fff;
+    background-color: var(--email-paper-light);
   }
 
   // The marquee box is drawn on the paper, beside the editor: the same
@@ -717,12 +722,12 @@ html {
 }
 
 .email-compose__editor[data-color-scheme='dark'] {
-  background-color: #1e1e1e;
+  background-color: var(--email-paper-dark);
 
   > .aee-editor {
     color-scheme: dark;
     color: #fff;
-    background-color: #1e1e1e;
+    background-color: var(--email-paper-dark);
   }
 
   // The marquee box is drawn on the paper, beside the editor: the same
@@ -730,6 +735,28 @@ html {
   > .aee-marquee {
     color-scheme: dark;
   }
+}
+
+/* A paper island (app/compose/paper-island.ts — the zoomed compose window):
+ * the same two papers reach past the text to everything in the island, so
+ * the message reads as one document. The scheme re-resolves every
+ * --mat-sys-* token inside — rows, form fields, chips, buttons — and
+ * `--email-paper` is the text's paper colour, for a part that should be the
+ * paper to read with a fallback (`var(--email-paper, …)`), so no seam shows.
+ * The menus an island opens render in the overlay container, outside it;
+ * they carry the attribute themselves (`PaperIslandScheme`). */
+[data-paper-scheme='light'] {
+  color-scheme: light;
+  // Re-declared, not inherited: an inherited colour arrives resolved in
+  // the scheme it was declared under.
+  color: var(--mat-sys-on-surface);
+  --email-paper: var(--email-paper-light);
+}
+
+[data-paper-scheme='dark'] {
+  color-scheme: dark;
+  color: var(--mat-sys-on-surface);
+  --email-paper: var(--email-paper-dark);
 }
 
 /* A whole document (a compiled template, envelope and all) is drawn by a
@@ -1860,11 +1887,12 @@ section[html-email-compose][data-wrap='off'] .aee-editor {
 }
 
 /* A compose window's envelope rows: each control inside a Material form
- * field that looks exactly like the page's bare row — density -4 is the
- * row's 40px; no fill, no state layer, no side padding, no line at rest —
- * so the one thing the form field adds is its error styling: the red line
- * under an invalid control (no message — iusta core's rows). Global: the
- * parts are Material's own DOM. */
+ * field that looks like the page's bare row — density -4 is the row's 40px;
+ * no fill, no state layer, no side padding — and whose line is the input's
+ * own, as any Material input draws it: none at rest (the row draws no
+ * hairline either, message-form.scss), the primary colour while the row has
+ * focus, red under an invalid control (no message — iusta core's rows).
+ * Global: the parts are Material's own DOM. */
 .writer-field__form-field {
   @include mat.form-field-density(-4);
   @include mat.form-field-overrides(
@@ -1875,7 +1903,7 @@ section[html-email-compose][data-wrap='off'] .aee-editor {
       focus-state-layer-opacity: 0,
       filled-active-indicator-color: transparent,
       filled-hover-active-indicator-color: transparent,
-      filled-focus-active-indicator-color: transparent,
+      filled-focus-active-indicator-color: var(--mat-sys-primary),
       filled-disabled-active-indicator-color: transparent,
       container-text-font: var(--mat-sys-body-medium-font),
       container-text-size: var(--mat-sys-body-medium-size),

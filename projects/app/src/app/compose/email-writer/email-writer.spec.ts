@@ -1,14 +1,14 @@
 import { Component, WritableSignal, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { form } from '@angular/forms/signals';
-import { EmailWriter } from './email-writer';
+import { EmailWriter, WriterBarPosition } from './email-writer';
 import { Viewport } from '../../../services/viewport';
 
 /** A host the way the composer uses the writer: a form over a model, with
     an action the test settles by hand, and the fields projected in. */
 @Component({
   imports: [EmailWriter],
-  template: `<form email-writer [formRoot]="envelope">
+  template: `<form email-writer [formRoot]="envelope" [bar]="bar()">
     <button type="button" class="test-lead" leading>Panes</button>
     <button type="button" class="test-action" actions>Discard</button>
     <p class="test-field">projected</p>
@@ -16,6 +16,7 @@ import { Viewport } from '../../../services/viewport';
 })
 class Host {
   readonly model = signal({ subject: '' });
+  readonly bar = signal<WriterBarPosition>('auto');
   submissions = 0;
   settle!: () => void;
   readonly envelope = form(this.model, {
@@ -75,6 +76,7 @@ describe('EmailWriter', () => {
   it('closes the sheet with the bar, under the fields, where there is room', () => {
     expect(bar().tagName).toBe('FOOTER');
     expect(follows(field(), bar())).toBe(true);
+    expect(bar().classList).toContain('writer-bar--dense');
     expect(root.querySelectorAll('.writer-bar')).toHaveLength(1);
   });
 
@@ -87,6 +89,37 @@ describe('EmailWriter', () => {
     expect(root.querySelectorAll('.writer-bar')).toHaveLength(1);
     // The host's action is its own node, carried along rather than re-created.
     expect(root.querySelector('.test-action')).toBe(action);
+  });
+
+  it('mirrors the bar that heads the sheet: the actions first, Send at the end', async () => {
+    host.bar.set('top');
+    await fixture.whenStable();
+    expect(bar().firstElementChild).toBe(root.querySelector('.test-action'));
+    expect(root.querySelector('.test-action')?.nextElementSibling?.classList).toContain(
+      'writer-bar__spacer',
+    );
+    expect(root.querySelector('.test-lead')?.nextElementSibling).toBe(send());
+    expect(bar().lastElementChild).toBe(send());
+  });
+
+  it('heads the sheet with the bar where its frame asks — dense still, off a phone', async () => {
+    host.bar.set('top');
+    await fixture.whenStable();
+    expect(bar().tagName).toBe('HEADER');
+    expect(follows(bar(), field())).toBe(true);
+    expect(bar().classList).toContain('writer-bar--dense');
+
+    // On a phone the same bar keeps the app's tap size.
+    compact.set(true);
+    await fixture.whenStable();
+    expect(bar().tagName).toBe('HEADER');
+    expect(bar().classList).not.toContain('writer-bar--dense');
+
+    // And a frame may keep it at the bottom on a phone too.
+    host.bar.set('bottom');
+    await fixture.whenStable();
+    expect(bar().tagName).toBe('FOOTER');
+    expect(root.querySelectorAll('.writer-bar')).toHaveLength(1);
   });
 
   it("Send submits the host's form, and shows progress — never disabled — until the action settles", async () => {

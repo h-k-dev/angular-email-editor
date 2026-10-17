@@ -1,17 +1,13 @@
-<!-- The bar's content, drawn once and placed by the viewport: on a phone it
-     heads the sheet, on anything wider it closes it, under the composer's
-     formatting toolbar. Send at its start, Discard at its end, whichever.
-     The node moves rather than being restyled, so the reading and Tab
-     order always follow what is on screen. -->
-<ng-template #bar>
-  <!-- The form's submit button, first on the bar: Send, as the word — the
-       one thing the message is for, where a mail app puts it, and read at
-       a glance the way no glyph is. A filled button, the bar's height; on
-       the text edge (the stylesheet).
-       While the submission runs the button stays live — focusable, and its
-       tooltip still reachable — and shows a spinner over the word instead
-       of greying out. Pressing it again is harmless: the form ignores a
-       submit while one is running, whichever gesture it comes from. -->
+<!-- The bar's parts, each drawn once and laid out by the bar below. -->
+<!-- The form's submit button: Send, as the word — the one thing the message
+     is for, where a mail app puts it, and read at a glance the way no glyph
+     is. A filled button, the bar's height; on the text edge (the
+     stylesheet).
+     While the submission runs the button stays live — focusable, and its
+     tooltip still reachable — and shows a spinner over the word instead of
+     greying out. Pressing it again is harmless: the form ignores a submit
+     while one is running, whichever gesture it comes from. -->
+<ng-template #send>
   <button
     matButton="filled"
     type="submit"
@@ -26,19 +22,40 @@
          it hangs out of the bar. -->
     <mat-progress-spinner progressIndicator mode="indeterminate" [diameter]="20" />
   </button>
-
-  <!-- The host's view controls, after Send — away from the actions that
-       do something to the message. -->
-  <ng-content select="[leading]" />
-
-  <span class="writer-bar__spacer"></span>
-
-  <!-- The host's own actions, at the bar's end — Discard last of all. -->
-  <ng-content select="[actions]" />
 </ng-template>
 
-@if (viewport.compact()) {
-  <header class="writer-bar">
+<!-- The host's view controls, beside Send — away from the actions that do
+     something to the message. -->
+<ng-template #leading><ng-content select="[leading]" /></ng-template>
+
+<!-- The host's own actions, Discard among them, across from Send. -->
+<ng-template #actions><ng-content select="[actions]" /></ng-template>
+
+<!-- The bar, placed by `bar` — by default the viewport's: on a phone it
+     heads the sheet, on anything wider it closes it, under the composer's
+     formatting toolbar; a frame may head the sheet with it anywhere (the
+     zoomed window). At the foot Send opens the row and the actions close
+     it; heading the sheet the row is mirrored — the actions first, Send at
+     the end, under the thumb on a phone and where the eye ends a header
+     (`barOnTop`; the host mirrors its own actions to match).
+     The nodes move rather than being restyled, so the reading and Tab order
+     always follow what is on screen. -->
+<ng-template #bar>
+  @if (barOnTop()) {
+    <ng-container [ngTemplateOutlet]="actions" />
+    <span class="writer-bar__spacer"></span>
+    <ng-container [ngTemplateOutlet]="leading" />
+    <ng-container [ngTemplateOutlet]="send" />
+  } @else {
+    <ng-container [ngTemplateOutlet]="send" />
+    <ng-container [ngTemplateOutlet]="leading" />
+    <span class="writer-bar__spacer"></span>
+    <ng-container [ngTemplateOutlet]="actions" />
+  }
+</ng-template>
+
+@if (barOnTop()) {
+  <header class="writer-bar" [class.writer-bar--dense]="!viewport.compact()">
     <ng-container [ngTemplateOutlet]="bar" />
   </header>
 }
@@ -52,8 +69,8 @@
 <!-- The body: everything else the host projects, the editor first. -->
 <ng-content />
 
-@if (!viewport.compact()) {
-  <footer class="writer-bar">
+@if (!barOnTop()) {
+  <footer class="writer-bar" [class.writer-bar--dense]="!viewport.compact()">
     <ng-container [ngTemplateOutlet]="bar" />
   </footer>
 }

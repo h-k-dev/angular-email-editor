@@ -7,6 +7,7 @@ import { CdkConnectedOverlay, OverlayModule } from '@angular/cdk/overlay';
 // Library
 import { Anchor, AnchorRect } from '@h-k-dev/angular-email-editor/anchor';
 
+import { PaperIslandScheme } from '../../paper-island';
 import { POPOVER_ABOVE, Popover } from './popover';
 
 /** Equal boxes are no move: a menu state that re-measures an unmoved block
@@ -45,6 +46,8 @@ const sameBox = (a: AnchorRect | null, b: AnchorRect | null): boolean =>
 
     // Library
     Anchor,
+
+    PaperIslandScheme,
   ],
   templateUrl: './popover-outlet.html',
   styleUrl: './popover-outlet.scss',

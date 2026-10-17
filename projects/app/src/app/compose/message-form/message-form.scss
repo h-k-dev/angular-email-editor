@@ -192,6 +192,13 @@ ul[email-attachment-chips] {
   padding: 0;
 }
 
+// The rows draw no hairline of their own there — the merged recipients
+// line neither: the form field's line is the only one, clear at rest,
+// primary while focused, red when invalid (styles.scss).
+:host([data-fields='material']) .writer-field {
+  box-shadow: none;
+}
+
 .writer-field__form-field {
   flex: 1 1 0;
   min-width: 0;

@@ -82,7 +82,7 @@ import {
   ToolbarMenu,
   ToolbarMenuItem,
 } from '../email-compose/formatting-toolbar/toolbar-menu/toolbar-menu';
-import { EmailWriter } from '../email-writer/email-writer';
+import { EmailWriter, WriterBarPosition, writerBarOnTop } from '../email-writer/email-writer';
 import { releaseEditingSurface } from '../is-typing';
 import { Viewport } from '../../../services/viewport';
 import { Theme } from '../../../services/theme';
@@ -168,6 +168,9 @@ type EditorAppearance = EditorColorScheme | 'app';
   ],
   templateUrl: './message-form.html',
   styleUrl: './message-form.scss',
+  host: {
+    '[attr.data-fields]': 'fields()',
+  },
 })
 export class MessageForm {
   /** The upload store: the strip's chips read their progress from it, and a
@@ -201,6 +204,13 @@ export class MessageForm {
   /** The body's editor, for the bar's own action buttons — read through an
       optional query, since the actions bind before the view exists. */
   private readonly pane = viewChild(EmailCompose);
+
+  /** The bar heads the sheet (a phone, the zoomed window): its controls are
+      laid out mirrored — Send at the end, Discard at the start — and the ⋮
+      menu opens downward, lined up with its end. */
+  protected readonly mirrored = computed(() =>
+    writerBarOnTop(this.bar(), this.viewport.compact()),
+  );
 
   /** The editor's actions the bar offers beside Send. */
   protected readonly actions = injectActions(() => this.pane()?.editor());
@@ -354,6 +364,10 @@ export class MessageForm {
   readonly fields = input<'plain' | 'material'>('plain');
   protected readonly material = computed(() => this.fields() === 'material');
 
+  /** Where the writer's bar sits (`EmailWriter.bar`): the viewport's call
+      by default; a frame that is a document heads the sheet with it. */
+  readonly bar = input<WriterBarPosition>('auto');
+
   /** A send went through — the receipt, as the page's status strip words
       it. The sheet has started over by then. */
   readonly sent = output<string>();
@@ -380,13 +394,15 @@ export class MessageForm {
 
   /** The editor's appearance, the ⋮ menu's choice: a light or dark of its
       own, apart from the app's theme — the text's paper only — or `app`,
-      the app's, following its top-bar toggle. Light by default: the
-      message as it is sent. */
-  protected readonly editorAppearance = signal<EditorAppearance>('light');
+      the app's, following its top-bar toggle. The app's by default: the
+      message sits in the app as the rest of it does; Light shows it as it
+      is sent. */
+  protected readonly editorAppearance = signal<EditorAppearance>('app');
 
   /** The scheme the editor draws in: the appearance, with `app` read as the
-      app's theme of the moment. */
-  protected readonly editorScheme = computed<EditorColorScheme>(() => {
+      app's theme of the moment. Public for a frame that makes more than
+      the text wear it (a `PaperIsland`, the zoomed window). */
+  readonly editorScheme = computed<EditorColorScheme>(() => {
     const appearance = this.editorAppearance();
     return appearance === 'app' ? this.#theme.scheme() : appearance;
   });

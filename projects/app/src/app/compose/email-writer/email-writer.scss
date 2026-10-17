@@ -31,7 +31,9 @@
   padding-block: 8px clamp(0px, (100vw - #{bp.$full-width-max}) * 100, 8px);
   box-sizing: border-box;
 
-  background-color: var(--mat-sys-surface-bright);
+  // The app's sheet colour — or, on a paper island (paper-island.ts), the
+  // island's paper, so bar, rows and text are one page.
+  background-color: var(--email-paper, var(--mat-sys-surface-bright));
   // Corners only while the sheet has a desk to sit on. At the full-width
   // breakpoint and below the page's padding is gone (compose.scss) and this is
   // screen, edge to edge — a rounded screen corner is a device, not a sheet.
@@ -75,12 +77,12 @@
   padding-inline: calc(var(--mat-sys-inner-spacing, 16px) - var(--writer-bar-glyph-inset));
 }
 
-// The footer — the bar under the text, on anything wider than a phone: a
-// compact row, every button 32px with its touch target no bigger (a pointer
-// needs no overhang; 32px still clears WCAG's 24px target size), 20px
-// glyphs in it. On a phone the bar heads the sheet and keeps the app's
-// 40/48px: there it is tapped.
-footer.writer-bar {
+// Dense — the bar on anything wider than a phone, under the text or heading
+// a zoomed sheet: a compact row, every button 32px with its touch target no
+// bigger (a pointer needs no overhang; 32px still clears WCAG's 24px target
+// size), 20px glyphs in it. On a phone the bar keeps the app's 40/48px:
+// there it is tapped. The screen decides, not where the bar sits.
+.writer-bar--dense {
   --mat-icon-button-state-layer-size: 32px;
   --mat-icon-button-touch-target-size: 32px;
   --mat-button-filled-touch-target-size: 32px;
@@ -95,12 +97,20 @@ footer.writer-bar {
 // (material.angular.dev/components/button/styling), so the theme's colours
 // and type stay — its edge on the text edge: the bar is inset for icon
 // buttons, whose glyph sits inside their state layer; a filled button has
-// no such margin, so it takes the glyph's inset itself.
+// no such margin, so it takes the glyph's inset itself — on whichever edge
+// it sits: the start at the foot, the end heading the sheet (mirrored).
 .writer-bar__send {
   --mat-button-filled-container-height: 32px;
   --mat-button-filled-horizontal-padding: 16px;
   flex: none;
-  margin-inline-start: var(--writer-bar-glyph-inset);
+
+  &:first-child {
+    margin-inline-start: var(--writer-bar-glyph-inset);
+  }
+
+  &:last-child {
+    margin-inline-end: var(--writer-bar-glyph-inset);
+  }
 }
 
 // The writer's column. The sheet is as wide as its frame; what is written

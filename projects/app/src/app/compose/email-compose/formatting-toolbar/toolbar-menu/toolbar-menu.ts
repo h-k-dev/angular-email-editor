@@ -9,6 +9,8 @@ import { Menu, MenuItem, MenuTrigger } from '@angular/aria/menu';
 // CDK
 import { ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
 
+import { PaperIslandScheme } from '../../../paper-island';
+
 /** A row of a toolbar menu. */
 export interface ToolbarMenuItem<V> {
   value: V;
@@ -45,11 +47,12 @@ export interface ToolbarMenuItem<V> {
  * The host takes no room (`display: contents`): it is only where the overlay
  * is declared, so it can stand anywhere in a row without adding a gap. The
  * menu opens above the toolbar (which sits under the text, and on the
- * keyboard on a phone), below when there is no room above.
+ * keyboard on a phone), below when there is no room above — or the other
+ * way round, for a trigger on a bar that heads its sheet (`side`).
  */
 @Component({
   selector: 'div[toolbar-menu]',
-  imports: [MatIconModule, Menu, MenuItem, OverlayModule],
+  imports: [MatIconModule, Menu, MenuItem, OverlayModule, PaperIslandScheme],
   templateUrl: './toolbar-menu.html',
   styleUrl: './toolbar-menu.scss',
 })
@@ -61,6 +64,11 @@ export class ToolbarMenu<V> {
       line's end. */
   readonly align = input<'start' | 'end'>('start');
 
+  /** Which side of the trigger the menu tries first — the other when there
+      is no room: `above` for a bar under the text, `below` for one heading
+      the sheet. */
+  readonly side = input<'above' | 'below'>('above');
+
   /** An item was chosen. The menu has closed and focus is back on the
       trigger. */
   readonly selected = output<V>();
@@ -71,19 +79,24 @@ export class ToolbarMenu<V> {
 
   protected readonly positions = computed<ConnectedPosition[]>(() => {
     const x = this.align();
-    return [
-      // `menu-above`: the pane says which way it opened, so the menu rises
-      // into place from the trigger's side (styles.scss).
-      {
-        originX: x,
-        originY: 'top',
-        overlayX: x,
-        overlayY: 'bottom',
-        offsetY: -4,
-        panelClass: 'menu-above',
-      },
-      { originX: x, originY: 'bottom', overlayX: x, overlayY: 'top', offsetY: 4 },
-    ];
+    // `menu-above`: the pane says which way it opened, so the menu rises
+    // into place from the trigger's side (styles.scss).
+    const above: ConnectedPosition = {
+      originX: x,
+      originY: 'top',
+      overlayX: x,
+      overlayY: 'bottom',
+      offsetY: -4,
+      panelClass: 'menu-above',
+    };
+    const below: ConnectedPosition = {
+      originX: x,
+      originY: 'bottom',
+      overlayX: x,
+      overlayY: 'top',
+      offsetY: 4,
+    };
+    return this.side() === 'above' ? [above, below] : [below, above];
   });
 
   /** Closes the menu on a click outside it. The menu closes itself when

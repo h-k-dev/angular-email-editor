@@ -23,8 +23,9 @@
   <!-- Lands softly (`animate.enter`, see the stylesheet), growing out of the
        side that faces the anchor — the CDK sets the transform origin for
        whichever position it chose. Created once per opening: the content
-       inside changes with the panel, the box does not. -->
-  <div class="email-popover" animate.enter="email-popover--landing">
+       inside changes with the panel, the box does not. On a paper island
+       it wears the island's paper, though the overlay draws it outside. -->
+  <div class="email-popover" paperIslandScheme animate.enter="email-popover--landing">
     <ng-container *ngTemplateOutlet="content()" />
   </div>
 </ng-template>

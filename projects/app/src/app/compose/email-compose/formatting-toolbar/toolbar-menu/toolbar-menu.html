@@ -10,9 +10,11 @@
   (overlayOutsideClick)="dismiss($event)"
   (detach)="trigger().close()"
 >
+  <!-- On a paper island, the island's paper (paper-island.ts). -->
   <div
     ngMenu
     class="toolbar-menu"
+    paperIslandScheme
     [attr.aria-label]="label()"
     [animate.enter]="'menu-enter'"
     [animate.leave]="'menu-leave'"

@@ -77,12 +77,15 @@
      its own to leave by — the phone's back button is the way out (the
      window guards it, and its forward button brings the message back),
      which is the one every other page there is left by, and the sheet keeps
-     its own Discard for throwing the message away. -->
+     its own Discard for throwing the message away.
+     Zoomed, it is a document: the writer's bar heads it, above From, as on
+     a phone — the window's own bar, at the window's size, moved. -->
 <div
   message-form
   #sheet
   class="compose-window__sheet"
   fields="material"
+  [bar]="expanded() ? 'top' : 'auto'"
   (sent)="sent()"
   (discarded)="close()"
 ></div>
