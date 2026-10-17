@@ -54,6 +54,7 @@ export default {
       'heading-1': { title: 'Überschrift 1', keywords: 'überschrift, titel' },
       'heading-2': { title: 'Überschrift 2', keywords: 'überschrift, titel' },
       'heading-3': { title: 'Überschrift 3', keywords: 'überschrift, titel' },
+      'heading-layout': { title: 'Überschrift (Layout)', keywords: 'überschrift, titel, bündig, ohne abstand' },
       quote: { title: 'Zitat', keywords: 'zitat, zitieren' },
       'bulleted-list': { title: 'Aufzählung', keywords: 'liste, aufzählung, punkte' },
       'numbered-list': { title: 'Nummerierte Liste', keywords: 'liste, nummeriert' },

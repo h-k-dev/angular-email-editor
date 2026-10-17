@@ -50,7 +50,7 @@ describe('createEditor', () => {
     editor.exec(insertHTML('<h1>Welcome</h1><p>Hi {{name}}</p>'));
     // The merge tag came in as a pill: its canonical form is spaced.
     expect(editor.getHTML()).toBe(
-      '<p dir="auto">Hello world</p><h1 style="margin: 0px; font-size: 24px;">Welcome</h1><p dir="auto">Hi {{ name }}</p>',
+      '<p dir="auto">Hello world</p><h1 style="margin: 20px 0px 4px; font-size: 24px;">Welcome</h1><p dir="auto">Hi {{ name }}</p>',
     );
   });
 

@@ -216,9 +216,11 @@ describe('SuggestionMenu', () => {
       'slash-option-0',
       'slash-option-1',
       'slash-option-2',
+      'slash-option-3',
     ]);
     expect(options().map((option) => option.getAttribute('aria-selected'))).toEqual([
       'true',
+      'false',
       'false',
       'false',
     ]);
@@ -313,7 +315,7 @@ describe('SuggestionMenu', () => {
 
     it('counts the rows of a list that is in, and goes quiet when the menu closes', async () => {
       await type('/head');
-      expect(announcer().textContent).toBe('3 results');
+      expect(announcer().textContent).toBe('4 results');
       await type('ing 2');
       expect(announcer().textContent).toBe('1 result');
       await keydown('Escape');
@@ -342,12 +344,12 @@ describe('SuggestionMenu', () => {
         return true;
       });
       TestBed.tick();
-      expect(options()).toHaveLength(3);
+      expect(options()).toHaveLength(4);
       expect(announcer().textContent).toBe('');
 
       await new Promise((resolve) => setTimeout(resolve, 80));
       await fixture.whenStable();
-      expect(announcer().textContent).toBe('3 results');
+      expect(announcer().textContent).toBe('4 results');
     });
   });
 

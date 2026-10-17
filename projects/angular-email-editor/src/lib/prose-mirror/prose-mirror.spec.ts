@@ -77,7 +77,7 @@ describe('prose-mirror core', () => {
     let state = stateFromHTML('<p>Title</p>', 1, 1);
     state = runCommand(state, 'heading', 'setHeading', 3);
     expect(serializeToHTML(state.doc, schema)).toBe(
-      '<h3 style="margin: 0px; font-size: 18px;">Title</h3>',
+      '<h3 style="margin: 14px 0px 4px; font-size: 18px;">Title</h3>',
     );
   });
 

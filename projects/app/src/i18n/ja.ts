@@ -56,6 +56,7 @@ export default {
       'heading-1': { title: '見出し 1', keywords: '見出し, タイトル, みだし' },
       'heading-2': { title: '見出し 2', keywords: '見出し, タイトル, みだし' },
       'heading-3': { title: '見出し 3', keywords: '見出し, タイトル, みだし' },
+      'heading-layout': { title: '見出し (レイアウト)', keywords: '見出し, タイトル, みだし, 余白なし' },
       quote: { title: '引用', keywords: '引用, いんよう' },
       'bulleted-list': { title: '箇条書き', keywords: 'リスト, 箇条書き, かじょうがき' },
       'numbered-list': { title: '番号付きリスト', keywords: 'リスト, 番号, ばんごう' },

@@ -48,6 +48,7 @@ import { AngularFileDrop, FileDropEvent } from '@h-k-dev/angular-file-drop';
 import {
   Editor,
   InlineImages,
+  HEADING_LEVELS,
   MergeTagResolutionReport,
   PlaceholderWords,
   emailDocument,
@@ -239,7 +240,7 @@ export class MessageForm {
     const list = this.i18n.t('editor.placeholder.list');
     return {
       line: this.i18n.t('editor.placeholder.line'),
-      heading: [1, 2, 3, 4, 5, 6].map((level) => this.i18n.t('editor.placeholder.heading', { level })),
+      heading: HEADING_LEVELS.map((level) => this.i18n.t('editor.placeholder.heading', { level })),
       quote: this.i18n.t('editor.placeholder.quote'),
       bulletList: list,
       orderedList: list,

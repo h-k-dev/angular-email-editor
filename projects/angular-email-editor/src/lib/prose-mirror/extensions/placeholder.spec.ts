@@ -177,10 +177,10 @@ describe('placeholder', () => {
     });
 
     it('a heading past the words per level takes the last; one string words every level', () => {
-      mount('<div>x</div><h5></h5>', { text: NOTION });
-      expect(shown()).toEqual([['h5', 'Heading 3']]);
+      mount('<div>x</div><h4></h4>', { text: NOTION });
+      expect(shown()).toEqual([['h4', 'Heading 3']]);
       editor.commands['setPlaceholder']({ heading: 'Heading' });
-      expect(shown()).toEqual([['h5', 'Heading']]);
+      expect(shown()).toEqual([['h4', 'Heading']]);
     });
 
     it("a list item's own line says List; its later lines are plain", () => {
@@ -260,7 +260,7 @@ describe('placeholder', () => {
         t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
         return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
       };
-      const pick = <T,>(items: readonly T[]): T => items[Math.floor(random() * items.length)];
+      const pick = <T>(items: readonly T[]): T => items[Math.floor(random() * items.length)];
       mount(
         '<div>a</div><h1></h1><ul><li><div></div><div>b</div></li><li><div>c</div></li></ul>' +
           '<blockquote><div></div><h2>d</h2></blockquote><ol><li><div></div></li></ol>' +

@@ -70,6 +70,7 @@ describe('createSuggestionMenu — the / menu', () => {
       'Heading 1',
       'Heading 2',
       'Heading 3',
+      'Heading (layout)',
       'Quote',
       'Bulleted list',
       'Numbered list',
@@ -150,7 +151,12 @@ describe('createSuggestionMenu — the / menu', () => {
 
   it('filters by title and keywords as the query grows', () => {
     type('/head');
-    expect(state?.items.map((item) => item.title)).toEqual(['Heading 1', 'Heading 2', 'Heading 3']);
+    expect(state?.items.map((item) => item.title)).toEqual([
+      'Heading 1',
+      'Heading 2',
+      'Heading 3',
+      'Heading (layout)',
+    ]);
 
     type('ing 2');
     expect(state?.items.map((item) => item.title)).toEqual(['Heading 2']);
@@ -178,7 +184,7 @@ describe('createSuggestionMenu — the / menu', () => {
     expect(state?.activeIndex).toBe(1);
 
     keydown('Enter');
-    expect(editor.getHTML()).toBe('<h2 style="margin: 0px; font-size: 20px;"></h2>');
+    expect(editor.getHTML()).toBe('<h2 style="margin: 16px 0px 4px; font-size: 20px;"></h2>');
     expect(state?.open).toBe(false);
   });
 
@@ -208,8 +214,9 @@ describe('createSuggestionMenu — the / menu', () => {
 
     keydown('ArrowDown');
     keydown('ArrowDown');
-    expect(state?.activeIndex).toBe(2);
-    expect(changes).toBe(2);
+    keydown('ArrowDown');
+    expect(state?.activeIndex).toBe(3);
+    expect(changes).toBe(3);
 
     // Held against the bottom: the highlight stays, nothing is emitted, and
     // the key is still taken so the caret does not move.
@@ -220,8 +227,8 @@ describe('createSuggestionMenu — the / menu', () => {
     });
     editor.view.dom.dispatchEvent(held);
     keydown('ArrowDown');
-    expect(state?.activeIndex).toBe(2);
-    expect(changes).toBe(2);
+    expect(state?.activeIndex).toBe(3);
+    expect(changes).toBe(3);
     expect(held.defaultPrevented).toBe(true);
   });
 
