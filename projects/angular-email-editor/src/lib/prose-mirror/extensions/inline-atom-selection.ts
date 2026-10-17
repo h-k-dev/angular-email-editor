@@ -10,6 +10,8 @@ import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import { Node } from 'prosemirror-model';
 import { defineExtension } from '../extension';
 import { isInlineAtom } from './inline-atoms';
+import { BlockSelection } from './block-selection';
+import { isClaimedPress } from './press-claim';
 
 export { isInlineAtom, soleInlineAtom, markAttrsOf } from './inline-atoms';
 export type { InlineAtomAt } from './inline-atoms';
@@ -234,6 +236,8 @@ export const InlineAtomSelection = defineExtension({
           // this, at the view's creation), so its click stays.
           const down = (event: MouseEvent) => {
             if (!view.editable || event.button !== 0 || event.shiftKey || event.detail > 1) return;
+            // The block marquee's press: a box, not a range.
+            if (isClaimedPress(event)) return;
             const atom = atomAt(view, event.target as globalThis.Node);
             const { selection } = view.state;
             // The selected atom's press is ProseMirror's: its drag moves it.
@@ -315,7 +319,14 @@ export const InlineAtomSelection = defineExtension({
           },
           decorations(state) {
             const { selection } = state;
-            if (selection.empty || selection instanceof NodeSelection) return null;
+            // Selected blocks are lit whole (`SelectedBlocks`), atoms and all.
+            if (
+              selection.empty ||
+              selection instanceof NodeSelection ||
+              selection instanceof BlockSelection
+            ) {
+              return null;
+            }
             const decorations: Decoration[] = [];
             state.doc.nodesBetween(selection.from, selection.to, (node, pos) => {
               if (isInlineAtom(node)) {

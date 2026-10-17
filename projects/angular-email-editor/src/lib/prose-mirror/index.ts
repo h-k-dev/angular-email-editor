@@ -38,6 +38,8 @@ export * from './extensions/nodes/image';
 export * from './extensions/nodes/divider';
 export * from './extensions/nodes/button';
 export * from './extensions/inline-atom-selection';
+export * from './extensions/block-selection';
+export * from './extensions/block-marquee';
 export * from './extensions/nodes/table';
 export * from './extensions/nodes/columns';
 export * from './extensions/nodes/section';

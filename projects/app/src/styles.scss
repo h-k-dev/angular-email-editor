@@ -125,6 +125,17 @@ html {
     transparent
   );
 
+  /* The selection wash: the primary itself at a selection's alpha — its
+   * lightness, chroma and hue kept, only the alpha set (oklch relative
+   * colour). One tint for everything selected as a whole: the blocks a
+   * marquee lights, the marquee box, a cell rectangle. Stronger on dark,
+   * where a faint wash of a light primary disappears; light-dark() is
+   * answered where the wash is painted, so the paper's own scheme counts. */
+  --email-selection-wash: light-dark(
+    oklch(from var(--mat-sys-primary) l c h / 0.14),
+    oklch(from var(--mat-sys-primary) l c h / 0.22)
+  );
+
   /* The library's `/` menu wears the same, so every menu in the app is one
    * menu (styles/_menu.scss reads these too). */
   --email-suggestion-menu-padding: var(--mat-sys-menu-inset);
@@ -386,7 +397,7 @@ html {
   pointer-events: none;
   background: var(
     --email-cell-selection,
-    color-mix(in srgb, var(--mat-sys-primary, #4c6ef5) 12%, transparent)
+    var(--email-selection-wash, oklch(from var(--mat-sys-primary, #4c6ef5) l c h / 0.14))
   );
 }
 
@@ -401,6 +412,68 @@ html {
 }
 .aee-editor td.aee-sel-right::after {
   border-right: 2px solid var(--email-cell-selection-border, var(--mat-sys-primary, #4c6ef5));
+}
+
+/* Selected blocks (`BlockSelection`: the marquee, a second Mod-a), drawn
+ * as Notion draws them. Each block wears the wash as its own rounded box — a
+ * hair inside its line, so neighbouring lines read as separate blocks, and
+ * a little into the gutter. The box a drag draws (`.aee-marquee`, in the
+ * surface around the editor) wears the SAME wash, so where it covers a
+ * block the two stack: the block lights up under the box, one colour twice.
+ * An overlay, not a background, so it shows over a cell's fill or a
+ * button; editor-only — the class is a decoration, never serialized. */
+.aee-editor .aee-block--selected {
+  position: relative;
+}
+.aee-editor .aee-block--selected::after {
+  content: '';
+  position: absolute;
+  inset: 1px calc(-1 * var(--email-block-selection-bleed, 4px));
+  z-index: 3;
+  pointer-events: none;
+  border-radius: var(--email-block-selection-corner, 4px);
+  background-color: var(
+    --email-block-selection,
+    var(--email-selection-wash, oklch(from var(--mat-sys-primary, #4c6ef5) l c h / 0.14))
+  );
+}
+
+/* A table or columns block hangs its wrapper into the gutters (its grips'
+ * room, `--aee-block-gutter-x`): the box comes back to the text column's
+ * edge, so it lines up with the lines around it. */
+.aee-editor .aee-table-wrap:not(.aee-table-wrap--authored).aee-block--selected::after,
+.aee-editor .aee-columns-wrap.aee-block--selected::after {
+  inset-inline: calc(var(--aee-block-gutter-x, 0px) - var(--email-block-selection-bleed, 4px));
+}
+
+/* A divider is a 1px line: its box is the room its margins make — out
+ * past the line, which Chrome clips (`overflow: hidden` on every <hr>). */
+.aee-editor hr.aee-block--selected {
+  overflow: visible;
+}
+.aee-editor hr.aee-block--selected::after {
+  inset: -10px calc(-1 * var(--email-block-selection-bleed, 4px));
+}
+
+.aee-marquee {
+  z-index: 4;
+  background-color: var(
+    --email-marquee,
+    var(--email-selection-wash, oklch(from var(--mat-sys-primary, #4c6ef5) l c h / 0.14))
+  );
+}
+
+/* Forced colours keep no translucent tint: the system's Highlight says
+ * "selected" instead, as it does for a selected image. */
+@media (forced-colors: active) {
+  .aee-editor .aee-block--selected::after {
+    background: none;
+    outline: 2px solid Highlight;
+  }
+  .aee-marquee {
+    background: none;
+    outline: 1px solid Highlight;
+  }
 }
 
 /* Merge-tag pill: editor-only chrome for a personalization token — a *mark*
@@ -635,6 +708,12 @@ html {
     color: var(--mat-sys-on-surface);
     background-color: #fff;
   }
+
+  // The marquee box is drawn on the paper, beside the editor: the same
+  // scheme, so its wash is the one the blocks it lights wear.
+  > .aee-marquee {
+    color-scheme: light;
+  }
 }
 
 .email-compose__editor[data-color-scheme='dark'] {
@@ -644,6 +723,12 @@ html {
     color-scheme: dark;
     color: #fff;
     background-color: #1e1e1e;
+  }
+
+  // The marquee box is drawn on the paper, beside the editor: the same
+  // scheme, so its wash is the one the blocks it lights wear.
+  > .aee-marquee {
+    color-scheme: dark;
   }
 }
 

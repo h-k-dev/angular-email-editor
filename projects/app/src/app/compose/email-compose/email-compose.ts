@@ -61,6 +61,7 @@ import {
   SuggestionMenuState,
   caretInsideMergeTag,
   createBlockMenu,
+  createBlockMarquee,
   createTableHandles,
   createBubbleMenu,
   createButtonEdit,
@@ -531,6 +532,10 @@ export class EmailCompose implements FormValueControl<string> {
           onStateChange: (state) => this.blockMenuState.set(state),
           menuElement: () => this.blockMenu().element()?.nativeElement,
         }),
+        // Notion's marquee: a drag from the paper's margin, or the room
+        // between and below the blocks, selects the blocks it touches. Drawn
+        // in the scrolling paper (the editor's parent, by default).
+        createBlockMarquee(),
         // The grips on each row's flank and above each column: pressing one
         // selects that band and hands the menu its target. Every command the
         // menu then runs is selection-relative, which is why the two halves

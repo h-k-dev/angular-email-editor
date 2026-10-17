@@ -16,6 +16,7 @@ import { Image } from './nodes/image';
 import { Divider } from './nodes/divider';
 import { Button } from './nodes/button';
 import { InlineAtomSelection } from './inline-atom-selection';
+import { SelectedBlocks } from './block-selection';
 import { Table, TableRow, TableCell } from './nodes/table';
 import { Columns, Column } from './nodes/columns';
 import { Bold } from './marks/bold';
@@ -58,6 +59,10 @@ const withParagraph = (paragraph: NodeExtension): Extension[] => [
   Button,
   // Images and buttons selected like characters: a drag covers them.
   InlineAtomSelection,
+  // Whole blocks selected as blocks (Notion's): lit, and walked by its
+  // keys. Before the tables and gap-cursor, whose arrows it outranks while
+  // there is one.
+  SelectedBlocks,
   Table,
   TableRow,
   TableCell,
