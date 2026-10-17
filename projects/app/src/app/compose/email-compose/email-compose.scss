@@ -8,6 +8,12 @@
   gap: 8px;
 }
 
+// Focusable only to hand the caret on into the text (`onHostFocus`), so it
+// never shows a ring of its own.
+:host(:focus) {
+  outline: none;
+}
+
 // The body: the editing surface or the source in its place, and the hint
 // over whichever shows. Positioned so the hint has a box to cover — the
 // surface's own, which scrolls, would carry the hint away with the text.

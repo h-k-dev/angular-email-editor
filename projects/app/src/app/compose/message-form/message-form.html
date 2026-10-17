@@ -356,6 +356,7 @@
             email-address-input
             emailMatFormField
             #toField
+            [attr.cdkFocusInitial]="initialFocus() === 'to' ? '' : null"
             placeholder="Recipients"
             [formField]="envelope.to"
           >
@@ -369,7 +370,13 @@
             <ng-container [ngTemplateOutlet]="copyButtons" />
           </span>
         }
-        <div email-address-input #toField placeholder="Recipients" [formField]="envelope.to"></div>
+        <div
+          email-address-input
+          #toField
+          [attr.cdkFocusInitial]="initialFocus() === 'to' ? '' : null"
+          placeholder="Recipients"
+          [formField]="envelope.to"
+        ></div>
       }
     </div>
     <!-- Each copy row lives only while open or filled. -->
@@ -522,9 +529,14 @@
   }
   <!-- The editor is the body field's control: the form drives its value
        and hears its canonical HTML back. Its own send gestures (Mod-Enter,
-       /send) submit the form. -->
+       /send) submit the form. A reply starts here: `cdkFocusInitial` marks
+       it, focusable (`tabindex="-1"`) from the first render — before its
+       editor mounts — so the CDK's initial focus lands on it whenever it
+       runs, and the pane hands the caret on into the text. -->
   <section
     email-compose
+    [attr.cdkFocusInitial]="initialFocus() === 'body' ? '' : null"
+    [attr.tabindex]="initialFocus() === 'body' ? -1 : null"
     [formField]="envelope.html"
     [(quoted)]="quoted"
     (send)="send()"

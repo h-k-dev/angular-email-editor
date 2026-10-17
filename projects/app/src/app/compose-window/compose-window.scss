@@ -75,6 +75,9 @@
 
   --writer-radius: 0;
   --writer-shadow: none;
+  // The title bar heads the sheet: no room of the sheet's own above its
+  // first row.
+  --writer-padding-start: 0;
 }
 
 // Pressed or focused last: drawn over its neighbours when a drag has

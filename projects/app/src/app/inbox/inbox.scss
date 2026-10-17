@@ -1,0 +1,148 @@
+@use '../../styles/breakpoints' as bp;
+
+// A mail client's two panes: the list, a fixed column, and the open
+// message beside it, each scrolling on its own. On a phone they stack.
+:host {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  block-size: 100%;
+  min-block-size: 0;
+  box-sizing: border-box;
+
+  @include bp.phone {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+}
+
+.inbox-list {
+  min-block-size: 0;
+  overflow-y: auto;
+  border-inline-end: 1px solid var(--mat-sys-outline-variant);
+
+  @include bp.phone {
+    max-block-size: 40svh;
+    border-inline-end: 0;
+    border-block-end: 1px solid var(--mat-sys-outline-variant);
+  }
+
+  ul {
+    margin: 0;
+    padding: 4px;
+    list-style: none;
+  }
+}
+
+// A row: the sender and the time on one line, the subject under them.
+.inbox-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 8px;
+  inline-size: 100%;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: var(--mat-sys-corner-medium);
+  background: none;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+  text-align: start;
+  cursor: pointer;
+
+  &:hover {
+    background-color: color-mix(in oklch, var(--mat-sys-on-surface) 8%, transparent);
+  }
+
+  &[aria-current='true'] {
+    background-color: var(--mat-sys-secondary-container);
+    color: var(--mat-sys-on-secondary-container);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: -2px;
+  }
+}
+
+.inbox-row__name,
+.inbox-row__subject {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inbox-row__name {
+  color: var(--mat-sys-on-surface);
+}
+
+.inbox-row__when {
+  font: var(--mat-sys-label-medium);
+  align-self: center;
+}
+
+.inbox-row__subject {
+  grid-column: 1 / -1;
+}
+
+// Unread: the sender and subject in bold, as every client marks them.
+.inbox-row--unread {
+  .inbox-row__name,
+  .inbox-row__subject {
+    font-weight: 600;
+    color: var(--mat-sys-on-surface);
+  }
+}
+
+.inbox-reader {
+  min-block-size: 0;
+  overflow-y: auto;
+  padding: 24px 32px;
+  box-sizing: border-box;
+  color: var(--mat-sys-on-surface);
+
+  @include bp.phone {
+    padding: 16px;
+  }
+}
+
+.inbox-reader__header {
+  display: grid;
+  gap: 4px;
+  padding-block-end: 16px;
+  border-block-end: 1px solid var(--mat-sys-outline-variant);
+}
+
+.inbox-reader__subject {
+  margin: 0 0 8px;
+  font: var(--mat-sys-title-large);
+}
+
+.inbox-reader__meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  font: var(--mat-sys-body-medium);
+}
+
+.inbox-reader__from {
+  font-weight: 600;
+}
+
+.inbox-reader__date,
+.inbox-reader__to {
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-small);
+}
+
+.inbox-reader__body {
+  max-inline-size: 600px;
+  padding-block: 16px;
+  font: var(--mat-sys-body-large);
+}
+
+.inbox-reader__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

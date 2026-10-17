@@ -42,6 +42,7 @@ export class App {
   /** The top bar's pages, in reading order. */
   protected readonly pages = [
     { path: '/', icon: 'edit_note', key: 'app.nav.composer', label: 'Composer' },
+    { path: '/inbox', icon: 'inbox', key: 'app.nav.inbox', label: 'Inbox' },
     { path: '/api', icon: 'api', key: 'app.nav.api', label: 'API' },
     { path: '/styling', icon: 'palette', key: 'app.nav.styling', label: 'Styling' },
     { path: '/render', icon: 'compare', key: 'app.nav.render', label: 'Render' },

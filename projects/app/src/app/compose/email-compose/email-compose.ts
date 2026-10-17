@@ -145,7 +145,10 @@ export type EditorColorScheme = 'light' | 'dark';
   // The surface is set in the email's default font, not the app's: what is
   // written looks as it will in the recipient's Gmail, and the toolbar's
   // font menu shows Sans Serif ticked rather than the app's Roboto.
-  host: { '[style.--mat-sys-prose-mirror-font-family]': 'surfaceFont' },
+  host: {
+    '[style.--mat-sys-prose-mirror-font-family]': 'surfaceFont',
+    '(focus)': 'onHostFocus()',
+  },
   templateUrl: './email-compose.html',
   styleUrl: './email-compose.scss',
 })
@@ -670,7 +673,32 @@ export class EmailCompose implements FormValueControl<string> {
     // No focus of its own: where the caret starts is the page's decision
     // (the composer puts it in To), and the form's way in is `focus()`.
     // Mounting runs in the mixed render phase, after the page's focus write
-    // — taking focus here would take it back.
+    // — taking focus here would take it back. Except the one the page
+    // already gave: the pane itself took focus before there was text to
+    // hold it (`onHostFocus`) and still has it — the caret goes on in, into
+    // the content just put there.
+    if (this.#focusOnMount && document.activeElement === this.#host) editor.view.focus();
+    this.#focusOnMount = false;
+  }
+
+  readonly #host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+  #focusOnMount = false;
+
+  /**
+   * The pane itself took focus — a host that made it focusable
+   * (`tabindex="-1"`) and marked it where the caret should start
+   * (`cdkFocusInitial`, which the CDK's initial focus lands on: a dialog's,
+   * a focus trap's capture). The caret goes on into the text: now, or — the
+   * editor mounts a render after the pane — as it mounts. Not into a
+   * source pane standing in the editor's place.
+   */
+  protected onHostFocus(): void {
+    const editor = this.editor();
+    if (!editor) {
+      this.#focusOnMount = true;
+      return;
+    }
+    if (!this.codeView()) editor.focus();
   }
 
   focusEditor(): void {

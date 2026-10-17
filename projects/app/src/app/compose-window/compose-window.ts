@@ -157,7 +157,9 @@ export class ComposeWindowFrame implements PaperIsland {
       sheet's Appearance (the ⋮ menu's Light, Dark or App) — title bar,
       writer bar, envelope rows and text one paper, and the menus opened
       from it too (paper-island.ts). On the edge only the text wears it. */
-  readonly scheme = computed(() => (this.expanded() ? (this.sheet()?.editorScheme() ?? null) : null));
+  readonly scheme = computed(() =>
+    this.expanded() ? (this.sheet()?.editorScheme() ?? null) : null,
+  );
 
   /** What the window is called: the message's subject, or what an unnamed
       message is called. The title bar shows it; a page, which has no title
@@ -166,11 +168,36 @@ export class ComposeWindowFrame implements PaperIsland {
     () => this.sheet()?.message().subject.trim() || this.i18n.t('composeWindow.new'),
   );
 
+  /** What the sheet starts from: what the window opened with (a reply its
+      opener prepared, or a message the forward button put back), else a
+      new message. Read once, as the sheet is created — from then on the
+      message is the sheet's own. */
+  protected readonly seed = computed(() => this.window().restored?.message ?? null);
+
   #grab: Grab | null = null;
 
   constructor() {
+    // A window that opens with a message: its inline parts go into this
+    // window's registry — a new one; a closed window's object URLs died
+    // with it — before the editor mounts (a render after the sheet), so
+    // every `cid:` resolves as its node view mounts.
+    effect(() => {
+      const restored = this.window().restored;
+      untracked(() => {
+        for (const part of restored?.images ?? []) {
+          if (!this.#images.blob(part.cid)) this.#images.add(part.blob, part.cid);
+        }
+      });
+    });
+
     // The dialog keeps focus inside; on the edge, Tab moves on to the page.
+    // Trapping or not, the trap places the caret: it captures focus as the
+    // window opens — onto what the sheet marks `cdkFocusInitial`, To for a
+    // new message, the editor for a reply — and hands it back where it was
+    // when the window goes (the CDK's initial focus and its restore; the
+    // sheet leaves the caret to it).
     const trap = inject(CdkTrapFocus);
+    trap.autoCapture = true;
     effect(() => (trap.enabled = this.expanded()));
 
     // The phone's back button closes the window instead of leaving the
@@ -202,22 +229,6 @@ export class ComposeWindowFrame implements PaperIsland {
       onCleanup(held.release);
     });
 
-    // A window the forward button put back comes back with what was
-    // written in it. The parts go into this window's registry — a new one,
-    // the old one's object URLs died with its window — before the message
-    // that names them, so every `cid:` resolves as its node view mounts.
-    // Once, as soon as the sheet is there: from then on the message is the
-    // sheet's own.
-    let seeded = false;
-    effect(() => {
-      const restored = this.window().restored;
-      const sheet = this.sheet();
-      if (seeded || !restored || !sheet) return;
-      seeded = true;
-      for (const part of restored.images) this.#images.add(part.blob, part.cid);
-      sheet.message.set(restored.message);
-    });
-
     // Asked for by name — Compose with three windows already open hands
     // back the oldest. The caret goes in after the window has been drawn
     // open again: a sheet that is still hidden takes no focus.
@@ -228,7 +239,7 @@ export class ComposeWindowFrame implements PaperIsland {
       const wanted = this.windows.wanted();
       untracked(() => {
         if (wanted?.id !== this.window().id) return;
-        afterNextRender({ write: () => this.sheet()?.focus() }, { injector });
+        afterNextRender({ write: () => trap.focusTrap.focusInitialElement() }, { injector });
       });
     });
   }

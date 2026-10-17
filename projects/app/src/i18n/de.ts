@@ -10,10 +10,24 @@
  */
 export default {
   app: {
-    nav: { composer: 'Editor', api: 'API', styling: 'Gestaltung', render: 'Darstellung' },
+    nav: {
+      composer: 'Editor',
+      inbox: 'Posteingang',
+      api: 'API',
+      styling: 'Gestaltung',
+      render: 'Darstellung',
+    },
     language: 'Sprache',
     compose: 'Verfassen',
     theme: { light: 'Zum hellen Design wechseln', dark: 'Zum dunklen Design wechseln' },
+  },
+  inbox: {
+    title: 'Posteingang',
+    to: 'An',
+    cc: 'Cc',
+    reply: 'Antworten',
+    replyAll: 'Allen antworten',
+    forward: 'Weiterleiten',
   },
   composeWindow: {
     new: 'Neue Nachricht',

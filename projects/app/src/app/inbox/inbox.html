@@ -1,0 +1,55 @@
+<!-- The list: one row per message, the open one marked. A row is a button —
+     opening a message is all it does. -->
+<nav class="inbox-list email-scroll" [attr.aria-label]="'inbox.title' | translate">
+  <ul>
+    @for (row of rows(); track row.mail.id) {
+      <li>
+        <button
+          type="button"
+          class="inbox-row"
+          [class.inbox-row--unread]="unread().has(row.mail.id)"
+          [attr.aria-current]="row.mail.id === openId() || null"
+          (click)="select(row.mail.id)"
+        >
+          <span class="inbox-row__name">{{ row.mail.name }}</span>
+          <span class="inbox-row__when">{{ row.when }}</span>
+          <span class="inbox-row__subject">{{ row.mail.subject }}</span>
+        </button>
+      </li>
+    }
+  </ul>
+</nav>
+
+<!-- The open message, and the answers to it. -->
+<article class="inbox-reader email-scroll" [attr.aria-label]="open().subject">
+  <header class="inbox-reader__header">
+    <h1 class="inbox-reader__subject">{{ open().subject }}</h1>
+    <div class="inbox-reader__meta">
+      <span class="inbox-reader__from">{{ open().from }}</span>
+      <span class="inbox-reader__date">{{ openDate() }}</span>
+    </div>
+    <div class="inbox-reader__to">
+      {{ 'inbox.to' | translate }} {{ open().to }}
+      @if (open().cc; as cc) {
+        · {{ 'inbox.cc' | translate }} {{ cc }}
+      }
+    </div>
+  </header>
+
+  <div class="inbox-reader__body" [innerHTML]="open().html"></div>
+
+  <div class="inbox-reader__actions">
+    <button matButton="outlined" type="button" (click)="answer('reply')">
+      <mat-icon>reply</mat-icon>
+      {{ 'inbox.reply' | translate }}
+    </button>
+    <button matButton="outlined" type="button" (click)="answer('reply-all')">
+      <mat-icon>reply_all</mat-icon>
+      {{ 'inbox.replyAll' | translate }}
+    </button>
+    <button matButton="outlined" type="button" (click)="answer('forward')">
+      <mat-icon>forward</mat-icon>
+      {{ 'inbox.forward' | translate }}
+    </button>
+  </div>
+</article>

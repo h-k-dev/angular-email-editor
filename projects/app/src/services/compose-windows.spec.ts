@@ -1,6 +1,10 @@
 import { ApplicationRef, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 
+import { InteractivityChecker } from '@angular/cdk/a11y';
+import { replyEnvelope, replyQuote } from '@h-k-dev/angular-email-editor';
+
+import { BLANK } from '../app/compose/message-form/envelope';
 import { ComposeWindows } from './compose-windows';
 import { Viewport } from './viewport';
 import { EMAIL_SEND_LATENCY } from './email-send';
@@ -18,6 +22,14 @@ HTMLCanvasElement.prototype.getContext = (() => ({
   measureText: (text: string) => ({ width: text.length * 7 }),
 })) as never;
 Element.prototype.setPointerCapture ??= () => {};
+
+// A window's caret is placed by its focus trap (the CDK's initial focus),
+// which takes only what is visible — and jsdom lays nothing out, so nothing
+// has the geometry it looks for. The real check is a browser's.
+beforeEach(() => {
+  vi.spyOn(InteractivityChecker.prototype, 'isVisible').mockReturnValue(true);
+});
+afterEach(() => vi.restoreAllMocks());
 
 /** jsdom has no PointerEvent everywhere; a MouseEvent carries what the
     window reads (button, clientX) — its pointerId is the same `undefined`
@@ -319,6 +331,57 @@ describe('ComposeWindows', () => {
     frames()[0].querySelector<HTMLButtonElement>('[aria-label="Discard draft"]')!.click();
     await settle();
     expect(windows.windows()).toEqual([]);
+  });
+
+  describe('where the caret starts', () => {
+    const inbound = {
+      from: 'Ada Lovelace <ada@example.com>',
+      to: 'you@example.com',
+      subject: 'Launch checklist',
+      html: '<p>Can you confirm?</p>',
+    };
+    const reply = () => ({
+      message: {
+        ...BLANK,
+        ...replyEnvelope(inbound, 'reply', { self: BLANK.from }),
+        quoted: replyQuote(inbound),
+      },
+      images: [],
+    });
+    /** Whatever the CDK's initial focus waits for — the editor mounting a
+        render after the sheet — has happened. */
+    const mounted = async () => {
+      for (let i = 0; i < 4; i++) await settle();
+    };
+
+    it('a reply starts in the editor, marked cdkFocusInitial, its rows filled and its history kept', async () => {
+      await windows.open({ content: reply(), focus: 'body' });
+      await mounted();
+      const frame = frames()[0];
+      const editor = frame.querySelector<HTMLElement>('.ProseMirror')!;
+      expect(frame.querySelector('section[email-compose]')!.hasAttribute('cdkFocusInitial')).toBe(
+        true,
+      );
+      expect(document.activeElement).toBe(editor);
+      // The caret is the editor's own selection: the empty line over the
+      // history, ready to type on.
+      expect(editor.firstElementChild?.textContent).toBe('');
+      expect(frame.querySelector('.aee-quoted')).not.toBeNull();
+      expect(frame.querySelector<HTMLInputElement>('input[id^=message-subject]')!.value).toBe(
+        'Re: Launch checklist',
+      );
+    });
+
+    it('a new message — and a forward, with nobody to go to yet — starts in To', async () => {
+      await windows.open({ content: reply(), focus: 'to' });
+      await mounted();
+      const frame = frames()[0];
+      expect(frame.querySelector('[cdkFocusInitial]')?.hasAttribute('email-address-input')).toBe(
+        true,
+      );
+      expect(document.activeElement?.closest('[email-address-input]')).not.toBeNull();
+      expect(document.activeElement?.closest('.ProseMirror')).toBeNull();
+    });
   });
 });
 

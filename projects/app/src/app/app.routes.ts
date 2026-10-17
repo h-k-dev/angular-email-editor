@@ -9,6 +9,10 @@ export const routes: Routes = [
     loadComponent: () => import('./compose/compose').then((m) => m.Compose),
   },
   {
+    path: 'inbox',
+    loadComponent: () => import('./inbox/inbox').then((m) => m.Inbox),
+  },
+  {
     path: 'api',
     loadComponent: () => import('./api-reference/api-reference').then((m) => m.ApiReference),
   },

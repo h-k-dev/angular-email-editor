@@ -31,6 +31,15 @@ export type ComposeWindowMode = 'docked' | 'minimized' | 'expanded';
       the same chrome everywhere. */
 export type ComposeWindowMobile = 'page' | 'window';
 
+/** Where the caret goes when a window opens:
+    - `to`: the To row, where a new message starts;
+    - `body`: the editor, above the quoted history — a reply's To and
+      subject are already filled (and a subject is often better left to a
+      suggestion from what is written), so the user starts with the text.
+      The sheet marks the editor `cdkFocusInitial`, and the caret goes
+      where the CDK's initial focus puts it. */
+export type ComposeWindowFocus = 'to' | 'body';
+
 /** An inline part of a message being put back: its Content-ID and its
     bytes. The registry a window holds goes with the window (its object URLs
     are revoked with it), so the bytes come back to the new one under the
@@ -66,13 +75,12 @@ export interface ComposeWindow {
   readonly pin: number | null;
   /** How this window shows on a phone. */
   readonly mobile: ComposeWindowMobile;
-  /** Where focus was when the window opened: it goes back there when the
-      window closes. */
-  readonly opener: HTMLElement | null;
-  /** What the window opens with, where it is not a new message: a window
-      the forward button put back comes back with what was written in it.
-      The sheet takes it once, as it mounts. */
+  /** What the window opens with, where it is not a new message: a reply
+      or a forward its opener prepared, or — a window the forward button put
+      back — what was written in it. The sheet starts from it. */
   readonly restored: ComposeWindowContent | null;
+  /** Where the caret goes as the window opens. */
+  readonly focus: ComposeWindowFocus;
   /** The history entry the window's way out sits on, where it has one (a
       phone's back button, see BackButton): a window put back comes back on
       the very entry it was closed from, and its new guard takes that over
@@ -177,11 +185,20 @@ export class ComposeWindows {
    * page itself (the default — no title bar; the back button closes it) or
    * as a window with its own bar.
    *
+   * `content` is the message it starts with — a reply's recipients,
+   * subject and quoted history (`replyEnvelope`, `replyQuote`) — and
+   * `focus` where the caret starts: To by default, the editor for a reply
+   * whose rows are already filled.
+   *
    * With every place taken there is nothing new to open: the oldest window
    * comes back instead — restored if it was minimized, in front, with the
    * caret in it.
    */
-  async open(options?: { mobile?: ComposeWindowMobile }): Promise<number> {
+  async open(options?: {
+    mobile?: ComposeWindowMobile;
+    content?: ComposeWindowContent;
+    focus?: ComposeWindowFocus;
+  }): Promise<number> {
     await this.#mount();
     const open = this.#windows();
     const slot = this.#freeSlot();
@@ -191,7 +208,6 @@ export class ComposeWindows {
       return oldest.id;
     }
     const id = this.#nextId++;
-    const opener = this.#document.activeElement as HTMLElement | null;
     this.#windows.update((windows) => [
       ...windows,
       {
@@ -200,8 +216,8 @@ export class ComposeWindows {
         mode: 'docked',
         pin: null,
         mobile: options?.mobile ?? 'page',
-        opener,
-        restored: null,
+        restored: options?.content ?? null,
+        focus: options?.focus ?? 'to',
         guard: null,
       },
     ]);
@@ -249,15 +265,15 @@ export class ComposeWindows {
   }
 
   /** Closes the window — its message goes with it, unless something took a
-      copy of it first ({@link reopen}) — and hands focus back to where it
-      was when the window opened. Its place on the edge is free for the next
-      window; the windows still open stay where they are. */
+      copy of it first ({@link reopen}). Focus goes back to where it was when
+      the window opened — the window's focus trap hands it back as it goes.
+      Its place on the edge is free for the next window; the windows still
+      open stay where they are. */
   close(id: number): void {
     const closing = this.#find(id);
     if (!closing) return;
     this.#windows.update((windows) => windows.filter((w) => w.id !== id));
     if (this.#front() === id) this.#front.set(this.#windows().at(-1)?.id ?? null);
-    if (closing.opener?.isConnected) closing.opener.focus();
   }
 
   minimize(id: number): void {

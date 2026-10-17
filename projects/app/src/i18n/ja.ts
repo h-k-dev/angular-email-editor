@@ -9,10 +9,24 @@
  */
 export default {
   app: {
-    nav: { composer: '作成', api: 'API', styling: 'スタイル', render: 'レンダリング' },
+    nav: {
+      composer: '作成',
+      inbox: '受信トレイ',
+      api: 'API',
+      styling: 'スタイル',
+      render: 'レンダリング',
+    },
     language: '言語',
     compose: '作成',
     theme: { light: 'ライトモードに切り替え', dark: 'ダークモードに切り替え' },
+  },
+  inbox: {
+    title: '受信トレイ',
+    to: '宛先',
+    cc: 'Cc',
+    reply: '返信',
+    replyAll: '全員に返信',
+    forward: '転送',
   },
   composeWindow: {
     new: '新規メッセージ',

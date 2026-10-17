@@ -19,6 +19,7 @@ import {
 // Angular CDK
 import { NgTemplateOutlet } from '@angular/common';
 import { Portal } from '@angular/cdk/portal';
+import { CdkTrapFocus } from '@angular/cdk/a11y';
 
 // Angular Signal Forms
 import {
@@ -264,11 +265,24 @@ export class MessageForm {
   /** The Preview text input's id, unique on the page. */
   protected readonly previewId = `message-preview-${nextSheetId++}`;
 
+  /** What the sheet starts from — a reply's headers and quoted history, a
+      message put back — instead of a new message. Given as the sheet is
+      created, so the editor mounts with it: a value written in after the
+      caret is in the editor would wait for the caret to leave. */
+  readonly seed = input<Envelope | null>(null);
+
+  /** Where the caret starts: To, where a new message starts, or `body` —
+      the editor, for a reply whose rows are already filled. Only a mark:
+      the element is `cdkFocusInitial`, and the focus trap that holds the
+      sheet (a compose window's, capturing) puts the caret there. */
+  readonly initialFocus = input<'to' | 'body'>('to');
+
   /** The message — one model, owned here as a real host would own it
       (seeded from an account, a reply's headers, a draft). Every row on the
-      sheet binds to a field of it through the form below. Writable from
-      outside: a draft keeper seeds it, a frame may prefill it. */
-  readonly message = signal<Envelope>(BLANK);
+      sheet binds to a field of it through the form below. Starts from the
+      `seed`; writable from outside: a draft keeper seeds it, a frame may
+      prefill it. */
+  readonly message = linkedSignal<Envelope>(() => this.seed() ?? BLANK);
 
   /**
    * The form over the message. The rules are the ones a mail client
@@ -447,9 +461,16 @@ export class MessageForm {
     viewChild.required<ElementRef<HTMLInputElement>>('subjectField');
 
   constructor() {
-    // Focus is a DOM write: the write phase, batched ahead of the reads of
-    // the same pass (the toolbar measuring itself).
-    afterNextRender({ write: () => this.focus() });
+    // Where the caret starts is marked, not done, where a focus trap that
+    // captures holds the sheet (a compose window): the CDK's initial focus
+    // puts it on the `cdkFocusInitial` element as the trap starts, and hands
+    // it back where it was when the trap goes. A sheet on its own (the
+    // page) puts it in To itself — focus is a DOM write: the write phase,
+    // batched ahead of the reads of the same pass (the toolbar measuring
+    // itself).
+    if (!inject(CdkTrapFocus, { optional: true })?.autoCapture) {
+      afterNextRender({ write: () => this.focus() });
+    }
   }
 
   /** Puts the caret in To, where a message starts. */
@@ -480,7 +501,8 @@ export class MessageForm {
     this.bccOpen.set(false);
     this.previewOpen.set(false);
     this.cleared.emit();
-    afterNextRender({ write: () => this.focus() }, { injector: this.#injector });
+    // A new message starts at To, whatever the sheet first opened on.
+    afterNextRender({ write: () => this.toField()?.focus() }, { injector: this.#injector });
   }
 
   /**

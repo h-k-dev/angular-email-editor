@@ -85,6 +85,8 @@
   #sheet
   class="compose-window__sheet"
   fields="material"
+  [seed]="seed()"
+  [initialFocus]="window().focus"
   [bar]="expanded() ? 'top' : 'auto'"
   (sent)="sent()"
   (discarded)="close()"

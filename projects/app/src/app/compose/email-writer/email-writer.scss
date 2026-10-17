@@ -28,7 +28,10 @@
   // the virtual keyboard, the way a keyboard's own accessory bar does. Its
   // 48px touch targets carry their own clearance. The same steep clamp as the
   // corners below, so the two snap together at the breakpoint.
-  padding-block: 8px clamp(0px, (100vw - #{bp.$full-width-max}) * 100, 8px);
+  // A frame with a bar of its own above the sheet (a compose window's title
+  // bar) sets --writer-padding-start to take the top room off.
+  padding-block: var(--writer-padding-start, 8px)
+    clamp(0px, (100vw - #{bp.$full-width-max}) * 100, 8px);
   box-sizing: border-box;
 
   // The app's sheet colour — or, on a paper island (paper-island.ts), the

@@ -13,10 +13,18 @@
  */
 export default {
   app: {
-    nav: { composer: 'Composer', api: 'API', styling: 'Styling', render: 'Render' },
+    nav: { composer: 'Composer', inbox: 'Inbox', api: 'API', styling: 'Styling', render: 'Render' },
     language: 'Language',
     compose: 'Compose',
     theme: { light: 'Switch to light mode', dark: 'Switch to dark mode' },
+  },
+  inbox: {
+    title: 'Inbox',
+    to: 'To',
+    cc: 'Cc',
+    reply: 'Reply',
+    replyAll: 'Reply all',
+    forward: 'Forward',
   },
   composeWindow: {
     new: 'New message',
