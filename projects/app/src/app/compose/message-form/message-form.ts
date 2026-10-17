@@ -83,6 +83,7 @@ import {
   ToolbarMenuItem,
 } from '../email-compose/formatting-toolbar/toolbar-menu/toolbar-menu';
 import { EmailWriter, WriterBarPosition, writerBarOnTop } from '../email-writer/email-writer';
+import { MarqueeStart } from '../paper-island';
 import { releaseEditingSurface } from '../is-typing';
 import { Viewport } from '../../../services/viewport';
 import { Theme } from '../../../services/theme';
@@ -153,6 +154,7 @@ type EditorAppearance = EditorColorScheme | 'app';
     DropHint,
     AngularFileDrop,
     KeepFocus,
+    MarqueeStart,
     ActionTrigger,
     MenuTrigger,
     ToolbarMenu,

@@ -26,7 +26,7 @@ import { InlineImages } from '@h-k-dev/angular-email-editor';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { MessageForm } from '../compose/message-form/message-form';
-import { PaperIsland } from '../compose/paper-island';
+import { IslandMarquee, PaperIsland } from '../compose/paper-island';
 import { Viewport } from '../../services/viewport';
 import { I18n } from '../../services/i18n';
 import { BackButton } from '../../services/back-button';
@@ -105,6 +105,12 @@ export class ComposeWindowFrame implements PaperIsland {
   protected readonly i18n = inject(I18n);
   protected readonly viewport = inject(Viewport);
   readonly #host = inject<ElementRef<HTMLElement>>(ElementRef);
+  /** The island's element (`PaperIsland`): the whole window — what spans
+      it, the editor's marquee, draws here. */
+  readonly element = this.#host.nativeElement;
+  /** The island's marquee: the composer in the sheet starts it, the
+      writer's empty room asks for it (`MarqueeStart`). */
+  readonly marquee = new IslandMarquee();
   readonly #snackBar = inject(MatSnackBar);
   /** This window's inline image registry — the one provided above, so the
       parts of a message put back go in here, and the parts of one closing

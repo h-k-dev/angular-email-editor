@@ -30,6 +30,7 @@ import type { FormValueControl } from '@angular/forms/signals';
 import { DropHint, DropHintArt } from '../drop-hint/drop-hint';
 import { isTyping, releaseEditingSurface } from '../is-typing';
 import { atRest } from '../at-rest';
+import { PaperIsland } from '../paper-island';
 import { BlockMenu } from './block-menu/block-menu';
 import { TableMenu } from './table-menu/table-menu';
 import { CellMenu } from './cell-menu/cell-menu';
@@ -61,6 +62,7 @@ import {
   SuggestionMenuState,
   caretInsideMergeTag,
   createBlockMenu,
+  beginBlockMarquee,
   createBlockMarquee,
   createTableHandles,
   createBubbleMenu,
@@ -167,6 +169,9 @@ export class EmailCompose implements FormValueControl<string> {
       them (`MERGE_TAG_SOURCE`), and the values Parse fills in. */
   readonly #mergeTagSource = inject(MERGE_TAG_SOURCE);
   readonly #mergeTags = inject(MergeTags);
+  /** The island the composer sits on, if any (a compose window): the
+      marquee draws its box across it. */
+  readonly #island = inject(PaperIsland, { optional: true });
   /** The words of the language in use — the menu asks when it opens. */
   protected readonly i18n = inject(I18n);
 
@@ -409,6 +414,14 @@ export class EmailCompose implements FormValueControl<string> {
 
     this.#destroyRef.onDestroy(() => this.editor()?.destroy());
 
+    // On an island, its start points (`MarqueeStart` — a zoomed window's
+    // side room) start this editor's marquee, through the island.
+    const release = this.#island?.marquee.register((event) => {
+      const view = this.editor()?.view;
+      return !!view && beginBlockMarquee(view, event);
+    });
+    if (release) this.#destroyRef.onDestroy(release);
+
     // Incoming html (the source pane's edits, a draft from another tab)
     // parses through the email schema. Skipped while this editor has focus:
     // then it is the origin of the signal value, not a consumer. `setContent`
@@ -533,9 +546,12 @@ export class EmailCompose implements FormValueControl<string> {
           menuElement: () => this.blockMenu().element()?.nativeElement,
         }),
         // Notion's marquee: a drag from the paper's margin, or the room
-        // between and below the blocks, selects the blocks it touches. Drawn
-        // in the scrolling paper (the editor's parent, by default).
-        createBlockMarquee(),
+        // between and below the blocks, selects the blocks it touches. It
+        // starts only there, but on a paper island (a compose window) the
+        // box is drawn on the whole island — over the title bar and the
+        // envelope rows — while it still selects only blocks; elsewhere in
+        // the scrolling paper (the editor's parent, by default).
+        createBlockMarquee({ canvas: (view) => this.#island?.element ?? view.dom.parentElement! }),
         // The grips on each row's flank and above each column: pressing one
         // selects that band and hands the menu its target. Every command the
         // menu then runs is selection-relative, which is why the two halves

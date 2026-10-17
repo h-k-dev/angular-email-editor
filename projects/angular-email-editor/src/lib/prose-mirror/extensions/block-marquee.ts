@@ -10,16 +10,27 @@ export const BLOCK_MARQUEE_CLASS = 'aee-marquee';
 
 export interface BlockMarqueeOptions {
   /**
-   * Where a press may start the box, and what the box is drawn in: the
-   * margin around the editor, and the editor's own room between and below
-   * its blocks. The editor's parent element, by default — the composer's
-   * scrolling paper.
-   *
-   * The box is absolutely positioned against its containing block, so give
-   * the surface a `position` (it then scrolls with the content, and its
-   * `overflow` clips it).
+   * Where a press may start the box: the margin around the editor, and the
+   * editor's own room between and below its blocks. The editor's parent
+   * element, by default — the composer's scrolling paper. Only the blocks
+   * the box covers *inside* the surface's viewport are selected, and held
+   * near its scroller's edge the drag scrolls it.
    */
   surface?: (view: EditorView) => HTMLElement;
+  /**
+   * What the box is drawn in, once the press has started it — any ancestor
+   * of the surface, or the surface itself (the default). Notion's way: the
+   * drag can only start in the editor's room, but the box follows the
+   * pointer anywhere on the canvas — over a header, the fields above the
+   * text, a side bar — while it still selects only the editor's blocks. The
+   * pointer is clipped to the canvas's viewport.
+   *
+   * The box is absolutely positioned against its containing block, so give
+   * the canvas a `position`; its `overflow` clips the box. The box wears the
+   * editor's `color-scheme`, wherever it is drawn, so its wash is the one
+   * the blocks it lights wear.
+   */
+  canvas?: (view: EditorView) => HTMLElement;
   /** How far, in px, a press moves before it is a box and not a click.
       4, by default: a hand at rest still moves a pixel or two. */
   threshold?: number;
@@ -75,13 +86,29 @@ function scrollerOf(element: HTMLElement): HTMLElement | null {
   return null;
 }
 
+/** How far `scroller` (or, with none, the window) has scrolled. */
+function scrollOf(scroller: HTMLElement | null): Point {
+  return scroller
+    ? { x: scroller.scrollLeft, y: scroller.scrollTop }
+    : { x: window.scrollX, y: window.scrollY };
+}
+
+/** Starts a gesture from a press; `elsewhere` — a host's own start point,
+    not the surface or the editor. */
+type Start = (event: MouseEvent, elsewhere: boolean) => boolean;
+
+/** Each marquee editor's start, for {@link beginBlockMarquee}. */
+const starts = new WeakMap<EditorView, Start>();
+
 /** A drag in progress, from its press. */
 interface Gesture {
-  /** The press, in the box's frame (see `frame`): where the box grows from,
-      wherever the content has scrolled since. */
-  origin: Point;
-  /** The press, in client coordinates: the click's slack is measured here. */
+  /** The press, in client coordinates: the click's slack is measured here,
+      and the box grows from it — moved by however far the content has
+      scrolled since (`scrolledFrom`), so it stays where it was pressed in
+      the content. */
   pressed: Point;
+  /** The scroller's scroll at the press. */
+  scrolledFrom: Point;
   /** Where the pointer is, in client coordinates. */
   pointer: Point;
   /** Past the slack: a box, not a click. */
@@ -111,11 +138,14 @@ interface Gesture {
  * text, as a click in the margin of a page puts it in Google Docs.
  *
  * **While it drags.** The box is a `div` ({@link BLOCK_MARQUEE_CLASS}) in the
- * surface, against the pointer, clipped to the surface's viewport; held near
- * the scroller's edge it scrolls, and the box keeps its origin in the
- * content. Each move hit-tests the top-level blocks' boxes (the one measured
- * thing — a box drawn by a pointer has no other geometry) and selects the
- * run it touches; touching none, the selection the press found comes back.
+ * canvas — the surface, unless the host gives a larger one — against the
+ * pointer, clipped to the canvas's viewport, so it may reach over whatever
+ * frames the editor; held near the scroller's edge (or past it) it scrolls,
+ * and the box keeps its origin in the content. Each move hit-tests the
+ * top-level blocks' boxes (the one measured thing — a box drawn by a pointer
+ * has no other geometry) against what the box covers of the surface, and
+ * selects the run it touches; touching none, the selection the press found
+ * comes back. Only blocks are ever selected, wherever the box reaches.
  * Escape cancels the drag.
  */
 export const createBlockMarquee = (options: BlockMarqueeOptions = {}): FunctionalExtension => {
@@ -125,12 +155,13 @@ export const createBlockMarquee = (options: BlockMarqueeOptions = {}): Functiona
     name: 'blockMarquee',
     plugins: () => {
       // The press handler of this editor's view (one per `plugins` call).
-      let begin: ((event: MouseEvent) => boolean) | null = null;
+      let begin: Start | null = null;
       return [
         new Plugin({
           key: new PluginKey('blockMarquee'),
           view: (view) => {
             const surface = options.surface?.(view) ?? view.dom.parentElement ?? view.dom;
+            const canvas = options.canvas?.(view) ?? surface;
             let gesture: Gesture | null = null;
 
             /** The containing block the box is positioned against, and how
@@ -150,24 +181,40 @@ export const createBlockMarquee = (options: BlockMarqueeOptions = {}): Functiona
             const update = (current: Gesture) => {
               const box = current.box;
               if (!box || view.isDestroyed) return;
-              const offset = frame(box);
-              const clip = viewport(surface);
-              const pointer = {
-                x: clamp(current.pointer.x, clip.left, clip.right),
-                y: clamp(current.pointer.y, clip.top, clip.bottom),
+              // The press, where the content has carried it since.
+              const scroll = scrollOf(current.scroller);
+              const origin = {
+                x: current.pressed.x - (scroll.x - current.scrolledFrom.x),
+                y: current.pressed.y - (scroll.y - current.scrolledFrom.y),
               };
-              const origin = { x: current.origin.x - offset.x, y: current.origin.y - offset.y };
-              const area: Box = {
-                left: Math.min(origin.x, pointer.x),
-                top: Math.min(origin.y, pointer.y),
-                right: Math.max(origin.x, pointer.x),
-                bottom: Math.max(origin.y, pointer.y),
+              /** The box from the press to the pointer, clipped to `clip`. */
+              const span = (clip: Box): Box & { pointer: Point } => {
+                const pointer = {
+                  x: clamp(current.pointer.x, clip.left, clip.right),
+                  y: clamp(current.pointer.y, clip.top, clip.bottom),
+                };
+                return {
+                  pointer,
+                  left: Math.min(origin.x, pointer.x),
+                  top: Math.min(origin.y, pointer.y),
+                  right: Math.max(origin.x, pointer.x),
+                  bottom: Math.max(origin.y, pointer.y),
+                };
               };
-              box.style.left = `${area.left + offset.x}px`;
-              box.style.top = `${area.top + offset.y}px`;
-              box.style.width = `${area.right - area.left}px`;
-              box.style.height = `${area.bottom - area.top}px`;
 
+              // Drawn on the canvas, as far as the pointer goes on it…
+              const drawn = span(viewport(canvas));
+              const offset = frame(box);
+              box.style.left = `${drawn.left + offset.x}px`;
+              box.style.top = `${drawn.top + offset.y}px`;
+              box.style.width = `${drawn.right - drawn.left}px`;
+              box.style.height = `${drawn.bottom - drawn.top}px`;
+
+              // …but it selects what it covers of the surface: the blocks
+              // the editor shows. Past the surface's edge, the scroll brings
+              // the rest in (`autoScroll`).
+              const area = span(viewport(surface));
+              const { pointer } = area;
               const { doc } = view.state;
               const hits: number[] = [];
               doc.forEach((_node, pos) => {
@@ -220,25 +267,28 @@ export const createBlockMarquee = (options: BlockMarqueeOptions = {}): Functiona
               current.frameRequest = requestAnimationFrame(() => autoScroll(current));
             };
 
-            const start = (event: MouseEvent): boolean => {
+            const start: Start = (event, elsewhere) => {
               if (gesture || !view.editable) return false;
               if (event.button !== 0 || event.detail > 1) return false;
               if (event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return false;
-              if (onScrollbar(surface, event)) return false;
+              // The surface's scrollbar is the scroller's; a start point
+              // elsewhere is the host's to judge.
+              if (!elsewhere && onScrollbar(surface, event)) return false;
               // No caret jump, no native selection, no focus leaving: the
               // press is the box's (or, released in place, placed below).
               event.preventDefault();
               claimPress(event);
 
               const pressed = { x: event.clientX, y: event.clientY };
+              const scroller = scrollerOf(surface);
               const current: Gesture = {
-                origin: pressed,
                 pressed,
+                scrolledFrom: scrollOf(scroller),
                 pointer: pressed,
                 moved: false,
                 box: null,
                 before: view.state.selection,
-                scroller: null,
+                scroller,
                 frameRequest: null,
                 stop: () => {},
               };
@@ -259,13 +309,12 @@ export const createBlockMarquee = (options: BlockMarqueeOptions = {}): Functiona
                   box.setAttribute('aria-hidden', 'true');
                   box.style.position = 'absolute';
                   box.style.pointerEvents = 'none';
-                  surface.appendChild(box);
+                  // The editor's scheme, wherever the box is drawn: the
+                  // canvas may wear another (an app theme round a light
+                  // paper), and the wash is a light-dark() pair.
+                  box.style.colorScheme = getComputedStyle(view.dom).colorScheme;
+                  canvas.appendChild(box);
                   current.box = box;
-                  // The origin goes into the content's frame now, so it
-                  // stays where it was pressed while the content scrolls.
-                  const offset = frame(box);
-                  current.origin = { x: pressed.x + offset.x, y: pressed.y + offset.y };
-                  current.scroller = scrollerOf(surface);
                   // The keys (Delete, Shift-arrows) go to the selection.
                   view.focus();
                 }
@@ -277,9 +326,11 @@ export const createBlockMarquee = (options: BlockMarqueeOptions = {}): Functiona
               const scrolled = () => update(current);
               const up = () => {
                 finish();
-                if (view.isDestroyed || current.moved) return;
                 // A click: the caret at the nearest spot in the text — the
                 // point brought onto the editor's box when it fell outside.
+                // Not from a start point elsewhere: a click beside a form is
+                // no click in the text, and leaves everything as it was.
+                if (view.isDestroyed || current.moved || elsewhere) return;
                 const rect = view.dom.getBoundingClientRect();
                 const found = view.posAtCoords({
                   left: clamp(pressed.x, rect.left + 1, rect.right - 1),
@@ -336,15 +387,17 @@ export const createBlockMarquee = (options: BlockMarqueeOptions = {}): Functiona
               if (!target || view.dom.contains(target)) return;
               const control = target.closest(INTERACTIVE);
               if (control && surface.contains(control)) return;
-              start(event);
+              start(event, false);
             };
 
             begin = start;
+            starts.set(view, start);
             surface.addEventListener('mousedown', outside);
             return {
               destroy() {
                 surface.removeEventListener('mousedown', outside);
                 gesture?.stop();
+                starts.delete(view);
                 begin = null;
               },
             };
@@ -354,7 +407,7 @@ export const createBlockMarquee = (options: BlockMarqueeOptions = {}): Functiona
               // The editor's own box — the room between and below its
               // blocks, never a block — starts the box. Returning true keeps
               // ProseMirror's own press handling (the caret) out of it.
-              mousedown: (view, event) => event.target === view.dom && !!begin?.(event),
+              mousedown: (view, event) => event.target === view.dom && !!begin?.(event, false),
             },
           },
         }),
@@ -362,3 +415,22 @@ export const createBlockMarquee = (options: BlockMarqueeOptions = {}): Functiona
     },
   });
 };
+
+/**
+ * Starts the editor's marquee from a press anywhere else — a start point of
+ * the host's own: the room beside a page's text column, the empty room round
+ * a form — as Notion lets a drag start in a page's margins. The host decides
+ * the press is one (its own empty room, not a control); from there it is the
+ * surface's gesture in every way: the box on the canvas, the blocks it
+ * covers of the surface, the scroll, Escape. Released in place it does
+ * nothing — only the editor's own room puts the caret on a line.
+ *
+ * Call it from the start point's `mousedown`. It returns whether the box
+ * started (and then took the press: `preventDefault`); `false` without
+ * {@link createBlockMarquee} in the editor, while one is already drawn, in a
+ * read-only editor, and for a press that is not a plain primary one (another
+ * button, a double click, a modifier held).
+ */
+export function beginBlockMarquee(view: EditorView, event: MouseEvent): boolean {
+  return starts.get(view)?.(event, true) ?? false;
+}

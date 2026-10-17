@@ -12,7 +12,7 @@ import appStyles from '../../../../../app/src/styles.scss' with { loader: 'text'
 import { createEditor, Editor } from '../editor';
 import { emailExtensions } from './kits';
 import { BLOCK_SELECTED_CLASS, BlockSelection } from './block-selection';
-import { BLOCK_MARQUEE_CLASS, createBlockMarquee } from './block-marquee';
+import { BLOCK_MARQUEE_CLASS, beginBlockMarquee, createBlockMarquee } from './block-marquee';
 
 /** The app's wash token, its hide-selection rules (the browser's highlight
     gone under a block selection) and its selected-block / marquee section. */
@@ -33,7 +33,9 @@ const HOST_CSS = `
     position: relative; overflow-y: auto; box-sizing: border-box;
     width: 520px; height: 200px; padding: 0 40px;
   }
-  .aee-editor { display: block; max-width: 600px; font: 16px/20px sans-serif; white-space: pre-wrap; outline: none; }
+  .canvas { position: relative; overflow: hidden; width: 560px; color-scheme: dark; }
+  .header { height: 80px; }
+  .aee-editor { color-scheme: light; display: block; max-width: 600px; font: 16px/20px sans-serif; white-space: pre-wrap; outline: none; }
 `;
 
 // 30 blocks: "line 0", "line 1", a divider, "line 3" … "line 29".
@@ -84,6 +86,7 @@ describe('block marquee (render)', () => {
   afterEach(() => {
     editor.destroy();
     surface.remove();
+    document.querySelector('.canvas')?.remove();
     styles.remove();
   });
 
@@ -137,6 +140,93 @@ describe('block marquee (render)', () => {
     expect(lit[0]).toBe(1);
     expect(lit[lit.length - 1]).toBeGreaterThan(9);
     mouse('mouseup', left + 100, rect(surface).bottom + 30, window);
+  });
+
+  it('on a larger canvas the box reaches past the paper — over a header — and still lights only blocks', () => {
+    // The canvas: a dark frame round a light paper, a header above it — a
+    // compose window with its envelope rows over the text.
+    editor.destroy();
+    const canvas = document.createElement('div');
+    canvas.className = 'canvas';
+    const header = document.createElement('header');
+    header.className = 'header';
+    header.textContent = 'From';
+    canvas.append(header, surface);
+    document.body.appendChild(canvas);
+    editor = createEditor({
+      parent: surface,
+      extensions: [...emailExtensions, createBlockMarquee({ canvas: () => canvas })],
+      content: CONTENT,
+    });
+
+    const left = rect(surface).left + 10;
+    const from = rect(block(3)).top + 5;
+    mouse('mousedown', left, from);
+    // Up over the header: the box follows the pointer there.
+    const overHeader = rect(header).top + 10;
+    mouse('mousemove', left + 100, overHeader, window);
+    const box = canvas.querySelector<HTMLElement>(`.${BLOCK_MARQUEE_CLASS}`)!;
+    expect(box.parentElement).toBe(canvas);
+    expect(rect(box).top).toBeCloseTo(overHeader, 0);
+    expect(rect(box).bottom).toBeCloseTo(from, 0);
+    // Only the paper's blocks are selected — the header is no block.
+    expect(selected()).toEqual([0, 1, 2, 3]);
+
+    // Past the canvas, the box stops at its edge.
+    mouse('mousemove', left + 100, rect(canvas).top - 50, window);
+    expect(rect(box).top).toBeCloseTo(rect(canvas).top, 0);
+
+    // The paper's scheme, not the canvas's: the box wears the very wash
+    // the blocks it lights wear.
+    expect(getComputedStyle(box).colorScheme).toBe('light');
+    expect(getComputedStyle(box).backgroundColor).toBe(
+      getComputedStyle(block(1), '::after').backgroundColor,
+    );
+
+    mouse('mouseup', left + 100, rect(canvas).top - 50, window);
+    expect(box.isConnected).toBe(false);
+    expect(selected()).toEqual([0, 1, 2, 3]);
+  });
+
+  it('begun from a start point of the host’s own, the box selects the blocks it reaches; a click there changes nothing', () => {
+    editor.destroy();
+    const canvas = document.createElement('div');
+    canvas.className = 'canvas';
+    const header = document.createElement('header');
+    header.className = 'header';
+    canvas.append(header, surface);
+    document.body.appendChild(canvas);
+    editor = createEditor({
+      parent: surface,
+      extensions: [...emailExtensions, createBlockMarquee({ canvas: () => canvas })],
+      content: CONTENT,
+    });
+    let started = false;
+    header.addEventListener('mousedown', (event) => {
+      started = beginBlockMarquee(editor.view, event);
+    });
+    const before = editor.state.selection;
+
+    // A click in the header: taken, but nothing moves.
+    const x = rect(surface).left + 60;
+    const y = rect(header).top + 20;
+    expect(mouse('mousedown', x, y, header).defaultPrevented).toBe(true);
+    expect(started).toBe(true);
+    mouse('mouseup', x, y, window);
+    expect(editor.state.selection.eq(before)).toBe(true);
+
+    // A drag from it down over the first lines selects them.
+    mouse('mousedown', x, y, header);
+    mouse('mousemove', x + 100, rect(block(1)).top + 5, window);
+    expect(canvas.querySelector(`.${BLOCK_MARQUEE_CLASS}`)).not.toBeNull();
+    expect(selected()).toEqual([0, 1]);
+    mouse('mouseup', x + 100, rect(block(1)).top + 5, window);
+    expect(selected()).toEqual([0, 1]);
+
+    // Not a plain primary press: not started.
+    const right = new MouseEvent('mousedown', { button: 2, bubbles: true, cancelable: true });
+    header.dispatchEvent(right);
+    expect(started).toBe(false);
   });
 
   it('a press on a line is the text’s; a click in the margin puts the caret on its line', () => {

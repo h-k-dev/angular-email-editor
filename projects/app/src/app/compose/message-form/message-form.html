@@ -18,10 +18,15 @@
      out as `fileDrop`.
      clickable=false — clicking the message must never open a file picker.
      emailAddressDragGroup: the envelope rows trade chips among themselves
-     (To ⇄ Cc ⇄ Bcc, by drag) and with no other writer's. -->
+     (To ⇄ Cc ⇄ Bcc, by drag) and with no other writer's.
+     marqueeStart: the sheet's own empty room — the gaps between bar, rows
+     and text, and in a zoomed window the wide room beside the column —
+     starts the editor's block marquee, as its margin does (on an island;
+     inert on the page). -->
 <form
   email-writer
   emailAddressDragGroup
+  marqueeStart
   [formRoot]="envelope"
   [bar]="bar()"
   aria-label="Email writer"

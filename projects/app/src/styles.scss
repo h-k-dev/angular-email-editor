@@ -417,8 +417,9 @@ html {
 /* Selected blocks (`BlockSelection`: the marquee, a second Mod-a), drawn
  * as Notion draws them. Each block wears the wash as its own rounded box — a
  * hair inside its line, so neighbouring lines read as separate blocks, and
- * a little into the gutter. The box a drag draws (`.aee-marquee`, in the
- * surface around the editor) wears the SAME wash, so where it covers a
+ * a little into the gutter. The box a drag draws (`.aee-marquee`, on its
+ * canvas — the paper, or a compose window's whole island — and in the
+ * editor's own scheme, set by the library) wears the SAME wash, so where it covers a
  * block the two stack: the block lights up under the box, one colour twice.
  * An overlay, not a background, so it shows over a cell's fill or a
  * button; editor-only — the class is a decoration, never serialized. */
@@ -713,12 +714,6 @@ html {
     color: var(--mat-sys-on-surface);
     background-color: var(--email-paper-light);
   }
-
-  // The marquee box is drawn on the paper, beside the editor: the same
-  // scheme, so its wash is the one the blocks it lights wear.
-  > .aee-marquee {
-    color-scheme: light;
-  }
 }
 
 .email-compose__editor[data-color-scheme='dark'] {
@@ -728,12 +723,6 @@ html {
     color-scheme: dark;
     color: #fff;
     background-color: var(--email-paper-dark);
-  }
-
-  // The marquee box is drawn on the paper, beside the editor: the same
-  // scheme, so its wash is the one the blocks it lights wear.
-  > .aee-marquee {
-    color-scheme: dark;
   }
 }
 
