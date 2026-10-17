@@ -71,6 +71,11 @@ import {
   AttachmentKind,
 } from '@h-k-dev/angular-email-editor/attachment-chip';
 import { AttachmentChips } from '@h-k-dev/angular-email-editor/attachment-chips';
+import {
+  ToggleButtonGroup,
+  ToggleButtonGroupIcon,
+  ToggleButtonGroupText,
+} from '@h-k-dev/angular-email-editor/toggle-button-group';
 import { KeepFocus } from '@h-k-dev/angular-email-editor/focus';
 import { ActionTrigger, injectActions } from '@h-k-dev/angular-email-editor/actions';
 import { AddressFormField } from '@h-k-dev/angular-email-editor/material';
@@ -80,7 +85,7 @@ import { DropHint } from '../drop-hint/drop-hint';
 import { EditorColorScheme, EmailCompose, SourceView } from '../email-compose/email-compose';
 import {
   ToolbarMenu,
-  ToolbarMenuItem,
+  ToolbarMenuRow,
 } from '../email-compose/formatting-toolbar/toolbar-menu/toolbar-menu';
 import { EmailWriter, WriterBarPosition, writerBarOnTop } from '../email-writer/email-writer';
 import { MarqueeStart } from '../paper-island';
@@ -92,28 +97,16 @@ import { AttachmentUploads } from '../../../services/attachment-uploads';
 import { EmailSend, SendRejected } from '../../../services/email-send';
 import { BLANK, Envelope, hasContent, isBlank } from './envelope';
 
-/** A row of the bar's ⋮ menu, as the action it asks for — the menu decides
-    nothing; the form applies it (`onMoreAction`). Core's ⋮ emits the same. */
-export type MoreAction =
-  | { value: 'view'; view: 'editor' | 'html' }
-  | { value: 'appearance'; appearance: EditorAppearance };
-
-/** One object per row, for good: the rows' values stay the same objects
-    from one reading of the menu to the next. */
-const MORE_ACTIONS = {
-  editor: { value: 'view', view: 'editor' },
-  html: { value: 'view', view: 'html' },
-  light: { value: 'appearance', appearance: 'light' },
-  dark: { value: 'appearance', appearance: 'dark' },
-  app: { value: 'appearance', appearance: 'app' },
-} as const satisfies Record<string, MoreAction>;
+/** What the ⋮ menu's View toggle shows in the editor's place: the editor,
+    or its HTML (code view). */
+type EditorView = 'editor' | 'html';
 
 /** Tells the sheets on one page apart: every sheet's Subject input needs an
     id of its own for its label. */
 let nextSheetId = 0;
 
-/** How the editor looks: light or dark of its own, or the app's. */
-type EditorAppearance = EditorColorScheme | 'app';
+/** How the editor looks: light or dark of its own, or `auto` — the app's. */
+type EditorAppearance = EditorColorScheme | 'auto';
 
 /**
  * One message, and everything it is written with: the form over it, the
@@ -158,6 +151,10 @@ type EditorAppearance = EditorColorScheme | 'app';
     ActionTrigger,
     MenuTrigger,
     ToolbarMenu,
+    ToolbarMenuRow,
+    ToggleButtonGroup,
+    ToggleButtonGroupIcon,
+    ToggleButtonGroupText,
 
     // Material form fields (the `material` frame)
     MatFormField,
@@ -210,9 +207,7 @@ export class MessageForm {
   /** The bar heads the sheet (a phone, the zoomed window): its controls are
       laid out mirrored — Send at the end, Discard at the start — and the ⋮
       menu opens downward, lined up with its end. */
-  protected readonly mirrored = computed(() =>
-    writerBarOnTop(this.bar(), this.viewport.compact()),
-  );
+  protected readonly mirrored = computed(() => writerBarOnTop(this.bar(), this.viewport.compact()));
 
   /** The editor's actions the bar offers beside Send. */
   protected readonly actions = injectActions(() => this.pane()?.editor());
@@ -262,6 +257,10 @@ export class MessageForm {
   });
 
   protected readonly subjectId = `message-subject-${nextSheetId}`;
+  /** The ⋮ menu's View label's id, naming its toggle. */
+  protected readonly viewLabelId = `message-view-${nextSheetId}`;
+  /** The ⋮ menu's Theme label's id, naming its toggle. */
+  protected readonly themeLabelId = `message-theme-${nextSheetId}`;
   /** The Preview text input's id, unique on the page. */
   protected readonly previewId = `message-preview-${nextSheetId++}`;
 
@@ -394,66 +393,39 @@ export class MessageForm {
     () => this.viewport.compact() || this.formattingOpen(),
   );
 
-  /** The editor's appearance, the ⋮ menu's choice: a light or dark of its
-      own, apart from the app's theme — the text's paper only — or `app`,
-      the app's, following its top-bar toggle. The app's by default: the
-      message sits in the app as the rest of it does; Light shows it as it
-      is sent. */
-  protected readonly editorAppearance = signal<EditorAppearance>('app');
+  /** The editor's appearance, the ⋮ menu's toggle: a light or dark of its
+      own, apart from the app's theme — the text's paper only — or `auto`,
+      the app's, following its top-bar toggle. Auto by default: the message
+      sits in the app as the rest of it does; Light shows it as it is
+      sent. */
+  protected readonly editorAppearance = signal<EditorAppearance>('auto');
 
-  /** The scheme the editor draws in: the appearance, with `app` read as the
-      app's theme of the moment. Public for a frame that makes more than
+  /** The scheme the editor draws in: the appearance, with `auto` read as
+      the app's theme of the moment. Public for a frame that makes more than
       the text wear it (a `PaperIsland`, the zoomed window). */
   readonly editorScheme = computed<EditorColorScheme>(() => {
     const appearance = this.editorAppearance();
-    return appearance === 'app' ? this.#theme.scheme() : appearance;
+    return appearance === 'auto' ? this.#theme.scheme() : appearance;
   });
 
-  /** The bar's ⋮ menu: the View — the editor or its HTML, where the frame
-      has a source pane and the screen room for it — then the editor's
-      Appearance, one of three. */
-  protected readonly moreItems = computed<ToolbarMenuItem<MoreAction>[]>(() => {
-    const appearance = this.editorAppearance();
-    const code = this.sourceView() === 'code';
-    const views: ToolbarMenuItem<MoreAction>[] =
-      this.sourceViews() && !this.viewport.compact()
-        ? [
-            {
-              value: MORE_ACTIONS.editor,
-              label: this.i18n.t('composer.view.editor'),
-              section: this.i18n.t('composer.view.title'),
-              checked: !code,
-            },
-            { value: MORE_ACTIONS.html, label: this.i18n.t('composer.view.html'), checked: code },
-          ]
-        : [];
-    const appearances: ToolbarMenuItem<MoreAction>[] = (['light', 'dark', 'app'] as const).map(
-      (id, i) => ({
-        value: MORE_ACTIONS[id],
-        label: this.i18n.t(`composer.appearance.${id}`),
-        section: i === 0 ? this.i18n.t('composer.appearance.title') : undefined,
-        checked: appearance === id,
-      }),
-    );
-    return [...views, ...appearances].map((item) => ({ ...item, kind: 'radio' }));
-  });
+  /** The bar's ⋮ menu offers its View row — the editor or its HTML — where
+      the frame has a source pane and the screen room for it. The Theme row
+      is always there (message-form.html). */
+  readonly viewOffered = computed(() => this.sourceViews() && !this.viewport.compact());
 
-  /** The ⋮'s rows: a view moves the source into the editor's place or out
-      of it (from the docked view too, as the old </> did) — nothing for the
-      view already in effect; an appearance is the editor's. */
-  protected onMoreAction(action: MoreAction): void {
-    switch (action.value) {
-      case 'view': {
-        const code = this.sourceView() === 'code';
-        if ((action.view === 'html') === code) return;
-        releaseEditingSurface();
-        this.sourceView.set(action.view === 'html' ? 'code' : 'hidden');
-        break;
-      }
-      case 'appearance':
-        this.editorAppearance.set(action.appearance);
-        break;
-    }
+  /** The View toggle's pick: the HTML in the editor's place (code view), or
+      the editor — the docked source beside it included. */
+  protected readonly editorView = computed<EditorView>(() =>
+    this.sourceView() === 'code' ? 'html' : 'editor',
+  );
+
+  /** The View toggle: moves the source into the editor's place or out of
+      it (from the docked view too, as the old </> did) — nothing for the
+      view already in effect. */
+  protected onEditorView(view: EditorView): void {
+    if (view === this.editorView()) return;
+    releaseEditingSurface();
+    this.sourceView.set(view === 'html' ? 'code' : 'hidden');
   }
 
   readonly emailPane = viewChild.required(EmailCompose);

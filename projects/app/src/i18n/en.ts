@@ -31,7 +31,7 @@ export default {
     view: { title: 'View', editor: 'Editor', html: 'HTML' },
     attach: 'Attach files',
     more: 'More options',
-    appearance: { title: 'Appearance', light: 'Light', dark: 'Dark', app: 'App' },
+    appearance: { title: 'Appearance', theme: 'Theme', light: 'Light', dark: 'Dark', auto: 'Auto' },
     placeholders: {
       filled: 'Placeholders filled in',
       empty: {

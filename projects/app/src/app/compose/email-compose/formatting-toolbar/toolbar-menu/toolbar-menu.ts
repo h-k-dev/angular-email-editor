@@ -1,4 +1,19 @@
-import { Component, computed, input, output, viewChild } from '@angular/core';
+import {
+  Component,
+  Directive,
+  ElementRef,
+  Injector,
+  TemplateRef,
+  afterNextRender,
+  computed,
+  contentChildren,
+  inject,
+  input,
+  output,
+  viewChild,
+  viewChildren,
+} from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 
 // Material
 import { MatIconModule } from '@angular/material/icon';
@@ -24,7 +39,7 @@ export interface ToolbarMenuItem<V> {
   disabled?: boolean;
   /** Starts a new group: a separator stands before it. */
   separated?: boolean;
-  /** Starts a new group under this heading — the ⋮ menu's Appearance. */
+  /** Starts a new group under this heading — the ⋮ menu's View. */
   section?: string;
   /** Sets the label in this font — the font menu previews its stacks. */
   font?: string;
@@ -33,6 +48,30 @@ export interface ToolbarMenuItem<V> {
       `badgesTitle` says it in words, as a tooltip. */
   badges?: readonly { text: string; on: boolean }[];
   badgesTitle?: string;
+}
+
+/**
+ * A row of the menu's own, after its items: not an item but a control —
+ * the ⋮ menu's View and Theme toggles, each with its word. The menu
+ * renders the rows in order, each under the heading it is given, if any; a
+ * click in one is not a choice, so the menu stays open, and the keys the
+ * control acts on are its own — Up and Down move between rows (and up to
+ * the items). A menu with no items puts focus on the first row's tab stop
+ * when it opens.
+ *
+ * ```html
+ * <div toolbar-menu …>
+ *   <ng-template [toolbarMenuRow]="'Appearance'">
+ *     <hk-tgb …>…</hk-tgb>
+ *   </ng-template>
+ * </div>
+ * ```
+ */
+@Directive({ selector: 'ng-template[toolbarMenuRow]' })
+export class ToolbarMenuRow {
+  /** The row's heading, as a section's. */
+  readonly heading = input<string | undefined>(undefined, { alias: 'toolbarMenuRow' });
+  readonly template = inject(TemplateRef);
 }
 
 /**
@@ -52,14 +91,16 @@ export interface ToolbarMenuItem<V> {
  */
 @Component({
   selector: 'div[toolbar-menu]',
-  imports: [MatIconModule, Menu, MenuItem, OverlayModule, PaperIslandScheme],
+  imports: [MatIconModule, Menu, MenuItem, NgTemplateOutlet, OverlayModule, PaperIslandScheme],
   templateUrl: './toolbar-menu.html',
   styleUrl: './toolbar-menu.scss',
 })
 export class ToolbarMenu<V> {
   readonly trigger = input.required<MenuTrigger<V>>();
   readonly label = input.required<string>();
-  readonly items = input.required<readonly ToolbarMenuItem<V>[]>();
+  /** The menu's items. None for a menu of rows alone (`ToolbarMenuRow`). */
+  /** The menu's items. None for a menu of rows alone (`ToolbarMenuRow`). */
+  readonly items = input<readonly ToolbarMenuItem<V>[]>([]);
   /** Which edge of the trigger the menu lines up with — `end` for a ⋯ at a
       line's end. */
   readonly align = input<'start' | 'end'>('start');
@@ -76,6 +117,14 @@ export class ToolbarMenu<V> {
   /** The Aria menu, for the trigger's `[menu]`. It renders inside the
       overlay, so it only exists while open. */
   readonly menu = viewChild<Menu<V>>(Menu);
+
+  /** The host's own rows, in order (`ToolbarMenuRow`). */
+  protected readonly rows = contentChildren(ToolbarMenuRow, { descendants: true });
+
+  /** Where the rows are rendered, while open. */
+  private readonly rowBoxes = viewChildren<ElementRef<HTMLElement>>('rowBox');
+
+  readonly #injector = inject(Injector);
 
   protected readonly positions = computed<ConnectedPosition[]>(() => {
     const x = this.align();
@@ -108,5 +157,30 @@ export class ToolbarMenu<V> {
     const trigger = this.trigger();
     if (trigger.element.contains(event.target as Node)) return;
     trigger.close();
+  }
+
+  /** The menu opened. The trigger puts focus on the first item — a menu of
+      rows alone has none, so focus goes to the first row's tab stop
+      instead, or it would stay on the trigger and Tab would walk out of the
+      menu. */
+  protected onAttach(): void {
+    if (this.items().length) return;
+    afterNextRender({ write: () => this.#focusRow(0) }, { injector: this.#injector });
+  }
+
+  /** Up and Down between rows, as between items: a row's control keeps the
+      arrows across for itself. Past the first row Up is the menu's — to
+      its items, where it has some. */
+  protected stepRow(event: Event, index: number, by: 1 | -1): void {
+    const next = index + by;
+    if (next < 0 || next >= this.rowBoxes().length) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.#focusRow(next);
+  }
+
+  /** Puts focus on a row's tab stop. */
+  #focusRow(index: number): void {
+    this.rowBoxes()[index]?.nativeElement.querySelector<HTMLElement>('[tabindex="0"]')?.focus();
   }
 }

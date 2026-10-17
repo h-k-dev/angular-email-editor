@@ -64,6 +64,15 @@
   @include menu.separator;
 }
 
+// The host's row (ToolbarMenuRow): a control across the menu, set in from
+// its edges a little less than an item's text, so a full-width control
+// lines up with the items' highlight rather than their words.
+.toolbar-menu__row {
+  display: flex;
+  padding-block: var(--mat-sys-spacing, 4px);
+  padding-inline: calc(var(--mat-sys-spacing, 4px) * 2);
+}
+
 .toolbar-menu__section {
   @include menu.section;
 }

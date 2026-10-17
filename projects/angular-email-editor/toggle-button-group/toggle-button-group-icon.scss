@@ -1,0 +1,18 @@
+// Round: a circle the track's height, its icon centred in a box of the
+// item's own. The box is sized by the token and its font size follows, so
+// whatever the host puts in — a `mat-icon inline` (which inherits size), a
+// font icon's <i>, an SVG at 1em — fits without a rule of the host's.
+
+:host {
+  inline-size: var(--hk-tgb-size, 32px);
+}
+
+:host :where([data-slot='icon']) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--hk-tgb-icon-size, 18px);
+  block-size: var(--hk-tgb-icon-size, 18px);
+  font-size: var(--hk-tgb-icon-size, 18px);
+  line-height: 1;
+}

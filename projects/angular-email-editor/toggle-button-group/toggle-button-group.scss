@@ -1,0 +1,94 @@
+// The track and its thumb — the group's own; each item shape styles itself
+// (toggle-button-group-item.scss and its icon / text sheets). Encapsulated
+// like the chips: the thumb is addressed by data-slot and held to one
+// attribute of specificity (`:where` around the part), so a consumer who
+// must restyle it reaches it with two (`hk-tgb [data-slot='thumb'][data-slot]`).
+//
+// Every value is a three-step cascade: the --hk-tgb-* token, then
+// Material's system token of the same meaning, then a hardcoded
+// light-dark() pair. Track and thumb are translucent tints of the text
+// colour — neutral, not a brand colour, and readable on any sheet (a menu,
+// a card, the page): the thumb is the wash a menu's selected row wears.
+//
+// Items stand at their own sizes — an icon is a circle the track's height,
+// words are a pill as wide as they are — so the thumb is placed from the
+// picked item's box (the group writes --hk-tgb-thumb-x/-y/-width/-height)
+// and eases its position and size from one to the next: a circle
+// stretching into a pill, and back.
+
+:host {
+  position: relative;
+  // The thumb's z-index stays inside the group, under the items' content.
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--hk-tgb-gap, 2px);
+  padding: var(--hk-tgb-inset, 2px);
+  box-sizing: border-box;
+  border-radius: var(--hk-tgb-corner, var(--mat-sys-corner-full, 9999px));
+  background-color: var(
+    --hk-tgb-background,
+    color-mix(in oklch, var(--mat-sys-on-surface, light-dark(#1f1f1f, #e3e3e3)) 4%, transparent)
+  );
+  vertical-align: middle;
+}
+
+:host([data-orientation='vertical']) {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+// ── thumb: painted under the picked item, never laid out ────────────────
+:host :where([data-slot='thumb']) {
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  left: 0;
+  width: var(--hk-tgb-thumb-width, 0);
+  height: var(--hk-tgb-thumb-height, 0);
+  box-sizing: border-box;
+  border-radius: var(--hk-tgb-thumb-corner, var(--mat-sys-corner-full, 9999px));
+  // The menu's selected row: the text colour at the hover state layer's
+  // opacity — a neutral wash, not a brand colour.
+  background-color: var(
+    --hk-tgb-thumb,
+    color-mix(
+      in oklch,
+      var(--mat-sys-on-surface, light-dark(#1f1f1f, #e3e3e3))
+        calc(var(--mat-sys-hover-state-layer-opacity, 0.08) * 100%),
+      transparent
+    )
+  );
+  box-shadow: var(--hk-tgb-thumb-shadow, none);
+  translate: var(--hk-tgb-thumb-x, 0) var(--hk-tgb-thumb-y, 0);
+  pointer-events: none;
+  transition: opacity 150ms ease;
+}
+
+// Motion only once the thumb has its first place: it never slides in from
+// the corner.
+:host([data-placed]) :where([data-slot='thumb']) {
+  --_duration: var(--hk-tgb-duration, 320ms);
+  --_easing: var(--hk-tgb-easing, cubic-bezier(0.3, 1.2, 0.5, 1));
+
+  transition:
+    translate var(--_duration) var(--_easing),
+    width var(--_duration) var(--_easing),
+    height var(--_duration) var(--_easing),
+    opacity 150ms ease;
+}
+
+// Nothing picked: the thumb fades where it stood, and comes back from there.
+:host([data-empty]) :where([data-slot='thumb']) {
+  opacity: 0;
+}
+
+:host([aria-disabled='true']) :where([data-slot='thumb']) {
+  opacity: 0.38;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host :where([data-slot='thumb']) {
+    transition: none;
+  }
+}

@@ -98,11 +98,59 @@
       #moreMenu
       [label]="'composer.more' | translate"
       [trigger]="moreTrigger"
-      [items]="moreItems()"
       [side]="mirrored() ? 'below' : 'above'"
       [align]="mirrored() ? 'end' : 'start'"
-      (selected)="onMoreAction($event)"
-    ></div>
+    >
+      <!-- Rows of a word and its toggle button group. A pick is not a menu
+           choice: the menu stays open, the sheet changes behind it. -->
+      <!-- The View: the editor, or its HTML in the editor's place. -->
+      @if (viewOffered()) {
+        <ng-template toolbarMenuRow>
+          <span class="menu-row__label" [id]="viewLabelId">{{
+            'composer.view.title' | translate
+          }}</span>
+          <hk-tgb
+            class="menu-row__toggle"
+            [attr.aria-labelledby]="viewLabelId"
+            [value]="editorView()"
+            (valueChange)="onEditorView($event)"
+          >
+            <button hkTgbText value="editor">{{ 'composer.view.editor' | translate }}</button>
+            <button hkTgbText value="html">{{ 'composer.view.html' | translate }}</button>
+          </hk-tgb>
+        </ng-template>
+      }
+      <!-- The Appearance: the Theme — Light and Dark as round icons, Auto
+           as a pill of words. -->
+      <ng-template [toolbarMenuRow]="'composer.appearance.title' | translate">
+        <span class="menu-row__label" [id]="themeLabelId">{{
+          'composer.appearance.theme' | translate
+        }}</span>
+        <hk-tgb
+          class="menu-row__toggle"
+          [attr.aria-labelledby]="themeLabelId"
+          [(value)]="editorAppearance"
+        >
+          <button
+            hkTgbIcon
+            value="light"
+            [attr.aria-label]="'composer.appearance.light' | translate"
+            [title]="'composer.appearance.light' | translate"
+          >
+            <mat-icon inline>light_mode</mat-icon>
+          </button>
+          <button
+            hkTgbIcon
+            value="dark"
+            [attr.aria-label]="'composer.appearance.dark' | translate"
+            [title]="'composer.appearance.dark' | translate"
+          >
+            <mat-icon inline>dark_mode</mat-icon>
+          </button>
+          <button hkTgbText value="auto">{{ 'composer.appearance.auto' | translate }}</button>
+        </hk-tgb>
+      </ng-template>
+    </div>
   </ng-template>
   <!-- Core's "Parse": offered while the body holds placeholders (the
        action's own answer) and not while the evaluator works. The same as

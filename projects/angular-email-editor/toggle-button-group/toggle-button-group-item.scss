@@ -1,0 +1,69 @@
+// What both item shapes share: the host's element, bare over the group's
+// track. No surface of its own — the thumb under the picked one is the
+// group's — only its content's colour, which turns as the thumb arrives.
+// Type is Material's label-large spelled out in full. The shape is the
+// icon or text sheet's.
+
+:host {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: var(--hk-tgb-item-gap, 4px);
+  block-size: var(--hk-tgb-size, 32px);
+  min-inline-size: var(--hk-tgb-size, 32px);
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: var(--hk-tgb-thumb-corner, var(--mat-sys-corner-full, 9999px));
+  background: transparent;
+  color: var(--hk-tgb-color, var(--mat-sys-on-surface-variant, light-dark(#444746, #c4c7c5)));
+
+  font-family: var(--hk-tgb-font-family, var(--mat-sys-label-large-font, system-ui, sans-serif));
+  font-size: var(--hk-tgb-font-size, var(--mat-sys-label-large-size, 0.875rem));
+  font-weight: var(--hk-tgb-font-weight, var(--mat-sys-label-large-weight, 500));
+  line-height: var(--hk-tgb-line-height, var(--mat-sys-label-large-line-height, 1.25rem));
+  letter-spacing: var(--hk-tgb-letter-spacing, var(--mat-sys-label-large-tracking, 0.006rem));
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition:
+    color 200ms ease,
+    background-color 150ms ease;
+}
+
+@media (hover: hover) {
+  :host(:hover:not([aria-checked='true'], [aria-disabled='true'])) {
+    color: var(--hk-tgb-hover-color, var(--mat-sys-on-surface, light-dark(#1f1f1f, #e3e3e3)));
+    background-color: var(
+      --hk-tgb-hover-background,
+      color-mix(in oklch, var(--mat-sys-on-surface, light-dark(#1f1f1f, #e3e3e3)) 4%, transparent)
+    );
+  }
+}
+
+:host([aria-checked='true']) {
+  color: var(--hk-tgb-checked-color, var(--mat-sys-on-surface, light-dark(#1f1f1f, #e3e3e3)));
+  cursor: default;
+}
+
+:host(:focus-visible) {
+  outline: 2px solid var(--hk-tgb-focus-ring, var(--mat-sys-primary, light-dark(#0b57d0, #a8c7fa)));
+  outline-offset: 1px;
+}
+
+:host([aria-disabled='true']) {
+  opacity: 0.38;
+  cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host {
+    transition: none;
+  }
+}

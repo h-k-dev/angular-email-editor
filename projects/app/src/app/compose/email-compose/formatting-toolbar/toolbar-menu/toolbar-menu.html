@@ -8,6 +8,7 @@
   [cdkConnectedOverlayPush]="true"
   [cdkConnectedOverlayViewportMargin]="8"
   (overlayOutsideClick)="dismiss($event)"
+  (attach)="onAttach()"
   (detach)="trigger().close()"
 >
   <!-- On a paper island, the island's paper (paper-island.ts). -->
@@ -55,6 +56,21 @@
         @if (item.kind === 'radio') {
           <mat-icon class="toolbar-menu__check">check</mat-icon>
         }
+      </div>
+    }
+    <!-- The host's rows: controls of their own, not items (ToolbarMenuRow). -->
+    @for (row of rows(); track row) {
+      @if (row.heading(); as heading) {
+        <div class="toolbar-menu__section" role="none">{{ heading }}</div>
+      }
+      <div
+        #rowBox
+        class="toolbar-menu__row"
+        role="none"
+        (keydown.arrowdown)="stepRow($event, $index, 1)"
+        (keydown.arrowup)="stepRow($event, $index, -1)"
+      >
+        <ng-container [ngTemplateOutlet]="row.template" />
       </div>
     }
   </div>

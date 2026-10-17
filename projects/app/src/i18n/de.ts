@@ -28,7 +28,13 @@ export default {
     view: { title: 'Ansicht', editor: 'Editor', html: 'HTML' },
     attach: 'Dateien anhängen',
     more: 'Weitere Optionen',
-    appearance: { title: 'Darstellung', light: 'Hell', dark: 'Dunkel', app: 'App' },
+    appearance: {
+      title: 'Darstellung',
+      theme: 'Design',
+      light: 'Hell',
+      dark: 'Dunkel',
+      auto: 'Auto',
+    },
     placeholders: {
       filled: 'Platzhalter eingesetzt',
       empty: { one: '1 Platzhalter ohne Wert', other: '{{count}} Platzhalter ohne Wert' },
@@ -78,7 +84,10 @@ export default {
         keywords: 'schaltfläche, knopf, link, handlungsaufforderung',
       },
       table: { title: 'Tabelle', keywords: 'tabelle, raster, rahmen, linien' },
-      'borderless-table': { title: 'Tabelle ohne Linien', keywords: 'tabelle, ohne linien, rahmenlos' },
+      'borderless-table': {
+        title: 'Tabelle ohne Linien',
+        keywords: 'tabelle, ohne linien, rahmenlos',
+      },
       'layout-table': { title: 'Layout-Tabelle', keywords: 'tabelle, layout, anordnung' },
       columns: { title: 'Spalten', keywords: 'spalten, layout' },
       '3-columns': { title: '3 Spalten', keywords: 'spalten, layout' },

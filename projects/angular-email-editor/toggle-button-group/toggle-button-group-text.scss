@@ -1,0 +1,5 @@
+// A pill: as wide as its words.
+
+:host {
+  padding-inline: var(--hk-tgb-padding, 12px);
+}
