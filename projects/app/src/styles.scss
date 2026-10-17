@@ -433,6 +433,22 @@ html {
   pointer-events: none;
 }
 
+/* An empty line's placeholder (the library's `createPlaceholder`): the line
+ * under the caret, and the whole body while it is empty, say what can be done
+ * there. Painted over the line, never in it — the caret keeps its place at
+ * the start, and a click lands in the line. Muted like the suggestion's. */
+.aee-editor .aee-placeholder[data-placeholder]::before {
+  content: attr(data-placeholder);
+  position: absolute;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--email-placeholder-color, oklch(from currentColor l c h / 0.5));
+  pointer-events: none;
+  user-select: none;
+}
+
 /* Where content is streaming in (the library's content stream puts a widget
  * there and paints nothing): a soft, pulsing bar after the last word — a
  * second caret, in the accent colour, that is plainly not the writer's. */

@@ -38,6 +38,7 @@ export default {
     },
   },
   editor: {
+    placeholder: '入力するか、/ でコマンドを表示',
     quoted: {
       show: '引用テキストを表示',
       hide: '引用テキストを隠す',

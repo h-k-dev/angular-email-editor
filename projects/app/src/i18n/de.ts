@@ -36,6 +36,7 @@ export default {
     },
   },
   editor: {
+    placeholder: 'Schreiben Sie etwas oder tippen Sie / für Befehle',
     quoted: {
       show: 'Zitierten Text anzeigen',
       hide: 'Zitierten Text ausblenden',

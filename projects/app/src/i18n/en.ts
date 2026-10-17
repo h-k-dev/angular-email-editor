@@ -42,6 +42,7 @@ export default {
     },
   },
   editor: {
+    placeholder: 'Write something, or type / for commands',
     quoted: {
       show: 'Show quoted text',
       hide: 'Hide quoted text',

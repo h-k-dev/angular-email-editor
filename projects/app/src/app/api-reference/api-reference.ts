@@ -141,6 +141,12 @@ export class ApiReference {
           does: 'Streams content into the document — a model’s answer — and owns what surrounds that: the place the next piece goes while the writer keeps typing, how it shows (reveal: "block", the default — a paragraph, a list item shows whole once all of it is in, blocks that land together a beat apart, nothing types; "character" — a grapheme or a few a frame, catching up when behind; "instant"; the stream ends once all of it shows), what was just revealed marked fresh (aee-stream-fresh on the block itself — p, li — or on a span where text joins a line; --email-stream-fade-in, for fadeIn ms) for the host to fade in, a caret widget (span.aee-stream-caret), aria-busy, Escape to stop, the abort signal. target is a position, or a range the first piece replaces. format "html" re-reads the whole buffer through the schema on every write, so a list or a bold word forms as it streams and a tag cut in two never shows; transform rewrites the buffer first (strip a code fence, Markdown to HTML).',
         },
         {
+          name: 'createPlaceholder · setPlaceholder',
+          signature:
+            '({ text?: string | (line: PlaceholderLine) => string | null, show?: "caret" | "all" }) => FunctionalExtension · (text) => Command',
+          does: 'Words on an empty line, Notion’s way: the line under the caret says what can be done there while the editor has focus (show: "caret", the default) — or every empty line does ("all") — and an empty body shows them on its one line, focused or not, as aria-placeholder too. A node decoration only (class aee-placeholder, data-placeholder; aee-placeholder-doc on an empty body): nothing reaches the document, and the host’s stylesheet paints it. The words are the host’s, in its language — a string from its translate pipe, or a function of the line (a heading’s "Heading", null for none); setPlaceholder swaps them at once, outside the undo history, which is how a language switch arrives. Never on a code line, a read-only editor, or mid-IME composition.',
+        },
+        {
           name: 'createAngularExpressions',
           signature: '(options?: AngularExpressionsOptions) => FunctionalExtension',
           does: 'Opts the document into the AngularJS-expression dialect: expressions parse, unknown syntax is diagnosed live, and angularRequiredFields reports what the body reads.',

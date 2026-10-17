@@ -79,6 +79,8 @@ import {
   mergeTagAt,
   emailExtensions,
   createQuotedHistory,
+  createPlaceholder,
+  PlaceholderText,
 } from '@h-k-dev/angular-email-editor';
 import {
   SuggestionMenu,
@@ -217,6 +219,14 @@ export class EmailCompose implements FormValueControl<string> {
       writer bar's formatting button); hidden, the text keeps its keyboard
       shortcuts, the slash menu and the bubble menu. */
   toolbar = input(true);
+
+  /** The words on an empty line — the one under the caret, and the whole
+      body while it is empty (Notion's way; the library's placeholder). The
+      host words them in its language, through its translate pipe:
+      `[placeholder]="'editor.placeholder' | translate"` — a language
+      switch is a new value, shown at once. A function words each line on
+      its own (a heading's "Heading"). None by default. */
+  placeholder = input<PlaceholderText>('');
 
   /** The editing surface's own scheme — the text only, never the chrome
       around it, and apart from the app's theme: an email has no theme of
@@ -424,6 +434,13 @@ export class EmailCompose implements FormValueControl<string> {
       untracked(() => editor?.view.dispatch(editor.state.tr.setMeta('addToHistory', false)));
     });
 
+    // New words for empty lines: the host's pipe, after a language switch.
+    effect(() => {
+      const text = this.placeholder();
+      const editor = this.editor();
+      untracked(() => editor?.commands['setPlaceholder'](text));
+    });
+
     // The quoted history from outside — a reply seeded, a draft restored.
     // One string, set rarely: applied at once, re-published as what the
     // schema kept. The editor's own changes come back equal and stop here.
@@ -501,6 +518,7 @@ export class EmailCompose implements FormValueControl<string> {
             remove: () => this.i18n.t('editor.quoted.remove'),
           },
         }),
+        createPlaceholder({ text: this.placeholder() }),
         createBubbleMenu({
           updateDelay: 150,
           onStateChange: (state) => this.bubbleMenuState.set(state),
