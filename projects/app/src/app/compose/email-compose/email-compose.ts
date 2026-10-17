@@ -221,12 +221,12 @@ export class EmailCompose implements FormValueControl<string> {
       shortcuts, the slash menu and the bubble menu. */
   toolbar = input(true);
 
-  /** The words on an empty line — the one under the caret, and the whole
-      body while it is empty (Notion's way; the library's placeholder). The
-      host words them in its language, through its translate pipe:
-      `[placeholder]="'editor.placeholder' | translate"` — a language
-      switch is a new value, shown at once. A function words each line on
-      its own (a heading's "Heading"). None by default. */
+  /** The words on an empty line (Notion's way; the library's placeholder):
+      a string for the hint under the caret, or words by kind — "Heading 1",
+      "List", "Empty quote" on every empty block of that kind, an empty
+      image's frame. The host words them in its language, built once per
+      switch (a `computed`, never a pipe per kind): a language switch is a
+      new value, shown at once. None by default. */
   placeholder = input<PlaceholderText>('');
 
   /** The editing surface's own scheme — the text only, never the chrome

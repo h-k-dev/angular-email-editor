@@ -36,7 +36,13 @@ export default {
     },
   },
   editor: {
-    placeholder: 'Schreiben Sie etwas oder tippen Sie / für Befehle',
+    placeholder: {
+      line: 'Schreiben Sie etwas oder tippen Sie / für Befehle',
+      heading: 'Überschrift {{level}}',
+      quote: 'Leeres Zitat',
+      list: 'Liste',
+      image: 'Bild hinzufügen',
+    },
     quoted: {
       show: 'Zitierten Text anzeigen',
       hide: 'Zitierten Text ausblenden',

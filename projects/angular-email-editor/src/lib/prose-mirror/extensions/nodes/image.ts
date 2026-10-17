@@ -8,7 +8,7 @@ import {
   TextSelection,
   Transaction,
 } from 'prosemirror-state';
-import { EditorView, NodeView } from 'prosemirror-view';
+import { Decoration, EditorView, NodeView } from 'prosemirror-view';
 import { DOMSerializer, Node, Schema } from 'prosemirror-model';
 import { FunctionalExtension, defineExtension, defineNode } from '../../extension';
 import { isSafeUrl } from '../marks/link';
@@ -477,6 +477,13 @@ export function filledPlaceholderAttrs(placeholder: ImageAttrs, picked: ImageAtt
   };
 }
 
+/** The words a decoration hands the frame — the placeholder's `image`, in
+    the host's language — or the English default. */
+const frameWords = (decorations: readonly Decoration[]): string =>
+  (decorations.find((decoration) => typeof decoration.spec['placeholder'] === 'string')?.spec[
+    'placeholder'
+  ] as string | undefined) ?? 'Choose an image';
+
 /** A frame standing in for the image: the placeholder awaiting its file, or
     a `cid:` whose part the registry does not hold. The app owns the pixels. */
 function imageFrame(className: string, label: string): HTMLElement {
@@ -517,7 +524,8 @@ function imageFrame(className: string, label: string): HTMLElement {
  * pads: size the frame first, then click it to pick the file that fills it
  * ({@link filledPlaceholderAttrs} keeps the frame's width). The slide-deck
  * model — Keynote's media placeholder — and the image counterpart of the
- * merge tag.
+ * merge tag. Its words are the placeholder's `image` (a node decoration
+ * whose spec carries `placeholder`), "Choose an image" without one.
  */
 class ImageView implements NodeView {
   readonly dom: HTMLSpanElement;
@@ -532,6 +540,7 @@ class ImageView implements NodeView {
     private node: Node,
     private readonly view: EditorView,
     private readonly getPos: () => number | undefined,
+    private decorations: readonly Decoration[] = [],
   ) {
     this.dom = document.createElement('span');
     this.dom.className = 'aee-image';
@@ -552,7 +561,7 @@ class ImageView implements NodeView {
 
   private render(node: Node): HTMLElement {
     const src = node.attrs['src'] as string | null;
-    if (!src) return imageFrame('aee-image__placeholder', 'Choose an image');
+    if (!src) return imageFrame('aee-image__placeholder', frameWords(this.decorations));
     const img = DOMSerializer.renderSpec(document, node.type.spec.toDOM!(node)).dom as HTMLElement;
     const cid = /^\s*cid:(.+)$/i.exec(src)?.[1]?.trim();
     if (cid) {
@@ -563,9 +572,10 @@ class ImageView implements NodeView {
     return img;
   }
 
-  update(node: Node): boolean {
+  update(node: Node, decorations: readonly Decoration[]): boolean {
     if (node.type !== this.node.type) return false;
     this.node = node;
+    this.decorations = decorations;
     const img = this.render(node);
     this.img.replaceWith(img);
     this.img = img;
@@ -910,7 +920,12 @@ export const Image = defineNode({
     }),
     new Plugin({
       key: new PluginKey('imageView'),
-      props: { nodeViews: { image: (node, view, getPos) => new ImageView(node, view, getPos) } },
+      props: {
+        nodeViews: {
+          image: (node, view, getPos, decorations) =>
+            new ImageView(node, view, getPos, decorations),
+        },
+      },
     }),
   ],
 });

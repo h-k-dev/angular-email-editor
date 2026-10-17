@@ -38,7 +38,13 @@ export default {
     },
   },
   editor: {
-    placeholder: '入力するか、/ でコマンドを表示',
+    placeholder: {
+      line: '入力するか、/ でコマンドを表示',
+      heading: '見出し{{level}}',
+      quote: '空の引用',
+      list: 'リスト',
+      image: '画像を追加',
+    },
     quoted: {
       show: '引用テキストを表示',
       hide: '引用テキストを隠す',

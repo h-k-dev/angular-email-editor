@@ -49,6 +49,7 @@ import {
   Editor,
   InlineImages,
   MergeTagResolutionReport,
+  PlaceholderWords,
   emailDocument,
   importLoss,
   importedDocument,
@@ -231,6 +232,22 @@ export class MessageForm {
   }
 
   /** The Subject input's id, unique on the page. */
+  /** The body's empty-line words, Notion's set, in the language in use —
+      built once per switch, so the editor redraws its placeholders then
+      and never per keystroke. Table cells stay bare, as Notion's do. */
+  protected readonly placeholders = computed<PlaceholderWords>(() => {
+    const list = this.i18n.t('editor.placeholder.list');
+    return {
+      line: this.i18n.t('editor.placeholder.line'),
+      heading: [1, 2, 3, 4, 5, 6].map((level) => this.i18n.t('editor.placeholder.heading', { level })),
+      quote: this.i18n.t('editor.placeholder.quote'),
+      bulletList: list,
+      orderedList: list,
+      tableCell: '',
+      image: this.i18n.t('editor.placeholder.image'),
+    };
+  });
+
   protected readonly subjectId = `message-subject-${nextSheetId}`;
   /** The Preview text input's id, unique on the page. */
   protected readonly previewId = `message-preview-${nextSheetId++}`;

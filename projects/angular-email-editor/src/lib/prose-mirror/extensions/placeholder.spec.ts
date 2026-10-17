@@ -1,7 +1,23 @@
-import { TextSelection } from 'prosemirror-state';
+import { EditorState, TextSelection, Transaction } from 'prosemirror-state';
 import { createEditor, Editor } from '../editor';
 import { emailExtensions } from './kits';
-import { PlaceholderOptions, createPlaceholder } from './placeholder';
+import {
+  PlaceholderOptions,
+  PlaceholderWords,
+  createPlaceholder,
+  placeholderKey,
+} from './placeholder';
+
+/** Notion's set, as a host words it. */
+const NOTION: PlaceholderWords = {
+  line: 'Type / for commands',
+  heading: ['Heading 1', 'Heading 2', 'Heading 3'],
+  quote: 'Empty quote',
+  bulletList: 'List',
+  orderedList: 'Numbered',
+  tableCell: '',
+  image: 'Add an image',
+};
 
 describe('placeholder', () => {
   let host: HTMLElement;
@@ -122,5 +138,177 @@ describe('placeholder', () => {
   it('shows nothing until it is given words', () => {
     mount('', {});
     expect(shown()).toEqual([]);
+  });
+
+  describe('words by kind (Notion)', () => {
+    /** The textblock positions, in document order. */
+    const lines = () => {
+      const found: number[] = [];
+      editor.state.doc.descendants((node, pos) => {
+        if (node.isTextblock) found.push(pos);
+        return !node.isTextblock;
+      });
+      return found;
+    };
+
+    const caretAt = (pos: number) => {
+      editor.view.focus();
+      editor.view.dispatch(
+        editor.state.tr.setSelection(TextSelection.create(editor.state.doc, pos + 1)),
+      );
+    };
+
+    it('an empty block of a kind says what it is, focused or not; a plain line only under the caret', () => {
+      mount('<div>x</div><h1></h1><h3></h3><div></div><blockquote><div></div></blockquote>', {
+        text: NOTION,
+      });
+      expect(shown()).toEqual([
+        ['h1', 'Heading 1'],
+        ['h3', 'Heading 3'],
+        ['div', 'Empty quote'],
+      ]);
+      caretAt(lines()[3]);
+      expect(shown()).toEqual([
+        ['h1', 'Heading 1'],
+        ['h3', 'Heading 3'],
+        ['div', 'Type / for commands'],
+        ['div', 'Empty quote'],
+      ]);
+    });
+
+    it('a heading past the words per level takes the last; one string words every level', () => {
+      mount('<div>x</div><h5></h5>', { text: NOTION });
+      expect(shown()).toEqual([['h5', 'Heading 3']]);
+      editor.commands['setPlaceholder']({ heading: 'Heading' });
+      expect(shown()).toEqual([['h5', 'Heading']]);
+    });
+
+    it("a list item's own line says List; its later lines are plain", () => {
+      mount('<ul><li><div></div><div></div></li></ul><ol><li><div></div></li></ol>', {
+        text: NOTION,
+      });
+      expect(shown()).toEqual([
+        ['div', 'List'],
+        ['div', 'Numbered'],
+      ]);
+    });
+
+    it("a kind left out takes the line's hint under the caret; '' leaves it bare", () => {
+      mount('<div>x</div><h2></h2><table><tr><td></td></tr></table>', {
+        text: { line: 'Type / for commands', tableCell: '' },
+      });
+      expect(shown()).toEqual([]);
+      caretAt(lines()[1]);
+      expect(shown()).toEqual([['h2', 'Type / for commands']]);
+      caretAt(lines()[2]);
+      expect(shown()).toEqual([]);
+    });
+
+    it('an empty body says empty, else the line', () => {
+      mount('', { text: { ...NOTION, empty: 'Write your email' } });
+      expect(shown()).toEqual([['div', 'Write your email']]);
+      expect(editor.view.dom.getAttribute('aria-placeholder')).toBe('Write your email');
+      editor.commands['setPlaceholder'](NOTION);
+      expect(shown()).toEqual([['div', 'Type / for commands']]);
+    });
+
+    it('a function is told the kind', () => {
+      mount('<div>x</div><blockquote><div></div></blockquote>', { text: ({ kind }) => kind });
+      expect(shown()).toEqual([['div', 'quote']]);
+    });
+
+    it('follows the edits: typing, emptying, re-kinding a line, a list turned numbered', () => {
+      mount('<div>x</div><ul><li><div></div></li></ul><div>y</div>', { text: NOTION });
+      expect(shown()).toEqual([['div', 'List']]);
+      const item = lines()[1];
+      editor.view.dispatch(editor.state.tr.insertText('a', item + 1));
+      expect(shown()).toEqual([]);
+      editor.view.dispatch(editor.state.tr.delete(item + 1, item + 2));
+      expect(shown()).toEqual([['div', 'List']]);
+
+      const list = editor.state.doc.resolve(item).before(1);
+      editor.view.dispatch(editor.state.tr.setNodeMarkup(list, editor.schema.nodes['orderedList']));
+      expect(shown()).toEqual([['div', 'Numbered']]);
+
+      const last = lines()[2];
+      editor.view.dispatch(editor.state.tr.delete(last + 1, last + 2));
+      editor.view.dispatch(
+        editor.state.tr.setBlockType(last, last + 2, editor.schema.nodes['heading'], { level: 2 }),
+      );
+      expect(shown()).toContainEqual(['h2', 'Heading 2']);
+    });
+
+    it("an image waiting for its file wears the words; without them, the frame's own", () => {
+      mount('<div><img width="320"></div>', { text: NOTION });
+      const frame = () => editor.view.dom.querySelector('.aee-image__placeholder')?.textContent;
+      expect(frame()).toBe('Add an image');
+      editor.commands['setPlaceholder']({ ...NOTION, image: 'Bild hinzufügen' });
+      expect(frame()).toBe('Bild hinzufügen');
+      editor.view.setProps({ editable: () => false });
+      expect(frame()).toBe('Bild hinzufügen');
+      editor.view.setProps({ editable: () => true });
+      editor.commands['setPlaceholder']('Type / for commands');
+      expect(frame()).toBe('Choose an image');
+    });
+
+    it('the kept decorations always equal a fresh scan, across random edits', () => {
+      // mulberry32: the same edits on every run.
+      let seed = 0x9e3779b9;
+      const random = () => {
+        seed = (seed + 0x6d2b79f5) | 0;
+        let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+      const pick = <T,>(items: readonly T[]): T => items[Math.floor(random() * items.length)];
+      mount(
+        '<div>a</div><h1></h1><ul><li><div></div><div>b</div></li><li><div>c</div></li></ul>' +
+          '<blockquote><div></div><h2>d</h2></blockquote><ol><li><div></div></li></ol>' +
+          '<table><tr><td></td><td>e</td></tr></table><div><img width="320"></div><div></div>',
+        { text: NOTION },
+      );
+      const { schema } = editor;
+      const edits: ((state: EditorState, pos: number) => Transaction)[] = [
+        (state, pos) => state.tr.insertText('z', pos + 1),
+        (state, pos) => state.tr.delete(pos + 1, pos + 1 + state.doc.nodeAt(pos)!.content.size),
+        (state, pos) =>
+          state.tr.setBlockType(pos, pos + 1, schema.nodes['heading'], { level: pick([1, 2, 4]) }),
+        (state, pos) => state.tr.setBlockType(pos, pos + 1, schema.nodes['paragraph']),
+        (state, pos) => state.tr.split(pos + 1),
+        // A line in front: a list item's own line becomes its second.
+        (state, pos) => state.tr.insert(pos, schema.nodes['paragraph'].create()),
+        (state, pos) => state.tr.join(pos),
+        (state, pos) => {
+          const $pos = state.doc.resolve(pos);
+          if ($pos.depth < 2) throw new Error('not in a list');
+          const list = $pos.node($pos.depth - 1);
+          const swap = { bulletList: 'orderedList', orderedList: 'bulletList' }[list.type.name];
+          if (!swap) throw new Error('not in a list');
+          return state.tr.setNodeMarkup($pos.before($pos.depth - 1), schema.nodes[swap]);
+        },
+      ];
+      const keyed = (state: EditorState) =>
+        placeholderKey
+          .getState(state)!
+          .set.find()
+          .map((d) => `${d.from}-${d.to}:${d.spec['line'] ?? d.spec['placeholder']}`)
+          .sort();
+      let applied = 0;
+      for (let step = 0; step < 300; step++) {
+        const state = editor.state;
+        let tr: Transaction;
+        try {
+          tr = pick(edits)(state, pick(lines()));
+        } catch {
+          continue;
+        }
+        if (!tr.docChanged) continue;
+        editor.view.dispatch(tr);
+        applied++;
+        const fresh = EditorState.create({ doc: editor.state.doc, plugins: editor.state.plugins });
+        expect(keyed(editor.state)).toEqual(keyed(fresh));
+      }
+      expect(applied).toBeGreaterThan(100);
+    });
   });
 });

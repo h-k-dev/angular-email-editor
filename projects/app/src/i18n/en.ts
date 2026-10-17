@@ -42,7 +42,13 @@ export default {
     },
   },
   editor: {
-    placeholder: 'Write something, or type / for commands',
+    placeholder: {
+      line: 'Write something, or type / for commands',
+      heading: 'Heading {{level}}',
+      quote: 'Empty quote',
+      list: 'List',
+      image: 'Add an image',
+    },
     quoted: {
       show: 'Show quoted text',
       hide: 'Hide quoted text',
