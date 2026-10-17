@@ -7,6 +7,13 @@
       "runtimeArgs": ["run", "start", "--", "--port", "4300"],
       "port": 4300,
       "autoPort": false
+    },
+    {
+      "name": "app-alt",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["ng", "serve", "app", "--port", "4310"],
+      "port": 4310,
+      "autoPort": false
     }
   ]
 }

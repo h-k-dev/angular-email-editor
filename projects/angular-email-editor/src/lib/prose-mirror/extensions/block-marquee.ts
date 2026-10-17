@@ -1,7 +1,7 @@
 import { Plugin, PluginKey, Selection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { FunctionalExtension, defineExtension } from '../extension';
-import { BlockSelection } from './block-selection';
+import { BlockSelection, releaseBlockSelection } from './block-selection';
 import { claimPress } from './press-claim';
 
 /** The class of the box a drag draws — the host paints it, in the same wash
@@ -329,8 +329,14 @@ export const createBlockMarquee = (options: BlockMarqueeOptions = {}): Functiona
                 // A click: the caret at the nearest spot in the text — the
                 // point brought onto the editor's box when it fell outside.
                 // Not from a start point elsewhere: a click beside a form is
-                // no click in the text, and leaves everything as it was.
-                if (view.isDestroyed || current.moved || elsewhere) return;
+                // no click in the text — it only lets selected blocks go,
+                // as a press anywhere does (`SelectedBlocks`; this one kept
+                // the editor's focus, so it is let go here).
+                if (view.isDestroyed || current.moved) return;
+                if (elsewhere) {
+                  releaseBlockSelection(view);
+                  return;
+                }
                 const rect = view.dom.getBoundingClientRect();
                 const found = view.posAtCoords({
                   left: clamp(pressed.x, rect.left + 1, rect.right - 1),
@@ -422,8 +428,9 @@ export const createBlockMarquee = (options: BlockMarqueeOptions = {}): Functiona
  * a form — as Notion lets a drag start in a page's margins. The host decides
  * the press is one (its own empty room, not a control); from there it is the
  * surface's gesture in every way: the box on the canvas, the blocks it
- * covers of the surface, the scroll, Escape. Released in place it does
- * nothing — only the editor's own room puts the caret on a line.
+ * covers of the surface, the scroll, Escape. Released in place it puts no
+ * caret on a line (only the editor's own room does) — it only lets selected
+ * blocks go, as any press outside the editor does.
  *
  * Call it from the start point's `mousedown`. It returns whether the box
  * started (and then took the press: `preventDefault`); `false` without

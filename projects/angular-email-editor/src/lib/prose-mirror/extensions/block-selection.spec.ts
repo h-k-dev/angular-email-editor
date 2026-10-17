@@ -1,7 +1,7 @@
 import { AllSelection, Selection, TextSelection } from 'prosemirror-state';
 import { createEditor } from '../editor';
 import { emailExtensions } from './kits';
-import { BLOCK_SELECTED_CLASS, BlockSelection } from './block-selection';
+import { BLOCK_RELEASING_CLASS, BLOCK_SELECTED_CLASS, BlockSelection } from './block-selection';
 import { BLOCK_MARQUEE_CLASS, createBlockMarquee } from './block-marquee';
 import { IN_SELECTION_CLASS } from './inline-atom-selection';
 
@@ -238,6 +238,61 @@ describe('SelectedBlocks: the keys', () => {
     select(TextSelection.create(editor.state.doc, TWO + 1));
     key('ArrowDown');
     expect(editor.state.selection).not.toBeInstanceOf(BlockSelection);
+    unmount();
+  });
+
+  it('a press outside the editor lets the blocks go — unless the editor keeps its focus', async () => {
+    const { editor, blocks, selected, unmount } = mount();
+    const field = document.createElement('input');
+    const tool = document.createElement('button');
+    // A toolbar button acting on the selection: its press keeps focus where it is.
+    tool.addEventListener('mousedown', (event) => event.preventDefault());
+    document.body.append(field, tool);
+    const tick = () => new Promise((resolve) => setTimeout(resolve));
+    const press = (target: Element) =>
+      target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+
+    editor.view.focus();
+    blocks(TWO, THREE);
+    press(tool);
+    await tick();
+    expect(selected()).toEqual(['two', 'three']);
+
+    // Another field: the press takes focus there (jsdom moves no focus on a
+    // press — the browser's default action, done by hand).
+    press(field);
+    field.focus();
+    await tick();
+    const { selection } = editor.state;
+    expect(selection).toBeInstanceOf(TextSelection);
+    expect(selection.empty).toBe(true);
+    expect(selection.$head.parent.textContent).toBe('three');
+    expect(selected()).toEqual([]);
+
+    field.remove();
+    tool.remove();
+    unmount();
+  });
+
+  it('marks the blocks let go as releasing, and drops the mark once no fade runs', async () => {
+    const { editor, blocks, key, unmount } = mount();
+    const releasing = () =>
+      Array.from(editor.view.dom.querySelectorAll(`.${BLOCK_RELEASING_CLASS}`)).map(
+        (el) => el.textContent,
+      );
+    blocks(TWO, THREE);
+    expect(releasing()).toEqual([]);
+    key('Escape');
+    expect(releasing()).toEqual(['two', 'three']);
+    // No stylesheet here, so no animation: gone on the next turn.
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(releasing()).toEqual([]);
+
+    // Selected again before it is over: lit, not releasing.
+    blocks(ONE);
+    key('Escape');
+    blocks(ONE);
+    expect(releasing()).toEqual([]);
     unmount();
   });
 });

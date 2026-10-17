@@ -8,12 +8,33 @@ import {
 } from 'prosemirror-state';
 import { Node, ResolvedPos } from 'prosemirror-model';
 import { Mappable } from 'prosemirror-transform';
-import { Decoration, DecorationSet } from 'prosemirror-view';
+import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import { defineExtension } from '../extension';
 
 /** The class every block of a {@link BlockSelection} wears — the wash the
     app paints over it, since the selection itself draws nothing. */
 export const BLOCK_SELECTED_CLASS = 'aee-block--selected';
+
+/** The class the blocks of a {@link BlockSelection} just let go of wear, for
+    as long as an animation the app gives it runs — the wash fading out
+    instead of vanishing. Gone once the animation ends, at once with none. */
+export const BLOCK_RELEASING_CLASS = 'aee-block--releasing';
+
+/** Blocks just let go: their decorations, and which release they are. */
+interface Releasing {
+  id: number;
+  set: DecorationSet;
+}
+
+/** One node decoration per block of `selection`, wearing `className`. */
+function blockDecorations(doc: Node, selection: BlockSelection, className: string): DecorationSet {
+  return DecorationSet.create(
+    doc,
+    selection.blocks.map(({ node, pos }) =>
+      Decoration.node(pos, pos + node.nodeSize, { class: className }),
+    ),
+  );
+}
 
 /** A selection of `anchor`..`head` when both are seams between top-level
     blocks and it holds at least one, else the nearest valid selection at
@@ -187,20 +208,37 @@ const extendBlocks =
     return true;
   };
 
-/** Back to text: the caret at the start of the first block (`'start'`), the
-    end of the last (`'end'`), or the head's end of its block (`'head'` —
-    Enter and Escape, the block you were last on). */
+/** The caret a block selection leaves to: at the start of the first block
+    (`'start'`), the end of the last (`'end'`), or the head's end of its block
+    (`'head'` — the block you were last on). */
+function caretOf(selection: BlockSelection, to: 'start' | 'end' | 'head'): Selection {
+  const doc = selection.$from.doc;
+  const backward = selection.head < selection.anchor;
+  const atStart = to === 'start' || (to === 'head' && backward);
+  return atStart
+    ? Selection.near(doc.resolve(selection.from), 1)
+    : Selection.near(doc.resolve(selection.to), -1);
+}
+
+/**
+ * Lets a block selection go — the caret at the head's end of its block, as
+ * Escape leaves it, but not scrolled to: the press that let go is elsewhere.
+ * Whether the view holds one or not, nothing else changes; `true` if it did.
+ */
+export function releaseBlockSelection(view: EditorView): boolean {
+  const { selection } = view.state;
+  if (!(selection instanceof BlockSelection)) return false;
+  view.dispatch(view.state.tr.setSelection(caretOf(selection, 'head')));
+  return true;
+}
+
+/** Back to text (ArrowLeft / ArrowRight, Enter and Escape), scrolled to. */
 const leaveBlocks =
   (to: 'start' | 'end' | 'head'): Command =>
   (state, dispatch) => {
-    const { selection, doc } = state;
+    const { selection } = state;
     if (!(selection instanceof BlockSelection)) return false;
-    const backward = selection.head < selection.anchor;
-    const atStart = to === 'start' || (to === 'head' && backward);
-    const caret = atStart
-      ? Selection.near(doc.resolve(selection.from), 1)
-      : Selection.near(doc.resolve(selection.to), -1);
-    dispatch?.(state.tr.setSelection(caret).scrollIntoView());
+    dispatch?.(state.tr.setSelection(caretOf(selection, to)).scrollIntoView());
     return true;
   };
 
@@ -232,6 +270,15 @@ const TYPING = /^insert(?!FromPaste|FromDrop)/;
  * blocks; a second `Mod-a` selects every block. Typing does nothing; a
  * paste replaces the blocks.
  *
+ * The next press anywhere lets the blocks go, as Notion's do — in the editor
+ * the press is ProseMirror's (or the marquee's) and replaces the selection
+ * itself; outside it, a press that takes focus from the editor (another
+ * field, a title bar, the page) leaves the caret at the head's block
+ * ({@link releaseBlockSelection}). A control that keeps the editor focused —
+ * a formatting toolbar acting on the selection — keeps the blocks. However
+ * they go, the blocks let go wear {@link BLOCK_RELEASING_CLASS} while the
+ * app's fade runs, so the wash eases out rather than vanishing.
+ *
  * In the kits: the selection is reachable by keyboard alone. The pointer's
  * way in, the marquee, is the host's to opt into ({@link createBlockMarquee}),
  * since it needs a surface around the editor to start from.
@@ -251,30 +298,86 @@ export const SelectedBlocks = defineExtension({
     Delete: deleteBlocks,
     'Mod-a': selectAllBlocks,
   }),
-  plugins: () => [
-    new Plugin({
-      key: new PluginKey('selectedBlocks'),
-      props: {
-        decorations(state) {
-          const { selection } = state;
-          if (!(selection instanceof BlockSelection)) return null;
-          return DecorationSet.create(
-            state.doc,
-            selection.blocks.map(({ node, pos }) =>
-              Decoration.node(pos, pos + node.nodeSize, { class: BLOCK_SELECTED_CLASS }),
-            ),
-          );
-        },
-        handleTextInput: (view) => view.state.selection instanceof BlockSelection,
-        handleDOMEvents: {
-          beforeinput(view, event) {
-            if (!(view.state.selection instanceof BlockSelection)) return false;
-            if (!TYPING.test(event.inputType)) return false;
-            event.preventDefault();
-            return true;
+  plugins: () => {
+    const key = new PluginKey<Releasing | null>('selectedBlocks');
+    let released = 0;
+    return [
+      new Plugin<Releasing | null>({
+        key,
+        // The blocks just let go, while their wash fades: the selection that
+        // held them is gone, so they are kept here — mapped through every
+        // change, dropped with any block deleted — until the fade is over.
+        state: {
+          init: () => null,
+          apply(tr, releasing, before, after) {
+            const done = tr.getMeta(key) as number | undefined;
+            if (after.selection instanceof BlockSelection) return null;
+            if (before.selection instanceof BlockSelection) {
+              const set = blockDecorations(before.doc, before.selection, BLOCK_RELEASING_CLASS);
+              return { id: ++released, set: set.map(tr.mapping, tr.doc) };
+            }
+            if (!releasing || done === releasing.id) return null;
+            return { id: releasing.id, set: releasing.set.map(tr.mapping, tr.doc) };
           },
         },
-      },
-    }),
-  ],
+        view: (view) => {
+          const doc = view.dom.ownerDocument;
+          // A press outside the editor, while blocks are selected: once it
+          // has done what it does (moved focus, or kept it), the blocks go
+          // unless the editor still has focus.
+          const press = (event: MouseEvent) => {
+            if (!(view.state.selection instanceof BlockSelection)) return;
+            if (view.dom.contains(event.target as globalThis.Node | null)) return;
+            setTimeout(() => {
+              if (!view.isDestroyed && !view.hasFocus()) releaseBlockSelection(view);
+            });
+          };
+          doc.addEventListener('mousedown', press, true);
+
+          // A release begins: the releasing class goes as soon as the
+          // animations the host's stylesheet gave it end — at once, with
+          // none (no fade, reduced motion, a browser without the API).
+          let watched = 0;
+          const fadeOut = (id: number) => {
+            const animations = (doc.getAnimations?.() ?? []).filter((animation) => {
+              const target = (animation.effect as KeyframeEffect | null)?.target;
+              return !!target && view.dom.contains(target) && target.classList.contains(BLOCK_RELEASING_CLASS);
+            });
+            void Promise.all(animations.map((animation) => animation.finished.catch(() => {}))).then(() => {
+              if (!view.isDestroyed && key.getState(view.state)?.id === id) {
+                view.dispatch(view.state.tr.setMeta(key, id).setMeta('addToHistory', false));
+              }
+            });
+          };
+          return {
+            update: () => {
+              const releasing = key.getState(view.state);
+              if (!releasing || releasing.id === watched) return;
+              watched = releasing.id;
+              fadeOut(releasing.id);
+            },
+            destroy: () => doc.removeEventListener('mousedown', press, true),
+          };
+        },
+        props: {
+          decorations(state) {
+            const { selection } = state;
+            if (selection instanceof BlockSelection) {
+              return blockDecorations(state.doc, selection, BLOCK_SELECTED_CLASS);
+            }
+            return key.getState(state)?.set ?? null;
+          },
+          handleTextInput: (view) => view.state.selection instanceof BlockSelection,
+          handleDOMEvents: {
+            beforeinput(view, event) {
+              if (!(view.state.selection instanceof BlockSelection)) return false;
+              if (!TYPING.test(event.inputType)) return false;
+              event.preventDefault();
+              return true;
+            },
+          },
+        },
+      }),
+    ];
+  },
 });

@@ -423,11 +423,13 @@ html {
  * editor's own scheme, set by the library) wears the SAME wash, so where it covers a
  * block the two stack: the block lights up under the box, one colour twice.
  * An overlay, not a background, so it shows over a cell's fill or a
- * button; editor-only — the class is a decoration, never serialized. */
-.aee-editor .aee-block--selected {
+ * button; editor-only — the class is a decoration, never serialized.
+ * Blocks just let go (`.aee-block--releasing`, the library keeps it while
+ * the fade below runs) wear the same box and fade it out. */
+.aee-editor :is(.aee-block--selected, .aee-block--releasing) {
   position: relative;
 }
-.aee-editor .aee-block--selected::after {
+.aee-editor :is(.aee-block--selected, .aee-block--releasing)::after {
   content: '';
   position: absolute;
   inset: 1px calc(-1 * var(--email-block-selection-bleed, 4px));
@@ -443,18 +445,37 @@ html {
 /* A table or columns block hangs its wrapper into the gutters (its grips'
  * room, `--aee-block-gutter-x`): the box comes back to the text column's
  * edge, so it lines up with the lines around it. */
-.aee-editor .aee-table-wrap:not(.aee-table-wrap--authored).aee-block--selected::after,
-.aee-editor .aee-columns-wrap.aee-block--selected::after {
+.aee-editor
+  .aee-table-wrap:not(.aee-table-wrap--authored):is(.aee-block--selected, .aee-block--releasing)::after,
+.aee-editor .aee-columns-wrap:is(.aee-block--selected, .aee-block--releasing)::after {
   inset-inline: calc(var(--aee-block-gutter-x, 0px) - var(--email-block-selection-bleed, 4px));
 }
 
 /* A divider is a 1px line: its box is the room its margins make — out
  * past the line, which Chrome clips (`overflow: hidden` on every <hr>). */
-.aee-editor hr.aee-block--selected {
+.aee-editor hr:is(.aee-block--selected, .aee-block--releasing) {
   overflow: visible;
 }
-.aee-editor hr.aee-block--selected::after {
+.aee-editor hr:is(.aee-block--selected, .aee-block--releasing)::after {
   inset: -10px calc(-1 * var(--email-block-selection-bleed, 4px));
+}
+
+/* Let go — by a click anywhere, a key, a new marquee: the wash eases out in
+ * 150ms instead of vanishing. With reduced motion it simply goes (no
+ * animation, so the library drops the class at once). */
+.aee-editor .aee-block--releasing::after {
+  animation: aee-block-release 150ms ease-out forwards;
+}
+@keyframes aee-block-release {
+  to {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aee-editor .aee-block--releasing::after {
+    animation: none;
+    opacity: 0;
+  }
 }
 
 .aee-marquee {

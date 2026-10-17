@@ -11,7 +11,7 @@ import { TextSelection } from 'prosemirror-state';
 import appStyles from '../../../../../app/src/styles.scss' with { loader: 'text' };
 import { createEditor, Editor } from '../editor';
 import { emailExtensions } from './kits';
-import { BLOCK_SELECTED_CLASS, BlockSelection } from './block-selection';
+import { BLOCK_RELEASING_CLASS, BLOCK_SELECTED_CLASS, BlockSelection } from './block-selection';
 import { BLOCK_MARQUEE_CLASS, beginBlockMarquee, createBlockMarquee } from './block-marquee';
 
 /** The app's wash token, its hide-selection rules (the browser's highlight
@@ -223,10 +223,42 @@ describe('block marquee (render)', () => {
     mouse('mouseup', x + 100, rect(block(1)).top + 5, window);
     expect(selected()).toEqual([0, 1]);
 
+    // A click there now lets the blocks go — the editor keeps its focus
+    // (the press is taken), so the marquee lets go itself.
+    mouse('mousedown', x, y, header);
+    mouse('mouseup', x, y, window);
+    expect(selected()).toEqual([]);
+    expect(editor.state.selection).toBeInstanceOf(TextSelection);
+
     // Not a plain primary press: not started.
     const right = new MouseEvent('mousedown', { button: 2, bubbles: true, cancelable: true });
     header.dispatchEvent(right);
     expect(started).toBe(false);
+  });
+
+  it('let go, the blocks fade their wash out over 150ms, then drop the mark', async () => {
+    const left = rect(surface).left + 10;
+    mouse('mousedown', left, rect(block(1)).top + 5);
+    mouse('mousemove', left + 100, rect(block(3)).top + 5, window);
+    mouse('mouseup', left + 100, rect(block(3)).top + 5, window);
+    expect(selected()).toEqual([1, 2, 3]);
+
+    editor.view.dom.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+    );
+    expect(selected()).toEqual([]);
+    expect(block(1).classList).toContain(BLOCK_RELEASING_CLASS);
+    const fades = document
+      .getAnimations()
+      .filter((animation) => (animation as CSSAnimation).animationName === 'aee-block-release');
+    expect(fades).toHaveLength(3);
+    expect((fades[0].effect as KeyframeEffect).getTiming().duration).toBe(150);
+    // Same wash as when it was lit, while it fades.
+    expect(getComputedStyle(block(1), '::after').backgroundColor).toMatch(/^oklch\(0\.5 0\.2 260/);
+
+    await Promise.all(fades.map((fade) => fade.finished));
+    await frame();
+    expect(editor.view.dom.querySelectorAll(`.${BLOCK_RELEASING_CLASS}`)).toHaveLength(0);
   });
 
   it('a press on a line is the text’s; a click in the margin puts the caret on its line', () => {
