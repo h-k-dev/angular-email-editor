@@ -85,8 +85,10 @@ export interface PagedSourceOptions<TFilter, TRow, T extends SuggestionItem> {
       no request and no loading. `false` asks the backend every time. A
       `with` that reads live state (what is chosen elsewhere, a filter on the
       page) wants `false`: the cache knows only the query. The cache lives as
-      long as the source does — one per injector for a source behind a
-      `providedIn: 'root'` token. @default { ttl: 60_000, max: 50 } */
+      long as the source does, so where the source is provided decides whom
+      it serves: one cache for the app behind a `providedIn: 'root'` token,
+      one per component when a component provides it.
+      @default { ttl: 60_000, max: 50 } */
   cache?: SourceCacheOptions | false;
 }
 
