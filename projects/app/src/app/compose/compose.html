@@ -39,7 +39,7 @@
     [hidden]="!previewOpen()"
     [active]="previewOpen()"
     [html]="previewHtml()"
-    [original]="sheet.original()"
+    [original]="sheet()?.original() ?? null"
     aria-label="Email preview"
   ></section>
   <!-- The message: the sheet every message in the app is written on (the
@@ -51,27 +51,35 @@
      Summernote's </>), the source docked to its right — the buttons in the
      same order as the panes on screen. They change what shows, not the
      message, so they are neither formatting (the composer's toolbar) nor
-     actions (beside Send). None of them on a phone, and the docked ones
-     only where a second pane fits: below the docking breakpoint they go,
-     and a docked pane folds (compose.ts).
+     actions (beside Send). Only where a second pane fits: below the
+     docking breakpoint they go, and a docked pane folds (compose.ts).
      The sheet is a paper island in its own Appearance, as every compose
      window is (paper-island.ts): bar, rows, text and their menus one paper;
-     the desk round it — the panes, the status strip — keeps the app's. -->
-  <div
-    message-form
-    [paperIsland]="sheet.editorScheme()"
-    keepDraft
-    #sheet
-    #draft="keepDraft"
-    [(sourceView)]="sourceView"
-    sourceViews
-    [codePortal]="codePortal()"
-    [codeEditor]="sourcePane().editor()"
-    (sent)="sentNote.set($event)"
-  >
-    @if (!viewport.compact()) {
-      <span leading class="writer-panes" role="group" aria-label="Views">
-        @if (!viewport.narrow()) {
+     the desk round it — the panes, the status strip — keeps the app's.
+     Opened on a phone, the page writes on the phone's sheet instead
+     (`mobile`, chosen once): the screen, no panes to dock. -->
+  @if (mobile) {
+    <div
+      mobile-message-form
+      #phoneSheet
+      [paperIsland]="phoneSheet.editorScheme()"
+      keepDraft
+      (sent)="sentNote.set($event)"
+    ></div>
+  } @else {
+    <div
+      message-form
+      #deskSheet
+      [paperIsland]="deskSheet.editorScheme()"
+      keepDraft
+      [(sourceView)]="sourceView"
+      sourceViews
+      [codePortal]="codePortal()"
+      [codeEditor]="sourcePane().editor()"
+      (sent)="sentNote.set($event)"
+    >
+      @if (!viewport.narrow()) {
+        <span leading class="writer-panes" role="group" aria-label="Views">
           <button
             mat-icon-button
             type="button"
@@ -82,13 +90,11 @@
           >
             <mat-icon>dock_to_left</mat-icon>
           </button>
-        }
-        <!-- Code view is the ⋮ menu's View (Editor / HTML), the sheet's:
-           marks and history keep working on the source (its kit mirrors
-           every mark command, so the toolbar routes to whichever editor
-           shows); block commands have no source-side twin and lock. Detach
-           pressed while in code view moves the source back out. -->
-        @if (!viewport.narrow()) {
+          <!-- Code view is the ⋮ menu's View (Editor / HTML), the sheet's:
+             marks and history keep working on the source (its kit mirrors
+             every mark command, so the toolbar routes to whichever editor
+             shows); block commands have no source-side twin and lock. Detach
+             pressed while in code view moves the source back out. -->
           <button
             mat-icon-button
             type="button"
@@ -99,10 +105,10 @@
           >
             <mat-icon>dock_to_right</mat-icon>
           </button>
-        }
-      </span>
-    }
-  </div>
+        </span>
+      }
+    </div>
+  }
   <!-- The HTML source pane. Its home is this right column (the detached view);
      in code view a DOM portal moves the very same node into the composer's
      editing surface and back — the editor inside is never re-created, so
@@ -113,8 +119,8 @@
     class="email-scroll"
     [hidden]="sourceView() === 'hidden'"
     [active]="sourceView() !== 'hidden'"
-    [(html)]="sheet.html"
-    (htmlChange)="sheet.original.set($event)"
+    [html]="html()"
+    (htmlChange)="onSourceHtml($event)"
     [(diagnostics)]="diagnostics"
     aria-label="Email HTML source"
   ></section>
@@ -148,7 +154,7 @@
         <span class="compose__status-send" aria-label="Last send">{{ note }}</span>
       }
 
-      @if (draft.note(); as note) {
+      @if (draft()?.note(); as note) {
         <span class="compose__status-send" aria-label="Draft">{{ note }}</span>
       }
 

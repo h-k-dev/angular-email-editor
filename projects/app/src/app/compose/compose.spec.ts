@@ -1174,8 +1174,10 @@ describe('Compose below the docking breakpoint', () => {
     expect(root.querySelector('footer.compose__status')).not.toBeNull();
   });
 
-  it('folds code view at a phone width, where the ⋮ menu offers no View to leave it', async () => {
-    const compact = signal(false);
+  /** The page, opened at a phone's width or a desk's, and the switch to
+      move the screen across the breakpoint afterwards. */
+  async function openAt(compactAtOpen: boolean) {
+    const compact = signal(compactAtOpen);
     await TestBed.configureTestingModule({
       imports: [Compose],
       providers: [
@@ -1187,53 +1189,44 @@ describe('Compose below the docking breakpoint', () => {
     }).compileComponents();
     const fixture = TestBed.createComponent(Compose);
     await fixture.whenStable();
-    const root = fixture.nativeElement as HTMLElement;
-    const editor = root.querySelector('.email-compose__editor') as HTMLElement;
+    return { fixture, compact, root: fixture.nativeElement as HTMLElement };
+  }
 
-    await chooseView(fixture, 'HTML');
-    expect(editor.hidden).toBe(true);
+  const toggle = (root: HTMLElement) =>
+    root.querySelector('.writer-bar [aria-label="Formatting options"]') as HTMLButtonElement | null;
 
-    compact.set(true);
-    await fixture.whenStable();
-    expect(editor.hidden).toBe(false);
-    expect(root.querySelector('section[html-email-compose]')?.hasAttribute('hidden')).toBe(true);
+  it("opens on a phone with the phone's sheet: the toolbar always on, no switch, no View, the sheet scrolling", async () => {
+    const { fixture, root } = await openAt(true);
+    expect(root.querySelector('[mobile-message-form]')).not.toBeNull();
+    expect(root.querySelector('[message-form]')).toBeNull();
+    expect((root.querySelector('.formatting-toolbar') as HTMLElement).hidden).toBe(false);
+    expect(toggle(root)).toBeNull();
     expect(viewOffered(fixture.componentInstance)).toBe(false);
+    // The bar heads the sheet, and the whole sheet scrolls under it.
+    expect(root.querySelector('.writer-bar')?.tagName).toBe('HEADER');
+    expect(root.querySelector('form[email-writer]')?.getAttribute('data-scroll')).toBe('sheet');
+    expect(root.querySelector('section[email-compose]')?.getAttribute('data-scroll')).toBe('host');
   });
 
-  it('keeps the formatting toolbar on a phone, with no switch to hide it', async () => {
-    const compact = signal(false);
-    await TestBed.configureTestingModule({
-      imports: [Compose],
-      providers: [
-        {
-          provide: Viewport,
-          useValue: { narrow: compact.asReadonly(), compact: compact.asReadonly() },
-        },
-      ],
-    }).compileComponents();
-    const fixture = TestBed.createComponent(Compose);
-    await fixture.whenStable();
-    const root = fixture.nativeElement as HTMLElement;
-    const toolbar = root.querySelector('.formatting-toolbar') as HTMLElement;
-    const toggle = () =>
-      root.querySelector(
-        '.writer-bar [aria-label="Formatting options"]',
-      ) as HTMLButtonElement | null;
+  it("keeps the phone's sheet it opened with once the screen is wide", async () => {
+    const phone = await openAt(true);
+    phone.compact.set(false);
+    await phone.fixture.whenStable();
+    expect(phone.root.querySelector('[mobile-message-form]')).not.toBeNull();
+    expect(phone.root.querySelector('[message-form]')).toBeNull();
+  });
 
-    // Wide: off, as by default.
+  it("keeps the desktop's sheet it opened with at a phone's width — its toolbar switch and choice too", async () => {
+    const desk = await openAt(false);
+    const toolbar = desk.root.querySelector('.formatting-toolbar') as HTMLElement;
     expect(toolbar.hidden).toBe(true);
-
-    // Phone: the toolbar is back and the switch is gone.
-    compact.set(true);
-    await fixture.whenStable();
-    expect(toolbar.hidden).toBe(false);
-    expect(toggle()).toBeNull();
-
-    // Wide again: the choice made there still holds.
-    compact.set(false);
-    await fixture.whenStable();
+    desk.compact.set(true);
+    await desk.fixture.whenStable();
+    expect(desk.root.querySelector('[message-form]')).not.toBeNull();
+    expect(desk.root.querySelector('[mobile-message-form]')).toBeNull();
     expect(toolbar.hidden).toBe(true);
-    expect(toggle()!.getAttribute('aria-pressed')).toBe('false');
+    expect(toggle(desk.root)!.getAttribute('aria-pressed')).toBe('false');
+    expect(desk.root.querySelector('form[email-writer]')?.getAttribute('data-scroll')).toBe('body');
   });
 });
 

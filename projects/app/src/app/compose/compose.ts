@@ -40,6 +40,8 @@ import { EmailPreview } from './email-preview/email-preview';
 import { KeepDraft } from './message-form/keep-draft';
 import { Examples } from '../../services/examples';
 import { MessageForm } from './message-form/message-form';
+import { MobileMessageForm } from './message-form/mobile-message-form';
+import { MessageSheet } from './message-form/message-sheet';
 import { PaperIslandDirective } from './paper-island';
 import { Viewport } from '../../services/viewport';
 
@@ -51,8 +53,9 @@ interface StatusNote {
 
 /**
  * The composer page: the one message this app keeps as its draft, on the
- * sheet every message is written on (`message-form`), with the desk around
- * it — the preview docked to its left, the HTML source to its right or in
+ * sheet every message is written on (`message-form`; the phone's,
+ * `mobile-message-form`, where the page opens on a phone), with the desk
+ * around it — the preview docked to its left, the HTML source to its right or in
  * the editor's place, the status strip under all three, and the page itself
  * as the zone an .eml is opened by.
  */
@@ -63,6 +66,7 @@ interface StatusNote {
 
     // Components
     MessageForm,
+    MobileMessageForm,
     KeepDraft,
     PaperIslandDirective,
     MatIcon,
@@ -84,11 +88,24 @@ interface StatusNote {
   },
 })
 export class Compose {
-  /** The message's sheet. */
-  protected readonly sheet = viewChild.required(MessageForm);
+  /** The message's sheet — the desktop's or the phone's (`mobile`), read
+      as either. Optional: the panes ahead of it in the page bind to it
+      before it is created. */
+  protected readonly sheet = viewChild(MessageSheet);
+
+  /** The sheet's draft keeper, for the status strip's note. */
+  protected readonly draft = viewChild(KeepDraft);
 
   /** Canonical email HTML — the sheet's, which the panes bind to. */
-  protected readonly html = computed(() => this.sheet().html());
+  protected readonly html = computed(() => this.sheet()?.html() ?? '');
+
+  /** The source pane's edits: the message's HTML, and its original — the
+      source as typed, before the editor reads it. */
+  protected onSourceHtml(html: string): void {
+    const sheet = this.sheet();
+    sheet?.html.set(html);
+    sheet?.original.set(html);
+  }
 
   /** Lint results streamed up from the source pane's language service. */
   protected diagnostics = signal<HtmlDiagnostic[]>([]);
@@ -102,21 +119,23 @@ export class Compose {
       signal. */
   protected readonly viewport = inject(Viewport);
 
+  /** Which sheet the page writes on: the phone's, where it opened on a
+      phone — chosen once, as the page opens, and kept: a screen that turns
+      or widens later never swaps the sheet (and its editor) mid-message. */
+  protected readonly mobile = untracked(() => this.viewport.compact());
+
   readonly #examples = inject(Examples);
 
   /** Where the HTML source shows (the writer bar's </> and detach
       buttons). Owned here because revealing a finding has to
       switch to a view that can show it. Going narrow folds a detached pane
-      back to hidden, going compact folds code view as well — neither has a
-      button left to leave it by; going wide again leaves whatever the user
-      has. */
+      back to hidden — it has no button left to leave it by; going wide
+      again leaves whatever the user has. */
   protected sourceView = linkedSignal({
-    source: () => ({ narrow: this.viewport.narrow(), compact: this.viewport.compact() }),
-    computation: ({ narrow, compact }, previous): SourceView => {
+    source: this.viewport.narrow,
+    computation: (narrow, previous): SourceView => {
       const view = previous?.value ?? 'hidden';
-      if (narrow && view === 'detached') return 'hidden';
-      if (compact && view === 'code') return 'hidden';
-      return view;
+      return narrow && view === 'detached' ? 'hidden' : view;
     },
   });
 
@@ -153,7 +172,7 @@ export class Compose {
     // file's HTML, for the preview to draw beside the editor's reading.
     effect(() => {
       const html = this.#examples.loaded();
-      if (html) untracked(() => this.sheet().original.set(html));
+      if (html) untracked(() => this.sheet()?.original.set(html));
     });
   }
   protected sourcePane = viewChild.required(HtmlEmailCompose);
@@ -161,18 +180,18 @@ export class Compose {
   /** The message as it goes out, for the preview: the body with its quoted
       history under it. */
   protected previewHtml = computed(() =>
-    withQuotedHistory(this.sheet().html(), this.sheet().quoted()),
+    withQuotedHistory(this.html(), this.sheet()?.quoted() ?? null),
   );
 
   /** Live word/line counter, measured mathematically by the email pane. */
-  protected metrics = computed(() => this.sheet().metrics());
+  protected metrics = computed(() => this.sheet()?.metrics());
 
   /** Errors: the source pane's lint errors plus the body's expression
       syntax problems (the dialect the editor pane opts into). */
   protected errors = computed(
     () =>
       this.diagnostics().filter((d) => d.severity === 'error').length +
-      this.sheet().emailPane().expressionDiagnostics().length,
+      (this.sheet()?.emailPane().expressionDiagnostics().length ?? 0),
   );
 
   protected warnings = computed(
@@ -187,7 +206,7 @@ export class Compose {
   );
 
   /** The form's first complaint, for the status strip. */
-  protected problem = computed(() => this.sheet().problem());
+  protected problem = computed(() => this.sheet()?.problem() ?? null);
 
   /** Jumps to the first diagnostic of the given severity: the source pane
       for a lint finding, the editor pane for an expression problem. */
@@ -197,7 +216,8 @@ export class Compose {
       this.#inView(true, () => this.sourcePane().reveal(diagnostic));
       return;
     }
-    const pane = this.sheet().emailPane();
+    const pane = this.sheet()?.emailPane();
+    if (!pane) return;
     const expression = pane.expressionDiagnostics()[0];
     if (severity === 'error' && expression) {
       this.#inView(false, () => pane.revealExpression(expression));
@@ -240,7 +260,9 @@ export class Compose {
   protected async onEmlDrop(event: FileDropEvent): Promise<void> {
     const dropped = event.files[0]?.file;
     if (!dropped) return;
-    const text = await this.sheet().importEml(dropped);
+    const sheet = this.sheet();
+    if (!sheet) return;
+    const text = await sheet.importEml(dropped);
     this.#importNote.set({ text, html: this.html() });
   }
 
@@ -251,6 +273,6 @@ export class Compose {
   protected readonly sentNote = signal<string | null>(null);
   protected lastSend = computed(() => {
     const note = this.sentNote();
-    return note && this.sheet().blank() ? note : null;
+    return note && this.sheet()?.blank() ? note : null;
   });
 }
