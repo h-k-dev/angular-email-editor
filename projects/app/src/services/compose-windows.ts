@@ -13,6 +13,8 @@ import {
 } from '@angular/core';
 
 import type { Envelope } from '../app/compose/message-form/envelope';
+import type { MessageSheetKind } from '../app/compose/message-form/message-sheet';
+import { Viewport } from './viewport';
 
 /** How a compose window shows, Gmail's three states:
     - `docked`: a window in its place on the bottom edge of the screen;
@@ -75,6 +77,11 @@ export interface ComposeWindow {
   readonly pin: number | null;
   /** How this window shows on a phone. */
   readonly mobile: ComposeWindowMobile;
+  /** The sheet its message is written on: the phone's where it opened on a
+      phone, the desktop's anywhere else — chosen as it opens, and kept for
+      its life (a forward-button return included), so a screen that turns
+      or widens never swaps the editor out from under the message. */
+  readonly sheet: MessageSheetKind;
   /** What the window opens with, where it is not a new message: a reply
       or a forward its opener prepared, or — a window the forward button put
       back — what was written in it. The sheet starts from it. */
@@ -140,6 +147,7 @@ export function slotPosition(slot: number): number {
 @Service()
 export class ComposeWindows {
   readonly #document = inject(DOCUMENT);
+  readonly #viewport = inject(Viewport);
   readonly #app = inject(ApplicationRef);
   readonly #injector = inject(EnvironmentInjector);
 
@@ -216,6 +224,7 @@ export class ComposeWindows {
         mode: 'docked',
         pin: null,
         mobile: options?.mobile ?? 'page',
+        sheet: this.#viewport.compact() ? 'mobile' : 'desktop',
         restored: options?.content ?? null,
         focus: options?.focus ?? 'to',
         guard: null,

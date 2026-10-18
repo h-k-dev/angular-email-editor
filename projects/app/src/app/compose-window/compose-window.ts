@@ -26,6 +26,8 @@ import { InlineImages } from '@h-k-dev/angular-email-editor';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { MessageForm } from '../compose/message-form/message-form';
+import { MobileMessageForm } from '../compose/message-form/mobile-message-form';
+import { MessageSheet } from '../compose/message-form/message-sheet';
 import { IslandMarquee, PaperIsland } from '../compose/paper-island';
 import { Viewport } from '../../services/viewport';
 import { I18n } from '../../services/i18n';
@@ -76,7 +78,7 @@ interface Grab {
  */
 @Component({
   selector: 'section[compose-window]',
-  imports: [TranslatePipe, MessageForm, MatIcon, MatIconButton],
+  imports: [TranslatePipe, MessageForm, MobileMessageForm, MatIcon, MatIconButton],
   // One inline image registry per composer: this window's message. And
   // the window is a paper island (`scheme`) for everything it holds.
   providers: [InlineImages, { provide: PaperIsland, useExisting: ComposeWindowFrame }],
@@ -127,8 +129,13 @@ export class ComposeWindowFrame implements PaperIsland {
 
   protected readonly titleId = computed(() => `compose-window-title-${this.window().id}`);
   protected readonly minimized = computed(() => this.window().mode === 'minimized');
+  /** Whether the window can be zoomed into the dialog: a desktop sheet on
+      a desktop screen. The phone's sheet has no zoom at all. */
+  protected readonly zoomable = computed(
+    () => this.window().sheet === 'desktop' && !this.viewport.compact(),
+  );
   protected readonly expanded = computed(
-    () => this.window().mode === 'expanded' && !this.viewport.compact(),
+    () => this.window().mode === 'expanded' && this.zoomable(),
   );
   protected readonly front = computed(() => this.windows.front() === this.window().id);
 
@@ -150,8 +157,9 @@ export class ComposeWindowFrame implements PaperIsland {
       back from either puts the window exactly where it was. */
   protected readonly x = computed(() => this.window().pin ?? slotPosition(this.window().slot));
 
-  /** The message this window holds. */
-  protected readonly sheet = viewChild(MessageForm);
+  /** The message this window holds — on the desktop's sheet or the
+      phone's (`ComposeWindow.sheet`), read as either. */
+  protected readonly sheet = viewChild(MessageSheet);
 
   /** The window is a paper island in its sheet's Appearance (the ⋮ menu's
       Light, Dark or App) — title bar, writer bar, envelope rows and text

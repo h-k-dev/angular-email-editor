@@ -19,7 +19,7 @@
       [attr.aria-expanded]="!minimized()"
       (click)="toggleMinimized()"
     >
-      {{ sheet.message().subject.trim() || ('composeWindow.new' | translate) }}
+      {{ label() }}
     </button>
 
     <span class="compose-window__controls" data-slot="controls">
@@ -40,7 +40,7 @@
       >
         <mat-icon>{{ minimized() ? 'expand_less' : 'minimize' }}</mat-icon>
       </button>
-      @if (!viewport.compact()) {
+      @if (zoomable()) {
         <button
           mat-icon-button
           type="button"
@@ -79,15 +79,28 @@
      which is the one every other page there is left by, and the sheet keeps
      its own Discard for throwing the message away.
      Zoomed, it is a document: the writer's bar heads it, above From, as on
-     a phone — the window's own bar, at the window's size, moved. -->
-<div
-  message-form
-  #sheet
-  class="compose-window__sheet"
-  fields="material"
-  [seed]="seed()"
-  [initialFocus]="window().focus"
-  [bar]="expanded() ? 'top' : 'auto'"
-  (sent)="sent()"
-  (discarded)="close()"
-></div>
+     a phone — the window's own bar, at the window's size, moved.
+     Opened on a phone, it holds the phone's sheet instead (chosen once, as
+     the window opens): bar on top, the whole sheet scrolling, no zoom. -->
+@if (window().sheet === 'mobile') {
+  <div
+    mobile-message-form
+    class="compose-window__sheet"
+    fields="material"
+    [seed]="seed()"
+    [initialFocus]="window().focus"
+    (sent)="sent()"
+    (discarded)="close()"
+  ></div>
+} @else {
+  <div
+    message-form
+    class="compose-window__sheet"
+    fields="material"
+    [seed]="seed()"
+    [initialFocus]="window().focus"
+    [bar]="expanded() ? 'top' : 'bottom'"
+    (sent)="sent()"
+    (discarded)="close()"
+  ></div>
+}
