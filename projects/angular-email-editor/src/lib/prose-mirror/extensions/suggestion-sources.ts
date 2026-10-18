@@ -158,12 +158,17 @@ export interface ListSourceOptions<TFilter, TRow, T extends SuggestionItem> {
  *     })
  *
  * The list is never waited for: once loaded, every keystroke answers at
- * once.
+ * once. Nor is its load ever aborted: it answers no query, so the keystroke
+ * that supersedes a query has nothing to cancel — typing on while it loads
+ * waits for the one load, and a load the menu closed on still lands for the
+ * next session (or, uncached, is dropped with its session).
  */
 export function listSource<TFilter, TRow, T extends SuggestionItem>(
   options: ListSourceOptions<TFilter, TRow, T>,
 ): SuggestionSource<T> {
   const { from, map, cache = {} } = options;
+  /** The load's own signal: it outlives the keystroke that started it. */
+  const keepLoading = new AbortController().signal;
   const load: SuggestionSource<T> = ({ signal }) =>
     then(from.find(options.with?.() as TFilter, signal), (rows) => rows.map(map));
   const shared = cache === false ? null : cachedSource(load, { ttl: cache.ttl, max: 1 });
@@ -174,9 +179,12 @@ export function listSource<TFilter, TRow, T extends SuggestionItem>(
     if (!own) sessions.set(session, (own = cachedSource(load, { ttl: Infinity, max: 1 })));
     return own;
   };
+  // The menu drops an answer whose request it aborted, so a load that lands
+  // after its keystroke was superseded shows nothing stale.
   return (request) =>
-    then(loader(request.session)({ ...request, query: '', cursor: null }), (answer) =>
-      matchSuggestions(pageOf(answer).items, request.query),
+    then(
+      loader(request.session)({ ...request, query: '', cursor: null, signal: keepLoading }),
+      (answer) => matchSuggestions(pageOf(answer).items, request.query),
     );
 }
 

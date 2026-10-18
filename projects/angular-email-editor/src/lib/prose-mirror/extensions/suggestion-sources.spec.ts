@@ -329,6 +329,54 @@ describe('listSource', () => {
     await source({ ...ask(''), session: {} });
     expect(loads).toBe(2);
   });
+
+  describe('typing on while the list loads', () => {
+    let aborted: number;
+    /** A load of 200 ms that counts its calls and its aborts. */
+    const slow = {
+      find: (_filter: unknown, signal: AbortSignal) => {
+        loads++;
+        return new Promise<Row[]>((resolve, reject) => {
+          const timer = setTimeout(() => resolve(fields), 200);
+          signal.addEventListener('abort', () => {
+            aborted++;
+            clearTimeout(timer);
+            reject(signal.reason);
+          });
+        });
+      },
+    };
+
+    /** As the menu asks: each keystroke aborts the request before it. */
+    const typeOn = async (source: SuggestionSource<SuggestionCommandItem>) => {
+      const session = {};
+      let controller = new AbortController();
+      let answer = source({ ...ask(''), signal: controller.signal, session });
+      for (const query of ['d', 'da', 'dat', 'datu']) {
+        await vi.advanceTimersByTimeAsync(50);
+        controller.abort();
+        controller = new AbortController();
+        answer = source({ ...ask(query), signal: controller.signal, session });
+      }
+      await vi.advanceTimersByTimeAsync(200);
+      return { answer: await answerOf(answer), next: source({ ...ask('kün'), session }) };
+    };
+
+    beforeEach(() => {
+      aborted = 0;
+      vi.useFakeTimers();
+    });
+
+    it.each([{}, { cache: false as const }])(
+      'asks `from` once, and answers the next keystroke at once (%j)',
+      async (options) => {
+        const { answer, next } = await typeOn(listSource({ from: slow, map: item, ...options }));
+        expect({ loads, aborted }).toEqual({ loads: 1, aborted: 0 });
+        expect(answer.items.map((i) => i.title)).toEqual(['Datum', 'Kündigungsdatum']);
+        expect(next).toMatchObject([{ title: 'Kündigungsdatum' }]);
+      },
+    );
+  });
 });
 
 describe('matchSuggestions', () => {
