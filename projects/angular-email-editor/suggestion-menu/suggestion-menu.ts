@@ -55,6 +55,13 @@ import { SuggestionMenuHeader, SuggestionMenuHeaderContext } from './suggestion-
  * results — the highlighted option's id does not change when the list is
  * filtered under it, so nothing else would say the list is a new one.
  *
+ * **Two placements.** At the caret (`caret`, the default) the box floats
+ * by the trigger's line, under it or flipped above, in the editor's scroll
+ * container. Docked (`docked`) it places nothing: it is a band in the
+ * flow, as wide as where the host puts it — a phone's, over the keyboard,
+ * where there is no room by the caret (Slack's list over its composer).
+ * Closed, a docked band takes no room. Everything else is the same box.
+ *
  * Every word it says is an input, English by default.
  */
 @Component({
@@ -64,6 +71,8 @@ import { SuggestionMenuHeader, SuggestionMenuHeaderContext } from './suggestion-
   styleUrl: './suggestion-menu.scss',
   host: {
     '[attr.data-level]': 'state()?.level ?? 1',
+    '[attr.data-placement]': 'placement()',
+    '[attr.data-open]': 'state()?.open || null',
   },
 })
 export class SuggestionMenu {
@@ -94,6 +103,10 @@ export class SuggestionMenu {
   readonly announceDelay = input(400);
   /** Gap between the trigger's line and the menu, in px. */
   readonly offset = input(4);
+  /** Where the box goes: by the trigger's line (`caret`), or nowhere of its
+      own — a band in the flow wherever the host puts it (`docked`), capped
+      by `--email-suggestion-menu-docked-max-height`. */
+  readonly placement = input<'caret' | 'docked'>('caret');
 
   readonly #host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
@@ -264,6 +277,8 @@ export class SuggestionMenu {
     // side by the old room and flip back and forth.
     afterRenderEffect({
       earlyRead: () => {
+        // Docked, the flow places it: nothing to measure.
+        if (this.placement() === 'docked') return 'docked' as const;
         const layout = this.#layout();
         const anchor = layout?.clientRect();
         if (!layout || !anchor) return null;
@@ -278,6 +293,14 @@ export class SuggestionMenu {
       write: (placement) => {
         const place = placement();
         const style = this.#host.style;
+        if (place === 'docked') {
+          // Nothing of the caret's left over: the stylesheet shows it.
+          style.removeProperty('left');
+          style.removeProperty('top');
+          style.removeProperty('visibility');
+          this.listbox().nativeElement.style.removeProperty('max-height');
+          return;
+        }
         const visibility = place ? 'visible' : 'hidden';
         if (place) {
           const left = `${place.left}px`;

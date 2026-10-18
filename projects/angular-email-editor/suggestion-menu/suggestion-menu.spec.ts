@@ -90,6 +90,7 @@ class FakeIntersectionObserver {
         [state]="state()"
         [emptyLabel]="emptyLabel()"
         [announceDelay]="announceDelay()"
+        [placement]="placement()"
       >
         @if (customHeader()) {
           <ng-template emailSuggestionMenuHeader let-group let-back="back">
@@ -110,6 +111,7 @@ class Host {
   /** No settling wait, unless a spec is about the wait. */
   readonly announceDelay = signal(0);
   readonly customHeader = signal(false);
+  readonly placement = signal<'caret' | 'docked'>('caret');
   readonly editorHost = viewChild.required<ElementRef<HTMLElement>>('editorHost');
   readonly menu = viewChild.required('menu', { read: ElementRef });
   editor!: Editor;
@@ -375,6 +377,25 @@ describe('SuggestionMenu', () => {
       await keydown('ArrowDown');
       expect(host.state()?.activeIndex).toBe(2);
       expect(host.coordsAtPos).not.toHaveBeenCalled();
+    });
+
+    it('docked, places nothing of its own: a band in the flow, open or folded', async () => {
+      host.placement.set('docked');
+      await fixture.whenStable();
+      expect(menu.getAttribute('data-placement')).toBe('docked');
+      expect(menu.hasAttribute('data-open')).toBe(false);
+
+      await type('/head');
+      expect(menu.hasAttribute('data-open')).toBe(true);
+      expect(options().length).toBeGreaterThan(0);
+      // No caret to stand by: never measured, nothing written inline.
+      expect(host.coordsAtPos).not.toHaveBeenCalled();
+      expect(menu.style.left).toBe('');
+      expect(menu.style.top).toBe('');
+      expect(menu.style.visibility).toBe('');
+
+      await keydown('Escape');
+      expect(menu.hasAttribute('data-open')).toBe(false);
     });
 
     it('measures again when the rows change', async () => {

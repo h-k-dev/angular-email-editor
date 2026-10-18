@@ -18,6 +18,8 @@ import {
   viewChild,
 } from '@angular/core';
 
+import { NgTemplateOutlet } from '@angular/common';
+
 // Material
 import { MatIconModule } from '@angular/material/icon';
 
@@ -123,6 +125,7 @@ export type BodyFormat = 'html' | 'text';
   selector: 'section[email-compose]',
   imports: [
     TranslatePipe,
+    NgTemplateOutlet,
     // Material
     MatIconModule,
 
@@ -258,6 +261,13 @@ export class EmailCompose implements FormValueControl<string> {
       with its text, and its floating foot sticks to the bottom of whatever
       scrolls. */
   scroll = input<'own' | 'host'>('own');
+
+  /** Where the suggestion menu (`/`, `{{`) opens: by the trigger's line
+      (`caret`), or docked in the foot, over the toolbar (`docked` — a
+      phone, where the keyboard leaves no room by the caret). Set once, as
+      the composer is created: the editor is handed the menu's element as
+      it mounts. */
+  suggestions = input<'caret' | 'docked'>('caret');
 
   /** The words on an empty line (Notion's way; the library's placeholder):
       a string for the hint under the caret, or words by kind — "Heading 1",
@@ -789,6 +799,14 @@ export class EmailCompose implements FormValueControl<string> {
   /** What the foot covers of the text, as it stands — asked by the caret
       as it scrolls (`footClearance`). */
   readonly #footRoom = (): number => this.foot().room();
+
+  /** The foot grew over the text — the docked menu opening, the toolbar
+      switched on: the caret, if it is being written at, comes back out from
+      under it. */
+  protected keepCaretClear(): void {
+    const view = this.editor()?.view;
+    if (view?.hasFocus()) view.dispatch(view.state.tr.scrollIntoView());
+  }
 
   /**
    * The pane itself took focus — a host that made it focusable

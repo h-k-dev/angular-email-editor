@@ -1,4 +1,12 @@
-import { DestroyRef, Directive, ElementRef, afterNextRender, inject, signal } from '@angular/core';
+import {
+  DestroyRef,
+  Directive,
+  ElementRef,
+  afterNextRender,
+  inject,
+  output,
+  signal,
+} from '@angular/core';
 import { Plugin } from 'prosemirror-state';
 
 // Library
@@ -31,6 +39,10 @@ export class FloatingFoot {
   /** What the foot covers of the scroller's foot, px. */
   readonly room = signal(0);
 
+  /** The foot grew: it covers more of the text than it did — what was just
+      above it may be under it now. */
+  readonly grown = output<void>();
+
   readonly #foot = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
   constructor() {
@@ -53,7 +65,10 @@ export class FloatingFoot {
       const held = parseFloat(child.style.height);
       if (Number.isFinite(held)) height += held - child.getBoundingClientRect().height;
     }
-    this.room.set(Math.round(height));
+    const room = Math.round(height);
+    const grown = room > this.room();
+    this.room.set(room);
+    if (grown) this.grown.emit();
   }
 }
 

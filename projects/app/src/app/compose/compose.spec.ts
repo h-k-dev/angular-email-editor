@@ -1206,6 +1206,10 @@ describe('Compose below the docking breakpoint', () => {
     expect(root.querySelector('.writer-bar')?.tagName).toBe('HEADER');
     expect(root.querySelector('form[email-writer]')?.getAttribute('data-scroll')).toBe('sheet');
     expect(root.querySelector('section[email-compose]')?.getAttribute('data-scroll')).toBe('host');
+    // The suggestion menu is docked over the toolbar, not by the caret.
+    const menu = root.querySelector('[email-suggestion-menu]');
+    expect(menu?.closest('.email-compose__dock')).not.toBeNull();
+    expect(menu?.getAttribute('data-placement')).toBe('docked');
   });
 
   it("keeps the phone's sheet it opened with once the screen is wide", async () => {
@@ -1227,6 +1231,10 @@ describe('Compose below the docking breakpoint', () => {
     expect(toolbar.hidden).toBe(true);
     expect(toggle(desk.root)!.getAttribute('aria-pressed')).toBe('false');
     expect(desk.root.querySelector('form[email-writer]')?.getAttribute('data-scroll')).toBe('body');
+    // Its suggestion menu stays by the caret, in the scrolling paper.
+    const menu = desk.root.querySelector('[email-suggestion-menu]');
+    expect(menu?.closest('.email-compose__editor')).not.toBeNull();
+    expect(menu?.getAttribute('data-placement')).toBe('caret');
   });
 });
 

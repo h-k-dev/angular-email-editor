@@ -10,7 +10,8 @@
 // `top`, `left` and `visibility` are written inline by the component once
 // its rows are rendered and measured; hidden here until then. A box that fits
 // on neither side of the line also gets an inline max-height on its listbox,
-// so the box fits the side with more room.
+// so the box fits the side with more room. Docked (`placement`), none of it:
+// see the end of this file.
 
 :host {
   position: absolute;
@@ -155,6 +156,26 @@
 
 :host :where([data-slot='status'][data-empty]) {
   padding-block: 0;
+}
+
+// Docked: a band in the flow, as wide as its place, no shadow — part of
+// whatever holds it, not floating over it. Capped by its own token (a phone
+// sets it from the room the keyboard leaves); the list scrolls inside.
+// Closed it folds to nothing, but stays in the tree, so the live region
+// below is never one that arrives with its words already in it.
+:host([data-placement='docked']) {
+  position: relative;
+  visibility: visible;
+  min-width: 0;
+  max-width: none;
+  max-height: var(--email-suggestion-menu-docked-max-height, 40dvh);
+  box-shadow: var(--email-suggestion-menu-docked-shadow, none);
+}
+
+:host([data-placement='docked']:not([data-open])) {
+  block-size: 0;
+  padding-block: 0;
+  overflow: hidden;
 }
 
 // The live region: never seen, always there. `visibility: visible` lifts it

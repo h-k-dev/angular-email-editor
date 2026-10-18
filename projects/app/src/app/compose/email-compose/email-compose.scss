@@ -151,6 +151,19 @@
   flex-direction: column;
 }
 
+// The docked suggestion menu (`suggestions`): a band over the toolbar, in
+// from the sheet's edges, at most two fifths of what the keyboard leaves of
+// the screen — the rest keeps the pinned Send bar and the caret's line in
+// sight above it. Its list scrolls inside.
+.email-compose__dock [email-suggestion-menu] {
+  --email-suggestion-menu-docked-max-height: calc((100dvh - var(--keyboard-inset, 0px)) * 0.4);
+  margin-inline: 8px;
+
+  &[data-open] {
+    margin-block-end: 8px;
+  }
+}
+
 // A switch of the toolbar, running (DockAnimation, dock.animation.ts —
 // DOCK_SWITCH is this duration): the dock's height held in pixels and
 // moved to the new look's, what does not fit yet clipped.

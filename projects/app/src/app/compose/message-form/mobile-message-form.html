@@ -73,8 +73,9 @@
 
   <!-- The editor, as on the desktop sheet — but it hands its scrolling to
        the sheet (`scroll="host"`), so its floating foot sticks to the bottom
-       of the screen, and its toolbar is always shown: it is the bar on the
-       keyboard. -->
+       of the screen; its toolbar is always shown — it is the bar on the
+       keyboard — and its suggestion menu is docked over that bar
+       (`suggestions="docked"`): by the caret there is no room. -->
   <section
     email-compose
     [attr.cdkFocusInitial]="initialFocus() === 'body' ? '' : null"
@@ -87,6 +88,7 @@
     (fileDrop)="onAttachmentDrop($event)"
     [toolbar]="!plainText()"
     scroll="host"
+    suggestions="docked"
     [format]="bodyFormat()"
     [colorScheme]="editorScheme()"
     [placeholder]="placeholders()"
