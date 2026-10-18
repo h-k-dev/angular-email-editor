@@ -1,0 +1,19 @@
+// The ⋮ menu's rows, View and Theme (rendered in the menu's overlay from this
+// template, so these styles reach it): the word where the items'
+// labels start, the toggle at the row's end, as a settings row has them.
+.menu-row__label {
+  align-self: center;
+  padding-inline-start: var(--mat-sys-spacing, 4px);
+  padding-inline-end: calc(var(--mat-sys-spacing, 4px) * 4);
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
+}
+
+// 28px items in a 36px track: the thumb keeps 4px of air from the
+// track's edge instead of touching it.
+.menu-row__toggle {
+  --hk-tgb-size: 28px;
+  --hk-tgb-inset: 4px;
+
+  margin-inline-start: auto;
+}
