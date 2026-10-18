@@ -37,6 +37,34 @@
   inset-block-end: var(--email-compose-foot-room, 0px);
 }
 
+// A scroller round the composer scrolls the text (`scroll`: `host`): the
+// body grows with it rather than scrolling, and the foot comes into the
+// flow under it, stuck to the bottom of that scroller — over the text while
+// there is more below, in its own place after the last line at the end. So
+// the text keeps no room for it (styles.scss), and neither does the hint.
+:host([data-scroll='host']) {
+  .email-compose__body,
+  .email-compose__editor {
+    flex: 1 0 auto;
+  }
+
+  .email-compose__editor {
+    overflow: visible;
+  }
+
+  .email-compose__body > [drop-hint] {
+    inset-block-end: 0;
+  }
+
+  .email-compose__code {
+    padding-block-end: 0;
+  }
+
+  .email-compose__foot {
+    position: sticky;
+  }
+}
+
 .email-compose__editor {
   position: relative;
   flex: 1;

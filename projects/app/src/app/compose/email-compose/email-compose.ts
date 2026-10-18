@@ -158,6 +158,7 @@ export type BodyFormat = 'html' | 'text';
     // What the floating foot covers of the text, for the text to keep clear
     // (floating-foot.ts).
     '[style.--email-compose-foot-room.px]': 'foot().room()',
+    '[attr.data-scroll]': 'scroll()',
     '(focus)': 'onHostFocus()',
   },
   templateUrl: './email-compose.html',
@@ -250,6 +251,13 @@ export class EmailCompose implements FormValueControl<string> {
       writer bar's formatting button); hidden, the text keeps its keyboard
       shortcuts, the slash menu and the bubble menu. */
   toolbar = input(true);
+
+  /** Who scrolls the text: the surface itself (`own`), or a scroller round
+      the composer (`host` — the writer's whole sheet on a phone, so the
+      envelope above scrolls away with it). Handed over, the composer grows
+      with its text, and its floating foot sticks to the bottom of whatever
+      scrolls. */
+  scroll = input<'own' | 'host'>('own');
 
   /** The words on an empty line (Notion's way; the library's placeholder):
       a string for the hint under the caret, or words by kind — "Heading 1",

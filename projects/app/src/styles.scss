@@ -744,6 +744,12 @@ html {
   );
 }
 
+/* …unless a scroller round the composer scrolls the text (a phone): then
+ * the foot is in the flow after the last line, and takes its own room. */
+section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor {
+  padding-block-end: var(--email-editor-padding-block, 0px);
+}
+
 .email-compose__editor[data-color-scheme] {
   background-color: var(--email-paper-light);
 
