@@ -124,13 +124,13 @@ export class ApiReference {
         {
           name: 'pagedSource',
           signature:
-            '({ from: { find(filter, signal) }, with: (query, { skip, limit }) => filter, map: (row) => SuggestionItem, pageSize? = 20, debounce? = 300, cache? = { ttl: 60_000, max: 50 } | false }) => SuggestionSource',
-          does: 'A source for a backend that pages by offset, the paging written once — the shape iusta core’s select sources have: with turns a query and a page into the transport’s filter, from fetches it (the signal aborts a stale request), map makes each row a suggestion whose id is the row’s own key. The cursor is the next offset; a short page ends the list. The menu lists each id once, so a page repeating a row that moved between requests adds nothing. It waits for the typing to settle (debounce: the first query after a pause goes at once, a further page never waits) and remembers its pages by query and cursor, so a query asked again lands at once without a request; cache: false asks the backend every time. The cache lives as long as the source — one per injector behind a providedIn: "root" token.',
+            '({ from: { find(filter, signal) }, with: (query, { skip, limit }) => filter, map: (row) => SuggestionItem | null, pageSize? = 20, debounce? = 300, cache? = { ttl: 60_000, max: 50 } | false }) => SuggestionSource',
+          does: 'A source for a backend that pages by offset, the paging written once — the shape iusta core’s select sources have: with turns a query and a page into the transport’s filter, from fetches it (the signal aborts a stale request), map makes each row a suggestion whose id is the row’s own key (null drops a row; the paging still counts it). The cursor is the next offset; a short page ends the list. The menu lists each id once, so a page repeating a row that moved between requests adds nothing. It waits for the typing to settle (debounce: the first query after a pause goes at once, a further page never waits) and remembers its pages by query and cursor, so a query asked again lands at once without a request; cache: false asks the backend every time. The cache lives as long as the source — one per injector behind a providedIn: "root" token.',
         },
         {
           name: 'listSource · matchSuggestions',
           signature:
-            '({ from: { find(filter, signal) }, with?: () => filter, map, cache? = { ttl: 60_000 } | false }) => SuggestionSource · (items, query) => items',
+            '({ from: { find(filter, signal) }, with?: () => filter, map: (row) => SuggestionItem | null, cache? = { ttl: 60_000 } | false }) => SuggestionSource · (items, query) => items',
           does: 'The same grammar for a list loaded in one request and searched the way the menu searches its own items: every word of the query in a title or a keyword, best first (exact title, title prefix, title contains, keyword only). Once loaded every keystroke answers at once. cache: false loads it afresh for each session of the menu. matchSuggestions is that search on its own.',
         },
         {

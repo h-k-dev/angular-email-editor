@@ -106,8 +106,16 @@ export interface PagedSourceOptions<TFilter, TRow, T extends SuggestionItem> {
  *         mergeTagTrigger({
  *           source: pagedSource({
  *             from: { find: (filter, signal) => api.mergeTags(filter, signal) },
- *             with: (query, { skip, limit }) => ({ where: { path: { ilike: `%${query}%` } }, skip, limit }),
- *             map: (row) => ({ id: row.path, title: row.label, command: insertMergeTag(row.path) }),
+ *             with: (query, { skip, limit }) => ({
+ *               where: { path: { ilike: `%${query}%` } },
+ *               skip,
+ *               limit,
+ *             }),
+ *             map: (row) => ({
+ *               id: row.path,
+ *               title: row.label,
+ *               command: insertMergeTag(row.path),
+ *             }),
  *           }),
  *         }),
  *       ],
@@ -156,7 +164,11 @@ export interface ListSourceOptions<TFilter, TRow, T extends SuggestionItem> {
  *     children: listSource({
  *       from: customFields,
  *       with: () => ({ where: { groupId: group.id } }),
- *       map: (field) => ({ id: field.key, title: field.label, command: insertMergeTag(field.key) }),
+ *       // A field that cannot be a token is dropped here, not in `find`.
+ *       map: (field) =>
+ *         field.tokenable
+ *           ? { id: field.key, title: field.label, command: insertMergeTag(field.key) }
+ *           : null,
  *     })
  *
  * The list is never waited for: once loaded, every keystroke answers at

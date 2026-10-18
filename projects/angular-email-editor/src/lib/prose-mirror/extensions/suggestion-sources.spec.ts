@@ -60,6 +60,24 @@ describe('pagedSource', () => {
     });
 
   beforeEach(() => (asked = []));
+
+  it('drops the rows `map` answers null for, and still pages by the rows fetched', async () => {
+    const even = pagedSource({
+      from: {
+        find: (page: SuggestionPageRequest) => rows.slice(page.skip, page.skip + page.limit),
+      },
+      with: (_query, page) => page,
+      map: (row) => (Number(row.key.slice(1)) % 2 ? null : item(row)),
+      pageSize: 3,
+      cache: false,
+    });
+    const first = await answerOf(even(ask('')));
+    expect(first.items.map((i) => i.id)).toEqual(['r0', 'r2']);
+    expect(first.nextCursor).toBe('3');
+    const second = await answerOf(even(ask('', '3')));
+    expect(second.items.map((i) => i.id)).toEqual(['r4']);
+    expect(second.nextCursor).toBe('6');
+  });
   afterEach(() => vi.useRealTimers());
 
   it('asks `with` for the query and the page, and `from` with the filter', async () => {
@@ -295,6 +313,15 @@ describe('listSource', () => {
 
   beforeEach(() => (loads = 0));
   afterEach(() => vi.useRealTimers());
+
+  it('leaves out the rows `map` drops — searched or not', async () => {
+    const source = listSource({
+      from,
+      map: (row) => (row.key === 'city' ? undefined : item(row)),
+    });
+    expect((await answerOf(source(ask('')))).items.map((i) => i.id)).toEqual(['due', 'date']);
+    expect(source(ask('stadt'))).toEqual([]);
+  });
 
   it('loads once and searches the list as the menu does — every word, best first', async () => {
     const source = listSource({ from, with: () => ({ group: 'contract' }), map: item });
