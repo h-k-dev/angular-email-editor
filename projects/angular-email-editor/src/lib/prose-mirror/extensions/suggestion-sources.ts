@@ -131,7 +131,7 @@ export function pagedSource<TFilter, TRow, T extends SuggestionItem>(
   const fetchPage: SuggestionSource<T> = ({ query, cursor, signal }) => {
     const skip = cursor ? Number(cursor) : 0;
     return then(from.find(options.with(query, { skip, limit: pageSize }), signal), (rows) => ({
-      items: rows.map(map),
+      items: mapRows(rows, map),
       nextCursor: rows.length < pageSize ? null : String(skip + pageSize),
     }));
   };
@@ -184,7 +184,7 @@ export function listSource<TFilter, TRow, T extends SuggestionItem>(
   /** The load's own signal: it outlives the keystroke that started it. */
   const keepLoading = new AbortController().signal;
   const load: SuggestionSource<T> = ({ signal }) =>
-    then(from.find(options.with?.() as TFilter, signal), (rows) => rows.map(map));
+    then(from.find(options.with?.() as TFilter, signal), (rows) => mapRows(rows, map));
   const shared = cache === false ? null : cachedSource(load, { ttl: cache.ttl, max: 1 });
   const sessions = new WeakMap<object, SuggestionSource<T>>();
   const loader = (session: object): SuggestionSource<T> => {
