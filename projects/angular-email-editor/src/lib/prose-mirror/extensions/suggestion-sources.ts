@@ -10,10 +10,14 @@ import { matchSuggestions } from './suggestion-menu';
  *  - {@link listSource}: the list is loaded once, and the menu's own search
  *    matches it.
  *
- * Both wait for the typing to settle before they reach the backend and
- * remember what it answered; {@link debouncedSource} and
- * {@link cachedSource} are the same two behaviours for a source written by
- * hand.
+ * Both remember what the backend answered. Only `pagedSource` waits for the
+ * typing to settle, since it asks the backend per query; `listSource` asks
+ * once and never waits. {@link debouncedSource} and {@link cachedSource} are
+ * the same two behaviours for a source written by hand.
+ *
+ * `map` may drop a row: what it answers `null` or `undefined` for is not
+ * listed — a row that cannot be a suggestion (a field that cannot be a
+ * token) need not be filtered out inside `find`.
  */
 
 /** The wait {@link pagedSource} and {@link debouncedSource} default to. */
@@ -27,6 +31,16 @@ function isThenable<T>(value: unknown): value is PromiseLike<T> {
     promise: a synchronous answer stays synchronous. */
 function then<A, B>(value: A | PromiseLike<A>, next: (value: A) => B): B | Promise<B> {
   return isThenable<A>(value) ? Promise.resolve(value).then(next) : next(value);
+}
+
+/** Each row as a suggestion, without the rows `map` drops. */
+function mapRows<TRow, T>(rows: readonly TRow[], map: (row: TRow) => T | null | undefined): T[] {
+  const items: T[] = [];
+  for (const row of rows) {
+    const item = map(row);
+    if (item != null) items.push(item);
+  }
+  return items;
 }
 
 function pageOf<T extends SuggestionItem>(answer: T[] | SuggestionPage<T>): SuggestionPage<T> {
@@ -69,8 +83,10 @@ export interface PagedSourceOptions<TFilter, TRow, T extends SuggestionItem> {
   /** A row as a suggestion. Its `id` is the row's own key — the id the
       backend has, never one made from the words shown: the menu tracks a row
       by it and lists an id once, so a page that repeats a row (rows that
-      moved between requests) adds nothing. */
-  map: (row: TRow) => T;
+      moved between requests) adds nothing. `null` or `undefined` drops the
+      row; the paging still counts it, so a page is the last one only when
+      the backend answered fewer rows than `pageSize`. */
+  map: (row: TRow) => T | null | undefined;
   /** Rows a page asks for. A page with fewer is the last one.
       @default 20 */
   pageSize?: number;
@@ -146,8 +162,10 @@ export interface ListSourceOptions<TFilter, TRow, T extends SuggestionItem> {
       fields, the templates in use. It takes no query; the menu's search
       matches the list. Left out, `from` is asked with `undefined`. */
   with?: () => TFilter;
-  /** A row as a suggestion. Its `id` is the row's own key. */
-  map: (row: TRow) => T;
+  /** A row as a suggestion. Its `id` is the row's own key. `null` or
+      `undefined` drops the row: a field that cannot be a token is left out
+      here, not in `find`. */
+  map: (row: TRow) => T | null | undefined;
   /** The list, loaded once and shared by every session while it is fresh.
       `false` loads it afresh for each session of the menu, and searches that
       load while the session lasts. @default { ttl: 60_000 } */
