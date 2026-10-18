@@ -57,7 +57,8 @@ export interface SuggestionMenuState {
   /** Index of the keyboard-highlighted item. */
   activeIndex: number;
   /** A source's first page for the current query is on its way (in flight,
-      or waiting for the typing to settle) — render a "Searching…" row. The menu counts as open while loading, even with no items yet. */
+      or waiting for the typing to settle) — render a "Searching…" row. The
+      menu counts as open while loading, even with no items yet. */
   loading: boolean;
   /** The source's items on screen answer the *previous* query: they stay
       until the new page lands, so the list is diffed rather than torn down
