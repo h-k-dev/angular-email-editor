@@ -31,10 +31,9 @@
 <!-- The host's own actions, Discard among them, across from Send. -->
 <ng-template #actions><ng-content select="[actions]" /></ng-template>
 
-<!-- The bar, placed by `bar` — by default the viewport's: on a phone it
-     heads the sheet, on anything wider it closes it, under the composer's
-     formatting toolbar; a frame may head the sheet with it anywhere (the
-     zoomed window). At the foot Send opens the row and the actions close
+<!-- The bar, placed by `bar`: closing the sheet, under the composer's
+     formatting toolbar, or heading it (a phone's sheet, the zoomed window).
+     At the foot Send opens the row and the actions close
      it; heading the sheet the row is mirrored — the actions first, Send at
      the end, under the thumb on a phone and where the eye ends a header
      (`barOnTop`; the host mirrors its own actions to match).

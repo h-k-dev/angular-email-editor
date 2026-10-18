@@ -1,3 +1,4 @@
+@use '@h-k-dev/angular-email-editor/styles/scroll';
 @use '../../../styles/breakpoints' as bp;
 
 // The writer is one sheet: the editorial area's surface is the writer's
@@ -5,8 +6,8 @@
 // neither toolbar needs a strip of its own. A column of blocks: the envelope,
 // then the editor filling the rest (the host gives the editor flex: 1 —
 // projected content is the host's to style, and the rows are styled in
-// compose.scss), with the bar above the envelope on a phone and under the
-// editor anywhere wider.
+// the envelope rows), with the bar above the envelope or under the editor
+// (`bar`).
 :host {
   // The room between blocks — a token, so a block the host wants flush
   // against its neighbour (the editor's paper, message-form.scss) can take
@@ -62,6 +63,40 @@
   --writer-bar-size: 32px;
 }
 
+// The whole sheet scrolls (`scroll`, the phone's sheet): the envelope goes
+// up and away with the text, which then has the screen above the keyboard
+// to itself — Gmail's. The bar does not: Send stays in reach, stuck to the
+// top, on the sheet's paper, its own share of the sheet's top room with it
+// (so no strip of text shows above it). The body grows with its text
+// instead of scrolling (message-sheet.scss, EmailCompose.scroll), and its
+// floating foot sticks to the bottom of this scroller; a bar at the foot
+// sticks there too, over the foot's room for it. The scroll padding says
+// what the stuck bar covers — the browser keeps a focused row clear of it,
+// and the editor its caret (floating-foot.ts).
+:host([data-scroll='sheet']) {
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  @include scroll.scroll;
+  padding-block-start: 0;
+
+  > header.writer-bar {
+    position: sticky;
+    inset-block-start: 0;
+    block-size: calc(var(--writer-bar-size) + var(--writer-padding-start, 8px));
+    padding-block-start: var(--writer-padding-start, 8px);
+    background-color: var(--email-paper, var(--mat-sys-surface-bright));
+  }
+
+  > footer.writer-bar {
+    position: sticky;
+    inset-block-end: 0;
+  }
+}
+
+:host([data-scroll='sheet'][data-bar='top']) {
+  scroll-padding-block-start: calc(var(--writer-bar-size) + var(--writer-padding-start, 8px));
+}
+
 // The bar at the foot floats, as the composer's foot does: the body
 // (message-form.scss) runs on under it by this much — the bar and the gap
 // over it — and keeps it as room at the foot of its own floating foot, which
@@ -98,11 +133,11 @@
   padding-inline: calc(var(--mat-sys-inner-spacing, 16px) - var(--writer-bar-glyph-inset));
 }
 
-// Dense — the bar on anything wider than a phone, under the text or heading
-// a zoomed sheet: a compact row, every button 32px with its touch target no
-// bigger (a pointer needs no overhang; 32px still clears WCAG's 24px target
-// size), 20px glyphs in it. On a phone the bar keeps the app's 40/48px:
-// there it is tapped. The screen decides, not where the bar sits.
+// Dense (`dense`, the desktop sheet's) — under the text or heading a zoomed
+// sheet: a compact row, every button 32px with its touch target no bigger
+// (a pointer needs no overhang; 32px still clears WCAG's 24px target size),
+// 20px glyphs in it. The phone's sheet keeps the app's 40/48px: there it is
+// tapped. The sheet decides, not where the bar sits.
 :host([data-dense]) .writer-bar {
   --mat-icon-button-state-layer-size: 32px;
   --mat-icon-button-touch-target-size: 32px;

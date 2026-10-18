@@ -1,5 +1,5 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, computed, inject, input } from '@angular/core';
+import { Component, booleanAttribute, computed, inject, input } from '@angular/core';
 
 // Form
 import { FormRoot } from '@angular/forms/signals';
@@ -9,18 +9,12 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
-// Global
-import { Viewport } from '../../../services/viewport';
+/** Where the writer's bar sits: closing the sheet, or heading it. */
+export type WriterBarPosition = 'top' | 'bottom';
 
-/** Where the writer's bar sits: the viewport's call, or a frame's. */
-export type WriterBarPosition = 'auto' | 'top' | 'bottom';
-
-/** Whether a bar placed at `bar` heads the sheet on this screen — `auto`
-    on a phone does. The writer's rule, shared with a host that lays its
-    own bar controls out to match (mirrored). */
-export function writerBarOnTop(bar: WriterBarPosition, compact: boolean): boolean {
-  return bar === 'auto' ? compact : bar === 'top';
-}
+/** What scrolls: the body alone, under the envelope held in place — or the
+    whole sheet, so the bar and the envelope scroll away above the text. */
+export type WriterScroll = 'body' | 'sheet';
 
 /**
  * The email writer: the sheet a message is written on, and the form it is
@@ -40,12 +34,13 @@ export function writerBarOnTop(bar: WriterBarPosition, compact: boolean): boolea
  * the form ignores another submit until it settles. What
  * sending *does* is the host's (the form's action).
  *
- * The bar has two places. On a phone it heads the sheet, above the envelope,
- * where the thumb and the eye start; wider, it closes the sheet under the
- * formatting toolbar, where the message ends and is sent. A frame that is
- * a document rather than a window (the zoomed compose window) heads it
- * anywhere (`bar`). Heading the sheet, the row is mirrored: the actions
- * first, Send at the end.
+ * The bar has two places (`bar`): closing the sheet under the formatting
+ * toolbar, where the message ends and is sent — or heading it, above the
+ * envelope, where the thumb and the eye start (a phone's sheet, a zoomed
+ * window). Heading the sheet, the row is mirrored: the actions first, Send
+ * at the end. The writer knows no screen: its host — the desktop sheet or
+ * the phone's — says where the bar goes, what scrolls and how large the
+ * bar's buttons are.
  */
 @Component({
   selector: 'form[email-writer]',
@@ -63,23 +58,33 @@ export function writerBarOnTop(bar: WriterBarPosition, compact: boolean): boolea
   host: {
     // Where the bar is, and how large: the stylesheet tells the body how
     // much room a bar at the foot takes (`--writer-foot-bar`).
-    '[attr.data-bar]': "barOnTop() ? 'top' : 'bottom'",
-    '[attr.data-dense]': '!viewport.compact() || null',
+    '[attr.data-bar]': 'bar()',
+    '[attr.data-dense]': 'dense() || null',
+    // What scrolls: the body, or the whole sheet.
+    '[attr.data-scroll]': 'scroll()',
   },
 })
 export class EmailWriter {
   readonly #root = inject(FormRoot);
 
-  /** The full-width breakpoint puts the bar on top; above it, at the bottom. */
-  protected readonly viewport = inject(Viewport);
+  /** Where the bar goes: closing the sheet (`bottom`) or heading it. Only
+      its place: how large its buttons are is `dense`. */
+  readonly bar = input<WriterBarPosition>('bottom');
 
-  /** Where the bar goes: `auto` — the viewport's call, on top on a phone
-      and at the bottom anywhere wider — or `top` / `bottom` wherever. Only
-      its place: how large its buttons are is still the screen's. */
-  readonly bar = input<WriterBarPosition>('auto');
+  /** A compact bar, for a pointer: every button 32px. Off, the bar keeps
+      the app's 40/48px, for a finger. */
+  readonly dense = input(false, { transform: booleanAttribute });
+
+  /** What scrolls: `body` — the text alone, under the bar and the envelope
+      held in place — or `sheet` — everything, so where the keyboard leaves
+      little screen (a phone) the bar and the envelope scroll away above the
+      text as it is written (Gmail's) and the text has the screen to itself;
+      a bar at the foot stays put. The body must agree (`EmailCompose.scroll`):
+      a composer that scrolls itself inside a scrolling sheet scrolls twice. */
+  readonly scroll = input<WriterScroll>('body');
 
   /** The bar heads the sheet, mirrored: Send at its end. */
-  protected readonly barOnTop = computed(() => writerBarOnTop(this.bar(), this.viewport.compact()));
+  protected readonly barOnTop = computed(() => this.bar() === 'top');
 
   /** The submission is running — the transport has the message. */
   protected readonly submitting = computed(() => this.#root.fieldTree()().submitting());

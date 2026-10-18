@@ -1,14 +1,20 @@
-import { Component, WritableSignal, signal } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { form } from '@angular/forms/signals';
-import { EmailWriter, WriterBarPosition } from './email-writer';
-import { Viewport } from '../../../services/viewport';
+import { EmailWriter, WriterBarPosition, WriterScroll } from './email-writer';
 
-/** A host the way the composer uses the writer: a form over a model, with
-    an action the test settles by hand, and the fields projected in. */
+/** A host the way the sheets use the writer: a form over a model, with an
+    action the test settles by hand, and the fields projected in. The bar's
+    place, its size and what scrolls are the host's to say. */
 @Component({
   imports: [EmailWriter],
-  template: `<form email-writer [formRoot]="envelope" [bar]="bar()">
+  template: `<form
+    email-writer
+    [formRoot]="envelope"
+    [bar]="bar()"
+    [dense]="dense()"
+    [scroll]="scroll()"
+  >
     <button type="button" class="test-lead" leading>Panes</button>
     <button type="button" class="test-action" actions>Discard</button>
     <p class="test-field">projected</p>
@@ -16,7 +22,9 @@ import { Viewport } from '../../../services/viewport';
 })
 class Host {
   readonly model = signal({ subject: '' });
-  readonly bar = signal<WriterBarPosition>('auto');
+  readonly bar = signal<WriterBarPosition>('bottom');
+  readonly dense = signal(true);
+  readonly scroll = signal<WriterScroll>('body');
   submissions = 0;
   settle!: () => void;
   readonly envelope = form(this.model, {
@@ -33,7 +41,6 @@ describe('EmailWriter', () => {
   let fixture: ComponentFixture<Host>;
   let host: Host;
   let root: HTMLElement;
-  let compact: WritableSignal<boolean>;
 
   const send = () => root.querySelector('.writer-bar__send') as HTMLButtonElement;
   const bar = () => root.querySelector('.writer-bar') as HTMLElement;
@@ -43,13 +50,7 @@ describe('EmailWriter', () => {
     !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
 
   beforeEach(async () => {
-    compact = signal(false);
-    await TestBed.configureTestingModule({
-      imports: [Host],
-      providers: [
-        { provide: Viewport, useValue: { narrow: signal(false), compact: compact.asReadonly() } },
-      ],
-    }).compileComponents();
+    await TestBed.configureTestingModule({ imports: [Host] }).compileComponents();
     fixture = TestBed.createComponent(Host);
     host = fixture.componentInstance;
     await fixture.whenStable();
@@ -74,24 +75,45 @@ describe('EmailWriter', () => {
     expect(bar().lastElementChild).toBe(root.querySelector('.test-action'));
   });
 
-  it('closes the sheet with the bar, under the fields, where there is room', () => {
+  it('closes the sheet with the bar, under the fields, by default', () => {
     expect(bar().tagName).toBe('FOOTER');
     expect(follows(field(), bar())).toBe(true);
-    expect(writer().hasAttribute('data-dense')).toBe(true);
     // At the foot: the body runs on under it (the floating foot).
     expect(writer().getAttribute('data-bar')).toBe('bottom');
     expect(root.querySelectorAll('.writer-bar')).toHaveLength(1);
   });
 
-  it('heads the sheet with the bar on a phone — the same buttons, moved', async () => {
+  it('scrolls the body alone, or the whole sheet where its host asks', async () => {
+    expect(writer().getAttribute('data-scroll')).toBe('body');
+    // The phone's sheet: the bar and the envelope scroll away above the
+    // text, as Gmail's do.
+    host.scroll.set('sheet');
+    await fixture.whenStable();
+    expect(writer().getAttribute('data-scroll')).toBe('sheet');
+  });
+
+  it('sizes its bar for a pointer or a finger, as its host says', async () => {
+    expect(writer().hasAttribute('data-dense')).toBe(true);
+    host.dense.set(false);
+    await fixture.whenStable();
+    expect(writer().hasAttribute('data-dense')).toBe(false);
+  });
+
+  it('heads the sheet with the bar where its host asks — the same buttons, moved', async () => {
     const action = root.querySelector('.test-action');
-    compact.set(true);
+    host.bar.set('top');
     await fixture.whenStable();
     expect(bar().tagName).toBe('HEADER');
     expect(follows(bar(), field())).toBe(true);
+    expect(writer().getAttribute('data-bar')).toBe('top');
     expect(root.querySelectorAll('.writer-bar')).toHaveLength(1);
     // The host's action is its own node, carried along rather than re-created.
     expect(root.querySelector('.test-action')).toBe(action);
+
+    host.bar.set('bottom');
+    await fixture.whenStable();
+    expect(bar().tagName).toBe('FOOTER');
+    expect(root.querySelectorAll('.writer-bar')).toHaveLength(1);
   });
 
   it('mirrors the bar that heads the sheet: the actions first, Send at the end', async () => {
@@ -103,27 +125,6 @@ describe('EmailWriter', () => {
     );
     expect(root.querySelector('.test-lead')?.nextElementSibling).toBe(send());
     expect(bar().lastElementChild).toBe(send());
-  });
-
-  it('heads the sheet with the bar where its frame asks — dense still, off a phone', async () => {
-    host.bar.set('top');
-    await fixture.whenStable();
-    expect(bar().tagName).toBe('HEADER');
-    expect(follows(bar(), field())).toBe(true);
-    expect(writer().hasAttribute('data-dense')).toBe(true);
-    expect(writer().getAttribute('data-bar')).toBe('top');
-
-    // On a phone the same bar keeps the app's tap size.
-    compact.set(true);
-    await fixture.whenStable();
-    expect(bar().tagName).toBe('HEADER');
-    expect(writer().hasAttribute('data-dense')).toBe(false);
-
-    // And a frame may keep it at the bottom on a phone too.
-    host.bar.set('bottom');
-    await fixture.whenStable();
-    expect(bar().tagName).toBe('FOOTER');
-    expect(root.querySelectorAll('.writer-bar')).toHaveLength(1);
   });
 
   it("Send submits the host's form, and shows progress — never disabled — until the action settles", async () => {
