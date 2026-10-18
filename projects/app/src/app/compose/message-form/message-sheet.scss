@@ -1,0 +1,65 @@
+// Both sheets' (message-form, mobile-message-form): the writer and what
+// they project into it. A box for the frame to size: the page's grid
+// column, a window's body. The writer fills it.
+:host {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+form[email-writer] {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+// The writer's hint covers the whole sheet, the floating bar included.
+form[email-writer] > [drop-hint] {
+  z-index: 2;
+}
+
+// Projected into the writer's column: the editor takes what the bar leaves
+// (the writer cannot style projected content itself). The room the text
+// keeps from the Subject hairline above and the strip below is this
+// layout's call, not the pane's — the pane pads nothing on the block axis
+// unless told to here.
+section[email-compose] {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  // The paper starts at the Subject hairline: the writer's gap above it is
+  // taken back, so no band of the sheet shows between the envelope and the
+  // text, whatever the paper's colour (`colorScheme`). Above the first line
+  // and below the last, only a breath: 4px, the same at both ends, painted
+  // in the paper's colour — the message starts almost on the hairline, as
+  // the email starts at its top (Gmail keeps 10px).
+  margin-block-start: calc(-1 * var(--writer-gap, 8px));
+  --email-compose-surface-padding-block: 4px;
+  // A bar at the foot floats over the text with the composer's own foot
+  // (email-writer.scss): the composer runs on under it, and its foot keeps
+  // the bar's room at its own foot.
+  margin-block-end: calc(-1 * var(--writer-foot-bar, 0px));
+  --email-compose-foot-inset: var(--writer-foot-bar, 0px);
+
+  // The writer's column (email-writer.scss): on a wide sheet the editor
+  // keeps to it with the bar and the envelope.
+  box-sizing: border-box;
+  inline-size: 100%;
+  max-inline-size: var(--writer-column, none);
+  margin-inline: auto;
+
+  // The writer scrolls as a whole (a phone): the composer grows with its
+  // text — at least the room the rows leave, never squeezed below its text.
+  &[data-scroll='host'] {
+    flex-shrink: 0;
+    min-height: auto;
+  }
+}
+
+// The library's components read the Material system tokens on their own
+// (--email-* -> --mat-sys-* -> a light-dark() fallback), so the demo maps
+// nothing but its own spacing token, which is not Material's.
+ul[email-attachment-chips] {
+  --email-attachment-chips-inset: var(--mat-sys-inner-spacing, 16px);
+}
