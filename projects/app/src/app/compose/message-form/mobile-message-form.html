@@ -1,0 +1,114 @@
+<!-- The writer is the form, as on the desktop sheet (message-form.html):
+     Send on its bar, every field of the one message bound to the same
+     `envelope`, and the attachment zone for anything dropped on it.
+     On a phone the bar heads the sheet, mirrored, at the app's tap size, and
+     the whole sheet scrolls (`scroll="sheet"`): the bar and the rows go up
+     and away above the text. -->
+<form
+  email-writer
+  emailAddressDragGroup
+  [formRoot]="envelope"
+  bar="top"
+  scroll="sheet"
+  aria-label="Email writer"
+  dropZone
+  #writerZone="dropZone"
+  selfOnly
+  [clickable]="false"
+  [directory]="false"
+  [multiple]="true"
+  (fileDrop)="onAttachmentDrop($event)"
+>
+  <!-- Across from Send, at the bar's start: Discard at the edge, the
+       frame's actions, Parse (while the body holds placeholders). -->
+  <ng-container ngProjectAs="[actions]">
+    <button
+      mat-icon-button
+      type="button"
+      aria-label="Discard draft"
+      title="Discard draft"
+      (click)="discard()"
+    >
+      <mat-icon>delete</mat-icon>
+    </button>
+    <ng-content select="[actions]" />
+    @if (fillOffered()) {
+      <button
+        mat-icon-button
+        type="button"
+        [attr.aria-label]="'editor.actions.resolve-placeholders.title' | translate"
+        [title]="'editor.actions.resolve-placeholders.title' | translate"
+        emailAction="resolve-placeholders"
+        [emailActionFrom]="actions"
+      >
+        <mat-icon>data_object</mat-icon>
+      </button>
+    }
+  </ng-container>
+
+  <!-- Beside Send, at the bar's end: ⋮ (opening down, lined up with the
+       end), the frame's leading controls, Attach. -->
+  <ng-container ngProjectAs="[leading]">
+    <message-menu side="below" align="end" />
+    <ng-content select="[leading]" />
+    <button
+      mat-icon-button
+      type="button"
+      [attr.aria-label]="'composer.attach' | translate"
+      [title]="'composer.attach' | translate"
+      (click)="writerZone.openFilePicker($event)"
+    >
+      <mat-icon>attach_file</mat-icon>
+    </button>
+  </ng-container>
+
+  <div
+    envelope-rows
+    envelope
+    [form]="envelope"
+    [fields]="fields()"
+    [initialFocus]="initialFocus()"
+    [plainText]="plainText()"
+  ></div>
+
+  <!-- The editor, as on the desktop sheet — but it hands its scrolling to
+       the sheet (`scroll="host"`), so its floating foot sticks to the bottom
+       of the screen, and its toolbar is always shown: it is the bar on the
+       keyboard. -->
+  <section
+    email-compose
+    [attr.cdkFocusInitial]="initialFocus() === 'body' ? '' : null"
+    [attr.tabindex]="initialFocus() === 'body' ? -1 : null"
+    [formField]="envelope.html"
+    [(quoted)]="quoted"
+    (send)="send()"
+    (placeholdersFilled)="placeholdersFilled($event)"
+    (placeholdersFailed)="placeholdersFailed()"
+    (fileDrop)="onAttachmentDrop($event)"
+    [toolbar]="!plainText()"
+    scroll="host"
+    [format]="bodyFormat()"
+    [colorScheme]="editorScheme()"
+    [placeholder]="placeholders()"
+    aria-label="Email editor"
+  >
+    <ul email-attachment-chips below-body [formField]="envelope.attachments">
+      @for (attachment of envelope.attachments().value(); track attachment.key) {
+        <li
+          email-attachment-chip
+          [attachment]="attachment"
+          [status]="uploads.status(attachment.key)()"
+          [progress]="uploads.progress(attachment.key)()"
+          [aria-disabled]="envelope.attachments().disabled()"
+          animate.enter="email-attachment-chip-enter"
+          animate.leave="email-attachment-chip-leave"
+          (removed)="uploads.cancel(attachment.key)"
+        >
+          <mat-icon *emailAttachmentIcon="let kind = kind" inline>
+            {{ attachmentIcons[kind] }}
+          </mat-icon>
+        </li>
+      }
+    </ul>
+  </section>
+</form>
