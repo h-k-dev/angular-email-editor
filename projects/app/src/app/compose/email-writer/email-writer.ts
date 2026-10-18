@@ -60,6 +60,12 @@ export function writerBarOnTop(bar: WriterBarPosition, compact: boolean): boolea
   hostDirectives: [{ directive: FormRoot, inputs: ['formRoot'] }],
   templateUrl: './email-writer.html',
   styleUrl: './email-writer.scss',
+  host: {
+    // Where the bar is, and how large: the stylesheet tells the body how
+    // much room a bar at the foot takes (`--writer-foot-bar`).
+    '[attr.data-bar]': "barOnTop() ? 'top' : 'bottom'",
+    '[attr.data-dense]': '!viewport.compact() || null',
+  },
 })
 export class EmailWriter {
   readonly #root = inject(FormRoot);

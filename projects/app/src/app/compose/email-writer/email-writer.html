@@ -55,7 +55,7 @@
 </ng-template>
 
 @if (barOnTop()) {
-  <header class="writer-bar" [class.writer-bar--dense]="!viewport.compact()">
+  <header class="writer-bar">
     <ng-container [ngTemplateOutlet]="bar" />
   </header>
 }
@@ -70,7 +70,7 @@
 <ng-content />
 
 @if (!barOnTop()) {
-  <footer class="writer-bar" [class.writer-bar--dense]="!viewport.compact()">
+  <footer class="writer-bar">
     <ng-container [ngTemplateOutlet]="bar" />
   </footer>
 }

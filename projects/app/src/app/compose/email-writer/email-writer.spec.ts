@@ -37,6 +37,7 @@ describe('EmailWriter', () => {
 
   const send = () => root.querySelector('.writer-bar__send') as HTMLButtonElement;
   const bar = () => root.querySelector('.writer-bar') as HTMLElement;
+  const writer = () => root.querySelector('form[email-writer]') as HTMLElement;
   const field = () => root.querySelector('.test-field') as HTMLElement;
   const follows = (a: Node, b: Node) =>
     !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
@@ -76,7 +77,9 @@ describe('EmailWriter', () => {
   it('closes the sheet with the bar, under the fields, where there is room', () => {
     expect(bar().tagName).toBe('FOOTER');
     expect(follows(field(), bar())).toBe(true);
-    expect(bar().classList).toContain('writer-bar--dense');
+    expect(writer().hasAttribute('data-dense')).toBe(true);
+    // At the foot: the body runs on under it (the floating foot).
+    expect(writer().getAttribute('data-bar')).toBe('bottom');
     expect(root.querySelectorAll('.writer-bar')).toHaveLength(1);
   });
 
@@ -107,13 +110,14 @@ describe('EmailWriter', () => {
     await fixture.whenStable();
     expect(bar().tagName).toBe('HEADER');
     expect(follows(bar(), field())).toBe(true);
-    expect(bar().classList).toContain('writer-bar--dense');
+    expect(writer().hasAttribute('data-dense')).toBe(true);
+    expect(writer().getAttribute('data-bar')).toBe('top');
 
     // On a phone the same bar keeps the app's tap size.
     compact.set(true);
     await fixture.whenStable();
     expect(bar().tagName).toBe('HEADER');
-    expect(bar().classList).not.toContain('writer-bar--dense');
+    expect(writer().hasAttribute('data-dense')).toBe(false);
 
     // And a frame may keep it at the bottom on a phone too.
     host.bar.set('bottom');

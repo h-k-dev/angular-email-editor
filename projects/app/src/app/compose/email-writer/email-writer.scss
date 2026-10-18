@@ -12,6 +12,8 @@
   // against its neighbour (the editor's paper, message-form.scss) can take
   // back exactly this much.
   --writer-gap: 8px;
+  // The bar's height: one icon button's state layer — 40px, dense 32px.
+  --writer-bar-size: 40px;
   display: flex;
   flex-direction: column;
   gap: var(--writer-gap);
@@ -56,9 +58,25 @@
   box-shadow: var(--writer-shadow, var(--mat-sys-level1));
 }
 
+:host([data-dense]) {
+  --writer-bar-size: 32px;
+}
+
+// The bar at the foot floats, as the composer's foot does: the body
+// (message-form.scss) runs on under it by this much — the bar and the gap
+// over it — and keeps it as room at the foot of its own floating foot, which
+// paints behind the bar, so the strip, the toolbar and the bar are one block
+// lying over the text. Heading the sheet, the bar is in the flow.
+:host([data-bar='bottom']) {
+  --writer-foot-bar: calc(var(--writer-bar-size) + var(--writer-gap));
+}
+
 // No chrome of its own: only its buttons are. The same box in both places —
-// the column's gap already parts it from the envelope or the toolbar.
+// the column's gap already parts it from the envelope or the toolbar. Over
+// the body (at the foot, the body runs on under it).
 .writer-bar {
+  position: relative;
+  z-index: 1;
   // How far the glyph sits inside its icon button: half of what the state
   // layer has over the glyph. The bar's inset and Send's margin take it
   // back, so the glyphs land on the text edge at whatever size the bar's
@@ -73,7 +91,7 @@
   // Exactly the icon button's state layer: the visible box, and the line
   // the glyphs centre on. Whatever joins Send never changes the bar's
   // height — a row that grows with its content would shift the sheet.
-  block-size: var(--mat-icon-button-state-layer-size, 40px);
+  block-size: var(--writer-bar-size);
   // Optical, not geometric: inset the box by the glyph's own inset less, and
   // the glyph — the only part anyone sees — lands on the same edge as the
   // address labels and the body text.
@@ -85,7 +103,7 @@
 // bigger (a pointer needs no overhang; 32px still clears WCAG's 24px target
 // size), 20px glyphs in it. On a phone the bar keeps the app's 40/48px:
 // there it is tapped. The screen decides, not where the bar sits.
-.writer-bar--dense {
+:host([data-dense]) .writer-bar {
   --mat-icon-button-state-layer-size: 32px;
   --mat-icon-button-touch-target-size: 32px;
   --mat-button-filled-touch-target-size: 32px;
