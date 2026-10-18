@@ -6,8 +6,9 @@ import type { EditorColorScheme } from './email-compose/email-compose';
 /**
  * A paper island: one region of the app — however deep, whatever it holds —
  * that wears the editor's paper, light or dark, instead of the app's theme,
- * so everything in it reads as one document (the zoomed compose window:
- * title bar, writer bar, envelope rows and text on one sheet).
+ * so everything in it reads as one document (every composer — a compose
+ * window, the page's sheet: title bar, writer bar, envelope rows and text
+ * on one sheet).
  *
  * The island is an agreement in two halves, so no part inside has to be
  * told it is on one:
@@ -34,8 +35,8 @@ import type { EditorColorScheme } from './email-compose/email-compose';
  * Anything can be an island: an element in a template, with
  * {@link PaperIslandDirective} (`[paperIsland]="scheme"`), or a component
  * that provides `PaperIsland` itself and sets the attribute on its host —
- * the compose window does — every window, its scheme being its sheet's
- * while zoomed. A `null` scheme keeps the app's theme (every consumer falls
+ * the compose window does — every window, its scheme being its sheet's;
+ * the page puts the directive on its sheet. A `null` scheme keeps the app's theme (every consumer falls
  * back); the element is the island's all the same.
  */
 export abstract class PaperIsland {

@@ -40,6 +40,7 @@ import { EmailPreview } from './email-preview/email-preview';
 import { KeepDraft } from './message-form/keep-draft';
 import { Examples } from '../../services/examples';
 import { MessageForm } from './message-form/message-form';
+import { PaperIslandDirective } from './paper-island';
 import { Viewport } from '../../services/viewport';
 
 /** A status-strip note and the document it is about. */
@@ -63,6 +64,7 @@ interface StatusNote {
     // Components
     MessageForm,
     KeepDraft,
+    PaperIslandDirective,
     MatIcon,
     MatIconButton,
     DropHint,

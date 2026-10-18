@@ -67,7 +67,7 @@
   // The dock lets clicks through to the page; its windows take them.
   pointer-events: auto;
 
-  // The app's surface — or, zoomed, the island's paper (`scheme`).
+  // The island's paper (`scheme`), the app's surface before the sheet is.
   background: var(--email-paper, var(--mat-sys-surface-bright));
   color: var(--mat-sys-on-surface);
   border-radius: var(--compose-window-radius) var(--compose-window-radius) 0 0;
@@ -164,7 +164,7 @@
   block-size: 40px;
   padding-inline: 16px 4px;
   // No band of its own: the window's surface shows through — the sheet's
-  // colour, or zoomed, the paper island's — so the title is part of the
+  // colour, the paper island's — so the title is part of the
   // sheet, not a strip over it. Minimized it is the window's surface too.
   background: none;
   color: var(--mat-sys-on-surface);

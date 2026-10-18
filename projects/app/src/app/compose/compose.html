@@ -53,9 +53,13 @@
      message, so they are neither formatting (the composer's toolbar) nor
      actions (beside Send). None of them on a phone, and the docked ones
      only where a second pane fits: below the docking breakpoint they go,
-     and a docked pane folds (compose.ts). -->
+     and a docked pane folds (compose.ts).
+     The sheet is a paper island in its own Appearance, as every compose
+     window is (paper-island.ts): bar, rows, text and their menus one paper;
+     the desk round it — the panes, the status strip — keeps the app's. -->
   <div
     message-form
+    [paperIsland]="sheet.editorScheme()"
     keepDraft
     #sheet
     #draft="keepDraft"

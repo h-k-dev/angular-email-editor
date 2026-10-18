@@ -764,7 +764,7 @@ html {
   }
 }
 
-/* A paper island (app/compose/paper-island.ts — the zoomed compose window):
+/* A paper island (app/compose/paper-island.ts — every composer's sheet):
  * the same two papers reach past the text to everything in the island, so
  * the message reads as one document. The scheme re-resolves every
  * --mat-sys-* token inside — rows, form fields, chips, buttons — and

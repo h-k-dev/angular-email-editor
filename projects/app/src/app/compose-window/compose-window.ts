@@ -153,13 +153,11 @@ export class ComposeWindowFrame implements PaperIsland {
   /** The message this window holds. */
   protected readonly sheet = viewChild(MessageForm);
 
-  /** Zoomed, the window is a document, not a window: a paper island in its
-      sheet's Appearance (the ⋮ menu's Light, Dark or App) — title bar,
-      writer bar, envelope rows and text one paper, and the menus opened
-      from it too (paper-island.ts). On the edge only the text wears it. */
-  readonly scheme = computed(() =>
-    this.expanded() ? (this.sheet()?.editorScheme() ?? null) : null,
-  );
+  /** The window is a paper island in its sheet's Appearance (the ⋮ menu's
+      Light, Dark or App) — title bar, writer bar, envelope rows and text
+      one paper, and the menus opened from it too (paper-island.ts) — on the
+      edge, zoomed, minimized or as a phone's page alike. */
+  readonly scheme = computed(() => this.sheet()?.editorScheme() ?? null);
 
   /** What the window is called: the message's subject, or what an unnamed
       message is called. The title bar shows it; a page, which has no title
