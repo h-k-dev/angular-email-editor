@@ -21,7 +21,7 @@ import {
   serializeDraft,
 } from '../../../services/draft';
 import { BLANK, Envelope, isBlank } from './envelope';
-import { MessageForm } from './message-form';
+import { MessageSheet } from './message-sheet';
 
 /**
  * Keeps a sheet's message as *the* draft (the {@link Draft} service — one
@@ -48,11 +48,12 @@ import { MessageForm } from './message-form';
  * the page's.
  */
 @Directive({
-  selector: '[message-form][keepDraft]',
+  selector: '[keepDraft]',
   exportAs: 'keepDraft',
 })
 export class KeepDraft {
-  readonly #sheet = inject(MessageForm);
+  // Either sheet, the desktop's or the phone's.
+  readonly #sheet = inject(MessageSheet);
   readonly #draft = inject(Draft);
   readonly #uploads = inject(AttachmentUploads);
   readonly #images = inject(InlineImages);

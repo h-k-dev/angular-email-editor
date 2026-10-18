@@ -22,13 +22,16 @@
      marqueeStart: the sheet's own empty room — the gaps between bar, rows
      and text, and in a zoomed window the wide room beside the column —
      starts the editor's block marquee, as its margin does (on an island —
-     every composer is one). -->
+     every composer is one).
+     The desktop sheet: the bar at the foot (or heading the sheet, `bar`),
+     dense, the text scrolling on its own under the envelope. -->
 <form
   email-writer
   emailAddressDragGroup
   marqueeStart
   [formRoot]="envelope"
   [bar]="bar()"
+  dense
   aria-label="Email writer"
   dropZone
   #writerZone="dropZone"
@@ -39,15 +42,14 @@
   (fileDrop)="onAttachmentDrop($event)"
 >
   <!-- The bar's controls, each drawn once and laid out below — in the
-       writer's order at the foot, mirrored where the bar heads the sheet (a
-       phone, the zoomed window: `mirrored`), so the row reads the same from
-       its Send end either way. -->
-  <!-- The formatting toolbar, shown or hidden (Gmail's formatting options)
-       — not on a phone: there the toolbar is the bar on the keyboard and
-       always stays (`toolbarShown`); the composer keeps the toolbar, the
-       sheet only decides whether it shows. -->
+       writer's order at the foot, mirrored where the bar heads the sheet
+       (the zoomed window: `mirrored`), so the row reads the same from its
+       Send end either way. -->
+  <!-- The formatting toolbar, shown or hidden (Gmail's formatting options):
+       the composer keeps the toolbar, the sheet only decides whether it
+       shows (`toolbarShown`). -->
   <ng-template #formatting>
-    @if (!viewport.compact() && !plainText()) {
+    @if (!plainText()) {
       <button
         mat-icon-button
         type="button"
@@ -77,96 +79,11 @@
        actions. -->
   <ng-template #frameLeading><ng-content select="[leading]" /></ng-template>
   <ng-template #frameActions><ng-content select="[actions]" /></ng-template>
-  <!-- More options for the message: the View (the editor or its HTML,
-       where the frame has a source pane) and the editor’s Appearance
-       (`editorAppearance`), on a phone too. Opens away from the sheet's
-       edge, lined up with the bar's near end. -->
+  <!-- More options for the message: the Format, the View and the editor's
+       Appearance (`MessageMenu`, both sheets'). Opens away from the bar's
+       edge of the sheet, lined up with its near end. -->
   <ng-template #more>
-    <button
-      mat-icon-button
-      type="button"
-      [attr.aria-label]="'composer.more' | translate"
-      [title]="'composer.more' | translate"
-      ngMenuTrigger
-      #moreTrigger="ngMenuTrigger"
-      [menu]="moreMenu.menu()"
-    >
-      <mat-icon>more_vert</mat-icon>
-    </button>
-    <div
-      toolbar-menu
-      #moreMenu
-      [label]="'composer.more' | translate"
-      [trigger]="moreTrigger"
-      [side]="mirrored() ? 'below' : 'above'"
-      [align]="mirrored() ? 'end' : 'start'"
-    >
-      <!-- Rows of a word and its toggle button group. A pick is not a menu
-           choice: the menu stays open, the sheet changes behind it. -->
-      <!-- The Format: HTML, or plain text — lines, sent as text/plain alone
-           (`onFormat` converts the body; back before an edit restores it). -->
-      <ng-template toolbarMenuRow>
-        <span class="menu-row__label" [id]="formatLabelId">{{
-          'composer.format.title' | translate
-        }}</span>
-        <hk-tgb
-          class="menu-row__toggle"
-          [attr.aria-labelledby]="formatLabelId"
-          [value]="bodyFormat()"
-          (valueChange)="onFormat($event)"
-        >
-          <button hkTgbText value="html">{{ 'composer.format.html' | translate }}</button>
-          <button hkTgbText value="text">{{ 'composer.format.text' | translate }}</button>
-        </hk-tgb>
-      </ng-template>
-      <!-- The View: the editor, or its HTML in the editor's place. -->
-      @if (viewOffered()) {
-        <ng-template toolbarMenuRow>
-          <span class="menu-row__label" [id]="viewLabelId">{{
-            'composer.view.title' | translate
-          }}</span>
-          <hk-tgb
-            class="menu-row__toggle"
-            [attr.aria-labelledby]="viewLabelId"
-            [value]="editorView()"
-            (valueChange)="onEditorView($event)"
-          >
-            <button hkTgbText value="editor">{{ 'composer.view.editor' | translate }}</button>
-            <button hkTgbText value="html">{{ 'composer.view.html' | translate }}</button>
-          </hk-tgb>
-        </ng-template>
-      }
-      <!-- The Appearance: the Theme — Light and Dark as round icons, Auto
-           as a pill of words. -->
-      <ng-template [toolbarMenuRow]="'composer.appearance.title' | translate">
-        <span class="menu-row__label" [id]="themeLabelId">{{
-          'composer.appearance.theme' | translate
-        }}</span>
-        <hk-tgb
-          class="menu-row__toggle"
-          [attr.aria-labelledby]="themeLabelId"
-          [(value)]="editorAppearance"
-        >
-          <button
-            hkTgbIcon
-            value="light"
-            [attr.aria-label]="'composer.appearance.light' | translate"
-            [title]="'composer.appearance.light' | translate"
-          >
-            <mat-icon inline>light_mode</mat-icon>
-          </button>
-          <button
-            hkTgbIcon
-            value="dark"
-            [attr.aria-label]="'composer.appearance.dark' | translate"
-            [title]="'composer.appearance.dark' | translate"
-          >
-            <mat-icon inline>dark_mode</mat-icon>
-          </button>
-          <button hkTgbText value="auto">{{ 'composer.appearance.auto' | translate }}</button>
-        </hk-tgb>
-      </ng-template>
-    </div>
+    <message-menu [side]="mirrored() ? 'below' : 'above'" [align]="mirrored() ? 'end' : 'start'" />
   </ng-template>
   <!-- Core's "Parse": offered while the body holds placeholders (the
        action's own answer) and not while the evaluator works. The same as
@@ -230,322 +147,17 @@
     }
   </ng-container>
 
-  <!-- The envelope, as Gmail lays it out: one hairline row per field, each
-       marked `envelope` for the writer's envelope block. From takes a
-       single address; To takes many; Subject is plain text, and Enter
-       there sends — the address rows swallow theirs.
-       The address rows are this template's, label and all, exactly like
-       the Subject row: the control owns no label and draws no row. The
-       row is a div holding a label and the control — a label may not
-       wrap the control's list — so the label names the control's input
-       by id, and the row forwards its clicks. -->
-  <!-- Two ways to frame a row, one look (`fields`): bare on the page; in a
-       window, the whole row is a Material form field at density -4 —
-       exactly the 40px row — as in iusta core: an address row's label is
-       the control's own (the emailAddressLabel slot, the chips wrapping
-       under it), a text row's a prefix, the buttons a prefix or suffix —
-       so the field's error styling, the red line, runs under the whole row. It is the only difference: no message
-       under the row. Cc and Bcc are prefixes placed at the row's end by CSS
-       (`order`), so the tab order stays the page's: From, Cc, Bcc, To. -->
+  <!-- The envelope rows (`EnvelopeRows`, both sheets'), one block in the
+       writer's envelope slot. -->
   <div
-    class="writer-field"
+    envelope-rows
     envelope
-    emailKeepFocus
-    [class.writer-field--material]="material()"
-    [emailKeepFocusExcept]="rowControls"
-    (click)="fromField()?.focus()"
-  >
-    @if (material()) {
-      <mat-form-field class="writer-field__form-field" subscriptSizing="dynamic">
-        <div
-          email-address-input
-          emailMatFormField
-          #fromField
-          limit="1"
-          placeholder="you@example.com"
-          [formField]="envelope.from"
-        >
-          <ng-template emailAddressLabel><span class="writer-field__label">From</span></ng-template>
-        </div>
-      </mat-form-field>
-    } @else {
-      <label class="writer-field__label" [for]="fromField.id">From</label>
-      <div
-        email-address-input
-        #fromField
-        limit="1"
-        placeholder="you@example.com"
-        [formField]="envelope.from"
-      ></div>
-    }
-  </div>
-  <!-- The recipients, one group for focus: while focus is elsewhere and
-       a copy row is open, the rows merge into one line, and an empty Cc
-       or Bcc row folds — only when focus leaves all three rows, never when
-       it moves between them. Focus arriving in any of them opens them
-       again. -->
-  <div
-    class="writer-recipients"
-    envelope
-    [class.writer-recipients--merged]="recipientsMerged()"
-    (focusin)="recipientsActive.set(true)"
-    (focusout)="leaveRecipients($event)"
-  >
-    <!-- The merged line: a picture of the rows below, for the pointer.
-         Hidden from assistive tech — the rows are still there, only
-         visually hidden, and Tab reaches them. -->
-    @if (recipientsMerged()) {
-      @let groups = recipientSummary();
-      <div
-        class="writer-field writer-summary"
-        aria-hidden="true"
-        emailKeepFocus
-        [emailKeepFocusExcept]="rowControls"
-        (click)="toField()?.focus()"
-      >
-        <span class="writer-summary__label">{{ groups.at(0)?.label ?? 'To' }}</span>
-        <span class="writer-summary__line">
-          @for (group of groups; track group.label; let first = $first) {
-            @if (!first) {
-              <span class="writer-summary__kind">{{ group.label }}</span>
-            }
-            @for (person of group.people; track person.raw; let last = $last) {
-              <span
-                class="writer-summary__person"
-                [class.writer-summary__person--invalid]="!person.valid"
-                [title]="person.raw"
-                >{{ person.text }}</span
-              >{{ last ? '' : ', ' }}
-            }
-          } @empty {
-            <span class="writer-summary__placeholder">Recipients</span>
-          }
-        </span>
-      </div>
-    }
+    [form]="envelope"
+    [fields]="fields()"
+    [initialFocus]="initialFocus()"
+    [plainText]="plainText()"
+  ></div>
 
-    <div
-      class="writer-field"
-      emailKeepFocus
-      [class.writer-field--material]="material()"
-      [emailKeepFocusExcept]="rowControls"
-      (click)="toField()?.focus()"
-    >
-      <!-- Gmail's Cc and Bcc: text buttons drawn at the row's end (CSS order),
-           each opening its row and stepping aside. They come before the
-           control in the source, so the tab order runs From, Cc, Bcc, To,
-           Subject: Tab out of To, done with addresses, lands on Subject.
-           The click must not reach the row, whose own handler would put
-           the caret back in To — and the mousedown must not take focus:
-           the button is removed the moment its row opens, and a focused
-           element removed leaves focus nowhere. -->
-      <ng-template #copyButtons>
-        @if (!showCc()) {
-          <button
-            type="button"
-            class="writer-field__action"
-            emailKeepFocus
-            (click)="openCopy('cc'); $event.stopPropagation()"
-          >
-            Cc
-          </button>
-        }
-        @if (!showBcc()) {
-          <button
-            type="button"
-            class="writer-field__action"
-            emailKeepFocus
-            (click)="openCopy('bcc'); $event.stopPropagation()"
-          >
-            Bcc
-          </button>
-        }
-      </ng-template>
-      @if (material()) {
-        <mat-form-field class="writer-field__form-field" subscriptSizing="dynamic">
-          @if (!showCc() || !showBcc()) {
-            <span matPrefix class="writer-field__actions">
-              <ng-container [ngTemplateOutlet]="copyButtons" />
-            </span>
-          }
-          <div
-            email-address-input
-            emailMatFormField
-            #toField
-            [attr.cdkFocusInitial]="initialFocus() === 'to' ? '' : null"
-            placeholder="Recipients"
-            [formField]="envelope.to"
-          >
-            <ng-template emailAddressLabel><span class="writer-field__label">To</span></ng-template>
-          </div>
-        </mat-form-field>
-      } @else {
-        <label class="writer-field__label" [for]="toField.id">To</label>
-        @if (!showCc() || !showBcc()) {
-          <span class="writer-field__actions">
-            <ng-container [ngTemplateOutlet]="copyButtons" />
-          </span>
-        }
-        <div
-          email-address-input
-          #toField
-          [attr.cdkFocusInitial]="initialFocus() === 'to' ? '' : null"
-          placeholder="Recipients"
-          [formField]="envelope.to"
-        ></div>
-      }
-    </div>
-    <!-- Each copy row lives only while open or filled. -->
-    @if (showCc()) {
-      <div
-        class="writer-field"
-        emailKeepFocus
-        [class.writer-field--material]="material()"
-        [emailKeepFocusExcept]="rowControls"
-        (click)="ccField()?.focus()"
-      >
-        @if (material()) {
-          <mat-form-field class="writer-field__form-field" subscriptSizing="dynamic">
-            <div email-address-input emailMatFormField #ccField [formField]="envelope.cc">
-              <ng-template emailAddressLabel
-                ><span class="writer-field__label">Cc</span></ng-template
-              >
-            </div>
-          </mat-form-field>
-        } @else {
-          <label class="writer-field__label" [for]="ccField.id">Cc</label>
-          <div email-address-input #ccField [formField]="envelope.cc"></div>
-        }
-      </div>
-    }
-
-    @if (showBcc()) {
-      <div
-        class="writer-field"
-        emailKeepFocus
-        [class.writer-field--material]="material()"
-        [emailKeepFocusExcept]="rowControls"
-        (click)="bccField()?.focus()"
-      >
-        @if (material()) {
-          <mat-form-field class="writer-field__form-field" subscriptSizing="dynamic">
-            <div email-address-input emailMatFormField #bccField [formField]="envelope.bcc">
-              <ng-template emailAddressLabel
-                ><span class="writer-field__label">Bcc</span></ng-template
-              >
-            </div>
-          </mat-form-field>
-        } @else {
-          <label class="writer-field__label" [for]="bccField.id">Bcc</label>
-          <div email-address-input #bccField [formField]="envelope.bcc"></div>
-        }
-      </div>
-    }
-  </div>
-
-  <!-- Every row is the same shape: a row that forwards its clicks, a
-       label naming the control by id, the control. -->
-  <div
-    class="writer-field"
-    envelope
-    emailKeepFocus
-    [class.writer-field--material]="material()"
-    [emailKeepFocusExcept]="rowControls"
-    (click)="subjectField().nativeElement.focus()"
-  >
-    <!-- Preview text opens the way Cc and Bcc do: a text button at the
-         row's end that steps aside while its row is shown. Unlike theirs it
-         comes *after* its control in the source, so Tab runs To, Subject,
-         Preview — the subject first, the snippet as its follow-up. -->
-    <!-- Not for plain text: the snippet is a part of the HTML document. -->
-    <ng-template #previewButton>
-      @if (!plainText()) {
-        <button
-          type="button"
-          class="writer-field__action"
-          title="Text shown after the subject in the inbox"
-          emailKeepFocus
-          (click)="openPreview(); $event.stopPropagation()"
-        >
-          Preview
-        </button>
-      }
-    </ng-template>
-    @if (material()) {
-      <mat-form-field class="writer-field__form-field" subscriptSizing="dynamic">
-        <label matPrefix class="writer-field__label" [for]="subjectId">Subject</label>
-        <input
-          matInput
-          #subjectField
-          class="writer-field__input"
-          type="text"
-          autocomplete="off"
-          [id]="subjectId"
-          [formField]="envelope.subject"
-        />
-        @if (!showPreview()) {
-          <span matSuffix class="writer-field__actions">
-            <ng-container [ngTemplateOutlet]="previewButton" />
-          </span>
-        }
-      </mat-form-field>
-    } @else {
-      <label class="writer-field__label" [for]="subjectId">Subject</label>
-      <input
-        #subjectField
-        class="writer-field__input"
-        type="text"
-        autocomplete="off"
-        [id]="subjectId"
-        [formField]="envelope.subject"
-      />
-      @if (!showPreview()) {
-        <span class="writer-field__actions">
-          <ng-container [ngTemplateOutlet]="previewButton" />
-        </span>
-      }
-    }
-  </div>
-  <!-- The inbox snippet: lives only while open or filled, and folds when
-       left empty. -->
-  @if (showPreview()) {
-    <div
-      class="writer-field"
-      envelope
-      emailKeepFocus
-      [class.writer-field--material]="material()"
-      [emailKeepFocusExcept]="rowControls"
-      (click)="previewField()?.nativeElement?.focus()"
-      (focusout)="leavePreview()"
-    >
-      @if (material()) {
-        <mat-form-field class="writer-field__form-field" subscriptSizing="dynamic">
-          <label matPrefix class="writer-field__label" [for]="previewId">Preview</label>
-          <input
-            matInput
-            #previewField
-            class="writer-field__input"
-            type="text"
-            autocomplete="off"
-            placeholder="Shown after the subject in the inbox"
-            [id]="previewId"
-            [formField]="envelope.previewText"
-          />
-        </mat-form-field>
-      } @else {
-        <label class="writer-field__label" [for]="previewId">Preview</label>
-        <input
-          #previewField
-          class="writer-field__input"
-          type="text"
-          autocomplete="off"
-          placeholder="Shown after the subject in the inbox"
-          [id]="previewId"
-          [formField]="envelope.previewText"
-        />
-      }
-    </div>
-  }
   <!-- The editor is the body field's control: the form drives its value
        and hears its canonical HTML back. Its own send gestures (Mod-Enter,
        /send) submit the form. A reply starts here: `cdkFocusInitial` marks
