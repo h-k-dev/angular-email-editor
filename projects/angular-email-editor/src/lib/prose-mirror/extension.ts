@@ -87,6 +87,11 @@ export interface SuggestionRequest {
   /** Aborted once the answer is no longer wanted — a newer query, a
       dismissal, a destroyed editor. Hand it to `fetch` / `HttpClient`. */
   signal: AbortSignal;
+  /** The same object for every request of one session at one level — from
+      the trigger (or a group's `<word> `) being typed until the menu closes
+      or the level changes. A source may keep what it loaded for the session
+      under it (a `WeakMap`), as an uncached {@link listSource} does. */
+  session: object;
 }
 
 /** One page of suggestions. A non-null `nextCursor` means more pages exist:
@@ -98,7 +103,13 @@ export interface SuggestionPage<T extends SuggestionItem = SuggestionItem> {
 
 /** A server-backed (or any computed) list of suggestions, asked per query
     and per page; it owns its own matching. A bare array is one page with
-    nothing after it. A rejected promise is the menu's `error`. */
+    nothing after it. A rejected promise is the menu's `error`.
+
+    The menu asks at once, on every keystroke: an answer given synchronously
+    lands with the keystroke, a promise shows `loading`. Pacing and memory are
+    the source's — {@link pagedSource} and {@link listSource} wait for the
+    typing to settle and remember their answers; a source written by hand
+    gets the same from {@link debouncedSource} and {@link cachedSource}. */
 export type SuggestionSource<T extends SuggestionItem = SuggestionItem> = (
   request: SuggestionRequest,
 ) => T[] | SuggestionPage<T> | Promise<T[] | SuggestionPage<T>>;

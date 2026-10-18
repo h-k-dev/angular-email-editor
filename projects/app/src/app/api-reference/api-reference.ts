@@ -119,13 +119,30 @@ export class ApiReference {
         {
           name: 'createSuggestionMenu',
           signature: '(options: SuggestionMenuOptions) => FunctionalExtension',
-          does: 'Every trigger-at-the-caret menu from one factory — the / command menu, the {{ merge-tag picker, an @ mention list: a trigger, the items (a list, or a paged { query, cursor, signal } → { items, nextCursor } source, debounced, aborted when stale), and what picking does (each item’s command). Groups open a second level read from the text; ids key i18n. One menu takes several triggers ({ element, onChange, triggers: [{ trigger: "/", … }, { trigger: "{{", … }, { trigger: "||", … }] }): they never open together — the trigger nearest the caret wins — so they share one element and one state, which names the open trigger, its label and its listbox id. A trigger’s i18n (a map, or a function of the item id), label and placeholder may be functions, asked whenever the menu opens: a translation service’s lookup makes a language switch reach the menu, and what i18n answers is added to the item’s own words, so it searches both languages.',
+          does: 'Every trigger-at-the-caret menu from one factory — the / command menu, the {{ merge-tag picker, an @ mention list: a trigger, the items (a list, or a paged { query, cursor, signal } → { items, nextCursor } source, asked at once on every keystroke and aborted when stale — a synchronous answer lands with the keystroke), and what picking does (each item’s command). Groups open a second level read from the text; ids key i18n. One menu takes several triggers ({ element, onChange, triggers: [{ trigger: "/", … }, { trigger: "{{", … }, { trigger: "||", … }] }): they never open together — the trigger nearest the caret wins — so they share one element and one state, which names the open trigger, its label and its listbox id. A trigger’s i18n (a map, or a function of the item id), label and placeholder may be functions, asked whenever the menu opens: a translation service’s lookup makes a language switch reach the menu, and what i18n answers is added to the item’s own words, so it searches both languages.',
         },
         {
           name: 'pagedSource',
           signature:
-            '({ from: { find(filter, signal) }, with: (query, { skip, limit }) => filter, map: (row) => SuggestionItem, pageSize? = 20 }) => SuggestionSource',
-          does: 'A source for a backend that pages by offset, the paging written once — the shape iusta core’s select sources have: with turns a query and a page into the transport’s filter, from fetches it (the signal aborts a stale request), map makes each row a suggestion whose id is the row’s own key. The cursor is the next offset; a short page ends the list. The menu lists each id once, so a page repeating a row that moved between requests adds nothing.',
+            '({ from: { find(filter, signal) }, with: (query, { skip, limit }) => filter, map: (row) => SuggestionItem, pageSize? = 20, debounce? = 300, cache? = { ttl: 60_000, max: 50 } | false }) => SuggestionSource',
+          does: 'A source for a backend that pages by offset, the paging written once — the shape iusta core’s select sources have: with turns a query and a page into the transport’s filter, from fetches it (the signal aborts a stale request), map makes each row a suggestion whose id is the row’s own key. The cursor is the next offset; a short page ends the list. The menu lists each id once, so a page repeating a row that moved between requests adds nothing. It waits for the typing to settle (debounce: the first query after a pause goes at once, a further page never waits) and remembers its pages by query and cursor, so a query asked again lands at once without a request; cache: false asks the backend every time. The cache lives as long as the source — one per injector behind a providedIn: "root" token.',
+        },
+        {
+          name: 'listSource · matchSuggestions',
+          signature:
+            '({ from: { find(filter, signal) }, with?: () => filter, map, cache? = { ttl: 60_000 } | false }) => SuggestionSource · (items, query) => items',
+          does: 'The same grammar for a list loaded in one request and searched the way the menu searches its own items: every word of the query in a title or a keyword, best first (exact title, title prefix, title contains, keyword only). Once loaded every keystroke answers at once. cache: false loads it afresh for each session of the menu. matchSuggestions is that search on its own.',
+        },
+        {
+          name: 'debouncedSource · cachedSource',
+          signature:
+            '(source, wait? = 300) => SuggestionSource · (source, { ttl?, max? }?) => SuggestionSource',
+          does: 'The two behaviours pagedSource has, for a source written by hand: hold a query asked within the wait of the one before (dropped when a newer one aborts it), and remember answers by query and cursor — failures never, one request per key at a time, a request every asker gave up on aborted and forgotten.',
+        },
+        {
+          name: 'mergeTagTrigger',
+          signature: '(options?: { query?, allow?, …SuggestionTrigger }) => SuggestionTrigger',
+          does: 'The {{ trigger with what makes it correct built in: it opens right after any character (Hi{{), its query is a path unless the host widens it, and it stays shut for a caret inside a token already written — the host’s allow is asked only outside one.',
         },
         {
           name: 'email-suggestion-menu · extensionSuggestions · insertMergeTag',

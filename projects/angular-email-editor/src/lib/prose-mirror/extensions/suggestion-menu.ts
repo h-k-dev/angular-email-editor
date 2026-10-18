@@ -56,9 +56,8 @@ export interface SuggestionMenuState {
   items: ListedSuggestion[];
   /** Index of the keyboard-highlighted item. */
   activeIndex: number;
-  /** A source's first page for the current query is in flight (or waiting
-      out {@link SuggestionMenuOptions.debounce}) — render a "Searching…"
-      row. The menu counts as open while loading, even with no items yet. */
+  /** A source's first page for the current query is on its way (in flight,
+      or waiting for the typing to settle) — render a "Searching…" row. The menu counts as open while loading, even with no items yet. */
   loading: boolean;
   /** The source's items on screen answer the *previous* query: they stay
       until the new page lands, so the list is diffed rather than torn down
@@ -169,6 +168,10 @@ export interface SuggestionTrigger {
    * are dropped and their requests aborted (a newer query, a dismissal, a
    * destroyed editor) — the host never race-guards. A group's children
    * source works the same way at level 2.
+   *
+   * It is asked at once, on every keystroke: a server's source waits for
+   * the typing to settle itself — {@link pagedSource} does, and so does one
+   * wrapped in {@link debouncedSource}.
    */
   source?: SuggestionSource;
   /** Shown after the bare trigger, until a query is typed — "Type to
@@ -190,14 +193,11 @@ export interface SuggestionTrigger {
    *
    *     allow: ({ state }) => !caretInsideMergeTag(state)
    *
+   * — which {@link mergeTagTrigger} builds in.
+   *
    * Asked once per editor state, so it may look at the document.
    */
   allow?: (props: SuggestionAllowProps) => boolean;
-  /** Milliseconds to sit on a keystroke before asking a source for a new
-      query — a server should see the settled query, not every letter.
-      Default 300; 0 asks at once (an in-memory source). Static matches never
-      wait, and neither does a further page. */
-  debounce?: number;
   /**
    * Translations by item id, at either level: a title, extra keywords, a
    * group's placeholder. A map — or a function of the id, which is asked
@@ -244,7 +244,7 @@ export const suggestionSectionTitles: Readonly<Record<string, string>> = {
  *     createSuggestionMenu({ element, onChange, trigger: '/', items: extensionSuggestions })
  *     createSuggestionMenu({ element, onChange, triggers: [
  *       { trigger: '/', label: 'Insert block', items: extensionSuggestions },
- *       { trigger: '{{', label: 'Tokens', startOfWord: false, source: fetchMergeTags },
+ *       mergeTagTrigger({ label: 'Tokens', source: mergeTagSource }),
  *       { trigger: '||', label: 'Snippets', source: fetchSnippets },
  *     ] })
  */
@@ -379,6 +379,20 @@ function rankItems<T extends SuggestionItem>(matches: T[], query: string): T[] {
 }
 
 /**
+ * The menu's own search: the items holding every word of `query` (in the
+ * title or a keyword), best first — exact title, title prefix, title
+ * contains, keyword only; the given order within a tier. What a level of
+ * listed items gets — for a source that searches a list of its own (see
+ * {@link listSource}).
+ */
+export function matchSuggestions<T extends SuggestionItem>(
+  items: readonly T[],
+  query: string,
+): T[] {
+  return rankItems(filterItems(items, query), query);
+}
+
+/**
  * A suggestion menu: typing `trigger` opens a list under the caret, the text
  * after it searches the list, and picking an item replaces trigger and query
  * with what the item does. One factory for every such menu — the `/` command
@@ -387,12 +401,12 @@ function rankItems<T extends SuggestionItem>(matches: T[], query: string): T[] {
  *
  *     createSuggestionMenu({ element, onChange, triggers: [
  *       { trigger: '/', items: extensionSuggestions },
- *       { trigger: '{{', startOfWord: false, query: /^ ?[\w.]*$/, source: fetchMergeTags },
+ *       mergeTagTrigger({ source: mergeTagSource }),
  *     ] })
  *
  * The host renders the list from the state (the library's
  * `email-suggestion-menu` pair does it); this plugin does the rest —
- * detection, filtering, the paged and debounced source, keyboard navigation,
+ * detection, filtering, the paged source, keyboard navigation,
  * applying. It never writes to the menu element: showing and placing it are
  * the renderer's, after its rows are in (`clientRect` says where).
  *
@@ -468,7 +482,7 @@ function createSuggestionMenuPlugin(
   host: SuggestionMenuHost,
 ): Plugin {
   const { element } = host;
-  const { trigger, i18n, startOfWord = true, maxLength = 100, debounce = 300 } = options;
+  const { trigger, i18n, startOfWord = true, maxLength = 100 } = options;
   const key = new PluginKey<SessionState>('suggestionMenu');
 
   const first = escapeRegExp(trigger[0]);
@@ -576,7 +590,9 @@ function createSuggestionMenuPlugin(
       old one, first pages and further pages alike, is cancelled and its
       answer dropped. */
   let requests = new AbortController();
-  let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+  /** What a source is told the session is ({@link SuggestionRequest.session}):
+      a new object for a new session or a new level. */
+  let sessionToken: object = {};
   let activeIndex = 0;
 
   /** Level 2 when the text is `<word> <rest>` and the word names a group. */
@@ -599,7 +615,6 @@ function createSuggestionMenuPlugin(
   const invalidateSource = (keep = false) => {
     requests.abort();
     requests = new AbortController();
-    clearTimeout(debounceTimer);
     stale = keep && dynamicItems.length > 0;
     if (!stale) dynamicItems = [];
     loading = false;
@@ -638,10 +653,10 @@ function createSuggestionMenuPlugin(
   /** Level 1 matches the menu's items; level 2 a group's list. */
   const matchStatic = (): SuggestionItem[] => {
     const { parent, query } = scope;
-    if (!parent) return rankItems(filterItems(offered(allItems), query), query);
+    if (!parent) return matchSuggestions(offered(allItems), query);
     if (typeof parent.children === 'function') return [];
     const children = parent.children.map((child) => localize(child, i18n));
-    return rankItems(filterItems(offered(children), query), query);
+    return matchSuggestions(offered(children), query);
   };
 
   /** The current level's source: the menu's own, or the group's. */
@@ -673,7 +688,12 @@ function createSuggestionMenuPlugin(
     const { signal } = requests;
     let result: ReturnType<SuggestionSource>;
     try {
-      result = from({ query: scope.query, cursor, signal } satisfies SuggestionRequest);
+      result = from({
+        query: scope.query,
+        cursor,
+        signal,
+        session: sessionToken,
+      } satisfies SuggestionRequest);
     } catch (reason) {
       fail(reason);
       return false;
@@ -713,26 +733,19 @@ function createSuggestionMenuPlugin(
     mergeItems();
   };
 
-  /** A new query: whatever is out is aborted, then the source is asked — at
-      once, or after the debounce, `loading` meanwhile. `keep` holds the
-      items on screen until the answer replaces them. */
+  /** A new query: whatever is out is aborted, then the source is asked at
+      once — `loading` until a promise lands. `keep` holds the items on screen
+      until the answer replaces them; without it the session (or its level)
+      is a new one, and so is what the source is told it is. */
   const querySource = (keep: boolean) => {
     invalidateSource(keep);
+    if (!keep) sessionToken = {};
     if (!source()) {
       stale = false;
       dynamicItems = [];
       return;
     }
-    if (!debounce) {
-      loading = ask(null, landFirst, failFirst);
-      return;
-    }
-    loading = true;
-    debounceTimer = setTimeout(() => {
-      loading = ask(null, landFirst, failFirst);
-      // A synchronous answer after the wait has landed but not been emitted.
-      if (!loading) emit();
-    }, debounce);
+    loading = ask(null, landFirst, failFirst);
   };
 
   const loadMore = () => {

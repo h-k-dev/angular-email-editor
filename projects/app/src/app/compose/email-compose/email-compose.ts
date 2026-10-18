@@ -60,7 +60,6 @@ import {
   Editor,
   SendIntent,
   SuggestionMenuState,
-  caretInsideMergeTag,
   createBlockMenu,
   beginBlockMarquee,
   createBlockMarquee,
@@ -81,6 +80,7 @@ import {
   ExpressionDiagnostic,
   InlineImages,
   mergeTagAt,
+  mergeTagTrigger,
   emailExtensions,
   plainTextExtensions,
   Extension,
@@ -614,8 +614,9 @@ export class EmailCompose implements FormValueControl<string> {
       // One suggestion menu, a trigger per list: `/` for the kit's commands
       // and the Templates group, `{{` for the variable catalogue — and any
       // further one (`@`, `||`) is another entry here, nothing else. Both
-      // sources are server-backed and keep the default 300ms debounce;
-      // where their sessions overlap, the trigger nearest the caret opens.
+      // sources are server-backed `pagedSource`s, which wait for the typing
+      // to settle and remember their pages; where their sessions overlap,
+      // the trigger nearest the caret opens.
       createSuggestionMenu({
         element: this.suggestionMenu().nativeElement,
         onChange: (state) => this.suggestionState.set(state),
@@ -643,19 +644,13 @@ export class EmailCompose implements FormValueControl<string> {
             // library words what the dictionary leaves out.
             sections: (id) => this.i18n.lookup(`editor.menu.sections.${id}`),
           },
-          {
-            trigger: '{{',
+          // `{{` right after any character, a path as the query, and never
+          // for a caret inside a token already written: the preset's.
+          mergeTagTrigger({
             label: () => this.i18n.t('editor.menu.tokens.label'),
             placeholder: () => this.i18n.t('editor.menu.tokens.placeholder'),
-            // Right after any character, and only a path: one optional
-            // space, then letters, digits, `_` and `.`.
-            startOfWord: false,
-            query: /^ ?[\w.]*$/,
-            // Not for a caret inside a token already written: those
-            // braces are the token's, and a pick would land inside it.
-            allow: ({ state }) => !caretInsideMergeTag(state),
             source: this.#mergeTagSource,
-          },
+          }),
         ],
       }),
       // The dialect is the sponsor's: AngularJS expressions. Opt-in — a

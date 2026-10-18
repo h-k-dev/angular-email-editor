@@ -41,7 +41,7 @@ import { SuggestionMenuHeader, SuggestionMenuHeaderContext } from './suggestion-
  *
  *     createSuggestionMenu({ element: menu, onChange: (s) => state.set(s), triggers: [
  *       { trigger: '/', label: 'Insert block', items: extensionSuggestions },
- *       { trigger: '{{', label: 'Tokens', source: fetchMergeTags },
+ *       mergeTagTrigger({ label: 'Tokens', source: mergeTagSource }),
  *     ] })
  *
  * **Two levels.** Inside a group the menu shows a header above the list — a

@@ -54,7 +54,6 @@ class Host {
           ...richTextExtensions,
           createSuggestionMenu({
             trigger: '/',
-            debounce: 0,
             element: this.menu().nativeElement,
             items: rows,
             onChange: (state) => this.state.set(state),

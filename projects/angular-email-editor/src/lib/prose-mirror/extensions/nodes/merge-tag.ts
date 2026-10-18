@@ -2,6 +2,7 @@ import { Command, EditorState, Plugin, PluginKey, Transaction } from 'prosemirro
 import { Mark, MarkType, Node, Schema } from 'prosemirror-model';
 import { AddMarkStep, RemoveMarkStep, Transform } from 'prosemirror-transform';
 import { defineMark } from '../../extension';
+import type { SuggestionTrigger } from '../suggestion-menu';
 
 /**
  * Personalization tokens — `{{cf_70}}`, `{{customer_gender == 'male' ? 'Herr'
@@ -192,6 +193,41 @@ export function caretInsideMergeTag(state: EditorState): boolean {
   const { empty, from } = state.selection;
   const tag = empty ? mergeTagAt(state.doc, from) : undefined;
   return !!tag && tag.from < from && from < tag.to;
+}
+
+/** A {@link mergeTagTrigger}: a {@link SuggestionTrigger} whose trigger and
+    word rule the preset fixes. */
+export interface MergeTagTriggerOptions extends Omit<SuggestionTrigger, 'trigger' | 'startOfWord'> {
+  /** What the query may be. Default: a path — one optional space, then
+      letters, digits, `_` and `.` (`/^ ?[\w.]*$/`). A host that searches by
+      name (spaces, umlauts, punctuation) widens it. */
+  query?: RegExp;
+  /** The host's own veto — asked only where the caret is not inside a token
+      already; both must say yes. */
+  allow?: SuggestionTrigger['allow'];
+}
+
+/**
+ * The `{{` trigger of a suggestion menu, with what makes it correct built in:
+ * it opens right after any character (`Hi{{`), its query is a path unless
+ * the host widens it, and it stays shut for a caret inside a token already
+ * written — the braces there are the token's, and a pick would write a
+ * second token into the first. Everything else is the host's:
+ *
+ *     createSuggestionMenu({ element, onChange, triggers: [
+ *       { trigger: '/', items: extensionSuggestions },
+ *       mergeTagTrigger({ label: 'Personalization tokens', source: mergeTagSource }),
+ *     ] })
+ */
+export function mergeTagTrigger(options: MergeTagTriggerOptions = {}): SuggestionTrigger {
+  const { query = /^ ?[\w.]*$/, allow, ...rest } = options;
+  return {
+    ...rest,
+    trigger: '{{',
+    startOfWord: false,
+    query,
+    allow: (props) => !caretInsideMergeTag(props.state) && (allow?.(props) ?? true),
+  };
 }
 
 // ---------------------------------------------------------------------------

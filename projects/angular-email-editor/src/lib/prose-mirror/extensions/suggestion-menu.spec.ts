@@ -10,7 +10,12 @@ import {
   extensionSuggestions,
 } from '../extension';
 import { emailExtensions, richTextExtensions } from './kits';
-import { caretInsideMergeTag, insertMergeTag } from './nodes/merge-tag';
+import {
+  MergeTagTriggerOptions,
+  caretInsideMergeTag,
+  insertMergeTag,
+  mergeTagTrigger,
+} from './nodes/merge-tag';
 import {
   SuggestionAllowProps,
   SuggestionMenuOptions,
@@ -20,7 +25,7 @@ import {
 
 /** The `/` menu as a composer sets it up: the kit's commands. */
 const slashMenu = (options: Omit<SuggestionMenuOptions, 'trigger'>) =>
-  createSuggestionMenu({ trigger: '/', items: extensionSuggestions, debounce: 0, ...options });
+  createSuggestionMenu({ trigger: '/', items: extensionSuggestions, ...options });
 
 describe('createSuggestionMenu — the / menu', () => {
   let host: HTMLElement;
@@ -753,44 +758,25 @@ describe('createSuggestionMenu — groups, paging, i18n and ARIA', () => {
       expect(state?.hasMore).toBe(true);
     });
 
-    it('debounces the source per query, loading meanwhile, never the pages', async () => {
-      vi.useFakeTimers();
-      try {
-        mount({ items: [pagedGroup()], debounce: 150 });
-        requests = [];
-        type('/remote ');
-        type('T');
-        type('e');
-        expect(requests).toHaveLength(0);
-        expect(state?.loading).toBe(true);
-        expect(state?.open).toBe(true);
-
-        vi.advanceTimersByTime(149);
-        expect(requests).toHaveLength(0);
-        vi.advanceTimersByTime(1);
-        expect(requests.map((r) => r.request.query)).toEqual(['Te']);
-
-        await settle();
-        state!.loadMore();
-        expect(requests).toHaveLength(2); // no wait for a page
-      } finally {
-        vi.useRealTimers();
-      }
+    it('asks at once on every keystroke, aborting the request before', () => {
+      type('/remote ');
+      type('T');
+      type('e');
+      expect(requests.map((r) => r.request.query)).toEqual(['', 'T', 'Te']);
+      expect(requests.map((r) => r.request.signal.aborted)).toEqual([true, true, false]);
+      expect(state?.loading).toBe(true);
+      expect(state?.open).toBe(true);
     });
 
-    it('drops a pending debounce on Escape', () => {
-      vi.useFakeTimers();
-      try {
-        mount({ items: [pagedGroup()], debounce: 150 });
-        requests = [];
-        type('/remote x');
-        keydown('Escape');
-        vi.advanceTimersByTime(500);
-        expect(requests).toHaveLength(0);
-        expect(state?.loading).toBe(false);
-      } finally {
-        vi.useRealTimers();
-      }
+    it('tells the source one session per session and level', () => {
+      type('/remote ');
+      type('T');
+      const [opened, typed] = requests.map((r) => r.request.session);
+      expect(typed).toBe(opened);
+
+      keydown('Escape');
+      type(' /remote ');
+      expect(requests.at(-1)!.request.session).not.toBe(opened);
     });
   });
 
@@ -911,7 +897,6 @@ const mergeTagMenu = (options: Omit<SuggestionMenuOptions, 'trigger'>) =>
     trigger: '{{',
     startOfWord: false,
     query: /^ ?[\w.]*$/,
-    debounce: 0,
     ...options,
   });
 
@@ -1082,6 +1067,92 @@ describe('createSuggestionMenu — the {{ menu', () => {
   });
 });
 
+describe('mergeTagTrigger', () => {
+  let host: HTMLElement;
+  let editor: Editor | undefined;
+  let state: SuggestionMenuState | undefined;
+
+  const mount = (options: MergeTagTriggerOptions = {}) => {
+    editor?.destroy();
+    state = undefined;
+    const menu = document.createElement('div');
+    host.replaceChildren(menu);
+    editor = createEditor({
+      parent: host,
+      extensions: [
+        ...emailExtensions,
+        createSuggestionMenu({
+          element: menu,
+          onChange: (s) => (state = s),
+          triggers: [mergeTagTrigger({ items: [tag('firstName'), tag('first name')], ...options })],
+        }),
+      ],
+    });
+    vi.spyOn(editor.view, 'coordsAtPos').mockReturnValue({ left: 0, right: 0, top: 0, bottom: 0 });
+  };
+
+  const type = (text: string) =>
+    editor!.exec((editorState, dispatch) => {
+      dispatch?.(editorState.tr.insertText(text));
+      return true;
+    });
+
+  const caretInto = (needle: string, offset: number) => {
+    const { doc } = editor!.state;
+    const pos = 1 + doc.textContent.indexOf(needle) + offset;
+    editor!.view.dispatch(editor!.state.tr.setSelection(TextSelection.create(doc, pos)));
+  };
+
+  beforeEach(() => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    editor = undefined;
+    document.elementFromPoint ??= () => null;
+  });
+
+  afterEach(() => {
+    editor?.destroy();
+    host.remove();
+  });
+
+  it('opens on {{ right after a word, and stays shut on {{{', () => {
+    mount();
+    type('Hi{{');
+    expect(state).toMatchObject({ open: true, trigger: '{{' });
+
+    editor!.setContent('<p></p>');
+    type('{{{');
+    expect(state?.open ?? false).toBe(false);
+  });
+
+  it('never opens for a caret inside a token — with or without a host allow', () => {
+    const allow = vi.fn(() => true);
+    for (const options of [{}, { allow }]) {
+      mount(options);
+      editor!.setContent('<p>Hi {{ firstName }} there</p>');
+      caretInto('firstName', 2);
+      expect(state?.open ?? false).toBe(false);
+    }
+    expect(allow).not.toHaveBeenCalled();
+  });
+
+  it('keeps shut outside a token when the host says no', () => {
+    mount({ allow: () => false });
+    type('{{fi');
+    expect(state?.open ?? false).toBe(false);
+  });
+
+  it('takes a path by default, and a query of the host’s instead', () => {
+    mount();
+    type('{{ first name');
+    expect(state?.open ?? false).toBe(false);
+
+    mount({ query: /^ ?[^{}]*$/u });
+    type('{{ first name');
+    expect(state).toMatchObject({ open: true, query: 'first name' });
+  });
+});
+
 describe('createSuggestionMenu — several menus on one editor', () => {
   let host: HTMLElement;
   let slashElement: HTMLElement;
@@ -1213,7 +1284,6 @@ describe('createSuggestionMenu — cancellation and errors', () => {
         createSuggestionMenu({
           trigger: '@',
           element: menu,
-          debounce: 0,
           source: (request) =>
             new Promise((resolve, reject) => requests.push({ request, resolve, reject })),
           onChange: (s) => (state = s),
@@ -1324,7 +1394,6 @@ describe('createSuggestionMenu — DOM economy', () => {
         createSuggestionMenu({
           trigger: '@',
           element: menu,
-          debounce: 0,
           source: (request) => new Promise((resolve) => requests.push({ request, resolve })),
           onChange: (s) => {
             state = s;
@@ -1403,18 +1472,11 @@ describe('createSuggestionMenu — DOM economy', () => {
     expect(state?.items).toEqual([]);
   });
 
-  it('debounces a source by 300ms unless told otherwise', () => {
-    vi.useFakeTimers();
-    try {
-      mount({ debounce: undefined });
-      type('@a');
-      vi.advanceTimersByTime(299);
-      expect(requests).toHaveLength(0);
-      vi.advanceTimersByTime(1);
-      expect(requests).toHaveLength(1);
-    } finally {
-      vi.useRealTimers();
-    }
+  it('lands a synchronous answer with the keystroke — no wait, no loading', () => {
+    mount({ source: ({ query }) => [person(`Ada ${query}`)] });
+    type('@a');
+    expect(state?.loading).toBe(false);
+    expect(state?.items.map((item) => item.title)).toEqual(['Ada a']);
   });
 
   it('writes an editor attribute only when its value changes', async () => {

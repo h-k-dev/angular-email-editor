@@ -124,7 +124,6 @@ class Host {
           ...richTextExtensions,
           createSuggestionMenu({
             trigger: '/',
-            debounce: 0,
             element: this.menu().nativeElement,
             id: 'slash',
             items: (ctx) => [...extensionSuggestions(ctx), templates, remote, broken],
