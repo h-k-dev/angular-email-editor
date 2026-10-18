@@ -38,6 +38,7 @@ import { BubbleMenu } from './bubble-menu/bubble-menu';
 import { FormattingCommands } from './formatting-commands';
 import { FormattingToolbar } from './formatting-toolbar/formatting-toolbar';
 import { DockAnimation } from './dock.animation';
+import { FloatingFoot, footClearance } from './floating-foot';
 import { LinkEditor } from './link-editor/link-editor';
 import { AltTextEditor } from './alt-text-editor/alt-text-editor';
 import { ChatBasedSuggestion } from './chat-based-suggestion/chat-based-suggestion';
@@ -139,6 +140,7 @@ export type BodyFormat = 'html' | 'text';
     AltTextEditor,
     ChatBasedSuggestion,
     DockAnimation,
+    FloatingFoot,
     PopoverOutlet,
     SuggestionMenu,
     SuggestionMenuItem,
@@ -153,6 +155,9 @@ export type BodyFormat = 'html' | 'text';
   // font menu shows Sans Serif ticked rather than the app's Roboto.
   host: {
     '[style.--mat-sys-prose-mirror-font-family]': 'surfaceFont',
+    // What the floating foot covers of the text, for the text to keep clear
+    // (floating-foot.ts).
+    '[style.--email-compose-foot-room.px]': 'foot().room()',
     '(focus)': 'onHostFocus()',
   },
   templateUrl: './email-compose.html',
@@ -724,7 +729,11 @@ export class EmailCompose implements FormValueControl<string> {
     this.#mountedFormat = format;
     const editor = createEditor({
       parent: this.editorHost().nativeElement,
-      extensions: format === 'text' ? this.#plainTextKit() : this.#htmlKit(),
+      extensions: [
+        ...(format === 'text' ? this.#plainTextKit() : this.#htmlKit()),
+        // Either kit: the caret scrolls clear of the floating foot.
+        footClearance(this.#footRoom),
+      ],
       attributes: { role: 'textbox', 'aria-multiline': 'true', 'aria-label': 'Message body' },
       onUpdate: (editor) => {
         this.#publish(editor);
@@ -765,6 +774,13 @@ export class EmailCompose implements FormValueControl<string> {
 
   readonly #host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   #focusOnMount = false;
+
+  /** The strip and the dock, floating over the foot of the text. */
+  protected readonly foot = viewChild.required(FloatingFoot);
+
+  /** What the foot covers of the text, as it stands — asked by the caret
+      as it scrolls (`footClearance`). */
+  readonly #footRoom = (): number => this.foot().room();
 
   /**
    * The pane itself took focus — a host that made it focusable

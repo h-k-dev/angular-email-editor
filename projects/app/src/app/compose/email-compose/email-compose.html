@@ -105,39 +105,48 @@
   ></div>
 </div>
 
-<!-- A slot between the body and the toolbar, for whatever the host wants to
-     hang under the message — the attachment strip today. Named for the
-     position, not the content: the composer reserves the room and stays
-     ignorant of what fills it, which is what keeps envelope concerns
-     (attachments among them) out of the editor component. -->
-<ng-content select="[below-body]" />
+<!-- The foot: the strip and the dock, floating over the foot of the text
+     rather than under it (floating-foot.ts) — Gemini's prompt box over its
+     conversation. The text scrolls on beneath; what the foot does with its
+     own height (a chip added, the chat opening, the toolbar's animated
+     switch) moves nothing in the text. It keeps room at its own foot for
+     whatever the host floats there below it (`--email-compose-foot-inset`:
+     the writer's bar). -->
+<div class="email-compose__foot" floatingFoot>
+  <!-- A slot between the body and the toolbar, for whatever the host wants to
+       hang under the message — the attachment strip today. Named for the
+       position, not the content: the composer reserves the room and stays
+       ignorant of what fills it, which is what keeps envelope concerns
+       (attachments among them) out of the editor component. -->
+  <ng-content select="[below-body]" />
 
-<!-- The dock: the chat-based suggestion and the formatting toolbar, one
-     block at the sheet's foot. While the chat is up the two are one box —
-     the field over the toolbar's row, the way a chat's composer holds its
-     own tools — painted behind them from the field down (`.email-compose__dock--chat`);
-     Discard and Apply stand above it, over the text. With the chat away
-     the dock is nothing, and the toolbar is the bar it always was.
-     Switching the toolbar runs the dock's height from the one look to the
-     other (dock.animation.ts) — over its one child, which it measures. -->
-<div class="email-compose__dock" [class.email-compose__dock--chat]="chat.open()" [dockAnimation]="toolbar()">
-  <div class="email-compose__dock-content">
-    <!-- The chat-based suggestion, above the toolbar while its proposal
-         stands in the text: Discard and Apply over the text, the chat that
-         steers it. Docked here rather than floating under the proposal,
-         which grows and scrolls. -->
-    <div chat-based-suggestion #chat [language]="language" [actionInToolbar]="toolbar()"></div>
+  <!-- The dock: the chat-based suggestion and the formatting toolbar, one
+       block at the sheet's foot. While the chat is up the two are one box —
+       the field over the toolbar's row, the way a chat's composer holds its
+       own tools — painted behind them from the field down (`.email-compose__dock--chat`);
+       Discard and Apply stand above it, over the text. With the chat away
+       the dock is nothing, and the toolbar is the bar it always was.
+       Switching the toolbar runs the dock's height from the one look to the
+       other (dock.animation.ts) — over its one child, which it measures. -->
+  <div class="email-compose__dock" [class.email-compose__dock--chat]="chat.open()" [dockAnimation]="toolbar()">
+    <div class="email-compose__dock-content">
+      <!-- The chat-based suggestion, above the toolbar while its proposal
+           stands in the text: Discard and Apply over the text, the chat that
+           steers it. Docked here rather than floating under the proposal,
+           which grows and scrolls. -->
+      <div chat-based-suggestion #chat [language]="language" [actionInToolbar]="toolbar()"></div>
 
-    <!-- The formatting toolbar sits *below* the editing surface: on a phone
-         the shell's height follows the virtual keyboard (see app.scss), so
-         the bar rides up and stays reachable right above the keys. Last in
-         DOM as on screen. The host can hide it (`toolbar`, the writer bar's
-         formatting button). -->
-    <div
-      formatting-toolbar
-      aria-label="Text formatting"
-      [shown]="toolbar()"
-      [end]="suggestionAction()"
-    ></div>
+      <!-- The formatting toolbar sits *below* the editing surface: on a phone
+           the shell's height follows the virtual keyboard (see app.scss), so
+           the bar rides up and stays reachable right above the keys. Last in
+           DOM as on screen. The host can hide it (`toolbar`, the writer bar's
+           formatting button). -->
+      <div
+        formatting-toolbar
+        aria-label="Text formatting"
+        [shown]="toolbar()"
+        [end]="suggestionAction()"
+      ></div>
+    </div>
   </div>
 </div>

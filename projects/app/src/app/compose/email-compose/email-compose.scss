@@ -1,11 +1,17 @@
 @use '../../../styles/breakpoints' as bp;
 
 // Lives inside the writer's sheet (email-writer.scss): the surface is the
-// writer's, so nothing here paints a background of its own.
+// writer's, so nothing here paints a background of its own — but the foot,
+// which floats over the text and has to hide it. The body is the only box
+// in the flow: the foot lies over its end (`.email-compose__foot`).
+// A stacking context of its own, so what is stacked inside — the text's
+// grips and handles, the foot over them — stays inside: a host's layers
+// (a frame's bar, the block marquee's box on an island) go over all of it.
 :host {
+  position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
-  gap: 8px;
 }
 
 // Focusable only to hand the caret on into the text (`onHostFocus`), so it
@@ -23,6 +29,12 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+// The surface's hint covers the text the foot leaves: a drop on the foot is
+// the writer's (an attachment), not the surface's.
+.email-compose__body > [drop-hint] {
+  inset-block-end: var(--email-compose-foot-room, 0px);
 }
 
 .email-compose__editor {
@@ -52,6 +64,47 @@
   // the form layout that places this pane between the envelope rows and
   // whatever follows — sets it through this token.
   --email-editor-padding-block: var(--email-compose-surface-padding-block, 16px);
+
+  // The text keeps the foot's room clear at its end (styles.scss — the
+  // editor's root is ProseMirror's), and so does the scrollbar: its track
+  // ends where the foot begins, so the thumb never slides under it.
+  &::-webkit-scrollbar-track {
+    margin-block-end: var(--email-compose-foot-room, 0px);
+  }
+}
+
+// The foot: the strip and the dock, over the end of the text — the text
+// scrolls on under it (floating-foot.ts). It paints the sheet's paper (or
+// an island's) so what is under it is hidden, fading in over a breath above
+// its first row so the text goes under it softly rather than cut at a line
+// — Gemini's prompt box. The fade is the foot's own top room and is
+// counted in what it covers, so the text's last line comes to rest above it,
+// never in it; it lets the pointer through (only what is in the foot takes
+// it). Over the text's own layers — its grips and handles — but under the
+// suggestion menu (z 10), which opens from the text and may hang over it.
+// `--email-compose-foot-inset`: room the host floats something of its own
+// into, at the foot's foot (the writer's bar, message-form.scss).
+.email-compose__foot {
+  --email-compose-foot-fade: 16px;
+  --_foot-paper: var(--email-paper, var(--mat-sys-surface-bright));
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-block: var(--email-compose-foot-fade) var(--email-compose-foot-inset, 0px);
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--_foot-paper) var(--email-compose-foot-fade)
+  );
+  pointer-events: none;
+
+  > * {
+    pointer-events: auto;
+  }
 }
 
 // The dock at the sheet's foot: the chat-based suggestion over the
@@ -117,6 +170,9 @@
   flex: 1;
   min-height: 0;
   display: grid;
+  // The source scrolls in a box of its own: it ends where the foot begins.
+  box-sizing: border-box;
+  padding-block-end: var(--email-compose-foot-room, 0px);
   // In the surface's place, the source is as square as the surface: no
   // corner appears when the view switches.
   --html-email-compose-corner: 0;

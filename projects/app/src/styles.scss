@@ -728,6 +728,22 @@ html {
   --email-paper-dark: #1e1e1e;
 }
 
+/* The composer's text under its floating foot (email-compose.scss): the
+ * root grows with the text instead of being the scroller's height, so the
+ * room at its end is at the end of the TEXT — the editor's own breath plus
+ * all the foot covers (`--email-compose-foot-room`) — and the last line
+ * scrolls up out from under the foot. Still at least the scroller's height:
+ * the room below a short message is the editor's to click and start a
+ * marquee in, and it fills the content box exactly, so a short message
+ * never scrolls. */
+.email-compose__editor > .aee-editor {
+  height: auto;
+  min-height: 100%;
+  padding-block-end: calc(
+    var(--email-editor-padding-block, 0px) + var(--email-compose-foot-room, 0px)
+  );
+}
+
 .email-compose__editor[data-color-scheme] {
   background-color: var(--email-paper-light);
 
