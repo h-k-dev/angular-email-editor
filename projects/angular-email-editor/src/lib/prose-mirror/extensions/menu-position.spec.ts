@@ -91,4 +91,40 @@ describe('measureMenuPlacement', () => {
       maxHeight: null,
     });
   });
+
+  it('counts only what is on screen when a scroller round the container clips it', () => {
+    // An editor that grows with its text (2000px, not scrolled itself)
+    // inside a sheet that scrolls: the sheet shows 100–480 of the window,
+    // the editor starts 300px above the sheet's top. A line 300px down the
+    // sheet has 60px of screen below it — not the editor's 1500.
+    const sheet = document.createElement('div');
+    sheet.style.overflowY = 'auto';
+    sheet.getBoundingClientRect = () => new DOMRect(0, 100, 600, 380);
+    Object.defineProperties(sheet, { clientTop: { value: 0 }, clientHeight: { value: 380 } });
+    const container = document.createElement('div');
+    const menu = document.createElement('div');
+    container.appendChild(menu);
+    sheet.appendChild(container);
+    document.body.appendChild(sheet);
+    container.getBoundingClientRect = () => new DOMRect(0, -200, 600, 2000);
+    Object.defineProperties(container, {
+      clientHeight: { value: 2000 },
+      scrollWidth: { value: 600 },
+      scrollLeft: { value: 0 },
+      scrollTop: { value: 0 },
+    });
+    Object.defineProperties(menu, { offsetWidth: { value: 240 }, offsetHeight: { value: 320 } });
+    try {
+      // The line at viewport 400: above 400 − 4 − 100 = 296px, below
+      // 480 − 416 − 4 = 60px — neither fits 320: above, shrunk, from the
+      // sheet's top (content y 300).
+      expect(measureMenuPlacement(line(300), menu, 4)).toEqual({
+        left: 130,
+        top: 300,
+        maxHeight: 296,
+      });
+    } finally {
+      sheet.remove();
+    }
+  });
 });

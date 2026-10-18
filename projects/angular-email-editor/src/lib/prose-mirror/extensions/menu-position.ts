@@ -29,6 +29,12 @@ export interface MenuPlacement {
  * call it after its contents are in. A caller that caps the box itself
  * passes `height`, the box's height without that cap — a box measured at the
  * last cap would choose its side by the old room, not its own size.
+ *
+ * The room is what is on screen: the container's visible part, cut down by
+ * every scroller round it and by the window. A container that does not
+ * scroll itself — an editor that grows with its text inside a scrolling
+ * sheet — is as tall as its text, and only its ancestors say where the
+ * screen ends (on a phone, at the keyboard).
  */
 export function measureMenuPlacement(
   anchor: MenuAnchor,
@@ -48,17 +54,39 @@ export function measureMenuPlacement(
   );
 
   // The box's top edge below the line, its bottom edge above it, and the
-  // visible part of the scroll container each leaves.
+  // part of the container on screen each leaves.
   const below = anchor.bottom - containerRect.top + scrollTop + offset;
   const above = anchor.top - containerRect.top + scrollTop - offset;
-  const roomBelow = scrollTop + clientHeight - below;
-  const roomAbove = above - scrollTop;
+  const visible = visibleSpan(container, containerRect.top, containerRect.top + clientHeight);
+  // The span's ends in the container's content coordinates.
+  const visibleTop = visible.top - containerRect.top + scrollTop;
+  const visibleBottom = visible.bottom - containerRect.top + scrollTop;
+  const roomBelow = visibleBottom - below;
+  const roomAbove = above - visibleTop;
 
   if (height <= roomBelow) return { left, top: below, maxHeight: null };
   if (height <= roomAbove) return { left, top: above - height, maxHeight: null };
   // Fits neither: the side with more room, shrunk to it. A line out of
   // sight on both sides leaves no room to shrink to — below, as it is.
-  if (roomAbove > roomBelow && roomAbove > 0) return { left, top: scrollTop, maxHeight: roomAbove };
+  if (roomAbove > roomBelow && roomAbove > 0) return { left, top: visibleTop, maxHeight: roomAbove };
   if (roomBelow > 0) return { left, top: below, maxHeight: roomBelow };
   return { left, top: below, maxHeight: null };
+}
+
+/** The part of `top`–`bottom` (viewport coordinates, `element`'s client
+    area) left on screen by every ancestor that clips its overflow and by the
+    window. */
+function visibleSpan(element: Element, top: number, bottom: number): { top: number; bottom: number } {
+  for (let node = element.parentElement; node; node = node.parentElement) {
+    if (getComputedStyle(node).overflowY === 'visible') continue;
+    const rect = node.getBoundingClientRect();
+    top = Math.max(top, rect.top + node.clientTop);
+    bottom = Math.min(bottom, rect.top + node.clientTop + node.clientHeight);
+  }
+  const view = element.ownerDocument.defaultView;
+  if (view) {
+    top = Math.max(top, 0);
+    bottom = Math.min(bottom, view.innerHeight);
+  }
+  return { top, bottom };
 }
