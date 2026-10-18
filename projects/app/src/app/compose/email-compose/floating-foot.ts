@@ -62,28 +62,57 @@ export class FloatingFoot {
  * the foot's reach of the scroller's end (`scrollThreshold` — the browser's
  * own caret scroll stops right at the edge, under the foot) is scrolled up
  * to stand clear of it (`scrollMargin`). ProseMirror reads both each time it
- * scrolls, so `room` is asked then, as it stands. The other sides keep
+ * scrolls, so `room` is asked then, as it stands.
+ *
+ * And of what is stuck to the scroller's top: ProseMirror knows no CSS
+ * scroll padding, so the top takes the scroller's own — what a host says
+ * its stuck header covers (the phone's sheet, its Send bar). The sides keep
  * ProseMirror's own: no threshold, a 5px margin.
  */
 export function footClearance(room: () => number): FunctionalExtension {
+  let dom: HTMLElement | null = null;
+  const top = () => (dom ? scrollPaddingTop(dom) : 0);
   const threshold = {
-    top: 0,
     right: 0,
     left: 0,
+    get top() {
+      return top();
+    },
     get bottom() {
       return room();
     },
   };
   const margin = {
-    top: 5,
     right: 5,
     left: 5,
+    get top() {
+      return top() + 5;
+    },
     get bottom() {
       return room() + 5;
     },
   };
   return defineExtension({
     name: 'footClearance',
-    plugins: () => [new Plugin({ props: { scrollThreshold: threshold, scrollMargin: margin } })],
+    plugins: () => [
+      new Plugin({
+        view: (view) => {
+          dom = view.dom;
+          return { destroy: () => (dom = null) };
+        },
+        props: { scrollThreshold: threshold, scrollMargin: margin },
+      }),
+    ],
   });
+}
+
+/** The top scroll padding of the scroller `element` scrolls in, px. */
+function scrollPaddingTop(element: HTMLElement): number {
+  for (let node = element.parentElement; node; node = node.parentElement) {
+    const style = getComputedStyle(node);
+    if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
+      return parseFloat(style.scrollPaddingTop) || 0;
+    }
+  }
+  return 0;
 }
