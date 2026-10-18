@@ -13,6 +13,11 @@ form[email-writer] {
   min-height: 0;
 }
 
+// The writer's hint covers the whole sheet, the floating bar included.
+form[email-writer] > [drop-hint] {
+  z-index: 2;
+}
+
 // Projected into the writer's column: the editor takes what the bar leaves
 // (the writer cannot style projected content itself). The room the text
 // keeps from the Subject hairline above and the strip below is this
@@ -30,6 +35,11 @@ section[email-compose] {
   // the email starts at its top (Gmail keeps 10px).
   margin-block-start: calc(-1 * var(--writer-gap, 8px));
   --email-compose-surface-padding-block: 4px;
+  // A bar at the foot floats over the text with the composer's own foot
+  // (email-writer.scss): the composer runs on under it, and its foot keeps
+  // the bar's room at its own foot.
+  margin-block-end: calc(-1 * var(--writer-foot-bar, 0px));
+  --email-compose-foot-inset: var(--writer-foot-bar, 0px);
   // The writer's column (email-writer.scss): on a wide sheet the editor
   // keeps to it with the bar and the envelope.
   box-sizing: border-box;
