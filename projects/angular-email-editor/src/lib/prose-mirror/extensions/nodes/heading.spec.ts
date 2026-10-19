@@ -93,17 +93,30 @@ describe('heading', () => {
       expect(editor.getHTML()).toBe('<div>##### </div>');
     });
 
-    it('Heading (layout) makes the line flush, keeping a heading’s level', () => {
+    it('Heading 1–3 (layout) make the line a flush heading of their level, in Layout', () => {
       const actions = Heading.actions!({ schema: editor.schema, extensions: [] });
-      const layout = actions.find((action) => action.id === 'heading-layout')!;
-      expect(layout.title).toBe('Heading (layout)');
+      const layout = (level: number) =>
+        actions.find((action) => action.id === `heading-${level}-layout`)!;
+      expect([1, 2, 3].map((level) => layout(level).title)).toEqual([
+        'Heading 1 (layout)',
+        'Heading 2 (layout)',
+        'Heading 3 (layout)',
+      ]);
+      expect([1, 2, 3].map((level) => layout(level).section)).toEqual([
+        'layout',
+        'layout',
+        'layout',
+      ]);
 
       editor.setContent('<div>Title</div>');
-      layout.command!(editor.state, editor.view.dispatch, editor.view);
+      layout(1).command!(editor.state, editor.view.dispatch, editor.view);
       expect(editor.getHTML()).toBe('<h1 style="margin: 0px; font-size: 24px;">Title</h1>');
 
+      layout(2).command!(editor.state, editor.view.dispatch, editor.view);
+      expect(editor.getHTML()).toBe('<h2 style="margin: 0px; font-size: 20px;">Title</h2>');
+
       editor.setContent('<h3>Title</h3>');
-      layout.command!(editor.state, editor.view.dispatch, editor.view);
+      layout(3).command!(editor.state, editor.view.dispatch, editor.view);
       expect(editor.getHTML()).toBe('<h3 style="margin: 0px; font-size: 18px;">Title</h3>');
 
       const h3 = actions.find((action) => action.id === 'heading-3')!;
@@ -111,6 +124,10 @@ describe('heading', () => {
       expect(editor.getHTML()).toBe(
         '<h3 style="margin: 14px 0px 4px; font-size: 18px;">Title</h3>',
       );
+
+      // The command keeps a heading's level — the API's flush toggle.
+      editor.commands['setLayoutHeading']();
+      expect(editor.getHTML()).toBe('<h3 style="margin: 0px; font-size: 18px;">Title</h3>');
     });
   });
 });

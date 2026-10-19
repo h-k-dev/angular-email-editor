@@ -33,6 +33,7 @@ import {
   Editor,
   InlineImages,
   HEADING_LEVELS,
+  LayoutInteractivity,
   MergeTagResolutionReport,
   PlaceholderWords,
   emailDocument,
@@ -61,7 +62,7 @@ import { EmailSend, SendRejected } from '../../../services/email-send';
 import { EnvelopeRows } from './envelope-rows/envelope-rows';
 import { BLANK, Envelope, hasContent, isBlank } from './envelope';
 
-/** What the ⋮ menu's View toggle shows in the editor's place: the editor,
+/** What the settings' View toggle shows in the editor's place: the editor,
     or its HTML (code view). */
 export type EditorView = 'editor' | 'html';
 
@@ -83,7 +84,7 @@ export type MessageSheetKind = 'desktop' | 'mobile';
  *
  * Each sheet provides itself under this class, so what works with "the
  * sheet" — the frame around it (the page, a compose window), the draft
- * keeper (keep-draft.ts), the ⋮ menu inside (`MessageMenu`) — asks for a
+ * keeper (keep-draft.ts), the settings inside (`MessageSettings`) — asks for a
  * `MessageSheet` and never knows which one it got.
  *
  * The sheet owns what a message needs and nothing a frame decides. It does
@@ -285,8 +286,8 @@ export abstract class MessageSheet {
   readonly codePortal = input<Portal<unknown> | null>(null);
   readonly codeEditor = input<Editor | undefined>();
 
-  /** Whether the frame has a source pane to switch to: the ⋮ menu then
-      offers the View — the editor, or its HTML in the editor's place. A
+  /** Whether the frame has a source pane to switch to: the settings then
+      offer the View — the editor, or its HTML in the editor's place. A
       phone's sheet never does. */
   readonly sourceViews = input(false, { transform: booleanAttribute });
 
@@ -300,7 +301,7 @@ export abstract class MessageSheet {
   /** The sheet started over — after a send or a discard. */
   readonly cleared = output<void>();
 
-  /** What the message is written and sent as — the ⋮ menu's Format:
+  /** What the message is written and sent as — the settings' Format:
       HTML, or plain text (lines, sent as `text/plain` alone). */
   readonly bodyFormat = computed<BodyFormat>(() => this.message().format);
   readonly plainText = computed(() => this.bodyFormat() === 'text');
@@ -335,7 +336,7 @@ export abstract class MessageSheet {
     this.message.set({ ...message, format, html: untouched ? kept.html : message.html });
   }
 
-  /** The editor's appearance, the ⋮ menu's toggle: a light or dark of its
+  /** The editor's appearance, the settings' toggle: a light or dark of its
       own, apart from the app's theme — or `auto`, the app's, following its
       top-bar toggle. Auto by default: the message sits in the app as the
       rest of it does; Light shows it as it is sent. */
@@ -349,7 +350,7 @@ export abstract class MessageSheet {
     return appearance === 'auto' ? this.#theme.scheme() : appearance;
   });
 
-  /** The ⋮ menu's View row — the editor or its HTML — where the frame has
+  /** The settings' View row — the editor or its HTML — where the frame has
       a source pane and the message is HTML. */
   readonly viewOffered = computed(() => this.sourceViews() && !this.plainText());
 
@@ -358,6 +359,19 @@ export abstract class MessageSheet {
   readonly editorView = computed<EditorView>(() =>
     this.sourceView() === 'code' ? 'html' : 'editor',
   );
+
+  /** The settings' Layout switch: whether the layout blocks — sections,
+      columns, tables — take their gestures: a section's menu, the columns'
+      drags and pills, a table's grips, drags, pills and menus. Off, every
+      block stands as laid out and its words still edit: a template whose
+      layout is settled, filled in. On by default. */
+  readonly layoutInteractive = signal(true);
+
+  /** The switch, as the editor takes it: every layout block alike. */
+  readonly layoutInteraction = computed<LayoutInteractivity>(() => {
+    const on = this.layoutInteractive();
+    return { section: on, columns: on, table: on };
+  });
 
   /** The View toggle: moves the source into the editor's place or out of
       it (from the docked view too, as the old </> did) — nothing for the

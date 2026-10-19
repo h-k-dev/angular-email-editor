@@ -90,6 +90,8 @@ import {
   createQuotedHistory,
   createPlaceholder,
   PlaceholderText,
+  LAYOUT_INTERACTIVE,
+  LayoutInteractivity,
 } from '@h-k-dev/angular-email-editor';
 import {
   SuggestionMenu,
@@ -276,6 +278,12 @@ export class EmailCompose implements FormValueControl<string> {
       switch (a `computed`, never a pipe per kind): a language switch is a
       new value, shown at once. None by default. */
   placeholder = input<PlaceholderText>('');
+
+  /** Which layout blocks take their gestures — a section's menu, the
+      columns' drags and pills, a table's grips, drags, pills and menus —
+      by type. Off, a block stands as laid out and its words still edit;
+      the host's switch (the composer's settings). Every block, by default. */
+  layoutInteraction = input<LayoutInteractivity>(LAYOUT_INTERACTIVE);
 
   /** The editing surface's own scheme — the text only, never the chrome
       around it, and apart from the app's theme: an email has no theme of
@@ -499,6 +507,15 @@ export class EmailCompose implements FormValueControl<string> {
       const text = this.placeholder();
       const editor = this.editor();
       untracked(() => editor?.commands['setPlaceholder'](text));
+    });
+
+    // The layout blocks' gestures, on or off — on every editor mounted: a
+    // remount starts from the kit's default. The plain-text kit has no
+    // layout, nor the command.
+    effect(() => {
+      const interactivity = this.layoutInteraction();
+      const editor = this.editor();
+      untracked(() => editor?.commands['setLayoutInteraction']?.(interactivity));
     });
 
     // HTML or plain text: the other kit is another editor (a schema is an

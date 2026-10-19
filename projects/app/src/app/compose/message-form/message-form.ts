@@ -24,6 +24,7 @@ import { EmailWriter, WriterBarPosition } from '../email-writer/email-writer';
 import { MarqueeStart } from '../paper-island';
 import { EnvelopeRows } from './envelope-rows/envelope-rows';
 import { MessageMenu } from './message-menu/message-menu';
+import { MessageSettings } from './message-settings/message-settings';
 import { MessageSheet } from './message-sheet';
 
 /**
@@ -52,6 +53,7 @@ import { MessageSheet } from './message-sheet';
     EmailCompose,
     EnvelopeRows,
     MessageMenu,
+    MessageSettings,
     AddressDragGroup,
     AttachmentChips,
     AttachmentChip,
@@ -73,8 +75,7 @@ export class MessageForm extends MessageSheet {
   readonly bar = input<WriterBarPosition>('bottom');
 
   /** The bar heads the sheet: its controls are laid out mirrored — Send at
-      the end, Discard at the start — and the ⋮ menu opens downward, lined
-      up with its end. */
+      the end, Discard at the start. */
   protected readonly mirrored = computed(() => this.bar() === 'top');
 
   /** Whether the formatting toolbar is switched on (the writer bar's

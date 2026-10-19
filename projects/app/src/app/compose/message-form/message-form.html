@@ -79,11 +79,19 @@
        actions. -->
   <ng-template #frameLeading><ng-content select="[leading]" /></ng-template>
   <ng-template #frameActions><ng-content select="[actions]" /></ng-template>
-  <!-- More options for the message: the Format, the View and the editor's
-       Appearance (`MessageMenu`, both sheets'). Opens away from the bar's
-       edge of the sheet, lined up with its near end. -->
-  <ng-template #more>
-    <message-menu [side]="mirrored() ? 'below' : 'above'" [align]="mirrored() ? 'end' : 'start'" />
+  <!-- The message's settings and its View (both sheets'): ⚙ opens the
+     Theme, the Format and the Layout in a dialog centred over the page
+     (`MessageSettings`); ⋮ the View's two check options (`MessageMenu`),
+     opening away from the bar's edge of the sheet, lined up with its near
+     end. -->
+  <ng-template #settings>
+    @if (mirrored()) {
+      <message-menu side="below" align="end" />
+      <message-settings />
+    } @else {
+      <message-settings />
+      <message-menu side="above" align="start" />
+    }
   </ng-template>
   <!-- Core's "Parse": offered while the body holds placeholders (the
        action's own answer) and not while the evaluator works. The same as
@@ -119,10 +127,10 @@
     </button>
   </ng-template>
 
-  <!-- Beside Send: formatting, Attach, the frame's leading controls, ⋮. -->
+  <!-- Beside Send: formatting, Attach, the frame's leading controls, ⚙ ⋮. -->
   <ng-container ngProjectAs="[leading]">
     @if (mirrored()) {
-      <ng-container [ngTemplateOutlet]="more" />
+      <ng-container [ngTemplateOutlet]="settings" />
       <ng-container [ngTemplateOutlet]="frameLeading" />
       <ng-container [ngTemplateOutlet]="attach" />
       <ng-container [ngTemplateOutlet]="formatting" />
@@ -130,7 +138,7 @@
       <ng-container [ngTemplateOutlet]="formatting" />
       <ng-container [ngTemplateOutlet]="attach" />
       <ng-container [ngTemplateOutlet]="frameLeading" />
-      <ng-container [ngTemplateOutlet]="more" />
+      <ng-container [ngTemplateOutlet]="settings" />
     }
   </ng-container>
 
@@ -178,6 +186,7 @@
     [toolbar]="toolbarShown()"
     [format]="bodyFormat()"
     [colorScheme]="editorScheme()"
+    [layoutInteraction]="layoutInteraction()"
     [codePortal]="codePortal()"
     [codeEditor]="codeEditor()"
     [placeholder]="placeholders()"

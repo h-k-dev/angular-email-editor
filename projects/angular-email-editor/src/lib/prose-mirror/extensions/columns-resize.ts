@@ -3,6 +3,7 @@ import { Command, Plugin, PluginKey } from 'prosemirror-state';
 import { Node } from 'prosemirror-model';
 import { EditorView, ViewMutationRecord } from 'prosemirror-view';
 import { defineExtension } from '../extension';
+import { layoutInteractive } from './layout-interaction';
 import {
   MAX_COLUMNS,
   MIN_COLUMN_CAP,
@@ -145,6 +146,7 @@ class ColumnsView {
     // preventDefault keeps the caret where it is; the command runs on click.
     pill.addEventListener('mousedown', (event) => event.preventDefault());
     pill.addEventListener('click', () => {
+      if (!this.#interactive()) return;
       command(this.#getPos())(this.#view.state, this.#view.dispatch);
     });
     return pill;
@@ -174,8 +176,14 @@ class ColumnsView {
     }
   }
 
+  /** Whether columns take their drags and pills (`setLayoutInteraction`). */
+  #interactive(): boolean {
+    return layoutInteractive(this.#view.state, 'columns');
+  }
+
   #startDrag(line: HTMLElement, event: PointerEvent): void {
     event.preventDefault();
+    if (!this.#interactive()) return;
     const boundary = Array.prototype.indexOf.call(this.#lines.children, line);
     if (boundary < 0) return;
 

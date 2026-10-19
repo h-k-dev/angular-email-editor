@@ -27,6 +27,7 @@ import { Strike } from './marks/strike';
 import { TextStyle } from './marks/text-style';
 import { History } from './history';
 import { LayoutGuides } from './layout-guides';
+import { LayoutInteraction } from './layout-interaction';
 import { Gapcursor } from './gapcursor';
 import { ColumnResize } from './column-resize';
 import { ColumnsResize } from './columns-resize';
@@ -86,6 +87,8 @@ const withParagraph = (paragraph: NodeExtension): Extension[] => [
   History,
   // One editor-only outline mechanism for every layout block (table, columns).
   LayoutGuides,
+  // Their grips, drags, pills and menus, on or off by type (`setLayoutInteraction`).
+  LayoutInteraction,
   NoTextDrag,
   // Enter in a structural text cell (an MJML `<td>`) breaks the line instead
   // of splitting the cell. Before SplitKeepingMarks, which would split it.

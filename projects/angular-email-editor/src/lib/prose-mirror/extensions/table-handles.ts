@@ -4,6 +4,7 @@ import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import { CellSelection, TableMap } from 'prosemirror-tables';
 import { FunctionalExtension, defineExtension } from '../extension';
 import { selectColumn, selectRow } from './nodes/table';
+import { layoutInteractive } from './layout-interaction';
 
 /** Which band — or which cell — of which table a grip stands for, and
     where it is on screen. */
@@ -170,6 +171,8 @@ export const createTableHandles = (options: TableHandlesOptions): FunctionalExte
         },
         props: {
           decorations: (state) => {
+            // Tables static (`setLayoutInteraction`): no grip to press.
+            if (!layoutInteractive(state, 'table')) return DecorationSet.empty;
             const set = tableHandlesKey.getState(state)?.decorations ?? DecorationSet.empty;
             const cell = caretCell(state.selection);
             if (!cell) return set;
@@ -185,7 +188,12 @@ export const createTableHandles = (options: TableHandlesOptions): FunctionalExte
         view: (view) => {
           let lastGeneration = -1;
           let lastBand = '';
+          let interactive = layoutInteractive(view.state, 'table');
           const sync = () => {
+            // Switched off under an open menu: the grip it hangs from is gone.
+            const now = layoutInteractive(view.state, 'table');
+            if (interactive && !now) options.onOpen(null);
+            interactive = now;
             const plugin = tableHandlesKey.getState(view.state);
             const band = selectedBand(view.state.selection);
             const caret = caretCell(view.state.selection);

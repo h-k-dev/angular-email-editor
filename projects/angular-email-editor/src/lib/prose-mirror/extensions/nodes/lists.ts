@@ -200,7 +200,7 @@ export const BulletList = defineNode({
     },
     {
       id: 'bulleted-list-layout',
-      section: 'blocks',
+      section: 'layout',
       title: 'Bulleted list (layout)',
       keywords: ['ul', 'unordered', 'list', 'layout', 'flush'],
       icon: 'format_list_bulleted',
@@ -263,7 +263,7 @@ export const OrderedList = defineNode({
     },
     {
       id: 'numbered-list-layout',
-      section: 'blocks',
+      section: 'layout',
       title: 'Numbered list (layout)',
       keywords: ['ol', 'ordered', 'list', 'layout', 'flush'],
       icon: 'format_list_numbered',

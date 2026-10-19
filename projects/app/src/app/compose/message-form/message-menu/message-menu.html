@@ -1,7 +1,6 @@
-<!-- More options for the message: the Format, the View (the editor or its
-     HTML, where the frame has a source pane) and the editor’s Appearance.
-     Opens away from the sheet's edge, lined up with the bar's near end
-     (`side`, `align`: the sheet's call). -->
+<!-- The View, as two check options. Opens away from the sheet's edge,
+     lined up with the bar's near end (`side`, `align`: the sheet's call).
+     A pick closes the menu; the sheet changes behind it. -->
 <button
   mat-icon-button
   type="button"
@@ -20,71 +19,6 @@
   [trigger]="moreTrigger"
   [side]="side()"
   [align]="align()"
->
-  <!-- Rows of a word and its toggle button group. A pick is not a menu
-       choice: the menu stays open, the sheet changes behind it. -->
-  <!-- The Format: HTML, or plain text — lines, sent as text/plain alone
-       (`onFormat` converts the body; back before an edit restores it). -->
-  <ng-template toolbarMenuRow>
-    <span class="menu-row__label" [id]="formatLabelId">{{
-      'composer.format.title' | translate
-    }}</span>
-    <hk-tgb
-      class="menu-row__toggle"
-      [attr.aria-labelledby]="formatLabelId"
-      [value]="sheet.bodyFormat()"
-      (valueChange)="sheet.onFormat($event)"
-    >
-      <button hkTgbText value="html">{{ 'composer.format.html' | translate }}</button>
-      <button hkTgbText value="text">{{ 'composer.format.text' | translate }}</button>
-    </hk-tgb>
-  </ng-template>
-  <!-- The View: the editor, or its HTML in the editor's place. -->
-  @if (sheet.viewOffered()) {
-    <ng-template toolbarMenuRow>
-      <span class="menu-row__label" [id]="viewLabelId">{{
-        'composer.view.title' | translate
-      }}</span>
-      <hk-tgb
-        class="menu-row__toggle"
-        [attr.aria-labelledby]="viewLabelId"
-        [value]="sheet.editorView()"
-        (valueChange)="sheet.onEditorView($event)"
-      >
-        <button hkTgbText value="editor">{{ 'composer.view.editor' | translate }}</button>
-        <button hkTgbText value="html">{{ 'composer.view.html' | translate }}</button>
-      </hk-tgb>
-    </ng-template>
-  }
-  <!-- The Appearance: the Theme — Light and Dark as round icons, Auto
-       as a pill of words. -->
-  <ng-template [toolbarMenuRow]="'composer.appearance.title' | translate">
-    <span class="menu-row__label" [id]="themeLabelId">{{
-      'composer.appearance.theme' | translate
-    }}</span>
-    <hk-tgb
-      class="menu-row__toggle"
-      [attr.aria-labelledby]="themeLabelId"
-      [value]="sheet.editorAppearance()"
-      (valueChange)="sheet.editorAppearance.set($event)"
-    >
-      <button
-        hkTgbIcon
-        value="light"
-        [attr.aria-label]="'composer.appearance.light' | translate"
-        [title]="'composer.appearance.light' | translate"
-      >
-        <mat-icon inline>light_mode</mat-icon>
-      </button>
-      <button
-        hkTgbIcon
-        value="dark"
-        [attr.aria-label]="'composer.appearance.dark' | translate"
-        [title]="'composer.appearance.dark' | translate"
-      >
-        <mat-icon inline>dark_mode</mat-icon>
-      </button>
-      <button hkTgbText value="auto">{{ 'composer.appearance.auto' | translate }}</button>
-    </hk-tgb>
-  </ng-template>
-</div>
+  [items]="items()"
+  (selected)="sheet.onEditorView($event)"
+></div>

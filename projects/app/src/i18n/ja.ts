@@ -42,6 +42,20 @@ export default {
     view: { title: '表示', editor: 'エディター', html: 'HTML' },
     attach: 'ファイルを添付',
     more: 'その他のオプション',
+    settings: {
+      title: '設定',
+      close: '設定を閉じる',
+      message: 'メッセージ',
+      formatHint: 'メッセージを作成・送信する形式',
+      themeHint: 'エディター独自の紙の色、またはアプリのテーマ',
+      layout: {
+        title: 'レイアウト',
+        label: 'レイアウトブロック',
+        hint: 'セクション、段組み、表: ハンドル、サイズ変更、追加と削除',
+        plainText: 'プレーンテキストにはレイアウトがありません',
+        note: 'オフにすると、すべてのブロックはそのままの配置になります。テキストは編集できますが、構造は操作できません。',
+      },
+    },
     appearance: { title: '外観', theme: 'テーマ', light: 'ライト', dark: 'ダーク', auto: '自動' },
     placeholders: {
       filled: 'プレースホルダーを埋めました',
@@ -71,9 +85,17 @@ export default {
       'heading-1': { title: '見出し 1', keywords: '見出し, タイトル, みだし' },
       'heading-2': { title: '見出し 2', keywords: '見出し, タイトル, みだし' },
       'heading-3': { title: '見出し 3', keywords: '見出し, タイトル, みだし' },
-      'heading-layout': {
-        title: '見出し (レイアウト)',
-        keywords: '見出し, タイトル, みだし, 余白なし',
+      'heading-1-layout': {
+        title: '見出し 1 (レイアウト)',
+        keywords: '見出し, タイトル, みだし, 余白なし, レイアウト',
+      },
+      'heading-2-layout': {
+        title: '見出し 2 (レイアウト)',
+        keywords: '見出し, タイトル, みだし, 余白なし, レイアウト',
+      },
+      'heading-3-layout': {
+        title: '見出し 3 (レイアウト)',
+        keywords: '見出し, タイトル, みだし, 余白なし, レイアウト',
       },
       quote: { title: '引用', keywords: '引用, いんよう' },
       'bulleted-list': { title: '箇条書き', keywords: 'リスト, 箇条書き, かじょうがき' },

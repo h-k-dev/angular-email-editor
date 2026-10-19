@@ -4,6 +4,7 @@ import { Node } from 'prosemirror-model';
 import { Decoration, DecorationSet, EditorView, ViewMutationRecord } from 'prosemirror-view';
 import { CellSelection, TableMap } from 'prosemirror-tables';
 import { defineExtension } from '../extension';
+import { layoutInteractive } from './layout-interaction';
 import {
   MIN_COLUMN_PCT,
   MIN_TABLE_PCT,
@@ -445,6 +446,7 @@ class TableView {
       // preventDefault keeps the caret where it is; the command runs on click.
       el.addEventListener('mousedown', (event) => event.preventDefault());
       el.addEventListener('click', () => {
+        if (!this.#interactive()) return;
         command(this.#getPos())(this.#view.state, this.#view.dispatch);
       });
       return el;
@@ -608,9 +610,15 @@ class TableView {
     return { left: rect.left, width: rect.width };
   }
 
+  /** Whether tables take their drags and pills (`setLayoutInteraction`). */
+  #interactive(): boolean {
+    return layoutInteractive(this.#view.state, 'table');
+  }
+
   #startDrag(line: HTMLElement, event: PointerEvent): void {
     // Keeps the caret where it is and stops ProseMirror starting a selection.
     event.preventDefault();
+    if (!this.#interactive()) return;
     const boundary = Array.prototype.indexOf.call(this.#boundaries.children, line);
     const tableWidth = this.#table.getBoundingClientRect().width;
     if (boundary < 0 || !tableWidth) return;
@@ -673,6 +681,7 @@ class TableView {
       (the right edge stays put); the right edge moves the width. */
   #startEdgeDrag(side: 'left' | 'right', event: PointerEvent): void {
     event.preventDefault();
+    if (!this.#interactive()) return;
     const { left: wrapperLeft, width: wrapperWidth } = this.#contentBox();
     if (!wrapperWidth) return;
 

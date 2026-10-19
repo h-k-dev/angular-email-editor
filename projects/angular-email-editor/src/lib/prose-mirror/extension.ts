@@ -192,6 +192,16 @@ export const extensionActions = (ctx: ExtensionContext): EditorAction[] =>
   ctx.extensions.flatMap((extension) => extension.actions?.(ctx) ?? []);
 
 /** The extensions' actions as the rows of a `/` menu — the same list, seen as
-    suggestions: `createSuggestionMenu({ trigger: '/', items: extensionSuggestions })`. */
-export const extensionSuggestions = (ctx: ExtensionContext): SuggestionItem[] =>
-  extensionActions(ctx);
+    suggestions: `createSuggestionMenu({ trigger: '/', items: extensionSuggestions })`.
+    Each section's rows together, where its first row stands, so the menu
+    heads a section once: a heading's flush variant (Layout) declared beside
+    its spaced twin (Basic blocks) joins the Layout rows, not the twin. */
+export const extensionSuggestions = (ctx: ExtensionContext): SuggestionItem[] => {
+  const sections = new Map<string | undefined, SuggestionItem[]>();
+  for (const action of extensionActions(ctx)) {
+    const rows = sections.get(action.section);
+    if (rows) rows.push(action);
+    else sections.set(action.section, [action]);
+  }
+  return [...sections.values()].flat();
+};

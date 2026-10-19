@@ -9,6 +9,7 @@ import {
   findColumnContext,
   findSectionContext,
   findTableContext,
+  layoutInteractive,
   isMarkActive,
   selectedButton,
   selectedImage,
@@ -211,9 +212,10 @@ export class FormattingCommands {
 
   /** Applies a background fill to the most relevant scope: a selected button
       is filled; selected text gets an inline highlight; a bare cursor in a
-      table cell, a column or a section fills that container; otherwise it's
-      an inline highlight (stored, so it continues as you type). `null`
-      clears whichever scope applies. */
+      table cell, a column or a section fills that container — one whose
+      interaction is on (`layoutInteraction`); otherwise it's an inline
+      highlight (stored, so it continues as you type). `null` clears
+      whichever scope applies. */
   applyBackground(color: string | null): void {
     const editor = this.target();
     if (!editor) return;
@@ -223,11 +225,11 @@ export class FormattingCommands {
     const bare = state.selection.empty && !this.codeView();
     if (!this.codeView() && selectedButton(state)) {
       editor.commands['setButtonBackground'](color);
-    } else if (bare && findTableContext(state)) {
+    } else if (bare && layoutInteractive(state, 'table') && findTableContext(state)) {
       editor.commands['setCellBackground'](color);
-    } else if (bare && findColumnContext(state)) {
+    } else if (bare && layoutInteractive(state, 'columns') && findColumnContext(state)) {
       editor.commands['setColumnBackground'](color);
-    } else if (bare && findSectionContext(state)) {
+    } else if (bare && layoutInteractive(state, 'section') && findSectionContext(state)) {
       editor.commands['setSectionBackground'](color);
     } else if (color) {
       editor.commands['setBackgroundColor'](color);

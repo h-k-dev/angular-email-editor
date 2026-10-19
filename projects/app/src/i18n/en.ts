@@ -40,6 +40,20 @@ export default {
     view: { title: 'View', editor: 'Editor', html: 'HTML' },
     attach: 'Attach files',
     more: 'More options',
+    settings: {
+      title: 'Settings',
+      close: 'Close settings',
+      message: 'Message',
+      formatHint: 'What the message is written and sent as',
+      themeHint: 'The editor on its own paper, or the app’s theme',
+      layout: {
+        title: 'Layout',
+        label: 'Layout blocks',
+        hint: 'Sections, columns and tables: grips, resizing, adding and removing',
+        plainText: 'Plain text has no layout',
+        note: 'Off, every block stands as laid out: its text still edits, its structure takes no gesture.',
+      },
+    },
     appearance: { title: 'Appearance', theme: 'Theme', light: 'Light', dark: 'Dark', auto: 'Auto' },
     placeholders: {
       filled: 'Placeholders filled in',

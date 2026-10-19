@@ -1,4 +1,4 @@
-import { Component, inject, input } from '@angular/core';
+import { Component, computed, inject, input } from '@angular/core';
 
 // Angular Material
 import { MatIconButton } from '@angular/material/button';
@@ -7,49 +7,33 @@ import { MatIcon } from '@angular/material/icon';
 // Aria
 import { MenuTrigger } from '@angular/aria/menu';
 
-// Angular Email Editor
-import {
-  ToggleButtonGroup,
-  ToggleButtonGroupIcon,
-  ToggleButtonGroupText,
-} from '@h-k-dev/angular-email-editor/toggle-button-group';
 import { TranslatePipe } from '@ngx-translate/core';
 
+import { I18n } from '../../../../services/i18n';
 import {
   ToolbarMenu,
-  ToolbarMenuRow,
+  ToolbarMenuItem,
 } from '../../email-compose/formatting-toolbar/toolbar-menu/toolbar-menu';
-import { MessageSheet } from '../message-sheet';
-
-/** Tells the menus on one page apart: each row's label needs an id of its
-    own for its toggle. */
-let nextMenuId = 0;
+import { EditorView, MessageSheet } from '../message-sheet';
 
 /**
- * The bar's ⋮ — more options for the message: the Format, the View (where
- * the frame has a source pane, `MessageSheet.viewOffered`) and the
- * editor's Appearance. The button and its menu, on either sheet: it reads
- * and sets the sheet it sits on, whichever that is, through DI.
+ * The bar's ⋮ — the View, as two check options: the editor, or its HTML
+ * in the editor's place. Offered where the frame has a source pane and the
+ * message is HTML (`MessageSheet.viewOffered`); elsewhere the options stand
+ * disabled, never hidden — the menu keeps its shape. The button and its
+ * menu, on either sheet: it reads and sets the sheet it sits on, whichever
+ * that is, through DI. The rest of the message's settings are the ⚙'s
+ * (`MessageSettings`).
  */
 @Component({
   selector: 'message-menu',
-  imports: [
-    TranslatePipe,
-    MatIcon,
-    MatIconButton,
-    MenuTrigger,
-    ToolbarMenu,
-    ToolbarMenuRow,
-    ToggleButtonGroup,
-    ToggleButtonGroupIcon,
-    ToggleButtonGroupText,
-  ],
+  imports: [TranslatePipe, MatIcon, MatIconButton, MenuTrigger, ToolbarMenu],
   templateUrl: './message-menu.html',
-  styleUrl: './message-menu.scss',
   host: { style: 'display: contents' },
 })
 export class MessageMenu {
   protected readonly sheet = inject(MessageSheet);
+  readonly #i18n = inject(I18n);
 
   /** Which way the menu opens from the bar: away from the sheet's edge —
       up from a bar at the foot, down from one heading the sheet. */
@@ -58,7 +42,18 @@ export class MessageMenu {
   /** Which end of the button it lines up with: the bar's near end. */
   readonly align = input<'start' | 'end'>('start');
 
-  protected readonly formatLabelId = `message-format-${nextMenuId}`;
-  protected readonly viewLabelId = `message-view-${nextMenuId}`;
-  protected readonly themeLabelId = `message-theme-${nextMenuId++}`;
+  /** The View's two options, the one in effect ticked. */
+  protected readonly items = computed<ToolbarMenuItem<EditorView>[]>(() => {
+    this.#i18n.lang();
+    const view = this.sheet.editorView();
+    const disabled = !this.sheet.viewOffered();
+    return (['editor', 'html'] as const).map((value, index) => ({
+      value,
+      label: this.#i18n.t(`composer.view.${value}`),
+      kind: 'radio' as const,
+      checked: view === value,
+      disabled,
+      section: index === 0 ? this.#i18n.t('composer.view.title') : undefined,
+    }));
+  });
 }

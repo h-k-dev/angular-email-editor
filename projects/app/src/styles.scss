@@ -153,6 +153,27 @@ html {
   --email-suggestion-menu-section-padding-inline: calc(var(--mat-sys-spacing) * 3);
 }
 
+/* A dialog — the composer's settings, and whatever dialog comes next: one
+ * fixed size, Notion's and Slack's settings, so the box never jumps with
+ * what it holds and a group added later fits the same frame, scrolling. Centred with
+ * the outer spacing round it while that fits; the whole screen at the
+ * compact width (`FULL_WIDTH_MAX_WIDTH`, services/viewport.ts — the
+ * writer goes full width there too), square-cornered. Set here, once:
+ * a dialog reads these and nothing else for its frame. */
+html {
+  --dialog-width: min(640px, calc(100vw - 2 * var(--mat-sys-outer-spacing)));
+  --dialog-height: min(640px, calc(100dvh - 2 * var(--mat-sys-outer-spacing)));
+  --dialog-radius: var(--mat-sys-corner-extra-large);
+}
+
+@media (max-width: 768px) {
+  html {
+    --dialog-width: 100vw;
+    --dialog-height: 100dvh;
+    --dialog-radius: 0;
+  }
+}
+
 /* ProseMirror creates its editable DOM at runtime, outside Angular's emulated
  * view encapsulation, so the editor surface is styled globally. Everything
  * scopes to `.aee-editor` — the identity class the library stamps on its own
@@ -1258,6 +1279,17 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
 .aee-editor .aee-table-wrap--resizing .aee-add-pill {
   opacity: 0;
   pointer-events: none;
+}
+
+/* A layout block whose interaction is off (`setLayoutInteraction`, the
+ * composer's settings) stands as laid out: no boundary line, no add pill —
+ * its grips and its menu the library already withholds. Child combinators,
+ * so a static columns block leaves the table inside it its own. */
+.aee-editor[data-aee-static~='table'] .aee-table-wrap > .aee-table-box > .aee-col-lines,
+.aee-editor[data-aee-static~='table'] .aee-table-wrap > .aee-table-box > .aee-add-zone,
+.aee-editor[data-aee-static~='columns'] .aee-columns-wrap > .aee-columns-box > .aee-col-lines,
+.aee-editor[data-aee-static~='columns'] .aee-columns-wrap > .aee-columns-box > .aee-add-zone {
+  display: none;
 }
 
 /* The columns block's stepper (the `ColumnsResize` NodeView) — the table's

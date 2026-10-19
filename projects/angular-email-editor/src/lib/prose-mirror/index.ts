@@ -46,6 +46,7 @@ export * from './extensions/nodes/section';
 export * from './extensions/nodes/lists';
 export * from './extensions/bubble-menu';
 export * from './extensions/block-menu';
+export * from './extensions/layout-interaction';
 export * from './extensions/menu-scroll';
 export * from './extensions/suggestion-menu';
 export * from './extensions/suggestion-sources';

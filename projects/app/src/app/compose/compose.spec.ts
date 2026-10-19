@@ -35,29 +35,33 @@ const context2dStub = {
 };
 HTMLCanvasElement.prototype.getContext = (() => context2dStub) as never;
 
+// jsdom has <dialog> but not its modal API (the settings dialog): open and
+// close by the attribute, telling the close as the browser does.
+HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
+  this.open = true;
+};
+HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) {
+  this.open = false;
+  this.dispatchEvent(new Event('close'));
+};
+
 // Every composer saves its draft when it goes: start each spec without one.
 beforeEach(() => localStorage.clear());
 
 /** Picks a View in the writer bar's ⋮ menu — the editor, or its HTML in
-    the editor's place (code view) — on its View toggle. */
+    the editor's place (code view) — one of its two check options. A pick
+    closes the menu. */
 async function chooseView(fixture: ComponentFixture<unknown>, view: 'Editor' | 'HTML') {
   const root = fixture.nativeElement as HTMLElement;
-  // A pick leaves the menu open: open it only if it is not.
-  if (!document.querySelector('.toolbar-menu')) {
-    (root.querySelector('.writer-bar [aria-label="More options"]') as HTMLButtonElement).click();
-  }
+  (root.querySelector('.writer-bar [aria-label="More options"]') as HTMLButtonElement).click();
   await fixture.whenStable();
-  // The View row's toggle — the Format row has an "HTML" of its own.
-  const row = [...document.querySelectorAll<HTMLElement>('.toolbar-menu hk-tgb')].find(
-    (group) =>
-      document.getElementById(group.getAttribute('aria-labelledby') ?? '')?.textContent?.trim() ===
-      'View',
-  );
-  const toggle = [...(row?.querySelectorAll<HTMLElement>('[role=radio]') ?? [])].find(
-    (item) => item.textContent?.trim() === view,
-  );
-  if (!toggle) throw new Error(`no ${view} toggle in the ⋮ menu`);
-  toggle.click();
+  const option = [
+    ...document.querySelectorAll<HTMLElement>('.toolbar-menu [role="menuitemradio"]'),
+  ].find((item) => item.textContent?.trim().startsWith(view));
+  if (!option || option.getAttribute('aria-disabled') === 'true') {
+    throw new Error(`no ${view} option in the ⋮ menu`);
+  }
+  option.click();
   await fixture.whenStable();
 }
 
@@ -873,7 +877,42 @@ describe('Compose', () => {
     expect(labels()).toEqual(['From', 'To']);
   });
 
-  it('the ⋮ Format turns the message to plain text and back, and sends plain text alone', async () => {
+  it('the ⚙ Layout switch turns every layout block static, and stands disabled for plain text', async () => {
+    const root = fixture.nativeElement as HTMLElement;
+    const sheet = (component as any).sheet();
+    const dialog = root.querySelector<HTMLDialogElement>('.writer-bar dialog.settings')!;
+    (root.querySelector('.writer-bar [aria-label="Settings"]') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    expect(dialog.open).toBe(true);
+
+    const pm = () => sheet.emailPane().editor().view.dom as HTMLElement;
+    const layoutSwitch = () =>
+      dialog.querySelector<HTMLButtonElement>('.settings__switch button[role="switch"]')!;
+    expect(pm().hasAttribute('data-aee-static')).toBe(false);
+    expect(layoutSwitch().getAttribute('aria-checked')).toBe('true');
+
+    layoutSwitch().click();
+    await fixture.whenStable();
+    expect(layoutSwitch().getAttribute('aria-checked')).toBe('false');
+    expect(pm().getAttribute('data-aee-static')).toBe('section columns table');
+
+    // Plain text has no layout: the switch is still there, disabled.
+    sheet.onFormat('text');
+    await settle();
+    await fixture.whenStable();
+    expect(layoutSwitch()).not.toBeNull();
+    expect(layoutSwitch().disabled).toBe(true);
+
+    // Back to HTML: the new editor takes the switch as it stands.
+    sheet.onFormat('html');
+    await settle();
+    await fixture.whenStable();
+    expect(layoutSwitch().disabled).toBe(false);
+    expect(pm().getAttribute('data-aee-static')).toBe('section columns table');
+    dialog.close();
+  });
+
+  it('the ⚙ Format turns the message to plain text and back, and sends plain text alone', async () => {
     const root = fixture.nativeElement as HTMLElement;
     const sheet = (component as any).sheet();
     const rich = '<div>Hello <strong>world</strong></div><ul><li><div>one</div></li></ul>';
@@ -882,16 +921,15 @@ describe('Compose', () => {
     const richAsPublished = sheet.message().html;
     expect(richAsPublished).toContain('<strong');
 
-    /** Picks a Format on the ⋮ menu's toggle — the menu stays open. */
+    /** Picks a Format on the settings' toggle — the dialog stays open. */
     const chooseFormat = async (label: 'HTML' | 'Plain text') => {
-      if (!document.querySelector('.toolbar-menu')) {
-        (
-          root.querySelector('.writer-bar [aria-label="More options"]') as HTMLButtonElement
-        ).click();
+      const dialog = root.querySelector<HTMLDialogElement>('.writer-bar dialog.settings')!;
+      if (!dialog.open) {
+        (root.querySelector('.writer-bar [aria-label="Settings"]') as HTMLButtonElement).click();
         await fixture.whenStable();
       }
-      const row = [...document.querySelectorAll<HTMLElement>('.toolbar-menu hk-tgb')].find(
-        (group) => group.textContent?.includes('Plain text'),
+      const row = [...dialog.querySelectorAll<HTMLElement>('hk-tgb')].find((group) =>
+        group.textContent?.includes('Plain text'),
       )!;
       [...row.querySelectorAll<HTMLElement>('[role=radio]')]
         .find((item) => item.textContent?.trim() === label)!

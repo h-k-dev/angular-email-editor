@@ -218,9 +218,13 @@ describe('SuggestionMenu', () => {
       'slash-option-1',
       'slash-option-2',
       'slash-option-3',
+      'slash-option-4',
+      'slash-option-5',
     ]);
     expect(options().map((option) => option.getAttribute('aria-selected'))).toEqual([
       'true',
+      'false',
+      'false',
       'false',
       'false',
       'false',
@@ -316,8 +320,8 @@ describe('SuggestionMenu', () => {
 
     it('counts the rows of a list that is in, and goes quiet when the menu closes', async () => {
       await type('/head');
-      expect(announcer().textContent).toBe('4 results');
-      await type('ing 2');
+      expect(announcer().textContent).toBe('6 results');
+      await type('ing 2 (layout');
       expect(announcer().textContent).toBe('1 result');
       await keydown('Escape');
       expect(announcer().textContent).toBe('');
@@ -345,12 +349,12 @@ describe('SuggestionMenu', () => {
         return true;
       });
       TestBed.tick();
-      expect(options()).toHaveLength(4);
+      expect(options()).toHaveLength(6);
       expect(announcer().textContent).toBe('');
 
       await new Promise((resolve) => setTimeout(resolve, 80));
       await fixture.whenStable();
-      expect(announcer().textContent).toBe('4 results');
+      expect(announcer().textContent).toBe('6 results');
     });
   });
 
@@ -402,7 +406,7 @@ describe('SuggestionMenu', () => {
       await type('/head');
       host.coordsAtPos.mockClear();
       await type('ing 2');
-      expect(options()).toHaveLength(1);
+      expect(options()).toHaveLength(2);
       expect(host.coordsAtPos).toHaveBeenCalledTimes(1);
     });
   });

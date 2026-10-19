@@ -105,13 +105,15 @@ export const Heading = defineNode({
       icon: `format_h${level}`,
       command: toHeading(schema.nodes['heading'], level),
     })),
-    {
-      id: 'heading-layout',
-      section: 'blocks',
-      title: 'Heading (layout)',
-      keywords: ['title', 'heading', 'layout', 'flush', 'banner'],
-      icon: 'title',
-      command: toLayoutHeading(schema.nodes['heading']),
-    },
+    // The flush variants, one per level, in the Layout section — beside the
+    // blocks they sit in, not their spaced twins.
+    ...[1, 2, 3].map((level) => ({
+      id: `heading-${level}-layout`,
+      section: 'layout',
+      title: `Heading ${level} (layout)`,
+      keywords: [`h${level}`, 'title', 'heading', 'layout', 'flush', 'banner'],
+      icon: `format_h${level}`,
+      command: toHeading(schema.nodes['heading'], level, true),
+    })),
   ],
 });

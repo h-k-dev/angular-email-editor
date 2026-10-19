@@ -43,6 +43,20 @@ export default {
     view: { title: 'Ansicht', editor: 'Editor', html: 'HTML' },
     attach: 'Dateien anhängen',
     more: 'Weitere Optionen',
+    settings: {
+      title: 'Einstellungen',
+      close: 'Einstellungen schließen',
+      message: 'Nachricht',
+      formatHint: 'Als was die Nachricht geschrieben und gesendet wird',
+      themeHint: 'Der Editor auf eigenem Papier oder im Design der App',
+      layout: {
+        title: 'Layout',
+        label: 'Layout-Blöcke',
+        hint: 'Abschnitte, Spalten und Tabellen: Griffe, Größe ändern, Hinzufügen und Entfernen',
+        plainText: 'Nur Text hat kein Layout',
+        note: 'Aus: Jeder Block bleibt, wie er angelegt ist – sein Text lässt sich bearbeiten, seine Struktur nicht.',
+      },
+    },
     appearance: {
       title: 'Darstellung',
       theme: 'Design',
@@ -75,8 +89,16 @@ export default {
       'heading-1': { title: 'Überschrift 1', keywords: 'überschrift, titel' },
       'heading-2': { title: 'Überschrift 2', keywords: 'überschrift, titel' },
       'heading-3': { title: 'Überschrift 3', keywords: 'überschrift, titel' },
-      'heading-layout': {
-        title: 'Überschrift (Layout)',
+      'heading-1-layout': {
+        title: 'Überschrift 1 (Layout)',
+        keywords: 'überschrift, titel, bündig, ohne abstand',
+      },
+      'heading-2-layout': {
+        title: 'Überschrift 2 (Layout)',
+        keywords: 'überschrift, titel, bündig, ohne abstand',
+      },
+      'heading-3-layout': {
+        title: 'Überschrift 3 (Layout)',
         keywords: 'überschrift, titel, bündig, ohne abstand',
       },
       quote: { title: 'Zitat', keywords: 'zitat, zitieren' },

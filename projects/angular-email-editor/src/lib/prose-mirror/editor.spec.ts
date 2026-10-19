@@ -427,11 +427,25 @@ describe('actions and watching the editor', () => {
       expect(new Set(ids).size).toBe(ids.length);
     });
 
-    it('is the list a / menu shows: the same objects, seen as suggestions', () => {
+    it('is the list a / menu shows: the same objects, each section’s together', () => {
       const ctx = { schema: editor.schema, extensions: richTextExtensions };
-      expect(extensionSuggestions(ctx).map((row) => row.id)).toEqual(
-        extensionActions(ctx).map((candidate) => candidate.id),
-      );
+      const rows = extensionSuggestions(ctx);
+      const actions = extensionActions(ctx);
+      const ids = (list: { id: string }[]) => list.map((row) => row.id).sort();
+      expect(ids(rows)).toEqual(ids(actions));
+      // A section opens once, where its first action stands; within it, kit order.
+      const sections = rows.map((row) => row.section);
+      expect(sections.filter((section, i) => section !== sections[i - 1])).toEqual([
+        ...new Set(actions.map((action) => action.section)),
+      ]);
+      const layout = (list: { id: string; section?: string }[]) =>
+        list.filter((row) => row.section === 'layout').map((row) => row.id);
+      expect(layout(rows)).toEqual(layout(actions));
+      expect(layout(rows).slice(0, 3)).toEqual([
+        'heading-1-layout',
+        'heading-2-layout',
+        'heading-3-layout',
+      ]);
     });
 
     it('knows when a mark is on at the selection — and at a caret about to type it', () => {

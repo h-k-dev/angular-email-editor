@@ -1,0 +1,203 @@
+@use '@h-k-dev/angular-email-editor/styles/scroll';
+
+// The message's settings, Notion's and Slack's: one fixed frame (the global
+// --dialog-* tokens, styles.scss — the whole screen at the compact width)
+// that scrolls inside — a title and a close button over groups of rows,
+// each group a rounded card with its heading, each row a word and its hint
+// at the start and its control at the end.
+
+// The compact width, where the frame is the whole screen
+// (`Viewport.compact`, `FULL_WIDTH_MAX_WIDTH`).
+$compact: 768px;
+
+// The native dialog, reset to the frame: the panel inside is the surface,
+// and it fills the dialog, so a press on the dialog itself is the
+// backdrop's.
+.settings {
+  --settings-enter: translateY(8px) scale(0.98);
+
+  inline-size: var(--dialog-width);
+  block-size: var(--dialog-height);
+  max-inline-size: none;
+  max-block-size: none;
+  margin: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--mat-sys-on-surface);
+  overflow: visible;
+
+  // In and out: a short rise and fade, the backdrop dimming with it —
+  // `display` and `overlay` held over (allow-discrete) so the way out
+  // animates too.
+  opacity: 0;
+  transform: var(--settings-enter);
+  transition:
+    opacity 160ms ease-out,
+    transform 220ms cubic-bezier(0.2, 0, 0, 1),
+    overlay 220ms allow-discrete,
+    display 220ms allow-discrete;
+
+  &[open] {
+    opacity: 1;
+    transform: none;
+
+    @starting-style {
+      opacity: 0;
+      transform: var(--settings-enter);
+    }
+  }
+
+  &::backdrop {
+    background-color: rgb(0 0 0 / 0%);
+    transition:
+      background-color 220ms ease-out,
+      overlay 220ms allow-discrete,
+      display 220ms allow-discrete;
+  }
+
+  &[open]::backdrop {
+    background-color: rgb(0 0 0 / 32%);
+    backdrop-filter: blur(2px);
+
+    @starting-style {
+      background-color: rgb(0 0 0 / 0%);
+    }
+  }
+
+  @media (max-width: $compact) {
+    --settings-enter: translateY(24px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    --settings-enter: none;
+  }
+}
+
+.settings__panel {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  box-sizing: border-box;
+  // The island's paper, as the sheet behind it is.
+  background: var(--email-paper, var(--mat-sys-surface-bright));
+  border-radius: var(--dialog-radius);
+  box-shadow: var(--mat-sys-float-shadow), var(--mat-sys-level3);
+  overflow: hidden;
+}
+
+.settings__header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--mat-sys-spacing, 4px);
+  padding-block: calc(var(--mat-sys-spacing, 4px) * 3) var(--mat-sys-spacing, 4px);
+  padding-inline: var(--mat-sys-outer-spacing, 24px) calc(var(--mat-sys-spacing, 4px) * 3);
+}
+
+.settings__title {
+  flex: 1;
+  margin: 0;
+  font: var(--mat-sys-title-large);
+}
+
+.settings__main {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-block: 0 var(--mat-sys-outer-spacing, 24px);
+  padding-inline: var(--mat-sys-inner-spacing, 16px);
+  @include scroll.scroll;
+}
+
+.settings__group {
+  margin-block-start: var(--mat-sys-inner-spacing, 16px);
+}
+
+.settings__group-title {
+  margin-block: 0 var(--mat-sys-spacing, 4px);
+  margin-inline: var(--mat-sys-inner-spacing, 16px);
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-large);
+}
+
+.settings__card {
+  background: var(--mat-sys-surface-container-low);
+  border-radius: var(--mat-sys-corner-large, 10px);
+  box-shadow: var(--mat-sys-ring-shadow);
+}
+
+.settings__row {
+  display: flex;
+  align-items: center;
+  gap: var(--mat-sys-inner-spacing, 16px);
+  min-block-size: 56px;
+  box-sizing: border-box;
+  padding-block: calc(var(--mat-sys-spacing, 4px) * 3);
+  padding-inline: var(--mat-sys-inner-spacing, 16px);
+
+  & + & {
+    border-block-start: 1px solid var(--mat-sys-outline-variant);
+  }
+}
+
+.settings__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-inline-size: 0;
+}
+
+.settings__label {
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-large);
+}
+
+.settings__hint,
+.settings__note {
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-small);
+}
+
+.settings__note {
+  margin-block: calc(var(--mat-sys-spacing, 4px) * 2) 0;
+  margin-inline: var(--mat-sys-inner-spacing, 16px);
+}
+
+// 28px items in a 36px track: the thumb keeps 4px of air from the
+// track's edge instead of touching it.
+.settings__toggle {
+  --hk-tgb-size: 28px;
+  --hk-tgb-inset: 4px;
+
+  flex: none;
+}
+
+.settings__switch {
+  flex: none;
+}
+
+// A row that cannot apply (the Layout of a plain-text message): there,
+// dimmed with its control, never hidden.
+.settings__row[data-disabled] .settings__label {
+  color: color-mix(in srgb, var(--mat-sys-on-surface) 38%, transparent);
+}
+
+// A phone: the frame is the screen (the tokens' doing), sliding up from
+// the foot; the title clear of the notch, the last row of the home bar.
+@media (max-width: $compact) {
+  .settings__panel {
+    box-shadow: none;
+  }
+
+  .settings__header {
+    padding-block-start: calc(env(safe-area-inset-top) + var(--mat-sys-spacing, 4px) * 2);
+    padding-inline-start: var(--mat-sys-mobile-edge, 20px);
+  }
+
+  .settings__main {
+    padding-block-end: calc(env(safe-area-inset-bottom) + var(--mat-sys-outer-spacing, 24px));
+  }
+}

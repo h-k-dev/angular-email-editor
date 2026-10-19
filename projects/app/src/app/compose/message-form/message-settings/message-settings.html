@@ -1,0 +1,140 @@
+<!-- The message's settings: the gear, and the dialog it opens. -->
+<button
+  mat-icon-button
+  type="button"
+  [attr.aria-label]="'composer.settings.title' | translate"
+  [title]="'composer.settings.title' | translate"
+  aria-haspopup="dialog"
+  [attr.aria-expanded]="opened()"
+  (click)="open()"
+>
+  <mat-icon>settings</mat-icon>
+</button>
+
+<!-- One fixed size (the global --dialog-* tokens), the whole screen at
+     the compact width. The panel fills the dialog, so
+     a press on the dialog itself is a press on the backdrop. Every pick
+     applies at once: the sheet changes behind it. -->
+<dialog
+  #dialog
+  class="settings"
+  [attr.aria-labelledby]="titleId"
+  (close)="opened.set(false)"
+  (click)="onPress($event)"
+  (keydown.escape)="onEscape($event)"
+>
+  <div class="settings__panel">
+    <header class="settings__header">
+      <h2 class="settings__title" [id]="titleId">{{ 'composer.settings.title' | translate }}</h2>
+      <button
+        mat-icon-button
+        type="button"
+        class="settings__close"
+        [attr.aria-label]="'composer.settings.close' | translate"
+        [title]="'composer.settings.close' | translate"
+        (click)="close()"
+      >
+        <mat-icon>close</mat-icon>
+      </button>
+    </header>
+
+    <div class="settings__main">
+      <!-- The Appearance: the Theme — Light and Dark as round icons, Auto
+           as a pill of words. -->
+      <section class="settings__group">
+        <h3 class="settings__group-title">{{ 'composer.appearance.title' | translate }}</h3>
+        <div class="settings__card">
+          <div class="settings__row">
+            <div class="settings__text">
+              <span class="settings__label" [id]="themeLabelId">{{
+                'composer.appearance.theme' | translate
+              }}</span>
+              <span class="settings__hint">{{ 'composer.settings.themeHint' | translate }}</span>
+            </div>
+            <hk-tgb
+              class="settings__toggle"
+              [attr.aria-labelledby]="themeLabelId"
+              [value]="sheet.editorAppearance()"
+              (valueChange)="sheet.editorAppearance.set($event)"
+            >
+              <button
+                hkTgbIcon
+                value="light"
+                [attr.aria-label]="'composer.appearance.light' | translate"
+                [title]="'composer.appearance.light' | translate"
+              >
+                <mat-icon inline>light_mode</mat-icon>
+              </button>
+              <button
+                hkTgbIcon
+                value="dark"
+                [attr.aria-label]="'composer.appearance.dark' | translate"
+                [title]="'composer.appearance.dark' | translate"
+              >
+                <mat-icon inline>dark_mode</mat-icon>
+              </button>
+              <button hkTgbText value="auto">{{ 'composer.appearance.auto' | translate }}</button>
+            </hk-tgb>
+          </div>
+        </div>
+      </section>
+
+      <!-- The message: its Format — HTML, or plain text (lines, sent as
+           text/plain alone; `onFormat` converts the body, back before an
+           edit restores it). -->
+      <section class="settings__group">
+        <h3 class="settings__group-title">{{ 'composer.settings.message' | translate }}</h3>
+        <div class="settings__card">
+          <div class="settings__row">
+            <div class="settings__text">
+              <span class="settings__label" [id]="formatLabelId">{{
+                'composer.format.title' | translate
+              }}</span>
+              <span class="settings__hint">{{ 'composer.settings.formatHint' | translate }}</span>
+            </div>
+            <hk-tgb
+              class="settings__toggle"
+              [attr.aria-labelledby]="formatLabelId"
+              [value]="sheet.bodyFormat()"
+              (valueChange)="sheet.onFormat($event)"
+            >
+              <button hkTgbText value="html">{{ 'composer.format.html' | translate }}</button>
+              <button hkTgbText value="text">{{ 'composer.format.text' | translate }}</button>
+            </hk-tgb>
+          </div>
+        </div>
+      </section>
+
+      <!-- The Layout: one switch for every layout block — sections,
+           columns, tables. Plain text has no layout: there it stands
+           disabled, saying so, never hidden. -->
+      <section class="settings__group">
+        <h3 class="settings__group-title">{{ 'composer.settings.layout.title' | translate }}</h3>
+        <div class="settings__card">
+          <div class="settings__row" [attr.data-disabled]="sheet.plainText() ? '' : null">
+            <div class="settings__text">
+              <span class="settings__label" [id]="layoutLabelId">{{
+                'composer.settings.layout.label' | translate
+              }}</span>
+              <span class="settings__hint" [id]="layoutHintId">{{
+                (sheet.plainText()
+                  ? 'composer.settings.layout.plainText'
+                  : 'composer.settings.layout.hint'
+                ) | translate
+              }}</span>
+            </div>
+            <mat-slide-toggle
+              class="settings__switch"
+              [checked]="sheet.layoutInteractive()"
+              [disabled]="sheet.plainText()"
+              [aria-labelledby]="layoutLabelId"
+              [aria-describedby]="layoutHintId"
+              (change)="sheet.layoutInteractive.set($event.checked)"
+            />
+          </div>
+        </div>
+        <p class="settings__note">{{ 'composer.settings.layout.note' | translate }}</p>
+      </section>
+    </div>
+  </div>
+</dialog>

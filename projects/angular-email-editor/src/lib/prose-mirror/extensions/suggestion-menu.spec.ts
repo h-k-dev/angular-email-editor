@@ -75,15 +75,15 @@ describe('createSuggestionMenu — the / menu', () => {
       'Heading 1',
       'Heading 2',
       'Heading 3',
-      'Heading (layout)',
       'Quote',
       'Bulleted list',
-      'Bulleted list (layout)',
       'Numbered list',
-      'Numbered list (layout)',
-      'Image',
-      'Image placeholder',
       'Divider',
+      'Heading 1 (layout)',
+      'Heading 2 (layout)',
+      'Heading 3 (layout)',
+      'Bulleted list (layout)',
+      'Numbered list (layout)',
       'Button',
       'Table',
       'Borderless table',
@@ -91,6 +91,8 @@ describe('createSuggestionMenu — the / menu', () => {
       'Columns',
       '3 columns',
       'Section',
+      'Image',
+      'Image placeholder',
       'Bold',
       'Italic',
       'Underline',
@@ -162,11 +164,13 @@ describe('createSuggestionMenu — the / menu', () => {
       'Heading 1',
       'Heading 2',
       'Heading 3',
-      'Heading (layout)',
+      'Heading 1 (layout)',
+      'Heading 2 (layout)',
+      'Heading 3 (layout)',
     ]);
 
     type('ing 2');
-    expect(state?.items.map((item) => item.title)).toEqual(['Heading 2']);
+    expect(state?.items.map((item) => item.title)).toEqual(['Heading 2', 'Heading 2 (layout)']);
 
     type('zzz');
     expect(state?.open).toBe(false);
@@ -219,11 +223,9 @@ describe('createSuggestionMenu — the / menu', () => {
     expect(state?.activeIndex).toBe(0);
     expect(changes).toBe(0);
 
-    keydown('ArrowDown');
-    keydown('ArrowDown');
-    keydown('ArrowDown');
-    expect(state?.activeIndex).toBe(3);
-    expect(changes).toBe(3);
+    for (let i = 0; i < 5; i++) keydown('ArrowDown');
+    expect(state?.activeIndex).toBe(5);
+    expect(changes).toBe(5);
 
     // Held against the bottom: the highlight stays, nothing is emitted, and
     // the key is still taken so the caret does not move.
@@ -234,8 +236,8 @@ describe('createSuggestionMenu — the / menu', () => {
     });
     editor.view.dom.dispatchEvent(held);
     keydown('ArrowDown');
-    expect(state?.activeIndex).toBe(3);
-    expect(changes).toBe(3);
+    expect(state?.activeIndex).toBe(5);
+    expect(changes).toBe(5);
     expect(held.defaultPrevented).toBe(true);
   });
 
