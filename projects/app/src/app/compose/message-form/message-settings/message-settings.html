@@ -133,7 +133,15 @@
             />
           </div>
         </div>
-        <p class="settings__note">{{ 'composer.settings.layout.note' | translate }}</p>
+        <p class="settings__note">
+          {{
+            (sheet.mode() === 'design'
+              ? 'composer.settings.layout.designMode'
+              : 'composer.settings.layout.writeMode'
+            ) | translate
+          }}
+          {{ 'composer.settings.layout.note' | translate }}
+        </p>
       </section>
     </div>
   </div>

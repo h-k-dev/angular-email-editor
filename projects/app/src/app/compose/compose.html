@@ -57,7 +57,9 @@
      window is (paper-island.ts): bar, rows, text and their menus one paper;
      the desk round it — the panes, the status strip — keeps the app's.
      Opened on a phone, the page writes on the phone's sheet instead
-     (`mobile`, chosen once): the screen, no panes to dock. -->
+     (`mobile`, chosen once): the screen, no panes to dock. The desk is
+     where a layout is shaped (`mode="design"`: its blocks take their
+     gestures); the phone's sheet, like every compose window, writes. -->
   @if (mobile) {
     <div
       mobile-message-form
@@ -72,6 +74,7 @@
       #deskSheet
       [paperIsland]="deskSheet.editorScheme()"
       keepDraft
+      mode="design"
       [(sourceView)]="sourceView"
       sourceViews
       [codePortal]="codePortal()"

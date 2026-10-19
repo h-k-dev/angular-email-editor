@@ -108,6 +108,23 @@ describe('ComposeWindows', () => {
     expect(oldest.contains(document.activeElement)).toBe(true);
   });
 
+  it('a window writes: its layout blocks start static, and the settings turn them on', async () => {
+    await windows.open();
+    for (let i = 0; i < 4; i++) await settle();
+    const frame = frames()[0];
+    const editor = () => frame.querySelector<HTMLElement>('.ProseMirror')!;
+    expect(editor().getAttribute('data-aee-static')).toBe('section columns table');
+
+    // The settings' switch overrides the mode's default, for this message.
+    const layoutSwitch = frame.querySelector<HTMLButtonElement>(
+      'dialog.settings .settings__switch button[role="switch"]',
+    )!;
+    expect(layoutSwitch.getAttribute('aria-checked')).toBe('false');
+    layoutSwitch.click();
+    await settle();
+    expect(editor().hasAttribute('data-aee-static')).toBe(false);
+  });
+
   it('a narrow screen holds one message: the next Compose is that same message', async () => {
     screen(800);
     const first = await windows.open();

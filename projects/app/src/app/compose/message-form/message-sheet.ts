@@ -69,6 +69,14 @@ export type EditorView = 'editor' | 'html';
 /** How the editor looks: light or dark of its own, or `auto` — the app's. */
 export type EditorAppearance = EditorColorScheme | 'auto';
 
+/** What the frame writes the message for. `design`: the layout is the
+    writer's to shape — the compose page's desk, beside its source and
+    preview. `write`: words into a layout already settled — a compose
+    window, zoomed or not, and every phone — where a grip under the caret
+    is in the way. Sets defaults (the layout blocks' gestures, today); the
+    settings still override them for the message. */
+export type EditingMode = 'design' | 'write';
+
 /** What a compose window or the page writes a message on: the desktop
     sheet (`MessageForm`) or the phone's (`MobileMessageForm`). Chosen once,
     as the message opens, and kept until it closes. */
@@ -291,6 +299,10 @@ export abstract class MessageSheet {
       phone's sheet never does. */
   readonly sourceViews = input(false, { transform: booleanAttribute });
 
+  /** What the frame writes the message for (`EditingMode`): `write`
+      unless the frame is a design desk — the compose page's. */
+  readonly mode = input<EditingMode>('write');
+
   /** A send went through — the receipt, as the page's status strip words
       it. The sheet has started over by then. */
   readonly sent = output<string>();
@@ -364,8 +376,10 @@ export abstract class MessageSheet {
       columns, tables — take their gestures: a section's menu, the columns'
       drags and pills, a table's grips, drags, pills and menus. Off, every
       block stands as laid out and its words still edit: a template whose
-      layout is settled, filled in. On by default. */
-  readonly layoutInteractive = signal(true);
+      layout is settled, filled in. The mode's default — on to design, off
+      to write — until the switch is flipped for the message; a new mode
+      starts it over. */
+  readonly layoutInteractive = linkedSignal(() => this.mode() === 'design');
 
   /** The switch, as the editor takes it: every layout block alike. */
   readonly layoutInteraction = computed<LayoutInteractivity>(() => {

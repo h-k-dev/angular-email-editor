@@ -51,6 +51,8 @@ export default {
         label: 'Layout blocks',
         hint: 'Sections, columns and tables: grips, resizing, adding and removing',
         plainText: 'Plain text has no layout',
+        designMode: 'Designing here: layout blocks start on.',
+        writeMode: 'Writing here: layout blocks start off.',
         note: 'Off, every block stands as laid out: its text still edits, its structure takes no gesture.',
       },
     },

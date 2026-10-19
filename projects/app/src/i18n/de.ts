@@ -54,6 +54,8 @@ export default {
         label: 'Layout-Blöcke',
         hint: 'Abschnitte, Spalten und Tabellen: Griffe, Größe ändern, Hinzufügen und Entfernen',
         plainText: 'Nur Text hat kein Layout',
+        designMode: 'Hier wird gestaltet: Layout-Blöcke sind anfangs an.',
+        writeMode: 'Hier wird geschrieben: Layout-Blöcke sind anfangs aus.',
         note: 'Aus: Jeder Block bleibt, wie er angelegt ist – sein Text lässt sich bearbeiten, seine Struktur nicht.',
       },
     },
