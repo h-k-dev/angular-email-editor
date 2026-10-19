@@ -1,11 +1,11 @@
 @use '@angular/material' as mat;
 @use '../../styles/breakpoints' as bp;
 
-// A window on the bottom edge: exactly 600px — the measure the email is
-// designed for, so the text in a window sits in the same column as on the
-// page — as tall as the screen allows up to a sheet's worth, its top
-// corners rounded and its foot on the edge. A message longer than the sheet
-// pushes the window up with it, to a ceiling, and only then scrolls.
+// A window floating over the bottom edge: exactly 600px — the measure the
+// email is designed for, so the text in a window sits in the same column as
+// on the page — as tall as the screen allows up to a sheet's worth, rounded
+// all round and held 16px clear of the edge. A message longer than the
+// sheet pushes the window up with it, to a ceiling, and only then scrolls.
 // The window is the paper: the writer inside drops its own corners and
 // lift (its tokens), so there is one sheet, not a sheet on a sheet.
 :host {
@@ -16,7 +16,7 @@
   // throughout this file, never dvh or vh: the small viewport is the one
   // that holds still while the browser's own chrome slides in and out, so
   // a window never resizes under the hands writing in it.
-  --compose-window-height: min(640px, calc(100svh - 96px));
+  --compose-window-height: min(640px, calc(100svh - 96px - var(--compose-window-gap)));
   // How far a long message may push the window up the screen before the
   // editor scrolls instead — the consumer's to set (any length). Never a
   // ceiling under the sheet's own height: min-block-size wins over
@@ -34,6 +34,10 @@
     (100vw - #{bp.$full-width-max}) * 100,
     var(--mat-sys-corner-medium, 12px)
   );
+  // How far it floats off the bottom edge — the same 16px it keeps from the
+  // sides. The same steep clamp as the corners: on a phone a minimized bar
+  // sits on the edge again, square, in the paint the breakpoint is crossed.
+  --compose-window-gap: clamp(0px, (100vw - #{bp.$full-width-max}) * 100, 16px);
 
   // Its place on the edge, handed down as px from the right side of the
   // screen (its slot's, or where a drag pinned it) — never so far that it
@@ -41,7 +45,7 @@
   // placed on its own: nothing flows, so no window moves because another
   // one opened, minimized, went to the dialog or closed.
   position: fixed;
-  inset-block-end: 0;
+  inset-block-end: var(--compose-window-gap);
   inset-inline-end: clamp(
     16px,
     var(--compose-window-x, 16px),
@@ -58,7 +62,7 @@
   // editor's chain (message-form, email-writer, email-compose) is all
   // flex: 1 / min-height: 0, so under the floor the editor stretches to
   // fill, and at the ceiling it shrinks and its own overflow takes over.
-  // Its foot is on the edge, so it grows upward.
+  // Its foot is held over the edge, so it grows upward.
   block-size: auto;
   min-block-size: var(--compose-window-height);
   max-block-size: var(--compose-window-max-height);
@@ -70,7 +74,7 @@
   // The island's paper (`scheme`), the app's surface before the sheet is.
   background: var(--email-paper, var(--mat-sys-surface-bright));
   color: var(--mat-sys-on-surface);
-  border-radius: var(--compose-window-radius) var(--compose-window-radius) 0 0;
+  border-radius: var(--compose-window-radius);
   box-shadow: var(--mat-sys-level3);
 
   --writer-radius: 0;

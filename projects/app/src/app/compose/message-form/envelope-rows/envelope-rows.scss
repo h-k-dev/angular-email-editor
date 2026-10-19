@@ -189,21 +189,22 @@ section[email-compose] {
   gap: 2px;
 }
 
-// Cc and Bcc show only while focus is in the To row — its input, or the
-// buttons themselves, whose press keeps the caret in To — as Gmail's do.
-// Hidden, they keep their room, so the chips never reflow as focus comes and
-// goes, and they leave the tab order: Tab runs From, To; Shift+Tab out of To
-// reaches them.
+// Cc and Bcc show only while focus is in the recipients — To, an open Cc or
+// Bcc row, or the buttons themselves, whose press keeps the caret where it
+// was — as Gmail's do: the one still folded stays one click away from the
+// other copy row. Hidden, they keep their room, so the chips never reflow as
+// focus comes and goes, and they leave the tab order: Tab runs From, To;
+// Shift+Tab out of To reaches them.
 .writer-field__actions--copy {
   transition:
     opacity 120ms ease,
     visibility 0s linear 120ms;
 
-  .writer-field:focus-within & {
+  .writer-recipients:focus-within & {
     transition: opacity 120ms ease;
   }
 
-  .writer-field:not(:focus-within) & {
+  .writer-recipients:not(:focus-within) & {
     visibility: hidden;
     opacity: 0;
   }
