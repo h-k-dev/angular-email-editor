@@ -117,8 +117,10 @@ export type SuggestionSource<T extends SuggestionItem = SuggestionItem> = (
 /**
  * A suggestion that opens a second level: picking it rewrites the query to
  * `<word> ` (its title, lowercased, spaces as hyphens) after the trigger, and
- * whatever is typed after that space searches its children. Two levels, no
- * more — a group's children are command items.
+ * whatever is typed after that space searches its children — or, for a
+ * trigger that keeps its levels in the menu (`levels: 'menu'`, the `{{`
+ * one), clears the query and the menu holds the group by its `id`. Two
+ * levels, no more — a group's children are command items.
  *
  * `children` is either a list, which the menu filters and ranks like the
  * first level, or a {@link SuggestionSource}.

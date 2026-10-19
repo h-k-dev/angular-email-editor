@@ -87,11 +87,11 @@ export interface SuggestionMenuState {
       pointer's highlight finds its row by it. */
   optionId: (index: number) => string;
   /** Applies an item. A command item removes the trigger and query text,
-      then runs its command; a group rewrites the query to `<word> `,
-      opening level 2. */
+      then runs its command; a group opens level 2 — rewriting the query to
+      `<word> `, or, for a trigger with `levels: 'menu'`, clearing it. */
   select: (item: SuggestionItem) => void;
   /** Level 2 back to level 1 with an empty query — the pointer's way; the
-      keyboard's is Backspace over the space. A no-op at level 1. */
+      keyboard's is Backspace on an empty level-2 query. A no-op at level 1. */
   back: () => void;
   /** Fetches the next page and appends it. A no-op while anything is loading,
       when no page is left, or when the menu is closed — safe from any scroll
@@ -158,6 +158,22 @@ export interface SuggestionTrigger {
   query?: RegExp;
   /** The longest query that still counts as one. Default 100. */
   maxLength?: number;
+  /**
+   * Where the level a {@link SuggestionGroup} opens is kept.
+   *
+   * - `'text'`: picking the group rewrites the query to its word
+   *   (`/templates `), and the level is read back from the text — typed or
+   *   pasted straight, it lands there too.
+   * - `'menu'`: the menu holds it, and the text after the trigger is only
+   *   the level's own query. For a trigger whose text is the document's own
+   *   syntax (`{{`): a group's name written there is half a token, left
+   *   behind whenever the session ends. The level lasts as long as its
+   *   session; a group is entered only by a pick.
+   *
+   * Either way Backspace on an empty level-2 query is level 1, with an
+   * empty query. Default `'text'`; {@link mergeTagTrigger}'s is `'menu'`.
+   */
+  levels?: 'text' | 'menu';
   /** The menu's own items — a list, or a function of the editor's extensions
       (`extensionSuggestions` for the kit's `/` commands). Filtered and
       ranked by the query; groups among them open a second level. */
@@ -283,10 +299,15 @@ interface SessionState {
   /** `from` of the session that was dismissed; held until the caret has been
       anywhere else. */
   dismissed: number | null;
+  /** The id of the group the session is inside, for a trigger that keeps
+      its levels in the menu (`levels: 'menu'`); null on level 1. */
+  group: string | null;
 }
 
 interface SessionMeta {
-  dismiss: true;
+  dismiss?: true;
+  /** A group entered by its id, or null: level 1 again. */
+  enter?: string | null;
 }
 
 const sameSession = (a: Session | null, b: Session | null): boolean =>
@@ -417,8 +438,10 @@ export function matchSuggestions<T extends SuggestionItem>(
  *
  * **Two levels.** A {@link SuggestionGroup} ("Templates") picked on level 1
  * rewrites the query to `templates `; from then on the words after that
- * space search the group's children. Backspace over the space is level 1
- * again.
+ * space search the group's children. A trigger with `levels: 'menu'` (the
+ * `{{` one) keeps the group in the menu instead and writes nothing: the text
+ * after it searches the children. Backspace on an empty level-2 query is
+ * level 1 again, with an empty query.
  *
  * **One at a time.** Several menus on one editor never open together: when
  * two sessions overlap (`/templates {{`), the trigger nearest the caret wins
@@ -484,6 +507,7 @@ function createSuggestionMenuPlugin(
 ): Plugin {
   const { element } = host;
   const { trigger, i18n, startOfWord = true, maxLength = 100 } = options;
+  const heldLevels = options.levels === 'menu';
   const key = new PluginKey<SessionState>('suggestionMenu');
 
   const first = escapeRegExp(trigger[0]);
@@ -572,6 +596,8 @@ function createSuggestionMenuPlugin(
 
   let view: EditorView | undefined;
   let session: Session | null = null;
+  /** The group the menu holds the session in (`levels: 'menu'`), by id. */
+  let group: string | null = null;
   let scope: Scope = { parent: null, query: '' };
   /** Static matches + the source's contribution — what navigation runs over. */
   let filtered: SuggestionItem[] = [];
@@ -596,8 +622,13 @@ function createSuggestionMenuPlugin(
   let sessionToken: object = {};
   let activeIndex = 0;
 
-  /** Level 2 when the text is `<word> <rest>` and the word names a group. */
-  const scopeOf = (text: string): Scope => {
+  /** Level 2 when the menu holds a group (`levels: 'menu'`) — the whole text
+      is its query — or when the text is `<word> <rest>` and the word names
+      a group. */
+  const scopeOf = (text: string, held: string | null): Scope => {
+    if (heldLevels) {
+      return { parent: groups.find((group) => group.id === held) ?? null, query: text };
+    }
     // Any space: an input method for Japanese types a full-width one.
     const space = text.search(/\s/);
     if (space > 0) {
@@ -778,10 +809,20 @@ function createSuggestionMenuPlugin(
     view.focus();
   };
 
+  /** The level the menu holds (`levels: 'menu'`): a group by its id, or null
+      for level 1 — the query typed so far goes with it, in one transaction. */
+  const enter = (id: string | null) => {
+    if (!view || !session) return;
+    const tr = view.state.tr.delete(session.from + trigger.length, session.to);
+    view.dispatch(tr.setMeta(key, { enter: id } satisfies SessionMeta));
+    view.focus();
+  };
+
   const select = (item: SuggestionItem) => {
     if (!view || !session) return;
     if (item.children) {
-      rewrite(`${commandWord(item.title)} `);
+      if (heldLevels) enter(item.id);
+      else rewrite(`${commandWord(item.title)} `);
       return;
     }
     view.dispatch(view.state.tr.delete(session.from, session.to));
@@ -790,7 +831,9 @@ function createSuggestionMenuPlugin(
   };
 
   const back = () => {
-    if (scope.parent) rewrite('');
+    if (!scope.parent) return;
+    if (heldLevels) enter(null);
+    else rewrite('');
   };
 
   const clientRect = (): SuggestionRect | null => {
@@ -865,6 +908,7 @@ function createSuggestionMenuPlugin(
 
   const close = () => {
     session = null;
+    group = null;
     scope = { parent: null, query: '' };
     filtered = [];
     staticMatches = [];
@@ -890,7 +934,10 @@ function createSuggestionMenuPlugin(
   const refresh = () => {
     if (!view) return;
     const previous = session;
-    session = key.getState(view.state)?.session ?? null;
+    const previousGroup = group;
+    const held = key.getState(view.state);
+    session = held?.session ?? null;
+    group = held?.group ?? null;
 
     if (!session) {
       if (previous) close();
@@ -899,10 +946,17 @@ function createSuggestionMenuPlugin(
 
     // A transaction that leaves the session as it was (a mark elsewhere, a
     // sync) changes nothing on screen: no emit, no render.
-    if (previous && session.text === previous.text && session.from === previous.from) return;
+    if (
+      previous &&
+      session.text === previous.text &&
+      session.from === previous.from &&
+      group === previousGroup
+    ) {
+      return;
+    }
 
     const previousParent = scope.parent;
-    scope = scopeOf(session.text);
+    scope = scopeOf(session.text, group);
     // A new level starts at the top; within a level, a new query too.
     activeIndex = 0;
     staticMatches = matchStatic();
@@ -957,6 +1011,14 @@ function createSuggestionMenuPlugin(
         return true;
       case 'Escape':
         dismiss();
+        return true;
+      case 'Backspace':
+        // Up a level, to all of level 1: what it would delete is the group's
+        // space (`/templates `), or nothing of the query (a level the menu
+        // holds) — either would leave a level 1 searching for the group.
+        if (!scope.parent || scope.query !== '' || view?.composing) return false;
+        if (event.ctrlKey || event.metaKey || event.altKey) return false;
+        back();
         return true;
       default:
         return false;
@@ -1017,12 +1079,14 @@ function createSuggestionMenuPlugin(
   return new Plugin<SessionState>({
     key,
     state: {
-      init: (_config, state) => ({ session: ownSession(state), dismissed: null }),
+      init: (_config, state) => ({ session: ownSession(state), dismissed: null, group: null }),
       apply: (tr, previous, _oldState, state) => {
-        const dismiss = (tr.getMeta(key) as SessionMeta | undefined)?.dismiss === true;
+        const meta = tr.getMeta(key) as SessionMeta | undefined;
+        const dismiss = meta?.dismiss === true;
+        const entered = meta?.enter !== undefined;
         // A session is read from the text before the caret: a transaction
         // that moved neither (another plugin's meta) has no news.
-        if (!dismiss && !tr.docChanged && !tr.selectionSet) return previous;
+        if (!dismiss && !entered && !tr.docChanged && !tr.selectionSet) return previous;
 
         const next = ownSession(state);
         // A dismissal stays with its trigger as the text moves — what is
@@ -1038,9 +1102,22 @@ function createSuggestionMenuPlugin(
         // after one that found nothing and so never showed.
         if (session && session.from !== previous.session?.from) relabel();
 
-        return sameSession(session, previous.session) && dismissed === previous.dismissed
+        // A level the menu holds is its session's: entered by a pick, left
+        // by Backspace — and with the session, wherever it ends. It moves
+        // with the trigger as text arrives before it.
+        let group: string | null = null;
+        if (heldLevels && session) {
+          if (entered) group = meta!.enter!;
+          else if (previous.session && session.from === tr.mapping.map(previous.session.from, 1)) {
+            group = previous.group;
+          }
+        }
+
+        return sameSession(session, previous.session) &&
+          dismissed === previous.dismissed &&
+          group === previous.group
           ? previous
-          : { session, dismissed };
+          : { session, dismissed, group };
       },
     },
     props: {
@@ -1048,11 +1125,13 @@ function createSuggestionMenuPlugin(
       // The session, marked in the text — from the state being rendered, so
       // it is never a transaction behind.
       decorations: (state) => {
-        const current = key.getState(state)?.session;
+        const held = key.getState(state);
+        const current = held?.session;
         if (!current) return null;
         // Empty is the *level's* query: after the bare trigger, and again
-        // after a group's word and its space — each with its own words.
-        const level = scopeOf(current.text);
+        // after a group's word and its space (or a group the menu holds) —
+        // each with its own words.
+        const level = scopeOf(current.text, held.group);
         const empty = level.query === '';
         const hint = level.parent ? level.parent.placeholder : placeholder;
         return DecorationSet.create(state.doc, [

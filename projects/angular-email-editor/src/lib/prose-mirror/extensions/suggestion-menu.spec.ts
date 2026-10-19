@@ -558,6 +558,34 @@ describe('createSuggestionMenu — groups, paging, i18n and ARIA', () => {
     expect(titles()).toEqual(['Templates']);
   });
 
+  it('goes up on the Backspace key to all of level 1 — for a group of several words too', () => {
+    mount({
+      items: [
+        templates,
+        { id: 'fields', title: 'Alle Feldtypen (Test)', children: [leaf('cf_1', 'Name')] },
+      ],
+    });
+    for (const word of ['templates', 'alle-feldtypen-(test)']) {
+      type(`/${word} `);
+      expect(state?.level).toBe(2);
+
+      expect(keydown('Backspace')).toBe(true);
+      expect(text()).toBe('/');
+      expect(state).toMatchObject({ open: true, level: 1, query: '' });
+      expect(titles()).toEqual(['Templates', 'Alle Feldtypen (Test)']);
+      backspace();
+    }
+  });
+
+  it('leaves Backspace to the editor while the level’s query has text, and on level 1', () => {
+    type('/templates n');
+    expect(keydown('Backspace')).toBe(false);
+
+    editor!.setContent('<p></p>');
+    type('/tem');
+    expect(keydown('Backspace')).toBe(false);
+  });
+
   it('enters level 2 by a keyword as well — a typed or pasted query lands there directly', () => {
     type('/tpl welc');
     expect(state?.level).toBe(2);
@@ -1152,6 +1180,131 @@ describe('mergeTagTrigger', () => {
     mount({ query: /^ ?[^{}]*$/u });
     type('{{ first name');
     expect(state).toMatchObject({ open: true, query: 'first name' });
+  });
+
+  describe('a group the menu holds', () => {
+    let picked: string[];
+    const field = (id: string, title: string): SuggestionCommandItem => ({
+      id,
+      title,
+      command: (editorState, dispatch) => {
+        picked.push(id);
+        return insertMergeTag(id)(editorState, dispatch);
+      },
+    });
+    const fields: SuggestionGroup = {
+      id: 'cf-group-7',
+      title: 'Alle Feldtypen (Test)',
+      placeholder: 'Search fields…',
+      children: [field('cf_1', 'Aktenzeichen'), field('cf_2', 'Gegner')],
+    };
+
+    const keydown = (key: string) => {
+      const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+      editor!.view.dom.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    const text = () => editor!.state.doc.textContent;
+    const titles = () => state?.items.map((item) => item.title);
+    const decoration = () => host.querySelector('.aee-suggestion');
+
+    beforeEach(() => {
+      picked = [];
+      mount({ items: [tag('auto_currentDateDE'), fields] });
+    });
+
+    it('is entered by a pick without a word written — the text stays the braces', () => {
+      type('Hi {{alle');
+      expect(titles()).toEqual(['Alle Feldtypen (Test)']);
+
+      expect(keydown('Enter')).toBe(true);
+      expect(text()).toBe('Hi {{');
+      expect(state).toMatchObject({ open: true, level: 2, query: '' });
+      expect(state?.parent?.id).toBe('cf-group-7');
+      expect(titles()).toEqual(['Aktenzeichen', 'Gegner']);
+    });
+
+    it('searches the fields with what follows the braces, and a pick writes the token', () => {
+      type('{{');
+      state!.select(state!.items.find((item) => item.id === 'cf-group-7')!);
+      type('geg');
+      expect(text()).toBe('{{geg');
+      expect(state).toMatchObject({ level: 2, query: 'geg' });
+      expect(titles()).toEqual(['Gegner']);
+
+      keydown('Enter');
+      expect(picked).toEqual(['cf_2']);
+      expect(text()).toBe('{{ cf_2 }}');
+      expect(state?.open).toBe(false);
+    });
+
+    it('goes up on Backspace over an empty search — the braces stay, level 1 lists everything', () => {
+      type('{{');
+      keydown('ArrowDown');
+      keydown('Enter');
+      expect(state?.level).toBe(2);
+
+      expect(keydown('Backspace')).toBe(true);
+      expect(text()).toBe('{{');
+      expect(state).toMatchObject({ open: true, level: 1, query: '' });
+      expect(titles()).toEqual(['auto_currentDateDE', 'Alle Feldtypen (Test)']);
+
+      // On level 1 Backspace is the editor's again.
+      expect(keydown('Backspace')).toBe(false);
+    });
+
+    it('back() returns to level 1 and drops the search typed inside', () => {
+      type('{{');
+      keydown('ArrowDown');
+      keydown('Enter');
+      type('akt');
+      state!.back();
+      expect(text()).toBe('{{');
+      expect(state).toMatchObject({ level: 1, query: '' });
+    });
+
+    it('lasts only as long as its session: a new {{ starts on level 1', () => {
+      type('{{');
+      keydown('ArrowDown');
+      keydown('Enter');
+      keydown('Escape');
+      expect(state?.open).toBe(false);
+      expect(text()).toBe('{{');
+
+      type(' {{');
+      expect(state).toMatchObject({ open: true, level: 1 });
+    });
+
+    it('moves with the trigger as text arrives before it', () => {
+      type('{{');
+      keydown('ArrowDown');
+      keydown('Enter');
+      editor!.view.dispatch(editor!.state.tr.insertText('Dear ', 1));
+      expect(text()).toBe('Dear {{');
+      expect(state).toMatchObject({ open: true, level: 2 });
+    });
+
+    it('marks the level in the text: level 2 and the group’s placeholder', () => {
+      type('{{');
+      keydown('ArrowDown');
+      keydown('Enter');
+      expect(decoration()?.getAttribute('data-level')).toBe('2');
+      expect(decoration()?.getAttribute('data-placeholder')).toBe('Search fields…');
+    });
+
+    it('is never entered by a word typed after the braces', () => {
+      mount({ items: [fields], query: /^ ?[^{}]*$/u });
+      type('{{alle-feldtypen-(test) geg');
+      expect(state?.level).toBe(1);
+    });
+
+    it('can be written into the text instead, when the host asks for it', () => {
+      mount({ items: [fields], query: /^ ?[^{}]*$/u, levels: 'text' });
+      type('{{alle');
+      keydown('Enter');
+      expect(text()).toBe('{{alle-feldtypen-(test) ');
+      expect(state?.level).toBe(2);
+    });
   });
 });
 
