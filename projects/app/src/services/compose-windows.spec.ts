@@ -116,8 +116,12 @@ describe('ComposeWindows', () => {
     expect(editor().getAttribute('data-aee-static')).toBe('section columns table');
 
     // The settings' switch overrides the mode's default, for this message.
-    const layoutSwitch = frame.querySelector<HTMLButtonElement>(
-      'dialog.settings .settings__switch button[role="switch"]',
+    // The settings dialog is on <body>: the one this window's ⚙ controls.
+    const gear = frame.querySelector('[aria-label="Settings"]')!;
+    const dialog = document.getElementById(gear.getAttribute('aria-controls')!)!;
+    expect(frame.contains(dialog)).toBe(false);
+    const layoutSwitch = dialog.querySelector<HTMLButtonElement>(
+      '.settings__switch button[role="switch"]',
     )!;
     expect(layoutSwitch.getAttribute('aria-checked')).toBe('false');
     layoutSwitch.click();
@@ -517,8 +521,7 @@ describe('ComposeWindows on a phone', () => {
   it('the forward button brings the window back, with what was written in it', async () => {
     const id = await windows.open();
     await settle();
-    const subject = () =>
-      frame()!.querySelector<HTMLInputElement>('input[aria-label="Subject"]')!;
+    const subject = () => frame()!.querySelector<HTMLInputElement>('input[aria-label="Subject"]')!;
     subject().value = 'Lunch?';
     subject().dispatchEvent(new Event('input'));
     await settle();

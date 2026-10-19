@@ -1,4 +1,13 @@
-import { Component, ElementRef, inject, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  DOCUMENT,
+  DestroyRef,
+  ElementRef,
+  afterNextRender,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 
 // Angular Material
 import { MatIconButton } from '@angular/material/button';
@@ -32,10 +41,12 @@ let nextSettingsId = 0;
  * through DI.
  *
  * A native modal `<dialog>`: the top layer puts it over everything, the
- * browser makes the page behind it inert and hands focus back on close —
- * and, a DOM child of the sheet, it wears the sheet's paper (the island's
- * tokens reach it by inheritance, no relay needed). A pick is applied at
- * once, behind it; there is nothing to save.
+ * browser makes the page behind it inert and hands focus back on close. A
+ * global element, so it lives on `<body>` (moved there once rendered,
+ * taken away with the button): it wears the app's theme by plain
+ * inheritance — never a sheet's paper island — and Escape reaches no
+ * compose window on its way out. A pick is applied at once, behind it;
+ * there is nothing to save.
  */
 @Component({
   selector: 'message-settings',
@@ -61,11 +72,21 @@ export class MessageSettings {
   protected readonly opened = signal(false);
 
   readonly #id = `message-settings-${nextSettingsId++}`;
+  protected readonly dialogId = this.#id;
   protected readonly titleId = `${this.#id}-title`;
   protected readonly formatLabelId = `${this.#id}-format`;
   protected readonly themeLabelId = `${this.#id}-theme`;
   protected readonly layoutLabelId = `${this.#id}-layout`;
   protected readonly layoutHintId = `${this.#id}-layout-hint`;
+
+  constructor() {
+    // Out of the sheet, onto <body>, once rendered — and gone with the
+    // button: the view only takes its host away, and the dialog is no
+    // longer in it.
+    const body = inject(DOCUMENT).body;
+    afterNextRender({ write: () => body.appendChild(this.dialog().nativeElement) });
+    inject(DestroyRef).onDestroy(() => this.dialog().nativeElement.remove());
+  }
 
   open(): void {
     const dialog = this.dialog().nativeElement;
@@ -82,11 +103,5 @@ export class MessageSettings {
       that fills it — closes, as Escape does. */
   protected onPress(event: MouseEvent): void {
     if (event.target === this.dialog().nativeElement) this.close();
-  }
-
-  /** Escape closes the dialog, and only the dialog: never the compose
-      window round it, which hears Escape too. */
-  protected onEscape(event: Event): void {
-    event.stopPropagation();
   }
 }

@@ -65,6 +65,13 @@ async function chooseView(fixture: ComponentFixture<unknown>, view: 'Editor' | '
   await fixture.whenStable();
 }
 
+/** The writer bar's settings dialog — on <body>, a global element: the
+    one its ⚙ controls. */
+function settingsDialog(root: HTMLElement): HTMLDialogElement {
+  const gear = root.querySelector('.writer-bar [aria-label="Settings"]')!;
+  return document.getElementById(gear.getAttribute('aria-controls')!) as HTMLDialogElement;
+}
+
 /** The writer bar's ⋮ menu offers its View row now. */
 function viewOffered(compose: Compose): boolean {
   return (compose as any).sheet().viewOffered();
@@ -880,7 +887,7 @@ describe('Compose', () => {
   it('the ⚙ Layout switch turns every layout block static, and stands disabled for plain text', async () => {
     const root = fixture.nativeElement as HTMLElement;
     const sheet = (component as any).sheet();
-    const dialog = root.querySelector<HTMLDialogElement>('.writer-bar dialog.settings')!;
+    const dialog = settingsDialog(root);
     (root.querySelector('.writer-bar [aria-label="Settings"]') as HTMLButtonElement).click();
     await fixture.whenStable();
     expect(dialog.open).toBe(true);
@@ -923,7 +930,7 @@ describe('Compose', () => {
 
     /** Picks a Format on the settings' toggle — the dialog stays open. */
     const chooseFormat = async (label: 'HTML' | 'Plain text') => {
-      const dialog = root.querySelector<HTMLDialogElement>('.writer-bar dialog.settings')!;
+      const dialog = settingsDialog(root);
       if (!dialog.open) {
         (root.querySelector('.writer-bar [aria-label="Settings"]') as HTMLButtonElement).click();
         await fixture.whenStable();

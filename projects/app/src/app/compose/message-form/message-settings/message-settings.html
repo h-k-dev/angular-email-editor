@@ -5,6 +5,7 @@
   [attr.aria-label]="'composer.settings.title' | translate"
   [title]="'composer.settings.title' | translate"
   aria-haspopup="dialog"
+  [attr.aria-controls]="dialogId"
   [attr.aria-expanded]="opened()"
   (click)="open()"
 >
@@ -18,10 +19,10 @@
 <dialog
   #dialog
   class="settings"
+  [id]="dialogId"
   [attr.aria-labelledby]="titleId"
   (close)="opened.set(false)"
   (click)="onPress($event)"
-  (keydown.escape)="onEscape($event)"
 >
   <div class="settings__panel">
     <header class="settings__header">
