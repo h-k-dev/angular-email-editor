@@ -761,13 +761,13 @@ describe('Compose', () => {
         (el) => el.querySelector('.writer-field__label')?.textContent?.trim() === label,
       )!;
 
-    expect(labels()).toEqual(['From', 'To', 'Subject']);
+    expect(labels()).toEqual(['From', 'To']);
     expect(actions()).toEqual(['Cc', 'Bcc', 'Preview']);
     expect(action('Cc').type).toBe('button');
 
     action('Cc').click();
     await fixture.whenStable();
-    expect(labels()).toEqual(['From', 'To', 'Cc', 'Subject']);
+    expect(labels()).toEqual(['From', 'To', 'Cc']);
     expect(actions()).toEqual(['Bcc', 'Preview']);
     const ccInput = row('Cc').querySelector<HTMLInputElement>('[data-slot=input]')!;
     expect(document.activeElement).toBe(ccInput);
@@ -783,16 +783,16 @@ describe('Compose', () => {
     const toInput = row('To').querySelector<HTMLInputElement>('[data-slot=input]')!;
     row('Cc').dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: toInput }));
     await fixture.whenStable();
-    expect(labels()).toEqual(['From', 'To', 'Cc', 'Subject']);
+    expect(labels()).toEqual(['From', 'To', 'Cc']);
     row('Cc').dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: null }));
     await fixture.whenStable();
-    expect(labels()).toEqual(['From', 'To', 'Cc', 'Subject']);
+    expect(labels()).toEqual(['From', 'To', 'Cc']);
 
     // …leaving the recipients for somewhere real, with it empty, folds it back.
     const subject = root.querySelector<HTMLInputElement>('.writer-field__input')!;
     row('Cc').dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: subject }));
     await fixture.whenStable();
-    expect(labels()).toEqual(['From', 'To', 'Subject']);
+    expect(labels()).toEqual(['From', 'To']);
     expect(actions()).toEqual(['Cc', 'Bcc', 'Preview']);
 
     // With an address in it, it stays — and it is in the model.
@@ -805,7 +805,7 @@ describe('Compose', () => {
     );
     row('Bcc').dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: subject }));
     await fixture.whenStable();
-    expect(labels()).toEqual(['From', 'To', 'Bcc', 'Subject']);
+    expect(labels()).toEqual(['From', 'To', 'Bcc']);
     expect(actions()).toEqual(['Cc', 'Preview']);
     expect((component as any).sheet().message().bcc).toEqual(['grace@example.com']);
   });
@@ -831,7 +831,7 @@ describe('Compose', () => {
 
     preview()!.click();
     await fixture.whenStable();
-    expect(labels()).toEqual(['From', 'To', 'Subject', 'Preview']);
+    expect(labels()).toEqual(['From', 'To', 'Preview']);
     expect(preview()).toBeUndefined();
     const input = row()!.querySelector('input')!;
     expect(document.activeElement).toBe(input);
@@ -839,7 +839,7 @@ describe('Compose', () => {
     // Left empty, it folds back into the button.
     row()!.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
     await fixture.whenStable();
-    expect(labels()).toEqual(['From', 'To', 'Subject']);
+    expect(labels()).toEqual(['From', 'To']);
 
     // Filled, it stays — and the transport gets it as the document's hidden
     // preview text, the subject as its title, the bare body beside it.
@@ -851,7 +851,7 @@ describe('Compose', () => {
       .dispatchEvent(new Event('input', { bubbles: true }));
     row()!.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
     await fixture.whenStable();
-    expect(labels()).toEqual(['From', 'To', 'Subject', 'Preview']);
+    expect(labels()).toEqual(['From', 'To', 'Preview']);
 
     const sheet = (component as any).sheet();
     sheet.emailPane().value.set('<div>hello</div>');
@@ -870,7 +870,7 @@ describe('Compose', () => {
     expect(article.firstElementChild!.textContent).toContain('Numbers inside');
     expect(root.querySelector('[aria-label="Last send"]')?.textContent).toContain('preview text');
     // The sheet started over, the row with it.
-    expect(labels()).toEqual(['From', 'To', 'Subject']);
+    expect(labels()).toEqual(['From', 'To']);
   });
 
   it('the ⋮ Format turns the message to plain text and back, and sends plain text alone', async () => {
@@ -959,6 +959,11 @@ describe('Compose', () => {
       actions.compareDocumentPosition(control) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(getComputedStyle(actions).order).toBe('1');
+
+    // Gmail's Subject: a placeholder for a label.
+    const subject = root.querySelector<HTMLInputElement>('.writer-field__input')!;
+    expect(subject.placeholder).toBe('Subject');
+    expect(subject.getAttribute('aria-label')).toBe('Subject');
   });
 
   it('To, Cc and Bcc merge into one line while focus is elsewhere and a copy row is there, and open again on focus', async () => {
@@ -993,7 +998,8 @@ describe('Compose', () => {
       ),
     ).toEqual(['Ada Lovelace', 'hong@iusta', 'Bcc', 'grace@example.com']);
     expect(line.textContent?.replace(/\s+/g, ' ')).toContain('Ada Lovelace, hong@iusta');
-    expect(summary()!.querySelector('.writer-summary__label')?.textContent?.trim()).toBe('To');
+    // To's people start the line bare, as the To row has no label at rest.
+    expect(line.firstElementChild?.textContent?.trim()).toBe('Ada Lovelace');
     expect(
       [...line.querySelectorAll('.writer-summary__person--invalid')].map((el) => el.textContent),
     ).toEqual(['hong@iusta']);
@@ -1288,7 +1294,7 @@ describe('Compose drafts', () => {
 
     const message = component.message();
     expect(message.to).toEqual(['ada@example.com']);
-    expect((root.querySelector('input[id^="message-subject-"]') as HTMLInputElement).value).toBe(
+    expect((root.querySelector('input[aria-label="Subject"]') as HTMLInputElement).value).toBe(
       'Plans',
     );
     expect(root.querySelector('[aria-label="Message body"]')?.textContent).toContain(

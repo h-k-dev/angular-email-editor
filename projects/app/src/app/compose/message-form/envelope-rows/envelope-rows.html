@@ -70,10 +70,9 @@
       [emailKeepFocusExcept]="rowControls"
       (click)="toField()?.focus()"
     >
-      <span class="writer-summary__label">{{ groups.at(0)?.label ?? 'To' }}</span>
       <span class="writer-summary__line">
-        @for (group of groups; track group.label; let first = $first) {
-          @if (!first) {
+        @for (group of groups; track group.label) {
+          @if (group.label !== 'To') {
             <span class="writer-summary__kind">{{ group.label }}</span>
           }
           @for (person of group.people; track person.raw; let last = $last) {
@@ -99,7 +98,8 @@
     (click)="toField()?.focus()"
   >
     <!-- Gmail's Cc and Bcc: text buttons drawn at the row's end (CSS order),
-         each opening its row and stepping aside. They come before the
+         shown only while focus is in the To row, each opening its row and
+         stepping aside. They come before the
          control in the source, so the tab order runs From, Cc, Bcc, To,
          Subject: Tab out of To, done with addresses, lands on Subject.
          The click must not reach the row, whose own handler would put
@@ -131,7 +131,7 @@
     @if (material()) {
       <mat-form-field class="writer-field__form-field" subscriptSizing="dynamic">
         @if (!showCc() || !showBcc()) {
-          <span matPrefix class="writer-field__actions">
+          <span matPrefix class="writer-field__actions writer-field__actions--copy">
             <ng-container [ngTemplateOutlet]="copyButtons" />
           </span>
         }
@@ -143,13 +143,15 @@
           placeholder="Recipients"
           [formField]="form().to"
         >
-          <ng-template emailAddressLabel><span class="writer-field__label">To</span></ng-template>
+          <ng-template emailAddressLabel
+            ><span class="writer-field__label writer-field__label--on-focus">To</span></ng-template
+          >
         </div>
       </mat-form-field>
     } @else {
-      <label class="writer-field__label" [for]="toField.id">To</label>
+      <label class="writer-field__label writer-field__label--on-focus" [for]="toField.id">To</label>
       @if (!showCc() || !showBcc()) {
-        <span class="writer-field__actions">
+        <span class="writer-field__actions writer-field__actions--copy">
           <ng-container [ngTemplateOutlet]="copyButtons" />
         </span>
       }
@@ -211,7 +213,8 @@
 </div>
 
 <!-- Every row is the same shape: a row that forwards its clicks, a
-     label naming the control by id, the control. -->
+     label naming the control by id, the control — but Subject, which, as
+     Gmail's, is named by its placeholder alone. -->
 <div
   class="writer-field"
   emailKeepFocus
@@ -239,14 +242,14 @@
   </ng-template>
   @if (material()) {
     <mat-form-field class="writer-field__form-field" subscriptSizing="dynamic">
-      <label matPrefix class="writer-field__label" [for]="subjectId">Subject</label>
       <input
         matInput
         #subjectField
         class="writer-field__input"
         type="text"
         autocomplete="off"
-        [id]="subjectId"
+        placeholder="Subject"
+        aria-label="Subject"
         [formField]="form().subject"
       />
       @if (!showPreview()) {
@@ -256,13 +259,13 @@
       }
     </mat-form-field>
   } @else {
-    <label class="writer-field__label" [for]="subjectId">Subject</label>
     <input
       #subjectField
       class="writer-field__input"
       type="text"
       autocomplete="off"
-      [id]="subjectId"
+      placeholder="Subject"
+      aria-label="Subject"
       [formField]="form().subject"
     />
     @if (!showPreview()) {

@@ -165,7 +165,7 @@ describe('ComposeWindows', () => {
     await settle();
     const [oldest, newest] = frames();
 
-    const subject = newest.querySelector<HTMLInputElement>('input[id^="message-subject-"]')!;
+    const subject = newest.querySelector<HTMLInputElement>('input[aria-label="Subject"]')!;
     subject.value = 'Lunch?';
     subject.dispatchEvent(new Event('input'));
     await settle();
@@ -367,7 +367,7 @@ describe('ComposeWindows', () => {
       // history, ready to type on.
       expect(editor.firstElementChild?.textContent).toBe('');
       expect(frame.querySelector('.aee-quoted')).not.toBeNull();
-      expect(frame.querySelector<HTMLInputElement>('input[id^=message-subject]')!.value).toBe(
+      expect(frame.querySelector<HTMLInputElement>('input[aria-label="Subject"]')!.value).toBe(
         'Re: Launch checklist',
       );
     });
@@ -501,7 +501,7 @@ describe('ComposeWindows on a phone', () => {
     const id = await windows.open();
     await settle();
     const subject = () =>
-      frame()!.querySelector<HTMLInputElement>('input[id^="message-subject-"]')!;
+      frame()!.querySelector<HTMLInputElement>('input[aria-label="Subject"]')!;
     subject().value = 'Lunch?';
     subject().dispatchEvent(new Event('input'));
     await settle();

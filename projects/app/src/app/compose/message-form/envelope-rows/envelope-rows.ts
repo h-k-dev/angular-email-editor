@@ -28,8 +28,8 @@ import { AddressFormField } from '@h-k-dev/angular-email-editor/material';
 
 import { Envelope } from '../envelope';
 
-/** Tells the rows on one page apart: Subject and Preview need ids of
-    their own for their labels. */
+/** Tells the rows on one page apart: Preview needs an id of its own for
+    its label. */
 let nextRowsId = 0;
 
 /**
@@ -90,7 +90,6 @@ export class EnvelopeRows {
   /** The message as the rows read it. */
   protected readonly value = computed(() => this.form()().value());
 
-  protected readonly subjectId = `message-subject-${nextRowsId}`;
   protected readonly previewId = `message-preview-${nextRowsId++}`;
 
   /** The copy rows, for putting the caret in one the moment it opens. They

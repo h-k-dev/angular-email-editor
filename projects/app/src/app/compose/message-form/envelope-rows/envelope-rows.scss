@@ -74,6 +74,21 @@ section[email-compose] {
   line-height: 24px;
 }
 
+// To's label shows only while focus is in its row, as Gmail's: at rest the
+// row is its addresses alone, flush with the inset. Hidden the way a
+// screen-reader-only label is, so the control keeps its name.
+.writer-field:not(:focus-within) .writer-field__label--on-focus {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 // The control takes what the label leaves — the address control wraps its
 // chips inside that, the Subject input just fills it.
 .writer-field__input,
@@ -91,6 +106,12 @@ section[email-compose] {
   font: var(--mat-sys-body-medium);
   letter-spacing: var(--mat-sys-body-medium-tracking);
   line-height: 20px;
+
+  // Subject has no label, only this — read as the empty address rows read.
+  &::placeholder {
+    color: var(--mat-sys-on-surface-variant);
+    opacity: 1;
+  }
 }
 
 // The recipients group only groups focus; it adds no box of its own.
@@ -113,13 +134,13 @@ section[email-compose] {
   border: 0;
 }
 
-// The merged line: one row, the row's own label, the people on one line
-// that ellipsizes. Copies follow their label, in the label's colour.
+// The merged line: one row, the people on one line that ellipsizes — To's
+// with no label, as the To row has none at rest; copies follow their label,
+// in a label's colour.
 .writer-summary {
   align-items: center;
 }
 
-.writer-summary__label,
 .writer-summary__kind {
   flex: none;
   color: var(--mat-sys-on-surface-variant);
@@ -142,6 +163,11 @@ section[email-compose] {
 
 .writer-summary__kind {
   margin-inline: 12px 8px;
+
+  // No To: the first copy's label starts the line.
+  &:first-child {
+    margin-inline-start: 0;
+  }
 }
 
 // A malformed address reads the way its chip does: error text.
@@ -163,11 +189,31 @@ section[email-compose] {
   gap: 2px;
 }
 
+// Cc and Bcc show only while focus is in the To row — its input, or the
+// buttons themselves, whose press keeps the caret in To — as Gmail's do.
+// Hidden, they keep their room, so the chips never reflow as focus comes and
+// goes, and they leave the tab order: Tab runs From, To; Shift+Tab out of To
+// reaches them.
+.writer-field__actions--copy {
+  transition:
+    opacity 120ms ease,
+    visibility 0s linear 120ms;
+
+  .writer-field:focus-within & {
+    transition: opacity 120ms ease;
+  }
+
+  .writer-field:not(:focus-within) & {
+    visibility: hidden;
+    opacity: 0;
+  }
+}
+
 .writer-field__action {
   height: 24px;
   padding: 0 6px;
   border: none;
-  border-radius: var(--mat-sys-corner-extra-small, 4px);
+  border-radius: var(--mat-sys-corner-small, 8px);
   background: none;
   color: var(--mat-sys-on-surface-variant);
   font: var(--mat-sys-body-medium);
