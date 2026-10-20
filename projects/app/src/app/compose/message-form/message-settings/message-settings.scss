@@ -239,10 +239,17 @@ $compact: 768px;
   box-shadow: var(--mat-sys-ring-shadow);
 }
 
+.settings__card--apart {
+  margin-block-start: calc(var(--space) * 8);
+}
+
+// A control too wide to leave its words room (a language pill on a
+// phone) wraps under them, at the row's end.
 .settings__row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: calc(var(--space) * 6);
+  gap: calc(var(--space) * 2) calc(var(--space) * 6);
   min-block-size: 64px;
   box-sizing: border-box;
   padding-block: calc(var(--space) * 3.5);
@@ -255,7 +262,7 @@ $compact: 768px;
 
 .settings__text {
   display: flex;
-  flex: 1;
+  flex: 1 1 12rem;
   flex-direction: column;
   gap: 2px;
   min-inline-size: 0;
@@ -268,8 +275,7 @@ $compact: 768px;
 }
 
 .settings__hint,
-.settings__note,
-.settings__empty {
+.settings__note {
   color: var(--mat-sys-on-surface-variant);
   font: var(--mat-sys-body-medium);
 }
@@ -279,10 +285,6 @@ $compact: 768px;
   margin-inline: calc(var(--space) * 5);
 }
 
-.settings__empty {
-  margin: 0;
-}
-
 // 28px items in a 36px track: the thumb keeps 4px of air from the
 // track's edge instead of touching it.
 .settings__toggle {
@@ -290,10 +292,12 @@ $compact: 768px;
   --hk-tgb-inset: 4px;
 
   flex: none;
+  margin-inline-start: auto;
 }
 
 .settings__switch {
   flex: none;
+  margin-inline-start: auto;
 }
 
 // A row that cannot apply (the Layout of a plain-text message): there,
@@ -366,7 +370,7 @@ $compact: 768px;
   }
 
   .settings__row {
-    gap: var(--mat-sys-inner-spacing, 16px);
+    column-gap: var(--mat-sys-inner-spacing, 16px);
     padding-inline: var(--mat-sys-inner-spacing, 16px);
   }
 }

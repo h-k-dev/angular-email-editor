@@ -135,7 +135,7 @@ describe('ComposeWindows', () => {
     const dialog = document.querySelector<HTMLDialogElement>('dialog.settings[open]')!;
     expect(frame.contains(dialog)).toBe(false);
     const layoutSwitch = dialog.querySelector<HTMLButtonElement>(
-      '.settings__switch button[role="switch"]',
+      '[data-setting="layout"] button[role="switch"]',
     )!;
     expect(layoutSwitch.getAttribute('aria-checked')).toBe('false');
     layoutSwitch.click();

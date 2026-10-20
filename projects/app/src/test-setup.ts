@@ -33,3 +33,13 @@ for (const name of ['localStorage', 'sessionStorage'] as const) {
  * configures its own TestBed adds to this.
  */
 beforeEach(() => TestBed.configureTestingModule({ providers: [provideI18n()] }));
+
+/**
+ * Every spec starts on an empty storage: a preference one spec picks (a
+ * language, a theme, the toolbar) is kept there, and must not reach the
+ * next spec in the file.
+ */
+beforeEach(() => {
+  localStorage.clear();
+  sessionStorage.clear();
+});

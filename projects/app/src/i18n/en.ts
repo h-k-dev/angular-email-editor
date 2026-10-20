@@ -51,7 +51,17 @@ export default {
         designer: 'Designer',
         writer: 'Writer',
       },
-      empty: 'Nothing here yet.',
+      kept: 'This browser keeps these, for every composer and every tab.',
+      wrap: {
+        label: 'Word wrap',
+        hint: 'Long lines in the HTML source wrap under their own indent; off, the source scrolls sideways (Alt+Z)',
+      },
+      toolbar: {
+        label: 'Formatting toolbar',
+        hint: 'A composer opens with it — the writer bar’s formatting button switches it too',
+        always: 'On a phone it is always there',
+        plainText: 'Plain text has no formatting',
+      },
       formatHint: 'What the message is written and sent as',
       themeHint: 'The editor on its own paper, or the app’s theme',
       layout: {

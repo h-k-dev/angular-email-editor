@@ -6,6 +6,7 @@ import { emailPlainText, plainTextHTML } from '@h-k-dev/angular-email-editor';
 import { Compose } from './compose';
 import { FormattingCommands } from './email-compose/formatting-commands';
 import { Viewport } from '../../services/viewport';
+import { Theme } from '../../services/theme';
 import { EMAIL_SEND_LATENCY, EmailSend } from '../../services/email-send';
 import {
   DRAFT_KEY,
@@ -902,7 +903,7 @@ describe('Compose', () => {
 
     const pm = () => sheet.emailPane().editor().view.dom as HTMLElement;
     const layoutSwitch = () =>
-      dialog.querySelector<HTMLButtonElement>('.settings__switch button[role="switch"]')!;
+      dialog.querySelector<HTMLButtonElement>('[data-setting="layout"] button[role="switch"]')!;
     expect(pm().hasAttribute('data-aee-static')).toBe(false);
     expect(layoutSwitch().getAttribute('aria-checked')).toBe('true');
 
@@ -924,6 +925,60 @@ describe('Compose', () => {
     await fixture.whenStable();
     expect(layoutSwitch().disabled).toBe(false);
     expect(pm().getAttribute('data-aee-static')).toBe('section columns table');
+    dialog.close();
+  });
+
+  it('the settings’ kept preferences apply at once, and this browser keeps them', async () => {
+    const root = fixture.nativeElement as HTMLElement;
+    const sheet = (component as any).sheet();
+    const dialog = await openSettings(fixture);
+    const key = (name: string) => localStorage.getItem(`angular-email-editor:${name}`);
+
+    /** Picks `option` (an icon's label, or a pill's words) on the toggle
+        the row labelled `label` holds. */
+    const pick = async (label: string, option: string) => {
+      const id = [...dialog.querySelectorAll('.settings__label')].find(
+        (text) => text.textContent?.trim() === label,
+      )!.id;
+      const group = dialog.querySelector(`hk-tgb[aria-labelledby="${id}"]`)!;
+      [...group.querySelectorAll<HTMLElement>('[role=radio]')]
+        .find((item) => (item.getAttribute('aria-label') ?? item.textContent?.trim()) === option)!
+        .click();
+      await fixture.whenStable();
+    };
+    const toggle = async (setting: string) => {
+      dialog.querySelector<HTMLButtonElement>(`[data-setting="${setting}"] button[role="switch"]`)!.click();
+      await fixture.whenStable();
+    };
+
+    // The email's theme only — the app's stays in its top bar.
+    expect(dialog.textContent).not.toContain('Language');
+    // The editor follows the app's theme while it is Auto…
+    TestBed.inject(Theme).toggle();
+    await fixture.whenStable();
+    expect(sheet.editorScheme()).toBe('dark');
+    // …and keeps a theme of its own once it has one.
+    await pick('Theme', 'Light');
+    expect(sheet.editorScheme()).toBe('light');
+    expect(key('editor-appearance')).toBe('light');
+    // The default is no key at all.
+    await pick('Theme', 'Auto');
+    expect(key('editor-appearance')).toBeNull();
+
+    // The formatting toolbar: the writer bar's button, mirrored.
+    const formatting = root.querySelector('.writer-bar [aria-label="Formatting options"]')!;
+    expect(formatting.getAttribute('aria-pressed')).toBe('false');
+    await toggle('toolbar');
+    expect(formatting.getAttribute('aria-pressed')).toBe('true');
+    expect(key('formatting-toolbar')).toBe('on');
+
+    // The source's word wrap — Alt+Z's.
+    const source = root.querySelector('section[html-email-compose]')!;
+    expect(source.hasAttribute('data-wrap')).toBe(false);
+    await toggle('wrap');
+    expect(source.getAttribute('data-wrap')).toBe('off');
+    expect(key('source-wrap')).toBe('off');
+
     dialog.close();
   });
 

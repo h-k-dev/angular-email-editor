@@ -1,4 +1,4 @@
-import { Component, computed, input, signal } from '@angular/core';
+import { Component, computed, inject, input } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 
 // Angular Signal Forms
@@ -18,6 +18,7 @@ import { AttachmentChips } from '@h-k-dev/angular-email-editor/attachment-chips'
 import { ActionTrigger } from '@h-k-dev/angular-email-editor/actions';
 import { TranslatePipe } from '@ngx-translate/core';
 
+import { Preferences } from '../../../services/preferences';
 import { DropHint } from '../drop-hint/drop-hint';
 import { EmailCompose } from '../email-compose/email-compose';
 import { EmailWriter, WriterBarPosition } from '../email-writer/email-writer';
@@ -76,11 +77,15 @@ export class MessageForm extends MessageSheet {
       the end, Discard at the start. */
   protected readonly mirrored = computed(() => this.bar() === 'top');
 
+  override readonly toolbarSwitch = true;
+
   /** Whether the formatting toolbar is switched on (the writer bar's
-      formatting options button). Off by default: the message is written
-      first, and the marks have their keys, the bubble menu and the `/`
-      menu; the bar is one press away when it is wanted. */
-  protected readonly formattingOpen = signal(false);
+      formatting options button, and the settings' Formatting toolbar). Off
+      by default: the message is written first, and the marks have their
+      keys, the bubble menu and the `/` menu; the bar is one press away when
+      it is wanted. A {@link Preferences} one: every composer opens as the
+      last one was left. */
+  protected readonly formattingOpen = inject(Preferences).formattingToolbar;
 
   /** Whether the composer's formatting toolbar shows: switched on, for a
       message that has formatting. */

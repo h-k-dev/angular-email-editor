@@ -17,7 +17,6 @@ import {
 export interface ToggleButtonGroupHost<T = unknown> {
   readonly value: Signal<T>;
   readonly disabled: Signal<boolean>;
-  readonly tabStop: Signal<ToggleButtonGroupItem<T> | undefined>;
   select(value: T): void;
 }
 
@@ -44,7 +43,6 @@ export const TOGGLE_BUTTON_GROUP = new InjectionToken<ToggleButtonGroupHost>('To
     '[attr.type]': 'type',
     '[attr.aria-checked]': 'checked()',
     '[attr.aria-disabled]': 'blocked() || null',
-    '[tabIndex]': 'group.tabStop() === this ? 0 : -1',
     '(click)': 'onClick($event)',
   },
 })

@@ -138,6 +138,15 @@ export class ToggleButtonGroup<T = unknown> implements FormValueControl<T> {
 
   constructor() {
     this.#watchSizes();
+    // The tab stop, written once the items are rendered — never an item's
+    // own host binding: that would read the other items' values, and an
+    // item an `@for` has made but not bound yet has none (NG0950).
+    afterRenderEffect({
+      write: () => {
+        const stop = this.tabStop();
+        for (const item of this.items()) item.element.tabIndex = item === stop ? 0 : -1;
+      },
+    });
     afterRenderEffect({
       earlyRead: () => this.#measure(this.picked()),
       write: (box) => this.#place(box()),

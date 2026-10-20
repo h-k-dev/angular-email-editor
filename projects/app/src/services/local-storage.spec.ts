@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { LocalStorage } from './local-storage';
+import { LocalStorage, onOff, oneOf } from './local-storage';
 
 /** What the browser dispatches in *other* tabs when one writes. */
 function otherTab(key: string | null, newValue: string | null): void {
@@ -89,5 +89,54 @@ describe('LocalStorage', () => {
     }
     expect(service.setItem('a', 'fits')).toBe(true);
     expect(a()).toBe('fits');
+  });
+
+  describe('typed, through a codec', () => {
+    it('reads one of a set of words, the fallback while unset or unknown', () => {
+      const size = service.pairSignal('size', oneOf(['s', 'm', 'l'], 'm'));
+      expect(size()).toBe('m');
+      localStorage.setItem('size', 'l');
+      otherTab('size', 'l');
+      expect(size()).toBe('l');
+      otherTab('size', 'huge');
+      expect(size()).toBe('m');
+    });
+
+    it('writes a pick through, and the fallback as no key at all', () => {
+      const size = service.pairSignal('size', oneOf(['s', 'm', 'l'], 'm'));
+      size.set('s');
+      expect(localStorage.getItem('size')).toBe('s');
+      expect(size()).toBe('s');
+      size.set('m');
+      expect(localStorage.getItem('size')).toBeNull();
+      expect(size()).toBe('m');
+    });
+
+    it('keeps a switch as on or off, the fallback as no key', () => {
+      const wrap = service.pairSignal('wrap', onOff(true));
+      expect(wrap()).toBe(true);
+      wrap.set(false);
+      expect(localStorage.getItem('wrap')).toBe('off');
+      wrap.update((on) => !on);
+      expect(localStorage.getItem('wrap')).toBeNull();
+      expect(wrap()).toBe(true);
+
+      const toolbar = service.pairSignal('toolbar', onOff(false));
+      toolbar.set(true);
+      expect(localStorage.getItem('toolbar')).toBe('on');
+      otherTab('toolbar', 'yes please');
+      expect(toolbar()).toBe(false);
+    });
+
+    it('shares the key with every other pairing of it, typed or raw', () => {
+      const typed = service.pairSignal('size', oneOf(['s', 'm', 'l'], 'm'));
+      const again = service.pairSignal('size', oneOf(['s', 'm', 'l'], 'm'));
+      const raw = service.pairSignal('size');
+      typed.set('l');
+      expect(again()).toBe('l');
+      expect(raw()).toBe('l');
+      raw.set(null);
+      expect(typed()).toBe('m');
+    });
   });
 });

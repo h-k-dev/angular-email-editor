@@ -23,6 +23,23 @@ describe('I18n', () => {
       expect(i18n.suggestionLabel('bold')).toBeUndefined();
     });
 
+    it('keeps the language picked, and takes up a pick from another tab', async () => {
+      await german();
+      expect(localStorage.getItem('angular-email-editor:language')).toBe('de');
+
+      // Another tab goes back to English: the default is no key at all.
+      localStorage.removeItem('angular-email-editor:language');
+      window.dispatchEvent(
+        new StorageEvent('storage', {
+          key: 'angular-email-editor:language',
+          newValue: null,
+          storageArea: localStorage,
+        }),
+      );
+      TestBed.tick();
+      expect(i18n.lang()).toBe('en');
+    });
+
     it('follows a language switch, once the dictionary has landed', async () => {
       await german();
       expect(i18n.t('editor.menu.empty')).toBe('Keine Treffer');
@@ -60,5 +77,19 @@ describe('I18n', () => {
       expect(i18n.suggestionLabel('templates')?.placeholder).toBe('Vorlagen durchsuchen…');
       expect(i18n.suggestionLabel('a-template-from-the-server')).toBeUndefined();
     });
+  });
+
+  it('speaks the language this browser kept from the start', async () => {
+    localStorage.setItem('angular-email-editor:language', 'ja');
+    const i18n = TestBed.inject(I18n);
+    TestBed.tick();
+    await vi.waitFor(() => expect(i18n.lang()).toBe('ja'));
+  });
+
+  it('reads a language it does not speak as English', () => {
+    localStorage.setItem('angular-email-editor:language', 'xx');
+    const i18n = TestBed.inject(I18n);
+    TestBed.tick();
+    expect(i18n.lang()).toBe('en');
   });
 });

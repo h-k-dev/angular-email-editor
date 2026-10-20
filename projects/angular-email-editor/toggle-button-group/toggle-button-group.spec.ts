@@ -260,3 +260,37 @@ describe('ToggleButtonGroup under signal forms', () => {
     expect(host.settings.scheme().touched()).toBe(true);
   });
 });
+
+/** Items an `@for` makes, each value bound — a language picker. */
+@Component({
+  imports: [ToggleButtonGroup, ToggleButtonGroupText],
+  template: `<hk-tgb aria-label="Language" [(value)]="language">
+    @for (code of codes; track code) {
+      <button hkTgbText [value]="code">{{ code }}</button>
+    }
+  </hk-tgb>`,
+})
+class LoopHost {
+  readonly codes = ['en', 'ja', 'de'];
+  readonly language = signal('de');
+}
+
+describe('ToggleButtonGroup over an @for', () => {
+  it('binds every item before reading any — the tab stop on the picked one', async () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const fixture = TestBed.createComponent(LoopHost);
+      await fixture.whenStable();
+      const toggles = [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('[role=radio]')];
+      expect(toggles.map((toggle) => toggle.getAttribute('aria-checked'))).toEqual(['false', 'false', 'true']);
+      expect(toggles.map((toggle) => toggle.tabIndex)).toEqual([-1, -1, 0]);
+
+      fixture.componentInstance.language.set('ja');
+      await fixture.whenStable();
+      expect(toggles.map((toggle) => toggle.tabIndex)).toEqual([-1, 0, -1]);
+      expect(errors).not.toHaveBeenCalled();
+    } finally {
+      errors.mockRestore();
+    }
+  });
+});

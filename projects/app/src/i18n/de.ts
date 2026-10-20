@@ -53,7 +53,17 @@ export default {
         designer: 'Designer',
         writer: 'Writer',
       },
-      empty: 'Hier gibt es noch nichts.',
+      kept: 'Dieser Browser merkt sich diese – für jeden Editor und jeden Tab.',
+      wrap: {
+        label: 'Zeilenumbruch',
+        hint: 'Lange Zeilen im HTML-Quelltext brechen unter ihrem Einzug um; aus, scrollt der Quelltext seitlich (Alt+Z)',
+      },
+      toolbar: {
+        label: 'Formatierungsleiste',
+        hint: 'Ein Editor öffnet mit ihr – die Formatierungstaste der Schreibleiste schaltet sie auch',
+        always: 'Auf dem Smartphone ist sie immer da',
+        plainText: 'Nur Text hat keine Formatierung',
+      },
       formatHint: 'Als was die Nachricht geschrieben und gesendet wird',
       themeHint: 'Der Editor auf eigenem Papier oder im Design der App',
       layout: {

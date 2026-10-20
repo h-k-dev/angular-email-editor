@@ -17,9 +17,16 @@ import {
  * which the browser never sends to the tab that wrote, so this tab's own
  * writes update the signal directly.
  *
- * Values are the raw strings storage holds. Parsing is the caller's: a
- * string compares by value, so an unchanged write is recognisable as one
- * (and the browser sends no event for it either).
+ * Values are the raw strings storage holds, or typed through a
+ * {@link StorageCodec} — {@link oneOf} a set of words, {@link onOff} a
+ * switch. The string stays the truth either way: it compares by value, so
+ * an unchanged write is recognisable as one (and the browser sends no event
+ * for it either).
+ *
+ * Unlike a write-back `effect`, the write happens inside `set`, at once
+ * and wherever it is called from: no injection context to outlive, no
+ * write on the first read, nothing to tear down. A preference the app
+ * keeps is declared once, in {@link Preferences}.
  *
  * Where storage cannot be used — disabled, a private mode that throws — the
  * signals still work, in memory, for this tab alone.
@@ -53,7 +60,20 @@ export class LocalStorage {
       it writes to storage — `null` removes the key. A write storage refuses
       (the quota) leaves the signal on what storage still holds; use
       {@link setItem} to hear about it. */
-  pairSignal(key: string): WritableSignal<string | null> {
+  pairSignal(key: string): WritableSignal<string | null>;
+  /** The key's value as a typed signal, read and written through
+      `codec`. A fresh signal per call over the key's one entry — every
+      such signal reads and writes the same thing; declare it once
+      ({@link Preferences}) rather than per caller. */
+  pairSignal<T>(key: string, codec: StorageCodec<T>): WritableSignal<T>;
+  pairSignal<T>(key: string, codec?: StorageCodec<T>): WritableSignal<T> | WritableSignal<string | null> {
+    if (codec) {
+      return linkedSignal<string | null, T>({
+        source: this.#entry(key),
+        computation: (raw) => codec.read(raw),
+        set: (value) => void this.setItem(key, codec.write(value)),
+      });
+    }
     let pair = this.#pairs.get(key);
     if (!pair) {
       pair = linkedSignal<string | null, string | null>({
@@ -118,4 +138,38 @@ function openStorage(window: Window | null): Storage | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * How a typed value is kept as the string storage holds. `read` turns what
+ * the key holds (`null` while unset) into a value, and answers the default
+ * for anything it does not recognise — a key another version wrote, or
+ * someone edited by hand, never breaks the app. `write` answers the string
+ * to keep, or `null` to remove the key.
+ */
+export interface StorageCodec<T> {
+  read(raw: string | null): T;
+  write(value: T): string | null;
+}
+
+/** One word of `values`; `fallback` while unset or unrecognised. Choosing
+    the fallback removes the key — unset reads as it, so storage holds only
+    what the user changed. */
+export function oneOf<const T extends string>(
+  values: readonly T[],
+  fallback: NoInfer<T>,
+): StorageCodec<T> {
+  return {
+    read: (raw) => values.find((value) => value === raw) ?? fallback,
+    write: (value) => (value === fallback ? null : value),
+  };
+}
+
+/** A switch, kept as `on` or `off`; `fallback` while unset or
+    unrecognised, and kept as no key at all. */
+export function onOff(fallback: boolean): StorageCodec<boolean> {
+  return {
+    read: (raw) => (raw === 'on' ? true : raw === 'off' ? false : fallback),
+    write: (value) => (value === fallback ? null : value ? 'on' : 'off'),
+  };
 }

@@ -1,9 +1,10 @@
-import { Service, computed, inject, signal } from '@angular/core';
+import { Service, computed, effect, inject, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslateService } from '@ngx-translate/core';
 import type { SuggestionItemLabel } from '@h-k-dev/angular-email-editor';
 
 import { AppLanguage, LANGUAGES } from '../i18n/loader';
+import { Preferences } from './preferences';
 
 /**
  * The app's words, over ngx-translate, for code: a `computed`, a snackbar, a
@@ -15,10 +16,14 @@ import { AppLanguage, LANGUAGES } from '../i18n/loader';
  * a dictionary that arrives later — ngx-translate's `currentLang` signal is
  * set before a first language has loaded, so this listens to its events
  * instead.
+ *
+ * The language is a {@link Preferences} one: this browser keeps the pick,
+ * and a pick in another tab is taken up here too.
  */
 @Service()
 export class I18n {
   readonly #translate = inject(TranslateService);
+  readonly #chosen = inject(Preferences).language;
 
   /** Moves whenever the words may have: a switch, a dictionary landing. */
   readonly #version = signal(0);
@@ -36,9 +41,20 @@ export class I18n {
     const bump = () => this.#version.update((version) => version + 1);
     this.#translate.onLangChange.pipe(takeUntilDestroyed()).subscribe(bump);
     this.#translate.onTranslationChange.pipe(takeUntilDestroyed()).subscribe(bump);
+
+    // The kept pick, as the app starts and as another tab changes it:
+    // ngx-translate is outside the signal graph, so it is handed over.
+    effect(() => {
+      const language = this.#chosen();
+      untracked(() => {
+        if (this.#translate.getCurrentLang() !== language) this.#translate.use(language);
+      });
+    });
   }
 
+  /** Speaks `language` from now on — and in every tab, after a reload too. */
   use(language: AppLanguage): void {
+    this.#chosen.set(language);
     this.#translate.use(language);
   }
 

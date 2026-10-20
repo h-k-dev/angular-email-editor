@@ -11,7 +11,6 @@ import {
   linkedSignal,
   model,
   output,
-  signal,
   viewChild,
 } from '@angular/core';
 
@@ -59,6 +58,7 @@ import { Theme } from '../../../services/theme';
 import { I18n } from '../../../services/i18n';
 import { AttachmentUploads } from '../../../services/attachment-uploads';
 import { EmailSend, SendRejected } from '../../../services/email-send';
+import { Preferences } from '../../../services/preferences';
 import { EnvelopeRows } from './envelope-rows/envelope-rows';
 import { BLANK, Envelope, hasContent, isBlank } from './envelope';
 
@@ -131,6 +131,7 @@ export abstract class MessageSheet {
   readonly #images = inject(InlineImages);
   readonly #injector = inject(Injector);
   readonly #theme = inject(Theme);
+  readonly #preferences = inject(Preferences);
   protected readonly i18n = inject(I18n);
   readonly #snackBar = inject(MatSnackBar);
 
@@ -351,8 +352,14 @@ export abstract class MessageSheet {
   /** The editor's appearance, the settings' toggle: a light or dark of its
       own, apart from the app's theme — or `auto`, the app's, following its
       top-bar toggle. Auto by default: the message sits in the app as the
-      rest of it does; Light shows it as it is sent. */
-  readonly editorAppearance = signal<EditorAppearance>('auto');
+      rest of it does; Light shows it as it is sent. A {@link Preferences}
+      one: the same in every composer, and kept by this browser. */
+  readonly editorAppearance = this.#preferences.editorAppearance;
+
+  /** Whether the sheet's formatting toolbar can be switched off — the
+      writer bar's formatting button, and the settings' Formatting toolbar
+      with it. A phone's sheet keeps its toolbar always there. */
+  readonly toolbarSwitch: boolean = false;
 
   /** The scheme the editor draws in: the appearance, with `auto` read as
       the app's theme of the moment. Public for the frame, which makes the

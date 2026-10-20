@@ -46,8 +46,9 @@
       </ul>
 
       <div class="settings__main">
-        <!-- Personalization: the Theme — Light and Dark as round icons,
-             Auto as a pill of words. -->
+        <!-- Personalization: the editor's Theme — Light and Dark as round
+             icons, Auto as a pill of words; kept by this browser. Only the
+             email's: the app's own theme and language stay in its top bar. -->
         <section ngTabPanel value="personalization" class="settings__page">
           <h3 class="settings__page-title">
             {{ 'composer.settings.sections.personalization' | translate }}
@@ -86,20 +87,43 @@
               </hk-tgb>
             </div>
           </div>
+          <p class="settings__note">{{ 'composer.settings.kept' | translate }}</p>
         </section>
 
-        <!-- Designer: nothing yet — the design-only settings land here. -->
+        <!-- Designer: the HTML source's word wrap — the app's, as Alt+Z in
+             the source switches it. -->
         <section ngTabPanel value="designer" class="settings__page">
           <h3 class="settings__page-title">
             {{ 'composer.settings.sections.designer' | translate }}
           </h3>
-          <p class="settings__empty">{{ 'composer.settings.empty' | translate }}</p>
+          <div class="settings__card">
+            <div class="settings__row">
+              <div class="settings__text">
+                <span class="settings__label" [id]="wrapLabelId">{{
+                  'composer.settings.wrap.label' | translate
+                }}</span>
+                <span class="settings__hint" [id]="wrapHintId">{{
+                  'composer.settings.wrap.hint' | translate
+                }}</span>
+              </div>
+              <mat-slide-toggle
+                class="settings__switch"
+                data-setting="wrap"
+                [checked]="preferences.sourceWrap()"
+                [aria-labelledby]="wrapLabelId"
+                [aria-describedby]="wrapHintId"
+                (change)="preferences.sourceWrap.set($event.checked)"
+              />
+            </div>
+          </div>
+          <p class="settings__note">{{ 'composer.settings.kept' | translate }}</p>
         </section>
 
         <!-- Writer: the message's Format — HTML, or plain text (lines,
              sent as text/plain alone; `onFormat` converts the body, back
              before an edit restores it) — and one switch for every layout
-             block: sections, columns, tables. Plain text has no layout:
+             block: sections, columns, tables — both the message's own, they
+             start over with the next one. Plain text has no layout:
              there it stands disabled, saying so, never hidden. -->
         <section ngTabPanel value="writer" class="settings__page">
           <h3 class="settings__page-title">
@@ -137,6 +161,7 @@
               </div>
               <mat-slide-toggle
                 class="settings__switch"
+                data-setting="layout"
                 [checked]="sheet.layoutInteractive()"
                 [disabled]="sheet.plainText()"
                 [aria-labelledby]="layoutLabelId"
@@ -154,6 +179,41 @@
             }}
             {{ 'composer.settings.layout.note' | translate }}
           </p>
+
+          <!-- The app's, apart from the message's: whether a composer
+               opens with its formatting toolbar — the writer bar's
+               formatting button, mirrored. A phone's toolbar is always
+               there, and plain text has none: disabled there, saying so. -->
+          <div class="settings__card settings__card--apart">
+            <div
+              class="settings__row"
+              [attr.data-disabled]="!sheet.toolbarSwitch || sheet.plainText() ? '' : null"
+            >
+              <div class="settings__text">
+                <span class="settings__label" [id]="toolbarLabelId">{{
+                  'composer.settings.toolbar.label' | translate
+                }}</span>
+                <span class="settings__hint" [id]="toolbarHintId">{{
+                  (!sheet.toolbarSwitch
+                    ? 'composer.settings.toolbar.always'
+                    : sheet.plainText()
+                      ? 'composer.settings.toolbar.plainText'
+                      : 'composer.settings.toolbar.hint'
+                  ) | translate
+                }}</span>
+              </div>
+              <mat-slide-toggle
+                class="settings__switch"
+                data-setting="toolbar"
+                [checked]="!sheet.toolbarSwitch || preferences.formattingToolbar()"
+                [disabled]="!sheet.toolbarSwitch || sheet.plainText()"
+                [aria-labelledby]="toolbarLabelId"
+                [aria-describedby]="toolbarHintId"
+                (change)="preferences.formattingToolbar.set($event.checked)"
+              />
+            </div>
+          </div>
+          <p class="settings__note">{{ 'composer.settings.kept' | translate }}</p>
         </section>
       </div>
     </div>

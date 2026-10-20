@@ -25,6 +25,7 @@ import {
 } from '@h-k-dev/angular-email-editor/toggle-button-group';
 import { TranslatePipe } from '@ngx-translate/core';
 
+import { Preferences } from '../../../../services/preferences';
 import { Viewport } from '../../../../services/viewport';
 import { MessageSheet } from '../message-sheet';
 
@@ -47,10 +48,16 @@ type SettingsSection = (typeof SECTIONS)[number]['id'];
  * compact width, the global `--dialog-*` tokens) that scrolls inside, so
  * a setting added later fits the same frame. An aside of sections, each its own
  * page (Aria tabs — a row over the page at the compact width):
- * Personalization (the editor's Theme), Designer (nothing yet) and
- * Writer (the message's Format, and the Layout — whether the layout blocks
- * take their gestures, one switch for every one of them). What cannot
- * apply stands disabled, never hidden.
+ * Personalization (the editor's theme), Designer (the HTML source's
+ * word wrap) and Writer (the message's Format, the Layout — whether the layout blocks take their gestures, one
+ * switch for every one of them — and the formatting toolbar). What cannot
+ * apply stands disabled, never hidden. The email's settings only: the
+ * app's own — its theme, its language — stay in the app's top bar.
+ *
+ * Two kinds of setting, told apart on the page: the {@link Preferences}
+ * the email reads, which this browser keeps for every composer and every
+ * tab, and the message's own (Format, Layout), which start over with the
+ * next message.
  * Opened by the ⋮'s Settings… (`MessageMenu`, which holds it) — core's
  * Preferences…: the ⋮ is the bar's one entry to the message's options. On
  * either sheet: it reads and sets the sheet it sits on, whichever that is,
@@ -86,6 +93,7 @@ type SettingsSection = (typeof SECTIONS)[number]['id'];
 export class MessageSettings {
   protected readonly sheet = inject(MessageSheet);
   protected readonly viewport = inject(Viewport);
+  protected readonly preferences = inject(Preferences);
 
   protected readonly sections = SECTIONS;
   /** The open section — kept from one opening to the next. */
@@ -98,6 +106,10 @@ export class MessageSettings {
   protected readonly titleId = `${this.#id}-title`;
   protected readonly formatLabelId = `${this.#id}-format`;
   protected readonly themeLabelId = `${this.#id}-theme`;
+  protected readonly wrapLabelId = `${this.#id}-wrap`;
+  protected readonly wrapHintId = `${this.#id}-wrap-hint`;
+  protected readonly toolbarLabelId = `${this.#id}-toolbar`;
+  protected readonly toolbarHintId = `${this.#id}-toolbar-hint`;
   protected readonly layoutLabelId = `${this.#id}-layout`;
   protected readonly layoutHintId = `${this.#id}-layout-hint`;
 
