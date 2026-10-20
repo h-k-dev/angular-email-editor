@@ -1,4 +1,5 @@
 import { TextSelection } from 'prosemirror-state';
+import { Node } from 'prosemirror-model';
 import { CellSelection } from 'prosemirror-tables';
 import { createEditor, Editor } from '../../editor';
 import { createSchema } from '../../schema';
@@ -7,7 +8,15 @@ import { lintHTML } from '../../html-source';
 import { emailExtensions } from '../kits';
 import { isActionEnabled } from '../../extension';
 import { EmailParagraph } from './email-paragraph';
-import { TABLE_BORDER_COLOR, Table, findTableContext, selectColumn, selectRow } from './table';
+import {
+  TABLE_BORDER_COLOR,
+  Table,
+  TableKind,
+  findTableContext,
+  selectColumn,
+  selectRow,
+  tableKind,
+} from './table';
 
 const schema = createSchema(emailExtensions);
 const canonical = (html: string) => serializeToHTML(parseHTML(html, schema), schema);
@@ -809,5 +818,35 @@ describe('table editing', () => {
     editor.commands['deleteTable']();
     expect(findTableContext(editor.state)).toBeNull();
     expect(editor.getHTML()).not.toContain('<table');
+  });
+});
+
+describe('tableKind', () => {
+  const firstTable = (html: string): Node => {
+    const tables: Node[] = [];
+    parseHTML(html, schema).descendants((node) => {
+      if (node.type.name === 'table') tables.push(node);
+      return !tables.length;
+    });
+    return tables[0];
+  };
+
+  for (const kind of ['bordered', 'borderless', 'layout'] as TableKind[]) {
+    it(`reads a ${kind} insert back as ${kind}, through the email`, () => {
+      const host = document.createElement('div');
+      const editor = createEditor({ parent: host, extensions: emailExtensions });
+      editor.commands['insertTable'](2, 2, kind);
+      const html = editor.getHTML();
+      editor.destroy();
+      expect(tableKind(firstTable(html))).toBe(kind);
+    });
+  }
+
+  it('reads an imported template’s flush, unlined table as layout', () => {
+    expect(
+      tableKind(
+        firstTable('<table><tbody><tr><td style="padding: 0 24px">a</td></tr></tbody></table>'),
+      ),
+    ).toBe('layout');
   });
 });

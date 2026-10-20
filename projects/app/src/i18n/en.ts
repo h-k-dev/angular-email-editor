@@ -72,7 +72,7 @@ export default {
       themeHint: 'The editor on its own paper, or the app’s theme',
       layout: {
         label: 'Layout blocks',
-        hint: 'Sections, columns and tables: grips, resizing, adding and removing',
+        hint: 'Sections, columns and layout tables: grips, resizing, adding and removing',
         plainText: 'Plain text has no layout',
         designMode: 'Designing here: layout blocks start on.',
         writeMode: 'Writing here: layout blocks start off.',

@@ -81,8 +81,8 @@ describe('layout interaction', () => {
     expect(menu.isOpen).toBe(true);
   });
 
-  it('takes a static table’s grips away, telling an open menu it has none', () => {
-    editor.commands['insertTable'](2, 2);
+  it('takes a static layout table’s grips away, telling an open menu it has none', () => {
+    editor.commands['insertTable'](2, 2, 'layout');
     expect(host.querySelectorAll('.aee-grip').length).toBeGreaterThan(0);
 
     off({ table: false });
@@ -93,9 +93,10 @@ describe('layout interaction', () => {
     expect(host.querySelectorAll('.aee-grip').length).toBeGreaterThan(0);
   });
 
-  it('leaves a static table’s and columns’ pills doing nothing', () => {
-    editor.commands['insertTable'](2, 2);
+  it('leaves a static layout table’s pills doing nothing, and says which wrap is one', () => {
+    editor.commands['insertTable'](2, 2, 'layout');
     off({ table: false, columns: false });
+    expect(host.querySelector('.aee-table-wrap')!.classList).toContain('aee-table-wrap--layout');
     const rows = () => host.querySelectorAll('tr').length;
     const before = rows();
     host.querySelector<HTMLElement>('.aee-add-pill--row')!.click();
@@ -104,5 +105,33 @@ describe('layout interaction', () => {
     off({ table: true });
     host.querySelector<HTMLElement>('.aee-add-pill--row')!.click();
     expect(rows()).toBe(before + 1);
+  });
+
+  for (const kind of ['bordered', 'borderless'] as const) {
+    it(`leaves a ${kind} table its grips and pills: content, not layout`, () => {
+      editor.commands['insertTable'](2, 2, kind);
+      off({ table: false });
+      expect(host.querySelector('.aee-table-wrap')!.classList).not.toContain(
+        'aee-table-wrap--layout',
+      );
+      // Row and column grips, and the caret cell's.
+      expect(host.querySelectorAll('.aee-grip').length).toBe(5);
+      const before = host.querySelectorAll('tr').length;
+      host.querySelector<HTMLElement>('.aee-add-pill--row')!.click();
+      expect(host.querySelectorAll('tr').length).toBe(before + 1);
+    });
+  }
+
+  it('keeps a bordered table its grips beside a static layout table', () => {
+    editor.commands['insertTable'](1, 1, 'layout');
+    editor.exec((s, dispatch) => {
+      dispatch?.(s.tr.setSelection(TextSelection.create(s.doc, s.doc.content.size - 1)));
+      return true;
+    });
+    editor.commands['insertTable'](2, 2, 'bordered');
+    off({ table: false });
+    const [layout, bordered] = Array.from(host.querySelectorAll('.aee-table-wrap'));
+    expect(layout.querySelectorAll('.aee-grip').length).toBe(0);
+    expect(bordered.querySelectorAll('.aee-grip').length).toBeGreaterThan(0);
   });
 });

@@ -3,7 +3,7 @@ import { Node } from 'prosemirror-model';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import { CellSelection, TableMap } from 'prosemirror-tables';
 import { FunctionalExtension, defineExtension } from '../extension';
-import { selectColumn, selectRow } from './nodes/table';
+import { selectColumn, selectRow, tableKind } from './nodes/table';
 import { layoutInteractive } from './layout-interaction';
 
 /** Which band — or which cell — of which table a grip stands for, and
@@ -160,6 +160,21 @@ export const createTableHandles = (options: TableHandlesOptions): FunctionalExte
     return el;
   };
 
+  // The grips a static switch leaves — off every layout table. The last
+  // answer is kept until the plugin state moves (a doc change): `decorations`
+  // runs on every update, a caret move included.
+  let shown: { handles: TableHandlesState; result: DecorationSet } | null = null;
+  const interactiveGrips = (handles: TableHandlesState): DecorationSet => {
+    if (shown?.handles === handles) return shown.result;
+    let result = handles.decorations;
+    for (const { pos, node } of handles.tables) {
+      if (tableKind(node) !== 'layout') continue;
+      result = result.remove(result.find(pos, pos + node.nodeSize));
+    }
+    shown = { handles, result };
+    return result;
+  };
+
   return defineExtension({
     name: 'tableHandles',
     plugins: () => [
@@ -171,11 +186,14 @@ export const createTableHandles = (options: TableHandlesOptions): FunctionalExte
         },
         props: {
           decorations: (state) => {
-            // Tables static (`setLayoutInteraction`): no grip to press.
-            if (!layoutInteractive(state, 'table')) return DecorationSet.empty;
-            const set = tableHandlesKey.getState(state)?.decorations ?? DecorationSet.empty;
+            const handles = tableHandlesKey.getState(state);
+            if (!handles) return DecorationSet.empty;
+            // Layout tables static (`setLayoutInteraction`): no grip on one
+            // to press — a bordered or borderless table keeps all of its.
+            const on = layoutInteractive(state, 'table');
+            const set = on ? handles.decorations : interactiveGrips(handles);
             const cell = caretCell(state.selection);
-            if (!cell) return set;
+            if (!cell || (!on && cell.layout)) return set;
             return set.add(state.doc, [
               Decoration.widget(cell.pos + 1, () => cellGrip(cell), {
                 key: `cell-grip-${cell.pos}`,
@@ -402,6 +420,8 @@ interface CaretCell {
   column: number;
   /** The cell node's position in the document. */
   pos: number;
+  /** Whether its table is a layout table (`tableKind`). */
+  layout: boolean;
 }
 
 function caretCell(selection: Selection): CaretCell | null {
@@ -415,7 +435,13 @@ function caretCell(selection: Selection): CaretCell | null {
     const tableStart = $from.start(depth - 2);
     const pos = $from.before(depth);
     const rect = TableMap.get(table).findCell(pos - tableStart);
-    return { tablePos: tableStart - 1, row: rect.top, column: rect.left, pos };
+    return {
+      tablePos: tableStart - 1,
+      row: rect.top,
+      column: rect.left,
+      pos,
+      layout: tableKind(table) === 'layout',
+    };
   }
   return null;
 }

@@ -198,6 +198,20 @@ export const TABLE_BLOCK_SPACING = 16;
  */
 export type TableKind = 'bordered' | 'borderless' | 'layout';
 
+/** The {@link TableKind} a table reads as: a line on any cell makes it
+    bordered, room above and below it borderless, neither a layout table —
+    which is what an imported template's tables, flush and unlined, are. */
+export function tableKind(table: Node): TableKind {
+  let bordered = false;
+  table.forEach((row) =>
+    row.forEach((cell) => {
+      if (cell.attrs['border']) bordered = true;
+    }),
+  );
+  if (bordered) return 'bordered';
+  return table.attrs['spacing'] != null ? 'borderless' : 'layout';
+}
+
 /** Canonical percentage: one decimal at most, no trailing zero (25%, 33.3%). */
 export const formatPct = (n: number): string => `${Math.round(n * 10) / 10}%`;
 

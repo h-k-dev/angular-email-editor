@@ -9,6 +9,7 @@ import {
   findColumnContext,
   findSectionContext,
   findTableContext,
+  layoutBlockInteractive,
   layoutInteractive,
   isMarkActive,
   selectedButton,
@@ -213,9 +214,9 @@ export class FormattingCommands {
   /** Applies a background fill to the most relevant scope: a selected button
       is filled; selected text gets an inline highlight; a bare cursor in a
       table cell, a column or a section fills that container — one whose
-      interaction is on (`layoutInteraction`); otherwise it's an inline
-      highlight (stored, so it continues as you type). `null` clears
-      whichever scope applies. */
+      interaction is on (`layoutInteraction`; a bordered or borderless
+      table's always is); otherwise it's an inline highlight (stored, so it
+      continues as you type). `null` clears whichever scope applies. */
   applyBackground(color: string | null): void {
     const editor = this.target();
     if (!editor) return;
@@ -223,9 +224,10 @@ export class FormattingCommands {
 
     // The container scopes are the email editor's: the source has no cells.
     const bare = state.selection.empty && !this.codeView();
+    const table = bare ? findTableContext(state)?.table : undefined;
     if (!this.codeView() && selectedButton(state)) {
       editor.commands['setButtonBackground'](color);
-    } else if (bare && layoutInteractive(state, 'table') && findTableContext(state)) {
+    } else if (table && layoutBlockInteractive(state, table)) {
       editor.commands['setCellBackground'](color);
     } else if (bare && layoutInteractive(state, 'columns') && findColumnContext(state)) {
       editor.commands['setColumnBackground'](color);

@@ -4,13 +4,14 @@ import { Node } from 'prosemirror-model';
 import { Decoration, DecorationSet, EditorView, ViewMutationRecord } from 'prosemirror-view';
 import { CellSelection, TableMap } from 'prosemirror-tables';
 import { defineExtension } from '../extension';
-import { layoutInteractive } from './layout-interaction';
+import { layoutBlockInteractive } from './layout-interaction';
 import {
   MIN_COLUMN_PCT,
   MIN_TABLE_PCT,
   addColumnAtEnd,
   addRowAtEnd,
   formatPct,
+  tableKind,
   tableStyle,
 } from './nodes/table';
 
@@ -481,6 +482,7 @@ class TableView {
     this.dom.addEventListener('pointerover', (event) => this.#hoverColumn(event));
     this.dom.addEventListener('pointerleave', () => this.#clearHoverColumn());
     this.#render(node);
+    this.#markKind(node);
   }
 
   update(node: Node): boolean {
@@ -493,8 +495,16 @@ class TableView {
     if (!sameTableChrome(this.#node, node) || node.attrs['html'] !== this.#node.attrs['html']) {
       this.#render(node);
     }
+    this.#markKind(node);
     this.#node = node;
     return true;
+  }
+
+  /** A layout table says so on its wrap — the hook the stylesheet hides a
+      static one's lines and pills by (`setLayoutInteraction`). Every
+      update, not only on a chrome change: a cell's line makes the kind. */
+  #markKind(node: Node): void {
+    this.dom.classList.toggle('aee-table-wrap--layout', tableKind(node) === 'layout');
   }
 
   ignoreMutation(record: ViewMutationRecord): boolean {
@@ -610,9 +620,10 @@ class TableView {
     return { left: rect.left, width: rect.width };
   }
 
-  /** Whether tables take their drags and pills (`setLayoutInteraction`). */
+  /** Whether this table takes its drags and pills (`setLayoutInteraction`):
+      a bordered or borderless one always does. */
   #interactive(): boolean {
-    return layoutInteractive(this.#view.state, 'table');
+    return layoutBlockInteractive(this.#view.state, this.#node);
   }
 
   #startDrag(line: HTMLElement, event: PointerEvent): void {

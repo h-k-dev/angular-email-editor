@@ -1294,10 +1294,12 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
 
 /* A layout block whose interaction is off (`setLayoutInteraction`, the
  * composer's settings) stands as laid out: no boundary line, no add pill —
- * its grips and its menu the library already withholds. Child combinators,
- * so a static columns block leaves the table inside it its own. */
-.aee-editor[data-aee-static~='table'] .aee-table-wrap > .aee-table-box > .aee-col-lines,
-.aee-editor[data-aee-static~='table'] .aee-table-wrap > .aee-table-box > .aee-add-zone,
+ * its grips and its menu the library already withholds. A table is a layout
+ * block only as a layout table (`aee-table-wrap--layout`): a bordered or
+ * borderless one is content and keeps its own. Child combinators, so a static
+ * columns block leaves the table inside it its own. */
+.aee-editor[data-aee-static~='table'] .aee-table-wrap--layout > .aee-table-box > .aee-col-lines,
+.aee-editor[data-aee-static~='table'] .aee-table-wrap--layout > .aee-table-box > .aee-add-zone,
 .aee-editor[data-aee-static~='columns'] .aee-columns-wrap > .aee-columns-box > .aee-col-lines,
 .aee-editor[data-aee-static~='columns'] .aee-columns-wrap > .aee-columns-box > .aee-add-zone {
   display: none;

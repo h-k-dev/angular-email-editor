@@ -414,8 +414,9 @@ export abstract class MessageSheet {
   );
 
   /** The settings' Layout switch: whether the layout blocks — sections,
-      columns, tables — take their gestures: a section's menu, the columns'
-      drags and pills, a table's grips, drags, pills and menus. Off, every
+      columns, layout tables — take their gestures: a section's menu, the
+      columns' drags and pills, a layout table's grips, drags, pills and
+      menus. A bordered or borderless table is content, and keeps its own. Off, every
       block stands as laid out and its words still edit: a template whose
       layout is settled, filled in. The mode's default — on to design, off
       to write — until the switch is flipped for the message; a new mode

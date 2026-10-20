@@ -2,7 +2,7 @@ import { Command, Plugin, PluginKey } from 'prosemirror-state';
 import { FunctionalExtension, defineExtension } from '../extension';
 import { LayoutBlockType, layoutBlockAt } from './layout-guides';
 import { MenuScroll, watchMenuScroll } from './menu-scroll';
-import { layoutInteractive, layoutInteractivity } from './layout-interaction';
+import { layoutBlockInteractive, layoutInteractivity } from './layout-interaction';
 
 export interface BlockMenuState {
   isOpen: boolean;
@@ -94,7 +94,7 @@ export const createBlockMenu = (options: BlockMenuOptions): FunctionalExtension 
             // A non-empty selection belongs to the text bubble menu; a block
             // whose interaction is off has no menu (`setLayoutInteraction`).
             const at = view.state.selection.empty ? layoutBlockAt(view.state) : null;
-            const block = at && layoutInteractive(view.state, at.type) ? at : null;
+            const block = at && layoutBlockInteractive(view.state, at.node) ? at : null;
             // Focus inside the menu still counts: otherwise reaching for the
             // menu by keyboard would be what closes it. The selection stays put
             // while the editor is blurred, so the block is still resolvable.

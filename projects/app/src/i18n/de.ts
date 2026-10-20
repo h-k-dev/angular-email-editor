@@ -74,7 +74,7 @@ export default {
       themeHint: 'Der Editor auf eigenem Papier oder im Design der App',
       layout: {
         label: 'Layout-Blöcke',
-        hint: 'Abschnitte, Spalten und Tabellen: Griffe, Größe ändern, Hinzufügen und Entfernen',
+        hint: 'Abschnitte, Spalten und Layout-Tabellen: Griffe, Größe ändern, Hinzufügen und Entfernen',
         plainText: 'Nur Text hat kein Layout',
         designMode: 'Hier wird gestaltet: Layout-Blöcke sind anfangs an.',
         writeMode: 'Hier wird geschrieben: Layout-Blöcke sind anfangs aus.',
