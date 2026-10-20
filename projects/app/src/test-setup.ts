@@ -42,4 +42,7 @@ beforeEach(() => TestBed.configureTestingModule({ providers: [provideI18n()] }))
 beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
+  // …and in English, as the page starts: a spec that switched the language
+  // leaves `<html lang>` behind.
+  document.documentElement.lang = 'en';
 });

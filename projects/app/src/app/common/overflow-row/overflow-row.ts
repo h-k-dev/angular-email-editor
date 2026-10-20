@@ -5,6 +5,7 @@ import {
   afterNextRender,
   booleanAttribute,
   inject,
+  computed,
 
   // Signals
   input,
@@ -87,6 +88,10 @@ export class OverflowRow {
 
   protected readonly canScrollStart = signal(false);
   protected readonly canScrollEnd = signal(false);
+
+  /** Something hides behind an edge: the items do not fit the row. For a
+      host's own controls that only matter then (a layout switch). */
+  readonly overflows = computed(() => this.canScrollStart() || this.canScrollEnd());
 
   /** A drag is scrolling the row (`data-dragging` on the host). */
   protected readonly dragging = signal(false);

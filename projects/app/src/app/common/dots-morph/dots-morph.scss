@@ -1,0 +1,109 @@
+// The figure, in a 24-unit box. The dots sit at the origin and are placed by
+// `transform` alone, so the origin is each dot's own centre: a scale shrinks
+// it in place. The shape is a rect whose geometry is CSS (SVG 2's geometry
+// properties), so it transitions with the dots.
+:host {
+  --_ease: cubic-bezier(0.2, 0, 0, 1);
+  --_time: 280ms;
+
+  display: inline-flex;
+  font-size: var(--dots-morph-size, 20px);
+  line-height: 0;
+}
+
+svg {
+  // The shadow reaches past the box.
+  overflow: visible;
+  filter: var(--dots-morph-shadow, none);
+}
+
+[data-shape] {
+  fill: var(--dots-morph-surface, transparent);
+  stroke: var(--dots-morph-ring, transparent);
+  stroke-width: 1.5px;
+  // The lying pill round the row: the full width, as tall as a dot and its
+  // margin, ends fully round.
+  x: 0.5px;
+  y: 6.5px;
+  width: 23px;
+  height: 11px;
+  rx: 5.5px;
+  ry: 5.5px;
+  transition:
+    x var(--_time) var(--_ease),
+    y var(--_time) var(--_ease),
+    width var(--_time) var(--_ease),
+    height var(--_time) var(--_ease),
+    rx var(--_time) var(--_ease),
+    ry var(--_time) var(--_ease),
+    fill 150ms ease,
+    stroke 150ms ease;
+}
+
+circle {
+  fill: transparent;
+  stroke: currentColor;
+  stroke-width: 1.5px;
+  transition:
+    transform var(--_time) var(--_ease),
+    fill 200ms ease,
+    stroke-width 200ms ease;
+}
+
+// The row: ⋯, hollow. The 4th dot waits inside the middle one.
+[data-dot='0'] {
+  transform: translate(6px, 12px);
+}
+
+[data-dot='1'] {
+  transform: translate(12px, 12px);
+}
+
+[data-dot='2'] {
+  transform: translate(18px, 12px);
+}
+
+[data-dot='3'] {
+  transform: translate(12px, 12px) scale(0);
+}
+
+// The grid: two rows of two, filled, on a circle. The left dot goes up,
+// the right one down, the middle one splits in two; the pill rounds out.
+:host([data-grid]) {
+  [data-shape] {
+    x: 0.5px;
+    y: 0.5px;
+    width: 23px;
+    height: 23px;
+    rx: 11.5px;
+    ry: 11.5px;
+  }
+
+  circle {
+    fill: currentColor;
+    stroke-width: 0;
+  }
+
+  [data-dot='0'] {
+    transform: translate(7.75px, 7.75px);
+  }
+
+  [data-dot='1'] {
+    transform: translate(16.25px, 7.75px);
+  }
+
+  [data-dot='2'] {
+    transform: translate(16.25px, 16.25px);
+  }
+
+  [data-dot='3'] {
+    transform: translate(7.75px, 16.25px) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-shape],
+  circle {
+    transition: none;
+  }
+}

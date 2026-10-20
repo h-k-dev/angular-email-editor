@@ -39,6 +39,12 @@ export default {
     format: { title: 'Format', html: 'HTML', text: 'Plain text' },
     view: { title: 'View', editor: 'Editor', html: 'HTML' },
     attach: 'Attach files',
+    attachments: {
+      label: 'Attachments',
+      twoRows: 'Two rows of attachments',
+      removeAll: 'Remove all attachments',
+      removed: 'All attachments removed',
+    },
     more: 'More options',
     settings: {
       title: 'Settings',

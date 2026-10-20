@@ -114,6 +114,16 @@ html {
    * outer shadow its lift. */
   --mat-sys-float-shadow: var(--mat-sys-ring-shadow), var(--mat-sys-outer-shadow);
 
+  /* What floats over the text without a panel of its own — the attachment
+   * strip's menu: a veil of the container colour, well under half of it,
+   * so the text under it still reads through. More of it on dark, where a thin veil of a dark surface
+   * is lost on dark text. light-dark() is answered where it is painted, so
+   * a paper island's own scheme counts. */
+  --mat-sys-surface-container-translucent: light-dark(
+    color-mix(in srgb, var(--mat-sys-surface-container) 40%, transparent),
+    color-mix(in srgb, var(--mat-sys-surface-container) 48%, transparent)
+  );
+
   /* A menu: the band between its edge and a row's highlight, and the
    * highlight — the on-surface ink at Material's hover opacity, so it reads
    * on any container colour. A row's corner is the panel's minus the band:

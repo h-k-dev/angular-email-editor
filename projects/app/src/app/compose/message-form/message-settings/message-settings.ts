@@ -10,7 +10,7 @@ import {
 } from '@angular/core';
 
 // Angular Aria
-import { Tab, TabList, TabPanel, Tabs } from '@angular/aria/tabs';
+import { Tab, TabContent, TabList, TabPanel, Tabs } from '@angular/aria/tabs';
 
 // Angular Material
 import { MatIconButton } from '@angular/material/button';
@@ -82,6 +82,7 @@ type SettingsSection = (typeof SECTIONS)[number]['id'];
     TabList,
     Tab,
     TabPanel,
+    TabContent,
     ToggleButtonGroup,
     ToggleButtonGroupIcon,
     ToggleButtonGroupText,

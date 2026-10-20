@@ -212,8 +212,8 @@ $compact: 768px;
   @include scroll.scroll;
 }
 
-// Every page is rendered; the closed ones are inert (the tab panel's
-// doing) and out of sight. A page reads at a line's length, never the
+// A page renders once opened and stays; the closed ones are inert (the
+// tab panel's doing) and out of sight. A page reads at a line's length, never the
 // frame's.
 .settings__page {
   max-inline-size: 720px;

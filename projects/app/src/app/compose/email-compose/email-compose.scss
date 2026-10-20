@@ -148,7 +148,7 @@
   flex: none;
   display: flex;
   flex-direction: column;
-  // A height held on it (DockAnimation) counts its padding, as measured.
+  // A height held on it (`heightSwitch`) counts its padding, as measured.
   box-sizing: border-box;
 }
 
@@ -171,12 +171,11 @@
   }
 }
 
-// A switch of the toolbar, running (DockAnimation, dock.animation.ts —
-// DOCK_SWITCH is this duration): the dock's height held in pixels and
-// moved to the new look's, what does not fit yet clipped.
-.email-compose__dock--switching {
+// A switch of the toolbar, running (`heightSwitch`, common/height-switch —
+// it holds the height and runs the transition): what does not fit yet,
+// clipped.
+.email-compose__dock[data-height-switch] {
   overflow: clip;
-  transition: height 200ms ease;
 }
 
 // With the chat up, on a wide screen, the two are one box: the field and

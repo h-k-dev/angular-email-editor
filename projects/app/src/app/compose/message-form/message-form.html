@@ -198,35 +198,88 @@
          from the store, and a chip's removal takes its reference out of the value
          (the container's doing) and stops its transfer (ours). -->
     <!-- One line, scrolled sideways (and dragged, with a mouse) once the
-         chips outgrow it: the strip never grows past one row over the text. -->
-    <overflow-row
+         chips outgrow it — or two, in reading order, when the rows toggle
+         says so (kept by this browser); the strip's height runs across the
+         switch, as the AI chat's dock does (heightSwitch). The menu floats
+         over the strip's top corner, shown on hover (always without one),
+         while the chips do not fit one line or two rows are on. -->
+    <div
       below-body
-      class="attachment-row"
+      class="attachment-strip"
+      [attr.data-rows]="attachmentRows()"
       [hidden]="!envelope.attachments().value().length"
+      [heightSwitch]="attachmentRows()"
+      hoverLinger
     >
-      <ul email-attachment-chips [formField]="envelope.attachments">
-        @for (attachment of envelope.attachments().value(); track attachment.key) {
-          <li
-            email-attachment-chip
-            [attachment]="attachment"
-            [status]="uploads.status(attachment.key)()"
-            [progress]="uploads.progress(attachment.key)()"
-            [aria-disabled]="envelope.attachments().disabled()"
-            animate.enter="email-attachment-chip-enter"
-            animate.leave="email-attachment-chip-leave"
-            (removed)="uploads.cancel(attachment.key)"
+      <overflow-row #strip>
+        <ul
+          email-attachment-chips
+          [formField]="envelope.attachments"
+          [style.--attachment-columns]="attachmentColumns()"
+        >
+          @for (attachment of envelope.attachments().value(); track attachment.key) {
+            <li
+              email-attachment-chip
+              [attachment]="attachment"
+              [status]="uploads.status(attachment.key)()"
+              [progress]="uploads.progress(attachment.key)()"
+              [aria-disabled]="envelope.attachments().disabled()"
+              animate.enter="email-attachment-chip-enter"
+              animate.leave="email-attachment-chip-leave"
+              (removed)="uploads.cancel(attachment.key)"
+            >
+              <!-- The chip's own glyphs would do; this fills its icon slot
+                   with the app's Material icons instead, as a host with an
+                   icon set of its own would. inline: the chip's box sets
+                   the size. -->
+              <mat-icon *emailAttachmentIcon="let kind = kind" inline>
+                {{ attachmentIcons[kind] }}
+              </mat-icon>
+            </li>
+          }
+        </ul>
+      </overflow-row>
+      <!-- The float menu, in reading order: how many attachments there are
+           (a document and the number — a label, not a control: the list says
+           it to a screen reader already), the trash (all of them, at once),
+           and the rows toggle (while the chips do not fit one line, or two rows
+           are on). -->
+      <div
+        class="attachment-strip__menu"
+        role="group"
+        [attr.aria-label]="'composer.attachments.label' | translate"
+      >
+        <span class="attachment-strip__count" aria-hidden="true">
+          <mat-icon>description</mat-icon>
+          {{ attachmentCount() }}
+        </span>
+        <button
+          mat-icon-button
+          type="button"
+          class="attachment-strip__clear"
+          [disabled]="envelope.attachments().disabled()"
+          [attr.aria-label]="'composer.attachments.removeAll' | translate"
+          [matTooltip]="'composer.attachments.removeAll' | translate"
+          matTooltipPosition="above"
+          (click)="removeAttachments()"
+        >
+          <mat-icon>delete</mat-icon>
+        </button>
+        @if (strip.overflows() || attachmentRows() === 'two') {
+          <button
+            type="button"
+            class="attachment-strip__rows"
+            [attr.aria-pressed]="attachmentRows() === 'two'"
+            [attr.aria-label]="'composer.attachments.twoRows' | translate"
+            [matTooltip]="'composer.attachments.twoRows' | translate"
+            matTooltipPosition="above"
+            (click)="toggleAttachmentRows()"
           >
-            <!-- The chip's own glyphs would do; this fills its icon slot
-                 with the app's Material icons instead, as a host with an
-                 icon set of its own would. inline: the chip's box sets
-                 the size. -->
-            <mat-icon *emailAttachmentIcon="let kind = kind" inline>
-              {{ attachmentIcons[kind] }}
-            </mat-icon>
-          </li>
+            <dots-morph [grid]="attachmentRows() === 'two'" />
+          </button>
         }
-      </ul>
-    </overflow-row>
+      </div>
+    </div>
   </section>
   <!-- The writer's hint, projected last so it overlays the composer:
        click-through, so the surface's zone underneath still gets its

@@ -84,6 +84,10 @@ describe('I18n', () => {
     const i18n = TestBed.inject(I18n);
     TestBed.tick();
     await vi.waitFor(() => expect(i18n.lang()).toBe('ja'));
+    // The page says so, for a screen reader's voice.
+    expect(document.documentElement.lang).toBe('ja');
+    i18n.use('de');
+    expect(document.documentElement.lang).toBe('de');
   });
 
   it('reads a language it does not speak as English', () => {

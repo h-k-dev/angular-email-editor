@@ -1,3 +1,5 @@
+@use '@angular/material' as mat;
+
 // Both sheets' (message-form, mobile-message-form): the writer and what
 // they project into it. A box for the frame to size: the page's grid
 // column, a window's body. The writer fills it.
@@ -64,12 +66,167 @@ ul[email-attachment-chips] {
   --email-attachment-chips-inset: var(--mat-sys-inner-spacing, 16px);
 }
 
-// The strip is one line: the chips never wrap, the row scrolls sideways
-// (overflow-row) and its paddles stand on the paper the strip sits on.
-.attachment-row {
+// The strip: the chips' row (overflow-row — scrolled sideways, its paddles
+// on the paper the strip sits on), and the rows toggle floating over its
+// top corner. One line by default: the chips never wrap. Two
+// (`data-rows="two"`): a grid in reading order, the first half on top
+// (`--attachment-columns`, the sheet's count), each column as wide as its
+// wider chip. The switch runs the strip's height (`heightSwitch`, the AI
+// chat dock's motion).
+.attachment-strip {
   --overflow-row-surface: var(--email-paper, var(--mat-sys-surface-bright));
+
+  position: relative;
+  box-sizing: border-box;
 
   ul[email-attachment-chips] {
     flex-wrap: nowrap;
+  }
+
+  &[data-rows='two'] ul[email-attachment-chips] {
+    display: grid;
+    grid-template-columns: repeat(var(--attachment-columns, 1), max-content);
+  }
+
+  // The menu's sensor: a band as tall as the menu, the strip's full width,
+  // over its top edge — so the pointer coming at the chips from the text
+  // already shows the menu, wherever it crosses. Only while there is a menu
+  // and a pointer that hovers: it takes the text's presses under it.
+  @media (hover: hover) {
+    &:has(.attachment-strip__menu)::before {
+      content: '';
+      position: absolute;
+      inset-inline: 0;
+      inset-block-end: 100%;
+      block-size: 40px;
+    }
+  }
+
+  // While the height runs, the rows that do not fit yet are cut at the
+  // strip's foot — only there: the menu floats above its top.
+  &[data-height-switch] {
+    clip-path: inset(-48px -8px 0 -8px);
+  }
+}
+
+// The float menu: its items standing just over the strip's top corner, on
+// one see-through container (`--mat-sys-surface-container-translucent`,
+// a faint blur) so the text under it neither hides nor muddles them. The items
+// wear nothing of their own: the count is words, the buttons are
+// Material's, transparent until hover, focus or press. Shown while the pointer is on the strip or its sensor
+// (the band over it, above), or focus is in it, and for a second after
+// (`hoverLinger`); always, where nothing hovers (a touch screen).
+.attachment-strip__menu {
+  position: absolute;
+  inset-block-end: calc(100% + 4px);
+  inset-inline-end: var(--mat-sys-inner-spacing, 16px);
+  z-index: 2;
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  padding: 2px;
+  border-radius: var(--mat-sys-corner-full, 999px);
+  background-color: var(--mat-sys-surface-container-translucent);
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  translate: 0 4px;
+  pointer-events: none;
+  transition:
+    opacity 150ms ease,
+    translate 150ms ease;
+
+  // `hoverLinger`: on at once with the pointer or focus, and a second after
+  // both have left — a hand overshooting the corner finds it still there.
+  .attachment-strip[data-hover-linger] & {
+    opacity: 1;
+    translate: 0 0;
+    pointer-events: auto;
+  }
+
+  @media (hover: none) {
+    opacity: 1;
+    translate: 0 0;
+    pointer-events: auto;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+// The count, first: a document and the number — read, never pressed, so
+// no surface and no state.
+.attachment-strip__count {
+  --mat-icon-size: 16px;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  block-size: 30px;
+  padding-inline: 8px 6px;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-large);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+// The trash: a Material icon button as it comes — its state layer, ripple
+// and focus — at the toggle's size, so the menu does not grow.
+.attachment-strip__clear {
+  @include mat.icon-button-overrides(
+    (
+      icon-size: 18px,
+      state-layer-size: 30px,
+      touch-target-size: 30px,
+      icon-color: var(--mat-sys-on-surface-variant),
+    )
+  );
+
+  --mat-icon-size: 18px;
+}
+
+// The rows toggle IS its figure (`dots-morph`): the shape drawn round the
+// dots — a lying pill round ⋯, a circle round the grid — is its state
+// layer, so it reads as the trash beside it does: nothing at rest, Material's
+// hover, focus and press opacities of the icon's ink, in the figure's
+// shape. Neutral in both states, as any icon button: the figure says which
+// is on, never a colour. The button is only the square it stands in, for
+// the pointer.
+.attachment-strip__rows {
+  --dots-morph-size: 30px;
+  --_layer: var(--mat-sys-on-surface-variant);
+
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--mat-sys-on-surface-variant);
+  cursor: pointer;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+
+  &:hover {
+    --dots-morph-surface: color-mix(
+      in srgb,
+      var(--_layer) calc(var(--mat-sys-hover-state-layer-opacity, 0.08) * 100%),
+      transparent
+    );
+  }
+
+  &:focus-visible {
+    --dots-morph-surface: color-mix(
+      in srgb,
+      var(--_layer) calc(var(--mat-sys-focus-state-layer-opacity, 0.12) * 100%),
+      transparent
+    );
+  }
+
+  &:active {
+    --dots-morph-surface: color-mix(
+      in srgb,
+      var(--_layer) calc(var(--mat-sys-pressed-state-layer-opacity, 0.12) * 100%),
+      transparent
+    );
   }
 }

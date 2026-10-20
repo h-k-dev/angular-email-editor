@@ -42,6 +42,12 @@ export default {
     format: { title: 'Format', html: 'HTML', text: 'Nur Text' },
     view: { title: 'Ansicht', editor: 'Editor', html: 'HTML' },
     attach: 'Dateien anhängen',
+    attachments: {
+      label: 'Anhänge',
+      twoRows: 'Anhänge in zwei Zeilen',
+      removeAll: 'Alle Anhänge entfernen',
+      removed: 'Alle Anhänge entfernt',
+    },
     more: 'Weitere Optionen',
     settings: {
       title: 'Einstellungen',

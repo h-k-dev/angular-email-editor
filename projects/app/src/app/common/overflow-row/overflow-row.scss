@@ -26,9 +26,15 @@
 
 // The bar is hidden on purpose — the paddles and the drag stand in for it —
 // so the row wears no scroll mixin.
+//
+// The focus reach: room for the items' focus rings inside the scrollport,
+// which clips. Above and below it is taken back with a negative margin, so
+// the row stands where its items do; never at the sides (core's did): a
+// scrollport wider than its host overflows whatever holds the row, and that
+// one scrolls sideways for real.
 .overflow-row__scroll {
   padding: var(--overflow-row-focus-reach, 3px);
-  margin: calc(-1 * var(--overflow-row-focus-reach, 3px));
+  margin-block: calc(-1 * var(--overflow-row-focus-reach, 3px));
 
   overflow-x: auto;
   // Focusing a hidden item scrolls it in, but the paddles overlay both edges
@@ -64,7 +70,7 @@
 .overflow-row__paddle {
   position: absolute;
   // Pulled out to the SCROLLPORT's edge, not the host's: the scroll box
-  // carries `margin: -focus-reach` so its focus rings can escape.
+  // reaches past the host above and below (its focus reach).
   inset-block: calc(-1 * var(--overflow-row-focus-reach, 3px));
   z-index: 1;
   display: flex;
@@ -72,11 +78,11 @@
   background-color: var(--overflow-row-surface, var(--mat-sys-surface));
 
   &--start {
-    inset-inline-start: calc(-1 * var(--overflow-row-focus-reach, 3px));
+    inset-inline-start: 0;
   }
 
   &--end {
-    inset-inline-end: calc(-1 * var(--overflow-row-focus-reach, 3px));
+    inset-inline-end: 0;
   }
 
   // Eases the items under the solid paddle instead of clipping them at a hard

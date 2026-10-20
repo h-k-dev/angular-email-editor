@@ -16,7 +16,7 @@ import {
 
 // Angular CDK
 import { Portal } from '@angular/cdk/portal';
-import { CdkTrapFocus } from '@angular/cdk/a11y';
+import { CdkTrapFocus, LiveAnnouncer } from '@angular/cdk/a11y';
 
 // Angular Signal Forms
 import { FieldTree, TreeValidationResult, form, submit, validate } from '@angular/forms/signals';
@@ -134,6 +134,7 @@ export abstract class MessageSheet {
   readonly #preferences = inject(Preferences);
   protected readonly i18n = inject(I18n);
   readonly #snackBar = inject(MatSnackBar);
+  readonly #announcer = inject(LiveAnnouncer);
 
   /** The body's editor pane. */
   readonly emailPane = viewChild.required(EmailCompose);
@@ -355,6 +356,39 @@ export abstract class MessageSheet {
       rest of it does; Light shows it as it is sent. A {@link Preferences}
       one: the same in every composer, and kept by this browser. */
   readonly editorAppearance = this.#preferences.editorAppearance;
+
+  /** The attachment strip's rows — its corner toggle: one line, or two —
+      the same in every composer, kept by this browser. */
+  readonly attachmentRows = this.#preferences.attachmentRows;
+
+  /** Two rows in reading order: the chips' first half on top, the rest
+      under it, each column as wide as its wider chip. */
+  readonly attachmentColumns = computed(() => Math.ceil(this.attachmentCount() / 2));
+
+  /** How many attachments the message carries — the strip's count. */
+  readonly attachmentCount = computed(() => this.envelope.attachments().value().length);
+
+  /** The strip's trash: every attachment out of the message, its transfer
+      stopped — what a chip's own × does, all at once. No confirmation, as
+      Discard has none. The strip goes with them: focus that was in it moves
+      to the text, never to the page, and a screen reader hears what
+      happened (the chips leave without a word of their own). */
+  removeAttachments(): void {
+    const attachments = this.message().attachments;
+    if (!attachments.length) return;
+    const inStrip = !!(document.activeElement as HTMLElement | null)?.closest('.attachment-strip');
+    for (const attachment of attachments) this.uploads.cancel(attachment.key);
+    this.message.update((m) => ({ ...m, attachments: [] }));
+    void this.#announcer.announce(this.i18n.t('composer.attachments.removed'));
+    if (inStrip) {
+      afterNextRender({ write: () => this.emailPane().focus() }, { injector: this.#injector });
+    }
+  }
+
+  /** The strip's corner toggle: one row to two and back. */
+  toggleAttachmentRows(): void {
+    this.attachmentRows.update((rows) => (rows === 'two' ? 'one' : 'two'));
+  }
 
   /** Whether the sheet's formatting toolbar can be switched off — the
       writer bar's formatting button, and the settings' Formatting toolbar

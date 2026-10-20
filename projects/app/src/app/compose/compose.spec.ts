@@ -3,6 +3,7 @@ import { TextSelection } from 'prosemirror-state';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { emailPlainText, plainTextHTML } from '@h-k-dev/angular-email-editor';
 
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { Compose } from './compose';
 import { FormattingCommands } from './email-compose/formatting-commands';
 import { Viewport } from '../../services/viewport';
@@ -82,6 +83,19 @@ async function openSettings(fixture: ComponentFixture<unknown>): Promise<HTMLDia
   const dialog = document.querySelector<HTMLDialogElement>('dialog.settings[open]');
   if (!dialog) throw new Error('Settings… opened no dialog');
   return dialog;
+}
+
+/** Opens a page of the settings by its tab — a page renders when it is
+    first opened (`ngTabContent`). */
+async function openSection(
+  fixture: ComponentFixture<unknown>,
+  dialog: HTMLDialogElement,
+  label: 'Personalization' | 'Designer' | 'Writer',
+): Promise<void> {
+  [...dialog.querySelectorAll<HTMLElement>('[role="tab"]')]
+    .find((tab) => tab.textContent?.includes(label))!
+    .click();
+  await fixture.whenStable();
 }
 
 /** The writer bar's ⋮ menu offers its View row now. */
@@ -900,6 +914,7 @@ describe('Compose', () => {
     const sheet = (component as any).sheet();
     const dialog = await openSettings(fixture);
     expect(dialog.open).toBe(true);
+    await openSection(fixture, dialog, 'Writer');
 
     const pm = () => sheet.emailPane().editor().view.dom as HTMLElement;
     const layoutSwitch = () =>
@@ -968,6 +983,7 @@ describe('Compose', () => {
     // The formatting toolbar: the writer bar's button, mirrored.
     const formatting = root.querySelector('.writer-bar [aria-label="Formatting options"]')!;
     expect(formatting.getAttribute('aria-pressed')).toBe('false');
+    await openSection(fixture, dialog, 'Writer');
     await toggle('toolbar');
     expect(formatting.getAttribute('aria-pressed')).toBe('true');
     expect(key('formatting-toolbar')).toBe('on');
@@ -975,11 +991,79 @@ describe('Compose', () => {
     // The source's word wrap — Alt+Z's.
     const source = root.querySelector('section[html-email-compose]')!;
     expect(source.hasAttribute('data-wrap')).toBe(false);
+    await openSection(fixture, dialog, 'Designer');
     await toggle('wrap');
     expect(source.getAttribute('data-wrap')).toBe('off');
     expect(key('source-wrap')).toBe('off');
 
     dialog.close();
+  });
+
+  it('the attachment strip’s corner toggle lays the chips in two rows and back, kept by this browser', async () => {
+    const root = fixture.nativeElement as HTMLElement;
+    const sheet = (component as any).sheet();
+    const strip = () => root.querySelector<HTMLElement>('.attachment-strip')!;
+    const toggle = () => strip().querySelector<HTMLButtonElement>('.attachment-strip__rows');
+    expect(strip().hidden).toBe(true);
+
+    const refs = ['a.pdf', 'b.pdf', 'c.pdf'].map((name) => sheet.uploads.start({ name, size: 10 }));
+    sheet.message.update((m: object) => ({ ...m, attachments: refs }));
+    await fixture.whenStable();
+    expect(strip().hidden).toBe(false);
+    expect(strip().getAttribute('data-rows')).toBe('one');
+    // jsdom lays nothing out, so nothing overflows: one fitting line needs no
+    // toggle — until two rows are on, when it is the way back.
+    expect(toggle()).toBeNull();
+
+    sheet.toggleAttachmentRows();
+    await fixture.whenStable();
+    expect(strip().getAttribute('data-rows')).toBe('two');
+    expect(localStorage.getItem('angular-email-editor:attachment-rows')).toBe('two');
+    const list = strip().querySelector<HTMLElement>('ul[email-attachment-chips]')!;
+    expect(list.style.getPropertyValue('--attachment-columns')).toBe('2');
+    expect(toggle()!.getAttribute('aria-pressed')).toBe('true');
+    expect(toggle()!.getAttribute('aria-label')).toBe('Two rows of attachments');
+    expect(toggle()!.querySelector('dots-morph')!.hasAttribute('data-grid')).toBe(true);
+
+    toggle()!.click();
+    await fixture.whenStable();
+    expect(strip().getAttribute('data-rows')).toBe('one');
+    expect(localStorage.getItem('angular-email-editor:attachment-rows')).toBeNull();
+  });
+
+  it('the attachment strip’s trash takes every attachment out at once, and stops their uploads', async () => {
+    const root = fixture.nativeElement as HTMLElement;
+    const sheet = (component as any).sheet();
+    const refs = ['a.pdf', 'b.pdf', 'c.pdf'].map((name) => sheet.uploads.start({ name, size: 10 }));
+    sheet.message.update((m: object) => ({ ...m, attachments: refs }));
+    await fixture.whenStable();
+
+    // The menu reads: the count, the trash, then (when it applies) the rows.
+    const menu = root.querySelector<HTMLElement>('.attachment-strip__menu')!;
+    expect([...menu.children].map((child) =>
+        [...child.classList].find((name) => name.startsWith('attachment-strip__')),
+      )).toEqual([
+      'attachment-strip__count',
+      'attachment-strip__clear',
+    ]);
+    expect(menu.querySelector('.attachment-strip__count')!.textContent).toContain('3');
+
+    const trash = root.querySelector<HTMLButtonElement>('.attachment-strip__clear')!;
+    expect(trash.getAttribute('aria-label')).toBe('Remove all attachments');
+    // One named group, for a screen reader: "Attachments, group".
+    expect(menu.getAttribute('role')).toBe('group');
+    expect(menu.getAttribute('aria-label')).toBe('Attachments');
+
+    const cancel = vi.spyOn(sheet.uploads, 'cancel');
+    const announce = vi.spyOn(TestBed.inject(LiveAnnouncer), 'announce');
+    trash.click();
+    await fixture.whenStable();
+
+    expect(sheet.message().attachments).toEqual([]);
+    expect(cancel.mock.calls.map(([key]) => key)).toEqual(refs.map((ref: { key: string }) => ref.key));
+    expect(root.querySelector<HTMLElement>('.attachment-strip')!.hidden).toBe(true);
+    // The chips leave without a word: the sheet says what happened.
+    expect(announce).toHaveBeenCalledWith('All attachments removed');
   });
 
   it('the settings’ Format turns the message to plain text and back, and sends plain text alone', async () => {
@@ -994,7 +1078,10 @@ describe('Compose', () => {
     /** Picks a Format on the settings' toggle — the dialog stays open. */
     let dialog: HTMLDialogElement | null = null;
     const chooseFormat = async (label: 'HTML' | 'Plain text') => {
-      if (!dialog?.open) dialog = await openSettings(fixture);
+      if (!dialog?.open) {
+        dialog = await openSettings(fixture);
+        await openSection(fixture, dialog, 'Writer');
+      }
       const row = [...dialog.querySelectorAll<HTMLElement>('hk-tgb')].find((group) =>
         group.textContent?.includes('Plain text'),
       )!;

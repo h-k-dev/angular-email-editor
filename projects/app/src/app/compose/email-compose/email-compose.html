@@ -87,8 +87,8 @@
        Discard and Apply stand above it, over the text. With the chat away
        the dock is nothing, and the toolbar is the bar it always was.
        Switching the toolbar runs the dock's height from the one look to the
-       other (dock.animation.ts) — over its one child, which it measures. -->
-  <div class="email-compose__dock" [class.email-compose__dock--chat]="chat.open()" [dockAnimation]="toolbar()">
+       other (`heightSwitch`, common/height-switch) — over its one child, which it measures. -->
+  <div class="email-compose__dock" [class.email-compose__dock--chat]="chat.open()" [heightSwitch]="toolbar()">
     <div class="email-compose__dock-content">
       <!-- The suggestion menu docked (`suggestions`, a phone's sheet): a band
            over the toolbar, on the keyboard, where there is no room by the

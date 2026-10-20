@@ -1,4 +1,4 @@
-import { Service, computed, effect, inject, signal, untracked } from '@angular/core';
+import { DOCUMENT, Service, computed, effect, inject, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslateService } from '@ngx-translate/core';
 import type { SuggestionItemLabel } from '@h-k-dev/angular-email-editor';
@@ -24,6 +24,7 @@ import { Preferences } from './preferences';
 export class I18n {
   readonly #translate = inject(TranslateService);
   readonly #chosen = inject(Preferences).language;
+  readonly #root = inject(DOCUMENT).documentElement;
 
   /** Moves whenever the words may have: a switch, a dictionary landing. */
   readonly #version = signal(0);
@@ -43,11 +44,15 @@ export class I18n {
     this.#translate.onTranslationChange.pipe(takeUntilDestroyed()).subscribe(bump);
 
     // The kept pick, as the app starts and as another tab changes it:
-    // ngx-translate is outside the signal graph, so it is handed over.
+    // ngx-translate is outside the signal graph, so it is handed over. The
+    // page says which language it is in (`<html lang>`): a screen reader
+    // reads Japanese with a Japanese voice, a browser hyphenates German as
+    // German.
     effect(() => {
       const language = this.#chosen();
       untracked(() => {
         if (this.#translate.getCurrentLang() !== language) this.#translate.use(language);
+        this.#root.lang = language;
       });
     });
   }
@@ -56,6 +61,7 @@ export class I18n {
   use(language: AppLanguage): void {
     this.#chosen.set(language);
     this.#translate.use(language);
+    this.#root.lang = language;
   }
 
   /** The words for `key` in the language in use — English where it has

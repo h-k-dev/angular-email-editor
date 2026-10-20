@@ -41,6 +41,12 @@ export default {
     format: { title: '形式', html: 'HTML', text: 'プレーンテキスト' },
     view: { title: '表示', editor: 'エディター', html: 'HTML' },
     attach: 'ファイルを添付',
+    attachments: {
+      label: '添付ファイル',
+      twoRows: '添付ファイルを2行で表示',
+      removeAll: 'すべての添付ファイルを削除',
+      removed: 'すべての添付ファイルを削除しました',
+    },
     more: 'その他のオプション',
     settings: {
       title: '設定',

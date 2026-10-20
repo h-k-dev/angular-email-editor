@@ -39,7 +39,7 @@ import { CellMenu } from './cell-menu/cell-menu';
 import { BubbleMenu } from './bubble-menu/bubble-menu';
 import { FormattingCommands } from './formatting-commands';
 import { FormattingToolbar } from './formatting-toolbar/formatting-toolbar';
-import { DockAnimation } from './dock.animation';
+import { HeightSwitch } from '../../common/height-switch/height-switch';
 import { FloatingFoot, footClearance } from './floating-foot';
 import { LinkEditor } from './link-editor/link-editor';
 import { AltTextEditor } from './alt-text-editor/alt-text-editor';
@@ -144,7 +144,7 @@ export type BodyFormat = 'html' | 'text';
     LinkEditor,
     AltTextEditor,
     ChatBasedSuggestion,
-    DockAnimation,
+    HeightSwitch,
     FloatingFoot,
     PopoverOutlet,
     SuggestionMenu,

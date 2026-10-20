@@ -29,8 +29,9 @@ import { FunctionalExtension, defineExtension } from '@h-k-dev/angular-email-edi
  * room, the scrollbar track's end and the surface hint's foot; the caret
  * reads it through {@link footClearance}.
  *
- * A child whose height runs to a held one (`DockAnimation` holds the dock's
- * target in its inline height while the transition moves it there) counts
+ * A child whose height runs to a held one (`heightSwitch` holds the dock's
+ * or the attachment strip's target in its inline height while the
+ * transition moves it there) counts
  * at that target: the room is where the foot is going, set once per change
  * — never a write per frame of the motion.
  */
@@ -61,7 +62,11 @@ export class FloatingFoot {
   #measure(): void {
     let height = this.#foot.getBoundingClientRect().height;
     // A child on its way to a held height: counted at it.
-    for (const child of Array.from(this.#foot.children) as HTMLElement[]) {
+    // The foot's children, and the slot's (`below-body`, a box of no box).
+    const children = this.#foot.querySelectorAll<HTMLElement>(
+      ':scope > *, :scope > .email-compose__below-body > *',
+    );
+    for (const child of Array.from(children)) {
       const held = parseFloat(child.style.height);
       if (Number.isFinite(held)) height += held - child.getBoundingClientRect().height;
     }

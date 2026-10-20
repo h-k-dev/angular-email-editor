@@ -58,4 +58,11 @@ export class Preferences {
       Word wrap. Unset reads as on (VS Code's word wrap); off, a line stays
       one and the pane scrolls sideways. */
   readonly sourceWrap = this.#storage.pairSignal(`${PREFIX}source-wrap`, onOff(true));
+
+  /** How many rows the attachment strip lays its chips in — its corner
+      toggle. Unset reads as `one`: a single line, scrolled sideways. */
+  readonly attachmentRows = this.#storage.pairSignal(
+    `${PREFIX}attachment-rows`,
+    oneOf(['one', 'two'], 'one'),
+  );
 }

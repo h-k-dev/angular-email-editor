@@ -134,6 +134,11 @@ describe('ComposeWindows', () => {
     await settle();
     const dialog = document.querySelector<HTMLDialogElement>('dialog.settings[open]')!;
     expect(frame.contains(dialog)).toBe(false);
+    // A page renders when it is first opened.
+    [...dialog.querySelectorAll<HTMLElement>('[role="tab"]')]
+      .find((tab) => tab.textContent?.includes('Writer'))!
+      .click();
+    await settle();
     const layoutSwitch = dialog.querySelector<HTMLButtonElement>(
       '[data-setting="layout"] button[role="switch"]',
     )!;
