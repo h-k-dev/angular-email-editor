@@ -1,6 +1,7 @@
-<!-- The View, as two check options. Opens away from the sheet's edge,
-     lined up with the bar's near end (`side`, `align`: the sheet's call).
-     A pick closes the menu; the sheet changes behind it. -->
+<!-- Settings…, then the View as two check options. Opens away from the
+     sheet's edge, lined up with the bar's near end (`side`, `align`: the
+     sheet's call). A pick closes the menu; the sheet changes behind it, or
+     the settings open over it. -->
 <button
   mat-icon-button
   type="button"
@@ -20,5 +21,6 @@
   [side]="side()"
   [align]="align()"
   [items]="items()"
-  (selected)="sheet.onEditorView($event)"
+  (selected)="onSelected($event)"
 ></div>
+<message-settings />

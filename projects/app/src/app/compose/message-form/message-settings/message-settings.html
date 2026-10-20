@@ -1,17 +1,4 @@
-<!-- The message's settings: the gear, and the dialog it opens. -->
-<button
-  mat-icon-button
-  type="button"
-  [attr.aria-label]="'composer.settings.title' | translate"
-  [title]="'composer.settings.title' | translate"
-  aria-haspopup="dialog"
-  [attr.aria-controls]="dialogId"
-  [attr.aria-expanded]="opened()"
-  (click)="open()"
->
-  <mat-icon>settings</mat-icon>
-</button>
-
+<!-- The message's settings: the dialog the ⋮'s Settings… opens. -->
 <!-- One fixed size (the global --dialog-* tokens), the whole screen at
      the compact width. The panel fills the dialog, so
      a press on the dialog itself is a press on the backdrop. Every pick
@@ -21,7 +8,6 @@
   class="settings"
   [id]="dialogId"
   [attr.aria-labelledby]="titleId"
-  (close)="opened.set(false)"
   (click)="onPress($event)"
 >
   <div class="settings__panel">

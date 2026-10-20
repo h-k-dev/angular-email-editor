@@ -27,6 +27,23 @@ import {
 const slashMenu = (options: Omit<SuggestionMenuOptions, 'trigger'>) =>
   createSuggestionMenu({ trigger: '/', items: extensionSuggestions, ...options });
 
+/** Types `<trigger><group>`, picks the row it finds first — the group — with
+    Tab, and types the rest as the level's query: `'/templates news'`. A
+    group is entered by a pick only; its name is never in the text. */
+function typeIntoGroup(editor: Editor, text: string): void {
+  const insert = (part: string) =>
+    editor.exec((editorState, dispatch) => {
+      dispatch?.(editorState.tr.insertText(part));
+      return true;
+    });
+  const end = text.search(/\S\s/) + 1;
+  insert(text.slice(0, end));
+  editor.view.dom.dispatchEvent(
+    new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }),
+  );
+  if (text.length > end + 1) insert(text.slice(end + 1));
+}
+
 describe('createSuggestionMenu — the / menu', () => {
   let host: HTMLElement;
   let menu: HTMLElement;
@@ -514,11 +531,11 @@ describe('createSuggestionMenu — groups, paging, i18n and ARIA', () => {
     expect(titles()).toEqual(['Templates']);
   });
 
-  it('opens level 2 on Enter by rewriting the query to /<word> ', () => {
+  it('opens level 2 on Enter, writing nothing — the text stays the trigger', () => {
     type('/temp');
     keydown('Enter');
 
-    expect(text()).toBe('/templates ');
+    expect(text()).toBe('/');
     expect(state?.open).toBe(true);
     expect(state?.level).toBe(2);
     expect(state?.parent?.id).toBe('templates');
@@ -528,8 +545,9 @@ describe('createSuggestionMenu — groups, paging, i18n and ARIA', () => {
     expect(inserted).toEqual([]);
   });
 
-  it('searches the children with what follows the space', () => {
-    type('/templates news');
+  it('searches the children with what follows the trigger', () => {
+    typeIntoGroup(editor!, '/templates news');
+    expect(text()).toBe('/news');
     expect(state?.level).toBe(2);
     expect(state?.query).toBe('news');
     expect(titles()).toEqual(['Newsletter']);
@@ -540,22 +558,22 @@ describe('createSuggestionMenu — groups, paging, i18n and ARIA', () => {
     expect(titles()).toEqual(['Welcome mail']);
   });
 
-  it('applies a child with Enter, removing the whole /<word> <query> text', () => {
-    type('/templates inv');
+  it('applies a child with Enter, removing the whole /<query> text', () => {
+    typeIntoGroup(editor!, '/templates inv');
     expect(keydown('Enter')).toBe(true);
     expect(inserted).toEqual(['invoice']);
     expect(text()).toBe('');
     expect(state?.open).toBe(false);
   });
 
-  it('is derived from the text: Backspace over the space is level 1 again', () => {
+  it('is never entered by its name typed out: that is a level-1 query', () => {
     type('/templates ');
-    expect(state?.level).toBe(2);
-
-    backspace();
-    expect(text()).toBe('/templates');
     expect(state?.level).toBe(1);
     expect(titles()).toEqual(['Templates']);
+
+    type('news');
+    expect(state?.open).toBe(false);
+    expect(text()).toBe('/templates news');
   });
 
   it('goes up on the Backspace key to all of level 1 — for a group of several words too', () => {
@@ -565,8 +583,8 @@ describe('createSuggestionMenu — groups, paging, i18n and ARIA', () => {
         { id: 'fields', title: 'Alle Feldtypen (Test)', children: [leaf('cf_1', 'Name')] },
       ],
     });
-    for (const word of ['templates', 'alle-feldtypen-(test)']) {
-      type(`/${word} `);
+    for (const word of ['templates', 'alle']) {
+      typeIntoGroup(editor!, `/${word} `);
       expect(state?.level).toBe(2);
 
       expect(keydown('Backspace')).toBe(true);
@@ -578,7 +596,7 @@ describe('createSuggestionMenu — groups, paging, i18n and ARIA', () => {
   });
 
   it('leaves Backspace to the editor while the level’s query has text, and on level 1', () => {
-    type('/templates n');
+    typeIntoGroup(editor!, '/templates n');
     expect(keydown('Backspace')).toBe(false);
 
     editor!.setContent('<p></p>');
@@ -586,25 +604,28 @@ describe('createSuggestionMenu — groups, paging, i18n and ARIA', () => {
     expect(keydown('Backspace')).toBe(false);
   });
 
-  it('enters level 2 by a keyword as well — a typed or pasted query lands there directly', () => {
-    type('/tpl welc');
+  it('finds a group by a keyword on level 1, and enters it on a pick', () => {
+    type('/tpl');
+    expect(titles()).toEqual(['Templates']);
+    keydown('Tab');
     expect(state?.level).toBe(2);
+    type('welc');
     expect(titles()).toEqual(['Welcome mail']);
   });
 
   it('stays open on level 2 with no matches, and keeps the keys for itself', () => {
-    type('/templates zzz');
+    typeIntoGroup(editor!, '/templates zzz');
     expect(state?.open).toBe(true);
     expect(state?.items).toEqual([]);
     expect(menu.hasAttribute('style')).toBe(false);
 
     expect(keydown('Enter')).toBe(true);
-    expect(text()).toBe('/templates zzz');
+    expect(text()).toBe('/zzz');
     expect(keydown('ArrowDown')).toBe(true);
   });
 
   it('back() returns to an empty level 1 from the pointer', () => {
-    type('/templates news');
+    typeIntoGroup(editor!, '/templates news');
     state!.back();
     expect(text()).toBe('/');
     expect(state?.level).toBe(1);
@@ -615,12 +636,12 @@ describe('createSuggestionMenu — groups, paging, i18n and ARIA', () => {
     type('/');
     const group = state!.items.find((item) => item.id === 'templates')!;
     state!.select(group);
-    expect(text()).toBe('/templates ');
+    expect(text()).toBe('/');
     expect(state?.level).toBe(2);
   });
 
   it('closes level 2 with Escape, like level 1', () => {
-    type('/templates ');
+    typeIntoGroup(editor!, '/templates ');
     keydown('Escape');
     expect(state?.open).toBe(false);
     type('x');
@@ -640,19 +661,20 @@ describe('createSuggestionMenu — groups, paging, i18n and ARIA', () => {
       source: () => [leaf('level-one-only', 'Level one only')],
     });
 
-    type('/remote a');
+    typeIntoGroup(editor!, '/remote a');
     type('b');
-    expect(pending.map((p) => p.query)).toEqual(['a', 'ab']);
+    // Entering asks for the empty query; each keystroke for its own.
+    expect(pending.map((p) => p.query)).toEqual(['', 'a', 'ab']);
     expect(state?.loading).toBe(true);
     expect(state?.open).toBe(true);
     // The level-1 source is not asked inside a group.
     expect(titles()).toEqual([]);
 
-    pending[0].resolve([leaf('stale', 'Stale')]);
+    pending[1].resolve([leaf('stale', 'Stale')]);
     await Promise.resolve();
     expect(titles()).toEqual([]);
 
-    pending[1].resolve([leaf('fresh', 'Fresh')]);
+    pending[2].resolve([leaf('fresh', 'Fresh')]);
     await Promise.resolve();
     expect(state?.loading).toBe(false);
     expect(titles()).toEqual(['Fresh']);
@@ -689,7 +711,7 @@ describe('createSuggestionMenu — groups, paging, i18n and ARIA', () => {
     });
 
     it('reports hasMore and appends the next page on loadMore()', async () => {
-      type('/remote ');
+      typeIntoGroup(editor!, '/remote ');
       expect(requests.map(({ request: { query, cursor } }) => ({ query, cursor }))).toEqual([
         { query: '', cursor: null },
       ]);
@@ -707,7 +729,7 @@ describe('createSuggestionMenu — groups, paging, i18n and ARIA', () => {
     });
 
     it('lists a row once when the next page repeats it — rows that moved between requests', async () => {
-      type('/remote ');
+      typeIntoGroup(editor!, '/remote ');
       await settle();
       // A row comes in at the top on the server: skip 5 now starts a row early.
       catalogue.unshift(leaf('new', 'Template new'));
@@ -722,7 +744,7 @@ describe('createSuggestionMenu — groups, paging, i18n and ARIA', () => {
     });
 
     it('loadMore() is a no-op while loading, at the end, or twice in a row', async () => {
-      type('/remote ');
+      typeIntoGroup(editor!, '/remote ');
       state!.loadMore(); // first page still out
       expect(requests).toHaveLength(1);
       await settle();
@@ -746,7 +768,7 @@ describe('createSuggestionMenu — groups, paging, i18n and ARIA', () => {
       let changes = 0;
       mount({ items: [pagedGroup()], onChange: (s) => ((state = s), changes++) });
       requests = [];
-      type('/remote ');
+      typeIntoGroup(editor!, '/remote ');
       await settle();
       for (let i = 0; i < 4; i++) keydown('ArrowDown');
       expect(state?.activeIndex).toBe(4);
@@ -765,7 +787,7 @@ describe('createSuggestionMenu — groups, paging, i18n and ARIA', () => {
     });
 
     it('discards a page that lands after the query changed', async () => {
-      type('/remote ');
+      typeIntoGroup(editor!, '/remote ');
       await settle();
       state!.loadMore();
       const stale = requests.at(-1)!;
@@ -789,7 +811,7 @@ describe('createSuggestionMenu — groups, paging, i18n and ARIA', () => {
     });
 
     it('asks at once on every keystroke, aborting the request before', () => {
-      type('/remote ');
+      typeIntoGroup(editor!, '/remote ');
       type('T');
       type('e');
       expect(requests.map((r) => r.request.query)).toEqual(['', 'T', 'Te']);
@@ -799,13 +821,13 @@ describe('createSuggestionMenu — groups, paging, i18n and ARIA', () => {
     });
 
     it('tells the source one session per session and level', () => {
-      type('/remote ');
+      typeIntoGroup(editor!, '/remote ');
       type('T');
       const [opened, typed] = requests.map((r) => r.request.session);
       expect(typed).toBe(opened);
 
       keydown('Escape');
-      type(' /remote ');
+      typeIntoGroup(editor!, ' /remote ');
       expect(requests.at(-1)!.request.session).not.toBe(opened);
     });
   });
@@ -835,10 +857,10 @@ describe('createSuggestionMenu — groups, paging, i18n and ARIA', () => {
       expect(titles()).toContain('Tabelle');
     });
 
-    it('writes the translated word into the query, and accepts the English one', () => {
+    it('enters by the translated title, and finds the group by the English one', () => {
       type('/vorl');
       keydown('Enter');
-      expect(text()).toBe('/vorlagen ');
+      expect(text()).toBe('/');
       expect(state?.level).toBe(2);
       expect(state?.parent?.title).toBe('Vorlagen');
 
@@ -846,7 +868,7 @@ describe('createSuggestionMenu — groups, paging, i18n and ARIA', () => {
       expect(titles()).toEqual(['Willkommensmail']);
 
       editor!.setText('');
-      type('/templates welcome');
+      typeIntoGroup(editor!, '/templates welcome');
       expect(state?.level).toBe(2);
       expect(titles()).toEqual(['Willkommensmail']);
     });
@@ -883,7 +905,7 @@ describe('createSuggestionMenu — groups, paging, i18n and ARIA', () => {
     });
 
     it('drops the active descendant when there is nothing to point at', () => {
-      type('/templates zzz');
+      typeIntoGroup(editor!, '/templates zzz');
       expect(dom().hasAttribute('aria-controls')).toBe(true);
       expect(dom().hasAttribute('aria-activedescendant')).toBe(false);
     });
@@ -1284,26 +1306,25 @@ describe('mergeTagTrigger', () => {
       expect(state).toMatchObject({ open: true, level: 2 });
     });
 
-    it('marks the level in the text: level 2 and the group’s placeholder', () => {
+    it('marks the level in the text: level 2, the group’s name and its placeholder', () => {
       type('{{');
       keydown('ArrowDown');
       keydown('Enter');
       expect(decoration()?.getAttribute('data-level')).toBe('2');
-      expect(decoration()?.getAttribute('data-placeholder')).toBe('Search fields…');
+      expect(host.querySelector('.aee-suggestion-level')?.textContent).toBe(
+        'Alle Feldtypen (Test) ',
+      );
+      expect(host.querySelector('.aee-suggestion-hint')?.getAttribute('data-placeholder')).toBe(
+        'Search fields…',
+      );
+      // For the eye only: the braces are all the text there is.
+      expect(text()).toBe('{{');
     });
 
     it('is never entered by a word typed after the braces', () => {
       mount({ items: [fields], query: /^ ?[^{}]*$/u });
       type('{{alle-feldtypen-(test) geg');
       expect(state?.level).toBe(1);
-    });
-
-    it('can be written into the text instead, when the host asks for it', () => {
-      mount({ items: [fields], query: /^ ?[^{}]*$/u, levels: 'text' });
-      type('{{alle');
-      keydown('Enter');
-      expect(text()).toBe('{{alle-feldtypen-(test) ');
-      expect(state?.level).toBe(2);
     });
   });
 });
@@ -1369,7 +1390,7 @@ describe('createSuggestionMenu — several menus on one editor', () => {
   });
 
   it('never opens two at once: the trigger nearest the caret wins', () => {
-    type('/templates zz');
+    typeIntoGroup(editor, '/templates zz');
     expect(slash?.open).toBe(true);
     expect(slash?.level).toBe(2);
 
@@ -1381,16 +1402,16 @@ describe('createSuggestionMenu — several menus on one editor', () => {
   });
 
   it('hands the keys to the open one only', () => {
-    type('/templates zz{{');
+    typeIntoGroup(editor, '/templates zz{{');
     expect(keydown('ArrowDown')).toBe(true);
     expect(tags?.activeIndex).toBe(1);
 
     keydown('Enter');
-    expect(editor.state.doc.textContent).toBe('/templates zz{{ last }}');
+    expect(editor.state.doc.textContent).toBe('/zz{{ last }}');
   });
 
   it('gives the outer menu back once the inner session is gone', () => {
-    type('/templates zz{{');
+    type('/head{{');
     expect(slash?.open ?? false).toBe(false);
     expect(tags?.open).toBe(true);
 
@@ -2016,6 +2037,8 @@ describe('createSuggestionMenu — the session in the text and in the state', ()
     });
 
   const marked = () => editor.view.dom.querySelector<HTMLElement>('.aee-suggestion');
+  const label = () => editor.view.dom.querySelector<HTMLElement>('.aee-suggestion-level');
+  const hint = () => editor.view.dom.querySelector<HTMLElement>('.aee-suggestion-hint');
 
   beforeEach(() => {
     host = document.createElement('div');
@@ -2088,39 +2111,67 @@ describe('createSuggestionMenu — the session in the text and in the state', ()
       expect(marked()?.hasAttribute('data-placeholder')).toBe(false);
     });
 
-    it('carries the group’s placeholder once inside it, until its query is typed', () => {
+    it('draws a group’s name after the trigger, and its placeholder after the caret', () => {
       type('/templates');
       expect(marked()?.getAttribute('data-level')).toBe('1');
-      expect(marked()?.hasAttribute('data-placeholder')).toBe(false);
+      expect(label()).toBeNull();
 
-      type(' ');
+      keydown(editor, 'Tab');
       expect(state?.level).toBe(2);
+      expect(editor.state.doc.textContent).toBe('/');
       expect(marked()?.getAttribute('data-level')).toBe('2');
       expect(marked()?.classList.contains('aee-suggestion-empty')).toBe(true);
-      expect(marked()?.getAttribute('data-placeholder')).toBe('Search templates…');
+      // The hint is the widget's: on the session's span it would paint
+      // before the group's name.
+      expect(marked()?.hasAttribute('data-placeholder')).toBe(false);
+      expect(label()?.textContent).toBe('Templates ');
+      expect(label()?.getAttribute('contenteditable')).toBe('false');
+      expect(hint()?.classList.contains('aee-suggestion-empty')).toBe(true);
+      expect(hint()?.getAttribute('data-placeholder')).toBe('Search templates…');
+      // Trigger, name, hint — the caret between the last two.
+      expect(marked()!.compareDocumentPosition(label()!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+      expect(label()!.compareDocumentPosition(hint()!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+      expect(editor.state.selection.from).toBe(2);
 
       type('wel');
+      expect(editor.state.doc.textContent).toBe('/wel');
       expect(marked()?.classList.contains('aee-suggestion-empty')).toBe(false);
-      expect(marked()?.hasAttribute('data-placeholder')).toBe(false);
+      expect(label()?.textContent).toBe('Templates ');
+      expect(hint()).toBeNull();
     });
 
-    it('shows it for a group picked from the list too — the query is rewritten to its word', () => {
+    it('writes none of it: the HTML is the text, and the name goes with the level', () => {
       type('/templ');
       keydown(editor, 'Enter');
-      expect(editor.state.doc.textContent).toBe('/templates ');
-      expect(marked()?.getAttribute('data-placeholder')).toBe('Search templates…');
+      type('wel');
+      expect(editor.getHTML()).not.toContain('Templates');
+      expect(editor.getHTML()).not.toContain('Search templates');
+
+      keydown(editor, 'Escape');
+      expect(label()).toBeNull();
+      expect(editor.state.doc.textContent).toBe('/wel');
+    });
+
+    it('takes the name back with Backspace: level 1 and the trigger’s own placeholder', () => {
+      typeIntoGroup(editor, '/templates ');
+      keydown(editor, 'Backspace');
+      expect(state?.level).toBe(1);
+      expect(label()).toBeNull();
+      expect(hint()).toBeNull();
+      expect(marked()?.getAttribute('data-placeholder')).toBe('Type to filter…');
     });
 
     it('takes a group’s placeholder from i18n, and has none for a group given none', () => {
-      type('/plain ');
-      expect(marked()?.getAttribute('data-placeholder')).toBe('Find a plain one…');
+      typeIntoGroup(editor, '/plain ');
+      expect(hint()?.getAttribute('data-placeholder')).toBe('Find a plain one…');
 
       keydown(editor, 'Escape');
-      type(' /bare ');
+      typeIntoGroup(editor, ' /bare ');
       expect(marked()?.getAttribute('data-level')).toBe('2');
       expect(marked()?.classList.contains('aee-suggestion-empty')).toBe(true);
       // Not the trigger's: "Type to filter…" would be wrong inside a group.
       expect(marked()?.hasAttribute('data-placeholder')).toBe(false);
+      expect(hint()).toBeNull();
     });
 
     it('has no placeholder for a trigger that was given none', () => {
@@ -2359,14 +2410,18 @@ describe('createSuggestionMenu — a translation looked up when the menu opens',
     expect(state?.items.map((item) => item.title)).toEqual(['Fett']);
   });
 
-  it('enters a group by its translated name as well, with its translated placeholder', () => {
+  it('finds a group by its translated name as well, with its translated name and placeholder', () => {
     language = 'de';
-    type('/vorlagen ');
+    typeIntoGroup(editor, '/vorlagen ');
     expect(state).toMatchObject({ level: 2, parent: { title: 'Vorlagen' } });
-    const marked = editor.view.dom.querySelector('.aee-suggestion');
-    expect(marked?.getAttribute('data-placeholder')).toBe('Vorlagen durchsuchen…');
+    const dom = editor.view.dom;
+    expect(dom.querySelector('.aee-suggestion-level')?.textContent).toBe('Vorlagen ');
+    expect(dom.querySelector('.aee-suggestion-hint')?.getAttribute('data-placeholder')).toBe(
+      'Vorlagen durchsuchen…',
+    );
 
-    reopen('/templates ');
+    keydown(editor, 'Escape');
+    typeIntoGroup(editor, ' /templates ');
     expect(state?.level).toBe(2);
   });
 
@@ -2488,8 +2543,9 @@ describe('createSuggestionMenu — scripts that write no spaces', () => {
     expect(state?.items.map((item) => item.title)).toEqual(['太字']);
   });
 
-  it('enters a group over a full-width space, as an input method types it', () => {
-    type('/テンプレート\u3000');
+  it('finds a group by a name written without spaces, and enters it on a pick', () => {
+    type('/テンプレート');
+    keydown(editor, 'Tab');
     expect(state).toMatchObject({ level: 2, parent: { title: 'テンプレート' } });
     type('wel');
     expect(state?.items.map((item) => item.title)).toEqual(['Welcome mail']);

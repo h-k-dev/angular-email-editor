@@ -171,6 +171,15 @@ describe('SuggestionMenu', () => {
     await fixture.whenStable();
   };
 
+  /** `/<group>`, then Tab on the group it finds, then the rest as the
+      level's query: `'/templates zzz'`. A group is entered by a pick only. */
+  const typeIntoGroup = async (text: string) => {
+    const end = text.search(/\S\s/) + 1;
+    await type(text.slice(0, end));
+    await keydown('Tab');
+    if (text.length > end + 1) await type(text.slice(end + 1));
+  };
+
   beforeEach(async () => {
     document.elementFromPoint ??= () => null;
     vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
@@ -272,7 +281,7 @@ describe('SuggestionMenu', () => {
 
   it('says so when nothing matches inside a group, in the words it is given', async () => {
     host.emptyLabel.set('Keine Treffer');
-    await type('/templates zzz');
+    await typeIntoGroup('/templates zzz');
     expect(options()).toHaveLength(0);
     expect(status().textContent).toBe('Keine Treffer');
     expect(status().hasAttribute('data-empty')).toBe(false);
@@ -284,7 +293,7 @@ describe('SuggestionMenu', () => {
 
   it('renders the host header template in place of the default', async () => {
     host.customHeader.set(true);
-    await type('/templates ');
+    await typeIntoGroup('/templates ');
     expect(header()?.querySelector('[data-slot=back]')).toBeNull();
     expect(header()?.querySelector('strong')?.textContent).toBe('Templates');
 
@@ -294,7 +303,7 @@ describe('SuggestionMenu', () => {
   });
 
   it('says so when the source fails, in the words it is given', async () => {
-    await type('/broken ');
+    await typeIntoGroup('/broken ');
     expect(status().textContent).toBe('Searching…');
     failBroken(new Error('503'));
     await Promise.resolve();
@@ -311,7 +320,7 @@ describe('SuggestionMenu', () => {
     };
 
     it('keeps the visible line from screen readers and speaks through its own region', async () => {
-      await type('/templates zzz');
+      await typeIntoGroup('/templates zzz');
       expect(status().getAttribute('aria-hidden')).toBe('true');
       expect(status().hasAttribute('role')).toBe(false);
       expect(announcer().getAttribute('data-slot')).toBe('announcer');
@@ -328,7 +337,7 @@ describe('SuggestionMenu', () => {
     });
 
     it('does not say "searching" over stale rows: they stay, dimmed, and the count stands', async () => {
-      await type('/remote ');
+      await typeIntoGroup('/remote ');
       expect(status().textContent).toBe('Searching…');
       await land();
       expect(announcer().textContent).toBe('2 results');
@@ -421,7 +430,7 @@ describe('SuggestionMenu', () => {
     };
 
     it('watches the end marker, inside the listbox, only while a page can load', async () => {
-      await type('/remote ');
+      await typeIntoGroup('/remote ');
       expect(pageRequests).toHaveLength(1);
       expect(observer().options.root).toBe(listbox());
       expect(end().parentElement).toBe(listbox());
@@ -435,7 +444,7 @@ describe('SuggestionMenu', () => {
     });
 
     it('asks for the next page when the marker comes into view, saying so meanwhile', async () => {
-      await type('/remote ');
+      await typeIntoGroup('/remote ');
       await land();
 
       observer().intersect();
@@ -457,14 +466,14 @@ describe('SuggestionMenu', () => {
     });
 
     it('marks the listbox busy while a page is out', async () => {
-      await type('/remote ');
+      await typeIntoGroup('/remote ');
       expect(listbox().getAttribute('aria-busy')).toBe('true');
       await land();
       expect(listbox().hasAttribute('aria-busy')).toBe(false);
     });
 
     it('stops watching once the last page is in', async () => {
-      await type('/remote ');
+      await typeIntoGroup('/remote ');
       await land();
       for (let page = 1; page <= 2; page++) {
         observer().intersect();

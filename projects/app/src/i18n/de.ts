@@ -45,6 +45,7 @@ export default {
     more: 'Weitere Optionen',
     settings: {
       title: 'Einstellungen',
+      open: 'Einstellungen…',
       close: 'Einstellungen schließen',
       message: 'Nachricht',
       formatHint: 'Als was die Nachricht geschrieben und gesendet wird',

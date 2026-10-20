@@ -42,6 +42,8 @@ export default {
     more: 'More options',
     settings: {
       title: 'Settings',
+      /** The ⋮'s item: it opens the dialog — hence the ellipsis. */
+      open: 'Settings…',
       close: 'Close settings',
       message: 'Message',
       formatHint: 'What the message is written and sent as',

@@ -205,9 +205,6 @@ export interface MergeTagTriggerOptions extends Omit<SuggestionTrigger, 'trigger
   /** The host's own veto — asked only where the caret is not inside a token
       already; both must say yes. */
   allow?: SuggestionTrigger['allow'];
-  /** Where a group's level is kept. Default `'menu'`: a group's name is no
-      path, and written after the braces it would be half a token. */
-  levels?: SuggestionTrigger['levels'];
 }
 
 /**
@@ -215,9 +212,10 @@ export interface MergeTagTriggerOptions extends Omit<SuggestionTrigger, 'trigger
  * it opens right after any character (`Hi{{`), its query is a path unless
  * the host widens it, it stays shut for a caret inside a token already
  * written — the braces there are the token's, and a pick would write a
- * second token into the first — and a group (a field group) is held by the
- * menu, never written after the braces: `{{` then searches its fields, and
- * Backspace on that empty search is the first level again. Everything else
+ * second token into the first. A group (a field group) is held by the menu
+ * like every menu's — its name drawn after the braces, never written — so
+ * `{{` then searches its fields, and Backspace on that empty search is the
+ * first level again. Everything else
  * is the host's:
  *
  *     createSuggestionMenu({ element, onChange, triggers: [
@@ -226,10 +224,9 @@ export interface MergeTagTriggerOptions extends Omit<SuggestionTrigger, 'trigger
  *     ] })
  */
 export function mergeTagTrigger(options: MergeTagTriggerOptions = {}): SuggestionTrigger {
-  const { query = /^ ?[\w.]*$/, allow, levels = 'menu', ...rest } = options;
+  const { query = /^ ?[\w.]*$/, allow, ...rest } = options;
   return {
     ...rest,
-    levels,
     trigger: '{{',
     startOfWord: false,
     query,

@@ -1800,18 +1800,22 @@ client, { dark })` in the library — a simulation, in a browser, drawn
     newer query, a dismissal or a destroyed editor **aborts** what is out
     (`signal`) and drops its answer; a failed answer is `error` in the state,
     and the menu stays open to say so.
-  - **Two levels, and the document is the only state.** A `SuggestionGroup`
-    (`children` instead of `command`: a list, or a source) is entered by
-    rewriting the query to `<word> ` — its title lowercased, spaces as
-    hyphens. `<trigger><word> <rest>` whose word names a group (title, id or
-    keyword) _is_ level 2, so Backspace over the space, undo and a pasted
-    query all land right. Two levels by type: a group's children are
-    `SuggestionCommandItem`s. Level 2 stays open with no matches ("No
-    results") and keeps Enter/Tab/arrows. Every item has a stable `id`;
-    `i18n` (by id) replaces a title and adds keywords — the original title
-    and keywords stay searchable, and both words enter a group.
+  - **Two levels, held by the menu.** A `SuggestionGroup` (`children`
+    instead of `command`: a list, or a source) is entered by a pick (Enter,
+    Tab, a click) and held by the menu — for every trigger alike. Its title
+    is drawn after the trigger as a widget (`aee-suggestion-level`), never
+    written: a session ending any way leaves nothing of it behind (for `{{`
+    it would be half a token), and the level's placeholder moves to a widget
+    after the caret (`aee-suggestion-hint`). A group's name typed out is a
+    level-1 query, not an entry (an expression's first word stays what it
+    is); Backspace on an empty level-2 query is level 1. **2026-10-20**: the
+    `levels: 'text'` mode (`/templates ` written into the text) is gone. Two
+    levels by type: a group's children are `SuggestionCommandItem`s. Level 2
+    stays open with no matches ("No results") and keeps Enter/Tab/arrows.
+    Every item has a stable `id`; `i18n` (by id) replaces a title and adds
+    keywords — the original title and keywords stay searchable.
   - **One at a time.** Menus on one editor register with each other; where
-    sessions overlap (`/templates zz{{`) the trigger nearest the caret opens
+    sessions overlap (`/note {{`) the trigger nearest the caret opens
     and owns the keys, and the outer one comes back once the inner session is
     gone. ARIA attributes on the editor are only ever cleared by the menu
     that set them.

@@ -79,17 +79,15 @@
        actions. -->
   <ng-template #frameLeading><ng-content select="[leading]" /></ng-template>
   <ng-template #frameActions><ng-content select="[actions]" /></ng-template>
-  <!-- The message's settings and its View (both sheets'): ⚙ opens the
-     Theme, the Format and the Layout in a dialog centred over the page
-     (`MessageSettings`); ⋮ the View's two check options (`MessageMenu`),
-     opening away from the bar's edge of the sheet, lined up with its near
-     end. -->
+  <!-- The message's settings and its View (both sheets'), core's way: one
+     ⋮ (`MessageMenu`) — Settings… opens the Theme, the Format and the
+     Layout in a dialog centred over the page, under it the View's two
+     check options — opening away from the bar's edge of the sheet, lined up
+     with its near end. -->
   <ng-template #settings>
     @if (mirrored()) {
       <message-menu side="below" align="end" />
-      <message-settings />
     } @else {
-      <message-settings />
       <message-menu side="above" align="start" />
     }
   </ng-template>
@@ -127,7 +125,7 @@
     </button>
   </ng-template>
 
-  <!-- Beside Send: formatting, Attach, the frame's leading controls, ⚙ ⋮. -->
+  <!-- Beside Send: formatting, Attach, the frame's leading controls, ⋮. -->
   <ng-container ngProjectAs="[leading]">
     @if (mirrored()) {
       <ng-container [ngTemplateOutlet]="settings" />

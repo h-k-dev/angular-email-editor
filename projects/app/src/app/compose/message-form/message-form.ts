@@ -24,7 +24,6 @@ import { EmailWriter, WriterBarPosition } from '../email-writer/email-writer';
 import { MarqueeStart } from '../paper-island';
 import { EnvelopeRows } from './envelope-rows/envelope-rows';
 import { MessageMenu } from './message-menu/message-menu';
-import { MessageSettings } from './message-settings/message-settings';
 import { MessageSheet } from './message-sheet';
 
 /**
@@ -53,7 +52,6 @@ import { MessageSheet } from './message-sheet';
     EmailCompose,
     EnvelopeRows,
     MessageMenu,
-    MessageSettings,
     AddressDragGroup,
     AttachmentChips,
     AttachmentChip,

@@ -44,6 +44,7 @@ export default {
     more: 'その他のオプション',
     settings: {
       title: '設定',
+      open: '設定…',
       close: '設定を閉じる',
       message: 'メッセージ',
       formatHint: 'メッセージを作成・送信する形式',

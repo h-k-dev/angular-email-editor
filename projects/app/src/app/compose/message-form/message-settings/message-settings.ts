@@ -5,7 +5,6 @@ import {
   ElementRef,
   afterNextRender,
   inject,
-  signal,
   viewChild,
 } from '@angular/core';
 
@@ -29,21 +28,22 @@ import { MessageSheet } from '../message-sheet';
 let nextSettingsId = 0;
 
 /**
- * The bar's ⚙ — the message's settings, in a dialog centred over the page,
+ * The message's settings, in a dialog centred over the page,
  * Notion's and Slack's: one fixed size (the global `--dialog-*` tokens,
  * the whole screen at the compact width) that scrolls inside, so a group
  * added later fits the same frame. One view, its groups stacked: the
  * editor's Appearance, the Message (its Format), and the Layout — whether
  * the layout blocks take their gestures, one switch for every one of
  * them. What cannot apply stands disabled, never hidden.
- * The View is the ⋮'s (`MessageMenu`). The button and its dialog, on
+ * Opened by the ⋮'s Settings… (`MessageMenu`, which holds it) — core's
+ * Preferences…: the ⋮ is the bar's one entry to the message's options. On
  * either sheet: it reads and sets the sheet it sits on, whichever that is,
  * through DI.
  *
  * A native modal `<dialog>`: the top layer puts it over everything, the
  * browser makes the page behind it inert and hands focus back on close. A
  * global element, so it lives on `<body>` (moved there once rendered,
- * taken away with the button): it wears the app's theme by plain
+ * taken away with its menu): it wears the app's theme by plain
  * inheritance — never a sheet's paper island — and Escape reaches no
  * compose window on its way out. A pick is applied at once, behind it;
  * there is nothing to save.
@@ -68,9 +68,6 @@ export class MessageSettings {
 
   protected readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
 
-  /** Whether the dialog is up — for the button's `aria-expanded`. */
-  protected readonly opened = signal(false);
-
   readonly #id = `message-settings-${nextSettingsId++}`;
   protected readonly dialogId = this.#id;
   protected readonly titleId = `${this.#id}-title`;
@@ -80,9 +77,9 @@ export class MessageSettings {
   protected readonly layoutHintId = `${this.#id}-layout-hint`;
 
   constructor() {
-    // Out of the sheet, onto <body>, once rendered — and gone with the
-    // button: the view only takes its host away, and the dialog is no
-    // longer in it.
+    // Out of the sheet, onto <body>, once rendered — and gone with its
+    // menu: the view only takes its host away, and the dialog is no longer
+    // in it.
     const body = inject(DOCUMENT).body;
     afterNextRender({ write: () => body.appendChild(this.dialog().nativeElement) });
     inject(DestroyRef).onDestroy(() => this.dialog().nativeElement.remove());
@@ -92,7 +89,6 @@ export class MessageSettings {
     const dialog = this.dialog().nativeElement;
     if (dialog.open) return;
     dialog.showModal();
-    this.opened.set(true);
   }
 
   close(): void {

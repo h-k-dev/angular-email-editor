@@ -46,12 +46,10 @@
     }
   </ng-container>
 
-  <!-- Beside Send, at the bar's end: ⋮ (the View, opening down, lined
-       up with the end), ⚙ (the settings), the frame's leading controls,
-       Attach. -->
+  <!-- Beside Send, at the bar's end: ⋮ (Settings… and the View, opening
+       down, lined up with the end), the frame's leading controls, Attach. -->
   <ng-container ngProjectAs="[leading]">
     <message-menu side="below" align="end" />
-    <message-settings />
     <ng-content select="[leading]" />
     <button
       mat-icon-button

@@ -22,6 +22,15 @@ HTMLCanvasElement.prototype.getContext = (() => ({
   measureText: (text: string) => ({ width: text.length * 7 }),
 })) as never;
 Element.prototype.setPointerCapture ??= () => {};
+// …nor <dialog>'s modal API (the settings dialog): open and close by the
+// attribute, telling the close as the browser does.
+HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
+  this.open = true;
+};
+HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) {
+  this.open = false;
+  this.dispatchEvent(new Event('close'));
+};
 
 // A window's caret is placed by its focus trap (the CDK's initial focus),
 // which takes only what is visible — and jsdom lays nothing out, so nothing
@@ -116,9 +125,14 @@ describe('ComposeWindows', () => {
     expect(editor().getAttribute('data-aee-static')).toBe('section columns table');
 
     // The settings' switch overrides the mode's default, for this message.
-    // The settings dialog is on <body>: the one this window's ⚙ controls.
-    const gear = frame.querySelector('[aria-label="Settings"]')!;
-    const dialog = document.getElementById(gear.getAttribute('aria-controls')!)!;
+    // The settings dialog — Settings… in this window's ⋮ — is on <body>.
+    frame.querySelector<HTMLButtonElement>('[aria-label="More options"]')!.click();
+    await settle();
+    [...document.querySelectorAll<HTMLElement>('.toolbar-menu [role="menuitem"]')]
+      .find((row) => row.textContent?.includes('Settings…'))!
+      .click();
+    await settle();
+    const dialog = document.querySelector<HTMLDialogElement>('dialog.settings[open]')!;
     expect(frame.contains(dialog)).toBe(false);
     const layoutSwitch = dialog.querySelector<HTMLButtonElement>(
       '.settings__switch button[role="switch"]',

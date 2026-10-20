@@ -65,11 +65,22 @@ async function chooseView(fixture: ComponentFixture<unknown>, view: 'Editor' | '
   await fixture.whenStable();
 }
 
-/** The writer bar's settings dialog — on <body>, a global element: the
-    one its ⚙ controls. */
-function settingsDialog(root: HTMLElement): HTMLDialogElement {
-  const gear = root.querySelector('.writer-bar [aria-label="Settings"]')!;
-  return document.getElementById(gear.getAttribute('aria-controls')!) as HTMLDialogElement;
+/** Opens the writer bar's settings dialog — Settings… in its ⋮ menu, as
+    core's Preferences… — and hands it back: on <body>, a global element,
+    the one open. */
+async function openSettings(fixture: ComponentFixture<unknown>): Promise<HTMLDialogElement> {
+  const root = fixture.nativeElement as HTMLElement;
+  (root.querySelector('.writer-bar [aria-label="More options"]') as HTMLButtonElement).click();
+  await fixture.whenStable();
+  const item = [...document.querySelectorAll<HTMLElement>('.toolbar-menu [role="menuitem"]')].find(
+    (row) => row.textContent?.includes('Settings…'),
+  );
+  if (!item) throw new Error('no Settings… item in the ⋮ menu');
+  item.click();
+  await fixture.whenStable();
+  const dialog = document.querySelector<HTMLDialogElement>('dialog.settings[open]');
+  if (!dialog) throw new Error('Settings… opened no dialog');
+  return dialog;
 }
 
 /** The writer bar's ⋮ menu offers its View row now. */
@@ -884,12 +895,9 @@ describe('Compose', () => {
     expect(labels()).toEqual(['From', 'To']);
   });
 
-  it('the ⚙ Layout switch turns every layout block static, and stands disabled for plain text', async () => {
-    const root = fixture.nativeElement as HTMLElement;
+  it('the settings’ Layout switch turns every layout block static, and stands disabled for plain text', async () => {
     const sheet = (component as any).sheet();
-    const dialog = settingsDialog(root);
-    (root.querySelector('.writer-bar [aria-label="Settings"]') as HTMLButtonElement).click();
-    await fixture.whenStable();
+    const dialog = await openSettings(fixture);
     expect(dialog.open).toBe(true);
 
     const pm = () => sheet.emailPane().editor().view.dom as HTMLElement;
@@ -919,7 +927,7 @@ describe('Compose', () => {
     dialog.close();
   });
 
-  it('the ⚙ Format turns the message to plain text and back, and sends plain text alone', async () => {
+  it('the settings’ Format turns the message to plain text and back, and sends plain text alone', async () => {
     const root = fixture.nativeElement as HTMLElement;
     const sheet = (component as any).sheet();
     const rich = '<div>Hello <strong>world</strong></div><ul><li><div>one</div></li></ul>';
@@ -929,12 +937,9 @@ describe('Compose', () => {
     expect(richAsPublished).toContain('<strong');
 
     /** Picks a Format on the settings' toggle — the dialog stays open. */
+    let dialog: HTMLDialogElement | null = null;
     const chooseFormat = async (label: 'HTML' | 'Plain text') => {
-      const dialog = settingsDialog(root);
-      if (!dialog.open) {
-        (root.querySelector('.writer-bar [aria-label="Settings"]') as HTMLButtonElement).click();
-        await fixture.whenStable();
-      }
+      if (!dialog?.open) dialog = await openSettings(fixture);
       const row = [...dialog.querySelectorAll<HTMLElement>('hk-tgb')].find((group) =>
         group.textContent?.includes('Plain text'),
       )!;

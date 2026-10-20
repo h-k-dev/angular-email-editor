@@ -40,13 +40,13 @@ export interface SuggestionMenuState {
   /** What that trigger's list is called ({@link SuggestionTrigger.label}) —
       the listbox's accessible name on level 1. Null when it was given none. */
   label: string | null;
-  /** 1 on the menu's own items; 2 inside a {@link SuggestionGroup} —
-      `<trigger><word> <query>`. */
+  /** 1 on the menu's own items; 2 inside a {@link SuggestionGroup}, which
+      the menu holds — the text is still `<trigger><query>`. */
   level: 1 | 2;
   /** The group whose children are listed, at level 2; null at level 1. */
   parent: SuggestionGroup | null;
-  /** The search string of the current level: everything after the trigger
-      at level 1, everything after `<word> ` at level 2. */
+  /** The search string of the current level: everything after the trigger,
+      on either level. */
   query: string;
   /** Items matching the query: static matches ranked title-first (given
       order within a tier), then what a source answered for this query — the
@@ -87,8 +87,8 @@ export interface SuggestionMenuState {
       pointer's highlight finds its row by it. */
   optionId: (index: number) => string;
   /** Applies an item. A command item removes the trigger and query text,
-      then runs its command; a group opens level 2 — rewriting the query to
-      `<word> `, or, for a trigger with `levels: 'menu'`, clearing it. */
+      then runs its command; a group opens level 2 and clears the query —
+      its name is drawn after the trigger, never written. */
   select: (item: SuggestionItem) => void;
   /** Level 2 back to level 1 with an empty query — the pointer's way; the
       keyboard's is Backspace on an empty level-2 query. A no-op at level 1. */
@@ -115,7 +115,7 @@ export interface SuggestionRect {
     {@link SuggestionMenuOptions.i18n}. */
 export interface SuggestionItemLabel {
   /** Replaces the item's title — shown, ranked first, and (for a group)
-      the word written into the query. The original title stays searchable. */
+      the label drawn after the trigger. The original title stays searchable. */
   title?: string;
   /** Extra search strings, added to the item's own — never replacing them,
       so the original words keep working in every locale. */
@@ -158,22 +158,6 @@ export interface SuggestionTrigger {
   query?: RegExp;
   /** The longest query that still counts as one. Default 100. */
   maxLength?: number;
-  /**
-   * Where the level a {@link SuggestionGroup} opens is kept.
-   *
-   * - `'text'`: picking the group rewrites the query to its word
-   *   (`/templates `), and the level is read back from the text — typed or
-   *   pasted straight, it lands there too.
-   * - `'menu'`: the menu holds it, and the text after the trigger is only
-   *   the level's own query. For a trigger whose text is the document's own
-   *   syntax (`{{`): a group's name written there is half a token, left
-   *   behind whenever the session ends. The level lasts as long as its
-   *   session; a group is entered only by a pick.
-   *
-   * Either way Backspace on an empty level-2 query is level 1, with an
-   * empty query. Default `'text'`; {@link mergeTagTrigger}'s is `'menu'`.
-   */
-  levels?: 'text' | 'menu';
   /** The menu's own items — a list, or a function of the editor's extensions
       (`extensionSuggestions` for the kit's `/` commands). Filtered and
       ranked by the query; groups among them open a second level. */
@@ -195,8 +179,7 @@ export interface SuggestionTrigger {
       filter…". It is handed to the session's decoration as
       `data-placeholder`; the host's stylesheet shows it (see
       {@link createSuggestionMenu}, "Marked in the text"). Inside a group the
-      group's own takes its place: `/templates ` shows
-      {@link SuggestionGroup.placeholder}. A function is asked afresh whenever
+      group's own ({@link SuggestionGroup.placeholder}) takes its place. A function is asked afresh whenever
       the menu opens. */
   placeholder?: string | (() => string);
   /**
@@ -299,8 +282,7 @@ interface SessionState {
   /** `from` of the session that was dismissed; held until the caret has been
       anywhere else. */
   dismissed: number | null;
-  /** The id of the group the session is inside, for a trigger that keeps
-      its levels in the menu (`levels: 'menu'`); null on level 1. */
+  /** The id of the group the session is inside; null on level 1. */
   group: string | null;
 }
 
@@ -343,14 +325,6 @@ const menusOf = new WeakMap<EditorView, Set<(state: EditorState) => number | nul
 const WORD_BREAK = /[\s\u3000-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uff00-\uffef]/;
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-/** The word a title becomes in the query: lowercased, spaces as hyphens. */
-const commandWord = (text: string): string => text.trim().toLowerCase().split(/\s+/).join('-');
-
-/** A group is entered by its (translated) title, its id, or any keyword —
-    the original title among them once translated. */
-const groupWords = (group: SuggestionGroup): string[] =>
-  [group.id, group.title, ...(group.keywords ?? [])].map(commandWord);
 
 /** A map's own entry for an id — never what every object inherits: an id
     such as `constructor` or `toString` finds nothing in a map that does
@@ -436,23 +410,30 @@ export function matchSuggestions<T extends SuggestionItem>(
  * `<trigger><query>`, however the text got there, and nothing else is held:
  * undo, paste, and moving the caret back into a query all land right.
  *
- * **Two levels.** A {@link SuggestionGroup} ("Templates") picked on level 1
- * rewrites the query to `templates `; from then on the words after that
- * space search the group's children. A trigger with `levels: 'menu'` (the
- * `{{` one) keeps the group in the menu instead and writes nothing: the text
- * after it searches the children. Backspace on an empty level-2 query is
- * level 1 again, with an empty query.
+ * **Two levels.** A {@link SuggestionGroup} ("Templates", a merge-tag
+ * field group) picked on level 1 — Enter, Tab, a click — is held by the
+ * menu, and nothing of it is written: the text after the trigger searches
+ * the group's children. The group's name is drawn after the trigger for the
+ * eye only, so a session that ends any way at all leaves no half of it in
+ * the document — for `{{` it would be half a token. A group is entered only
+ * by a pick, never by its name typed out (an expression's first word must
+ * stay what it is), and the level lasts as long as its session. Backspace
+ * on an empty level-2 query is level 1 again, with an empty query.
  *
  * **One at a time.** Several menus on one editor never open together: when
- * two sessions overlap (`/templates {{`), the trigger nearest the caret wins
+ * two sessions overlap (`/note {{`), the trigger nearest the caret wins
  * and the other stays shut until it is gone.
  *
  * **Marked in the text.** While a session lasts, its trigger and query are
  * wrapped in a decoration — `<span class="aee-suggestion" data-trigger="/">`,
  * with `data-level`, and with `aee-suggestion-empty` and a
- * `data-placeholder` while the level's query is empty (the trigger's after
- * `/`, the group's after `/templates `) — for the host's stylesheet: the
- * library paints nothing.
+ * `data-placeholder` while the level's query is empty — for the host's
+ * stylesheet: the library paints nothing. On level 2 the group's name
+ * follows the trigger as a widget, `<span class="aee-suggestion-level">`,
+ * in the text's own look, and the empty query's placeholder moves to a
+ * widget of its own after the caret, `<span class="aee-suggestion-hint
+ * aee-suggestion-empty" data-placeholder>` — the same rule paints both
+ * levels' hints, each just after the caret.
  * Nothing of it is in the document or the HTML. The session, and the place
  * where Escape dismissed one, live in the plugin's state and move with the
  * text: what a sync writes before a dismissed trigger does not reopen it.
@@ -507,7 +488,6 @@ function createSuggestionMenuPlugin(
 ): Plugin {
   const { element } = host;
   const { trigger, i18n, startOfWord = true, maxLength = 100 } = options;
-  const heldLevels = options.levels === 'menu';
   const key = new PluginKey<SessionState>('suggestionMenu');
 
   const first = escapeRegExp(trigger[0]);
@@ -596,7 +576,7 @@ function createSuggestionMenuPlugin(
 
   let view: EditorView | undefined;
   let session: Session | null = null;
-  /** The group the menu holds the session in (`levels: 'menu'`), by id. */
+  /** The group the menu holds the session in, by id. */
   let group: string | null = null;
   let scope: Scope = { parent: null, query: '' };
   /** Static matches + the source's contribution — what navigation runs over. */
@@ -622,22 +602,11 @@ function createSuggestionMenuPlugin(
   let sessionToken: object = {};
   let activeIndex = 0;
 
-  /** Level 2 when the menu holds a group (`levels: 'menu'`) — the whole text
-      is its query — or when the text is `<word> <rest>` and the word names
-      a group. */
-  const scopeOf = (text: string, held: string | null): Scope => {
-    if (heldLevels) {
-      return { parent: groups.find((group) => group.id === held) ?? null, query: text };
-    }
-    // Any space: an input method for Japanese types a full-width one.
-    const space = text.search(/\s/);
-    if (space > 0) {
-      const word = commandWord(text.slice(0, space));
-      const parent = groups.find((group) => groupWords(group).includes(word));
-      if (parent) return { parent, query: text.slice(space + 1) };
-    }
-    return { parent: null, query: text };
-  };
+  /** Level 2 when the menu holds a group — the whole text is its query. */
+  const scopeOf = (text: string, held: string | null): Scope => ({
+    parent: groups.find((group) => group.id === held) ?? null,
+    query: text,
+  });
 
   const isOpen = () =>
     session !== null && (filtered.length > 0 || loading || error !== null || scope.parent !== null);
@@ -802,15 +771,8 @@ function createSuggestionMenuPlugin(
     emit();
   };
 
-  /** Rewrites the session's text after the trigger — the focus stays put. */
-  const rewrite = (text: string) => {
-    if (!view || !session) return;
-    view.dispatch(view.state.tr.insertText(text, session.from + trigger.length, session.to));
-    view.focus();
-  };
-
-  /** The level the menu holds (`levels: 'menu'`): a group by its id, or null
-      for level 1 — the query typed so far goes with it, in one transaction. */
+  /** The level the menu holds: a group by its id, or null for level 1 — the
+      query typed so far goes with it, in one transaction. */
   const enter = (id: string | null) => {
     if (!view || !session) return;
     const tr = view.state.tr.delete(session.from + trigger.length, session.to);
@@ -821,8 +783,7 @@ function createSuggestionMenuPlugin(
   const select = (item: SuggestionItem) => {
     if (!view || !session) return;
     if (item.children) {
-      if (heldLevels) enter(item.id);
-      else rewrite(`${commandWord(item.title)} `);
+      enter(item.id);
       return;
     }
     view.dispatch(view.state.tr.delete(session.from, session.to));
@@ -832,8 +793,7 @@ function createSuggestionMenuPlugin(
 
   const back = () => {
     if (!scope.parent) return;
-    if (heldLevels) enter(null);
-    else rewrite('');
+    enter(null);
   };
 
   const clientRect = (): SuggestionRect | null => {
@@ -1013,9 +973,8 @@ function createSuggestionMenuPlugin(
         dismiss();
         return true;
       case 'Backspace':
-        // Up a level, to all of level 1: what it would delete is the group's
-        // space (`/templates `), or nothing of the query (a level the menu
-        // holds) — either would leave a level 1 searching for the group.
+        // Up a level, to all of level 1: there is nothing of the query to
+        // delete, and the group's name is no text to delete either.
         if (!scope.parent || scope.query !== '' || view?.composing) return false;
         if (event.ctrlKey || event.metaKey || event.altKey) return false;
         back();
@@ -1106,7 +1065,7 @@ function createSuggestionMenuPlugin(
         // by Backspace — and with the session, wherever it ends. It moves
         // with the trigger as text arrives before it.
         let group: string | null = null;
-        if (heldLevels && session) {
+        if (session) {
           if (entered) group = meta!.enter!;
           else if (previous.session && session.from === tr.mapping.map(previous.session.from, 1)) {
             group = previous.group;
@@ -1129,20 +1088,63 @@ function createSuggestionMenuPlugin(
         const current = held?.session;
         if (!current) return null;
         // Empty is the *level's* query: after the bare trigger, and again
-        // after a group's word and its space (or a group the menu holds) —
-        // each with its own words.
+        // inside a group — each with its own words.
         const level = scopeOf(current.text, held.group);
         const empty = level.query === '';
-        const hint = level.parent ? level.parent.placeholder : placeholder;
-        return DecorationSet.create(state.doc, [
+        const { parent } = level;
+        const hint = parent ? parent.placeholder : placeholder;
+        const decorations = [
           Decoration.inline(current.from, current.to, {
             nodeName: 'span',
             class: empty ? 'aee-suggestion aee-suggestion-empty' : 'aee-suggestion',
             'data-trigger': trigger,
-            'data-level': level.parent ? '2' : '1',
-            ...(empty && hint ? { 'data-placeholder': hint } : {}),
+            'data-level': parent ? '2' : '1',
+            // On level 2 the hint is the widget's after the caret: here it
+            // would paint before the group's name.
+            ...(empty && hint && !parent ? { 'data-placeholder': hint } : {}),
           }),
-        ]);
+        ];
+        if (parent) {
+          // The group's name, right after the trigger and before the caret
+          // (`side: -1`): for the eye only — no position, nothing serialized.
+          decorations.push(
+            Decoration.widget(
+              current.from + trigger.length,
+              (view) => {
+                const label = view.dom.ownerDocument.createElement('span');
+                label.className = 'aee-suggestion-level';
+                label.setAttribute('contenteditable', 'false');
+                label.setAttribute('data-trigger', trigger);
+                label.textContent = `${parent.title} `;
+                return label;
+              },
+              {
+                side: -1,
+                key: `aee-suggestion-level:${parent.id}:${parent.title}`,
+                ignoreSelection: true,
+              },
+            ),
+          );
+          // The level's hint after the caret (`side: 1`), where level 1's
+          // `::after` paints its own — one host rule paints both.
+          if (empty && hint) {
+            decorations.push(
+              Decoration.widget(
+                current.to,
+                (view) => {
+                  const after = view.dom.ownerDocument.createElement('span');
+                  after.className = 'aee-suggestion-hint aee-suggestion-empty';
+                  after.setAttribute('contenteditable', 'false');
+                  after.setAttribute('data-trigger', trigger);
+                  after.setAttribute('data-placeholder', hint);
+                  return after;
+                },
+                { side: 1, key: `aee-suggestion-hint:${hint}`, ignoreSelection: true },
+              ),
+            );
+          }
+        }
+        return DecorationSet.create(state.doc, decorations);
       },
     },
     view: (editorView) => {
