@@ -215,6 +215,46 @@ describe('html-source linter', () => {
     expect(diagnostics[0]).toMatchObject({ severity: 'error' });
     expect(diagnostics[0].message).toContain('script URL');
   });
+
+  it("reads a tag's attributes from that tag alone, never its neighbour's", () => {
+    // The `alt` belongs to the span: the img still lacks one. The span's
+    // style is its own — linted at the span, not the img.
+    const source = '<img src="x.png"><span alt="a" style="font-size: 10px">y</span>';
+    const diagnostics = lintHTML(source);
+    expect(diagnostics.find((d) => d.message.includes('Image without alt text'))).toMatchObject({
+      from: source.indexOf('img'),
+    });
+    expect(diagnostics.find((d) => d.message.includes('font-size: 10px'))).toMatchObject({
+      from: source.indexOf('font-size'),
+    });
+  });
+
+  it('stays linear in the source: a 10k-line template reads each token a bounded number of times', () => {
+    // Counted, not timed: a walk over every token per tag made the lint
+    // quadratic — seconds for a template this size, and a frozen pane.
+    const row = (i: number) =>
+      [
+        '<tr>',
+        `  <td style="padding: 8px; font-size: 16px" width="300">`,
+        `    <img src="https://x.test/${i}.png" alt="a" width="100" style="max-width: 100px">`,
+        `    <a href="https://x.test/${i}" style="color: #06c">Link {{ user.name }}</a>`,
+        '  </td>',
+        '</tr>',
+      ].join('\n');
+    const source = `<table>\n${Array.from({ length: 1700 }, (_, i) => row(i)).join('\n')}\n</table>`;
+    expect(source.split('\n').length).toBeGreaterThan(10_000);
+
+    const scan = scanHTML(source);
+    let reads = 0;
+    const tokens = new Proxy(scan.tokens, {
+      get(target, property, receiver) {
+        if (typeof property === 'string' && /^\d+$/.test(property)) reads++;
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    lintHTML(source, { ...scan, tokens }, { mode: 'email' });
+    expect(reads).toBeLessThan(scan.tokens.length * 20);
+  });
 });
 
 describe('html-source formatter — merge tags', () => {

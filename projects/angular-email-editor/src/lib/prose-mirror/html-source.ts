@@ -46,6 +46,10 @@ export interface HtmlTag {
   to: number;
   nameFrom: number;
   nameTo: number;
+  /** The tag's own tokens: `tokens.slice(tokenFrom, tokenTo)` of its scan —
+      so reading one tag's attributes never walks the whole document. */
+  tokenFrom: number;
+  tokenTo: number;
 }
 
 export interface HtmlScan {
@@ -148,6 +152,7 @@ export function scanHTML(source: string): HtmlScan {
       continue;
     }
 
+    const tokenFrom = tokens.length;
     tokens.push({ type: 'delimiter', from: lt, to: nameFrom });
     let j = nameFrom;
     while (j < source.length && NAME_CHAR.test(source[j])) j++;
@@ -215,6 +220,8 @@ export function scanHTML(source: string): HtmlScan {
       to: j,
       nameFrom,
       nameTo,
+      tokenFrom,
+      tokenTo: tokens.length,
     });
     i = j;
   }
@@ -232,8 +239,10 @@ function attributeValueToken(
   name: string,
 ): { value: string; from: number; to: number } | null {
   let nameToken: HtmlToken | null = null;
-  for (const token of scan.tokens) {
-    if (token.from < tag.from || token.to > tag.to) continue;
+  // The tag's own tokens only: a walk over every token, per tag, made the
+  // lint quadratic — seconds for a 10k-line template.
+  for (let t = tag.tokenFrom; t < tag.tokenTo; t++) {
+    const token = scan.tokens[t];
     if (token.type === 'attributeName') {
       if (nameToken) break; // the named attribute came and went without a value
       if (source.slice(token.from, token.to).toLowerCase() === name) nameToken = token;
@@ -258,13 +267,12 @@ function attributeValueToken(
 /** Whether the tag carries the attribute at all — with a value, an empty one,
     or bare. */
 function hasAttribute(source: string, scan: HtmlScan, tag: HtmlTag, name: string): boolean {
-  return scan.tokens.some(
-    (token) =>
-      token.type === 'attributeName' &&
-      token.from >= tag.from &&
-      token.to <= tag.to &&
-      source.slice(token.from, token.to).toLowerCase() === name,
-  );
+  for (let t = tag.tokenFrom; t < tag.tokenTo; t++) {
+    const token = scan.tokens[t];
+    if (token.type === 'attributeName' && source.slice(token.from, token.to).toLowerCase() === name)
+      return true;
+  }
+  return false;
 }
 
 function attributeValue(source: string, scan: HtmlScan, tag: HtmlTag, name: string): string | null {

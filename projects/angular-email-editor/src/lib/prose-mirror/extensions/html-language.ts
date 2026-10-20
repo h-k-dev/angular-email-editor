@@ -55,7 +55,11 @@ const TYPING_EDIT = 64;
 
 interface HtmlLanguageState {
   decorations: DecorationSet;
-  /** Mapped through edits since the last full scan: a rescan is due. */
+  /** Whether the last full scan's lint found an error — what format-on-blur
+      and format-on-paste ask, read here instead of linting again. */
+  errors: boolean;
+  /** Mapped through edits since the last full scan: a rescan is due, and
+      `errors` may be out of date. */
   stale: boolean;
 }
 
@@ -127,7 +131,10 @@ export function createOffsetMapper(doc: Node): (offset: number) => number {
   };
 }
 
-function buildDecorations(doc: Node, options: HtmlLanguageOptions): DecorationSet {
+function buildDecorations(
+  doc: Node,
+  options: HtmlLanguageOptions,
+): { decorations: DecorationSet; errors: boolean } {
   const source = docText(doc);
   const scan = scanHTML(source);
   const diagnostics = lintHTML(source, scan, { mode: options.parseMode ?? 'email' });
@@ -170,7 +177,10 @@ function buildDecorations(doc: Node, options: HtmlLanguageOptions): DecorationSe
   }
 
   options.onDiagnostics?.(diagnostics);
-  return DecorationSet.create(doc, decorations);
+  return {
+    decorations: DecorationSet.create(doc, decorations),
+    errors: diagnostics.some((d) => d.severity === 'error'),
+  };
 }
 
 /** Replaces the document with its pretty-printed (and thereby repaired) form. */
@@ -274,9 +284,16 @@ export const createHtmlLanguage = (options: HtmlLanguageOptions = {}): Functiona
   const formatDocument = formatDocumentFor(mode);
   const key = new PluginKey<HtmlLanguageState>('htmlLanguage');
   const scanned = (doc: Node): HtmlLanguageState => ({
-    decorations: buildDecorations(doc, options),
+    ...buildDecorations(doc, options),
     stale: false,
   });
+  // The last scan's answer while it is current; a lint of its own only when
+  // typing has moved on since — a full lint of a large source is not free.
+  const hasErrors = (state: EditorState): boolean => {
+    const current = key.getState(state);
+    if (current && !current.stale) return current.errors;
+    return lintHTML(docText(state.doc), undefined, { mode }).some((d) => d.severity === 'error');
+  };
   return defineExtension({
     name: 'htmlLanguage',
     commands: () => ({ formatDocument: () => formatDocument }),
@@ -306,7 +323,7 @@ export const createHtmlLanguage = (options: HtmlLanguageOptions = {}): Functiona
             // Only typing waits: a mirrored write (`setText`, however small
             // its diff) or a large edit is not someone's next keystroke.
             if (tr.getMeta('externalSync') || editSize(tr) > TYPING_EDIT) return scanned(state.doc);
-            return { decorations: value.decorations.map(tr.mapping, tr.doc), stale: true };
+            return { ...value, decorations: value.decorations.map(tr.mapping, tr.doc), stale: true };
           },
         },
         view: (view) => {
@@ -348,8 +365,7 @@ export const createHtmlLanguage = (options: HtmlLanguageOptions = {}): Functiona
                 .split(/\r?\n/)
                 .map((line) => lineType.create(null, line ? state.schema.text(line) : null));
               view.dispatch(state.tr.replaceWith(0, state.doc.content.size, lines).scrollIntoView());
-              const source = docText(view.state.doc);
-              if (!lintHTML(source, undefined, { mode }).some((d) => d.severity === 'error')) {
+              if (!hasErrors(view.state)) {
                 // Its own undo step: history would merge two changes this close.
                 formatDocument(view.state, (tr) => view.dispatch(closeHistory(tr)));
               }
@@ -365,10 +381,7 @@ export const createHtmlLanguage = (options: HtmlLanguageOptions = {}): Functiona
             // while the markup has errors — repair stays an explicit choice
             // (Shift-Alt-F). Never returns true: blur must proceed normally.
             blur: (view) => {
-              const source = docText(view.state.doc);
-              if (lintHTML(source, undefined, { mode }).some((d) => d.severity === 'error')) {
-                return false;
-              }
+              if (hasErrors(view.state)) return false;
               formatDocument(view.state, view.dispatch);
               return false;
             },
