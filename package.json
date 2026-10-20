@@ -9,7 +9,7 @@
     "watch:lib": "ng build angular-email-editor --watch",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "test:render": "ng test angular-email-editor --configuration render"
+    "test:render": "ng test angular-email-editor --configuration render && ng test app --configuration render"
   },
   "private": true,
   "packageManager": "npm@11.13.0",

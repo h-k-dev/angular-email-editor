@@ -130,9 +130,16 @@
   );
   pointer-events: none;
 
+  // The foot's own children take the pointer back; the slot's projected
+  // content inherits it from its box (`__below-body`), which a scoped `*`
+  // can reach and the content itself cannot.
   > * {
     pointer-events: auto;
   }
+}
+
+.email-compose__below-body {
+  display: contents;
 }
 
 // The dock at the sheet's foot: the chat-based suggestion over the

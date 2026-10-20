@@ -63,3 +63,13 @@ section[email-compose] {
 ul[email-attachment-chips] {
   --email-attachment-chips-inset: var(--mat-sys-inner-spacing, 16px);
 }
+
+// The strip is one line: the chips never wrap, the row scrolls sideways
+// (overflow-row) and its paddles stand on the paper the strip sits on.
+.attachment-row {
+  --overflow-row-surface: var(--email-paper, var(--mat-sys-surface-bright));
+
+  ul[email-attachment-chips] {
+    flex-wrap: nowrap;
+  }
+}

@@ -14,6 +14,7 @@ import { AngularFileDrop } from '@h-k-dev/angular-file-drop';
 import { AddressDragGroup } from '@h-k-dev/angular-email-editor/address-input';
 import { AttachmentChip, AttachmentChipIcon } from '@h-k-dev/angular-email-editor/attachment-chip';
 import { AttachmentChips } from '@h-k-dev/angular-email-editor/attachment-chips';
+import { OverflowRow } from '../../common/overflow-row/overflow-row';
 import { ActionTrigger } from '@h-k-dev/angular-email-editor/actions';
 import { TranslatePipe } from '@ngx-translate/core';
 
@@ -53,6 +54,7 @@ import { MessageSheet } from './message-sheet';
     MessageMenu,
     AddressDragGroup,
     AttachmentChips,
+    OverflowRow,
     AttachmentChip,
     AttachmentChipIcon,
     MatIcon,

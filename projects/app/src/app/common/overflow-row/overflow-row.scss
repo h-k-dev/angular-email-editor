@@ -1,0 +1,121 @@
+@use '@angular/material' as mat;
+
+// Core's overflow row (partials/common/overflow-row), plus the drag.
+//
+// Knobs (`--overflow-row-surface`, `--overflow-row-gap`,
+// `--overflow-row-paddle-size`, `--overflow-row-focus-reach`) are read with
+// fallbacks rather than declared here, so a consumer can set them on this host
+// OR on an ancestor without this :host block winning by proximity.
+//
+// Sizing is YouTube's chip cloud, whose paddle is a 32px circle around a 24px
+// glyph: hence the 2rem default and the 0.75 ratio below — at the default the
+// chevron lands on the icon's native 24px.
+:host {
+  --overflow-row-chevron-size: calc(0.75 * var(--overflow-row-paddle-size, 2rem));
+
+  position: relative;
+  display: block;
+  min-inline-size: 0;
+}
+
+// Beats the display above, for a host that binds `hidden` while it has
+// nothing to show.
+:host([hidden]) {
+  display: none;
+}
+
+// The bar is hidden on purpose — the paddles and the drag stand in for it —
+// so the row wears no scroll mixin.
+.overflow-row__scroll {
+  padding: var(--overflow-row-focus-reach, 3px);
+  margin: calc(-1 * var(--overflow-row-focus-reach, 3px));
+
+  overflow-x: auto;
+  // Focusing a hidden item scrolls it in, but the paddles overlay both edges
+  // and 'nearest' would happily park it underneath one. Reserve the paddle AND
+  // the fade beside it. Measured from this scrollport's edge, which the
+  // paddles are pulled out to meet (see below).
+  scroll-padding-inline: calc(2 * var(--overflow-row-paddle-size, 2rem));
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+// Dragging: the hand closes, and nothing under it is selected or lit on the
+// way across — the items' own hover would flicker as they pass under it.
+:host([data-dragging]) .overflow-row__scroll {
+  cursor: grabbing;
+  user-select: none;
+
+  .overflow-row__row {
+    pointer-events: none;
+  }
+}
+
+.overflow-row__row {
+  display: flex;
+  align-items: center;
+  gap: var(--overflow-row-gap, 0.5rem);
+  inline-size: max-content;
+}
+
+.overflow-row__paddle {
+  position: absolute;
+  // Pulled out to the SCROLLPORT's edge, not the host's: the scroll box
+  // carries `margin: -focus-reach` so its focus rings can escape.
+  inset-block: calc(-1 * var(--overflow-row-focus-reach, 3px));
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  background-color: var(--overflow-row-surface, var(--mat-sys-surface));
+
+  &--start {
+    inset-inline-start: calc(-1 * var(--overflow-row-focus-reach, 3px));
+  }
+
+  &--end {
+    inset-inline-end: calc(-1 * var(--overflow-row-focus-reach, 3px));
+  }
+
+  // Eases the items under the solid paddle instead of clipping them at a hard
+  // edge. Sits immediately outside the paddle, hence the matched width —
+  // `scroll-padding-inline` above reserves both.
+  &::after {
+    content: '';
+    position: absolute;
+    inset-block: 0;
+    inline-size: var(--overflow-row-paddle-size, 2rem);
+    pointer-events: none;
+  }
+
+  &--start::after {
+    inset-inline-start: 100%;
+    background: linear-gradient(
+      to right,
+      var(--overflow-row-surface, var(--mat-sys-surface)),
+      transparent
+    );
+  }
+
+  &--end::after {
+    inset-inline-end: 100%;
+    background: linear-gradient(
+      to left,
+      var(--overflow-row-surface, var(--mat-sys-surface)),
+      transparent
+    );
+  }
+}
+
+.overflow-row__paddle-button {
+  --mat-icon-size: var(--overflow-row-chevron-size);
+  @include mat.icon-button-overrides(
+    (
+      icon-size: var(--mat-icon-size),
+      state-layer-size: var(--overflow-row-paddle-size, 2rem),
+      touch-target-size: var(--overflow-row-paddle-size, 2rem),
+    )
+  );
+}

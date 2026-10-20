@@ -33,9 +33,12 @@ $active-wash: var(
 
 /// The floating box. A menu with `aria-orientation="horizontal"` lays its
 /// rows out in a line, because that is what it told assistive tech it does.
+/// A little air between rows (`--email-suggestion-menu-item-spacing`, the
+/// suggestion menu's own), so two lit rows never run into one.
 @mixin panel {
   display: flex;
   flex-direction: column;
+  gap: var(--email-suggestion-menu-item-spacing, 2px);
   min-inline-size: var(--email-suggestion-menu-min-width, 220px);
   padding: var(--email-suggestion-menu-padding, var(--mat-sys-menu-inset, 4px));
   box-sizing: border-box;
@@ -81,12 +84,12 @@ $active-wash: var(
 /// **Every state is read off the row's own ARIA**, never off a class the
 /// template remembers to add — the attribute a screen reader is told the
 /// state by is the attribute the pixels come from, so the two cannot drift
-/// apart. `aria-disabled` dims it, `aria-checked`/`aria-selected` mark it
-/// chosen, `aria-expanded` holds a submenu's trigger lit while its child is
+/// apart. `aria-disabled` dims it, `aria-checked` is the tick's alone (the
+/// row wears no wash for it), `aria-expanded` holds a submenu's trigger lit while its child is
 /// open, `aria-haspopup` earns the trailing chevron, `aria-current` (and the
 /// `data-active` hook Angular Aria writes for `aria-activedescendant`, which
-/// lives on the *menu*, so the row has nothing of its own to show) is the
-/// keyboard's place in the list. Hover paints that same highlight, so the
+/// lives on the *menu*, so the row has nothing of its own to show) and a
+/// listbox's `aria-selected` option are the keyboard's place in the list. Hover paints that same highlight, so the
 /// pointer and the keyboard can never disagree on screen.
 @mixin item {
   display: flex;
@@ -133,7 +136,13 @@ $active-wash: var(
 
   // Where the keyboard is, where the pointer is, and a submenu's open
   // trigger: one highlight, three ways of being the row in question.
-  &:where(:hover, [aria-current='true'], [aria-expanded='true'], [data-active='true']) {
+  &:where(
+      :hover,
+      [aria-current='true'],
+      [aria-expanded='true'],
+      [aria-selected='true'],
+      [data-active='true']
+    ) {
     background-color: var(--email-suggestion-menu-item-hover-background, #{$active-wash});
   }
 
@@ -148,15 +157,12 @@ $active-wash: var(
     outline-offset: -2px;
   }
 
-  // Chosen — a menuitemradio/checkbox that is on, or a selected option: the
-  // wash, as core's menus mark it, and the tick says which. No palette ink.
-  &:where([aria-checked='true'], [aria-selected='true']) {
-    background-color: $active-wash;
-  }
+  // Chosen — a menuitemradio/checkbox that is on: the tick says so, and
+  // nothing else does. A wash too would read as where the keyboard is.
 
-  // Opened by the pointer, Aria focuses the first row; a choice nobody has
-  // reached by hover or keyboard must not look chosen (core's rule).
-  &[data-active='true'][aria-checked='false']:not(:hover, :focus-visible) {
+  // Opened by the pointer, Aria focuses a row — the first, or the checked
+  // one; a choice nobody has reached by hover or keyboard must not light up.
+  &[data-active='true'][aria-checked]:not(:hover, :focus-visible) {
     background-color: transparent;
   }
 

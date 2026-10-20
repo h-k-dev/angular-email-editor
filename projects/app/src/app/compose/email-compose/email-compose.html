@@ -75,7 +75,10 @@
        position, not the content: the composer reserves the room and stays
        ignorant of what fills it, which is what keeps envelope concerns
        (attachments among them) out of the editor component. -->
-  <ng-content select="[below-body]" />
+  <!-- In a box of the composer's own: the foot hands the pointer back to
+       its children, and projected content is not the composer's, so the
+       scoped rule would miss it. `display: contents` — no box, no gap. -->
+  <div class="email-compose__below-body"><ng-content select="[below-body]" /></div>
 
   <!-- The dock: the chat-based suggestion and the formatting toolbar, one
        block at the sheet's foot. While the chat is up the two are one box —

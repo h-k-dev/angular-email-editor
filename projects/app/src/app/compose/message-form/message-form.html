@@ -197,28 +197,36 @@
          one per reference, each with its transfer's stage and progress
          from the store, and a chip's removal takes its reference out of the value
          (the container's doing) and stops its transfer (ours). -->
-    <ul email-attachment-chips below-body [formField]="envelope.attachments">
-      @for (attachment of envelope.attachments().value(); track attachment.key) {
-        <li
-          email-attachment-chip
-          [attachment]="attachment"
-          [status]="uploads.status(attachment.key)()"
-          [progress]="uploads.progress(attachment.key)()"
-          [aria-disabled]="envelope.attachments().disabled()"
-          animate.enter="email-attachment-chip-enter"
-          animate.leave="email-attachment-chip-leave"
-          (removed)="uploads.cancel(attachment.key)"
-        >
-          <!-- The chip's own glyphs would do; this fills its icon slot
-               with the app's Material icons instead, as a host with an
-               icon set of its own would. inline: the chip's box sets
-               the size. -->
-          <mat-icon *emailAttachmentIcon="let kind = kind" inline>
-            {{ attachmentIcons[kind] }}
-          </mat-icon>
-        </li>
-      }
-    </ul>
+    <!-- One line, scrolled sideways (and dragged, with a mouse) once the
+         chips outgrow it: the strip never grows past one row over the text. -->
+    <overflow-row
+      below-body
+      class="attachment-row"
+      [hidden]="!envelope.attachments().value().length"
+    >
+      <ul email-attachment-chips [formField]="envelope.attachments">
+        @for (attachment of envelope.attachments().value(); track attachment.key) {
+          <li
+            email-attachment-chip
+            [attachment]="attachment"
+            [status]="uploads.status(attachment.key)()"
+            [progress]="uploads.progress(attachment.key)()"
+            [aria-disabled]="envelope.attachments().disabled()"
+            animate.enter="email-attachment-chip-enter"
+            animate.leave="email-attachment-chip-leave"
+            (removed)="uploads.cancel(attachment.key)"
+          >
+            <!-- The chip's own glyphs would do; this fills its icon slot
+                 with the app's Material icons instead, as a host with an
+                 icon set of its own would. inline: the chip's box sets
+                 the size. -->
+            <mat-icon *emailAttachmentIcon="let kind = kind" inline>
+              {{ attachmentIcons[kind] }}
+            </mat-icon>
+          </li>
+        }
+      </ul>
+    </overflow-row>
   </section>
   <!-- The writer's hint, projected last so it overlays the composer:
        click-through, so the surface's zone underneath still gets its

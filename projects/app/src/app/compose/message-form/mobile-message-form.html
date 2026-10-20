@@ -95,23 +95,31 @@
     [placeholder]="placeholders()"
     aria-label="Email editor"
   >
-    <ul email-attachment-chips below-body [formField]="envelope.attachments">
-      @for (attachment of envelope.attachments().value(); track attachment.key) {
-        <li
-          email-attachment-chip
-          [attachment]="attachment"
-          [status]="uploads.status(attachment.key)()"
-          [progress]="uploads.progress(attachment.key)()"
-          [aria-disabled]="envelope.attachments().disabled()"
-          animate.enter="email-attachment-chip-enter"
-          animate.leave="email-attachment-chip-leave"
-          (removed)="uploads.cancel(attachment.key)"
-        >
-          <mat-icon *emailAttachmentIcon="let kind = kind" inline>
-            {{ attachmentIcons[kind] }}
-          </mat-icon>
-        </li>
-      }
-    </ul>
+    <!-- One line, scrolled sideways (and dragged, with a mouse) once the
+         chips outgrow it: the strip never grows past one row over the text. -->
+    <overflow-row
+      below-body
+      class="attachment-row"
+      [hidden]="!envelope.attachments().value().length"
+    >
+      <ul email-attachment-chips [formField]="envelope.attachments">
+        @for (attachment of envelope.attachments().value(); track attachment.key) {
+          <li
+            email-attachment-chip
+            [attachment]="attachment"
+            [status]="uploads.status(attachment.key)()"
+            [progress]="uploads.progress(attachment.key)()"
+            [aria-disabled]="envelope.attachments().disabled()"
+            animate.enter="email-attachment-chip-enter"
+            animate.leave="email-attachment-chip-leave"
+            (removed)="uploads.cancel(attachment.key)"
+          >
+            <mat-icon *emailAttachmentIcon="let kind = kind" inline>
+              {{ attachmentIcons[kind] }}
+            </mat-icon>
+          </li>
+        }
+      </ul>
+    </overflow-row>
   </section>
 </form>

@@ -120,11 +120,14 @@
 
 // The scroller — the header stays put above it. `position: relative` makes
 // it the rows' offsetParent, which keeping the active row in view measures by.
+// `--email-suggestion-menu-item-spacing`: the air between rows — none by
+// default, the rows touch.
 :host :where([data-slot='listbox']) {
   position: relative;
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
+  gap: var(--email-suggestion-menu-item-spacing, 0px);
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;

@@ -110,7 +110,16 @@
         "test": {
           "builder": "@angular/build:unit-test",
           "options": {
-            "setupFiles": ["projects/app/src/test-setup.ts"]
+            "setupFiles": ["projects/app/src/test-setup.ts"],
+            "exclude": ["**/*.render.spec.ts"]
+          },
+          "configurations": {
+            "render": {
+              "include": ["**/*.render.spec.ts"],
+              "exclude": [],
+              "browsers": ["ChromiumHeadless"],
+              "watch": false
+            }
           }
         }
       }

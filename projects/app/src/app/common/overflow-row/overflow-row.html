@@ -1,0 +1,52 @@
+<!-- Paddles are absolutely positioned over the row's edges, so their coming and
+     going never reflows the items. Pointer affordance only — see the class doc.
+     `tabindex="-1"` keeps them off the tab ring; the mousedown guard keeps a
+     click from parking focus inside an aria-hidden subtree, which `tabindex`
+     alone does not prevent. -->
+@if (canScrollStart()) {
+  <div class="overflow-row__paddle overflow-row__paddle--start" aria-hidden="true">
+    <button
+      mat-icon-button
+      class="overflow-row__paddle-button"
+      type="button"
+      tabindex="-1"
+      (mousedown)="$event.preventDefault()"
+      (click)="page(-1)"
+    >
+      <mat-icon>chevron_left</mat-icon>
+    </button>
+  </div>
+}
+
+<!-- The scrollport takes the drag: a press anywhere on the row, the gaps
+     between items included. -->
+<div
+  #scroller
+  class="overflow-row__scroll"
+  (scroll)="syncPaddles()"
+  (pointerdown)="onPointerDown($event)"
+  (pointermove)="onPointerMove($event)"
+  (pointerup)="onPointerUp($event)"
+  (pointercancel)="onPointerUp($event)"
+  (dragstart)="onPressDefault($event)"
+  (selectstart)="onPressDefault($event)"
+>
+  <div class="overflow-row__row" [attr.role]="rowRole()" [attr.aria-label]="rowLabel() || null">
+    <ng-content />
+  </div>
+</div>
+
+@if (canScrollEnd()) {
+  <div class="overflow-row__paddle overflow-row__paddle--end" aria-hidden="true">
+    <button
+      mat-icon-button
+      class="overflow-row__paddle-button"
+      type="button"
+      tabindex="-1"
+      (mousedown)="$event.preventDefault()"
+      (click)="page(1)"
+    >
+      <mat-icon>chevron_right</mat-icon>
+    </button>
+  </div>
+}
