@@ -5,8 +5,12 @@ import {
   ElementRef,
   afterNextRender,
   inject,
+  signal,
   viewChild,
 } from '@angular/core';
+
+// Angular Aria
+import { Tab, TabList, TabPanel, Tabs } from '@angular/aria/tabs';
 
 // Angular Material
 import { MatIconButton } from '@angular/material/button';
@@ -21,20 +25,32 @@ import {
 } from '@h-k-dev/angular-email-editor/toggle-button-group';
 import { TranslatePipe } from '@ngx-translate/core';
 
+import { Viewport } from '../../../../services/viewport';
 import { MessageSheet } from '../message-sheet';
 
 /** Tells the settings on one page apart: each row's label needs an id of
     its own for its control. */
 let nextSettingsId = 0;
 
+/** The aside's sections, in order: one tab and one page each. */
+const SECTIONS = [
+  { id: 'personalization', icon: 'palette', label: 'composer.settings.sections.personalization' },
+  { id: 'designer', icon: 'dashboard', label: 'composer.settings.sections.designer' },
+  { id: 'writer', icon: 'edit_note', label: 'composer.settings.sections.writer' },
+] as const;
+
+type SettingsSection = (typeof SECTIONS)[number]['id'];
+
 /**
  * The message's settings, in a dialog centred over the page,
- * Notion's and Slack's: one fixed size (the global `--dialog-*` tokens,
- * the whole screen at the compact width) that scrolls inside, so a group
- * added later fits the same frame. One view, its groups stacked: the
- * editor's Appearance, the Message (its Format), and the Layout — whether
- * the layout blocks take their gestures, one switch for every one of
- * them. What cannot apply stands disabled, never hidden.
+ * Notion's and Linear's: a roomy frame of its own (the whole screen at the
+ * compact width, the global `--dialog-*` tokens) that scrolls inside, so
+ * a setting added later fits the same frame. An aside of sections, each its own
+ * page (Aria tabs — a row over the page at the compact width):
+ * Personalization (the editor's Theme), Designer (nothing yet) and
+ * Writer (the message's Format, and the Layout — whether the layout blocks
+ * take their gestures, one switch for every one of them). What cannot
+ * apply stands disabled, never hidden.
  * Opened by the ⋮'s Settings… (`MessageMenu`, which holds it) — core's
  * Preferences…: the ⋮ is the bar's one entry to the message's options. On
  * either sheet: it reads and sets the sheet it sits on, whichever that is,
@@ -55,6 +71,10 @@ let nextSettingsId = 0;
     MatIcon,
     MatIconButton,
     MatSlideToggle,
+    Tabs,
+    TabList,
+    Tab,
+    TabPanel,
     ToggleButtonGroup,
     ToggleButtonGroupIcon,
     ToggleButtonGroupText,
@@ -65,6 +85,11 @@ let nextSettingsId = 0;
 })
 export class MessageSettings {
   protected readonly sheet = inject(MessageSheet);
+  protected readonly viewport = inject(Viewport);
+
+  protected readonly sections = SECTIONS;
+  /** The open section — kept from one opening to the next. */
+  protected readonly section = signal<SettingsSection | undefined>('personalization');
 
   protected readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
 

@@ -72,9 +72,11 @@ describe('ToggleButtonGroup', () => {
     expect(div.hasAttribute('type')).toBe(false);
   });
 
-  it('places the thumb from the picked item once something is picked', async () => {
+  it('takes no place from a box that is not laid out', async () => {
+    // jsdom lays nothing out: every box is 0 wide, as out of sight. The
+    // thumb keeps waiting for a real one (the render spec places it).
     expect(group.hasAttribute('data-empty')).toBe(false);
-    expect(group.style.getPropertyValue('--hk-tgb-thumb-width')).toMatch(/px$/);
+    expect(group.style.getPropertyValue('--hk-tgb-thumb-width')).toBe('');
   });
 
   it('picks a toggle on click, into the value', async () => {

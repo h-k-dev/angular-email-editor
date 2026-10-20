@@ -46,11 +46,16 @@ export default {
       title: '設定',
       open: '設定…',
       close: '設定を閉じる',
-      message: 'メッセージ',
+      sections: {
+        label: '設定のセクション',
+        personalization: 'パーソナライズ',
+        designer: 'デザイナー',
+        writer: 'ライター',
+      },
+      empty: 'まだ設定はありません。',
       formatHint: 'メッセージを作成・送信する形式',
       themeHint: 'エディター独自の紙の色、またはアプリのテーマ',
       layout: {
-        title: 'レイアウト',
         label: 'レイアウトブロック',
         hint: 'セクション、段組み、表: ハンドル、サイズ変更、追加と削除',
         plainText: 'プレーンテキストにはレイアウトがありません',
@@ -59,7 +64,7 @@ export default {
         note: 'オフにすると、すべてのブロックはそのままの配置になります。テキストは編集できますが、構造は操作できません。',
       },
     },
-    appearance: { title: '外観', theme: 'テーマ', light: 'ライト', dark: 'ダーク', auto: '自動' },
+    appearance: { theme: 'テーマ', light: 'ライト', dark: 'ダーク', auto: '自動' },
     placeholders: {
       filled: 'プレースホルダーを埋めました',
       empty: {

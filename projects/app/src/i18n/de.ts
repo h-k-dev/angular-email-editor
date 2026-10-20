@@ -47,11 +47,16 @@ export default {
       title: 'Einstellungen',
       open: 'Einstellungen…',
       close: 'Einstellungen schließen',
-      message: 'Nachricht',
+      sections: {
+        label: 'Bereiche der Einstellungen',
+        personalization: 'Personalisierung',
+        designer: 'Designer',
+        writer: 'Writer',
+      },
+      empty: 'Hier gibt es noch nichts.',
       formatHint: 'Als was die Nachricht geschrieben und gesendet wird',
       themeHint: 'Der Editor auf eigenem Papier oder im Design der App',
       layout: {
-        title: 'Layout',
         label: 'Layout-Blöcke',
         hint: 'Abschnitte, Spalten und Tabellen: Griffe, Größe ändern, Hinzufügen und Entfernen',
         plainText: 'Nur Text hat kein Layout',
@@ -61,7 +66,6 @@ export default {
       },
     },
     appearance: {
-      title: 'Darstellung',
       theme: 'Design',
       light: 'Hell',
       dark: 'Dunkel',

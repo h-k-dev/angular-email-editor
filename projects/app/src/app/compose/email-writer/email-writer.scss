@@ -1,3 +1,4 @@
+@use '@angular/material' as mat;
 @use '@h-k-dev/angular-email-editor/styles/scroll';
 @use '../../../styles/breakpoints' as bp;
 
@@ -130,7 +131,7 @@
   // Optical, not geometric: inset the box by the glyph's own inset less, and
   // the glyph — the only part anyone sees — lands on the same edge as the
   // address labels and the body text.
-  padding-inline: calc(var(--mat-sys-inner-spacing, 16px) - var(--writer-bar-glyph-inset));
+  padding-inline: 0.25rem;
 }
 
 // Dense (`dense`, the desktop sheet's) — under the text or heading a zoomed
@@ -148,16 +149,23 @@
   flex: 1 1 auto;
 }
 
-// Send: a filled button, one line tall — its container height and inline
-// padding set through Material's own button tokens
+// Send: a filled button, one line tall, a squared-off corner (the large
+// one) to go with the corner of the sheet or compose window it sits in,
+// instead of a pill — its container height, inline padding and shape set
+// through Material's own button tokens
 // (material.angular.dev/components/button/styling), so the theme's colours
 // and type stay — its edge on the text edge: the bar is inset for icon
 // buttons, whose glyph sits inside their state layer; a filled button has
 // no such margin, so it takes the glyph's inset itself — on whichever edge
 // it sits: the start at the foot, the end heading the sheet (mirrored).
 .writer-bar__send {
-  --mat-button-filled-container-height: 32px;
-  --mat-button-filled-horizontal-padding: 16px;
+  @include mat.button-overrides(
+    (
+      filled-container-height: 32px,
+      filled-horizontal-padding: 16px,
+      filled-container-shape: var(--mat-sys-corner-large),
+    )
+  );
   flex: none;
 
   &:first-child {

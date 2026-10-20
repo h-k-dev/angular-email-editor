@@ -45,11 +45,16 @@ export default {
       /** The ⋮'s item: it opens the dialog — hence the ellipsis. */
       open: 'Settings…',
       close: 'Close settings',
-      message: 'Message',
+      sections: {
+        label: 'Settings sections',
+        personalization: 'Personalization',
+        designer: 'Designer',
+        writer: 'Writer',
+      },
+      empty: 'Nothing here yet.',
       formatHint: 'What the message is written and sent as',
       themeHint: 'The editor on its own paper, or the app’s theme',
       layout: {
-        title: 'Layout',
         label: 'Layout blocks',
         hint: 'Sections, columns and tables: grips, resizing, adding and removing',
         plainText: 'Plain text has no layout',
@@ -58,7 +63,7 @@ export default {
         note: 'Off, every block stands as laid out: its text still edits, its structure takes no gesture.',
       },
     },
-    appearance: { title: 'Appearance', theme: 'Theme', light: 'Light', dark: 'Dark', auto: 'Auto' },
+    appearance: { theme: 'Theme', light: 'Light', dark: 'Dark', auto: 'Auto' },
     placeholders: {
       filled: 'Placeholders filled in',
       empty: {

@@ -1,10 +1,12 @@
 @use '@h-k-dev/angular-email-editor/styles/scroll';
 
-// The message's settings, Notion's and Slack's: one fixed frame (the global
-// --dialog-* tokens, styles.scss — the whole screen at the compact width)
-// that scrolls inside — a title and a close button over groups of rows,
-// each group a rounded card with its heading, each row a word and its hint
-// at the start and its control at the end.
+// The message's settings, Notion's and Linear's: a roomy frame of its own
+// (the whole screen at the compact width, the global --dialog-* tokens) —
+// a tinted aside down the start, the title over its sections, and the open
+// section's page beside it, scrolling inside: a heading over rounded cards
+// of rows, each row a word and its hint at the start and its control at
+// the end. At the compact width the title and close head the screen, the
+// aside a row of tabs under them.
 
 // The compact width, where the frame is the whole screen
 // (`Viewport.compact`, `FULL_WIDTH_MAX_WIDTH`).
@@ -15,9 +17,13 @@ $compact: 768px;
 // backdrop's.
 .settings {
   --settings-enter: translateY(8px) scale(0.98);
+  // The system's spacing step, short: every room below is a multiple.
+  --space: var(--mat-sys-spacing, 4px);
 
-  inline-size: var(--dialog-width);
-  block-size: var(--dialog-height);
+  // Notion's frame, not the global 640: room for the aside and a page
+  // that reads like one.
+  inline-size: min(1100px, calc(100vw - 96px));
+  block-size: min(720px, calc(100dvh - 96px));
   max-inline-size: none;
   max-block-size: none;
   margin: auto;
@@ -67,6 +73,9 @@ $compact: 768px;
 
   @media (max-width: $compact) {
     --settings-enter: translateY(24px);
+
+    inline-size: var(--dialog-width);
+    block-size: var(--dialog-height);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -74,9 +83,18 @@ $compact: 768px;
   }
 }
 
+// The frame's grid: the aside's column (its title over its tabs) and the
+// page beside it, the full height. The header and the tabs' container give
+// their children to the grid.
 .settings__panel {
-  display: flex;
-  flex-direction: column;
+  --settings-aside: 240px;
+
+  position: relative;
+  display: grid;
+  grid-template:
+    'title main' auto
+    'nav main' 1fr
+    / var(--settings-aside) minmax(0, 1fr);
   block-size: 100%;
   box-sizing: border-box;
   // The app's surface: a global element, on <body>, never a sheet's paper.
@@ -84,42 +102,135 @@ $compact: 768px;
   border-radius: var(--dialog-radius);
   box-shadow: var(--mat-sys-float-shadow), var(--mat-sys-level3);
   overflow: hidden;
+
+  // The aside's tint, under its title and its tabs alike.
+  &::before {
+    content: '';
+    grid-area: 1 / 1 / -1 / 2;
+    background: color-mix(in srgb, var(--mat-sys-on-surface) 3%, var(--mat-sys-surface-bright));
+    border-inline-end: 1px solid var(--mat-sys-outline-variant);
+  }
 }
 
-.settings__header {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: var(--mat-sys-spacing, 4px);
-  padding-block: calc(var(--mat-sys-spacing, 4px) * 3) var(--mat-sys-spacing, 4px);
-  padding-inline: var(--mat-sys-outer-spacing, 24px) calc(var(--mat-sys-spacing, 4px) * 3);
+.settings__header,
+.settings__body {
+  display: contents;
 }
 
 .settings__title {
-  flex: 1;
+  z-index: 1;
+  grid-area: title;
   margin: 0;
-  font: var(--mat-sys-title-large);
+  padding-block: calc(var(--space) * 5) calc(var(--space) * 2);
+  padding-inline: calc(var(--space) * 5);
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-title-small);
+}
+
+// In the corner, over the page.
+.settings__close {
+  position: absolute;
+  z-index: 2;
+  inset-block-start: calc(var(--space) * 3);
+  inset-inline-end: calc(var(--space) * 3);
+}
+
+.settings__nav {
+  z-index: 1;
+  display: flex;
+  grid-area: nav;
+  flex-direction: column;
+  gap: 1px;
+  min-block-size: 0;
+  margin: 0;
+  padding-block: 0 calc(var(--space) * 4);
+  padding-inline: calc(var(--space) * 3);
+  list-style: none;
+  overflow-y: auto;
+}
+
+// A section: its icon and its word, quiet; the open one a soft fill.
+.settings__tab {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: calc(var(--space) * 2.5);
+  min-block-size: 32px;
+  box-sizing: border-box;
+  padding-inline: calc(var(--space) * 2.5);
+  border-radius: var(--mat-sys-corner-small, 6px);
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+  transition:
+    background-color 120ms ease-out,
+    color 120ms ease-out;
+
+  &:hover {
+    background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent);
+    color: var(--mat-sys-on-surface);
+  }
+
+  &:focus-visible {
+    box-shadow: inset 0 0 0 2px var(--mat-sys-primary);
+  }
+
+  &[aria-selected='true'] {
+    background: color-mix(in srgb, var(--mat-sys-on-surface) 9%, transparent);
+    color: var(--mat-sys-on-surface);
+  }
+}
+
+.settings__tab-icon {
+  flex: none;
+  inline-size: 18px;
+  block-size: 18px;
+  font-size: 18px;
+}
+
+.settings__tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .settings__main {
-  flex: 1 1 auto;
+  grid-area: main;
   min-block-size: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding-block: 0 var(--mat-sys-outer-spacing, 24px);
-  padding-inline: var(--mat-sys-inner-spacing, 16px);
+  padding-block: calc(var(--space) * 9) calc(var(--space) * 12);
+  padding-inline: calc(var(--space) * 15);
+}
+
+// Both scrollers wear the scroll look — one include for the two.
+.settings__nav,
+.settings__main {
   @include scroll.scroll;
 }
 
-.settings__group {
-  margin-block-start: var(--mat-sys-inner-spacing, 16px);
+// Every page is rendered; the closed ones are inert (the tab panel's
+// doing) and out of sight. A page reads at a line's length, never the
+// frame's.
+.settings__page {
+  max-inline-size: 720px;
+
+  &[inert] {
+    display: none;
+  }
 }
 
-.settings__group-title {
-  margin-block: 0 var(--mat-sys-spacing, 4px);
-  margin-inline: var(--mat-sys-inner-spacing, 16px);
-  color: var(--mat-sys-on-surface-variant);
-  font: var(--mat-sys-label-large);
+// The page's heading over a hairline, Notion's.
+.settings__page-title {
+  margin-block: 0 calc(var(--space) * 6);
+  padding-block-end: calc(var(--space) * 3);
+  border-block-end: 1px solid var(--mat-sys-outline-variant);
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-title-large);
+  font-weight: 600;
 }
 
 .settings__card {
@@ -131,11 +242,11 @@ $compact: 768px;
 .settings__row {
   display: flex;
   align-items: center;
-  gap: var(--mat-sys-inner-spacing, 16px);
-  min-block-size: 56px;
+  gap: calc(var(--space) * 6);
+  min-block-size: 64px;
   box-sizing: border-box;
-  padding-block: calc(var(--mat-sys-spacing, 4px) * 3);
-  padding-inline: var(--mat-sys-inner-spacing, 16px);
+  padding-block: calc(var(--space) * 3.5);
+  padding-inline: calc(var(--space) * 5);
 
   & + & {
     border-block-start: 1px solid var(--mat-sys-outline-variant);
@@ -153,17 +264,23 @@ $compact: 768px;
 .settings__label {
   color: var(--mat-sys-on-surface);
   font: var(--mat-sys-body-large);
+  font-weight: 500;
 }
 
 .settings__hint,
-.settings__note {
+.settings__note,
+.settings__empty {
   color: var(--mat-sys-on-surface-variant);
-  font: var(--mat-sys-body-small);
+  font: var(--mat-sys-body-medium);
 }
 
 .settings__note {
-  margin-block: calc(var(--mat-sys-spacing, 4px) * 2) 0;
-  margin-inline: var(--mat-sys-inner-spacing, 16px);
+  margin-block: calc(var(--space) * 3) 0;
+  margin-inline: calc(var(--space) * 5);
+}
+
+.settings__empty {
+  margin: 0;
 }
 
 // 28px items in a 36px track: the thumb keeps 4px of air from the
@@ -186,18 +303,70 @@ $compact: 768px;
 }
 
 // A phone: the frame is the screen (the tokens' doing), sliding up from
-// the foot; the title clear of the notch, the last row of the home bar.
+// the foot; the title and close head it, clear of the notch, the aside a
+// row of tabs under them — sideways when they outgrow the screen — and
+// the page's last row clear of the home bar.
 @media (max-width: $compact) {
   .settings__panel {
+    grid-template:
+      'title close' auto
+      'nav nav' auto
+      'main main' 1fr
+      / minmax(0, 1fr) auto;
     box-shadow: none;
+
+    &::before {
+      content: none;
+    }
   }
 
-  .settings__header {
-    padding-block-start: calc(env(safe-area-inset-top) + var(--mat-sys-spacing, 4px) * 2);
-    padding-inline-start: var(--mat-sys-mobile-edge, 20px);
+  .settings__title {
+    align-self: center;
+    padding-block: calc(env(safe-area-inset-top) + var(--space) * 2)
+      var(--space);
+    padding-inline: var(--mat-sys-mobile-edge, 20px) 0;
+    color: var(--mat-sys-on-surface);
+    font: var(--mat-sys-title-large);
+  }
+
+  .settings__close {
+    position: static;
+    grid-area: close;
+    align-self: end;
+    margin-inline-end: calc(var(--space) * 2);
+  }
+
+  .settings__nav {
+    flex-direction: row;
+    gap: var(--space);
+    padding-block: var(--space) calc(var(--space) * 2);
+    padding-inline: var(--mat-sys-mobile-edge, 20px);
+    border-block-end: 1px solid var(--mat-sys-outline-variant);
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .settings__tab {
+    gap: calc(var(--space) * 2);
+    min-block-size: 36px;
+    padding-inline: calc(var(--space) * 3);
+    border-radius: var(--mat-sys-corner-full, 999px);
   }
 
   .settings__main {
-    padding-block-end: calc(env(safe-area-inset-bottom) + var(--mat-sys-outer-spacing, 24px));
+    padding-block: calc(var(--space) * 5)
+      calc(env(safe-area-inset-bottom) + var(--mat-sys-outer-spacing, 24px));
+    padding-inline: var(--mat-sys-inner-spacing, 16px);
+  }
+
+  .settings__page-title {
+    margin-block-end: calc(var(--space) * 4);
+    font: var(--mat-sys-title-medium);
+    font-weight: 600;
+  }
+
+  .settings__row {
+    gap: var(--mat-sys-inner-spacing, 16px);
+    padding-inline: var(--mat-sys-inner-spacing, 16px);
   }
 }

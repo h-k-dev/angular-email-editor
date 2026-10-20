@@ -75,6 +75,18 @@ describe('ToggleButtonGroup (render)', () => {
     expect(items()[0].querySelector('svg')!.getBoundingClientRect().width).toBe(18);
   });
 
+  it('finds the picked item when shown out of display: none, with no render after', async () => {
+    // Rendered while out of sight (a closed dialog, a hidden tab page)…
+    root().style.display = 'none';
+    fixture.detectChanges();
+    await frame();
+    // …then shown by CSS alone: no change detection follows.
+    root().style.display = '';
+    await frame();
+    await frame();
+    expectOver(items()[2]);
+  });
+
   it('covers the picked item, and follows a pick from pill to circle', async () => {
     expectOver(items()[2]);
     items()[0].click();

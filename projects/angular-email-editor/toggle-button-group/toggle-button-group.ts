@@ -12,7 +12,7 @@ import {
   input,
   model,
   output,
-  signal,
+  untracked,
 } from '@angular/core';
 import type { FormValueControl } from '@angular/forms/signals';
 import { TOGGLE_BUTTON_GROUP, ToggleButtonGroupItem } from './toggle-button-group-item';
@@ -136,25 +136,10 @@ export class ToggleButtonGroup<T = unknown> implements FormValueControl<T> {
 
   readonly #host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
-  /** Bumped when an item or the group resizes, for the thumb to read the
-      picked box again. */
-  readonly #resized = signal(0);
-
   constructor() {
     this.#watchSizes();
     afterRenderEffect({
-      earlyRead: (): ThumbBox | null => {
-        this.#resized();
-        const element = this.picked()?.element;
-        return element
-          ? {
-              x: element.offsetLeft,
-              y: element.offsetTop,
-              width: element.offsetWidth,
-              height: element.offsetHeight,
-            }
-          : null;
-      },
+      earlyRead: () => this.#measure(this.picked()),
       write: (box) => this.#place(box()),
     });
   }
@@ -169,6 +154,21 @@ export class ToggleButtonGroup<T = unknown> implements FormValueControl<T> {
   /** Puts focus on the group's tab stop. */
   focus(options?: FocusOptions): void {
     this.tabStop()?.focus(options);
+  }
+
+  /** The picked item's box, if any — read in layout. None while the group
+      is out of sight (`display: none`, a closed dialog): its box is no
+      place, and the thumb keeps the last one until it shows. */
+  #measure(picked: ToggleButtonGroupItem<T> | undefined): ThumbBox | null {
+    const element = picked?.element;
+    return element?.offsetWidth
+      ? {
+          x: element.offsetLeft,
+          y: element.offsetTop,
+          width: element.offsetWidth,
+          height: element.offsetHeight,
+        }
+      : null;
   }
 
   /** Stands the thumb on the picked box. The first place is taken without
@@ -187,10 +187,15 @@ export class ToggleButtonGroup<T = unknown> implements FormValueControl<T> {
   }
 
   /** Watches the group and its items for size changes — the only thing
-      besides a pick that moves the picked box. */
+      besides a pick that moves the picked box — and places the thumb then
+      and there: a resize is no render (a group shown out of
+      `display: none`, a font loading), so nothing else would read the box
+      again. The observer reports after layout: the read forces none. */
   #watchSizes(): void {
     if (typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(() => this.#resized.update((n) => n + 1));
+    const observer = new ResizeObserver(() =>
+      this.#place(this.#measure(untracked(this.picked))),
+    );
     inject(DestroyRef).onDestroy(() => observer.disconnect());
     effect((onCleanup) => {
       observer.observe(this.#host);
