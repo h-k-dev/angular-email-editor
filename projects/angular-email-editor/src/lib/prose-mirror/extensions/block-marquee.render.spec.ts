@@ -13,6 +13,8 @@ import { createEditor, Editor } from '../editor';
 import { emailExtensions } from './kits';
 import { BLOCK_RELEASING_CLASS, BLOCK_SELECTED_CLASS, BlockSelection } from './block-selection';
 import { BLOCK_MARQUEE_CLASS, beginBlockMarquee, createBlockMarquee } from './block-marquee';
+import { extensionSuggestions } from '../extension';
+import { SuggestionMenuState, createSuggestionMenu } from './suggestion-menu';
 
 /** The app's wash token, its hide-selection rules (the browser's highlight
     gone under a block selection) and its selected-block / marquee section. */
@@ -259,6 +261,62 @@ describe('block marquee (render)', () => {
     await Promise.all(fades.map((fade) => fade.finished));
     await frame();
     expect(editor.view.dom.querySelectorAll(`.${BLOCK_RELEASING_CLASS}`)).toHaveLength(0);
+  });
+
+  it('a press a menu on the surface took is the menu’s: no caret under it, and its row applies', () => {
+    // The `/` menu at the caret, as a composer renders it: in the paper,
+    // floating over the lines below the trigger's.
+    editor.destroy();
+    const menu = document.createElement('div');
+    menu.style.cssText = 'position: absolute; left: 60px; width: 200px; background: white;';
+    const row = document.createElement('div');
+    row.setAttribute('role', 'option');
+    row.textContent = 'Heading 1';
+    row.style.height = '40px';
+    menu.appendChild(row);
+    let state: SuggestionMenuState | undefined;
+    editor = createEditor({
+      parent: surface,
+      extensions: [
+        ...emailExtensions,
+        createBlockMarquee(),
+        createSuggestionMenu({
+          trigger: '/',
+          items: extensionSuggestions,
+          element: menu,
+          onChange: (next) => (state = next),
+        }),
+      ],
+      content: CONTENT,
+    });
+    surface.appendChild(menu);
+    menu.style.top = `${block(5).offsetTop}px`;
+
+    const end = editor.state.doc.child(0).nodeSize - 1;
+    editor.view.focus();
+    editor.view.dispatch(
+      editor.state.tr.setSelection(TextSelection.create(editor.state.doc, end)).insertText(' /'),
+    );
+    expect(state?.open).toBe(true);
+    const caret = editor.state.selection;
+
+    // The row over line 5: pressed and let go in place, a click.
+    const at = rect(row);
+    const x = at.left + 20;
+    const y = at.top + 10;
+    expect(document.elementFromPoint(x, y)).toBe(row);
+    expect(mouse('mousedown', x, y).defaultPrevented).toBe(true);
+    mouse('mouseup', x, y, window);
+    expect(marquee()).toBeNull();
+    expect(editor.state.selection.eq(caret)).toBe(true);
+    expect(state?.open).toBe(true);
+
+    // The click the row turns into a pick: applied, the trigger gone.
+    state!.select(state!.items.find((item) => item.title === 'Heading 1')!);
+    expect(state?.open).toBe(false);
+    expect(editor.state.doc.child(0).type.name).toBe('heading');
+    expect(editor.state.doc.child(0).textContent.trimEnd()).toBe('line 0');
+    menu.remove();
   });
 
   it('a press on a line is the text’s; a click in the margin puts the caret on its line', () => {

@@ -132,7 +132,9 @@ interface Gesture {
  * margin), or on the editor's own box between and below its blocks — never
  * on a block: a press on text is the text's, and a drag across lines stays a
  * text selection, as email users expect. Nor on a control of the surface's,
- * a scrollbar, or with a modifier held. The press is kept from the browser
+ * a scrollbar, or with a modifier held — nor a press something on the surface
+ * already took (`preventDefault`), as a suggestion menu floating over the
+ * text takes the press on its rows. The press is kept from the browser
  * and ProseMirror alike (no caret jump, no native selection), so a press
  * released in place is placed here: the caret at the nearest spot in the
  * text, as a click in the margin of a page puts it in Google Docs.
@@ -388,7 +390,13 @@ export const createBlockMarquee = (options: BlockMarqueeOptions = {}): Functiona
 
             // A press outside the editor: the surface's. The editor's own
             // presses come through `handleDOMEvents`, ahead of ProseMirror's.
+            // Not one a widget on the surface has already taken (declined its
+            // default to keep the editor's focus): a suggestion menu floating
+            // over the text, a toolbar with `emailKeepFocus`. Its row is no
+            // margin, and a caret placed under it would end the menu's
+            // session before its click lands.
             const outside = (event: MouseEvent) => {
+              if (event.defaultPrevented) return;
               const target = event.target as Element | null;
               if (!target || view.dom.contains(target)) return;
               const control = target.closest(INTERACTIVE);
