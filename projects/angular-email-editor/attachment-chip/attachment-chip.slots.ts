@@ -22,6 +22,16 @@ export interface AttachmentChipIconContext {
   readonly kind: AttachmentKind;
 }
 
+/** What the icon button and tail button templates are given: the
+    attachment, whether the chip's buttons are out of play (`aria-disabled`
+    — bind it to the button's own `disabled`), and whether work is in
+    flight (a tail button that cancels rather than removes, say). */
+export interface AttachmentChipButtonContext {
+  readonly $implicit: Attachment;
+  readonly disabled: boolean;
+  readonly busy: boolean;
+}
+
 /** Which progress the chip is drawing: a bar with a number, a sweep with
     none, the chip's own fake fill, or nothing yet while the transfer waits. */
 export type AttachmentProgressMode = 'determinate' | 'indeterminate' | 'simulated' | 'queued';
@@ -52,6 +62,55 @@ export class AttachmentChipIcon {
     _directive: AttachmentChipIcon,
     context: unknown,
   ): context is AttachmentChipIconContext {
+    return true;
+  }
+}
+
+/**
+ * The chip's icon button slot: the host's own button, in the square the
+ * icon has, shown over the icon on hover or focus once nothing is in
+ * flight — a download, a preview, whatever the host's click does. The chip
+ * only places it, shows it and paints its own surface behind it, so the
+ * icon never shows through. It takes the place of the chip's own download
+ * arrow; no `downloadable` needed.
+ *
+ *     <button *emailAttachmentIconButton="let file; let disabled = disabled"
+ *             mat-icon-button [disabled]="disabled" (click)="fetch(file)">
+ *       <mat-icon>download</mat-icon>
+ *     </button>
+ */
+@Directive({ selector: 'ng-template[emailAttachmentIconButton]' })
+export class AttachmentChipIconButton {
+  readonly template = inject<TemplateRef<AttachmentChipButtonContext>>(TemplateRef);
+
+  static ngTemplateContextGuard(
+    _directive: AttachmentChipIconButton,
+    context: unknown,
+  ): context is AttachmentChipButtonContext {
+    return true;
+  }
+}
+
+/**
+ * The chip's tail button slot: the host's own button in the trailing
+ * square, in place of the chip's ×. It is shown the way the × is — always
+ * while idle, and over the readout on hover or focus while work is in
+ * flight (`busy` in the context says which). `removable` and `removed` are
+ * the chip's own ×'s; the host's button does its own thing.
+ *
+ *     <button *emailAttachmentTailButton="let file; let busy = busy"
+ *             mat-icon-button (click)="busy ? cancel(file) : remove(file)">
+ *       <mat-icon>close</mat-icon>
+ *     </button>
+ */
+@Directive({ selector: 'ng-template[emailAttachmentTailButton]' })
+export class AttachmentChipTailButton {
+  readonly template = inject<TemplateRef<AttachmentChipButtonContext>>(TemplateRef);
+
+  static ngTemplateContextGuard(
+    _directive: AttachmentChipTailButton,
+    context: unknown,
+  ): context is AttachmentChipButtonContext {
     return true;
   }
 }

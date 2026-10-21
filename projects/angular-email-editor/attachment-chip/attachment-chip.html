@@ -1,16 +1,59 @@
-<!-- Every part carries data-slot: that is its styling hook. The icon box
-     and the progress readout are also template slots: each has a default
-     the chip draws, and a host replaces it by marking an ng-template with
-     emailAttachmentIcon or emailAttachmentProgress — the chip renders it
-     inside the box it already sizes, so the stylesheet never has to reach
-     into the host's markup. -->
-<span data-slot="icon">
-  @if (iconTemplate(); as slot) {
-    <ng-container *ngTemplateOutlet="slot.template; context: iconContext()" />
-  } @else {
-    <svg viewBox="0 0 16 16" aria-hidden="true">
-      <path [attr.d]="icon()" />
-    </svg>
+<!-- Every part carries data-slot: that is its styling hook. The icon box,
+     the progress readout and the two button boxes are also template slots:
+     each has a default the chip draws, and a host replaces it by marking an
+     ng-template with emailAttachmentIcon, emailAttachmentProgress,
+     emailAttachmentIconButton or emailAttachmentTailButton — the chip
+     renders it inside the box it already places, so the stylesheet never
+     has to reach into the host's markup. -->
+<!-- The chip's own click, when activatable: a button stretched over the
+     whole chip (positioned against the host), under the two button boxes,
+     which are their own targets. A sibling of them, never their parent: a
+     button cannot hold buttons. title: it covers the name, whose own title
+     it would otherwise hide. -->
+@if (activatable()) {
+  <button
+    type="button"
+    data-slot="action"
+    [disabled]="ariaDisabled()"
+    [attr.aria-label]="attachment().name"
+    [title]="attachment().name"
+    (click)="activated.emit()"
+  ></button>
+}
+
+<!-- One square at the start that the icon and the icon button share: the
+     icon has it, and the icon button box paints over it on hover or focus —
+     the chip's download arrow, or the host's own button. Only once nothing
+     is in flight. -->
+<span data-slot="leading">
+  <span data-slot="icon">
+    @if (iconTemplate(); as slot) {
+      <ng-container *ngTemplateOutlet="slot.template; context: iconContext()" />
+    } @else {
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <path [attr.d]="icon()" />
+      </svg>
+    }
+  </span>
+
+  @if (iconButtonOffered()) {
+    <span data-slot="icon-button">
+      @if (iconButtonTemplate(); as slot) {
+        <ng-container *ngTemplateOutlet="slot.template; context: buttonContext()" />
+      } @else {
+        <button
+          type="button"
+          data-slot="download-button"
+          [disabled]="ariaDisabled()"
+          [attr.aria-label]="downloadLabel() + ' ' + attachment().name"
+          (click)="downloaded.emit()"
+        >
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M8 2.5v8 M4.5 7l3.5 3.5 3.5-3.5 M3 13.5h10" />
+          </svg>
+        </button>
+      }
+    </span>
   }
 </span>
 
@@ -23,12 +66,13 @@
   }
 </span>
 
-<!-- One square at the end that the progress readout and the remove button
-     share: while work is in flight the readout has it, and the × paints over
-     it on hover or focus (always on a touch screen). The bar under the chip
-     is the progress itself; the readout is only its number — or the host's
-     template. With no number the square stays empty and the chip itself is
-     swept by a band of light (a host pseudo-element, keyed off data-mode). -->
+<!-- One square at the end that the progress readout and the tail button
+     share: while work is in flight the readout has it, and the tail button
+     (the ×, or the host's) paints over it on hover or focus (always on a
+     touch screen). The bar under the chip is the progress itself; the
+     readout is only its number — or the host's template. With no number the
+     square stays empty and the chip itself is swept by a band of light (a
+     host pseudo-element, keyed off data-mode). -->
 <span data-slot="trailing">
   @if (mode(); as m) {
     <!-- A simulated run is announced as busy, never with a number: the
@@ -60,17 +104,23 @@
     }
   }
 
-  @if (removable()) {
-    <button
-      type="button"
-      data-slot="remove"
-      [disabled]="ariaDisabled()"
-      [attr.aria-label]="removeLabel() + ' ' + attachment().name"
-      (click)="removed.emit()"
-    >
-      <svg viewBox="0 0 16 16" aria-hidden="true">
-        <path d="M4.5 4.5l7 7 M11.5 4.5l-7 7" />
-      </svg>
-    </button>
+  @if (tailButtonOffered()) {
+    <span data-slot="tail-button">
+      @if (tailButtonTemplate(); as slot) {
+        <ng-container *ngTemplateOutlet="slot.template; context: buttonContext()" />
+      } @else {
+        <button
+          type="button"
+          data-slot="remove"
+          [disabled]="ariaDisabled()"
+          [attr.aria-label]="removeLabel() + ' ' + attachment().name"
+          (click)="removed.emit()"
+        >
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M4.5 4.5l7 7 M11.5 4.5l-7 7" />
+          </svg>
+        </button>
+      }
+    </span>
   }
 </span>

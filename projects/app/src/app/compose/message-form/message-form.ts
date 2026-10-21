@@ -14,7 +14,11 @@ import { AngularFileDrop } from '@h-k-dev/angular-file-drop';
 
 // Angular Email Editor
 import { AddressDragGroup } from '@h-k-dev/angular-email-editor/address-input';
-import { AttachmentChip, AttachmentChipIcon } from '@h-k-dev/angular-email-editor/attachment-chip';
+import {
+  AttachmentChip,
+  AttachmentChipIcon,
+  AttachmentChipIconButton,
+} from '@h-k-dev/angular-email-editor/attachment-chip';
 import { AttachmentChips } from '@h-k-dev/angular-email-editor/attachment-chips';
 import { DotsMorph } from '../../common/dots-morph/dots-morph';
 import { HeightSwitch } from '../../common/height-switch/height-switch';
@@ -66,6 +70,7 @@ import { MessageSheet } from './message-sheet';
     HoverLinger,
     AttachmentChip,
     AttachmentChipIcon,
+    AttachmentChipIconButton,
     MatIcon,
     MatIconButton,
     MatTooltip,

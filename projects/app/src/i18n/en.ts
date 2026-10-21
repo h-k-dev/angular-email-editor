@@ -44,6 +44,9 @@ export default {
       twoRows: 'Two rows of attachments',
       removeAll: 'Remove all attachments',
       removed: 'All attachments removed',
+      download: 'Download',
+      downloading: 'Downloading {{name}}',
+      clicked: '{{name}} clicked',
     },
     more: 'More options',
     settings: {

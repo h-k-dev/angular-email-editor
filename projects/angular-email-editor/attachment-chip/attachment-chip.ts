@@ -26,7 +26,10 @@ import {
 } from './attachment';
 import { prefersReducedMotion, scanningState } from './attachment-chip.animation';
 import {
+  AttachmentChipButtonContext,
   AttachmentChipIcon,
+  AttachmentChipIconButton,
+  AttachmentChipTailButton,
   AttachmentChipIconContext,
   AttachmentChipProgress,
   AttachmentChipProgressContext,
@@ -110,17 +113,21 @@ const STATUS_LABELS: Record<AttachmentStatus, string> = {
 /**
  * One attachment, laid out like a list row with an avatar:
  *
- *     [icon] | name        | [progress / ×]
- *            | size        |
- *     ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+ *     [icon / icon button] | name | [progress / tail button]
+ *                          | size |
+ *     ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
  *
  * Progress is a bar along the bottom edge that fills with the number; with
  * no number the whole chip is swept by a band of light instead, the way a
  * scanner passes over a page — and when the number arrives mid-sweep the
  * band fades out on its way rather than vanishing. The square at the end is
  * shared: while work is in flight it holds the readout (the percentage,
- * nothing while there is none), and the remove button paints over it on
- * hover or focus, always on a touch screen. The chip owns all of that
+ * nothing while there is none), and the tail button (the ×, or the host's
+ * own) paints over it on hover or focus, always on a touch screen. The
+ * icon's square at the start is shared the same way with the icon button
+ * (a download arrow for a host that sets `downloadable`, or the host's
+ * own): it paints over the icon on hover or focus, once nothing is in
+ * flight. The chip owns all of that
  * motion: the stylesheet draws it and `attachment-chip.animation.ts` times
  * it; a host only says where the transfer is.
  *
@@ -138,7 +145,7 @@ const STATUS_LABELS: Record<AttachmentStatus, string> = {
  * **State is ARIA.** `aria-busy` is reflected while any stage is in flight,
  * and is also an input for a host with no stages to tell: busy with a
  * `progress` fills, busy with `null` sweeps. `aria-disabled` takes the
- * remove button out of play. Both inputs go under their ARIA names, so a
+ * chip's buttons out of play. Both inputs go under their ARIA names, so a
  * host writes `[aria-busy]="upload.pending"` exactly as it would on any
  * element, and the chip reflects them back onto itself — they are the
  * styling hooks too (`[email-attachment-chip][aria-busy='true']`).
@@ -153,26 +160,45 @@ const STATUS_LABELS: Record<AttachmentStatus, string> = {
  * really happening but untracked; that is `aria-busy` with no `progress`.
  * The fake announces no number to assistive tech, only that it is busy.
  *
- * **Parts are `data-slot`s.** Every part carries one — `icon`, `label`,
- * `name`, `size`, `trailing`, `progress` (the readout, with
- * `progress-value` inside), `progress-track`, `progress-indicator` (the
- * bar), `remove` — and that is how it is styled from outside:
+ * **Parts are `data-slot`s.** Every part carries one — `action` (the
+ * chip's own click, when `activatable`), `leading` (the square `icon` and
+ * `icon-button` share), `icon`, `icon-button` (the box over it, holding the
+ * chip's `download-button` or the host's), `label`, `name`, `size`,
+ * `trailing`, `progress` (the readout, with `progress-value` inside),
+ * `progress-track`, `progress-indicator` (the bar), `tail-button` (the box
+ * holding the chip's `remove` or the host's) — and that is how it is
+ * styled from outside:
  * `[email-attachment-chip] [data-slot='name'] { … }`. Theme it through the
  * `--email-*` tokens; a structural override reaches a part with two
  * attributes (`[email-attachment-chip] [data-slot='name'][data-slot]`).
  *
- * **Slots are templates.** `icon` and `progress` are boxes the chip sizes;
- * a host fills either with its own template by marking an `ng-template`
- * `emailAttachmentIcon` / `emailAttachmentProgress` (or the `*` shorthand on
- * the element). The icon box is `--email-attachment-chip-icon-size` square
+ * **Slots are templates.** `icon`, `progress`, `icon-button` and
+ * `tail-button` are boxes the chip places; a host fills any with its own
+ * template by marking an `ng-template` `emailAttachmentIcon` /
+ * `emailAttachmentProgress` / `emailAttachmentIconButton` /
+ * `emailAttachmentTailButton` (or the `*` shorthand on the element), so it
+ * chooses what goes where. The icon box is `--email-attachment-chip-icon-size` square
  * and sets `font-size` and `color` to match, so a `mat-icon` with `inline`, a
  * font icon or an SVG drawn at `1em` all fit with no rule of their own; the
  * template gets the attachment and its `kind`. The progress template gets
  * the attachment, `status`, `progress`, `percent` and `mode`, and replaces
- * only the readout — the bar and the sweep stay the chip's.
+ * only the readout — the bar and the sweep stay the chip's. The two button
+ * templates are the host's whole button (a `mat-icon-button`, say) and get
+ * the attachment, `disabled` and `busy`; the chip shows them, hides them
+ * and paints its surface behind them, and the host's click is the action.
+ * A button template replaces the chip's own button in that box — the
+ * download arrow, the ×.
+ *
+ * **`activatable`** makes the chip itself a button: a `<button>` stretched
+ * over the whole chip, under the two button boxes (they stay their own
+ * targets), named for the file, with a hover, press and focus ring of the
+ * chip's. It emits `activated` — open a preview, say. Not the `<li>`:
+ * a button cannot hold the other buttons.
  *
  * **It asks, it does not do.** The chip holds no list: `removed` is a
- * request the host answers by dropping the item (and cancelling its upload).
+ * request the host answers by dropping the item (and cancelling its upload),
+ * `downloaded` one it answers by fetching the file, and `activated` one it
+ * answers however it likes.
  * Picking, dropping, uploading and assembling the MIME are the host's.
  *
  * Opt-in enter/leave animations ship with it:
@@ -192,6 +218,7 @@ const STATUS_LABELS: Record<AttachmentStatus, string> = {
     '[attr.data-status]': 'status()',
     '[attr.data-mode]': 'mode()',
     '[attr.data-scanning]': 'scanning()',
+    '[attr.data-activatable]': 'activatable() || null',
     '[attr.aria-busy]': 'busy() || null',
     '[attr.aria-disabled]': 'ariaDisabled() || null',
   },
@@ -206,11 +233,25 @@ export class AttachmentChip implements OnInit {
   readonly attachment = input.required<Attachment>();
 
   /** Set false for a read-only message (a sent copy, a preview): the chip
-      stays, the remove button goes. */
+      stays, the remove button goes. A host's own tail button does not ask. */
   readonly removable = input(true, { transform: booleanAttribute });
 
   /** Prefix for the remove button's accessible name — "Remove report.pdf". */
   readonly removeLabel = input('Remove');
+
+  /** Set true for a host that can hand the file back: the icon gives way to
+      the chip's download button on hover or focus, once the transfer has
+      settled. Off by default — a button with no host behind it would do
+      nothing. A host with a button of its own hands it in through the
+      `emailAttachmentIconButton` slot instead, and needs no flag. */
+  readonly downloadable = input(false, { transform: booleanAttribute });
+
+  /** Prefix for the download button's accessible name — "Download report.pdf". */
+  readonly downloadLabel = input('Download');
+
+  /** Set true to make the chip itself clickable: it emits `activated`. Off
+      by default — a chip that looks pressable and does nothing would lie. */
+  readonly activatable = input(false, { transform: booleanAttribute });
 
   /** Which stage the transfer is in. `null` for a host with no stages to
       tell — then `aria-busy` and `progress` alone describe the work. */
@@ -224,7 +265,8 @@ export class AttachmentChip implements OnInit {
       number. */
   readonly progress = input<number | null>(null);
 
-  /** The remove button is out of play — e.g. while the message sends. */
+  /** The chip's buttons are out of play — e.g. while the message sends. A
+      host's own buttons get it as `disabled` in their context. */
   readonly ariaDisabled = input(false, { alias: 'aria-disabled', transform: booleanAttribute });
 
   /** Run a fake transfer once, paced by the attachment's size. */
@@ -238,11 +280,26 @@ export class AttachmentChip implements OnInit {
       goes when the host's list no longer has it. */
   readonly removed = output<void>();
 
+  /** The chip's own download button was pressed. A request, like
+      `removed`: the host fetches the file (or opens it) — the chip holds
+      no bytes. A host's button in the icon button slot handles its own click. */
+  readonly downloaded = output<void>();
+
+  /** The chip itself was clicked (or pressed with Enter or Space), when
+      `activatable`. Never for a click on the icon or tail button. */
+  readonly activated = output<void>();
+
   /** The host's own icon, if it handed one in. */
   protected readonly iconTemplate = contentChild(AttachmentChipIcon);
 
   /** The host's own progress readout, if it handed one in. */
   protected readonly progressTemplate = contentChild(AttachmentChipProgress);
+
+  /** The host's own button over the icon, if it handed one in. */
+  protected readonly iconButtonTemplate = contentChild(AttachmentChipIconButton);
+
+  /** The host's own button in the trailing square, if it handed one in. */
+  protected readonly tailButtonTemplate = contentChild(AttachmentChipTailButton);
 
   readonly #simulating = signal(false);
 
@@ -285,6 +342,24 @@ export class AttachmentChip implements OnInit {
   protected readonly iconContext = computed<AttachmentChipIconContext>(() => ({
     $implicit: this.attachment(),
     kind: this.kind(),
+  }));
+
+  /** The icon button is there — the host's or the chip's download arrow —
+      once nothing is in flight: a file still uploading has nothing to act on. */
+  protected readonly iconButtonOffered = computed(
+    () => (!!this.iconButtonTemplate() || this.downloadable()) && !this.busy(),
+  );
+
+  /** The tail button is there — the host's, or the chip's × while
+      `removable`. While busy it waits under the readout for a hover. */
+  protected readonly tailButtonOffered = computed(
+    () => !!this.tailButtonTemplate() || this.removable(),
+  );
+
+  protected readonly buttonContext = computed<AttachmentChipButtonContext>(() => ({
+    $implicit: this.attachment(),
+    disabled: this.ariaDisabled(),
+    busy: this.busy(),
   }));
 
   protected readonly progressContext = computed<AttachmentChipProgressContext>(() => ({

@@ -226,7 +226,9 @@
               [aria-disabled]="envelope.attachments().disabled()"
               animate.enter="email-attachment-chip-enter"
               animate.leave="email-attachment-chip-leave"
+              activatable
               (removed)="uploads.cancel(attachment.key)"
+              (activated)="attachmentClicked(attachment)"
             >
               <!-- The chip's own glyphs would do; this fills its icon slot
                    with the app's Material icons instead, as a host with an
@@ -235,6 +237,22 @@
               <mat-icon *emailAttachmentIcon="let kind = kind" inline>
                 {{ attachmentIcons[kind] }}
               </mat-icon>
+              <!-- The icon button slot, filled with the app's own icon button:
+                   the chip shows it over the icon on hover, and its click
+                   is the download (faked here). -->
+              <button
+                *emailAttachmentIconButton="let file; let disabled = disabled"
+                mat-icon-button
+                type="button"
+                class="attachment-chip__download"
+                [disabled]="disabled"
+                [attr.aria-label]="
+                  ('composer.attachments.download' | translate) + ' ' + file.name
+                "
+                (click)="downloadAttachment(attachment)"
+              >
+                <mat-icon>download</mat-icon>
+              </button>
             </li>
           }
         </ul>

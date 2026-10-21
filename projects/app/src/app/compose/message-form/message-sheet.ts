@@ -56,7 +56,7 @@ import {
 import { releaseEditingSurface } from '../is-typing';
 import { Theme } from '../../../services/theme';
 import { I18n } from '../../../services/i18n';
-import { AttachmentUploads } from '../../../services/attachment-uploads';
+import { AttachmentRef, AttachmentUploads } from '../../../services/attachment-uploads';
 import { EmailSend, SendRejected } from '../../../services/email-send';
 import { Preferences } from '../../../services/preferences';
 import { EnvelopeRows } from './envelope-rows/envelope-rows';
@@ -383,6 +383,26 @@ export abstract class MessageSheet {
     if (inStrip) {
       afterNextRender({ write: () => this.emailPane().focus() }, { injector: this.#injector });
     }
+  }
+
+  /** A chip's download, faked: the demo's store holds no bytes, so it only
+      says what a real host would start — the file is never fetched. */
+  downloadAttachment(attachment: AttachmentRef): void {
+    this.#snackBar.open(
+      this.i18n.t('composer.attachments.downloading', { name: attachment.name }),
+      undefined,
+      { duration: 3000 },
+    );
+  }
+
+  /** A chip's own click, faked: a real host would open a preview — this
+      only says the click arrived. */
+  attachmentClicked(attachment: AttachmentRef): void {
+    this.#snackBar.open(
+      this.i18n.t('composer.attachments.clicked', { name: attachment.name }),
+      undefined,
+      { duration: 3000 },
+    );
   }
 
   /** The strip's corner toggle: one row to two and back. */

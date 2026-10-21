@@ -2,7 +2,12 @@ import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Attachment, AttachmentStatus } from './attachment';
 import { ATTACHMENT_CHIP_OPTIONS, AttachmentChip, simulatedDuration } from './attachment-chip';
-import { AttachmentChipIcon, AttachmentChipProgress } from './attachment-chip.slots';
+import {
+  AttachmentChipIcon,
+  AttachmentChipIconButton,
+  AttachmentChipTailButton,
+  AttachmentChipProgress,
+} from './attachment-chip.slots';
 
 const MB = 1024 * 1024;
 const settle = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -15,12 +20,16 @@ const settle = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
     email-attachment-chip
     [attachment]="attachment()"
     [removable]="removable()"
+    [downloadable]="downloadable()"
+    [activatable]="activatable()"
     [status]="status()"
     [aria-busy]="busy()"
     [progress]="progress()"
     [progressLabel]="progressLabel()"
     [aria-disabled]="disabled()"
     (removed)="removals = removals + 1"
+    (downloaded)="downloads = downloads + 1"
+    (activated)="activations = activations + 1"
   ></li>`,
 })
 class Host {
@@ -32,10 +41,14 @@ class Host {
     size: 2.5 * MB,
   });
   readonly removable = signal(true);
+  readonly downloadable = signal(false);
+  readonly activatable = signal(false);
   readonly busy = signal(false);
   readonly progress = signal<number | null>(null);
   readonly disabled = signal(false);
   removals = 0;
+  downloads = 0;
+  activations = 0;
 }
 
 function slots(chip: HTMLElement) {
@@ -44,6 +57,7 @@ function slots(chip: HTMLElement) {
     size: () => chip.querySelector<HTMLElement>('[data-slot=size]'),
     icon: () => chip.querySelector('[data-slot=icon] path')?.getAttribute('d'),
     remove: () => chip.querySelector<HTMLButtonElement>('[data-slot=remove]'),
+    download: () => chip.querySelector<HTMLButtonElement>('[data-slot=download-button]'),
     progress: () => chip.querySelector<HTMLElement>('[role=progressbar]'),
     bar: () => chip.querySelector<HTMLElement>('[data-slot=progress-indicator]'),
   };
@@ -107,6 +121,36 @@ describe('AttachmentChip', () => {
 
     expect(part.remove()).toBeNull();
     expect(part.name().textContent?.trim()).toBe('Q4-report.pdf');
+  });
+
+  it('has no download button unless the host can hand the file back', () => {
+    expect(part.download()).toBeNull();
+  });
+
+  it('asks for a download from the icon’s square, labelled with the file', async () => {
+    host.downloadable.set(true);
+    await fixture.whenStable();
+
+    const leading = chip.querySelector('[data-slot=leading]')!;
+    expect(leading.querySelector('[data-slot=icon-button]')?.contains(part.download())).toBe(true);
+    expect(leading.querySelector('[data-slot=icon]')).toBeTruthy();
+    expect(part.download()?.getAttribute('aria-label')).toBe('Download Q4-report.pdf');
+
+    part.download()!.click();
+    await fixture.whenStable();
+    expect(host.downloads).toBe(1);
+  });
+
+  it('offers no download while the transfer is in flight', async () => {
+    host.downloadable.set(true);
+    host.status.set('uploading');
+    host.progress.set(0.4);
+    await fixture.whenStable();
+    expect(part.download()).toBeNull();
+
+    host.status.set('complete');
+    await fixture.whenStable();
+    expect(part.download()).toBeTruthy();
   });
 
   it('accepts a browser File unchanged — it already satisfies Attachment', async () => {
@@ -272,11 +316,55 @@ describe('AttachmentChip', () => {
     expect(part.remove()?.disabled).toBe(true);
   });
 
+  it('takes the download button out of play too when aria-disabled', async () => {
+    host.downloadable.set(true);
+    host.disabled.set(true);
+    await fixture.whenStable();
+
+    expect(part.download()?.disabled).toBe(true);
+  });
+
+  it('is not clickable itself unless activatable', () => {
+    expect(chip.querySelector('[data-slot=action]')).toBeNull();
+    expect(chip.hasAttribute('data-activatable')).toBe(false);
+  });
+
+  it('when activatable, is one button over the chip, named for the file, apart from its own buttons', async () => {
+    host.activatable.set(true);
+    await fixture.whenStable();
+
+    const action = chip.querySelector<HTMLButtonElement>('[data-slot=action]')!;
+    expect(chip.hasAttribute('data-activatable')).toBe(true);
+    expect(action.tagName).toBe('BUTTON');
+    expect(action.getAttribute('aria-label')).toBe('Q4-report.pdf');
+    // A sibling of the other buttons, never their parent.
+    expect(action.querySelector('button')).toBeNull();
+
+    action.click();
+    part.remove()!.click();
+    await fixture.whenStable();
+    expect(host.activations).toBe(1);
+    expect(host.removals).toBe(1);
+
+    host.disabled.set(true);
+    await fixture.whenStable();
+    expect(action.disabled).toBe(true);
+  });
+
   it('marks every part with a data-slot', () => {
     const names = [...chip.querySelectorAll('[data-slot]')].map((el) =>
       el.getAttribute('data-slot'),
     );
-    expect(names).toEqual(['icon', 'label', 'name', 'size', 'trailing', 'remove']);
+    expect(names).toEqual([
+      'leading',
+      'icon',
+      'label',
+      'name',
+      'size',
+      'trailing',
+      'tail-button',
+      'remove',
+    ]);
   });
 });
 
@@ -319,6 +407,75 @@ describe('AttachmentChip slots', () => {
     // The bar and the trailing square are untouched.
     expect(chip.querySelector('[data-slot=trailing] [data-slot=progress-track]')).not.toBeNull();
     expect(chip.querySelector('[data-slot=trailing] [data-slot=remove]')).not.toBeNull();
+  });
+
+  it('places the host’s icon button over the icon, in place of its own, once settled', async () => {
+    @Component({
+      imports: [AttachmentChip, AttachmentChipIconButton],
+      template: `<li email-attachment-chip [attachment]="attachment" [status]="status()" aria-disabled>
+        <button
+          *emailAttachmentIconButton="let file; let disabled = disabled"
+          [disabled]="disabled"
+          (click)="fetched = file.name"
+        >get</button>
+      </li>`,
+    })
+    class DownloadHost {
+      readonly attachment: Attachment = { name: 'x.pdf', type: 'application/pdf' };
+      readonly status = signal<AttachmentStatus>('uploading');
+      fetched = '';
+    }
+    await TestBed.configureTestingModule({ imports: [DownloadHost] }).compileComponents();
+    const fixture = TestBed.createComponent(DownloadHost);
+    await fixture.whenStable();
+    const chip = (fixture.nativeElement as HTMLElement).querySelector('[email-attachment-chip]')!;
+
+    // Nothing to fetch while the upload runs.
+    expect(chip.querySelector('[data-slot=icon-button]')).toBeNull();
+
+    fixture.componentInstance.status.set('complete');
+    await fixture.whenStable();
+
+    // The box is the chip's, in the leading square; the button is the host's,
+    // the chip's own is not there, and the host's click is the download.
+    const button = chip.querySelector<HTMLButtonElement>('[data-slot=leading] [data-slot=icon-button] > button')!;
+    expect(button.textContent).toBe('get');
+    expect(chip.querySelector('[data-slot=download-button]')).toBeNull();
+    expect(button.disabled).toBe(true);
+    button.disabled = false;
+    button.click();
+    expect(fixture.componentInstance.fetched).toBe('x.pdf');
+  });
+
+  it('puts the host’s tail button in place of the ×, told whether work is in flight', async () => {
+    @Component({
+      imports: [AttachmentChip, AttachmentChipTailButton],
+      template: `<li email-attachment-chip [attachment]="attachment" [status]="status()">
+        <button *emailAttachmentTailButton="let file; let busy = busy" (click)="pressed = busy">
+          {{ busy ? 'cancel' : 'drop' }}
+        </button>
+      </li>`,
+    })
+    class TailHost {
+      readonly attachment: Attachment = { name: 'x.pdf', type: 'application/pdf' };
+      readonly status = signal<AttachmentStatus>('uploading');
+      pressed: boolean | null = null;
+    }
+    await TestBed.configureTestingModule({ imports: [TailHost] }).compileComponents();
+    const fixture = TestBed.createComponent(TailHost);
+    await fixture.whenStable();
+    const chip = (fixture.nativeElement as HTMLElement).querySelector('[email-attachment-chip]')!;
+    const button = () =>
+      chip.querySelector<HTMLButtonElement>('[data-slot=trailing] [data-slot=tail-button] > button')!;
+
+    expect(chip.querySelector('[data-slot=remove]')).toBeNull();
+    expect(button().textContent?.trim()).toBe('cancel');
+    button().click();
+    expect(fixture.componentInstance.pressed).toBe(true);
+
+    fixture.componentInstance.status.set('complete');
+    await fixture.whenStable();
+    expect(button().textContent?.trim()).toBe('drop');
   });
 
   it('keeps a bare aria-busy attribute as the input, and reflects it', async () => {

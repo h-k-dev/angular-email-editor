@@ -46,6 +46,9 @@ export default {
       twoRows: '添付ファイルを2行で表示',
       removeAll: 'すべての添付ファイルを削除',
       removed: 'すべての添付ファイルを削除しました',
+      download: 'ダウンロード',
+      downloading: '{{name}} をダウンロードしています',
+      clicked: '{{name}} がクリックされました',
     },
     more: 'その他のオプション',
     settings: {

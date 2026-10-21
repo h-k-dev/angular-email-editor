@@ -47,6 +47,9 @@ export default {
       twoRows: 'Anhänge in zwei Zeilen',
       removeAll: 'Alle Anhänge entfernen',
       removed: 'Alle Anhänge entfernt',
+      download: 'Herunterladen',
+      downloading: '{{name}} wird heruntergeladen',
+      clicked: '{{name}} angeklickt',
     },
     more: 'Weitere Optionen',
     settings: {

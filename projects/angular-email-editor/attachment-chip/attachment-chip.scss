@@ -27,10 +27,18 @@
   padding: 2px 4px 2px 8px;
   box-sizing: border-box;
 
-  background-color: var(
+  // The surface, held in one private property so the boxes that paint over
+  // the icon and the readout wear the same one — hovered and pressed
+  // included, for an activatable chip.
+  --_surface-base: var(
     --email-attachment-chip-background,
     var(--mat-sys-surface-container, light-dark(#f1f3f4, #303134))
   );
+  --_surface: var(--_surface-base);
+  background-color: var(--_surface);
+  transition:
+    opacity 150ms cubic-bezier(0.645, 0.045, 0.355, 1),
+    background-color 120ms ease;
   color: var(
     --email-attachment-chip-color,
     var(--mat-sys-on-surface, light-dark(#1f1f1f, #e3e3e3))
@@ -56,11 +64,48 @@
     --email-attachment-chip-letter-spacing,
     var(--mat-sys-label-large-tracking, 0.006rem)
   );
-  transition: opacity 150ms cubic-bezier(0.645, 0.045, 0.355, 1);
 }
 
 :host([aria-disabled='true']) {
   opacity: 0.6;
+}
+
+// ── action: the chip's own click ────────────────────────────────────────
+// A bare button stretched over the whole chip, positioned against it. It is
+// first in the view, so the two positioned button boxes that come after it
+// paint above it and stay their own targets; the label under it is what
+// it is named for. The state is the surface's: hover mixes in a little of
+// the ink, a press a little more (Material's state-layer opacities), and
+// the boxes over the icon and the readout follow, so nothing patches.
+:host :where([data-slot='action']) {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: inherit;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+:host :where([data-slot='action']:disabled) {
+  cursor: default;
+}
+
+:host :where([data-slot='action']:focus-visible) {
+  outline: 2px solid
+    var(--email-attachment-chip-focus-ring, var(--mat-sys-primary, light-dark(#0b57d0, #a8c7fa)));
+  outline-offset: 1px;
+}
+
+:host([data-activatable]:not([aria-disabled='true']):hover) {
+  --_surface: color-mix(in srgb, var(--_surface-base), currentColor 8%);
+}
+
+:host([data-activatable]:not([aria-disabled='true']):active) {
+  --_surface: color-mix(in srgb, var(--_surface-base), currentColor 12%);
 }
 
 // ── scanning ────────────────────────────────────────────────────────────
@@ -110,6 +155,21 @@
     email-attachment-chip-scan 2.2s linear infinite,
     email-attachment-chip-scan-fade 2.2s linear infinite,
     email-attachment-chip-scan-exit 300ms ease-out forwards;
+}
+
+// ── leading: the icon and the download arrow share one square ───────────
+// The trailing square's grid, sized to the icon so a chip with no download
+// lays out exactly as before; the download box overhangs it into the padding.
+:host :where([data-slot='leading']) {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--email-attachment-chip-icon-size, 20px);
+  height: var(--email-attachment-chip-icon-size, 20px);
+}
+
+:host :where([data-slot='leading'] > *) {
+  grid-area: 1 / 1;
 }
 
 // ── icon ────────────────────────────────────────────────────────────────
@@ -275,10 +335,11 @@
   animation: email-attachment-chip-fill 1s cubic-bezier(0.2, 0.6, 0.35, 1) forwards;
 }
 
-// ── remove ──────────────────────────────────────────────────────────────
-// A bare button sized to the glyph it holds — a 40px row has no room for a
+// ── icon button and tail button ─────────────────────────────────────────
+// The chip's own two — the download arrow and the × — are bare buttons
+// sized to the glyph they hold — a 40px row has no room for a
 // full touch-target button next to a readout.
-:host :where([data-slot='remove']) {
+:host :where([data-slot='remove'], [data-slot='download-button']) {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -299,43 +360,80 @@
     background-color 120ms ease;
 }
 
-:host :where([data-slot='remove'] svg) {
+:host :where([data-slot='remove'] svg, [data-slot='download-button'] svg) {
   width: 14px;
   height: 14px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.75;
   stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-// While busy the readout has the square: the × is there, unseen, until the
-// pointer or focus arrives — and then it paints over the readout on the
-// chip's own surface, so the number never shows through.
-:host([aria-busy='true']) :where([data-slot='remove']) {
+// The two button boxes — over the icon, in the trailing square — each hold
+// the chip's own button or the host's. They take the size of what they hold
+// (24px at least, so the icon or the readout is covered); a host button
+// larger than the square overhangs it into the padding. Positioned, so they
+// paint above the chip's action and stay their own targets; they wear the
+// chip's surface, so what is under them never shows through.
+:host :where([data-slot='icon-button'], [data-slot='tail-button']) {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  min-height: 24px;
+  border-radius: 50%;
+  transition:
+    opacity 120ms ease,
+    background-color 120ms ease;
+}
+
+// The icon button is there, unseen, until the pointer or focus arrives;
+// then it paints over the icon, the way the tail button paints over the
+// readout. On a touch screen it stays unseen: the icon keeps telling the
+// kind, and a tap on it is the icon button's.
+:host :where([data-slot='icon-button']) {
+  opacity: 0;
+  background-color: var(--_surface);
+}
+
+:host(:is(:hover, :focus-within)) :where([data-slot='icon-button']) {
+  opacity: 1;
+}
+
+:host([aria-disabled='true']) :where([data-slot='icon-button']) {
   opacity: 0;
 }
 
-:host([aria-busy='true']:is(:hover, :focus-within)) :where([data-slot='remove']) {
-  opacity: 1;
-  background-color: var(
-    --email-attachment-chip-background,
-    var(--mat-sys-surface-container, light-dark(#f1f3f4, #303134))
-  );
+// While busy the readout has the trailing square: the tail button is there,
+// unseen, until the pointer or focus arrives — and then it paints over the
+// readout on the chip's own surface, so the number never shows through.
+:host([aria-busy='true']) :where([data-slot='tail-button']) {
+  opacity: 0;
 }
 
-// No pointer to hover with: the × is always there, and the bar alone
-// tells how far the work is.
+:host([aria-busy='true']:is(:hover, :focus-within)) :where([data-slot='tail-button']) {
+  opacity: 1;
+  background-color: var(--_surface);
+}
+
+// No pointer to hover with: the tail button is always there, and the bar
+// alone tells how far the work is.
 @media (hover: none) {
-  :host([aria-busy='true']) :where([data-slot='remove']) {
+  :host([aria-busy='true']) :where([data-slot='tail-button']) {
     opacity: 1;
-    background-color: var(
-      --email-attachment-chip-background,
-      var(--mat-sys-surface-container, light-dark(#f1f3f4, #303134))
-    );
+    background-color: var(--_surface);
   }
 }
 
-:host :where([data-slot='remove']:hover:not(:disabled), [data-slot='remove']:focus-visible) {
+:host
+  :where(
+    [data-slot='remove']:hover:not(:disabled),
+    [data-slot='remove']:focus-visible,
+    [data-slot='download-button']:hover:not(:disabled),
+    [data-slot='download-button']:focus-visible
+  ) {
   background-color: var(
     --email-attachment-chip-hover-background,
     var(--mat-sys-surface-container-highest, light-dark(#e3e3e3, #444746))
@@ -346,13 +444,13 @@
   );
 }
 
-:host :where([data-slot='remove']:focus-visible) {
+:host :where([data-slot='remove']:focus-visible, [data-slot='download-button']:focus-visible) {
   outline: 2px solid
     var(--email-attachment-chip-focus-ring, var(--mat-sys-primary, light-dark(#0b57d0, #a8c7fa)));
   outline-offset: 1px;
 }
 
-:host :where([data-slot='remove']:disabled) {
+:host :where([data-slot='remove']:disabled, [data-slot='download-button']:disabled) {
   cursor: default;
 }
 
