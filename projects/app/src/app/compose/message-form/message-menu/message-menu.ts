@@ -11,6 +11,7 @@ import {
 // Angular Material
 import { MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
+import { MatTooltip } from '@angular/material/tooltip';
 
 // Aria
 import { MenuTrigger } from '@angular/aria/menu';
@@ -42,7 +43,15 @@ type MessageMenuValue = 'settings' | EditorView;
  */
 @Component({
   selector: 'message-menu',
-  imports: [TranslatePipe, MatIcon, MatIconButton, MenuTrigger, ToolbarMenu, MessageSettings],
+  imports: [
+    TranslatePipe,
+    MatIcon,
+    MatIconButton,
+    MatTooltip,
+    MenuTrigger,
+    ToolbarMenu,
+    MessageSettings,
+  ],
   templateUrl: './message-menu.html',
   host: { style: 'display: contents' },
 })

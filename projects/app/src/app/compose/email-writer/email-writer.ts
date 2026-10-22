@@ -8,6 +8,7 @@ import { FormRoot } from '@angular/forms/signals';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTooltip, TooltipPosition } from '@angular/material/tooltip';
 
 /** Where the writer's bar sits: closing the sheet, or heading it. */
 export type WriterBarPosition = 'top' | 'bottom';
@@ -51,6 +52,7 @@ export type WriterScroll = 'body' | 'sheet';
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
+    MatTooltip,
   ],
   hostDirectives: [{ directive: FormRoot, inputs: ['formRoot'] }],
   templateUrl: './email-writer.html',
@@ -85,6 +87,11 @@ export class EmailWriter {
 
   /** The bar heads the sheet, mirrored: Send at its end. */
   protected readonly barOnTop = computed(() => this.bar() === 'top');
+
+  /** Send's tooltip opens away from the sheet's edge the bar sits on. */
+  protected readonly tooltipPosition = computed<TooltipPosition>(() =>
+    this.barOnTop() ? 'below' : 'above',
+  );
 
   /** The submission is running — the transport has the message. */
   protected readonly submitting = computed(() => this.#root.fieldTree()().submitting());

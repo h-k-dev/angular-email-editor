@@ -54,7 +54,8 @@
         mat-icon-button
         type="button"
         aria-label="Formatting options"
-        title="Formatting options"
+        matTooltip="Formatting options"
+        [matTooltipPosition]="barTooltipPosition()"
         [attr.aria-pressed]="formattingOpen()"
         (click)="formattingOpen.set(!formattingOpen())"
       >
@@ -65,15 +66,47 @@
   <!-- Attach — the writer's own drop zone's picker, so a picked file takes
        the dropped one's way (`onAttachmentDrop`). -->
   <ng-template #attach>
-    <button
-      mat-icon-button
-      type="button"
-      [attr.aria-label]="'composer.attach' | translate"
-      [title]="'composer.attach' | translate"
-      (click)="writerZone.openFilePicker($event)"
+    <!-- Attach, and the strip's toggle as its second half — split for good,
+         so the bar never shifts. The toggle stays put and says whether the
+         strip shows (aria-expanded) with its chevron, turned the way a press
+         moves the strip; while the strip is away it shows the count instead,
+         and the chevron again under the pointer or focus. With nothing
+         attached it is out of play — no strip to show or hide. -->
+    <hk-split-button
+      class="attach-button"
+      split
+      [attr.aria-label]="'composer.attachments.label' | translate"
     >
-      <mat-icon>attach_file</mat-icon>
-    </button>
+      <button
+        hkSplitButtonLeading
+        [attr.aria-label]="'composer.attach' | translate"
+        [matTooltip]="'composer.attach' | translate"
+        [matTooltipPosition]="barTooltipPosition()"
+        (click)="writerZone.openFilePicker($event)"
+      >
+        <mat-icon>attach_file</mat-icon>
+      </button>
+      <button
+        hkSplitButtonTrailing
+        class="attachment-toggle"
+        [attr.data-face]="attachmentToggleFace()"
+        [disabled]="!attachmentCount()"
+        [attr.aria-expanded]="!attachmentsHidden()"
+        [attr.aria-controls]="attachmentStripId"
+        [attr.aria-label]="attachmentToggleLabel()"
+        [matTooltip]="attachmentToggleHint()"
+        [matTooltipPosition]="barTooltipPosition()"
+        (click)="toggleAttachments()"
+      >
+        <!-- Its face: the chevron, as any toggle's — and while the strip is
+             away, the count in its place (what is out of sight), giving way
+             to the chevron under the pointer or focus (what a press does). -->
+        <span class="attachment-toggle__face" [attr.data-busy]="attachmentToggleBusy() || null">
+          <span class="attachment-toggle__count" aria-hidden="true">{{ attachmentCountShort() }}</span>
+          <mat-icon class="attachment-toggle__chevron">{{ attachmentChevron() }}</mat-icon>
+        </span>
+      </button>
+    </hk-split-button>
   </ng-template>
   <!-- The frame's own controls: its leading ones (the page's views), its
        actions. -->
@@ -100,9 +133,10 @@
         mat-icon-button
         type="button"
         [attr.aria-label]="'editor.actions.resolve-placeholders.title' | translate"
-        [title]="
+        [matTooltip]="
           ('editor.actions.resolve-placeholders.title' | translate) + ' (' + fillShortcut + ')'
         "
+        [matTooltipPosition]="barTooltipPosition()"
         emailAction="resolve-placeholders"
         [emailActionFrom]="actions"
       >
@@ -118,7 +152,8 @@
       mat-icon-button
       type="button"
       aria-label="Discard draft"
-      title="Discard draft"
+      matTooltip="Discard draft"
+      [matTooltipPosition]="barTooltipPosition()"
       (click)="discard()"
     >
       <mat-icon>delete</mat-icon>
@@ -206,12 +241,14 @@
     <div
       below-body
       class="attachment-strip"
+      [id]="attachmentStripId"
       [attr.data-rows]="attachmentRows()"
+      [attr.data-collapsed]="attachmentsHidden() || null"
       [hidden]="!envelope.attachments().value().length"
-      [heightSwitch]="attachmentRows()"
+      [heightSwitch]="attachmentStripLook()"
       hoverLinger
     >
-      <overflow-row #strip>
+      <overflow-row #strip [hidden]="attachmentsHidden()">
         <ul
           email-attachment-chips
           [formField]="envelope.attachments"
@@ -261,7 +298,8 @@
            (a document and the number — a label, not a control: the list says
            it to a screen reader already), the trash (all of them, at once),
            and the rows toggle (while the chips do not fit one line, or two rows
-           are on). -->
+           are on). Gone while the strip is away — the toggle beside Attach
+           puts it away and back, with the count on it then. -->
       <div
         class="attachment-strip__menu"
         role="group"
@@ -269,7 +307,7 @@
       >
         <span class="attachment-strip__count" aria-hidden="true">
           <mat-icon>description</mat-icon>
-          {{ attachmentCount() }}
+          <span class="attachment-strip__number">{{ attachmentCount() }}</span>
         </span>
         <button
           mat-icon-button

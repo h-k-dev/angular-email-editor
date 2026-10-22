@@ -1,0 +1,12 @@
+<!-- The icon box: as wide as the half is when open, so the half's open
+     width is its content's and the track opening it has something to
+     measure; it clips the glyph while the half opens, so the half itself
+     never clips (its touch target reaches past it). The host's icon, or a
+     chevron down. -->
+<span data-slot="icon">
+  <ng-content>
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M5.5 8l4.5 4.5 4.5-4.5" />
+    </svg>
+  </ng-content>
+</span>

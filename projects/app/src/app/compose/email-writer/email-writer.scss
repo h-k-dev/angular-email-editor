@@ -123,7 +123,10 @@
   flex: none;
   display: flex;
   align-items: center;
-  gap: 8px;
+  // Half a system spacing unit between the bar's buttons — 2px at a 16px
+  // root — whether the bar heads the sheet or closes it: the state layers
+  // nearly touch, as a toolbar's do.
+  gap: calc(var(--mat-sys-spacing, 0.25rem) / 2);
   // Exactly the icon button's state layer: the visible box, and the line
   // the glyphs centre on. Whatever joins Send never changes the bar's
   // height — a row that grows with its content would shift the sheet.

@@ -1,6 +1,7 @@
 import {
   Directive,
   Injector,
+  Signal,
   booleanAttribute,
 
   // Signals
@@ -11,6 +12,7 @@ import {
   linkedSignal,
   model,
   output,
+  signal,
   viewChild,
 } from '@angular/core';
 
@@ -23,6 +25,7 @@ import { FieldTree, TreeValidationResult, form, submit, validate } from '@angula
 
 // Angular Material
 import { MatSnackBar } from '@angular/material/snack-bar';
+import type { TooltipPosition } from '@angular/material/tooltip';
 
 // Angular File Drop
 import { FileDropEvent } from '@h-k-dev/angular-file-drop';
@@ -81,6 +84,10 @@ export type EditingMode = 'design' | 'write';
     sheet (`MessageForm`) or the phone's (`MobileMessageForm`). Chosen once,
     as the message opens, and kept until it closes. */
 export type MessageSheetKind = 'desktop' | 'mobile';
+
+/** Tells the sheets on one page apart: the attachment strip needs an id of
+    its own for the attach button's `aria-controls`. */
+let nextSheetId = 0;
 
 /**
  * One message, and everything it is written with: the form over it, the
@@ -365,8 +372,81 @@ export abstract class MessageSheet {
       under it, each column as wide as its wider chip. */
   readonly attachmentColumns = computed(() => Math.ceil(this.attachmentCount() / 2));
 
-  /** How many attachments the message carries — the strip's count. */
+  /** How many attachments the message carries — the toggle's face and the
+      strip's count. */
   readonly attachmentCount = computed(() => this.envelope.attachments().value().length);
+
+  /** The strip is put away: its chips out of sight, so the text has the
+      room, and the toggle beside Attach carries the count instead. This
+      message's alone, not a preference: open on a wide screen, put away on
+      the phone (`MobileMessageForm`), where the text needs every line. A
+      new attachment brings the strip back (`attach`). */
+  readonly attachmentsHidden = signal(false);
+
+  /** What the strip's height runs across: its rows, and put away or not. */
+  readonly attachmentStripLook = computed(() =>
+    this.attachmentsHidden() ? 'hidden' : this.attachmentRows(),
+  );
+
+  /** Some attachment is still uploading — the toggle's count pulses while
+      the strip is away, so a Send that waits is never a mystery. */
+  readonly attachmentsBusy = computed(() =>
+    this.message().attachments.some((attachment) => attachment.id === null),
+  );
+
+  /** Uploads still run while the strip is away: the toggle's count pulses,
+      the strip's own progress being out of sight. */
+  readonly attachmentToggleBusy = computed(() => this.attachmentsHidden() && this.attachmentsBusy());
+
+  /** The writer bar — and the toggle on it — heads the sheet: the phone's
+      always, the desktop's when mirrored. */
+  protected abstract readonly barAtTop: Signal<boolean>;
+
+  /** Where the bar's tooltips open: away from the sheet's edge the bar
+      sits on — up from a bar at the foot, down from one on top. */
+  readonly barTooltipPosition = computed<TooltipPosition>(() =>
+    this.barAtTop() ? 'below' : 'above',
+  );
+
+  /** The toggle's chevron while the strip shows: toward the bar, where the
+      chips go — down with the bar at the foot, up with it on top. Put away,
+      the stylesheet turns it round, toward where they come back. */
+  readonly attachmentChevron = computed(() => (this.barAtTop() ? 'expand_less' : 'expand_more'));
+
+  /** The strip's id, for the toggle's `aria-controls`. */
+  readonly attachmentStripId = `attachment-strip-${nextSheetId++}`;
+
+  /** The count on the toggle's face: the number, up to nine — past it,
+      9+ (the half is an icon's width). */
+  readonly attachmentCountShort = computed(() => {
+    const count = this.attachmentCount();
+    return count > 9 ? '9+' : String(count);
+  });
+
+  /** What the toggle's face shows: the count while the strip is away —
+      what is out of sight — and the plain chevron otherwise, as any
+      toggle's (nothing attached included). */
+  readonly attachmentToggleFace = computed(() =>
+    this.attachmentsHidden() && this.attachmentCount() > 0 ? 'count' : 'chevron',
+  );
+
+  /** The toggle's name: what it shows and hides — the same either way;
+      `aria-expanded` says which. */
+  readonly attachmentToggleLabel = computed(() => {
+    const count = this.attachmentCount();
+    return this.i18n.t(`composer.attachments.count.${count === 1 ? 'one' : 'other'}`, { count });
+  });
+
+  /** The toggle's tooltip: what a press does now. */
+  readonly attachmentToggleHint = computed(() =>
+    this.i18n.t(this.attachmentsHidden() ? 'composer.attachments.show' : 'composer.attachments.hide'),
+  );
+
+  /** The toggle beside Attach: the strip put away, or back. It stays where
+      it is either way, so focus does too. */
+  toggleAttachments(): void {
+    this.attachmentsHidden.update((hidden) => !hidden);
+  }
 
   /** The strip's trash: every attachment out of the message, its transfer
       stopped — what a chip's own × does, all at once. No confirmation, as
@@ -532,6 +612,8 @@ export abstract class MessageSheet {
       settles; a chip removed before then has taken its reference with it,
       and the id has nowhere to land. */
   attach(files: readonly Attachment[]): void {
+    // What was just added is seen land: a strip put away comes back.
+    this.attachmentsHidden.set(false);
     const refs = files.map((file) => this.uploads.start(file));
     this.message.update((m) => ({ ...m, attachments: [...m.attachments, ...refs] }));
     for (const ref of refs) {

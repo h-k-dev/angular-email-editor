@@ -107,6 +107,129 @@ ul[email-attachment-chips] {
   &[data-height-switch] {
     clip-path: inset(-48px -8px 0 -8px);
   }
+
+  // Put away: the chips are gone into the attach button, and the menu —
+  // and the band that shows it — with them.
+  &[data-collapsed] {
+    &::before {
+      content: none;
+    }
+
+    .attachment-strip__menu {
+      display: none;
+    }
+  }
+}
+
+// Attach, and the strip's toggle as its second half — a split button for
+// good, so the bar never shifts when the first file comes. It reads
+// the bar's own icon button tokens with no mapping (40px with a 48px
+// target on the phone, 32px dense on the desktop's bar, 20px glyphs), so it
+// is whatever its neighbours are — nothing at rest, a state layer on
+// hover. Its own: the toggle half as wide as a whole button (room for the
+// count).
+.attach-button {
+  --hk-split-button-trailing-width: var(--mat-icon-button-state-layer-size, 40px);
+  --mat-icon-size: var(--mat-icon-button-icon-size, 20px);
+
+  flex: none;
+}
+
+// The toggle's face: the chevron, as any toggle's — toward the bar while the
+// strip shows (where the chips go), turned round while it is away (where
+// they come back). While the strip is away (`data-face="count"`) the count
+// takes its place — the number, 9+ past nine: what is out of sight — and
+// gives way to the chevron again under the pointer (this half's own touch
+// target) or keyboard focus, which says what a press does. Two layers in
+// one cell, crossfaded, so neither moves the other. On a touch screen
+// nothing hovers: the count stays while the strip is away.
+.attachment-toggle {
+  &__face {
+    display: grid;
+    place-items: center;
+  }
+
+  &__face > * {
+    grid-area: 1 / 1;
+    transition:
+      opacity 150ms ease,
+      scale 150ms cubic-bezier(0.2, 0, 0, 1),
+      rotate 200ms cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  &__count {
+    font: var(--mat-sys-label-large);
+    font-variant-numeric: tabular-nums;
+    // The line box trimmed to the digits — cap height to baseline — so
+    // centring the box centres the ink: untrimmed, the empty descender
+    // space under the digits sits them a pixel high of the chevron's line.
+    text-box: trim-both cap alphabetic;
+    opacity: 0;
+    scale: 0.6;
+  }
+
+  &[aria-expanded='false'] &__chevron {
+    rotate: 180deg;
+  }
+
+  &[data-face='count'] {
+    .attachment-toggle__count {
+      opacity: 1;
+      scale: 1;
+    }
+
+    .attachment-toggle__chevron {
+      opacity: 0;
+      scale: 0.6;
+    }
+
+    @media (hover: hover) {
+      &:hover {
+        .attachment-toggle__count {
+          opacity: 0;
+          scale: 0.6;
+        }
+
+        .attachment-toggle__chevron {
+          opacity: 1;
+          scale: 1;
+        }
+      }
+    }
+
+    &:focus-visible {
+      .attachment-toggle__count {
+        opacity: 0;
+        scale: 0.6;
+      }
+
+      .attachment-toggle__chevron {
+        opacity: 1;
+        scale: 1;
+      }
+    }
+  }
+
+  // Uploads still running while the strip is away: the count breathes.
+  &__face[data-busy] &__count {
+    animation: attachment-toggle-busy 1.4s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &__face > * {
+      transition: none;
+    }
+
+    &__face[data-busy] &__count {
+      animation: none;
+    }
+  }
+}
+
+@keyframes attachment-toggle-busy {
+  50% {
+    opacity: 0.45;
+  }
 }
 
 // The float menu: its items standing just over the strip's top corner, on
@@ -168,6 +291,14 @@ ul[email-attachment-chips] {
   font: var(--mat-sys-label-large);
   font-variant-numeric: tabular-nums;
   user-select: none;
+}
+
+// The number's line box trimmed to its digits — cap height to baseline —
+// so it centres on the document glyph by its ink, not by a box with the
+// empty descender space under it (a pixel high, untrimmed). Its own span:
+// the trim does not reach a bare text run in the flex row.
+.attachment-strip__number {
+  text-box: trim-both cap alphabetic;
 }
 
 // The trash: a Material icon button as it comes — its state layer, ripple

@@ -1031,6 +1031,80 @@ describe('Compose', () => {
     expect(localStorage.getItem('angular-email-editor:attachment-rows')).toBeNull();
   });
 
+  it('the toggle beside Attach shows the count and puts the strip away and back', async () => {
+    const root = fixture.nativeElement as HTMLElement;
+    const sheet = (component as any).sheet();
+    const strip = () => root.querySelector<HTMLElement>('.attachment-strip')!;
+    const row = () => strip().querySelector<HTMLElement>('overflow-row')!;
+    const toggle = () => root.querySelector<HTMLButtonElement>('.attachment-toggle');
+    const count = () => toggle()!.querySelector('.attachment-toggle__count')!.textContent;
+    const busy = () => toggle()!.querySelector('.attachment-toggle__face')!.hasAttribute('data-busy');
+    const face = () => toggle()!.getAttribute('data-face');
+
+    // Nothing attached: split already — the bar never shifts when the first
+    // file comes — with the toggle out of play, a plain chevron.
+    const attach = () => root.querySelector<HTMLElement>('hk-split-button.attach-button')!;
+    expect(attach().hasAttribute('data-split')).toBe(true);
+    expect(toggle()!.hasAttribute('inert')).toBe(false);
+    expect(toggle()!.disabled).toBe(true);
+    expect(face()).toBe('chevron');
+
+    const refs = ['a.pdf', 'b.pdf', 'c.pdf'].map((name) => sheet.uploads.start({ name, size: 10 }));
+    sheet.message.update((m: object) => ({ ...m, attachments: refs }));
+    await fixture.whenStable();
+
+    // Shown: the toggle in play, saying so — a plain chevron toggle, the
+    // strip itself showing what is attached.
+    expect(toggle()!.disabled).toBe(false);
+    expect(toggle()!.getAttribute('aria-label')).toBe('3 attachments');
+    expect(toggle()!.getAttribute('aria-expanded')).toBe('true');
+    expect(toggle()!.getAttribute('aria-controls')).toBe(strip().id);
+    expect(face()).toBe('chevron');
+    // The strip shows its own progress: no pulse.
+    expect(busy()).toBe(false);
+
+    toggle()!.click();
+    await fixture.whenStable();
+
+    // Away: the chips out of sight, the same button — named the same,
+    // collapsed now — showing the count in the chevron's place (the chevron
+    // under it, for the pointer or focus), pulsing while uploads run.
+    expect(strip().hasAttribute('data-collapsed')).toBe(true);
+    expect(row().hidden).toBe(true);
+    expect(toggle()!.getAttribute('aria-label')).toBe('3 attachments');
+    expect(toggle()!.getAttribute('aria-expanded')).toBe('false');
+    expect(face()).toBe('count');
+    expect(count()).toBe('3');
+    expect(toggle()!.querySelector('.attachment-toggle__chevron')).not.toBeNull();
+    expect(busy()).toBe(true);
+
+    toggle()!.click();
+    await fixture.whenStable();
+
+    expect(strip().hasAttribute('data-collapsed')).toBe(false);
+    expect(row().hidden).toBe(false);
+    expect(toggle()!.getAttribute('aria-expanded')).toBe('true');
+    expect(face()).toBe('chevron');
+    expect(busy()).toBe(false);
+
+    // Put away again, a new file brings the strip back to land in.
+    sheet.toggleAttachments();
+    await fixture.whenStable();
+    sheet.attach([{ name: 'd.pdf', size: 10 }]);
+    await fixture.whenStable();
+    expect(strip().hasAttribute('data-collapsed')).toBe(false);
+    expect(toggle()!.getAttribute('aria-label')).toBe('4 attachments');
+
+    // Past nine, the face says 9+ while away — the name keeps the number.
+    sheet.attach(['e', 'f', 'g', 'h', 'i', 'j'].map((name) => ({ name: name + '.pdf', size: 10 })));
+    await fixture.whenStable();
+    sheet.toggleAttachments();
+    await fixture.whenStable();
+    expect(face()).toBe('count');
+    expect(count()).toBe('9+');
+    expect(toggle()!.getAttribute('aria-label')).toBe('10 attachments');
+  });
+
   it('the attachment strip’s trash takes every attachment out at once, and stops their uploads', async () => {
     const root = fixture.nativeElement as HTMLElement;
     const sheet = (component as any).sheet();

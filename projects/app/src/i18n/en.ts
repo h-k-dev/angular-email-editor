@@ -47,6 +47,9 @@ export default {
       download: 'Download',
       downloading: 'Downloading {{name}}',
       clicked: '{{name}} clicked',
+      hide: 'Hide attachments',
+      show: 'Show attachments',
+      count: { one: '1 attachment', other: '{{count}} attachments' },
     },
     more: 'More options',
     settings: {

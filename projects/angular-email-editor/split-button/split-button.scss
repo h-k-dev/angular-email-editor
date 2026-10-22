@@ -1,0 +1,43 @@
+// The container: two grid tracks, the leading half's and the trailing
+// half's. Each half styles itself (split-button-item.scss and its leading
+// / trailing sheets); the container only opens the second track and the
+// gap. The trailing track runs from 0fr to 1fr — a flexible track in a
+// box sized by its content resolves to its content's width, so the half
+// opens to exactly its own size, eased by the browser, with no measured
+// number. Every value is a --hk-split-button-* token first.
+
+:host {
+  display: inline-grid;
+  grid-template-columns: auto 0fr;
+  column-gap: 0;
+  align-items: center;
+  vertical-align: middle;
+  transition:
+    grid-template-columns var(--hk-split-button-duration, 250ms)
+      var(--hk-split-button-easing, cubic-bezier(0.2, 0, 0, 1)),
+    column-gap var(--hk-split-button-duration, 250ms)
+      var(--hk-split-button-easing, cubic-bezier(0.2, 0, 0, 1));
+}
+
+:host([data-split]) {
+  grid-template-columns: auto 1fr;
+  // Half a system spacing unit — 2px at a 16px root.
+  column-gap: var(--hk-split-button-gap, calc(var(--mat-sys-spacing, 0.25rem) / 2));
+}
+
+// Hovering either half — anywhere in its touch target, which is the
+// container's too — is hovering the button: both halves' state layers come
+// up together, so the two read as one control. The flag inherits down to
+// the halves (split-button-item.scss); a press and keyboard focus stay on
+// the half they are on, over it.
+@media (hover: hover) {
+  :host(:hover) {
+    --_hk-split-hovered: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host {
+    transition: none;
+  }
+}

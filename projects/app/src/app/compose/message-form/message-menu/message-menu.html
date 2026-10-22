@@ -6,7 +6,8 @@
   mat-icon-button
   type="button"
   [attr.aria-label]="'composer.more' | translate"
-  [title]="'composer.more' | translate"
+  [matTooltip]="'composer.more' | translate"
+  [matTooltipPosition]="side()"
   ngMenuTrigger
   #moreTrigger="ngMenuTrigger"
   [menu]="moreMenu.menu()"

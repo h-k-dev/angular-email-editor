@@ -12,7 +12,8 @@
     matButton="filled"
     type="submit"
     class="writer-bar__send"
-    title="Send (Ctrl+Enter)"
+    matTooltip="Send (Ctrl+Enter)"
+    [matTooltipPosition]="tooltipPosition()"
     [attr.aria-label]="submitting() ? 'Sending' : 'Send'"
     [showProgress]="submitting()"
   >

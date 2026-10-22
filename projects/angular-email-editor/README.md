@@ -97,6 +97,7 @@ Every UI piece is its own secondary entry point, so you only bundle what you imp
 | `…/attachment-chips` | The attachment strip, a `FormValueControl` over the list |
 | `…/attachment-chip` | One attachment chip with upload stages and progress |
 | `…/toggle-button-group` | `<hk-tgb>` with `hkTgbIcon` (round) and `hkTgbText` (pill) items on any element, a sliding thumb, a `FormValueControl` |
+| `…/split-button` | `<hk-split-button>` with `hkSplitButtonLeading` / `hkSplitButtonTrailing` on the host's own buttons: an icon button that grows into a Material 3 split button (`split`) |
 | `…/suggestion-menu` | The `/` and `{{` menus' floating box, with roles and ids |
 | `…/palette` | The colour palette (readable on light and dark) |
 | `…/proposal` | A streamed proposal's state for your panel (accept / discard) |

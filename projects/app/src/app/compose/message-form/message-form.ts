@@ -20,6 +20,11 @@ import {
   AttachmentChipIconButton,
 } from '@h-k-dev/angular-email-editor/attachment-chip';
 import { AttachmentChips } from '@h-k-dev/angular-email-editor/attachment-chips';
+import {
+  SplitButton,
+  SplitButtonLeading,
+  SplitButtonTrailing,
+} from '@h-k-dev/angular-email-editor/split-button';
 import { DotsMorph } from '../../common/dots-morph/dots-morph';
 import { HeightSwitch } from '../../common/height-switch/height-switch';
 import { HoverLinger } from '../../common/hover-linger/hover-linger';
@@ -71,6 +76,9 @@ import { MessageSheet } from './message-sheet';
     AttachmentChip,
     AttachmentChipIcon,
     AttachmentChipIconButton,
+    SplitButton,
+    SplitButtonLeading,
+    SplitButtonTrailing,
     MatIcon,
     MatIconButton,
     MatTooltip,
@@ -91,6 +99,8 @@ export class MessageForm extends MessageSheet {
   /** The bar heads the sheet: its controls are laid out mirrored — Send at
       the end, Discard at the start. */
   protected readonly mirrored = computed(() => this.bar() === 'top');
+
+  protected readonly barAtTop = this.mirrored;
 
   override readonly toolbarSwitch = true;
 

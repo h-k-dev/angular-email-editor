@@ -1,0 +1,20 @@
+// Leading: the icon button's circle while alone — the state layer's size
+// both ways, its touch target all round. Split, it widens
+// (--hk-split-button-leading-split-width, the state layer plus 8px: the
+// half reads as half of a pill), its corners on the trailing side go small,
+// and its touch target stops at the middle of the gap. Logical sides, so
+// the split mirrors right to left.
+
+:host {
+  min-inline-size: var(--_size);
+}
+
+:host([data-split]) {
+  min-inline-size: var(--hk-split-button-leading-split-width, calc(var(--_size) + 8px));
+  border-start-end-radius: var(--_inner-shape);
+  border-end-end-radius: var(--_inner-shape);
+}
+
+:host([data-split])::after {
+  inset-inline-end: calc(var(--_gap) / -2);
+}

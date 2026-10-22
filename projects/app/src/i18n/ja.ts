@@ -49,6 +49,9 @@ export default {
       download: 'ダウンロード',
       downloading: '{{name}} をダウンロードしています',
       clicked: '{{name}} がクリックされました',
+      hide: '添付ファイルを非表示',
+      show: '添付ファイルを表示',
+      count: { one: '添付ファイル 1 件', other: '添付ファイル {{count}} 件' },
     },
     more: 'その他のオプション',
     settings: {

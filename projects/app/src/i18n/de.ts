@@ -50,6 +50,9 @@ export default {
       download: 'Herunterladen',
       downloading: '{{name}} wird heruntergeladen',
       clicked: '{{name}} angeklickt',
+      hide: 'Anhänge ausblenden',
+      show: 'Anhänge anzeigen',
+      count: { one: '1 Anhang', other: '{{count}} Anhänge' },
     },
     more: 'Weitere Optionen',
     settings: {

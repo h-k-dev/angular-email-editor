@@ -1,0 +1,217 @@
+// What both halves share: the host's button, as Material's icon button is
+// — and themed the same way. Every value is a three-step cascade: our
+// --hk-split-button-* token, then the --mat-icon-button-* token of the
+// same name, then the hardcoded value Material's M3 icon button has. So an
+// app that resizes or recolours its icon buttons (density, a
+// `mat.icon-button-overrides`) resizes and recolours this one with them,
+// and one that wants this button apart sets ours.
+//
+//   state-layer-size, icon-size, touch-target-size, touch-target-display,
+//   container-shape, icon-color, state-layer-color, disabled-icon-color,
+//   disabled-state-layer-color, hover-/focus-/pressed-state-layer-opacity
+//
+// Split, the halves are still icon buttons: no surface at rest, the state
+// layer on hover, focus and press — now in each half's shape, inner
+// corners small, so the split shows when the pointer comes. A tonal
+// container is opt-in (container-color; Material's split button wears
+// secondary-container), with split-icon-color, split-state-layer-color and
+// disabled-container-color beside it; inner-container-shape is the inner
+// corners. The leading / trailing sheets hold the shape.
+
+:host {
+  --_size: var(--hk-split-button-state-layer-size, var(--mat-icon-button-state-layer-size, 40px));
+  --_icon-size: var(--hk-split-button-icon-size, var(--mat-icon-button-icon-size, 24px));
+  --_touch-size: var(
+    --hk-split-button-touch-target-size,
+    var(--mat-icon-button-touch-target-size, 48px)
+  );
+  --_shape: var(
+    --hk-split-button-container-shape,
+    var(--mat-icon-button-container-shape, var(--mat-sys-corner-full, 9999px))
+  );
+  --_inner-shape: var(
+    --hk-split-button-inner-container-shape,
+    var(--mat-sys-corner-extra-small, 4px)
+  );
+  // The container's gap, for the touch targets to share: half a system
+  // spacing unit — 2px at a 16px root.
+  --_gap: var(--hk-split-button-gap, calc(var(--mat-sys-spacing, 0.25rem) / 2));
+  --_icon-color: var(
+    --hk-split-button-icon-color,
+    var(
+      --mat-icon-button-icon-color,
+      var(--mat-sys-on-surface-variant, light-dark(#444746, #c4c7c5))
+    )
+  );
+  --_layer-color: var(
+    --hk-split-button-state-layer-color,
+    var(
+      --mat-icon-button-state-layer-color,
+      var(--mat-sys-on-surface-variant, light-dark(#444746, #c4c7c5))
+    )
+  );
+  // How far the touch target reaches past the state layer on each side —
+  // nothing when the target is no bigger (a dense bar).
+  --_reach: max(0px, (var(--_touch-size) - var(--_size)) / 2);
+
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  block-size: var(--_size);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--_shape);
+  background-color: transparent;
+  color: var(--_icon-color);
+  // The icon's size, as the icon button's: a `mat-icon` marked `inline`, a
+  // font icon's <i> or an SVG at 1em fits with no rule of its own.
+  font-size: var(--_icon-size);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition:
+    background-color var(--hk-split-button-duration, 250ms) ease,
+    color 200ms ease,
+    border-radius var(--hk-split-button-duration, 250ms)
+      var(--hk-split-button-easing, cubic-bezier(0.2, 0, 0, 1)),
+    min-inline-size var(--hk-split-button-duration, 250ms)
+      var(--hk-split-button-easing, cubic-bezier(0.2, 0, 0, 1)),
+    opacity var(--hk-split-button-duration, 250ms) ease;
+}
+
+// Split: the icon button's own colours unless the host gives the split its
+// own; no container unless the host gives one.
+:host([data-split]) {
+  --_icon-color: var(
+    --hk-split-button-split-icon-color,
+    var(
+      --hk-split-button-icon-color,
+      var(
+        --mat-icon-button-icon-color,
+        var(--mat-sys-on-surface-variant, light-dark(#444746, #c4c7c5))
+      )
+    )
+  );
+  --_layer-color: var(
+    --hk-split-button-split-state-layer-color,
+    var(
+      --hk-split-button-state-layer-color,
+      var(
+        --mat-icon-button-state-layer-color,
+        var(--mat-sys-on-surface-variant, light-dark(#444746, #c4c7c5))
+      )
+    )
+  );
+
+  background-color: var(--hk-split-button-container-color, transparent);
+}
+
+// The state layer: the half's shape, in the state layer colour at
+// Material's state opacities. Hover is the container's — its flag,
+// `--_hk-split-hovered`, is 1 while the pointer is anywhere in either
+// half's touch target — so both halves light together; focus and a press
+// below are the half's own, and stronger.
+:host::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-color: var(--_layer-color);
+  opacity: calc(
+    var(--_hk-split-hovered, 0) *
+      var(
+        --hk-split-button-hover-state-layer-opacity,
+        var(
+          --mat-icon-button-hover-state-layer-opacity,
+          var(--mat-sys-hover-state-layer-opacity, 0.08)
+        )
+      )
+  );
+  pointer-events: none;
+  transition: opacity 150ms ease;
+}
+
+// The touch target, Material's: a box the touch target's size centred on
+// the half, past the state layer — a press, or a hover, in it is the
+// half's, and lights its state layer. Between the halves it reaches only
+// to the middle of the gap (the leading / trailing sheets), so the two
+// never overlap and the gap belongs to one or the other.
+:host::after {
+  content: '';
+  display: var(
+    --hk-split-button-touch-target-display,
+    var(--mat-icon-button-touch-target-display, block)
+  );
+  position: absolute;
+  inset-block: calc(-1 * var(--_reach));
+  inset-inline: calc(-1 * var(--_reach));
+}
+
+:host(:focus-visible:not(:disabled, [aria-disabled='true']))::before {
+  opacity: var(
+    --hk-split-button-focus-state-layer-opacity,
+    var(
+      --mat-icon-button-focus-state-layer-opacity,
+      var(--mat-sys-focus-state-layer-opacity, 0.1)
+    )
+  );
+}
+
+:host(:active:not(:disabled, [aria-disabled='true']))::before {
+  opacity: var(
+    --hk-split-button-pressed-state-layer-opacity,
+    var(
+      --mat-icon-button-pressed-state-layer-opacity,
+      var(--mat-sys-pressed-state-layer-opacity, 0.1)
+    )
+  );
+}
+
+:host(:focus-visible) {
+  outline: 2px solid
+    var(--hk-split-button-focus-ring, var(--mat-sys-primary, light-dark(#0b57d0, #a8c7fa)));
+  outline-offset: 2px;
+}
+
+:host(:disabled),
+:host([aria-disabled='true']) {
+  --_icon-color: var(
+    --hk-split-button-disabled-icon-color,
+    var(
+      --mat-icon-button-disabled-icon-color,
+      color-mix(in srgb, var(--mat-sys-on-surface, light-dark(#1f1f1f, #e3e3e3)) 38%, transparent)
+    )
+  );
+  --_layer-color: var(
+    --hk-split-button-disabled-state-layer-color,
+    var(
+      --mat-icon-button-disabled-state-layer-color,
+      var(--mat-sys-on-surface-variant, light-dark(#444746, #c4c7c5))
+    )
+  );
+
+  cursor: default;
+}
+
+// A disabled half stays dark while the button around it is hovered.
+:host(:disabled)::before,
+:host([aria-disabled='true'])::before {
+  opacity: 0;
+}
+
+:host([data-split]:disabled),
+:host([data-split][aria-disabled='true']) {
+  background-color: var(--hk-split-button-disabled-container-color, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host {
+    transition: none;
+  }
+}

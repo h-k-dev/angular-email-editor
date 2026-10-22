@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
 
 // Angular Signal Forms
 import { FormField, FormRoot } from '@angular/forms/signals';
@@ -19,6 +19,11 @@ import {
   AttachmentChipIconButton,
 } from '@h-k-dev/angular-email-editor/attachment-chip';
 import { AttachmentChips } from '@h-k-dev/angular-email-editor/attachment-chips';
+import {
+  SplitButton,
+  SplitButtonLeading,
+  SplitButtonTrailing,
+} from '@h-k-dev/angular-email-editor/split-button';
 import { DotsMorph } from '../../common/dots-morph/dots-morph';
 import { HeightSwitch } from '../../common/height-switch/height-switch';
 import { HoverLinger } from '../../common/hover-linger/hover-linger';
@@ -69,6 +74,9 @@ import { MessageSheet } from './message-sheet';
     AttachmentChip,
     AttachmentChipIcon,
     AttachmentChipIconButton,
+    SplitButton,
+    SplitButtonLeading,
+    SplitButtonTrailing,
     MatIcon,
     MatIconButton,
     MatTooltip,
@@ -79,4 +87,11 @@ import { MessageSheet } from './message-sheet';
   templateUrl: './mobile-message-form.html',
   styleUrl: './message-sheet.scss',
 })
-export class MobileMessageForm extends MessageSheet {}
+export class MobileMessageForm extends MessageSheet {
+  /** The bar heads the phone's sheet. */
+  protected readonly barAtTop = signal(true).asReadonly();
+
+  /** The strip starts put away: on a phone the text needs every line, and
+      the attach button's toggle already says how many are attached. */
+  override readonly attachmentsHidden = signal(true);
+}

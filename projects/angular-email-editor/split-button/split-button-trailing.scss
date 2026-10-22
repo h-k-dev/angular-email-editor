@@ -1,0 +1,49 @@
+// Trailing: as wide as its track lets it be — nothing while closed, its
+// icon box once open (the track's 1fr is the box's width,
+// --hk-split-button-trailing-width: four fifths of the state layer). It may
+// shrink past its content (min-inline-size: 0); the icon box clips the
+// glyph, not the half, so the touch target stays whole — the glyph is
+// revealed from the middle as the half opens, and the half fades in on
+// the way. Its corners on the leading side are the small ones, and its
+// touch target starts at the middle of the gap. Closed, it has none.
+
+:host {
+  min-inline-size: 0;
+  opacity: 0;
+  border-start-start-radius: var(--_inner-shape);
+  border-end-start-radius: var(--_inner-shape);
+}
+
+:host([data-split]) {
+  opacity: 1;
+}
+
+:host::after {
+  inset-inline-start: calc(var(--_gap) / -2);
+}
+
+:host(:not([data-split]))::after {
+  display: none;
+}
+
+:host :where([data-slot='icon']) {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--hk-split-button-trailing-width, calc(var(--_size) * 0.8));
+  max-inline-size: 100%;
+  block-size: 100%;
+  overflow: hidden;
+}
+
+:host :where([data-slot='icon'] > svg) {
+  flex: none;
+  inline-size: 1em;
+  block-size: 1em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
