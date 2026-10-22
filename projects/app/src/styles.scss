@@ -716,6 +716,10 @@ html {
   --aee-block-gutter-y: 0px;
   // Same token as the surface's inline inset — see the columns wrapper above.
   --aee-block-gutter-x: var(--mat-sys-inner-spacing, 16px);
+  /* The two add pills are this thick and stand this far off the table's
+   * edge, like Notion's `+` bars; the grips straddle the edge instead. */
+  --aee-table-button-size: 10px;
+  --aee-table-button-gap: 4px;
   position: relative;
   padding: var(--aee-block-gutter-y) var(--aee-block-gutter-x);
   /* Aligned like the columns above: the gutter hangs into the surface
@@ -784,6 +788,8 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
 
 .email-compose__editor[data-color-scheme] {
   background-color: var(--email-paper-light);
+  // A grip floating over text is lifted off it by the paper, not white.
+  --email-grip-halo: var(--email-paper-light);
 
   > .aee-editor {
     color-scheme: light;
@@ -794,6 +800,7 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
 
 .email-compose__editor[data-color-scheme='dark'] {
   background-color: var(--email-paper-dark);
+  --email-grip-halo: var(--email-paper-dark);
 
   > .aee-editor {
     color-scheme: dark;
@@ -933,50 +940,62 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
   }
 }
 
-/* The row and column grips (the `TableHandles` extension): a handle on each
- * row's flank and above each column. Each one is a widget decoration *inside*
- * that band's first cell, so the cell's own box gives it its length — a row
- * grip is exactly as tall as its row, a column grip exactly as wide as its
- * column — and nothing here measures anything. The cell is the containing
+/* The row and column grips (the `TableHandles` extension): Notion's
+ * selectors — a short pill centred on each row's left edge and on each
+ * column's top edge, straddling the table's border. Each one is a widget
+ * decoration *inside* that band's first cell, so the cell's own box centres
+ * it on its row or column — through merges, wrapped text and a resize drag
+ * alike — and nothing here measures anything. The cell is the containing
  * block for it, which is the one thing the table has to lend: editor-only, so
  * the email never sees it. */
 .aee-editor td {
   position: relative;
 }
 
-/* Always hit-testable (the row grip; the column grip floats over text and is
- * the exception), only sometimes seen: a grip that took no pointer
- * until something else revealed it could never be reached from *outside* the
- * table — the pointer coming in from the flank or from above would meet
- * nothing, which is exactly how the add-row pill used to fail. Hovering the
- * grip itself is therefore one of the ways it appears (below), and a click
- * can only land on one the pointer is already on, which is to say a visible
- * one. */
+/* Notion's selector, transcribed: 18×6 with a 2px border of the paper's
+ * colour (border-box, so the fill is a 14×2 line), 4px corners. The border is
+ * the halo that lifts it off the grid line and the text it straddles — drawn
+ * once and faded with the grip's own opacity, a compositor-only animation.
+ * Under the pointer, and while its menu is up, it opens into a handle that
+ * shows its dots; its colour stays — the cursor already says it is pressable.
+ *
+ * The row grip is always hit-testable, only sometimes seen: a grip that took
+ * no pointer until something else revealed it could never be reached from
+ * *outside* the table — the pointer coming in from the flank would meet
+ * nothing. Hovering the grip itself is therefore one of the ways it appears
+ * (below), and a click can only land on one the pointer is already on, which
+ * is to say a visible one. */
 .aee-editor .aee-grip {
   position: absolute;
   z-index: 6;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
+  border: 2px solid var(--email-grip-halo, #ffffff);
   border-radius: var(--mat-sys-corner-extra-small, 4px);
-  background-color: var(--mat-sys-surface-container-high, #e2e2e2);
+  background-color: var(--mat-sys-outline, #74777f);
   cursor: pointer;
   opacity: 0;
-  transition: opacity 140ms ease-out;
+  transition:
+    opacity 140ms ease-out,
+    inline-size 120ms ease-out,
+    block-size 120ms ease-out;
   pointer-events: auto;
 }
 
 /* Three dots, the face a handle wears everywhere: ⋮ on a row's flank, ⋯ over
  * a column. Drawn rather than typed — a glyph would inherit the cell's font
  * and ride its line box. The element is the middle dot and its two
- * pseudo-elements are the others, set along the grip's own axis. */
+ * pseudo-elements are the others, set along the grip's own axis. Shown only
+ * once the selector has opened: at rest there is no room for them. */
 .aee-editor .aee-grip > i {
   position: relative;
-  display: block;
+  display: none;
   inline-size: 3px;
   block-size: 3px;
   border-radius: 50%;
-  background-color: var(--mat-sys-on-surface-variant, #555555);
+  background-color: var(--email-grip-halo, #ffffff);
 }
 
 .aee-editor .aee-grip > i::before,
@@ -989,12 +1008,15 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
   background-color: inherit;
 }
 
-/* On the flank, in the wrapper's own gutter — clear of the table's left
- * edge handle, which keeps the first 9px inside the grid. */
+/* Centred on the table's left border line: the cell's padding box starts 1px
+ * inside the table's edge (the cell's guide border), so the line's centre is
+ * half a pixel outside it. */
 .aee-editor .aee-grip--row {
-  inset-block: 0;
-  inset-inline-start: -14px;
-  inline-size: 10px;
+  inset-inline-start: -0.5px;
+  inset-block-start: 50%;
+  translate: -50% -50%;
+  inline-size: 6px;
+  block-size: 18px;
 }
 
 .aee-editor .aee-grip--row > i::before {
@@ -1005,21 +1027,17 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
   inset-block-start: 5px;
 }
 
-/* Above the column — floating over whatever text precedes the table, which
- * has no top gutter. So unlike the row grip it takes the pointer only while
- * it shows (its band hovered, the caret's column, its menu open): hidden, it
- * must not eat clicks meant for the line above. A halo of the paper's colour
- * lifts it off those words. It is a box-shadow, painted once and faded with
- * the grip's own opacity — a compositor-only animation; a `backdrop-filter`
- * blur would re-sample the text under it every frame of the fade. */
+/* Centred on the table's top border line, over whatever text precedes the
+ * table, which has no top gutter. So unlike the row grip it takes the pointer
+ * only while it shows (its band hovered, the caret's column, its menu open):
+ * hidden, it must not eat clicks meant for the line above. */
 .aee-editor .aee-grip--column {
-  inset-inline: 0;
-  inset-block-start: -14px;
-  block-size: 10px;
+  inset-inline-start: 50%;
+  inset-block-start: -0.5px;
+  translate: -50% -50%;
+  inline-size: 18px;
+  block-size: 6px;
   pointer-events: none;
-  box-shadow:
-    0 0 0 2px var(--email-grip-halo, #ffffff),
-    0 0 6px 2px var(--email-grip-halo, #ffffff);
 }
 
 .aee-editor .aee-grip--column[aria-expanded='true'] {
@@ -1034,34 +1052,28 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
   inset-inline-start: 5px;
 }
 
-/* The approach: a strip of hit area on either side of the grip — inward, to
- * bridge the gap to its own band so the hover cannot drop while the pointer
- * crosses it; outward, into the margin, so a pointer arriving from off the
- * table meets the grip a few px early rather than having to land on 10px
- * exactly. Both are the grip's own, and invisible. The column grip has only
- * the inward one: outward is the text above the table. */
-.aee-editor .aee-grip::before,
-.aee-editor .aee-grip::after {
+/* Opened: long enough for its dots across, still centred on the border. */
+.aee-editor .aee-grip--row:hover,
+.aee-editor .aee-grip--row[aria-expanded='true'] {
+  inline-size: 14px;
+  block-size: 24px;
+}
+
+.aee-editor .aee-grip--column:hover,
+.aee-editor .aee-grip--column[aria-expanded='true'] {
+  inline-size: 24px;
+  block-size: 14px;
+}
+
+/* The approach: 4px of invisible hit area all round, so a pointer meets a
+ * 6px-thin selector a little early rather than having to land on it exactly.
+ * Within a bordered or borderless table's 12px cell padding, so it never sits
+ * over text there. Measured from the padding box, inside the 2px paper
+ * border — hence 6px. */
+.aee-editor .aee-grip::before {
   content: '';
   position: absolute;
-}
-
-.aee-editor .aee-grip--row::after {
-  inset-block: 0;
-  inset-inline-start: 100%;
-  inline-size: 4px;
-}
-
-.aee-editor .aee-grip--row::before {
-  inset-block: 0;
-  inset-inline-end: 100%;
-  inline-size: 8px;
-}
-
-.aee-editor .aee-grip--column::after {
-  inset-inline: 0;
-  inset-block-start: 100%;
-  block-size: 4px;
+  inset: -6px;
 }
 
 /* Revealed by the band under the pointer, and only that one. A row hovers
@@ -1090,61 +1102,76 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
   }
 }
 
-/* The caret cell's grip: a dot on the cell's right edge, at rest — Notion's
- * — that grows into the six-dot handle under the pointer and while its menu
- * is up. Always on for the cell being typed in; nothing to reveal. Over the
- * column boundary line (z-index 4), which the click must not start dragging
- * (the grip stops the mousedown). */
+/* The caret cell's grip: Notion's, transcribed — a 6×12 pill in the caret
+ * frame's own colour with a 2px paper border, centred on the frame's right
+ * side (its 2px border runs 2px inside the cell's edge, hence 1px in), so it
+ * reads as part of the frame. Under the pointer and while its menu is up it
+ * opens into a 10×16 button with a white ⋮, still centred there. Always on
+ * for the cell being typed in; nothing to reveal.
+ *
+ * It sits on the column boundary, over that line's grab strip (z-index 4):
+ * a press on it is the grip's, never a resize (it stops the mousedown), and
+ * a drag from it selects cells instead (the extension). Its 4px approach
+ * (the `::before` above) keeps the pointer on the grip, not the strip, as
+ * it comes near. */
 .aee-editor .aee-grip--cell {
-  inset-inline-end: -5px;
+  inset-inline-end: 1px;
   inset-block-start: 50%;
-  translate: 0 -50%;
-  inline-size: 8px;
-  block-size: 8px;
-  flex-direction: column;
-  gap: 2px;
-  border-radius: 50%;
-  background-color: var(--email-column-resize, var(--mat-sys-primary, #4c6ef5));
+  translate: 50% -50%;
+  inline-size: 6px;
+  block-size: 12px;
+  border-radius: 3px;
+  background-color: var(--email-cell-selection-border, var(--mat-sys-primary, #4c6ef5));
   opacity: 1;
   pointer-events: auto;
   transition:
-    inline-size 120ms ease-out,
-    block-size 120ms ease-out,
-    inset-inline-end 120ms ease-out;
+    inline-size 100ms ease-in-out,
+    block-size 100ms ease-in-out,
+    border-width 100ms ease-in-out;
 }
 
-.aee-editor .aee-grip--cell > i {
-  display: none;
-  inline-size: 2px;
-  block-size: 2px;
-  background-color: var(--mat-sys-on-primary, #ffffff);
+.aee-editor .aee-grip--cell:hover,
+.aee-editor .aee-grip--cell:active,
+.aee-editor .aee-grip--cell[aria-expanded='true'] {
+  inline-size: 10px;
+  block-size: 16px;
+  border-width: 0;
+  border-radius: var(--mat-sys-corner-extra-small, 4px);
 }
 
+.aee-editor .aee-grip--cell > i,
 .aee-editor .aee-grip--cell > i::before,
 .aee-editor .aee-grip--cell > i::after {
   inline-size: 2px;
   block-size: 2px;
-  inset-block-start: 0;
+}
+
+.aee-editor .aee-grip--cell > i {
+  background-color: var(--mat-sys-on-primary, #ffffff);
 }
 
 .aee-editor .aee-grip--cell > i::before {
-  inset-inline-start: -4px;
+  inset-block-start: -4px;
 }
 
 .aee-editor .aee-grip--cell > i::after {
-  inset-inline-start: 4px;
+  inset-block-start: 4px;
 }
 
-.aee-editor .aee-grip--cell:hover,
-.aee-editor .aee-grip--cell[aria-expanded='true'] {
-  inset-inline-end: -10px;
-  inline-size: 18px;
-  block-size: 18px;
+/* Pointing at the cell's grip, pressing it, its menu up: the boundary under
+ * it is not what is being worked, so no line lights there — and nowhere
+ * along a drag from it, which selects cells, not widths. Mid-drag the
+ * boundaries step out of the pointer's way too: what is under it has to be
+ * a cell for the selection to follow. */
+.aee-editor
+  .aee-table-wrap:has(.aee-grip--cell:is(:hover, :active, [aria-expanded='true']))
+  .aee-col-line::after,
+.aee-editor .aee-table-wrap[data-cell-drag] .aee-col-line::after {
+  opacity: 0;
 }
 
-.aee-editor .aee-grip--cell:hover > i,
-.aee-editor .aee-grip--cell[aria-expanded='true'] > i {
-  display: block;
+.aee-editor .aee-table-wrap[data-cell-drag] .aee-col-line {
+  pointer-events: none;
 }
 
 /* Pointing at the grip itself shows it — the way in from outside the table,
@@ -1160,14 +1187,9 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
   opacity: 1;
 }
 
-.aee-editor .aee-grip:hover,
-.aee-editor .aee-grip[aria-expanded='true'] {
-  background-color: var(--email-column-resize, var(--mat-sys-primary, #4c6ef5));
-}
-
 .aee-editor .aee-grip:hover > i,
 .aee-editor .aee-grip[aria-expanded='true'] > i {
-  background-color: var(--mat-sys-on-primary, #ffffff);
+  display: block;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1239,28 +1261,31 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
 }
 
 /* The pill sits on the table's right flank — the zone's *near* end — so a
- * right-edge drag takes it with the edge. 6px past the start clears the
- * 9px handle's outer half; the rest of the zone is still the approach
- * from the gutter. */
+ * right-edge drag takes it with the edge — as far off the edge and as thick
+ * as the add-row pill under it (the edge's grab strip tucks inside the
+ * table, so nothing of it is out here to clear); the rest of the zone is
+ * still the approach from the gutter. */
 .aee-editor .aee-add-pill--column {
   top: 0;
   bottom: 0;
-  left: 6px;
-  width: 12px;
+  left: var(--aee-table-button-gap);
+  width: var(--aee-table-button-size);
+  border-radius: var(--mat-sys-corner-extra-small, 4px);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 /* The row twin, mirrored: it spans the table as the column pill spans
- * every row, 3px under the bottom edge so the last row stays visible.
- * Its length is the zone's, which is the table's. Over the text below, so it
- * wears the column grip's halo — the same compositor-only fade. */
+ * every row, as far under the bottom edge. Its length is the zone's, which
+ * is the table's. Over the text below, so it wears a halo of the paper's
+ * colour, as the grips do — the same compositor-only fade. */
 .aee-editor .aee-add-pill--row {
-  top: 3px;
+  top: var(--aee-table-button-gap);
   left: 0;
   right: 0;
-  height: 12px;
+  height: var(--aee-table-button-size);
+  border-radius: var(--mat-sys-corner-extra-small, 4px);
   display: flex;
   align-items: center;
   justify-content: center;

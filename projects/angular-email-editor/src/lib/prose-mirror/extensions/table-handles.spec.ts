@@ -111,6 +111,44 @@ describe('table handles', () => {
     expect(host.querySelector('.aee-grip--cell')!.closest('td')!.textContent).toBe('a1');
   });
 
+  it('selects from its cell to the one under the pointer when its grip is dragged, opening nothing', () => {
+    const td = () => host.querySelectorAll('td');
+    const into = (cell: Element) => editor.view.posAtDOM(cell.firstChild!, 1);
+    editor.view.dispatch(
+      editor.state.tr.setSelection(TextSelection.create(editor.state.doc, into(td()[1]))),
+    );
+    // No layout in jsdom: the pointer "is over" whichever cell the test says.
+    let over = td()[1];
+    vi.spyOn(editor.view, 'posAtCoords').mockImplementation(() => ({
+      pos: into(over),
+      inside: -1,
+    }));
+    const grip = host.querySelector<HTMLElement>('.aee-grip--cell')!;
+    grip.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
+    // Still over its own cell: not a drag yet, the caret stays.
+    window.dispatchEvent(new MouseEvent('mousemove'));
+    expect(editor.state.selection).toBeInstanceOf(TextSelection);
+
+    // The boundary lines it crosses are told it is no resize.
+    const wrap = host.querySelector('.aee-table-wrap')!;
+    expect(wrap.hasAttribute('data-cell-drag')).toBe(true);
+
+    over = td()[5];
+    window.dispatchEvent(new MouseEvent('mousemove'));
+    const cells: string[] = [];
+    (editor.state.selection as CellSelection).forEachCell((cell) => cells.push(cell.textContent));
+    expect(cells).toEqual(['a2', 'a3', 'b2', 'b3']);
+
+    window.dispatchEvent(new MouseEvent('mouseup'));
+    expect(wrap.hasAttribute('data-cell-drag')).toBe(false);
+    grip.click();
+    expect(opened).toBeNull();
+    // Released: the pointer moving on selects nothing more.
+    over = td()[0];
+    window.dispatchEvent(new MouseEvent('mousemove'));
+    expect((editor.state.selection as CellSelection).$headCell.nodeAfter!.textContent).toBe('b3');
+  });
+
   it('keeps the same grip elements while typing, so the pointer is never rebuilt out from under itself', () => {
     const row = grips('row')[0];
     const column = grips('column')[1];

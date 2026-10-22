@@ -1,7 +1,7 @@
 import { EditorState, Plugin, PluginKey, Selection, Transaction } from 'prosemirror-state';
 import { Node } from 'prosemirror-model';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
-import { CellSelection, TableMap } from 'prosemirror-tables';
+import { CellSelection, TableMap, cellAround } from 'prosemirror-tables';
 import { FunctionalExtension, defineExtension } from '../extension';
 import { selectColumn, selectRow, tableKind } from './nodes/table';
 import { layoutInteractive } from './layout-interaction';
@@ -84,11 +84,15 @@ export const createTableHandles = (options: TableHandlesOptions): FunctionalExte
     ((kind: 'row' | 'column' | 'cell', number: number) =>
       kind === 'cell' ? 'Cell options' : `${kind} ${number} options`);
 
-  /** The caret cell's own grip: a dot on the cell's right edge that opens
-      the cell's menu — fill, alignment, clearing — the caret staying where
-      it is. Selection-driven, so it is built afresh as the caret moves and
-      never rebuilt while a cell is typed in (its key is the cell). */
-  const cellGrip = (cell: CaretCell): HTMLElement => {
+  /** The caret cell's own grip: Notion's — a pill on the cell's right edge
+      that opens the cell's menu — fill, alignment, clearing — the caret
+      staying where it is. It sits on the column boundary, so a press there
+      is the grip's, never a resize; *dragged*, it selects from its cell to
+      the cell under the pointer, the way a press-and-drag across cells
+      does, and opens nothing. Selection-driven, so it is built afresh as the
+      caret moves and never rebuilt while a cell is typed in (its key is the
+      cell). */
+  const cellGrip = (view: EditorView, cell: CaretCell): HTMLElement => {
     const el = document.createElement('span');
     el.className = 'aee-grip aee-grip--cell';
     el.setAttribute('role', 'button');
@@ -97,14 +101,54 @@ export const createTableHandles = (options: TableHandlesOptions): FunctionalExte
     el.setAttribute('aria-haspopup', 'menu');
     el.setAttribute('aria-expanded', 'false');
     el.contentEditable = 'false';
-    for (let i = 0; i < 3; i++) el.appendChild(document.createElement('i'));
+    // ⋮, as on a row's grip: the middle dot and its two pseudo-elements.
+    el.appendChild(document.createElement('i'));
+    let dragged = false;
     el.addEventListener('mousedown', (event) => {
       event.preventDefault();
+      // Not the editor's: it would move the caret, and the boundary line's
+      // own press under the grip would start a resize.
       event.stopPropagation();
+      if (event.button !== 0) return;
+      dragged = false;
+      const anchor = cell.pos;
+      // Said on the table's wrap for the drag's lifetime: the boundary lines
+      // it crosses are not being resized, so they neither light nor take the
+      // pointer (styles.scss). The grip itself goes once the selection is a
+      // range, so the wrap is the one element that outlives it.
+      const wrap = el.closest<HTMLElement>('.aee-table-wrap');
+      wrap?.setAttribute('data-cell-drag', '');
+      const move = (moved: MouseEvent) => {
+        const head = cellAt(view, moved, anchor);
+        if (head === null || (!dragged && head === anchor)) return;
+        dragged = true;
+        const { doc } = view.state;
+        const selection = view.state.selection;
+        if (
+          selection instanceof CellSelection &&
+          selection.$anchorCell.pos === anchor &&
+          selection.$headCell.pos === head
+        ) {
+          return;
+        }
+        view.dispatch(view.state.tr.setSelection(CellSelection.create(doc, anchor, head)));
+      };
+      const up = () => {
+        wrap?.removeAttribute('data-cell-drag');
+        window.removeEventListener('mousemove', move);
+        window.removeEventListener('mouseup', up);
+      };
+      window.addEventListener('mousemove', move);
+      window.addEventListener('mouseup', up);
     });
     el.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
+      // A drag that came back to its grip is still a drag.
+      if (dragged) {
+        dragged = false;
+        return;
+      }
       el.setAttribute('aria-expanded', 'true');
       options.onOpen({
         kind: 'cell',
@@ -195,7 +239,7 @@ export const createTableHandles = (options: TableHandlesOptions): FunctionalExte
             const cell = caretCell(state.selection);
             if (!cell || (!on && cell.layout)) return set;
             return set.add(state.doc, [
-              Decoration.widget(cell.pos + 1, () => cellGrip(cell), {
+              Decoration.widget(cell.pos + 1, (view) => cellGrip(view, cell), {
                 key: `cell-grip-${cell.pos}`,
                 side: -1,
                 ignoreSelection: true,
@@ -360,6 +404,18 @@ function buildState(
     tables,
     generation,
   };
+}
+
+/** The cell under the pointer, as its node's position — only in the table
+    `anchor` (a cell's position) stands in; null anywhere else, so a drag
+    out of the table keeps the last cell it was over. */
+function cellAt(view: EditorView, event: MouseEvent, anchor: number): number | null {
+  const found = view.posAtCoords({ left: event.clientX, top: event.clientY });
+  if (!found) return null;
+  const { doc } = view.state;
+  const $cell = cellAround(doc.resolve(found.pos));
+  if (!$cell) return null;
+  return $cell.start(-1) === doc.resolve(anchor).start(-1) ? $cell.pos : null;
 }
 
 /** The table a grip currently sits in, read from the live document. */
