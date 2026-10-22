@@ -9,7 +9,6 @@ import {
   inject,
   input,
   output,
-  signal,
   untracked,
   viewChild,
 } from '@angular/core';
@@ -30,7 +29,8 @@ import { TextSelection } from 'prosemirror-state';
 
 import { FormattingCommands } from '../formatting-commands';
 import { Popover } from '../popover/popover';
-import { MenuSafeTriangle } from './safe-triangle';
+import { MenuSafeTriangle } from '../../../common/cascade-menu/safe-triangle';
+import { SubmenuPlacement } from '../../../common/cascade-menu/submenu-placement';
 
 /** What a row of the menu does, as the item's value: `text:<hex>` or
     `text:` (default), `fill:<hex>` or `fill:` (none), `align:<left|center|
@@ -40,14 +40,15 @@ type CellAction = string;
 /**
  * The cell's menu, Notion's: the grip on the caret cell's edge opens it —
  * Color, Alignment, Clear contents — and its lists open beside their rows
- * on hover, or on the right arrow, as a cascading menu does. A panel of the
+ * on hover, or on the right arrow, as a cascading menu does — on the side
+ * with room, pushed into the screen (`SubmenuPlacement`). A panel of the
  * composer's one popover, anchored to the grip.
  *
  * Built on Angular Aria's menu (`ngMenu`, `ngMenuItem` with `submenu`):
  * the keys are the menu's while it is up — arrows walk it, Right and
  * Enter open a list, Left closes one, typing jumps to a row, Escape
- * leaves — and the pointer has macOS's grace on its way from a row to its
- * list (`MenuSafeTriangle`) — which is why, unlike the band menus, this
+ * leaves — and the pointer has menu-aim's grace on its way from a row to
+ * its list (`MenuSafeTriangle`) — which is why, unlike the band menus, this
  * one *takes* focus when it opens and hands it back to the text when it
  * closes. The caret stays where it was: every action reads the selection
  * the editor kept. A list runs past the screen, so it scrolls.
@@ -62,6 +63,7 @@ type CellAction = string;
     Menu,
     MenuItem,
     MenuSafeTriangle,
+    SubmenuPlacement,
   ],
   templateUrl: './cell-menu.html',
   styleUrl: './cell-menu.scss',
@@ -116,9 +118,7 @@ export class CellMenu {
       untracked(() =>
         afterNextRender(
           {
-            earlyRead: () => this.#measureSubTops(),
-            write: (tops) => {
-              this.subTops.set(tops);
+            write: () => {
               const row = menu.querySelector<HTMLElement>('[tabindex="0"], [ngMenuItem]');
               (row ?? menu).focus();
             },
@@ -127,26 +127,6 @@ export class CellMenu {
         ),
       );
     });
-  }
-
-  /** Where each list stands: its first row level with its row. Measured
-      once the menu is on screen — layout is read in a render's read phase,
-      never asked of the DOM from a binding. */
-  protected readonly subTops = signal({ color: 0, align: 0 });
-
-  private readonly colorItem = viewChild<MenuItem<CellAction>>('colorItem');
-  private readonly alignItem = viewChild<MenuItem<CellAction>>('alignItem');
-
-  /** A row's offset in the menu less the menu's padding, which the list has
-      again above its own first row. */
-  #measureSubTops(): { color: number; align: number } {
-    const top = (item: MenuItem<CellAction> | undefined) => {
-      if (!item) return 0;
-      const menu = item.element.offsetParent;
-      const padding = menu ? parseFloat(getComputedStyle(menu).paddingTop) || 0 : 0;
-      return item.element.offsetTop - padding;
-    };
-    return { color: top(this.colorItem()), align: top(this.alignItem()) };
   }
 
   protected pick(action: CellAction): void {
