@@ -89,6 +89,13 @@ export type MessageSheetKind = 'desktop' | 'mobile';
     its own for the attach button's `aria-controls`. */
 let nextSheetId = 0;
 
+/** The ring round the strip toggle's count: how it draws, and how much of
+    its circle (a path 100 long) is still empty. */
+interface AttachmentRing {
+  readonly mode: 'determinate' | 'indeterminate';
+  readonly offset: number;
+}
+
 /**
  * One message, and everything it is written with: the form over it, the
  * envelope rows, the editor, the attachment strip, Send and Discard — the
@@ -388,15 +395,26 @@ export abstract class MessageSheet {
     this.attachmentsHidden() ? 'hidden' : this.attachmentRows(),
   );
 
-  /** Some attachment is still uploading — the toggle's count pulses while
-      the strip is away, so a Send that waits is never a mystery. */
-  readonly attachmentsBusy = computed(() =>
-    this.message().attachments.some((attachment) => attachment.id === null),
+  /** This message's uploads summed up, from the store: in flight or not,
+      and how far the batch is — what the toggle shows while the chips, and
+      their own bars, are out of sight. */
+  readonly attachmentUploads = this.uploads.summary(() =>
+    this.message().attachments.map((attachment) => attachment.key),
   );
 
-  /** Uploads still run while the strip is away: the toggle's count pulses,
-      the strip's own progress being out of sight. */
-  readonly attachmentToggleBusy = computed(() => this.attachmentsHidden() && this.attachmentsBusy());
+  /** The ring round the toggle's count while the strip is away and uploads
+      run, so a Send that waits is never a mystery: `determinate` with the
+      batch's progress (a dash offset over a path 100 long), `indeterminate`
+      — a sweeping arc — while nothing moves bytes yet. None while the strip
+      shows: its chips have their own bars. */
+  readonly attachmentRing = computed<AttachmentRing | null>(() => {
+    if (!this.attachmentsHidden()) return null;
+    const { busy, progress } = this.attachmentUploads();
+    if (!busy) return null;
+    return progress === null
+      ? { mode: 'indeterminate', offset: 75 }
+      : { mode: 'determinate', offset: 100 - Math.round(progress * 100) };
+  });
 
   /** The writer bar — and the toggle on it — heads the sheet: the phone's
       always, the desktop's when mirrored. */
@@ -434,7 +452,17 @@ export abstract class MessageSheet {
       `aria-expanded` says which. */
   readonly attachmentToggleLabel = computed(() => {
     const count = this.attachmentCount();
-    return this.i18n.t(`composer.attachments.count.${count === 1 ? 'one' : 'other'}`, { count });
+    const name = this.i18n.t(`composer.attachments.count.${count === 1 ? 'one' : 'other'}`, {
+      count,
+    });
+    // The ring, in words: a ring alone says nothing to a screen reader.
+    if (!this.attachmentRing()) return name;
+    const progress = this.attachmentUploads().progress;
+    const state =
+      progress === null
+        ? this.i18n.t('composer.attachments.preparing')
+        : this.i18n.t('composer.attachments.uploaded', { percent: Math.round(progress * 100) });
+    return `${name}, ${state}`;
   });
 
   /** The toggle's tooltip: what a press does now. */

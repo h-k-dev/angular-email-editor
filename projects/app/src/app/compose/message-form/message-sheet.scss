@@ -140,8 +140,8 @@ ul[email-attachment-chips] {
 // they come back). While the strip is away (`data-face="count"`) the count
 // takes its place — the number, 9+ past nine: what is out of sight — and
 // gives way to the chevron again under the pointer (this half's own touch
-// target) or keyboard focus, which says what a press does. Two layers in
-// one cell, crossfaded, so neither moves the other. On a touch screen
+// target) or keyboard focus, which says what a press does. Layers in one
+// cell, crossfaded, so none moves another — the progress ring among them. On a touch screen
 // nothing hovers: the count stays while the strip is away.
 .attachment-toggle {
   &__face {
@@ -210,9 +210,31 @@ ul[email-attachment-chips] {
     }
   }
 
-  // Uploads still running while the strip is away: the count breathes.
-  &__face[data-busy] &__count {
-    animation: attachment-toggle-busy 1.4s ease-in-out infinite;
+  // The batch's progress while the strip is away: a ring round the face,
+  // as big as the half leaves room for (a dense bar's 32px half: 24px), from
+  // twelve o'clock round, in the primary colour over a faint track of the
+  // ink. With no number yet, a quarter arc sweeps.
+  &__ring {
+    inline-size: calc(var(--mat-icon-button-state-layer-size, 40px) - 8px);
+    block-size: calc(var(--mat-icon-button-state-layer-size, 40px) - 8px);
+    overflow: visible;
+    rotate: -90deg;
+    fill: none;
+    stroke-width: 2;
+  }
+
+  &__ring-track {
+    stroke: color-mix(in srgb, currentColor 16%, transparent);
+  }
+
+  &__ring-bar {
+    stroke: var(--mat-sys-primary);
+    stroke-dasharray: 100;
+    transition: stroke-dashoffset 150ms linear;
+  }
+
+  &__ring[data-mode='indeterminate'] {
+    animation: attachment-toggle-sweep 1s linear infinite;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -220,15 +242,23 @@ ul[email-attachment-chips] {
       transition: none;
     }
 
-    &__face[data-busy] &__count {
+    // Still, but still told: the quarter arc stands.
+    &__ring[data-mode='indeterminate'] {
       animation: none;
+    }
+
+    &__ring-bar {
+      transition: none;
     }
   }
 }
 
-@keyframes attachment-toggle-busy {
-  50% {
-    opacity: 0.45;
+@keyframes attachment-toggle-sweep {
+  from {
+    rotate: -90deg;
+  }
+  to {
+    rotate: 270deg;
   }
 }
 

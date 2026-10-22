@@ -53,6 +53,8 @@ export default {
       hide: 'Anhänge ausblenden',
       show: 'Anhänge anzeigen',
       count: { one: '1 Anhang', other: '{{count}} Anhänge' },
+      uploaded: '{{percent}} % hochgeladen',
+      preparing: 'Upload wird vorbereitet',
     },
     more: 'Weitere Optionen',
     settings: {

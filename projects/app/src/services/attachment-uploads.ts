@@ -7,6 +7,7 @@ import {
   WritableSignal,
   computed,
   inject,
+  linkedSignal,
   signal,
 } from '@angular/core';
 import {
@@ -97,6 +98,22 @@ interface Transfer {
 const NONE: Signal<Transfer | null> = signal(null).asReadonly();
 
 /**
+ * Where a set of transfers stands together — what a summary of them shows
+ * (the strip's toggle while the chips are out of sight): whether any is
+ * still in flight, how many are, and how far the batch is, 0–1, by bytes.
+ * `progress` is `null` while nothing is moving bytes yet — every file in
+ * the batch still preprocessing or queued — so a summary sweeps rather than
+ * sitting at 0%.
+ */
+export interface UploadSummary {
+  readonly busy: boolean;
+  readonly pending: number;
+  readonly progress: number | null;
+}
+
+const IDLE: UploadSummary = { busy: false, pending: 0, progress: null };
+
+/**
  * The upload-on-drop store, simulated — through the stages a real one goes
  * through, over the connections a real one has. A dropped file is first
  * `preprocessing` (fingerprinted, scanned: a stretch with nothing to count,
@@ -184,6 +201,58 @@ export class AttachmentUploads {
   progress(key: string): Signal<number | null> {
     const transfer = this.#transfers.get(key) ?? NONE;
     return computed(() => transfer()?.progress ?? null);
+  }
+
+  /**
+   * The transfers of `keys` — one composer's attachments — summed up, for
+   * whatever shows them together (the strip's toggle while the chips are
+   * away). Progress is over the **batch**: the files sent since everything
+   * last settled. A batch takes in each file as it starts and keeps the
+   * ones already done until the last of it settles, so the bar runs from
+   * nothing to full once per batch — a file attached long ago does not
+   * start the next upload at half — and empties when the batch is through.
+   * Each file weighs its size (one byte when unknown); one uploading counts
+   * its bytes so far, one done counts whole.
+   */
+  summary(keys: () => readonly string[]): Signal<UploadSummary> {
+    const batch = linkedSignal<readonly (readonly [string, Transfer | null])[], readonly string[]>(
+      {
+        source: () => keys().map((key) => [key, this.#transfers.get(key)?.() ?? null] as const),
+        computation: (transfers, previous) => {
+          const flying = transfers
+            .filter(([, transfer]) => transfer && transfer.status !== 'complete')
+            .map(([key]) => key);
+          if (!flying.length) return [];
+          const present = new Set(transfers.map(([key]) => key));
+          const kept = (previous?.value ?? []).filter((key) => present.has(key));
+          return [...new Set([...kept, ...flying])];
+        },
+      },
+    );
+    return computed(() => {
+      const members = batch();
+      if (!members.length) return IDLE;
+      let total = 0;
+      let done = 0;
+      let pending = 0;
+      let moving = false;
+      for (const key of members) {
+        const transfer = this.#transfers.get(key)?.();
+        const size = Math.max(1, this.#sizes.get(key) ?? 1);
+        total += size;
+        if (transfer?.status === 'complete') {
+          done += size;
+          moving = true;
+          continue;
+        }
+        pending++;
+        if (transfer?.status === 'uploading') {
+          done += size * (transfer.progress ?? 0);
+          moving = true;
+        }
+      }
+      return { busy: pending > 0, pending, progress: moving ? done / total : null };
+    });
   }
 
   /** Resolves with the store's id once the transfer settles. A cancelled

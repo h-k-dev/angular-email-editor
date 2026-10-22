@@ -1038,7 +1038,7 @@ describe('Compose', () => {
     const row = () => strip().querySelector<HTMLElement>('overflow-row')!;
     const toggle = () => root.querySelector<HTMLButtonElement>('.attachment-toggle');
     const count = () => toggle()!.querySelector('.attachment-toggle__count')!.textContent;
-    const busy = () => toggle()!.querySelector('.attachment-toggle__face')!.hasAttribute('data-busy');
+    const ring = () => toggle()!.querySelector<SVGElement>('.attachment-toggle__ring');
     const face = () => toggle()!.getAttribute('data-face');
 
     // Nothing attached: split already — the bar never shifts when the first
@@ -1060,23 +1060,24 @@ describe('Compose', () => {
     expect(toggle()!.getAttribute('aria-expanded')).toBe('true');
     expect(toggle()!.getAttribute('aria-controls')).toBe(strip().id);
     expect(face()).toBe('chevron');
-    // The strip shows its own progress: no pulse.
-    expect(busy()).toBe(false);
+    // The strip shows its own progress: no ring.
+    expect(ring()).toBeNull();
 
     toggle()!.click();
     await fixture.whenStable();
 
-    // Away: the chips out of sight, the same button — named the same,
-    // collapsed now — showing the count in the chevron's place (the chevron
-    // under it, for the pointer or focus), pulsing while uploads run.
+    // Away: the chips out of sight, the same button — collapsed now —
+    // showing the count in the chevron's place (the chevron under it, for
+    // the pointer or focus), ringed by the batch's progress: still being
+    // scanned, so no number yet — a sweep, and said so in its name.
     expect(strip().hasAttribute('data-collapsed')).toBe(true);
     expect(row().hidden).toBe(true);
-    expect(toggle()!.getAttribute('aria-label')).toBe('3 attachments');
+    expect(toggle()!.getAttribute('aria-label')).toBe('3 attachments, preparing upload');
     expect(toggle()!.getAttribute('aria-expanded')).toBe('false');
     expect(face()).toBe('count');
     expect(count()).toBe('3');
     expect(toggle()!.querySelector('.attachment-toggle__chevron')).not.toBeNull();
-    expect(busy()).toBe(true);
+    expect(ring()!.getAttribute('data-mode')).toBe('indeterminate');
 
     toggle()!.click();
     await fixture.whenStable();
@@ -1085,7 +1086,8 @@ describe('Compose', () => {
     expect(row().hidden).toBe(false);
     expect(toggle()!.getAttribute('aria-expanded')).toBe('true');
     expect(face()).toBe('chevron');
-    expect(busy()).toBe(false);
+    expect(ring()).toBeNull();
+    expect(toggle()!.getAttribute('aria-label')).toBe('3 attachments');
 
     // Put away again, a new file brings the strip back to land in.
     sheet.toggleAttachments();
@@ -1095,14 +1097,46 @@ describe('Compose', () => {
     expect(strip().hasAttribute('data-collapsed')).toBe(false);
     expect(toggle()!.getAttribute('aria-label')).toBe('4 attachments');
 
-    // Past nine, the face says 9+ while away — the name keeps the number.
+    // Past nine, the face says 9+ while away — the name keeps the number
+    // (and, the files still being scanned, what they are waiting on).
     sheet.attach(['e', 'f', 'g', 'h', 'i', 'j'].map((name) => ({ name: name + '.pdf', size: 10 })));
     await fixture.whenStable();
     sheet.toggleAttachments();
     await fixture.whenStable();
     expect(face()).toBe('count');
     expect(count()).toBe('9+');
-    expect(toggle()!.getAttribute('aria-label')).toBe('10 attachments');
+    expect(toggle()!.getAttribute('aria-label')).toBe('10 attachments, preparing upload');
+  });
+
+  it('the toggle rings the batch’s upload progress while the strip is away, and says it', async () => {
+    const root = fixture.nativeElement as HTMLElement;
+    const sheet = (component as any).sheet();
+    const toggle = () => root.querySelector<HTMLButtonElement>('.attachment-toggle')!;
+    const ring = () => toggle().querySelector<SVGElement>('.attachment-toggle__ring');
+    const bar = () => ring()!.querySelector<SVGElement>('.attachment-toggle__ring-bar')!;
+    const settle = async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await fixture.whenStable();
+    };
+
+    // The store, driven by hand: one transfer half through.
+    const summary = signal({ busy: true, pending: 1, progress: 0.42 as number | null });
+    vi.spyOn(sheet, 'attachmentUploads').mockImplementation(() => summary());
+    sheet.attach([{ name: 'a.pdf', size: 10 }]);
+    await settle();
+    // The strip shows: no ring, whatever the store says.
+    expect(ring()).toBeNull();
+
+    sheet.toggleAttachments();
+    await settle();
+    expect(ring()!.getAttribute('data-mode')).toBe('determinate');
+    expect(bar().style.strokeDashoffset).toBe('58');
+    expect(toggle().getAttribute('aria-label')).toBe('1 attachment, 42% uploaded');
+
+    summary.set({ busy: false, pending: 0, progress: null });
+    await settle();
+    expect(ring()).toBeNull();
+    expect(toggle().getAttribute('aria-label')).toBe('1 attachment');
   });
 
   it('the attachment strip’s trash takes every attachment out at once, and stops their uploads', async () => {

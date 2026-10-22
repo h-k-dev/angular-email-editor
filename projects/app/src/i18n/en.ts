@@ -50,6 +50,8 @@ export default {
       hide: 'Hide attachments',
       show: 'Show attachments',
       count: { one: '1 attachment', other: '{{count}} attachments' },
+      uploaded: '{{percent}}% uploaded',
+      preparing: 'preparing upload',
     },
     more: 'More options',
     settings: {

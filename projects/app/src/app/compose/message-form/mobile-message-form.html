@@ -88,7 +88,28 @@
         <!-- Its face: the chevron, as any toggle's — and while the strip is
              away, the count in its place (what is out of sight), giving way
              to the chevron under the pointer or focus (what a press does). -->
-        <span class="attachment-toggle__face" [attr.data-busy]="attachmentToggleBusy() || null">
+        <span class="attachment-toggle__face">
+          <!-- While the strip is away and uploads run: the batch's progress,
+               a ring round the count (a sweeping arc while nothing moves
+               bytes yet) — the chips' own bars being out of sight. -->
+          @if (attachmentRing(); as ring) {
+            <svg
+              class="attachment-toggle__ring"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              [attr.data-mode]="ring.mode"
+            >
+              <circle class="attachment-toggle__ring-track" cx="12" cy="12" r="11" />
+              <circle
+                class="attachment-toggle__ring-bar"
+                cx="12"
+                cy="12"
+                r="11"
+                pathLength="100"
+                [style.stroke-dashoffset]="ring.offset"
+              />
+            </svg>
+          }
           <span class="attachment-toggle__count" aria-hidden="true">{{ attachmentCountShort() }}</span>
           <mat-icon class="attachment-toggle__chevron">{{ attachmentChevron() }}</mat-icon>
         </span>

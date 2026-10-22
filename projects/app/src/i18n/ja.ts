@@ -52,6 +52,8 @@ export default {
       hide: '添付ファイルを非表示',
       show: '添付ファイルを表示',
       count: { one: '添付ファイル 1 件', other: '添付ファイル {{count}} 件' },
+      uploaded: '{{percent}}% アップロード済み',
+      preparing: 'アップロードを準備中',
     },
     more: 'その他のオプション',
     settings: {

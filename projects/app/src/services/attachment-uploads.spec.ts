@@ -1,3 +1,4 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { simulatedDuration } from '@h-k-dev/angular-email-editor/attachment-chip';
 import { ATTACHMENT_UPLOAD_OPTIONS, AttachmentUploads } from './attachment-uploads';
@@ -152,6 +153,65 @@ describe('AttachmentUploads', () => {
 
     await vi.advanceTimersByTimeAsync(duration(4096) - duration(1024));
     expect(paced.status(large.key)()).toBe('uploading');
+  });
+
+  describe('summary', () => {
+    it('is idle with nothing in flight', () => {
+      const keys = signal<string[]>([]);
+      const summary = service.summary(keys);
+      expect(summary()).toEqual({ busy: false, pending: 0, progress: null });
+
+      // A file the store already holds is done from the start: still idle.
+      keys.set([service.adopt({ name: 'old.pdf', id: 'att_1' }).key]);
+      expect(summary()).toEqual({ busy: false, pending: 0, progress: null });
+    });
+
+    it('has no number while nothing moves bytes yet, then runs by bytes, a file done counting whole', async () => {
+      const small = service.start({ name: 'a.pdf', size: 1024 });
+      const large = service.start({ name: 'b.pdf', size: 3072 });
+      const summary = service.summary(() => [small.key, large.key]);
+
+      // Both preprocessing: busy, nothing to count.
+      expect(summary()).toEqual({ busy: true, pending: 2, progress: null });
+
+      // Both uploading (two connections): 1 KB over 100 ms, 3 KB over 300.
+      await vi.advanceTimersByTimeAsync(PREPROCESS);
+      expect(summary().progress).toBe(0);
+      await vi.advanceTimersByTimeAsync(50);
+      // (1024 × 0.5 + 3072 × 50/300) / 4096
+      expect(summary().progress).toBeCloseTo(0.25, 2);
+
+      // The small one done (after its linger): it counts whole, and the
+      // batch keeps it until the large one is through too.
+      await vi.advanceTimersByTimeAsync(150);
+      expect(service.status(small.key)()).toBe('complete');
+      expect(summary().pending).toBe(1);
+      // (1024 + 3072 × 200/300) / 4096
+      expect(summary().progress).toBeCloseTo(0.75, 2);
+
+      // All through: idle, the bar emptied for the next batch.
+      await vi.advanceTimersByTimeAsync(200);
+      expect(summary()).toEqual({ busy: false, pending: 0, progress: null });
+    });
+
+    it('counts a new batch from nothing — a file done long ago is not in it', async () => {
+      const old = service.adopt({ name: 'old.pdf', size: 3072, id: 'att_1' });
+      const fresh = service.start({ name: 'new.pdf', size: 1024 });
+      const summary = service.summary(() => [old.key, fresh.key]);
+
+      expect(summary()).toEqual({ busy: true, pending: 1, progress: null });
+      await vi.advanceTimersByTimeAsync(PREPROCESS + 50);
+      // Half of the new file — not (3072 + 512) / 4096.
+      expect(summary().progress).toBeCloseTo(0.5, 2);
+    });
+
+    it('sums only the keys it is given — another composer’s files are not its', async () => {
+      const mine = service.start({ name: 'mine.pdf', size: 1024 });
+      service.start({ name: 'theirs.pdf', size: 1024 });
+      const summary = service.summary(() => [mine.key]);
+
+      expect(summary().pending).toBe(1);
+    });
   });
 
   it('keeps each transfer apart, with an unknown key reading as nothing', () => {
