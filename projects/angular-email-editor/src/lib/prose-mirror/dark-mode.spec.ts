@@ -1,4 +1,12 @@
-import { DARK_FILL_CLASS, DARK_TEXT_CLASS, darkModeEditorCss, markDarkMode } from './dark-mode';
+import {
+  DARK_FILL_CLASS,
+  DARK_LINE_CLASS,
+  DARK_TEXT_CLASS,
+  darkModeEditorCss,
+  emailBorderPalette,
+  markDarkMode,
+} from './dark-mode';
+import { TABLE_BORDER_COLOR } from './extensions/nodes/table';
 
 const RED = '#c5221f';
 const BLACK = '#202124';
@@ -72,6 +80,36 @@ describe('markDarkMode', () => {
     expect(markDarkMode(input)).toEqual({ html: input, css: '' });
   });
 
+  it('knows the grid line a bordered table is inserted with', () => {
+    const probe = document.createElement('div');
+    probe.style.color = emailBorderPalette[0].value;
+    expect(probe.style.color).toBe(TABLE_BORDER_COLOR);
+  });
+
+  it('darkens the table grid line on the page — Apple’s query and Outlook’s background marker', () => {
+    const cell = `<td style="padding: 7px 9px; border: 1px solid ${TABLE_BORDER_COLOR};">x</td>`;
+    const { html, css } = markDarkMode(`<table><tbody><tr>${cell}</tr></tbody></table>`);
+    expect(classesOf(html, 'td')).toEqual([`${DARK_LINE_CLASS}e6e5e3`]);
+    expect(css).toContain('.aee-dl-e6e5e3 { border-color: #383836 !important; }');
+    expect(css).toContain('[data-ogsb] .aee-dl-e6e5e3 { border-color: #383836 !important; }');
+  });
+
+  it('keeps a grid line light under a background that stays light', () => {
+    const { html } = markDarkMode(
+      `<div style="background-color: #ffcc00;"><table><tbody><tr>` +
+        `<td style="border: 1px solid ${TABLE_BORDER_COLOR};">x</td></tr></tbody></table></div>`,
+    );
+    expect(classesOf(html, 'td')).toEqual([]);
+  });
+
+  it('keeps every line as it is for an empty border list', () => {
+    const input = `<table><tbody><tr><td style="border: 1px solid ${TABLE_BORDER_COLOR};">x</td></tr></tbody></table>`;
+    expect(markDarkMode(input, { text: [], background: [], border: [] })).toEqual({
+      html: input,
+      css: '',
+    });
+  });
+
   it('keeps the classes already there (a stacking column)', () => {
     const { html } = markDarkMode(
       `<div class="aee-stack" style="display: inline-block; background-color: ${PALE_RED}; color: ${BLACK};">x</div>`,
@@ -93,11 +131,23 @@ describe('darkModeEditorCss', () => {
     expect(css).toContain('--aee-dark-fill: #4a2624;');
     expect(css).toContain('color: var(--aee-dark-text) !important;');
     expect(css).toContain('background-color: var(--aee-dark-fill) !important;');
+    expect(css).toContain('--aee-dark-line: #383836;');
+    expect(css).toContain('border-color: var(--aee-dark-line) !important;');
   });
 
   it('is empty for a palette without variants', () => {
     expect(
-      darkModeEditorCss('.x', { text: [{ name: 'A', value: '#123456' }], background: [] }),
+      darkModeEditorCss('.x', {
+        text: [{ name: 'A', value: '#123456' }],
+        background: [],
+        border: [],
+      }),
     ).toBe('');
+  });
+
+  it('keeps the library’s grid line for a palette that names no border', () => {
+    expect(darkModeEditorCss('.x', { text: [], background: [] })).toContain(
+      '--aee-dark-line: #383836;',
+    );
   });
 });

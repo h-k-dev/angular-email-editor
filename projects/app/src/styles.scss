@@ -355,7 +355,12 @@ html {
 /* 3. peek: every layout block at once */
 .aee-editor.aee-guides-peek .aee-table-wrap:not(.aee-table-wrap--authored) td,
 .aee-editor.aee-guides-peek .aee-column {
-  border-color: var(--email-layout-guide, var(--email-table-grid, rgb(224, 224, 224)));
+  // Notion's divider greys, the same pair a bordered table's real line wears
+  // (TABLE_BORDER_COLOR and its dark variant), so a guide and a line agree.
+  border-color: var(
+    --email-layout-guide,
+    var(--email-table-grid, light-dark(rgb(230, 229, 227), #383836))
+  );
   transition-delay: 0ms;
 }
 
@@ -375,7 +380,7 @@ html {
  * divergence we don't accept for a look.
  */
 /* No padding of the editor's own: a cell is drawn with exactly the padding the
- * email gives it — a bordered or borderless table's real 8px 12px (inline,
+ * email gives it — a bordered or borderless table's real 7px 9px (inline,
  * per cell), a layout table's none. */
 .aee-editor .aee-table-wrap:not(.aee-table-wrap--authored) td {
   position: relative;
@@ -870,7 +875,7 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
 }
 
 /* The grab strip: 9px of hit area centred on the boundary — inside a
- * bordered or borderless table's 12px cell padding, so it never sits over
+ * bordered or borderless table's 9px cell padding, so it never sits over
  * text there; a layout table's flush cells let it overlap their edges by
  * 4.5px, the price of drawing them as the email does. */
 .aee-editor .aee-col-line {
@@ -957,7 +962,9 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
  * the halo that lifts it off the grid line and the text it straddles — drawn
  * once and faded with the grip's own opacity, a compositor-only animation.
  * Under the pointer, and while its menu is up, it opens into a handle that
- * shows its dots; its colour stays — the cursor already says it is pressable.
+ * shows its dots: under the pointer a neutral one — the cursor already says
+ * it is pressable — and once its band is selected the selection's colour
+ * (below).
  *
  * The row grip is always hit-testable, only sometimes seen: a grip that took
  * no pointer until something else revealed it could never be reached from
@@ -995,7 +1002,7 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
   inline-size: 3px;
   block-size: 3px;
   border-radius: 50%;
-  background-color: var(--email-grip-halo, #ffffff);
+  background-color: var(--mat-sys-outline, #74777f);
 }
 
 .aee-editor .aee-grip > i::before,
@@ -1052,22 +1059,43 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
   inset-inline-start: 5px;
 }
 
-/* Opened: long enough for its dots across, still centred on the border. */
+/* Opened: Notion's handle, transcribed — 14×22, long enough for its dots
+ * across, still centred on the border. */
 .aee-editor .aee-grip--row:hover,
 .aee-editor .aee-grip--row[aria-expanded='true'] {
   inline-size: 14px;
-  block-size: 24px;
+  block-size: 22px;
 }
 
 .aee-editor .aee-grip--column:hover,
 .aee-editor .aee-grip--column[aria-expanded='true'] {
-  inline-size: 24px;
+  inline-size: 22px;
   block-size: 14px;
+}
+
+/* Under the pointer it is a button of the paper's own with a hairline round
+ * it and grey dots: it stands off the grid line it straddles without
+ * claiming anything yet. */
+.aee-editor :is(.aee-grip--row, .aee-grip--column):hover {
+  border: 1px solid var(--mat-sys-outline-variant, #c4c6d0);
+  background-color: var(--email-grip-halo, #ffffff);
+}
+
+/* Its band selected (its menu up): the selection's own colour with white
+ * dots, as the caret cell's grip wears — the contrast that says which band
+ * the menu acts on. */
+.aee-editor :is(.aee-grip--row, .aee-grip--column)[aria-expanded='true'] {
+  border: 1px solid var(--email-cell-selection-border, var(--mat-sys-primary, #4c6ef5));
+  background-color: var(--email-cell-selection-border, var(--mat-sys-primary, #4c6ef5));
+}
+
+.aee-editor :is(.aee-grip--row, .aee-grip--column)[aria-expanded='true'] > i {
+  background-color: var(--mat-sys-on-primary, #ffffff);
 }
 
 /* The approach: 4px of invisible hit area all round, so a pointer meets a
  * 6px-thin selector a little early rather than having to land on it exactly.
- * Within a bordered or borderless table's 12px cell padding, so it never sits
+ * Within a bordered or borderless table's 9px cell padding, so it never sits
  * over text there. Measured from the padding box, inside the 2px paper
  * border — hence 6px. */
 .aee-editor .aee-grip::before {
@@ -1243,19 +1271,43 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
   right: calc(var(--aee-block-gutter-x) * -1);
 }
 
-/* The row twin: hangs off the box over the text below the table (there is no
- * bottom gutter), and spans only the table (inline `left` / `width`,
- * model-derived). Covering text, it takes the pointer only once the last row
- * is hovered — and keeps it while hovered itself, so the way down to the pill
- * never drops. A right-edge drag restamps the width on release, so the strip
- * matches the new box. */
+/* …and on past the table's bottom corner, as deep as the row sensor, so a
+ * hand coming up from below on the right meets it before the table. A
+ * pseudo-element is the zone's own hover. Over the gutter only — no text out
+ * there — so it is always on. */
+.aee-editor .aee-add-zone--column::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: var(--aee-block-gutter-x);
+  height: 18px;
+}
+
+/* The row twin: hangs off the box into the room below the table (there is
+ * no bottom gutter), and spans only the table (inline `left` / `width`,
+ * model-derived). A right-edge drag restamps the width on release, so the
+ * strip matches the new box. */
 .aee-editor .aee-add-zone--row {
   top: 100%;
   height: 18px;
   pointer-events: none;
 }
 
+/* The table's own room below — a bordered or borderless table's real
+ * `margin-bottom` (`data-room`, set by the NodeView from `spacing`): no text
+ * stands there, so the sensor is always on, exactly that deep, and coming
+ * from below wakes the pill as Notion's does. */
+.aee-editor .aee-add-zone--row[data-room] {
+  height: var(--aee-table-room);
+  pointer-events: auto;
+}
+
+/* A layout table has no room: the text below wins the pointer, unless the
+ * table is asked for — its last row hovered (the way down, kept while the
+ * zone itself is), or Ctrl held, the peek that shows its grid too. */
 .aee-editor .aee-table-wrap:has(tr:last-child:hover) .aee-add-zone--row,
+.aee-editor.aee-guides-peek .aee-add-zone--row,
 .aee-editor .aee-add-zone--row:hover {
   pointer-events: auto;
 }
@@ -1295,10 +1347,14 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
 }
 
 /* Both pills reveal on *hover only* — the last column / last row, or the
- * pill's own ground. Deliberately not on the caret (the `--in-last-*`
- * decoration classes still land, unused): typing in the last row with the
- * mouse parked elsewhere must not keep a button permanently on screen. */
+ * pill's own ground (the column's: the right edge's grab strip too, which
+ * stands over the last column's flank on the way out to it). Deliberately not
+ * on the caret (the `--in-last-*` decoration classes still land, unused):
+ * typing in the last row with the mouse parked elsewhere must not keep a
+ * button permanently on screen. */
 .aee-editor .aee-table-wrap:has(tr > td:last-child:hover) .aee-add-pill--column,
+.aee-editor .aee-table-wrap:has(> .aee-table-box > .aee-col-lines > .aee-col-line--edge-right:hover)
+  .aee-add-pill--column,
 .aee-editor .aee-add-zone--column:hover .aee-add-pill--column {
   opacity: 1;
   pointer-events: auto;

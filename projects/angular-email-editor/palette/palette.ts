@@ -4,13 +4,18 @@ import {
   PaletteColor,
   SuggestionCommandItem,
   emailBackgroundPalette,
+  emailBorderPalette,
   emailTextPalette,
 } from '@h-k-dev/angular-email-editor';
 
-/** The colours a host offers: for text, and for a background. */
+/** The colours a host offers: for text, and for a background — and the
+    grid lines its tables are drawn with, for their dark variants. */
 export interface EmailPalette {
   readonly text: readonly PaletteColor[];
   readonly background: readonly PaletteColor[];
+  /** Not offered in a picker: what a bordered table's line turns in dark
+      mode (`emailBorderPalette`). */
+  readonly border?: readonly PaletteColor[];
 }
 
 /** The library's own palette — the swatches that pass on both a light and a
@@ -18,6 +23,7 @@ export interface EmailPalette {
 export const emailPalette: EmailPalette = {
   text: emailTextPalette,
   background: emailBackgroundPalette,
+  border: emailBorderPalette,
 };
 
 /** A host's palette: either list, the other staying the library's — or a
@@ -42,6 +48,7 @@ export function resolvePalette(config: EmailPaletteConfig): EmailPalette {
   return {
     text: given.text ?? emailPalette.text,
     background: given.background ?? emailPalette.background,
+    border: given.border ?? emailPalette.border,
   };
 }
 

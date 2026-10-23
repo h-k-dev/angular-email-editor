@@ -426,7 +426,9 @@ class TableView {
       // box — so every percentage below is a share of the table's own area,
       // gutter or no gutter.
       const el = this.#lines.appendChild(document.createElement('div'));
-      el.className = 'aee-col-line aee-col-line--edge';
+      // Its side, too: hovering the right one is on the way to the add
+      // column pill, and reveals it (styles.scss).
+      el.className = `aee-col-line aee-col-line--edge aee-col-line--edge-${side}`;
       el.contentEditable = 'false';
       el.setAttribute('aria-hidden', 'true');
       el.addEventListener('pointerdown', (event) => this.#startEdgeDrag(side, event));
@@ -570,6 +572,14 @@ class TableView {
     this.#edges.left.classList.toggle('aee-col-line--tuck-start', offset === 0);
     this.#edges.right.classList.toggle('aee-col-line--tuck-end', offset + tableWidth >= 100);
     this.#placeAddOns(offset, tableWidth);
+    // The room below that is the table's own — a bordered or borderless
+    // table's real `margin-bottom` (`spacing`): no text stands there, so the
+    // row sensor may take the pointer at all times and is exactly that high
+    // (styles.scss). A layout table has none, and the text below wins.
+    const room = node.attrs['spacing'] as number | null;
+    this.#addRowZone.toggleAttribute('data-room', !!room);
+    if (room) this.#addRowZone.style.setProperty('--aee-table-room', `${room}px`);
+    else this.#addRowZone.style.removeProperty('--aee-table-room');
 
     // The display colgroup: declared widths verbatim, the rest left to the
     // browser — the same input the email gives a mail client.

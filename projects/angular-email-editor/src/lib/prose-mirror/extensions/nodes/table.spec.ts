@@ -230,8 +230,8 @@ describe('table editing', () => {
   const action = (id: string) =>
     Table.actions!({ schema: editor.schema, extensions: [] }).find((entry) => entry.id === id)!;
   const count = (html: string, pattern: RegExp) => (html.match(pattern) || []).length;
-  const BORDER = /border: 1px solid rgb\(208, 215, 229\);/g;
-  const PADDING = /padding: 8px 12px;/g;
+  const BORDER = /border: 1px solid rgb\(230, 229, 227\);/g;
+  const PADDING = /padding: 7px 9px;/g;
 
   it('/table inserts the bordered default — lines and real padding — and new cells inherit both', () => {
     editor.exec(action('table').command!);

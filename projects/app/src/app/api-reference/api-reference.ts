@@ -463,7 +463,7 @@ export class ApiReference {
           name: 'markDarkMode · darkModeEditorCss · emailDarkModePalette',
           signature:
             '(html, palette?) => { html, css } · (scope: string, palette?) => string · DarkModePalette',
-          does: 'Dark mode written into the email: a palette fill goes dark (aee-db-<hex>) when nothing in it wears a colour outside the palette and every background round it goes dark too; a palette text colour lights up (aee-dt-<hex>) under no background that stays light. css is the prefers-color-scheme and [data-ogsc]/[data-ogsb] rules for exactly those classes. darkModeEditorCss is the same rendering as a stylesheet over the live text under scope — the editor’s dark paper.',
+          does: 'Dark mode written into the email: a palette fill goes dark (aee-db-<hex>) when nothing in it wears a colour outside the palette and every background round it goes dark too; a palette text colour lights up (aee-dt-<hex>) under no background that stays light. A table’s grid line darkens (aee-dl-<hex>, emailBorderPalette: Notion’s #e6e5e3 → #383836) under no background that stays light. css is the prefers-color-scheme and [data-ogsc]/[data-ogsb] rules for exactly those classes. darkModeEditorCss is the same rendering as a stylesheet over the live text under scope — the editor’s dark paper.',
         },
         {
           name: 'EMAIL_PALETTE · providePalette · injectPalette · colorSuggestions',

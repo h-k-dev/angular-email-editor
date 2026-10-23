@@ -101,7 +101,7 @@ export class Styling {
         {
           name: '--email-table-grid',
           system: null,
-          fallback: 'rgb(224, 224, 224)',
+          fallback: 'light-dark(rgb(230, 229, 227), #383836)',
           alters: 'Grid lines a table shows while it is being worked on',
         },
         {
@@ -114,7 +114,7 @@ export class Styling {
         {
           name: '--email-layout-guide',
           system: '--email-table-grid',
-          fallback: 'rgb(224, 224, 224)',
+          fallback: 'light-dark(rgb(230, 229, 227), #383836)',
           alters: 'The guides tables and column blocks peek on hover (.aee-guides-peek)',
         },
         {

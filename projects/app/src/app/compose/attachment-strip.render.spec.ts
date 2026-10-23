@@ -45,6 +45,10 @@ describe('Attachment strip (render)', () => {
       sheet.uploads.start({ name: `quarterly-report-${i + 1}.pdf`, size: 1000 * (i + 1) }),
     );
     sheet.message.update((m: object) => ({ ...m, attachments: refs }));
+    // The runner's viewport is a phone's, whose sheet starts with the strip
+    // put away (`MobileMessageForm`): out, as the toggle beside Attach puts
+    // it, so there are rows to switch.
+    if (sheet.attachmentsHidden()) sheet.toggleAttachments();
     await fixture.whenStable();
     await new Promise((resolve) => setTimeout(resolve, 500));
   });

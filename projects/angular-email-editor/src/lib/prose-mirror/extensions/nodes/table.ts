@@ -162,18 +162,20 @@ export function parsePadding(dom: HTMLElement): string | null {
   return probe.style.padding || null;
 }
 
-/** The bordered table's default grid color: Excel's classic gridline
-    blue-gray (#D0D7E5) — the shade a spreadsheet-shaped table is expected to
-    wear, light enough to organize without shouting, and legible on both
-    white and dark-mode-inverted grounds. Serialized per *cell* (`border` on
-    `<td>` is the bulletproof border in email — Outlook's Word engine renders
-    it), with `border-collapse` on the table keeping the grid single-lined. */
-export const TABLE_BORDER_COLOR = 'rgb(208, 215, 229)';
+/** The bordered table's default grid color: Notion's light divider grey
+    (#E6E5E3) — a hairline that organizes without shouting, legible on white
+    and on a dark-mode-inverted ground. Where a client reads the email's
+    dark-mode styles it turns Notion's dark divider (`emailBorderPalette`, the
+    same colour, in dark-mode.ts). Serialized per *cell* (`border` on `<td>`
+    is the bulletproof border in email — Outlook's Word engine renders it),
+    with `border-collapse` on the table keeping the grid single-lined. */
+export const TABLE_BORDER_COLOR = 'rgb(230, 229, 227)';
 
 /** The *real* cell padding a bordered or borderless table ships —
-    Excel-style breathing room, so the rendered email is readable. A layout
-    table ships none unless authored, and is drawn flush in the editor too. */
-export const TABLE_CELL_PADDING = '8px 12px';
+    Notion's cell inset, room enough to read without the grid eating the
+    column. A layout table ships none unless authored, and is drawn flush in
+    the editor too. */
+export const TABLE_CELL_PADDING = '7px 9px';
 
 /** The room a bordered or borderless table keeps above and below itself, in
     px — real (`margin-top`/`margin-bottom` on the table, see `tableStyle`),

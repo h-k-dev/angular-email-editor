@@ -17,7 +17,8 @@
  * Only the palette's colours move, and only where the move reads: a fill
  * goes dark when nothing in it wears a colour outside the palette (dark text
  * on it would vanish), and a text colour lights up when no background over
- * it stays light. A colour typed into the HTML source is the author's own,
+ * it stays light. A table's grid line darkens the same way, under no
+ * background that stays light — a pale line on a dark page shouts. A colour typed into the HTML source is the author's own,
  * as everywhere (principle 9) — it stays, and so does what holds it.
  *
  * The canonical HTML never carries any of this: {@link markDarkMode} works
@@ -31,18 +32,30 @@ import { PaletteColor, emailBackgroundPalette, emailTextPalette } from './dual-c
 export interface DarkModePalette {
   readonly text: readonly PaletteColor[];
   readonly background: readonly PaletteColor[];
+  /** Grid lines (a cell's `border`). None given, the library's
+      ({@link emailBorderPalette}); an empty list keeps every line as it is. */
+  readonly border?: readonly PaletteColor[];
 }
 
-/** The library's palette, both sides. */
+/** The bordered table's grid line (`TABLE_BORDER_COLOR`) and its dark
+    variant: Notion's two greys, a hairline on either page. */
+export const emailBorderPalette: PaletteColor[] = [
+  { name: 'Grid', value: '#e6e5e3', dark: '#383836' },
+];
+
+/** The library's palette, every side. */
 export const emailDarkModePalette: DarkModePalette = {
   text: emailTextPalette,
   background: emailBackgroundPalette,
+  border: emailBorderPalette,
 };
 
 /** The class a text colour's element wears in the email: `aee-dt-c5221f`. */
 export const DARK_TEXT_CLASS = 'aee-dt-';
 /** The class a fill's element wears in the email: `aee-db-fce8e6`. */
 export const DARK_FILL_CLASS = 'aee-db-';
+/** The class a grid line's element wears in the email: `aee-dl-e6e5e3`. */
+export const DARK_LINE_CLASS = 'aee-dl-';
 
 /** What a document says to be drawn in both schemes: Apple Mail then reads
     its dark-mode rules (and leaves its own recolouring be). */
@@ -91,6 +104,14 @@ function fillSelector(hex: string): string {
     .join(', ');
 }
 
+/** An element whose own border is `hex`, as a cell writes it
+    (`border: 1px solid <color>`). */
+function borderSelector(hex: string): string {
+  return spellings(hex)
+    .map((value) => `[style*="border: 1px solid ${value}" i]`)
+    .join(', ');
+}
+
 /** Any element with a text colour of its own. */
 const ANY_TEXT = '[style^="color" i], [style*="; color" i], [style*=";color" i], font[color]';
 /** Any element with a background of its own. */
@@ -111,6 +132,7 @@ function variants(colors: readonly PaletteColor[], selector: (hex: string) => st
 interface Selectors {
   readonly text: Variant[];
   readonly fill: Variant[];
+  readonly line: Variant[];
   /** A colour of its own that is none of the palette's. */
   readonly foreign: string;
   readonly anyFill: string;
@@ -120,10 +142,12 @@ interface Selectors {
 function selectors(palette: DarkModePalette): Selectors {
   const text = variants(palette.text, textSelector);
   const fill = variants(palette.background, fillSelector);
+  const line = variants(palette.border ?? emailBorderPalette, borderSelector);
   const mappedText = text.map((v) => v.selector).join(', ');
   return {
     text,
     fill,
+    line,
     foreign: mappedText ? `:is(${ANY_TEXT}):not(${mappedText})` : `:is(${ANY_TEXT})`,
     anyFill: ANY_FILL,
     mappedFill: fill.map((v) => v.selector).join(', '),
@@ -142,24 +166,28 @@ export interface DarkModeMarking {
 /**
  * Marks the palette's colours in an email body for dark mode: a fill that
  * goes dark wears `aee-db-<hex>`, a text colour that lights up wears
- * `aee-dt-<hex>`, and `css` holds the rules for exactly those classes.
+ * `aee-dt-<hex>`, a grid line that darkens `aee-dl-<hex>`, and `css` holds
+ * the rules for exactly those classes.
  *
  * A fill goes dark when it is the palette's, nothing in it (itself
  * included) wears a colour outside the palette, and every background round
  * it goes dark too. A text colour lights up when it is the palette's and
  * every background over it (its own included) goes dark — so lit text never
- * stands on a light fill, nor dark text on a dark one.
+ * stands on a light fill, nor dark text on a dark one. A grid line darkens
+ * when every background round it goes dark — its own cell's fill is inside
+ * the line, not under it.
  */
 export function markDarkMode(
   html: string,
   palette: DarkModePalette = emailDarkModePalette,
 ): DarkModeMarking {
   const sel = selectors(palette);
-  if (!sel.text.length && !sel.fill.length) return { html, css: '' };
+  if (!sel.text.length && !sel.fill.length && !sel.line.length) return { html, css: '' };
   const template = document.createElement('template');
   template.innerHTML = html;
   const usedText = new Map<string, string>();
   const usedFill = new Map<string, string>();
+  const usedLine = new Map<string, string>();
 
   // Bottom-up: whether a subtree wears only the palette's colours.
   const clean = new Map<Element, boolean>();
@@ -172,6 +200,13 @@ export function markDarkMode(
   // Top-down: classes, under no background that stays light.
   const visit = (el: Element, underLight: boolean): void => {
     let light = underLight;
+    if (!underLight) {
+      const line = sel.line.find((v) => el.matches(v.selector));
+      if (line) {
+        el.classList.add(DARK_LINE_CLASS + line.hex.slice(1));
+        usedLine.set(line.hex, line.dark);
+      }
+    }
     if (el.matches(sel.anyFill)) {
       const fill = sel.fill.find((v) => el.matches(v.selector));
       if (fill && clean.get(el) && !underLight) {
@@ -194,16 +229,20 @@ export function markDarkMode(
   for (const root of roots) visitClean(root);
   for (const root of roots) visit(root, false);
 
-  if (!usedText.size && !usedFill.size) return { html, css: '' };
+  if (!usedText.size && !usedFill.size && !usedLine.size) return { html, css: '' };
   const textRules = [...usedText].map(
     ([hex, dark]) => `.${DARK_TEXT_CLASS}${hex.slice(1)} { color: ${dark} !important; }`,
   );
   const fillRules = [...usedFill].map(
     ([hex, dark]) => `.${DARK_FILL_CLASS}${hex.slice(1)} { background-color: ${dark} !important; }`,
   );
+  const lineRules = [...usedLine].map(
+    ([hex, dark]) => `.${DARK_LINE_CLASS}${hex.slice(1)} { border-color: ${dark} !important; }`,
+  );
+  // A line is drawn with the surfaces, so it follows Outlook's background marker.
   const css = [
-    `@media (prefers-color-scheme: dark) { ${[...fillRules, ...textRules].join(' ')} }`,
-    ...fillRules.map((rule) => `[data-ogsb] ${rule}`),
+    `@media (prefers-color-scheme: dark) { ${[...fillRules, ...lineRules, ...textRules].join(' ')} }`,
+    ...[...fillRules, ...lineRules].map((rule) => `[data-ogsb] ${rule}`),
     ...textRules.map((rule) => `[data-ogsc] ${rule}`),
   ].join('\n');
   return { html: template.innerHTML, css };
@@ -223,7 +262,7 @@ export function darkModeEditorCss(
   palette: DarkModePalette = emailDarkModePalette,
 ): string {
   const sel = selectors(palette);
-  if (!sel.text.length && !sel.fill.length) return '';
+  if (!sel.text.length && !sel.fill.length && !sel.line.length) return '';
   // A background that stays light: one outside the palette, or one holding a
   // colour outside it. Everything under it stays as it is.
   const darkFill = sel.mappedFill
@@ -235,9 +274,17 @@ export function darkModeEditorCss(
     rules.push(`${scope} :is(${v.selector}) { --aee-dark-fill: ${v.dark}; }`);
   for (const v of sel.text)
     rules.push(`${scope} :is(${v.selector}) { --aee-dark-text: ${v.dark}; }`);
+  for (const v of sel.line)
+    rules.push(`${scope} :is(${v.selector}) { --aee-dark-line: ${v.dark}; }`);
   if (darkFill) {
     rules.push(
       `${scope} ${darkFill}:not(${lightFill} *) { background-color: var(--aee-dark-fill) !important; }`,
+    );
+  }
+  const mappedLine = sel.line.map((v) => v.selector).join(', ');
+  if (mappedLine) {
+    rules.push(
+      `${scope} :is(${mappedLine}):not(${lightFill} *) { border-color: var(--aee-dark-line) !important; }`,
     );
   }
   const mappedText = sel.text.map((v) => v.selector).join(', ');
