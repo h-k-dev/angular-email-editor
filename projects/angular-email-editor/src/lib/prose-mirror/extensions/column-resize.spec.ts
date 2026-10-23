@@ -1,14 +1,26 @@
 import { TextSelection } from 'prosemirror-state';
-import { CellSelection } from 'prosemirror-tables';
+import { CellSelection, TableMap } from 'prosemirror-tables';
 import { createEditor, Editor } from '../editor';
 import { createSchema } from '../schema';
 import { parseHTML, serializeToHTML } from '../html';
 import { emailExtensions } from './kits';
 import { setColumnBoundary, setTableBox, setTableWidth, columnWidths } from './column-resize';
-import { addColumnAtEnd, addRowAtEnd } from './nodes/table';
+import {
+  addColumnAtEnd,
+  addRowAtEnd,
+  removeEmptyLastColumn,
+  removeEmptyLastRow,
+} from './nodes/table';
 
 const schema = createSchema(emailExtensions);
 const canonical = (html: string) => serializeToHTML(parseHTML(html, schema), schema);
+
+/** A press on a `+` pill released in place: its click (a drag is the
+    render spec's). */
+const tap = (pill: HTMLElement) => {
+  pill.dispatchEvent(new PointerEvent('pointerdown', { button: 0, bubbles: true, cancelable: true }));
+  window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+};
 
 describe('column width serialization', () => {
   it('parses a percentage width and round-trips it as a fixpoint', () => {
@@ -239,19 +251,21 @@ describe('column resize', () => {
     expect(canonical(html)).toBe(html);
   });
 
-  it('the add pills append at the end, rescaling widths for the column', () => {
+  it('the add pills append at the end — a column one drag step wide', () => {
     editor.commands['insertTable'](2, 2);
     editor.exec(setColumnBoundary(tablePos(), 0, 65.2));
 
-    // Clicking the column pill appends at the end; declared widths scale by
-    // 2/3 and the new last column takes the freed third as leftover.
-    host.querySelector<HTMLElement>('.aee-add-pill--column')!.click();
-    expect(columnWidths(tableNode())).toEqual([43.5, 23.2, null]);
+    // Clicking the column pill is one step of its drag: a new column half a
+    // default one wide (a sixth of the room). The table already fills its
+    // room, so the three share it in proportion.
+    tap(host.querySelector<HTMLElement>('.aee-add-pill--column')!);
+    expect(columnWidths(tableNode())).toEqual([55.9, 29.8, 14.3]);
+    expect(tableNode().attrs['width']).toBe(100);
 
-    host.querySelector<HTMLElement>('.aee-add-pill--row')!.click();
+    tap(host.querySelector<HTMLElement>('.aee-add-pill--row')!);
     expect(tableNode().childCount).toBe(3);
     // Rows carry no width math; the columns are untouched.
-    expect(columnWidths(tableNode())).toEqual([43.5, 23.2, null]);
+    expect(columnWidths(tableNode())).toEqual([55.9, 29.8, 14.3]);
   });
 
   it('the pills track the table box and never serialize', () => {
@@ -271,6 +285,39 @@ describe('column resize', () => {
     const html = editor.getHTML();
     expect(html).not.toContain('aee-add-pill');
     expect(html).not.toContain('aee-add-zone');
+  });
+
+  it('takes back empty trailing bands, down to the last one', () => {
+    editor.commands['insertTable'](2, 3);
+    editor.exec(setColumnBoundary(tablePos(), 0, 50));
+    expect(editor.exec(removeEmptyLastColumn(tablePos()))).toBe(true);
+    expect(TableMap.get(tableNode()).width).toBe(2);
+    // The declared widths left grow to fill the table again.
+    const widths = columnWidths(tableNode());
+    expect(widths.every((width) => width != null)).toBe(true);
+    expect(widths.reduce((sum: number, width) => sum + width!, 0)).toBeCloseTo(100, 0);
+    expect(editor.exec(removeEmptyLastRow(tablePos()))).toBe(true);
+    expect(tableNode().childCount).toBe(1);
+    expect(editor.exec(removeEmptyLastRow(tablePos()))).toBe(false);
+    expect(editor.exec(removeEmptyLastColumn(tablePos()))).toBe(true);
+    expect(editor.exec(removeEmptyLastColumn(tablePos()))).toBe(false);
+  });
+
+  it('keeps a trailing band with something in it', () => {
+    editor.commands['insertTable'](2, 2);
+    const lastCell = () => {
+      let at = -1;
+      tableNode().descendants((node, pos) => {
+        if (node.type.name === 'tableCell') at = pos;
+      });
+      return tablePos() + 1 + at;
+    };
+    editor.exec((state, dispatch) => {
+      dispatch?.(state.tr.insertText('kept', lastCell() + 2));
+      return true;
+    });
+    expect(editor.exec(removeEmptyLastColumn(tablePos()))).toBe(false);
+    expect(editor.exec(removeEmptyLastRow(tablePos()))).toBe(false);
   });
 
   it('addColumnAtEnd and addRowAtEnd are position-addressed and validated', () => {

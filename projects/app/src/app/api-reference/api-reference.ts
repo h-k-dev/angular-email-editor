@@ -195,9 +195,9 @@ export class ApiReference {
           does: 'Table and column guides that peek on hover, the quoted history (kept beside the body, folded behind ⋯, removed by its trash or moved into the body by Edit — both undoable; createQuotedHistory({ labels }) for other languages), paste sanitizing, and formatting removal.',
         },
         {
-          name: 'ColumnResize, ColumnsResize, History, BaseKeymap, Gapcursor, NoTextDrag, SplitKeepingMarks',
+          name: 'ColumnResize, ColumnsResize, History, BaseKeymap, ClickBelow, Gapcursor, NoTextDrag, SplitKeepingMarks',
           signature: 'Extension',
-          does: 'The interaction layer: table and column-block resizing, undo/redo, the base keymap, a caret for positions no text can hold, drag suppression, and marks that survive a split.',
+          does: 'The interaction layer: table and column-block resizing, undo/redo, the base keymap, a fresh line under the last block for a click below it (Notion’s: taken back if left unused; clickBelow(view, clientY) for a gesture that takes the press itself), a caret for positions no text can hold, drag suppression, and marks that survive a split.',
         },
       ],
     },

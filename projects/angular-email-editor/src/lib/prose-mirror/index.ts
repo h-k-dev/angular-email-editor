@@ -65,6 +65,7 @@ export * from './extensions/column-resize';
 export * from './extensions/table-handles';
 export * from './extensions/columns-resize';
 export * from './extensions/gapcursor';
+export * from './extensions/click-below';
 export * from './extensions/layout-guides';
 export * from './extensions/quoted-history';
 export * from './extensions/code-line-indent';

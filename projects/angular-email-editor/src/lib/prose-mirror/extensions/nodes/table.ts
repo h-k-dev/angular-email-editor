@@ -177,6 +177,12 @@ export const TABLE_BORDER_COLOR = 'rgb(230, 229, 227)';
     the editor too. */
 export const TABLE_CELL_PADDING = '7px 9px';
 
+/** The shape a new table takes: Notion's three by three. Three columns
+    split the email's width in thirds — the size a column is meant to have;
+    a `+` pill's drag steps by half of one (column-resize.ts). */
+export const TABLE_ROWS = 3;
+export const TABLE_COLUMNS = 3;
+
 /** The room a bordered or borderless table keeps above and below itself, in
     px — real (`margin-top`/`margin-bottom` on the table, see `tableStyle`),
     so the email sets the table off from the text around it exactly as the
@@ -452,8 +458,12 @@ export const Table = defineNode({
   },
   commands: ({ schema }) => ({
     /** The default shape and kind are the ones /table inserts — three rows
-        by two, bordered (see `TableKind`). */
-    insertTable: (rows = 3, cols = 2, kind: TableKind = 'bordered'): Command =>
+        by three, bordered (see `TableKind`). */
+    insertTable: (
+      rows = TABLE_ROWS,
+      cols = TABLE_COLUMNS,
+      kind: TableKind = 'bordered',
+    ): Command =>
       insertTableFocused(schema, rows, cols, kind),
     // Selection-relative structure edits, straight from the library: each one
     // understands merged cells and multi-cell selections for free. The
@@ -623,7 +633,7 @@ export const Table = defineNode({
       title: 'Table',
       keywords: ['table', 'bordered', 'grid', 'rows', 'columns', 'excel', 'lines'],
       icon: 'grid_on',
-      command: insertTableFocused(schema, 3, 2, 'bordered'),
+      command: insertTableFocused(schema, TABLE_ROWS, TABLE_COLUMNS, 'bordered'),
     },
     {
       id: 'borderless-table',
@@ -631,7 +641,7 @@ export const Table = defineNode({
       title: 'Borderless table',
       keywords: ['borderless-table', 'table', 'borderless', 'no lines', 'padding'],
       icon: 'border_clear',
-      command: insertTableFocused(schema, 3, 2, 'borderless'),
+      command: insertTableFocused(schema, TABLE_ROWS, TABLE_COLUMNS, 'borderless'),
     },
     {
       id: 'layout-table',
@@ -639,7 +649,7 @@ export const Table = defineNode({
       title: 'Layout table',
       keywords: ['layout-table', 'table', 'layout', 'invisible', 'side by side'],
       icon: 'view_quilt',
-      command: insertTableFocused(schema, 3, 2, 'layout'),
+      command: insertTableFocused(schema, TABLE_ROWS, TABLE_COLUMNS, 'layout'),
     },
   ],
 });
@@ -680,6 +690,9 @@ function insertTableFocused(
     const table = buildTable(schema, rows, cols, kind);
 
     const from = state.selection.from;
+    // An empty line — the one a `/table` was typed in and taken out of —
+    // is replaced by the table (ProseMirror swaps an empty textblock for
+    // the block); a line with words keeps them, and the table goes under it.
     const tr = state.tr.replaceSelectionWith(table);
 
     let tablePos = -1;
@@ -816,6 +829,120 @@ export function addColumnAtEnd(tablePos: number): Command {
         map.width,
       );
       rescaleForNewColumn(tr, tablePos);
+      dispatch(tr.scrollIntoView());
+    }
+    return true;
+  };
+}
+
+/** Whether a cell holds nothing: no text, no picture, button or token — at
+    most the line breaks of an emptied cell. */
+function isEmptyCell(cell: Node): boolean {
+  let empty = true;
+  cell.descendants((node) => {
+    if (node.isText || (node.isLeaf && node.type.name !== 'hardBreak')) empty = false;
+    return empty;
+  });
+  return empty;
+}
+
+/** Whether nothing is in any of the table's cells — a table a drag may take
+    away whole. */
+export function isTableEmpty(table: Node): boolean {
+  let empty = true;
+  table.forEach((row) =>
+    row.forEach((cell) => {
+      if (empty && !isEmptyCell(cell)) empty = false;
+    }),
+  );
+  return empty;
+}
+
+/**
+ * After a column is taken away: when every column left declares its share,
+ * they grow together to fill the table again — the gap the column leaves
+ * is theirs, as the new column's share was taken from them all.
+ */
+function rescaleForRemovedColumn(tr: Transaction, tablePos: number): void {
+  const table = tr.doc.nodeAt(tablePos);
+  if (!table || table.type.name !== 'table') return;
+  const map = TableMap.get(table);
+  let sum = 0;
+  for (let col = 0; col < map.width; col++) {
+    const rel = map.map[col];
+    const colwidth = table.nodeAt(rel)!.attrs['colwidth'] as (number | null)[] | null;
+    const share = colwidth?.[col - map.colCount(rel)];
+    if (!share) return;
+    sum += share;
+  }
+  if (sum <= 0 || sum >= 100) return;
+  const factor = 100 / sum;
+  const seen = new Set<number>();
+  for (const rel of map.map) {
+    if (seen.has(rel)) continue;
+    seen.add(rel);
+    const cell = table.nodeAt(rel)!;
+    const colwidth = cell.attrs['colwidth'] as (number | null)[] | null;
+    if (!colwidth) continue;
+    const scaled = colwidth.map((entry) => (entry ? Math.round(entry * factor * 10) / 10 : entry));
+    tr.setNodeMarkup(tablePos + 1 + rel, null, { ...cell.attrs, colwidth: scaled });
+  }
+}
+
+/**
+ * Takes the table's last column away while nothing is in it — what dragging
+ * the `+` pill on the right flank back does (the `ColumnResize` NodeView).
+ * Never the only column, never one a merged cell reaches into, never one
+ * with anything in it: a drag is no way to lose words. The columns left
+ * close the gap.
+ */
+export function removeEmptyLastColumn(tablePos: number): Command {
+  return (state, dispatch) => {
+    const table = state.doc.nodeAt(tablePos);
+    if (!table || table.type.name !== 'table') return false;
+    const map = TableMap.get(table);
+    const col = map.width - 1;
+    if (col < 1) return false;
+    for (let row = 0; row < map.height; row++) {
+      const rel = map.map[row * map.width + col];
+      if (map.map[row * map.width + col - 1] === rel) return false;
+      if (!isEmptyCell(table.nodeAt(rel)!)) return false;
+    }
+    if (dispatch) {
+      const tr = state.tr;
+      removeColumn(
+        tr,
+        { map, tableStart: tablePos + 1, table, left: 0, top: 0, right: 0, bottom: 0 },
+        col,
+      );
+      rescaleForRemovedColumn(tr, tablePos);
+      dispatch(tr.scrollIntoView());
+    }
+    return true;
+  };
+}
+
+/** The row twin: the last row away while nothing is in it — never the only
+    row, never one a merged cell reaches down into. */
+export function removeEmptyLastRow(tablePos: number): Command {
+  return (state, dispatch) => {
+    const table = state.doc.nodeAt(tablePos);
+    if (!table || table.type.name !== 'table') return false;
+    const map = TableMap.get(table);
+    const row = map.height - 1;
+    if (row < 1) return false;
+    for (let col = 0; col < map.width; col++) {
+      const rel = map.map[row * map.width + col];
+      if (map.map[(row - 1) * map.width + col] === rel) return false;
+      if (!isEmptyCell(table.nodeAt(rel)!)) return false;
+    }
+    if (dispatch) {
+      const tr = state.tr;
+      removeRow(
+        tr,
+        { map, tableStart: tablePos + 1, table, left: 0, top: 0, right: 0, bottom: 0 },
+        row,
+      );
       dispatch(tr.scrollIntoView());
     }
     return true;

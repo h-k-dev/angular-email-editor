@@ -1366,6 +1366,59 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
   pointer-events: auto;
 }
 
+/* A click adds one, a drag adds or takes away many (the NodeView's
+ * `#startExtend`): Notion's cursors say which way the drag goes. */
+.aee-editor .aee-add-pill--column {
+  cursor: col-resize;
+}
+
+.aee-editor .aee-add-pill--row {
+  cursor: row-resize;
+}
+
+/* Mid-drag the pill stays, and the grid with it, wherever the pointer
+ * wanders — the table it is growing must stay readable as a grid. */
+.aee-editor .aee-table-wrap--extending-column .aee-add-pill--column,
+.aee-editor .aee-table-wrap--extending-row .aee-add-pill--row {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.aee-editor
+  :is(.aee-table-wrap--extending-column, .aee-table-wrap--extending-row):not(
+    .aee-table-wrap--authored
+  )
+  td {
+  border-color: var(
+    --email-layout-guide,
+    var(--email-table-grid, light-dark(rgb(230, 229, 227), #383836))
+  );
+  transition: none;
+}
+
+/* Dragged in past its last band, an empty table is on its way out — let go
+ * there and it is taken away. Its grid is gone already; the pill stays for
+ * the way back. */
+.aee-editor .aee-table-wrap--going > .aee-table-box > table {
+  visibility: hidden;
+}
+
+/* The badge by the pointer while a pill is dragged (`TABLE_EXTEND_BADGE_CLASS`):
+ * the table's columns × rows as the drag has it — Notion's, since our table
+ * cannot grow under the hand. Fixed to the viewport, the editor's scheme. */
+.aee-table-extend-badge {
+  position: fixed;
+  z-index: 1000;
+  padding: 2px 6px;
+  border-radius: var(--mat-sys-corner-extra-small, 4px);
+  background-color: var(--mat-sys-inverse-surface, #2f3036);
+  color: var(--mat-sys-inverse-on-surface, #f1f0f7);
+  font: 500 12px/16px var(--mat-sys-body-small-font, system-ui), system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 /* Out of the way while a resize drag is live — two affordances moving at
  * once is noise. */
 .aee-editor .aee-table-wrap--resizing .aee-add-pill {

@@ -333,4 +333,33 @@ describe('block marquee (render)', () => {
     expect(selection.$head.parent.textContent).toBe('line 5');
     expect(selection.$head.parentOffset).toBe(0);
   });
+
+  it('a click below the last block starts a line there — a drag from it is still the box — and the line goes again unused', () => {
+    editor.view.dom.style.paddingBottom = '80px';
+    surface.scrollTop = surface.scrollHeight;
+    const count = editor.state.doc.childCount;
+    const x = rect(block(count - 1)).left + 20;
+    const y = rect(block(count - 1)).bottom + 30;
+
+    // A drag from the room below selects blocks, as before.
+    expect(mouse('mousedown', x, y).defaultPrevented).toBe(true);
+    mouse('mousemove', x + 10, rect(block(count - 2)).top + 5, window);
+    expect(marquee()).not.toBeNull();
+    mouse('mouseup', x + 10, rect(block(count - 2)).top + 5, window);
+    expect(editor.state.doc.childCount).toBe(count);
+
+    // Released in place: a fresh line under the last block, the caret on it.
+    mouse('mousedown', x, y);
+    mouse('mouseup', x, y, window);
+    expect(editor.state.doc.childCount).toBe(count + 1);
+    const { selection } = editor.state;
+    expect(selection.$head.parent).toBe(editor.state.doc.lastChild);
+    expect(selection.$head.parent.content.size).toBe(0);
+
+    // A click back in the margin of a line: the unused line goes.
+    const line = rect(block(count - 3));
+    mouse('mousedown', rect(surface).left + 10, line.top + 10);
+    mouse('mouseup', rect(surface).left + 10, line.top + 10, window);
+    expect(editor.state.doc.childCount).toBe(count);
+  });
 });

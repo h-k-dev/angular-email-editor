@@ -3,6 +3,7 @@ import { EditorView } from 'prosemirror-view';
 import { FunctionalExtension, defineExtension } from '../extension';
 import { BlockSelection, releaseBlockSelection } from './block-selection';
 import { claimPress } from './press-claim';
+import { clickBelow } from './click-below';
 
 /** The class of the box a drag draws — the host paints it, in the same wash
     as the blocks it lights ({@link BLOCK_SELECTED_CLASS}). */
@@ -137,7 +138,8 @@ interface Gesture {
  * text takes the press on its rows. The press is kept from the browser
  * and ProseMirror alike (no caret jump, no native selection), so a press
  * released in place is placed here: the caret at the nearest spot in the
- * text, as a click in the margin of a page puts it in Google Docs.
+ * text, as a click in the margin of a page puts it in Google Docs — or,
+ * below the last block, on a fresh line there ({@link clickBelow}).
  *
  * **While it drags.** The box is a `div` ({@link BLOCK_MARQUEE_CLASS}) in the
  * canvas — the surface, unless the host gives a larger one — against the
@@ -339,6 +341,9 @@ export const createBlockMarquee = (options: BlockMarqueeOptions = {}): Functiona
                   releaseBlockSelection(view);
                   return;
                 }
+                // Below the last block: a line to type in, as the editor's
+                // own click there makes one (`ClickBelow`).
+                if (clickBelow(view, pressed.y)) return;
                 const rect = view.dom.getBoundingClientRect();
                 const found = view.posAtCoords({
                   left: clamp(pressed.x, rect.left + 1, rect.right - 1),

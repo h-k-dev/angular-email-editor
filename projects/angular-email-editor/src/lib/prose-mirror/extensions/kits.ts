@@ -29,6 +29,7 @@ import { History } from './history';
 import { LayoutGuides } from './layout-guides';
 import { LayoutInteraction } from './layout-interaction';
 import { Gapcursor } from './gapcursor';
+import { ClickBelow } from './click-below';
 import { ColumnResize } from './column-resize';
 import { ColumnsResize } from './columns-resize';
 import { NoTextDrag } from './no-text-drag';
@@ -70,6 +71,9 @@ const withParagraph = (paragraph: NodeExtension): Extension[] => [
   Columns,
   Column,
   Section,
+  // A click below the last block starts a line there (Notion's). Before
+  // gap-cursor, whose click would park a cursor under a trailing table.
+  ClickBelow,
   // After the layout blocks on purpose: their own arrow escapes must be
   // reached before gap-cursor claims the arrows (see the extension's docs).
   Gapcursor,

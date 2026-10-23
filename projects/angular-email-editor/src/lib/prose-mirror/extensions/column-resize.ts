@@ -3,14 +3,19 @@ import { Command, EditorState, Plugin, PluginKey } from 'prosemirror-state';
 import { Node } from 'prosemirror-model';
 import { Decoration, DecorationSet, EditorView, ViewMutationRecord } from 'prosemirror-view';
 import { CellSelection, TableMap } from 'prosemirror-tables';
+import { closeHistory } from 'prosemirror-history';
 import { defineExtension } from '../extension';
 import { layoutBlockInteractive } from './layout-interaction';
 import {
   MIN_COLUMN_PCT,
   MIN_TABLE_PCT,
+  TABLE_COLUMNS,
   addColumnAtEnd,
   addRowAtEnd,
   formatPct,
+  isTableEmpty,
+  removeEmptyLastColumn,
+  removeEmptyLastRow,
   tableKind,
   tableStyle,
 } from './nodes/table';
@@ -436,25 +441,20 @@ class TableView {
     };
     this.#edges = { left: edge('left'), right: edge('right') };
     // The `+` pills: one on the right flank (append a column), one under the
-    // bottom edge (append a row). Compact, not Tiptap's full-length strips,
-    // so the edge-drag handle keeps the rest of the edge to itself.
-    const pill = (className: string, label: string, command: (pos: number) => Command) => {
+    // bottom edge (append a row). Notion's two bars: a click adds one, a drag
+    // adds or takes away as many as it covers (`#startExtend`).
+    const pill = (axis: Axis, label: string) => {
       const el = this.dom.appendChild(document.createElement('div'));
-      el.className = `aee-add-pill ${className}`;
+      el.className = `aee-add-pill aee-add-pill--${axis}`;
       el.textContent = '+';
       el.contentEditable = 'false';
       el.setAttribute('role', 'button');
       el.setAttribute('aria-hidden', 'true');
       el.setAttribute('title', label);
-      // preventDefault keeps the caret where it is; the command runs on click.
-      el.addEventListener('mousedown', (event) => event.preventDefault());
-      el.addEventListener('click', () => {
-        if (!this.#interactive()) return;
-        command(this.#getPos())(this.#view.state, this.#view.dispatch);
-      });
+      el.addEventListener('pointerdown', (event) => this.#startExtend(axis, event));
       return el;
     };
-    this.#addColumn = pill('aee-add-pill--column', 'Add column', addColumnAtEnd);
+    this.#addColumn = pill('column', EXTEND_LABELS.column);
     // The sensor zone — one contiguous strip from the table's right edge out
     // to the pill (the YouTube-gesture-layer idea): hovering anywhere along
     // it reveals the pill, so the pointer never crosses dead space on its way
@@ -476,7 +476,7 @@ class TableView {
     this.#addRowZone.className = 'aee-add-zone aee-add-zone--row';
     this.#addRowZone.contentEditable = 'false';
     this.#addRowZone.setAttribute('aria-hidden', 'true');
-    this.#addRow = pill('aee-add-pill--row', 'Add row', addRowAtEnd);
+    this.#addRow = pill('row', EXTEND_LABELS.row);
     this.#addRowZone.appendChild(this.#addRow);
     // Column-grip hover is a data attribute on this wrap, not 24 `:has()`
     // rules walking the grid on every pointer move — same reveal, none of
@@ -696,6 +696,238 @@ class TableView {
     trackPointer(preview, finish);
   }
 
+  /**
+   * A press on a `+` pill: Notion's two bars, fitted to an email's fixed
+   * width. Released in place it adds one column (or row) — the click, one
+   * step of the drag below.
+   *
+   * Dragged, it counts Notion's way (measured off Notion's own): the
+   * count is how far the pointer has gone from the press, in fixed steps,
+   * either way, after a quarter step of slack — never the bands' own sizes,
+   * so the whole table is a few steps from its last column, wherever the
+   * hand is. A column's step is half a default column (a sixth of the
+   * room); a row's, the last row's height. Every column keeps its own size
+   * on the page, so the table's edge — and its pill — moves with the
+   * count: taking one away shrinks the table by it, and a new one, a step
+   * wide, grows it until it fills its room; past that the columns share
+   * it, none below `MIN_COLUMN_PCT`, so at most ten (an email has no
+   * sideways scroll to spill into). At either limit — the cap, the last
+   * band that can go — the travel beyond it is dropped, so the way back
+   * starts at once.
+   *
+   * Only empty bands go (`removeEmptyLastColumn`): a drag loses no words.
+   * Past the first one of an empty table, the table itself is on its way
+   * out — faded, the badge at 0 — and released there, it is taken away.
+   *
+   * What each count shows is Notion's too (recorded off Notion's own): a
+   * step in takes the last band away, a step out adds a fresh one — a
+   * column half a default one wide — and back at the count it began with,
+   * the table is the very one the press found. So past 0 and out again,
+   * the first steps are fresh minis, and at the start they turn back into
+   * the columns that were there; let go on a mini, and the next drag
+   * starts from it.
+   *
+   * The table follows the pointer live, outside the undo history; release
+   * lands the change as one step. A badge by the pointer says what it will
+   * be (`TABLE_EXTEND_BADGE_CLASS`, columns × rows). Escape puts the table
+   * back as it was.
+   */
+  #startExtend(axis: Axis, event: PointerEvent): void {
+    // Keeps the caret where it is, and the press off ProseMirror.
+    event.preventDefault();
+    if (event.button !== 0 || !this.#interactive()) return;
+    const view = this.#view;
+    const pos = this.#getPos();
+    const start = view.state;
+    const table = start.doc.nodeAt(pos);
+    if (!table) return;
+    const map = TableMap.get(table);
+    const column = axis === 'column';
+    const room = this.#contentBox().width;
+
+    // Each column's size on the page as the press found it (percent of the
+    // room), and the step a band is worth.
+    const offset = table.attrs['offset'] as number;
+    const tableWidth = table.attrs['width'] as number;
+    const columnPcts = effectiveWidths(table).map((share) => (share * tableWidth) / 100);
+    const lastRow = this.contentDOM.lastElementChild;
+    // Nothing laid out (no step): the click still works, the drag does not.
+    const step = column
+      ? (room * EXTEND_COLUMN_PCT) / 100
+      : (lastRow?.getBoundingClientRect().height ?? 0);
+    const bands = column ? map.width : map.height;
+    const most = Math.max(
+      0,
+      column ? Math.floor(100 / MIN_COLUMN_PCT) - map.width : EXTEND_MAX_ROWS - map.height,
+    );
+    const emptyTable = isTableEmpty(table);
+    let origin = column ? event.clientX : event.clientY;
+    const add = column ? addColumnAtEnd : addRowAtEnd;
+    const remove = column ? removeEmptyLastColumn : removeEmptyLastRow;
+
+    /** The table as the press found it with only its first `keep` bands,
+        and `fresh` new ones after them — and how many it kept: a band
+        with words in it stays. Keeping none, the one band left of an empty
+        table stands in for a fresh one. Columns keep their own sizes on
+        the page, a fresh one a mini (`holdColumnSizes`). */
+    const build = (keep: number, fresh: number): { node: Node; kept: number } => {
+      let state = start;
+      let left = bands;
+      while (left > Math.max(keep, 1) && remove(pos)(state, (tr) => (state = state.apply(tr)))) {
+        left--;
+      }
+      const kept = keep === 0 && left === 1 && emptyTable ? 0 : left;
+      for (let i = kept ? 0 : 1; i < fresh; i++) add(pos)(state, (tr) => (state = state.apply(tr)));
+      if (column && (kept < bands || fresh)) {
+        state = holdColumnSizes(state, pos, columnPcts.slice(0, kept), offset);
+      }
+      return { node: state.doc.nodeAt(pos)!, kept };
+    };
+    /** Where `total` bands come from, Notion's way: the start is the table
+        the press found; out, fresh bands after what stands; in, the last
+        one goes — fresh ones first. Crossing the start on the way out, the
+        press's own bands are back before any fresh one. */
+    const steer = (total: number): [number, number] => {
+      if (total === bands) return [bands, 0];
+      if (total > kept + fresh) {
+        return kept + fresh < bands && total > bands
+          ? [bands, total - bands]
+          : [kept, fresh + total - (kept + fresh)];
+      }
+      const drop = kept + fresh - total;
+      const fromFresh = Math.min(drop, fresh);
+      return [kept - (drop - fromFresh), fresh - fromFresh];
+    };
+    /** Puts `next` where the table is now; in the undo history or not. */
+    const show = (next: Node, history: boolean) => {
+      const current = view.state.doc.nodeAt(pos);
+      if (!current || current.type !== next.type || current === next) return;
+      const tr = view.state.tr.replaceWith(pos, pos + current.nodeSize, next);
+      // Its own step, never folded into the typing just before it.
+      if (history) closeHistory(tr);
+      else tr.setMeta('addToHistory', false);
+      view.dispatch(tr);
+    };
+
+    // What stands: the press's own bands still there, and fresh ones after.
+    let kept = bands;
+    let fresh = 0;
+    let gone = false;
+    let dragging = false;
+    let cancelled = false;
+    let badge: HTMLElement | null = null;
+    /** The badge by the pointer: what the table is now, columns × rows. */
+    const tell = (shown: Node, at: PointerEvent) => {
+      if (!badge) {
+        badge = document.createElement('div');
+        badge.className = TABLE_EXTEND_BADGE_CLASS;
+        badge.setAttribute('aria-hidden', 'true');
+        // The editor's scheme, wherever it is drawn (the marquee's way).
+        badge.style.colorScheme = getComputedStyle(view.dom).colorScheme;
+        // In an open modal dialog's top layer, or the page's.
+        (this.dom.closest('dialog[open]') ?? document.body).appendChild(badge);
+      }
+      const size = TableMap.get(shown);
+      const width = gone && column ? 0 : size.width;
+      const height = gone && !column ? 0 : size.height;
+      badge.textContent = `${width} × ${height}`;
+      badge.style.left = `${at.clientX + 12}px`;
+      badge.style.top = `${at.clientY + 16}px`;
+    };
+    /** At 0 the table is gone from under the pill, which stands at its
+        start — the left edge (the top, for rows) — as Notion's does; back
+        from 0, at the edge the table has again. */
+    const fade = (on: boolean) => {
+      gone = on;
+      this.dom.classList.toggle('aee-table-wrap--going', on);
+      const node = this.#node;
+      if (column) {
+        if (on) this.#addColumnZone.style.left = `${node.attrs['offset']}%`;
+        else this.#placeAddOns(node.attrs['offset'] as number, node.attrs['width'] as number);
+      } else {
+        this.#addRowZone.style.top = on ? '0' : '';
+      }
+    };
+    const bodyCursor = document.body.style.cursor;
+    const end = () => {
+      document.body.style.cursor = bodyCursor;
+      this.dom.classList.remove(`aee-table-wrap--extending-${axis}`);
+      badge?.remove();
+      badge = null;
+      window.removeEventListener('keydown', key, true);
+    };
+    const key = (pressed: KeyboardEvent) => {
+      if (pressed.key !== 'Escape' || !dragging) return;
+      pressed.preventDefault();
+      pressed.stopPropagation();
+      cancelled = true;
+      fade(false);
+      show(table, false);
+      end();
+    };
+    const preview = (moved: PointerEvent) => {
+      // An editor gone mid-drag (its composer closed) takes nothing more.
+      if (cancelled || !step || view.isDestroyed) return;
+      const at = column ? moved.clientX : moved.clientY;
+      const delta = at - origin;
+      if (!dragging) {
+        if (Math.abs(delta) < EXTEND_THRESHOLD) return;
+        dragging = true;
+        // The pill, the grid and the cursor stay through the drag, wherever
+        // the pointer goes.
+        this.dom.classList.add(`aee-table-wrap--extending-${axis}`);
+        document.body.style.cursor = column ? 'col-resize' : 'row-resize';
+      }
+      // A quarter step of slack, then one band a step, either way.
+      const reach = Math.abs(delta) - step / 4;
+      const wanted = reach > 0 ? Math.sign(delta) * Math.ceil(reach / step) : 0;
+      // Past its last band, an empty table is on its way out.
+      const total = clamp(bands + wanted, emptyTable ? 0 : 1, bands + most);
+      const [keep, more] = steer(total);
+      if (keep !== kept || more !== fresh) {
+        const result = build(keep, more);
+        kept = result.kept;
+        fresh = more;
+        show(result.node, false);
+      }
+      const reached = kept + fresh - bands;
+      if ((kept + fresh === 0) !== gone) fade(kept + fresh === 0);
+      // Past a limit — the cap, the last band that can go — the travel
+      // beyond it is dropped: the pointer stands at the far end of the
+      // count it has, and one step back changes the table again.
+      if (wanted !== reached) {
+        origin = at - Math.sign(wanted) * (Math.abs(reached) * step + step / 4);
+      }
+      tell(view.state.doc.nodeAt(pos) ?? table, moved);
+    };
+    const finish = () => {
+      if (cancelled) return;
+      end();
+      if (view.isDestroyed) return;
+      if (!dragging) {
+        if (most) show(build(bands, 1).node, true);
+        return;
+      }
+      if (gone) {
+        // Released past the last band: the table goes, as one step.
+        fade(false);
+        show(table, false);
+        const tr = view.state.tr.delete(pos, pos + table.nodeSize);
+        view.dispatch(closeHistory(tr).scrollIntoView());
+        return;
+      }
+      if (kept === bands && !fresh) return;
+      // One step for the whole drag: back to the table the press found,
+      // outside the history, then the result, in it.
+      const result = view.state.doc.nodeAt(pos);
+      if (!result) return;
+      show(table, false);
+      show(result, true);
+    };
+    window.addEventListener('keydown', key, true);
+    trackPointer(preview, finish);
+  }
+
   /** The table's own resize: drag either outer edge, same deferred-commit
       and pinning discipline as a boundary drag — only the edge line moves,
       and release applies one transaction. The left edge moves the offset
@@ -807,6 +1039,83 @@ function sameWidthList(a: number[] | null, b: number[] | null): boolean {
 /** Window-level pointer tracking for the life of a drag: move is coalesced
     to animation frames so a 120 Hz stream cannot write the line more than
     once per paint; up/cancel apply the last event immediately. */
+/** The class of the badge a `+` pill's drag shows by the pointer — the
+    table's columns × rows as the drag has it. The host paints it. */
+export const TABLE_EXTEND_BADGE_CLASS = 'aee-table-extend-badge';
+
+/** Which way a `+` pill extends the table. */
+type Axis = 'column' | 'row';
+
+/** What each pill says it does, Notion's words. */
+const EXTEND_LABELS: Record<Axis, string> = {
+  column: 'Click to add a column\nDrag to add or remove columns',
+  row: 'Click to add a row\nDrag to add or remove rows',
+};
+
+/** A new column's size when a pill's drag adds one: half a default
+    column, in percent of the table's room. */
+const EXTEND_COLUMN_PCT = 100 / (TABLE_COLUMNS * 2);
+
+/**
+ * Lays a table's columns out at the sizes they had on the page — `sizes`,
+ * in percent of the room, one per column the drag's press found; a column
+ * past those is a new one, {@link EXTEND_COLUMN_PCT} wide. The table grows
+ * or shrinks to hold them, within its room and above `MIN_TABLE_PCT`;
+ * where they do not fit, they share the room in proportion, none below
+ * `MIN_COLUMN_PCT`. Every cell then declares its share.
+ */
+function holdColumnSizes(
+  state: EditorState,
+  pos: number,
+  sizes: number[],
+  offset: number,
+): EditorState {
+  const table = state.doc.nodeAt(pos);
+  if (!table) return state;
+  const map = TableMap.get(table);
+  const wanted = Array.from({ length: map.width }, (_, col) => sizes[col] ?? EXTEND_COLUMN_PCT);
+  const total = wanted.reduce((sum, size) => sum + size, 0);
+  const width = round1(clamp(total, MIN_TABLE_PCT, 100 - offset));
+  const shares = floorShares(wanted.map((size) => (size / total) * 100)).map(round1);
+  const tr = state.tr;
+  const seen = new Set<number>();
+  for (const rel of map.map) {
+    if (seen.has(rel)) continue;
+    seen.add(rel);
+    const cell = table.nodeAt(rel)!;
+    const left = map.findCell(rel).left;
+    const colwidth = shares.slice(left, left + (cell.attrs['colspan'] as number));
+    tr.setNodeMarkup(pos + 1 + rel, null, { ...cell.attrs, colwidth });
+  }
+  tr.setNodeMarkup(pos, null, { ...table.attrs, width });
+  return state.apply(tr);
+}
+
+/** Shares summing to 100, none below `MIN_COLUMN_PCT`: those below are
+    raised to it, and the rest give up the difference in proportion. */
+function floorShares(shares: number[]): number[] {
+  const pinned = shares.map(() => false);
+  let out = shares;
+  for (let pass = 0; pass < shares.length; pass++) {
+    const low = out.map((share, i) => !pinned[i] && share < MIN_COLUMN_PCT);
+    if (!low.includes(true)) break;
+    low.forEach((isLow, i) => {
+      if (isLow) pinned[i] = true;
+    });
+    const free = 100 - pinned.filter(Boolean).length * MIN_COLUMN_PCT;
+    const freeSum = out.reduce((sum, share, i) => (pinned[i] ? sum : sum + share), 0) || 1;
+    out = out.map((share, i) => (pinned[i] ? MIN_COLUMN_PCT : (share / freeSum) * free));
+  }
+  return out;
+}
+
+/** How far, in px, a press on a pill moves before it is a drag. */
+const EXTEND_THRESHOLD = 4;
+
+/** As far as a row pill's drag goes: no email table wants more rows. (A
+    column pill's stops where a column would go below `MIN_COLUMN_PCT`.) */
+const EXTEND_MAX_ROWS = 100;
+
 function trackPointer(
   preview: (event: PointerEvent) => void,
   finish: (event: PointerEvent) => void,

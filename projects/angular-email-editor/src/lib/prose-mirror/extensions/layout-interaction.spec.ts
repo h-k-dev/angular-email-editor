@@ -10,6 +10,13 @@ import {
   layoutInteractivity,
 } from './layout-interaction';
 
+/** A press on a `+` pill released in place: its click (a drag is the
+    render spec's). */
+const tap = (pill: HTMLElement) => {
+  pill.dispatchEvent(new PointerEvent('pointerdown', { button: 0, bubbles: true, cancelable: true }));
+  window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+};
+
 describe('layout interaction', () => {
   let host: HTMLElement;
   let editor: Editor;
@@ -99,11 +106,11 @@ describe('layout interaction', () => {
     expect(host.querySelector('.aee-table-wrap')!.classList).toContain('aee-table-wrap--layout');
     const rows = () => host.querySelectorAll('tr').length;
     const before = rows();
-    host.querySelector<HTMLElement>('.aee-add-pill--row')!.click();
+    tap(host.querySelector<HTMLElement>('.aee-add-pill--row')!);
     expect(rows()).toBe(before);
 
     off({ table: true });
-    host.querySelector<HTMLElement>('.aee-add-pill--row')!.click();
+    tap(host.querySelector<HTMLElement>('.aee-add-pill--row')!);
     expect(rows()).toBe(before + 1);
   });
 
@@ -117,7 +124,7 @@ describe('layout interaction', () => {
       // Row and column grips, and the caret cell's.
       expect(host.querySelectorAll('.aee-grip').length).toBe(5);
       const before = host.querySelectorAll('tr').length;
-      host.querySelector<HTMLElement>('.aee-add-pill--row')!.click();
+      tap(host.querySelector<HTMLElement>('.aee-add-pill--row')!);
       expect(host.querySelectorAll('tr').length).toBe(before + 1);
     });
   }

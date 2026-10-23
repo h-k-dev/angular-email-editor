@@ -182,21 +182,21 @@ describe('table editing', () => {
 
   it('inserts a table with the cursor inside the first cell', () => {
     editor.commands['insertTable']();
-    // Three rows by two, the shape a table asked for by name starts with.
-    expect(dims()).toEqual({ rows: 3, cols: 2 });
+    // Three by three, the shape a table asked for by name starts with.
+    expect(dims()).toEqual({ rows: 3, cols: 3 });
     expect(editor.state.selection.$from.parent.type.name).toBe('tableCell');
   });
 
   it('adds and deletes columns and rows', () => {
-    editor.commands['insertTable'](); // 3 x 2
+    editor.commands['insertTable'](); // 3 x 3
     editor.commands['addColumnAfter']();
-    expect(dims()).toEqual({ rows: 3, cols: 3 });
+    expect(dims()).toEqual({ rows: 3, cols: 4 });
     editor.commands['addRowAfter']();
-    expect(dims()).toEqual({ rows: 4, cols: 3 });
+    expect(dims()).toEqual({ rows: 4, cols: 4 });
     editor.commands['deleteColumn']();
-    expect(dims()).toEqual({ rows: 4, cols: 2 });
+    expect(dims()).toEqual({ rows: 4, cols: 3 });
     editor.commands['deleteRow']();
-    expect(dims()).toEqual({ rows: 3, cols: 2 });
+    expect(dims()).toEqual({ rows: 3, cols: 3 });
   });
 
   it('setCellBackground fills only the current cell with a canonical rgb() bg', () => {
@@ -236,10 +236,10 @@ describe('table editing', () => {
   it('/table inserts the bordered default — lines and real padding — and new cells inherit both', () => {
     editor.exec(action('table').command!);
     let html = editor.getHTML();
-    // Asked for by name, a table starts three rows by two.
-    expect(dims()).toEqual({ rows: 3, cols: 2 });
-    expect(count(html, BORDER)).toBe(6);
-    expect(count(html, PADDING)).toBe(6);
+    // Asked for by name, a table starts three by three.
+    expect(dims()).toEqual({ rows: 3, cols: 3 });
+    expect(count(html, BORDER)).toBe(9);
+    expect(count(html, PADDING)).toBe(9);
     expect(canonical(html)).toBe(html);
     expect(lintHTML(html)).toEqual([]);
 
@@ -248,17 +248,42 @@ describe('table editing', () => {
     editor.commands['addRowAfter']();
     editor.commands['addColumnAfter']();
     html = editor.getHTML();
-    expect(dims()).toEqual({ rows: 4, cols: 3 });
-    expect(count(html, BORDER)).toBe(12);
-    expect(count(html, PADDING)).toBe(12);
+    expect(dims()).toEqual({ rows: 4, cols: 4 });
+    expect(count(html, BORDER)).toBe(16);
+    expect(count(html, PADDING)).toBe(16);
     expect(html).toContain(TABLE_BORDER_COLOR);
+  });
+
+  it('/table in an empty line takes that line, as Notion’s does; a line with words keeps them', () => {
+    const caretAtEnd = () =>
+      editor.exec((state, dispatch) => {
+        dispatch?.(state.tr.setSelection(TextSelection.atEnd(state.doc)));
+        return true;
+      });
+    const blocks = () => {
+      const out: string[] = [];
+      editor.state.doc.forEach((node) => out.push(node.type.name + ':' + node.textContent));
+      return out;
+    };
+
+    // The slash menu has taken the `/table` out: the line is empty.
+    editor.setContent('<div>intro</div><div><br></div>');
+    caretAtEnd();
+    editor.exec(action('table').command!);
+    expect(blocks()).toEqual(['paragraph:intro', 'table:']);
+    expect(editor.state.selection.$from.parent.type.name).toBe('tableCell');
+
+    editor.setContent('<div>intro</div>');
+    caretAtEnd();
+    editor.exec(action('table').command!);
+    expect(blocks()).toEqual(['paragraph:intro', 'table:']);
   });
 
   it('insertTable() is the bordered default too', () => {
     editor.commands['insertTable']();
     const html = editor.getHTML();
-    expect(count(html, BORDER)).toBe(6);
-    expect(count(html, PADDING)).toBe(6);
+    expect(count(html, BORDER)).toBe(9);
+    expect(count(html, PADDING)).toBe(9);
   });
 
   it('bordered and borderless tables keep real room above and below — block only', () => {
@@ -296,22 +321,22 @@ describe('table editing', () => {
     editor.exec(action('borderless-table').command!);
     let html = editor.getHTML();
     expect(count(html, BORDER)).toBe(0);
-    expect(count(html, PADDING)).toBe(6);
+    expect(count(html, PADDING)).toBe(9);
     expect(canonical(html)).toBe(html);
 
     editor.commands['addRowAfter']();
     editor.commands['addColumnAt'](0);
     html = editor.getHTML();
-    expect(dims()).toEqual({ rows: 4, cols: 3 });
+    expect(dims()).toEqual({ rows: 4, cols: 4 });
     expect(count(html, BORDER)).toBe(0);
-    expect(count(html, PADDING)).toBe(12);
+    expect(count(html, PADDING)).toBe(16);
   });
 
   it('/layout-table ships neither — its spacing is the editor’s alone', () => {
     editor.exec(action('layout-table').command!);
     editor.commands['addRowAfter']();
     const html = editor.getHTML();
-    expect(dims()).toEqual({ rows: 4, cols: 2 });
+    expect(dims()).toEqual({ rows: 4, cols: 3 });
     expect(html).not.toContain('border:');
     expect(html).not.toContain('padding');
   });
@@ -562,7 +587,7 @@ describe('table editing', () => {
     editor.commands['mergeCells']();
     expect(editor.getHTML()).toContain('colspan="2"');
     // The grid is unchanged — a merged cell spans it, it does not shrink it.
-    expect(dims()).toEqual({ rows: 3, cols: 2 });
+    expect(dims()).toEqual({ rows: 3, cols: 3 });
 
     editor.commands['splitCell']();
     expect(editor.getHTML()).not.toContain('colspan');
