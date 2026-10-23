@@ -13,6 +13,7 @@ import {
   Table,
   TableKind,
   findTableContext,
+  moveTableBand,
   selectColumn,
   selectRow,
   tableKind,
@@ -577,6 +578,35 @@ describe('table editing', () => {
     editor.exec(selectRow(tableAt(), 0));
     expect(editor.commands['moveRow'](1)).toBe(false);
     expect(editor.getHTML()).toContain('rowspan="2"');
+  });
+
+  it('moves one band to any index — a grip’s drag — and keeps it selected there', () => {
+    lettered(2, 3);
+    // The first column dropped after the last.
+    expect(editor.exec(moveTableBand(tableAt(), 'column', 0, 2))).toBe(true);
+    expect(text()).toEqual(['a2', 'a3', 'a1', 'b2', 'b3', 'b1']);
+    const cells: string[] = [];
+    (editor.state.selection as CellSelection).forEachCell((cell) => cells.push(cell.textContent));
+    expect(cells).toEqual(['a1', 'b1']);
+    // And back before the first.
+    expect(editor.exec(moveTableBand(tableAt(), 'column', 2, 0))).toBe(true);
+    expect(text()).toEqual(['a1', 'a2', 'a3', 'b1', 'b2', 'b3']);
+
+    expect(editor.exec(moveTableBand(tableAt(), 'row', 1, 0))).toBe(true);
+    expect(text()).toEqual(['b1', 'b2', 'b3', 'a1', 'a2', 'a3']);
+    // Nowhere to go: its own place, or past the table.
+    expect(editor.exec(moveTableBand(tableAt(), 'row', 0, 0))).toBe(false);
+    expect(editor.exec(moveTableBand(tableAt(), 'row', 0, 2))).toBe(false);
+  });
+
+  it('refuses a drag that would cross a merged cell anywhere on its way', () => {
+    editor.setContent(
+      '<table><tbody><tr><td>a1</td><td colspan="2">wide</td><td>a4</td></tr>' +
+        '<tr><td>b1</td><td>b2</td><td>b3</td><td>b4</td></tr></tbody></table>',
+    );
+    // Column 0 to the end passes the boundary the merge straddles.
+    expect(editor.exec(moveTableBand(tableAt(), 'column', 0, 3))).toBe(false);
+    expect(editor.getHTML()).toContain('colspan="2"');
   });
 
   it('merges a cell selection into one cell and splits it back', () => {

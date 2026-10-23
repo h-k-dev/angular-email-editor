@@ -1152,6 +1152,58 @@ function columnEdit(edit: (cells: Node[], rect: TableRect) => void, offset: numb
   };
 }
 
+/**
+ * Moves one row or column of the table at `tablePos` from index `from` to
+ * `to` — its index once moved — what dragging a grip commits (the
+ * `TableHandles` extension). Position-addressed, like the add pills: the
+ * grip knows its table and its band, wherever the caret is. One
+ * transaction, one undo step; the band stays selected where it landed.
+ * Refused where a merged cell crosses any boundary the band passes, as the
+ * menu's one-place move is.
+ */
+export function moveTableBand(
+  tablePos: number,
+  kind: 'row' | 'column',
+  from: number,
+  to: number,
+): Command {
+  return (state, dispatch) => {
+    const table = state.doc.nodeAt(tablePos);
+    if (!table || table.type.name !== 'table') return false;
+    const map = TableMap.get(table);
+    const size = kind === 'row' ? map.height : map.width;
+    if (from === to || from < 0 || to < 0 || from >= size || to >= size) return false;
+    const clean = kind === 'row' ? isRowBoundaryClean : isColumnBoundaryClean;
+    for (let edge = Math.min(from, to); edge <= Math.max(from, to) + 1; edge++) {
+      if (!clean(map, edge)) return false;
+    }
+    if (kind === 'column') {
+      for (let row = 0; row < map.height; row++) {
+        if (table.child(row).childCount !== map.width) return false;
+      }
+    }
+    if (dispatch) {
+      const tableStart = tablePos + 1;
+      const rows: Node[] = [];
+      if (kind === 'row') {
+        table.forEach((row) => rows.push(row));
+        rows.splice(to, 0, ...rows.splice(from, 1));
+      } else {
+        table.forEach((row) => {
+          const cells: Node[] = [];
+          row.forEach((cell) => cells.push(cell));
+          cells.splice(to, 0, ...cells.splice(from, 1));
+          rows.push(row.copy(Fragment.fromArray(cells)));
+        });
+      }
+      const tr = state.tr.replaceWith(tableStart, tableStart + table.content.size, rows);
+      reselectBand(tr, tableStart, kind, to, 1);
+      dispatch(tr.scrollIntoView());
+    }
+    return true;
+  };
+}
+
 /** Whether the horizontal line above row `index` cuts no merged cell — the
     table's own top and bottom edges always do. */
 function isRowBoundaryClean(map: TableMap, index: number): boolean {

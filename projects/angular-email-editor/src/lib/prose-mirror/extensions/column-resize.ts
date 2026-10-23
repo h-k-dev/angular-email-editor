@@ -4,6 +4,7 @@ import { Node } from 'prosemirror-model';
 import { Decoration, DecorationSet, EditorView, ViewMutationRecord } from 'prosemirror-view';
 import { CellSelection, TableMap } from 'prosemirror-tables';
 import { closeHistory } from 'prosemirror-history';
+import { holdDragCursor } from './drag-cursor';
 import { defineExtension } from '../extension';
 import { layoutBlockInteractive } from './layout-interaction';
 import {
@@ -666,7 +667,7 @@ class TableView {
       line.style.left = `${this.#toBoxPct(startLeft - effective[boundary] + leftAt(ev))}%`;
     };
     const finish = (ev: PointerEvent) => {
-      document.body.style.cursor = bodyCursor;
+      releaseCursor();
       setColumnBoundary(
         this.#getPos(),
         boundary,
@@ -686,8 +687,7 @@ class TableView {
     this.dom.classList.add('aee-table-wrap--resizing');
     // Same reasoning for the cursor: off the 9px strip it would flip back to
     // a text caret mid-drag. It stays col-resize until release.
-    const bodyCursor = document.body.style.cursor;
-    document.body.style.cursor = 'col-resize';
+    const releaseCursor = holdDragCursor('col-resize');
     // Window-level, animation-frame coalesced: the pointer can move faster
     // than a frame (and faster than layout follows), and a handle-bound
     // listener would lose the stream and stutter. `window` never loses it;
@@ -848,9 +848,10 @@ class TableView {
         this.#addRowZone.style.top = on ? '0' : '';
       }
     };
-    const bodyCursor = document.body.style.cursor;
+    let releaseCursor: (() => void) | null = null;
     const end = () => {
-      document.body.style.cursor = bodyCursor;
+      releaseCursor?.();
+      releaseCursor = null;
       this.dom.classList.remove(`aee-table-wrap--extending-${axis}`);
       badge?.remove();
       badge = null;
@@ -876,7 +877,7 @@ class TableView {
         // The pill, the grid and the cursor stay through the drag, wherever
         // the pointer goes.
         this.dom.classList.add(`aee-table-wrap--extending-${axis}`);
-        document.body.style.cursor = column ? 'col-resize' : 'row-resize';
+        releaseCursor = holdDragCursor(column ? 'col-resize' : 'row-resize');
       }
       // A quarter step of slack, then one band a step, either way.
       const reach = Math.abs(delta) - step / 4;
@@ -966,7 +967,7 @@ class TableView {
       if (side === 'right') this.#addColumnZone.style.left = `${edge}%`;
     };
     const finish = (ev: PointerEvent) => {
-      document.body.style.cursor = bodyCursor;
+      releaseCursor();
       const edge = edgeAt(ev);
       const box: [number, number] =
         side === 'left' ? [edge, right - edge] : [offset, edge - offset];
@@ -986,8 +987,7 @@ class TableView {
 
     handle.classList.add('aee-col-line--drag');
     this.dom.classList.add('aee-table-wrap--resizing');
-    const bodyCursor = document.body.style.cursor;
-    document.body.style.cursor = 'col-resize';
+    const releaseCursor = holdDragCursor('col-resize');
     trackPointer(preview, finish);
   }
 }

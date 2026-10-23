@@ -231,6 +231,11 @@ export class ApiReference {
           does: 'A dot on the caret cell’s right edge — the six-dot handle under the pointer — that hands the host the cell to open a menu for (the demo’s: colour, alignment, clear contents), the caret staying; clearCells empties the caret’s cell or every selected one.',
         },
         {
+          name: 'createTableHandles: a grip dragged · moveTableBand · BAND_MOVING_CLASS · BAND_DROP_CLASS',
+          signature: "(tablePos, 'row' | 'column', from, to) => Command · class names",
+          does: 'Notion’s drag-to-move: a row or column grip pressed and dragged hides its band’s contents (BAND_MOVING_CLASS on its cells) while the table holds still; the band under the pointer decides where it lands — a line (BAND_DROP_CLASS) on its far edge, none over its own band or across a merged cell — and release moves it there (moveTableBand) as one undo step. A press that stays put is still the click that selects the band; Escape lets it go.',
+        },
+        {
           name: 'renderForClient · RENDERING_CLIENTS',
           signature:
             "(html, client: 'apple-mail' | 'gmail' | 'outlook-desktop', { dark?, pane?, darkMode? }) => string",

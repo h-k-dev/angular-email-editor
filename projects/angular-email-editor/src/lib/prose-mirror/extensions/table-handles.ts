@@ -3,8 +3,10 @@ import { Node } from 'prosemirror-model';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import { CellSelection, TableMap, cellAround } from 'prosemirror-tables';
 import { FunctionalExtension, defineExtension } from '../extension';
-import { selectColumn, selectRow, tableKind } from './nodes/table';
+import { closeHistory } from 'prosemirror-history';
+import { moveTableBand, selectColumn, selectRow, tableKind } from './nodes/table';
 import { layoutInteractive } from './layout-interaction';
+import { holdDragCursor } from './drag-cursor';
 
 /** Which band — or which cell — of which table a grip stands for, and
     where it is on screen. */
@@ -45,6 +47,35 @@ interface TableHandlesState {
 }
 
 const tableHandlesKey = new PluginKey<TableHandlesState>('tableHandles');
+
+/** A band being dragged by its grip: which, of which table. */
+interface BandMove {
+  tablePos: number;
+  kind: 'row' | 'column';
+  index: number;
+}
+
+const bandMoveKey = new PluginKey<BandMove | null>('tableBandMove');
+
+/** The class on each cell of a band being dragged by its grip — the host
+    hides what is in it (Notion's: the band's text goes, its place stays). */
+export const BAND_MOVING_CLASS = 'aee-band--moving';
+
+/** The class of the line a grip's drag shows where its band would land —
+    on the far edge of the band under the pointer: its right (or bottom)
+    edge past the dragged band, its left (or top) edge before it.
+    `aee-band-drop--column` / `--row` say which way it runs. The host
+    paints it. */
+export const BAND_DROP_CLASS = 'aee-band-drop';
+
+/** The class of the band's copy a grip's drag carries along the table's
+    axis under the pointer — Notion's preview: the band's own cells, its
+    grip and selection on it. `aee-band-ghost--column` / `--row` say
+    which. The host paints it (its opacity, its frame). */
+export const BAND_GHOST_CLASS = 'aee-band-ghost';
+
+/** How far, in px, a press on a grip moves before it is a drag. */
+const MOVE_THRESHOLD = 4;
 
 /**
  * The row and column grips: a handle on each row's flank and above each
@@ -183,10 +214,22 @@ export const createTableHandles = (options: TableHandlesOptions): FunctionalExte
     el.appendChild(document.createElement('i'));
     // The press must not travel into the editor: a mousedown inside a cell
     // would put the caret there and collapse the band selection the click is
-    // about to make.
-    el.addEventListener('mousedown', (event) => event.preventDefault());
+    // about to make. Dragged, the press moves its band instead
+    // (`startBandMove`); one that stays put is the click below.
+    let dragged = false;
+    el.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+      if (event.button !== 0) return;
+      dragged = false;
+      startBandMove(view, el, kind, index, event, () => (dragged = true));
+    });
     el.addEventListener('click', (event) => {
       event.preventDefault();
+      // A drag that came back to its grip is still a drag.
+      if (dragged) {
+        dragged = false;
+        return;
+      }
       // Measured on the element the pointer is on, before the selection
       // transaction runs — even though that transaction no longer remounts
       // the grip, this is still the honest moment: the rect of *this* press.
@@ -222,6 +265,43 @@ export const createTableHandles = (options: TableHandlesOptions): FunctionalExte
   return defineExtension({
     name: 'tableHandles',
     plugins: () => [
+      // The band a grip is dragging: each of its cells marked, so the host
+      // can hide what is in it while the drop line shows where it goes.
+      new Plugin<BandMove | null>({
+        key: bandMoveKey,
+        state: {
+          init: () => null,
+          apply: (tr, moving) => {
+            const meta = tr.getMeta(bandMoveKey) as BandMove | null | undefined;
+            if (meta !== undefined) return meta;
+            return moving && tr.docChanged ? null : moving;
+          },
+        },
+        props: {
+          decorations: (state) => {
+            const moving = bandMoveKey.getState(state);
+            const table = moving ? state.doc.nodeAt(moving.tablePos) : null;
+            if (!moving || !table || table.type.name !== 'table') return null;
+            const map = TableMap.get(table);
+            const cells = new Set<number>();
+            const across = moving.kind === 'row' ? map.width : map.height;
+            for (let i = 0; i < across; i++) {
+              const row = moving.kind === 'row' ? moving.index : i;
+              const column = moving.kind === 'row' ? i : moving.index;
+              cells.add(map.map[row * map.width + column]);
+            }
+            return DecorationSet.create(
+              state.doc,
+              [...cells].map((rel) => {
+                const pos = moving.tablePos + 1 + rel;
+                return Decoration.node(pos, pos + table.nodeAt(rel)!.nodeSize, {
+                  class: BAND_MOVING_CLASS,
+                });
+              }),
+            );
+          },
+        },
+      }),
       new Plugin<TableHandlesState>({
         key: tableHandlesKey,
         state: {
@@ -303,6 +383,262 @@ export const createTableHandles = (options: TableHandlesOptions): FunctionalExte
     ],
   });
 };
+
+/**
+ * Notion's drag-to-move, from a row or column grip. Past a few pixels the
+ * press is a drag: the band's cells are marked (`BAND_MOVING_CLASS`, the
+ * host hides what is in them) and nothing else moves; the band under the
+ * pointer — the whole band, never half of it — decides where it lands, and
+ * a line (`BAND_DROP_CLASS`) says so on that band's far edge: after it when
+ * it lies past the dragged one, before it when it lies ahead. Over its own
+ * band, or where a merged cell would be crossed, there is no line, and a
+ * release there changes nothing. Release moves the band (`moveTableBand`)
+ * as one undo step; Escape lets it go untouched.
+ *
+ * What the hand holds goes with it, as Notion's does: a copy of the band
+ * (`BAND_GHOST_CLASS` — its cells, their lines and fill, its grip held
+ * open, the caret's frame if it is in there) slides along the table's axis
+ * under the pointer, kept where it was grabbed; and the cursor is
+ * `grabbing` wherever the pointer goes (`holdDragCursor`).
+ *
+ * The bands' extents are read once, at the drag's start, off a cell of each
+ * band's own — the one measured thing, as with the marquee: a pointer has
+ * no other geometry.
+ */
+function startBandMove(
+  view: EditorView,
+  grip: HTMLElement,
+  kind: 'row' | 'column',
+  index: number,
+  event: MouseEvent,
+  onDrag: () => void,
+): void {
+  const column = kind === 'column';
+  const origin = { x: event.clientX, y: event.clientY };
+  let releaseCursor: (() => void) | null = null;
+  let ghost: HTMLElement | null = null;
+  let grabbed = 0;
+  let tablePos = -1;
+  let bands: { start: number; end: number }[] = [];
+  let target = index;
+  let fits = false;
+  let dragging = false;
+  let wrap: HTMLElement | null = null;
+  let tableEl: HTMLElement | null = null;
+  let line: HTMLElement | null = null;
+
+  const begin = (): boolean => {
+    tablePos = tablePosOf(view, grip);
+    tableEl = grip.closest('table');
+    wrap = grip.closest<HTMLElement>('.aee-table-wrap') ?? tableEl?.parentElement ?? null;
+    const table = tablePos >= 0 ? view.state.doc.nodeAt(tablePos) : null;
+    if (!table || !tableEl || !wrap) return false;
+    bands = bandExtents(view, table, tablePos, kind);
+    if (!bands.length) return false;
+    dragging = true;
+    onDrag();
+    // The copy first, while the band's cells are still as they look.
+    ghost = bandGhost(view, table, tablePos, kind, index, tableEl);
+    wrap.appendChild(ghost);
+    grabbed = (column ? origin.x : origin.y) - bands[index].start;
+    view.dispatch(view.state.tr.setMeta(bandMoveKey, { tablePos, kind, index }));
+    line = document.createElement('div');
+    line.className = `${BAND_DROP_CLASS} ${BAND_DROP_CLASS}--${kind}`;
+    line.setAttribute('aria-hidden', 'true');
+    line.style.position = 'absolute';
+    line.style.display = 'none';
+    // On the table's wrap: the table view's own ground, never the content.
+    wrap.appendChild(line);
+    releaseCursor = holdDragCursor('grabbing');
+    return true;
+  };
+
+  /** The copy under the pointer, along the axis, where it was grabbed. */
+  const carry = (at: number) => {
+    if (!ghost || !wrap || !tableEl) return;
+    const box = wrap.getBoundingClientRect();
+    const table = tableEl.getBoundingClientRect();
+    if (column) {
+      ghost.style.left = `${at - grabbed - box.left}px`;
+      ghost.style.top = `${table.top - box.top}px`;
+    } else {
+      ghost.style.top = `${at - grabbed - box.top}px`;
+      ghost.style.left = `${table.left - box.left}px`;
+    }
+  };
+
+  const place = (at: number) => {
+    // The band under the pointer — past either end, the end one.
+    const over = bands.findIndex((band) => at < band.end);
+    target = over < 0 ? bands.length - 1 : over;
+    fits = target !== index && moveTableBand(tablePos, kind, index, target)(view.state);
+    if (!line || !wrap || !tableEl) return;
+    if (!fits) {
+      line.style.display = 'none';
+      return;
+    }
+    const edge = target > index ? bands[target].end : bands[target].start;
+    const box = wrap.getBoundingClientRect();
+    const table = tableEl.getBoundingClientRect();
+    line.style.display = '';
+    if (column) {
+      line.style.left = `${edge - box.left}px`;
+      line.style.top = `${table.top - box.top}px`;
+      line.style.height = `${table.height}px`;
+    } else {
+      line.style.top = `${edge - box.top}px`;
+      line.style.left = `${table.left - box.left}px`;
+      line.style.width = `${table.width}px`;
+    }
+  };
+
+  const finish = (commit: boolean) => {
+    window.removeEventListener('mousemove', move);
+    window.removeEventListener('mouseup', up);
+    window.removeEventListener('keydown', key, true);
+    if (!dragging) return;
+    releaseCursor?.();
+    line?.remove();
+    ghost?.remove();
+    if (view.isDestroyed) return;
+    view.dispatch(view.state.tr.setMeta(bandMoveKey, null));
+    if (commit && fits) {
+      // Its own step, never folded into the typing just before it.
+      moveTableBand(tablePos, kind, index, target)(view.state, (tr) =>
+        view.dispatch(closeHistory(tr)),
+      );
+    }
+  };
+  const move = (moved: MouseEvent) => {
+    if (view.isDestroyed) return finish(false);
+    if (!dragging) {
+      const far =
+        Math.abs(moved.clientX - origin.x) >= MOVE_THRESHOLD ||
+        Math.abs(moved.clientY - origin.y) >= MOVE_THRESHOLD;
+      if (!far) return;
+      if (!begin()) return finish(false);
+    }
+    const at = column ? moved.clientX : moved.clientY;
+    carry(at);
+    place(at);
+  };
+  const up = () => finish(true);
+  const key = (pressed: KeyboardEvent) => {
+    if (pressed.key !== 'Escape' || !dragging) return;
+    pressed.preventDefault();
+    pressed.stopPropagation();
+    finish(false);
+  };
+  window.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', up);
+  window.addEventListener('keydown', key, true);
+}
+
+/**
+ * The band's copy for a drag: its own cells, cloned as they are drawn —
+ * padding, lines, fill, the caret's frame — in a table of their own, each
+ * row (or cell) as tall (or wide) as the original, so it reads as the band
+ * lifted out. Only the dragged grip stays in it, held open; every other
+ * grip, and anything that could take the pointer or the caret, is left out.
+ */
+function bandGhost(
+  view: EditorView,
+  table: Node,
+  tablePos: number,
+  kind: 'row' | 'column',
+  index: number,
+  tableEl: HTMLElement,
+): HTMLElement {
+  const map = TableMap.get(table);
+  const ghost = document.createElement('div');
+  ghost.className = `${BAND_GHOST_CLASS} ${BAND_GHOST_CLASS}--${kind}`;
+  ghost.setAttribute('aria-hidden', 'true');
+  ghost.contentEditable = 'false';
+  ghost.style.position = 'absolute';
+  ghost.style.pointerEvents = 'none';
+  const copy = ghost.appendChild(document.createElement('table'));
+  copy.setAttribute('role', 'presentation');
+  copy.style.borderCollapse = getComputedStyle(tableEl).borderCollapse;
+  copy.style.tableLayout = 'fixed';
+  const body = copy.appendChild(document.createElement('tbody'));
+  const rows = tableEl.querySelectorAll<HTMLElement>(':scope > tbody > tr, :scope > tr');
+  const clone = (rel: number): HTMLElement | null => {
+    const cell = view.nodeDOM(tablePos + 1 + rel);
+    if (!(cell instanceof HTMLElement)) return null;
+    const twin = cell.cloneNode(true) as HTMLElement;
+    twin.classList.remove(BAND_MOVING_CLASS);
+    twin.querySelectorAll<HTMLElement>('.aee-grip').forEach((grip) => {
+      const own = grip.classList.contains(`aee-grip--${kind}`) && grip.dataset['index'] === String(index);
+      if (own) grip.setAttribute('aria-expanded', 'true');
+      else grip.remove();
+    });
+    return twin;
+  };
+  if (kind === 'column') {
+    let width = 0;
+    for (let row = 0; row < map.height; row++) {
+      const rel = map.map[row * map.width + index];
+      const twin = clone(rel);
+      const tr = body.appendChild(document.createElement('tr'));
+      const height = rows[row]?.getBoundingClientRect().height;
+      if (height) tr.style.height = `${height}px`;
+      if (twin) {
+        width ||= (view.nodeDOM(tablePos + 1 + rel) as HTMLElement).getBoundingClientRect().width;
+        tr.appendChild(twin);
+      }
+    }
+    copy.style.width = `${width}px`;
+  } else {
+    const tr = body.appendChild(document.createElement('tr'));
+    const seen = new Set<number>();
+    for (let column = 0; column < map.width; column++) {
+      const rel = map.map[index * map.width + column];
+      if (seen.has(rel)) continue;
+      seen.add(rel);
+      const twin = clone(rel);
+      if (!twin) continue;
+      twin.style.width = `${(view.nodeDOM(tablePos + 1 + rel) as HTMLElement).getBoundingClientRect().width}px`;
+      tr.appendChild(twin);
+    }
+    copy.style.width = `${tableEl.getBoundingClientRect().width}px`;
+    const height = rows[index]?.getBoundingClientRect().height;
+    if (height) tr.style.height = `${height}px`;
+  }
+  return ghost;
+}
+
+/** Each band's extent on screen along the drag, in client px — a column's
+    left and right, a row's top and bottom — read off a cell of the band's
+    own (one spanning no other band). None, when a band has no such cell. */
+function bandExtents(
+  view: EditorView,
+  table: Node,
+  tablePos: number,
+  kind: 'row' | 'column',
+): { start: number; end: number }[] {
+  const map = TableMap.get(table);
+  const count = kind === 'row' ? map.height : map.width;
+  const across = kind === 'row' ? map.width : map.height;
+  const out: { start: number; end: number }[] = [];
+  for (let band = 0; band < count; band++) {
+    let found: { start: number; end: number } | null = null;
+    for (let i = 0; i < across && !found; i++) {
+      const row = kind === 'row' ? band : i;
+      const column = kind === 'row' ? i : band;
+      const rel = map.map[row * map.width + column];
+      const rect = map.findCell(rel);
+      const span = kind === 'row' ? rect.bottom - rect.top : rect.right - rect.left;
+      if (span !== 1) continue;
+      const dom = view.nodeDOM(tablePos + 1 + rel);
+      if (!(dom instanceof HTMLElement)) continue;
+      const box = dom.getBoundingClientRect();
+      found = kind === 'row' ? { start: box.top, end: box.bottom } : { start: box.left, end: box.right };
+    }
+    if (!found) return [];
+    out.push(found);
+  }
+  return out;
+}
 
 function applyHandles(
   tr: Transaction,

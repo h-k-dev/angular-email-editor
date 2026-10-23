@@ -1,4 +1,5 @@
 import { applyAuthoredAttributes } from '../authored';
+import { holdDragCursor } from './drag-cursor';
 import { Command, Plugin, PluginKey } from 'prosemirror-state';
 import { Node } from 'prosemirror-model';
 import { EditorView, ViewMutationRecord } from 'prosemirror-view';
@@ -206,7 +207,7 @@ class ColumnsView {
       window.removeEventListener('pointercancel', finish);
       line.classList.remove('aee-col-line--drag');
       this.dom.classList.remove('aee-columns-wrap--resizing');
-      document.body.style.cursor = bodyCursor;
+      releaseCursor();
       setColumnsBoundary(
         this.#getPos(),
         boundary,
@@ -217,8 +218,7 @@ class ColumnsView {
 
     line.classList.add('aee-col-line--drag');
     this.dom.classList.add('aee-columns-wrap--resizing');
-    const bodyCursor = document.body.style.cursor;
-    document.body.style.cursor = 'col-resize';
+    const releaseCursor = holdDragCursor('col-resize');
     window.addEventListener('pointermove', preview);
     window.addEventListener('pointerup', finish);
     window.addEventListener('pointercancel', finish);

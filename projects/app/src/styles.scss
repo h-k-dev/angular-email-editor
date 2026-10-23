@@ -1226,6 +1226,74 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
   }
 }
 
+/* A band dragged by its grip (`BAND_MOVING_CLASS`, the `TableHandles`
+ * drag): Notion's — what is in it goes, its place and its lines stay, so
+ * the table holds still while the line says where the band lands. Text
+ * straight in the cell takes no colour; anything wrapped (a coloured run,
+ * a picture, a token) is hidden. */
+.aee-editor td.aee-band--moving {
+  color: transparent;
+
+  > * {
+    visibility: hidden;
+  }
+}
+
+/* Its frame and wash are not left behind either: the caret's frame, the
+ * selection's wash, ride on the copy below. */
+.aee-editor td.aee-band--moving::after {
+  display: none;
+}
+
+/* The band's copy under the pointer (`BAND_GHOST_CLASS`): Notion's preview,
+ * lifted off the table at 90% on the paper, framed in the selection's
+ * colour, its grip held open on it. */
+.aee-editor .aee-band-ghost {
+  z-index: 6;
+  opacity: 0.9;
+
+  > table {
+    background-color: var(--email-grip-halo, #ffffff);
+    outline: 2px solid var(--email-cell-selection-border, var(--mat-sys-primary, #4c6ef5));
+    outline-offset: -1px;
+    border-radius: 3px;
+  }
+}
+
+/* A grip whose band is selected can be taken: Notion's `grab` (idle, a
+ * grip says it opens, `pointer`). */
+.aee-editor :is(.aee-grip--row, .aee-grip--column)[aria-expanded='true'] {
+  cursor: grab;
+}
+
+/* A drag's cursor (`holdDragCursor`: a grip's move, a pill's add, a
+ * resize): the library says it on the root for the drag's lifetime; held
+ * over everything the pointer crosses, text included. */
+:root[data-aee-drag],
+:root[data-aee-drag] * {
+  cursor: var(--aee-drag-cursor) !important;
+}
+
+/* Where it lands (`BAND_DROP_CLASS`): a 3px line in the selection's colour
+ * on the edge of the band under the pointer, the table's whole height (or
+ * width), placed by the drag. */
+.aee-editor .aee-band-drop {
+  z-index: 7;
+  border-radius: 2px;
+  background-color: var(--email-cell-selection-border, var(--mat-sys-primary, #4c6ef5));
+  pointer-events: none;
+}
+
+.aee-editor .aee-band-drop--column {
+  width: 3px;
+  translate: -50% 0;
+}
+
+.aee-editor .aee-band-drop--row {
+  height: 3px;
+  translate: 0 -50%;
+}
+
 /* The add pills (the `ColumnResize` NodeView): a `+` on the table's right
  * flank appends a column, a `+` under the bottom edge appends a row.
  * Revealed with the rest of the table's affordances; both zones are
