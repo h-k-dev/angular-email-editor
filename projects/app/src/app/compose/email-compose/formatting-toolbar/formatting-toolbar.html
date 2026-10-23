@@ -164,8 +164,8 @@
       <div
         color-picker
         paperIslandScheme
-        [color]="textColor()"
-        [background]="backgroundColor()"
+        [color]="commands.textColor()"
+        [background]="commands.backgroundColor()"
         (colorPicked)="applyColor($event)"
         (backgroundPicked)="applyBackground($event)"
       ></div>

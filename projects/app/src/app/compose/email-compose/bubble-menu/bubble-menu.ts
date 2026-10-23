@@ -1,4 +1,14 @@
-import { Component, TemplateRef, computed, inject, input, viewChild } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  TemplateRef,
+  computed,
+  inject,
+  input,
+  linkedSignal,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 
 // ProseMirror
@@ -9,6 +19,9 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
 
+// CDK
+import { ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
+
 // Library
 import { BubbleMenuState, selectedImageAlt } from '@h-k-dev/angular-email-editor';
 import { ActionTrigger } from '@h-k-dev/angular-email-editor/actions';
@@ -18,13 +31,15 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { I18n } from '../../../../services/i18n';
 import { FormattingCommands } from '../formatting-commands';
 import { FormattingLayout, layoutEntries } from '../formatting-items';
+import { ColorPicker } from '../formatting-toolbar/color-picker/color-picker';
 import { ToolbarKeys } from '../formatting-toolbar/toolbar-keys';
+import { PaperIslandScheme } from '../../paper-island';
 import { POPOVER_ABOVE, Popover } from '../popover/popover';
 
-/** The bubble menu's groups: the marks, then what wraps the selection —
-    a link, a button link, a quote. */
+/** The bubble menu's groups: the marks and their colour, then what wraps
+    the selection — a link, a button link, a quote. */
 const LAYOUT: FormattingLayout = [
-  ['bold', 'italic', 'underline', 'strike'],
+  ['bold', 'italic', 'underline', 'strike', 'color'],
   ['link', 'button-link', 'quote'],
 ];
 
@@ -47,6 +62,14 @@ const IMAGE_LAYOUT: FormattingLayout = [
   ['align-left', 'align-center', 'align-right'],
   ['replace-image', 'remove-image'],
 ];
+
+/** The colour pane, centred on its button: away from the selection first
+    (see `toggleColor`), the other side when there is no room. */
+const COLOR_ABOVE: ConnectedPosition[] = [
+  { originX: 'center', originY: 'top', overlayX: 'center', overlayY: 'bottom', offsetY: -4 },
+  { originX: 'center', originY: 'bottom', overlayX: 'center', overlayY: 'top', offsetY: 4 },
+];
+const COLOR_BELOW: ConnectedPosition[] = [COLOR_ABOVE[1], COLOR_ABOVE[0]];
 
 /**
  * The bubble menu: the marks you reach for on a selection, floating above
@@ -76,10 +99,15 @@ const IMAGE_LAYOUT: FormattingLayout = [
     MatDividerModule,
     MatIconModule,
 
+    // CDK
+    OverlayModule,
+
     // Library
     ActionTrigger,
     KeepFocus,
 
+    ColorPicker,
+    PaperIslandScheme,
     ToolbarKeys,
   ],
   templateUrl: './bubble-menu.html',
@@ -120,6 +148,51 @@ export class BubbleMenu {
 
   /** The visible editor's actions, which the buttons trigger by id. */
   protected readonly actions = this.#commands.actions;
+
+  /** Whether the colour pane is open — shut again whenever the menu
+      closes or turns into another kind's tools, which have no colour
+      button to stand at. */
+  protected readonly colorOpen = linkedSignal({
+    source: () => (this.state().isOpen ? (this.state().kind ?? 'text') : null),
+    computation: () => false,
+  });
+  protected readonly colorOrigin = signal<Element>(inject(ElementRef).nativeElement);
+  protected readonly colorPositions = signal<ConnectedPosition[]>(POPOVER_ABOVE);
+
+  protected readonly textColor = this.#commands.textColor;
+  protected readonly backgroundColor = this.#commands.backgroundColor;
+
+  /** Opens the colour pane at its button, or closes it. It opens on the
+      menu's far side from the selection: above a menu that stands above
+      the text, below one that had to go under it. */
+  protected toggleColor(button: Element): void {
+    if (this.colorOpen()) {
+      this.colorOpen.set(false);
+      return;
+    }
+    const selection = this.state().boundingBox;
+    const above = !selection || button.getBoundingClientRect().top < selection.top;
+    this.colorOrigin.set(button);
+    this.colorPositions.set(above ? COLOR_ABOVE : COLOR_BELOW);
+    this.colorOpen.set(true);
+  }
+
+  /** A press outside the pane closes it — but not the colour button's own,
+      which toggles it by itself. */
+  protected onColorOutsideClick(event: MouseEvent): void {
+    if (this.colorOrigin().contains(event.target as Node)) return;
+    this.colorOpen.set(false);
+  }
+
+  protected applyColor(color: string | null): void {
+    this.colorOpen.set(false);
+    this.#commands.applyColor(color);
+  }
+
+  protected applyBackground(color: string | null): void {
+    this.colorOpen.set(false);
+    this.#commands.applyBackground(color);
+  }
 
   /** The toolbar's name, by what it is for. */
   protected readonly menuLabel = computed(() => {

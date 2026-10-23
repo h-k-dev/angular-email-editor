@@ -147,16 +147,29 @@ export class FormattingCommands {
   }
 
   /** The attributes of a mark at the email editor's caret — a stored mark
-      about to be typed in, or else the marks the caret stands in — or null
-      when the mark is not on there. `textStyle` carries colour, font and
-      size together, so a button that asks for one of them reads it here. */
+      about to be typed in, or else the marks the caret stands in; for a
+      range, its first character's — or null when the mark is not on there.
+      `textStyle` carries colour, font and size together, so a button that
+      asks for one of them reads it here. */
   markAttrs(name: string): Record<string, unknown> | null {
     const state = this.state();
     if (!state) return null;
-    const { $from } = state.selection;
-    const marks = state.storedMarks ?? $from.marks();
+    const { $from, empty } = state.selection;
+    // A range's start stands *before* its first character, where the marks
+    // are the text's ahead of it: read the character itself.
+    const first = empty ? null : $from.nodeAfter;
+    const marks = first?.isText ? first.marks : (state.storedMarks ?? $from.marks());
     return marks.find((mark) => mark.type.name === name)?.attrs ?? null;
   }
+
+  /** The colours at the caret, for a colour pane to mark — the toolbar's
+      and the bubble menu's. */
+  readonly textColor = computed(
+    () => (this.markAttrs('textStyle')?.['color'] as string | null) ?? null,
+  );
+  readonly backgroundColor = computed(
+    () => (this.markAttrs('textStyle')?.['backgroundColor'] as string | null) ?? null,
+  );
 
   /** The target editor, read so a binding recomputes on its transactions —
       whichever editor it is: the actions watch the visible one. */

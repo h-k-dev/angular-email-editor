@@ -59,21 +59,62 @@
     @if (entry.separated || (first && lead)) {
       <mat-divider [vertical]="true" />
     }
-    <!-- Every button here is an action — the kit's marks, quote, alignment
-         and image tools, the composer's own link — so the library's
-         directive does the work on Material's button: it runs on click,
-         says pressed, hands the caret back; how disabled looks stays
-         Material's, bound from its state. -->
-    <button
-      mat-icon-button
-      type="button"
-      [attr.aria-label]="item.title()"
-      [emailAction]="item.id"
-      [emailActionFrom]="actions"
-      #trigger="emailAction"
-      [disabled]="trigger.disabled()"
-    >
-      <mat-icon>{{ item.icon }}</mat-icon>
-    </button>
+    @if (item.picker === 'color') {
+      <!-- Colour is the one picker here: it opens the toolbar's colour
+           pane at the button (see below), and shows whether the selection
+           carries a colour, as the toolbar's button does. -->
+      <button
+        mat-icon-button
+        type="button"
+        [attr.aria-label]="item.title()"
+        [attr.aria-expanded]="colorOpen()"
+        [attr.data-applied]="item.applied?.() || null"
+        (click)="toggleColor($any($event.currentTarget))"
+      >
+        <mat-icon>{{ item.icon }}</mat-icon>
+      </button>
+    } @else {
+      <!-- Every other button here is an action — the kit's marks, quote,
+           alignment and image tools, the composer's own link — so the
+           library's directive does the work on Material's button: it runs
+           on click, says pressed, hands the caret back; how disabled looks
+           stays Material's, bound from its state. -->
+      <button
+        mat-icon-button
+        type="button"
+        [attr.aria-label]="item.title()"
+        [emailAction]="item.id"
+        [emailActionFrom]="actions"
+        #trigger="emailAction"
+        [disabled]="trigger.disabled()"
+      >
+        <mat-icon>{{ item.icon }}</mat-icon>
+      </button>
+    }
   }
+</ng-template>
+
+<!-- The colour pane, at the colour button: the toolbar's own pane, on the
+     side away from the selection, so the words being coloured stay in
+     sight. No backdrop — a press on the menu's other tools or in the text
+     goes through, and closes it. On a paper island it wears the island's
+     paper (paper-island.ts). -->
+<ng-template
+  cdkConnectedOverlay
+  [cdkConnectedOverlayOrigin]="colorOrigin()"
+  [cdkConnectedOverlayPositions]="colorPositions()"
+  [cdkConnectedOverlayOpen]="colorOpen()"
+  (overlayOutsideClick)="onColorOutsideClick($event)"
+  (detach)="colorOpen.set(false)"
+  [cdkConnectedOverlayPush]="true"
+  [cdkConnectedOverlayViewportMargin]="8"
+>
+  <div
+    color-picker
+    paperIslandScheme
+    [color]="textColor()"
+    [background]="backgroundColor()"
+    (colorPicked)="applyColor($event)"
+    (backgroundPicked)="applyBackground($event)"
+  ></div>
 </ng-template>

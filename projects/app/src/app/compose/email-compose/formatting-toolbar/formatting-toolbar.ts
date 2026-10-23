@@ -131,14 +131,6 @@ export class FormattingToolbar {
     computed(() => this.wide() && this.shown()),
   );
 
-  /** The colours at the caret, for the colour pane to mark. */
-  protected readonly textColor = computed(
-    () => (this.commands.markAttrs('textStyle')?.['color'] as string | null) ?? null,
-  );
-  protected readonly backgroundColor = computed(
-    () => (this.commands.markAttrs('textStyle')?.['backgroundColor'] as string | null) ?? null,
-  );
-
   /** The picker that is open, if any, and where it is anchored: its button,
       or the ⋯ when the button has moved there. */
   protected readonly picker = signal<FormattingPicker | null>(null);
