@@ -39,7 +39,8 @@ interface MailboxSection {
  * chrome of its own; the aside leads back to it.
  *
  * Collapsed, the aside is a rail of its icons — at once, no motion. On a
- * phone the rail is where it rests; opened there, it lies over the page.
+ * phone there is no rail: shut, the aside is not there (one button over the
+ * page's header opens it); opened, it lies over the page.
  */
 @Component({
   selector: 'app-mailbox',
@@ -59,6 +60,7 @@ interface MailboxSection {
   host: {
     '[attr.data-collapsed]': 'collapsed() || null',
     '[attr.data-over]': 'over() || null',
+    '[attr.data-closed]': 'closed() || null',
     '(keydown.escape)': 'close($event)',
   },
 })
@@ -76,6 +78,11 @@ export class Mailbox {
 
   /** A phone's aside, opened: it lies over the page, under a scrim. */
   protected readonly over = computed(() => this.#viewport.compact() && !this.collapsed());
+
+  /** A phone's aside, shut: no rail — it is not there at all, and the
+      page has the screen; one button, where the aside's own toggle
+      stands, opens it. */
+  protected readonly closed = computed(() => this.#viewport.compact() && this.collapsed());
 
   /** The toggle: aside ⇄ rail. */
   protected toggle(): void {

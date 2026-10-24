@@ -2,43 +2,85 @@
   <!-- One sheet of paper: the header and the body on the reading paper —
      the inbox's pane is the island it lies on. -->
   <article class="inbox-reader" [attr.aria-label]="mail.subject">
+    <!-- Gmail's header, without its avatar: the subject; under it who sent
+         it and to whom, and at the line's end the date, the paper's light
+         or dark, and the answers — Reply, the rest in ⋮. -->
     <header class="inbox-reader__header">
       <h1 class="inbox-reader__subject">{{ mail.subject }}</h1>
-      <div class="inbox-reader__meta">
-        <span class="inbox-reader__from">{{ mail.from }}</span>
+      <div class="inbox-reader__line">
+        <div class="inbox-reader__who">
+          <div class="inbox-reader__from">
+            <span class="inbox-reader__name">{{ mail.name }}</span>
+            @if (address(); as address) {
+              <span class="inbox-reader__address">&lt;{{ address }}&gt;</span>
+            }
+          </div>
+          <div class="inbox-reader__to">
+            {{ 'inbox.to' | translate }} {{ mail.to }}
+            @if (mail.cc; as cc) {
+              · {{ 'inbox.cc' | translate }} {{ cc }}
+            }
+          </div>
+        </div>
         <span class="inbox-reader__date">{{ date() }}</span>
-      </div>
-      <div class="inbox-reader__to">
-        {{ 'inbox.to' | translate }} {{ mail.to }}
-        @if (mail.cc; as cc) {
-          · {{ 'inbox.cc' | translate }} {{ cc }}
-        }
+        <div class="inbox-reader__actions" role="group" [attr.aria-label]="mail.subject">
+          <!-- The paper it is read on, turned at will (`InboxPaper`). -->
+          <button
+            matIconButton
+            type="button"
+            class="inbox-reader__paper"
+            [attr.aria-label]="(paper() === 'dark' ? 'inbox.paperLight' : 'inbox.paperDark') | translate"
+            [title]="(paper() === 'dark' ? 'inbox.paperLight' : 'inbox.paperDark') | translate"
+            (click)="flipPaper()"
+          >
+            <mat-icon>{{ paper() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
+          </button>
+          <button
+            matIconButton
+            type="button"
+            class="inbox-reader__reply"
+            [attr.aria-label]="'inbox.reply' | translate"
+            [title]="'inbox.reply' | translate"
+            (click)="answer('reply')"
+          >
+            <mat-icon>reply</mat-icon>
+          </button>
+          <button
+            matIconButton
+            type="button"
+            class="inbox-reader__more"
+            [attr.aria-label]="'inbox.more' | translate"
+            [title]="'inbox.more' | translate"
+            ngMenuTrigger
+            #trigger="ngMenuTrigger"
+            [menu]="more.menu()"
+          >
+            <mat-icon>more_vert</mat-icon>
+          </button>
+          <div
+            toolbar-menu
+            #more
+            side="below"
+            align="end"
+            [label]="'inbox.more' | translate"
+            [trigger]="trigger"
+            [items]="moreItems()"
+            (selected)="answer($event)"
+          ></div>
+        </div>
       </div>
     </header>
 
-    <!-- The body, as a client draws it (`email-viewer`): no scripts, its
-         links out to a tab of their own; as tall as what it holds. -->
+    <!-- The body, as Dawn draws it (`email-viewer`): no scripts, its links
+         out to a tab of their own; as tall as what it holds, edge to edge —
+         a simple email's text inset under the header, a newsletter not. -->
     <email-viewer
       class="inbox-reader__body"
       [html]="mail.html"
-      [scheme]="scheme()"
+      [scheme]="paper()"
+      [inset]="inset()"
       [label]="'inbox.body' | translate"
     />
-
-    <div class="inbox-reader__actions">
-      <button matButton="outlined" type="button" (click)="answer('reply')">
-        <mat-icon>reply</mat-icon>
-        {{ 'inbox.reply' | translate }}
-      </button>
-      <button matButton="outlined" type="button" (click)="answer('reply-all')">
-        <mat-icon>reply_all</mat-icon>
-        {{ 'inbox.replyAll' | translate }}
-      </button>
-      <button matButton="outlined" type="button" (click)="answer('forward')">
-        <mat-icon>forward</mat-icon>
-        {{ 'inbox.forward' | translate }}
-      </button>
-    </div>
   </article>
 } @else if (settled()) {
   <p class="inbox-reader__missing">{{ 'inbox.missing' | translate }}</p>

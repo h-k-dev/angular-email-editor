@@ -30,11 +30,12 @@
   }
 }
 
+// Gmail's header, without its avatar: the subject, and under it one line —
+// who sent it and to whom, then at its end the date and the icon buttons.
 .inbox-reader__header {
   display: grid;
-  gap: 4px;
-  padding: 24px var(--_inset) 16px;
-  border-block-end: 1px solid var(--mat-sys-outline-variant);
+  gap: 8px;
+  padding: 24px var(--_inset) 0;
 
   @include bp.phone {
     padding-block-start: 16px;
@@ -42,42 +43,67 @@
 }
 
 .inbox-reader__subject {
-  margin: 0 0 8px;
+  margin: 0;
   font: var(--mat-sys-title-large);
 }
 
-.inbox-reader__meta {
+.inbox-reader__line {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
+  align-items: center;
   gap: 8px;
-  font: var(--mat-sys-body-medium);
+  min-inline-size: 0;
+}
+
+.inbox-reader__who {
+  flex: 1 1 auto;
+  min-inline-size: 0;
 }
 
 .inbox-reader__from {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: var(--mat-sys-body-medium);
+}
+
+.inbox-reader__name {
   font-weight: 600;
 }
 
+.inbox-reader__address,
 .inbox-reader__date,
 .inbox-reader__to {
   color: var(--mat-sys-on-surface-variant);
   font: var(--mat-sys-body-small);
 }
 
+.inbox-reader__address {
+  margin-inline-start: 4px;
+}
+
+.inbox-reader__to {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inbox-reader__date {
+  flex: none;
+  white-space: nowrap;
+}
+
+// The paper button, Reply and ⋮: a row of icon buttons, 2px apart as every
+// icon row here.
+.inbox-reader__actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
 // The body: the viewer, the pane's whole width, edge to edge.
 .inbox-reader__body {
   flex: none;
-}
-
-.inbox-reader__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 0 var(--_inset) 24px;
-
-  @include bp.phone {
-    padding-block-end: 16px;
-  }
 }
 
 .inbox-reader__missing {

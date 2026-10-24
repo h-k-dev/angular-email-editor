@@ -15,6 +15,16 @@ describe('dawnDocument', () => {
     expect(DAWN_DARK_SURFACE).toBe(PAPER.dark);
   });
 
+  it('insets a simple email’s text at its sides, never a whole document', () => {
+    expect(dawnDocument(body, { scheme: 'light', inset: 32 })).toContain(
+      '<style>body { margin: 0; padding-inline: 32px; }</style>',
+    );
+    const newsletter = '<!doctype html><html><head></head><body><table><tr><td>Hi</td></tr></table></body></html>';
+    expect(dawnDocument(newsletter, { scheme: 'light', inset: 32 })).toContain(
+      '<style>body { margin: 0; }</style>',
+    );
+  });
+
   it('is a whole document whose links leave for a tab of their own', () => {
     const document = dawnDocument(body, { scheme: 'light' });
     expect(document.startsWith('<!doctype html>')).toBe(true);

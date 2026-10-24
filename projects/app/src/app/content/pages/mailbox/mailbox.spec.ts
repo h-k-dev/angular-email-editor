@@ -108,6 +108,9 @@ describe('Mailbox', () => {
       expect(host().hasAttribute('data-collapsed')).toBe(true);
       expect(host().hasAttribute('data-over')).toBe(false);
       expect(toggle().getAttribute('aria-label')).toBe('Expand sidebar');
+      // A desk's rail is the aside itself: no opener of a phone's.
+      expect(host().hasAttribute('data-closed')).toBe(false);
+      expect(root.querySelector('.mailbox-opener')).toBeNull();
 
       toggle().click();
       await harness.fixture.whenStable();
@@ -124,13 +127,18 @@ describe('Mailbox', () => {
   describe('on a phone', () => {
     beforeEach(() => start(true));
 
-    it('rests as the rail, and opens over the page under a scrim', async () => {
+    it('has no rail: shut, only its opener shows; opened, it lies over the page under a scrim', async () => {
       expect(host().hasAttribute('data-collapsed')).toBe(true);
+      expect(host().hasAttribute('data-closed')).toBe(true);
       expect(root.querySelector('.mailbox-scrim')).toBeNull();
+      const opener = root.querySelector<HTMLButtonElement>('.mailbox-opener')!;
+      expect(opener.getAttribute('aria-label')).toBe('Expand sidebar');
 
-      toggle().click();
+      opener.click();
       await harness.fixture.whenStable();
       expect(host().hasAttribute('data-over')).toBe(true);
+      expect(host().hasAttribute('data-closed')).toBe(false);
+      expect(root.querySelector('.mailbox-opener')).toBeNull();
 
       // The scrim closes it.
       (root.querySelector('.mailbox-scrim') as HTMLElement).click();

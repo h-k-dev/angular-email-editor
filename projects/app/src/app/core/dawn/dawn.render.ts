@@ -1,4 +1,8 @@
-import { InboundMessage, plainTextHTML } from '@h-k-dev/angular-email-editor';
+import {
+  InboundMessage,
+  hasDocumentEnvelope,
+  plainTextHTML,
+} from '@h-k-dev/angular-email-editor';
 
 import { renderDawnDark } from './dawn-dark.render';
 
@@ -23,6 +27,10 @@ export type PaperScheme = keyof typeof PAPER;
 export interface DawnOptions {
   /** Light or dark paper — the editor's own, or the reader's choice. */
   readonly scheme: PaperScheme;
+  /** The side inset a simple email's text keeps, px — the frame round it
+      lines it up with its header. A whole document (a newsletter) lays
+      itself out, edge to edge, whatever this says. None by default. */
+  readonly inset?: number;
 }
 
 /**
@@ -30,14 +38,18 @@ export interface DawnOptions {
  * its own dark rules where it declares dark, dawn dark's invert-lightness
  * turn on its colours where it does not — as it came: none of the editor's
  * palette variants added, it is not ours. The surfaces are the paper's
- * colours, so it is the paper it lies on; edge to edge. Links leave for a
- * tab of their own: a reading frame is never navigated away from its email.
+ * colours, so it is the paper it lies on, the frame edge to edge: a whole
+ * document (its own `<html>` / `<body>` — a newsletter) runs to the frame's
+ * edges, a fragment (a simple email's body) keeps `inset` at its sides.
+ * Links leave for a tab of their own: a reading frame is never navigated
+ * away from its email.
  *
  * Takes a fragment (a message body) or a whole document.
  */
-export function dawnDocument(html: string, { scheme }: DawnOptions): string {
+export function dawnDocument(html: string, { scheme, inset = 0 }: DawnOptions): string {
   const document = renderDawnDark(html, { dark: scheme === 'dark', darkMode: false });
-  const reading = '<base target="_blank"><style>body { margin: 0; }</style>';
+  const sides = !hasDocumentEnvelope(html) && inset > 0 ? ` padding-inline: ${inset}px;` : '';
+  const reading = `<base target="_blank"><style>body { margin: 0;${sides} }</style>`;
   return document.replace('</head>', `${reading}</head>`);
 }
 

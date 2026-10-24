@@ -57,11 +57,19 @@ export class EmailViewer {
   /** What the frame is, for assistive tech. */
   readonly label = input('');
 
+  /** The side inset a simple email's text keeps inside the frame, px — to
+      line it up with what stands over it. A newsletter runs edge to edge
+      regardless (`dawnDocument`). */
+  readonly inset = input(0);
+
   /** The document for the frame — a frame with no scripts, so passing the
       sanitizer by is safe here, as the compose preview's is. */
   protected readonly document = computed<SafeHtml>(() =>
     this.#sanitizer.bypassSecurityTrustHtml(
-      dawnDocument(this.html(), { scheme: this.scheme() ?? this.#paper() }),
+      dawnDocument(this.html(), {
+        scheme: this.scheme() ?? this.#paper(),
+        inset: this.inset(),
+      }),
     ),
   );
 

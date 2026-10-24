@@ -19,12 +19,35 @@
   grid-template-columns: 56px minmax(0, 1fr);
 }
 
-// A phone keeps the rail's column whatever the aside does: opened, the
-// aside lies over the page (below) instead of taking its width.
+// A phone has no rail: the page takes the whole width. Shut, the aside is
+// not there at all — one button over the page's header opens it
+// (`.mailbox-opener`); opened, it lies over the page (below).
 @include bp.phone {
-  :host {
-    grid-template-columns: 56px minmax(0, 1fr);
+  // As heavy as the desk's rail rule, which would otherwise keep its 56px.
+  :host,
+  :host([data-collapsed]) {
+    grid-template-columns: minmax(0, 1fr);
   }
+
+  :host([data-closed]) .mailbox-aside {
+    display: none;
+  }
+
+  // The aside's own toggle, opened, where the opener stood: 4px down, the
+  // middle of the 48px header row.
+  :host([data-over]) .mailbox-aside {
+    padding-block-start: 4px;
+  }
+}
+
+// The opener: the aside's toggle while the aside is away, at the page's
+// top left, in the middle of its 48px header row — every page's header
+// keeps that corner free on a phone (`--page-header-start`, below).
+.mailbox-opener {
+  position: absolute;
+  inset-block-start: 4px;
+  inset-inline-start: 8px;
+  z-index: 1;
 }
 
 // Linear's aside, the viewport's height: no surface of its own (the
@@ -209,16 +232,11 @@
     color: var(--mat-sys-on-surface);
   }
 
-  // On the rail: the icon alone, centred in the toggle's 40px — a thumb's
-  // 48px on a phone.
+  // On the rail: the icon alone, centred in the toggle's 40px.
   :host([data-collapsed]) & {
     justify-content: center;
     block-size: 40px;
     padding-inline: 0;
-
-    @include bp.phone {
-      block-size: 48px;
-    }
   }
 }
 
@@ -262,4 +280,11 @@
   overflow-y: auto;
   background: var(--mat-sys-surface-bright);
   @include scroll.scroll;
+
+  // A phone: the only column — and every page header keeps its top-left
+  // corner for the opener (page-header reads the start inset).
+  @include bp.phone {
+    grid-column: 1;
+    --page-header-start: 56px;
+  }
 }

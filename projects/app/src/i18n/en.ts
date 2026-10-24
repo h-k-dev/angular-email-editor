@@ -30,6 +30,7 @@ export default {
   },
   inbox: {
     title: 'Inbox',
+    more: 'More',
     paperDark: 'Read on dark paper',
     paperLight: 'Read on light paper',
     empty: 'Select a message to read it',

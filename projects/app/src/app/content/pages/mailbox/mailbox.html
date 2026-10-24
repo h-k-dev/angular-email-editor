@@ -81,6 +81,24 @@
   </footer>
 </aside>
 
+<!-- A phone's shut aside: not there at all — this one button, at the top
+     left where the aside's own toggle stands, over the page's header,
+     opens it. -->
+@if (closed()) {
+  <button
+    matIconButton
+    type="button"
+    class="mailbox-opener"
+    aria-controls="mailbox-aside"
+    aria-expanded="false"
+    [attr.aria-label]="'app.nav.expand' | translate"
+    [title]="'app.nav.expand' | translate"
+    (click)="toggle()"
+  >
+    <mat-icon>left_panel_open</mat-icon>
+  </button>
+}
+
 <!-- A phone's open aside lies over the page: the page under it is out of
      reach until it closes — a press here closes it. -->
 @if (over()) {

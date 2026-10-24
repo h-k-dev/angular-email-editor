@@ -39,24 +39,13 @@
   [attr.aria-label]="'inbox.resize' | translate"
 ></div>
 
-<!-- The mail's half: paper, header and all — the reading paper, light or
-     dark as its button turns it (Thunderbird's), never the app's colour.
-     Under the header, the open message (`InboxReader`), or a note while none
-     is. Beside the list on a desk; on a phone it takes the list's place
-     while a message is open. -->
+<!-- The mail's half: paper, header and all — the reading paper
+     (`InboxPaper`), light or dark as the reader's button turns it
+     (Thunderbird's), never the app's colour. Under the header, the open
+     message (`InboxReader`), or a note while none is. Beside the list on a
+     desk; on a phone it takes the list's place while a message is open. -->
 <div class="inbox-pane" [paperIsland]="paper()">
-  <header page-header>
-    <button
-      matIconButton
-      type="button"
-      class="inbox-pane__paper"
-      [attr.aria-label]="paperLabel() | translate"
-      [title]="paperLabel() | translate"
-      (click)="flipPaper()"
-    >
-      <mat-icon>{{ paper() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
-    </button>
-  </header>
+  <header page-header></header>
   <div class="inbox-pane__body">
     <router-outlet (activate)="opened()" />
   </div>

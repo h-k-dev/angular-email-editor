@@ -21,7 +21,9 @@ import { Component } from '@angular/core';
       align-items: center;
       gap: 8px;
       block-size: 48px;
-      padding-inline: 8px;
+      /* Its start inset is the frame's to widen (--page-header-start): a
+         phone's mailbox keeps the corner for its aside's opener. */
+      padding-inline: var(--page-header-start, 8px) 8px;
       box-sizing: border-box;
     }
   `,

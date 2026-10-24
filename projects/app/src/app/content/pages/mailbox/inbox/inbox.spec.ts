@@ -86,7 +86,8 @@ describe('Inbox', () => {
     TestBed.inject(Preferences).editorAppearance.set('light');
     await harness.navigateByUrl('/inbox/reply-plain-note');
     const pane = root.querySelector('.inbox-pane')!;
-    const button = root.querySelector<HTMLButtonElement>('.inbox-pane__paper')!;
+    // The reader's button turns the page's paper (InboxPaper).
+    const button = root.querySelector<HTMLButtonElement>('.inbox-reader__paper')!;
     expect(pane.getAttribute('data-paper-scheme')).toBe('light');
     expect(button.getAttribute('aria-label')).toBe('Read on dark paper');
 

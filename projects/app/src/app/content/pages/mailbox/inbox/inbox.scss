@@ -74,11 +74,6 @@
   color: var(--mat-sys-on-surface);
 }
 
-// The paper button at the header's far end.
-.inbox-pane__paper {
-  margin-inline-start: auto;
-}
-
 .inbox-pane__body {
   flex: 1 1 auto;
   min-block-size: 0;
