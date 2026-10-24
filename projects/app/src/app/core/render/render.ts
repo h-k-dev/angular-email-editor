@@ -1,4 +1,9 @@
-import { DarkModePalette, renderForClient } from '@h-k-dev/angular-email-editor';
+import {
+  DarkModePalette,
+  InboundMessage,
+  plainTextHTML,
+  renderForClient,
+} from '@h-k-dev/angular-email-editor';
 
 /**
  * The paper the editor writes on, light and dark — styles.scss's
@@ -38,4 +43,11 @@ export function readingDocument(html: string, { scheme, darkMode }: ReadingOptio
     `<base target="_blank">` +
     `<style>html, body { background: ${PAPER[scheme]}; } body { margin: 0; }</style>`;
   return document.replace('</head>', `${paper}</head>`);
+}
+
+/** A received message's body as HTML to read: its HTML part, or — a
+    text-only message — its text as lines (the library's plain-text
+    reading, the one a plain-text draft is written in). */
+export function messageHtml(message: InboundMessage): string {
+  return message.html ?? plainTextHTML(message.text ?? '');
 }

@@ -57,15 +57,9 @@
   font: var(--mat-sys-body-small);
 }
 
-// The body's frame: no edge of its own — its document is the same paper —
-// as wide as the email allows, as tall as it is.
+// The body: the viewer, the reader's width.
 .inbox-reader__body {
   flex: none;
-  display: block;
-  inline-size: 100%;
-  max-inline-size: 680px;
-  border: 0;
-  background: var(--email-paper, transparent);
 }
 
 .inbox-reader__actions {

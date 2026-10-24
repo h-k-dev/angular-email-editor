@@ -12,9 +12,15 @@ export type ThemePreference = ThemeScheme | 'system';
     else on the origin. */
 const PREFIX = 'angular-email-editor:';
 
-/** How narrow and how wide the inbox's list may be dragged, px. */
+/** How narrow the inbox's list may be dragged, px, and how wide a width
+    may be kept — a sanity bound, not a layout one: what really stops the
+    list is the message beside it, which keeps {@link INBOX_READER_MIN}. */
 export const INBOX_LIST_MIN = 240;
-export const INBOX_LIST_MAX = 560;
+export const INBOX_LIST_MAX = 4000;
+
+/** What the open message keeps at least, px, however far the list is
+    dragged — the email renders no narrower than this. */
+export const INBOX_READER_MIN = 720;
 
 /**
  * What the user chose, as two-way signals that survive a reload and reach

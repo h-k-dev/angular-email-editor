@@ -3,7 +3,7 @@ import { provideRouter, withComponentInputBinding } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 
 import { ComposeWindows } from '../../../../core/email/compose-windows';
-import { INBOX } from '../../../../core/email/mailbox/mails';
+import { provideExampleMail } from '../../../../../../test/received-mail-fixture';
 import { InboxEmpty } from '../../../partials/atomic/inbox/inbox-empty/inbox-empty';
 import { InboxReader } from '../../../partials/atomic/inbox/inbox-reader/inbox-reader';
 import { Inbox } from './inbox';
@@ -35,26 +35,31 @@ describe('Inbox', () => {
           withComponentInputBinding(),
         ),
         { provide: ComposeWindows, useValue: { open: async () => undefined } },
+        provideExampleMail(),
       ],
     });
     harness = await RouterTestingHarness.create('/inbox');
     root = harness.fixture.nativeElement as HTMLElement;
+    await vi.waitFor(async () => {
+      await harness.fixture.whenStable();
+      expect(root.querySelectorAll('.inbox-row')).toHaveLength(3);
+    });
   });
 
   it('lists the inbox, and shows a note while no message is open', () => {
-    expect(root.querySelectorAll('.inbox-row')).toHaveLength(INBOX.length);
+    expect(root.querySelectorAll('.inbox-row')).toHaveLength(3);
     expect(root.querySelector('app-inbox-empty')).not.toBeNull();
     expect(root.querySelector('[aria-current="page"]')).toBeNull();
     expect(host().hasAttribute('data-reading')).toBe(false);
   });
 
   it('opens a message as a place of its own: the row links to it, the pane reads it', async () => {
-    expect(row('launch').getAttribute('href')).toBe('/inbox/launch');
-    await harness.navigateByUrl('/inbox/launch');
+    expect(row('reply-plain-note').getAttribute('href')).toBe('/inbox/reply-plain-note');
+    await harness.navigateByUrl('/inbox/reply-plain-note');
     expect(root.querySelector('app-inbox-reader .inbox-reader__subject')?.textContent).toBe(
-      INBOX[0].subject,
+      'Plain note',
     );
-    expect(row('launch').getAttribute('aria-current')).toBe('page');
+    expect(row('reply-plain-note').getAttribute('aria-current')).toBe('page');
     // On a phone the pane then takes the list's place.
     expect(host().hasAttribute('data-reading')).toBe(true);
 
@@ -62,11 +67,17 @@ describe('Inbox', () => {
     expect(host().hasAttribute('data-reading')).toBe(false);
   });
 
+  it('shows a date as the message wrote it, and none where it has none', () => {
+    const when = (id: string) => row(id).querySelector('.inbox-row__when')?.textContent?.trim();
+    expect(when('reply-plain-note')).toBe('Aug 18, 2026, 4:32 PM');
+    expect(when('mjml-austin')).toBe('');
+  });
+
   it('reads a message once it is opened, however it was reached', async () => {
-    expect(row('launch').classList).toContain('inbox-row--unread');
-    await harness.navigateByUrl('/inbox/launch');
-    expect(row('launch').classList).not.toContain('inbox-row--unread');
+    expect(row('reply-plain-note').classList).toContain('inbox-row--unread');
+    await harness.navigateByUrl('/inbox/reply-plain-note');
+    expect(row('reply-plain-note').classList).not.toContain('inbox-row--unread');
     // Still unread: one not opened yet.
-    expect(row('invoice').classList).toContain('inbox-row--unread');
+    expect(row('mjml-austin').classList).toContain('inbox-row--unread');
   });
 });

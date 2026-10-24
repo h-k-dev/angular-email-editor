@@ -61,8 +61,8 @@
               >
                 <mat-icon class="mailbox-link__icon">{{ link.icon }}</mat-icon>
                 <span class="mailbox-link__label">{{ link.key | translate }}</span>
-                @if (link.count) {
-                  <span class="mailbox-link__count">{{ link.count }}</span>
+                @if (link.count?.(); as count) {
+                  <span class="mailbox-link__count">{{ count }}</span>
                 }
               </a>
             </li>
@@ -87,8 +87,12 @@
   <div class="mailbox-scrim" aria-hidden="true" (click)="collapsed.set(true)"></div>
 }
 
-<!-- The page, on a sheet of its own beside the aside: it scrolls here, the
-     aside never does. -->
+<!-- The page, on a sheet of its own beside the aside: a 48px block on top
+     kept for a header every page will have, and the page under it — which
+     scrolls there; the block and the aside never do. -->
 <div class="mailbox-main">
-  <router-outlet />
+  <header class="mailbox-header"></header>
+  <div class="mailbox-page">
+    <router-outlet />
+  </div>
 </div>

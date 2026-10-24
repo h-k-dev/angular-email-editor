@@ -16,17 +16,14 @@
       </div>
     </header>
 
-    <!-- The body, as a client draws it: no scripts, its links out to a tab
-         of their own; as tall as what it holds. -->
-    <iframe
-      #frame
+    <!-- The body, as a client draws it (`email-viewer`): no scripts, its
+         links out to a tab of their own; as tall as what it holds. -->
+    <email-viewer
       class="inbox-reader__body"
-      sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-      [title]="'inbox.body' | translate"
-      [srcdoc]="document()"
-      [style.block-size.px]="height()"
-      (load)="fit(frame)"
-    ></iframe>
+      [html]="mail.html"
+      [scheme]="scheme()"
+      [label]="'inbox.body' | translate"
+    />
 
     <div class="inbox-reader__actions">
       <button matButton="outlined" type="button" (click)="answer('reply')">
@@ -43,6 +40,6 @@
       </button>
     </div>
   </article>
-} @else {
+} @else if (settled()) {
   <p class="inbox-reader__missing">{{ 'inbox.missing' | translate }}</p>
 }

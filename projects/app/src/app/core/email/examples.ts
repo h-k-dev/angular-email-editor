@@ -4,7 +4,7 @@ import { InboundMessage, replyDocument, replyQuote } from '@h-k-dev/angular-emai
 /** A reply example's file as the inbound message. A date written as ISO is
     a `Date`, formatted by the locale; anything else is a preformatted
     string, shown as it is. */
-function inbound(text: string): InboundMessage {
+export function inbound(text: string): InboundMessage {
   const message = JSON.parse(text) as InboundMessage;
   if (typeof message.date === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(message.date)) {
     message.date = new Date(message.date);
@@ -103,6 +103,12 @@ export class Examples {
   /** The set with this key, if the catalogue has it. */
   async set(key: string): Promise<ExampleSet | undefined> {
     return (await this.sets()).find((set) => set.key === key);
+  }
+
+  /** An example's file as it is — a reply example's JSON, a template's
+      HTML — for what reads the examples another way (the inbox). */
+  raw(entry: ExampleEntry): Promise<string> {
+    return this.#file(entry.file);
   }
 
   /** An example's document, as canonical email HTML — a reply example's

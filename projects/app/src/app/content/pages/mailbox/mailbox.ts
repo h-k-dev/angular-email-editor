@@ -1,4 +1,4 @@
-import { Component, computed, inject, linkedSignal } from '@angular/core';
+import { Component, Signal, computed, inject, linkedSignal } from '@angular/core';
 
 // Angular Material
 import { MatButton, MatIconButton } from '@angular/material/button';
@@ -9,7 +9,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 
 import { ComposeWindows } from '../../../core/email/compose-windows';
 import { Viewport } from '../../../core/layout/viewport';
-import { INBOX } from '../../../core/email/mailbox/mails';
+import { ReceivedMail } from '../../../core/email/mailbox/received-mail';
 import { LanguageMenu } from '../../partials/common/language-menu/language-menu';
 import { ThemeToggle } from '../../partials/common/theme-toggle/theme-toggle';
 
@@ -19,7 +19,7 @@ interface MailboxLink {
   readonly icon: string;
   readonly key: string;
   /** What waits there, counted — the inbox's unread — or nothing to say. */
-  readonly count?: number;
+  readonly count?: Signal<number>;
 }
 
 /** A run of links under a heading of its own, or none (the first). */
@@ -64,6 +64,9 @@ interface MailboxSection {
 })
 export class Mailbox {
   readonly #composeWindows = inject(ComposeWindows);
+  readonly #mailbox = inject(ReceivedMail);
+  /** The inbox's unread, as it goes down. */
+  readonly #unread = computed(() => this.#mailbox.unread().size);
   readonly #viewport = inject(Viewport);
 
   /** Whether the aside is the rail. Open on a desk, the rail on a phone —
@@ -110,7 +113,7 @@ export class Mailbox {
           path: '/inbox',
           icon: 'inbox',
           key: 'app.nav.inbox',
-          count: INBOX.filter((mail) => mail.unread).length,
+          count: this.#unread,
         },
       ],
     },

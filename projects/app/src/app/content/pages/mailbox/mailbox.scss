@@ -249,8 +249,21 @@
   // Its own column always: an aside lying over the page leaves the flow,
   // and auto-placement would slide the page into the rail's column.
   grid-column: 2;
+  display: grid;
+  grid-template-rows: 48px minmax(0, 1fr);
+  min-block-size: 0;
+  background: var(--mat-sys-surface-bright);
+}
+
+// The header's place: 48px on top of every page, kept whether or not a
+// header is in it yet — so a page never moves the day one is.
+.mailbox-header {
+  min-inline-size: 0;
+}
+
+// The page itself: the rest, scrolling on its own.
+.mailbox-page {
   min-block-size: 0;
   overflow-y: auto;
-  background: var(--mat-sys-surface-bright);
   @include scroll.scroll;
 }

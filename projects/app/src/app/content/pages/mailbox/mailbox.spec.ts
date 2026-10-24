@@ -5,7 +5,7 @@ import { RouterTestingHarness } from '@angular/router/testing';
 
 import { ComposeWindows } from '../../../core/email/compose-windows';
 import { Viewport } from '../../../core/layout/viewport';
-import { INBOX } from '../../../core/email/mailbox/mails';
+import { provideExampleMail } from '../../../../../test/received-mail-fixture';
 import { Mailbox } from './mailbox';
 
 @Component({ template: '<p class="page">a page</p>' })
@@ -52,6 +52,7 @@ describe('Mailbox', () => {
           },
         },
         { provide: ComposeWindows, useValue: { open: async () => opened++ } },
+        provideExampleMail(),
       ],
     });
     harness = await RouterTestingHarness.create('/inbox');
@@ -78,11 +79,12 @@ describe('Mailbox', () => {
       expect(link('API').hasAttribute('aria-current')).toBe(false);
     });
 
-    it('counts what is unread in the inbox', () => {
-      const unread = INBOX.filter((mail) => mail.unread).length;
-      expect(link('Inbox').querySelector('.mailbox-link__count')?.textContent?.trim()).toBe(
-        String(unread),
-      );
+    it('counts what is unread in the inbox', async () => {
+      // The fixture's three messages, none opened yet.
+      await vi.waitFor(async () => {
+        await harness.fixture.whenStable();
+        expect(link('Inbox').querySelector('.mailbox-link__count')?.textContent?.trim()).toBe('3');
+      });
     });
 
     it('heads the aside with the rail toggle and Compose written out, the settings at its foot', () => {
