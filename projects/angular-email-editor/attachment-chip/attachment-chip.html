@@ -36,7 +36,23 @@
     }
   </span>
 
-  @if (iconButtonOffered()) {
+  <!-- A failed transfer: the retry, the one thing to act on — the chip's
+       own button, shown at all times. -->
+  @if (failed()) {
+    <span data-slot="icon-button">
+      <button
+        type="button"
+        data-slot="retry"
+        [disabled]="ariaDisabled()"
+        [attr.aria-label]="retryLabel() + ' ' + attachment().name"
+        (click)="retried.emit()"
+      >
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M13.5 4v3h-3 M12.25 9.5a4.5 4.5 0 1 1 -1.06 -4.68l2.31 2.18" />
+        </svg>
+      </button>
+    </span>
+  } @else if (iconButtonOffered()) {
     <span data-slot="icon-button">
       @if (iconButtonTemplate(); as slot) {
         <ng-container *ngTemplateOutlet="slot.template; context: buttonContext()" />
@@ -59,9 +75,13 @@
 
 <span data-slot="label">
   <!-- title, not a tooltip component: the name is truncated in CSS, and the
-       native title is what recovers the whole of it. -->
-  <span data-slot="name" [title]="attachment().name">{{ attachment().name }}</span>
-  @if (size()) {
+       native title is what recovers the whole of it. The stem gives way to
+       the ellipsis, the extension never does. One line, so no whitespace
+       comes between the two. -->
+  <span data-slot="name" [title]="attachment().name"><span data-slot="name-stem">{{ nameParts().stem }}</span>@if (nameParts().extension) {<span data-slot="name-extension">{{ nameParts().extension }}</span>}</span>
+  @if (failed()) {
+    <span data-slot="error">{{ failedLabel() }}</span>
+  } @else if (size()) {
     <span data-slot="size">{{ size() }}</span>
   }
 </span>

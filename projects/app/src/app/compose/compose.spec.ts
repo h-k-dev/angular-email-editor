@@ -1170,6 +1170,67 @@ describe('Compose', () => {
     expect(announce).toHaveBeenCalledWith('All attachments removed');
   });
 
+  it('a chip’s × hands focus to the next chip and says which file went; the last one’s goes to the text', async () => {
+    const root = fixture.nativeElement as HTMLElement;
+    const sheet = (component as any).sheet();
+    const refs = ['a.pdf', 'b.pdf'].map((name) => sheet.uploads.start({ name, size: 10 }));
+    sheet.message.update((m: object) => ({ ...m, attachments: refs }));
+    await fixture.whenStable();
+    const remove = (name: string) =>
+      root.querySelector<HTMLButtonElement>(`[data-slot=remove][aria-label="Remove ${name}"]`)!;
+    const cancel = vi.spyOn(sheet.uploads, 'cancel');
+    const announce = vi.spyOn(TestBed.inject(LiveAnnouncer), 'announce');
+
+    remove('a.pdf').focus();
+    remove('a.pdf').click();
+    await fixture.whenStable();
+    expect(document.activeElement?.getAttribute('aria-label')).toBe('Remove b.pdf');
+    expect(sheet.message().attachments.map((ref: { name: string }) => ref.name)).toEqual(['b.pdf']);
+    expect(cancel).toHaveBeenCalledWith(refs[0].key);
+    expect(announce).toHaveBeenCalledWith('a.pdf removed');
+
+    remove('b.pdf').click();
+    await settle();
+    await fixture.whenStable();
+    expect(sheet.message().attachments).toEqual([]);
+    expect(announce).toHaveBeenCalledWith('b.pdf removed');
+    expect(sheet.emailPane().editor().view.dom.contains(document.activeElement)).toBe(true);
+  });
+
+  it('a failed upload is said aloud, brings the strip back, and holds the send with its own reason', async () => {
+    const root = fixture.nativeElement as HTMLElement;
+    const sheet = (component as any).sheet();
+    const ref = sheet.uploads.start({ name: 'lost.pdf', size: 10 });
+    const status = signal<string>('uploading');
+    vi.spyOn(sheet.uploads, 'status').mockImplementation(() => status);
+    const announce = vi.spyOn(TestBed.inject(LiveAnnouncer), 'announce');
+    sheet.message.update((m: object) => ({ ...m, attachments: [ref] }));
+    sheet.attachmentsHidden.set(true);
+    await fixture.whenStable();
+    const reason = () =>
+      sheet.envelope.attachments().errors().map((error: { kind: string }) => error.kind);
+    expect(reason()).toEqual(['attachments.pending']);
+
+    status.set('failed');
+    await fixture.whenStable();
+    expect(announce).toHaveBeenCalledWith('lost.pdf didn’t upload', 'assertive');
+    expect(sheet.attachmentsHidden()).toBe(false);
+    expect(reason()).toEqual(['attachments.failed']);
+    const chip = root.querySelector('[email-attachment-chip]')!;
+    expect(chip.getAttribute('data-status')).toBe('failed');
+    expect(chip.querySelector('[data-slot=error]')?.textContent?.trim()).toBe('Upload failed');
+
+    // Once only, however often the sheet looks again.
+    announce.mockClear();
+    sheet.attachmentsHidden.set(true);
+    await fixture.whenStable();
+    expect(announce).not.toHaveBeenCalled();
+
+    const retry = vi.spyOn(sheet.uploads, 'retry');
+    chip.querySelector<HTMLButtonElement>('[data-slot=retry]')!.click();
+    expect(retry).toHaveBeenCalledWith(ref.key);
+  });
+
   it('the settings’ Format turns the message to plain text and back, and sends plain text alone', async () => {
     const root = fixture.nativeElement as HTMLElement;
     const sheet = (component as any).sheet();

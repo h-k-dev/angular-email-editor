@@ -1,5 +1,6 @@
 import {
   Component,
+  ElementRef,
   booleanAttribute,
   computed,
   contentChildren,
@@ -25,6 +26,13 @@ import { Attachment, AttachmentChip } from '@h-k-dev/angular-email-editor/attach
  * with no wiring on the host's side. Identity, not name — the host's items
  * are the value's, so the chip that asked is exactly the item that goes.
  * `disabled` (the form's, or the host's) holds the value still.
+ *
+ * **Focus keeps its place.** When the chip that goes holds focus — its ×
+ * pressed from the keyboard, say — focus moves first to the same control
+ * on its neighbour (the next chip, else the one before), so a keyboard user
+ * removing chips one after another never lands on the page's start. With
+ * no neighbour left it stays put: where focus goes once the strip empties
+ * is the host's to say (back to the text, say), in its own `(removed)`.
  *
  * `aria-busy` is reflected while any chip is busy, so a host can style or
  * gate on the strip as a whole (`[email-attachment-chips][aria-busy='true']`,
@@ -58,6 +66,8 @@ export class AttachmentChips<T extends Attachment = Attachment> implements FormV
   readonly disabled = input(false, { transform: booleanAttribute });
 
   protected readonly chips = contentChildren(AttachmentChip);
+  /** The same chips' elements, in the same order — where focus can go. */
+  private readonly chipElements = contentChildren(AttachmentChip, { read: ElementRef });
 
   /** Any chip in the strip is busy — uploading, downloading, simulating. */
   readonly busy = computed(() => this.chips().some((chip) => chip.busy()));
@@ -65,10 +75,25 @@ export class AttachmentChips<T extends Attachment = Attachment> implements FormV
   constructor() {
     effect((onCleanup) => {
       const subscriptions = this.chips().map((chip) =>
-        chip.removed.subscribe(() => this.remove(chip.attachment() as T)),
+        chip.removed.subscribe(() => this.#removeChip(chip)),
       );
       onCleanup(() => subscriptions.forEach((subscription) => subscription.unsubscribe()));
     });
+  }
+
+  /** A chip asked to go: focus on it moves to its neighbour, then its item
+      leaves the value. */
+  #removeChip(chip: AttachmentChip): void {
+    if (this.disabled()) return;
+    const elements = this.chipElements().map((ref) => ref.nativeElement as HTMLElement);
+    const index = this.chips().indexOf(chip);
+    const element = elements[index];
+    const focused = element?.ownerDocument.activeElement;
+    if (element && focused instanceof HTMLElement && element.contains(focused)) {
+      const neighbour = elements[index + 1] ?? elements[index - 1];
+      if (neighbour) focusLike(focused, neighbour);
+    }
+    this.remove(chip.attachment() as T);
   }
 
   /** Takes one attachment out of the value, by identity. A no-op while
@@ -77,4 +102,19 @@ export class AttachmentChips<T extends Attachment = Attachment> implements FormV
     if (this.disabled()) return;
     this.value.update((list) => list.filter((item) => item !== attachment));
   }
+}
+
+/** Focuses, in `chip`, the control that matches `focused` in another chip
+    — the same part, by its data-slot (the ×, the download, the chip's own
+    click), or the button a host put in that part's box; failing that, the
+    chip's first live button. */
+function focusLike(focused: HTMLElement, chip: HTMLElement): void {
+  const slot = focused.closest('[data-slot]')?.getAttribute('data-slot');
+  const part = slot ? chip.querySelector<HTMLElement>(`[data-slot='${slot}']`) : null;
+  const target =
+    (part?.matches('button:not(:disabled)')
+      ? part
+      : part?.querySelector<HTMLElement>('button:not(:disabled)')) ??
+    chip.querySelector<HTMLElement>('button:not(:disabled)');
+  target?.focus();
 }

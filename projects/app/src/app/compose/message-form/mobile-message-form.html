@@ -187,7 +187,10 @@
               animate.enter="email-attachment-chip-enter"
               animate.leave="email-attachment-chip-leave"
               activatable
-              (removed)="uploads.cancel(attachment.key)"
+              [failedLabel]="'composer.attachments.failed' | translate"
+              [retryLabel]="'composer.attachments.retry' | translate"
+              (removed)="attachmentRemoved(attachment)"
+              (retried)="uploads.retry(attachment.key)"
               (activated)="attachmentClicked(attachment)"
             >
               <mat-icon *emailAttachmentIcon="let kind = kind" inline>

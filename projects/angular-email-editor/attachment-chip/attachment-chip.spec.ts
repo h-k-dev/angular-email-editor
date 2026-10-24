@@ -30,6 +30,7 @@ const settle = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
     (removed)="removals = removals + 1"
     (downloaded)="downloads = downloads + 1"
     (activated)="activations = activations + 1"
+    (retried)="retries = retries + 1"
   ></li>`,
 })
 class Host {
@@ -49,11 +50,16 @@ class Host {
   removals = 0;
   downloads = 0;
   activations = 0;
+  retries = 0;
 }
 
 function slots(chip: HTMLElement) {
   return {
     name: () => chip.querySelector<HTMLElement>('[data-slot=name]')!,
+    stem: () => chip.querySelector<HTMLElement>('[data-slot=name-stem]')?.textContent,
+    extension: () => chip.querySelector<HTMLElement>('[data-slot=name-extension]')?.textContent,
+    error: () => chip.querySelector<HTMLElement>('[data-slot=error]'),
+    retry: () => chip.querySelector<HTMLButtonElement>('[data-slot=retry]'),
     size: () => chip.querySelector<HTMLElement>('[data-slot=size]'),
     icon: () => chip.querySelector('[data-slot=icon] path')?.getAttribute('d'),
     remove: () => chip.querySelector<HTMLButtonElement>('[data-slot=remove]'),
@@ -82,6 +88,17 @@ describe('AttachmentChip', () => {
     expect(part.name().textContent?.trim()).toBe('Q4-report.pdf');
     expect(part.name().title).toBe('Q4-report.pdf');
     expect(part.size()?.textContent?.trim()).toBe('2.5 MB');
+  });
+
+  it('cuts a long name in its stem, never its extension', async () => {
+    expect(part.stem()).toBe('Q4-report');
+    expect(part.extension()).toBe('.pdf');
+
+    host.attachment.set({ name: 'README' });
+    await fixture.whenStable();
+    expect(part.stem()).toBe('README');
+    expect(part.extension()).toBeUndefined();
+    expect(part.name().textContent).toBe('README');
   });
 
   it('leaves the size line out when the size is unknown', async () => {
@@ -151,6 +168,42 @@ describe('AttachmentChip', () => {
     host.status.set('complete');
     await fixture.whenStable();
     expect(part.download()).toBeTruthy();
+  });
+
+  it('when failed, says so in the size’s place and offers a retry in the icon’s square', async () => {
+    host.downloadable.set(true);
+    host.status.set('failed');
+    await fixture.whenStable();
+
+    expect(chip.dataset['status']).toBe('failed');
+    expect(chip.hasAttribute('aria-busy')).toBe(false);
+    expect(part.size()).toBeNull();
+    expect(part.error()?.textContent?.trim()).toBe('Upload failed');
+    expect(part.progress()).toBeNull();
+    // The retry has the square — no file to hand back yet.
+    expect(part.download()).toBeNull();
+    const square = chip.querySelector('[data-slot=leading] [data-slot=icon-button]')!;
+    expect(square.contains(part.retry())).toBe(true);
+    expect(part.retry()?.getAttribute('aria-label')).toBe('Retry Q4-report.pdf');
+    // The × stays.
+    expect(part.remove()).toBeTruthy();
+
+    part.retry()!.click();
+    await fixture.whenStable();
+    expect(host.retries).toBe(1);
+
+    host.status.set('queued');
+    await fixture.whenStable();
+    expect(part.retry()).toBeNull();
+    expect(part.error()).toBeNull();
+  });
+
+  it('takes the retry out of play when aria-disabled', async () => {
+    host.status.set('failed');
+    host.disabled.set(true);
+    await fixture.whenStable();
+
+    expect(part.retry()?.disabled).toBe(true);
   });
 
   it('accepts a browser File unchanged — it already satisfies Attachment', async () => {
@@ -360,6 +413,8 @@ describe('AttachmentChip', () => {
       'icon',
       'label',
       'name',
+      'name-stem',
+      'name-extension',
       'size',
       'trailing',
       'tail-button',

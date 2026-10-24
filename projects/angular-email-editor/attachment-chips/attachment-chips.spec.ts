@@ -82,6 +82,48 @@ describe('AttachmentChips', () => {
     expect(chips()).toHaveLength(1);
   });
 
+  it('moves focus to the same control on the next chip, else the one before, as one goes', async () => {
+    host.attachments.set([
+      { name: 'a.txt', type: 'text/plain' },
+      { name: 'b.txt', type: 'text/plain' },
+      { name: 'c.txt', type: 'text/plain' },
+    ]);
+    await fixture.whenStable();
+    const focusedName = () =>
+      (document.activeElement as HTMLElement | null)?.getAttribute('aria-label');
+
+    removeButton(1).focus();
+    removeButton(1).click();
+    expect(focusedName()).toBe('Remove c.txt');
+    await fixture.whenStable();
+    expect(names()).toEqual(['a.txt', 'c.txt']);
+
+    // The last one goes: its neighbour is the one before.
+    removeButton(1).click();
+    expect(focusedName()).toBe('Remove a.txt');
+    await fixture.whenStable();
+
+    // The only one goes: focus is the host's to place.
+    removeButton(0).click();
+    await fixture.whenStable();
+    expect(chips()).toHaveLength(0);
+  });
+
+  it('leaves focus alone when it was not on the chip that goes', async () => {
+    host.attachments.set([
+      { name: 'a.txt', type: 'text/plain' },
+      { name: 'b.txt', type: 'text/plain' },
+    ]);
+    await fixture.whenStable();
+    const outside = document.createElement('button');
+    document.body.append(outside);
+    outside.focus();
+
+    removeButton(0).click();
+    expect(document.activeElement).toBe(outside);
+    outside.remove();
+  });
+
   it('hides again when the last chip is removed', async () => {
     host.attachments.set([{ name: 'only.txt', type: 'text/plain' }]);
     await fixture.whenStable();

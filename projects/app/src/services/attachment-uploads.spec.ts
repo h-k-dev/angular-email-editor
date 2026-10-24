@@ -18,8 +18,11 @@ const duration = (size: number) => simulatedDuration(size, LINE);
 
 describe('AttachmentUploads', () => {
   let service: AttachmentUploads;
+  /** The connection, as the store asks for it at every tick. */
+  let online = true;
 
   beforeEach(() => {
+    online = true;
     vi.useFakeTimers();
     TestBed.configureTestingModule({
       providers: [
@@ -37,6 +40,7 @@ describe('AttachmentUploads', () => {
             concurrency: CONCURRENCY,
             linger: LINGER,
             line: LINE,
+            online: () => online,
           },
         },
       ],
@@ -205,6 +209,17 @@ describe('AttachmentUploads', () => {
       expect(summary().progress).toBeCloseTo(0.5, 2);
     });
 
+    it('lets a failed file out of the batch: it moves nothing, and the batch still finishes', async () => {
+      const lost = service.start({ name: 'lost.pdf', size: 1024 });
+      const summary = service.summary(() => [lost.key]);
+      await vi.advanceTimersByTimeAsync(PREPROCESS + 20);
+      online = false;
+      await vi.advanceTimersByTimeAsync(10);
+
+      expect(service.status(lost.key)()).toBe('failed');
+      expect(summary()).toEqual({ busy: false, pending: 0, progress: null });
+    });
+
     it('sums only the keys it is given — another composer’s files are not its', async () => {
       const mine = service.start({ name: 'mine.pdf', size: 1024 });
       service.start({ name: 'theirs.pdf', size: 1024 });
@@ -220,6 +235,37 @@ describe('AttachmentUploads', () => {
     expect(a.key).not.toBe(b.key);
     expect(service.status('never')()).toBeNull();
     expect(service.progress('never')()).toBeNull();
+  });
+
+  it('fails an upload whose connection drops, frees its connection, and runs it again on retry', async () => {
+    const [a, b, c] = [1, 2, 3].map((n) => service.start({ name: `${n}.pdf`, size: 1024 }));
+    const status = (ref: { key: string }) => service.status(ref.key)();
+    let settled: string | null = null;
+    void service.whenDone(a.key).then((id) => (settled = id));
+    await vi.advanceTimersByTimeAsync(PREPROCESS + 20);
+    expect([a, b, c].map(status)).toEqual(['uploading', 'uploading', 'queued']);
+
+    // The line drops: both uploads fail, and give their connections up.
+    online = false;
+    await vi.advanceTimersByTimeAsync(10);
+    expect(status(a)).toBe('failed');
+    expect(service.progress(a.key)()).toBeNull();
+    expect(settled).toBeNull();
+
+    // A retry is a no-op for anything but a failure.
+    service.retry(c.key);
+    expect(status(c)).not.toBe('failed');
+
+    // Back online, a retry queues it again, its bytes from the start, and it
+    // settles with an id as any other does.
+    online = true;
+    await vi.advanceTimersByTimeAsync(duration(1024) * 2 + LINGER * 2);
+    expect(status(a)).toBe('failed');
+    service.retry(a.key);
+    expect(['queued', 'uploading']).toContain(status(a));
+    await vi.advanceTimersByTimeAsync(duration(1024) + LINGER + 20);
+    expect(status(a)).toBe('complete');
+    expect(settled).toMatch(/^att_/);
   });
 
   it('a cancelled transfer stops and never settles', async () => {

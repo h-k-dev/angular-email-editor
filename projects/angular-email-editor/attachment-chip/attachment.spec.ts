@@ -1,4 +1,4 @@
-import { attachmentKind, formatAttachmentSize } from './attachment';
+import { attachmentKind, formatAttachmentSize, splitAttachmentName } from './attachment';
 
 describe('attachmentKind', () => {
   it('names the kinds a message carries', () => {
@@ -54,5 +54,24 @@ describe('formatAttachmentSize', () => {
 
   it('writes the number in the locale, the unit as mail clients do', () => {
     expect(formatAttachmentSize(2.5 * 1024 * 1024, 'de-DE')).toBe('2,5 MB');
+  });
+});
+
+describe('splitAttachmentName', () => {
+  it('cuts the stem and keeps the extension, dot included', () => {
+    expect(splitAttachmentName('Quarterly report.pdf')).toEqual({
+      stem: 'Quarterly report',
+      extension: '.pdf',
+    });
+    expect(splitAttachmentName('archive.tar.gz')).toEqual({
+      stem: 'archive.tar',
+      extension: '.gz',
+    });
+  });
+
+  it('keeps the whole name as the stem when there is no extension to keep', () => {
+    for (const name of ['README', '.env', 'notes.', 'v1.2 final draft', 'data.averyverylongext']) {
+      expect(splitAttachmentName(name)).toEqual({ stem: name, extension: '' });
+    }
   });
 });

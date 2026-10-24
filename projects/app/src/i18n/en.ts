@@ -52,6 +52,10 @@ export default {
       count: { one: '1 attachment', other: '{{count}} attachments' },
       uploaded: '{{percent}}% uploaded',
       preparing: 'preparing upload',
+      failed: 'Upload failed',
+      retry: 'Retry',
+      removedOne: '{{name}} removed',
+      failedOne: '{{name}} didn’t upload',
     },
     more: 'More options',
     settings: {

@@ -221,13 +221,30 @@
   min-width: 0;
 }
 
-:host :where([data-slot='name'], [data-slot='size']) {
+// The name in two parts: the stem gives way to the ellipsis, the extension
+// keeps its whole width — "Quarterly fin….pdf".
+:host :where([data-slot='name']) {
+  display: flex;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+:host :where([data-slot='name-stem'], [data-slot='size'], [data-slot='error']) {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-:host :where([data-slot='size']) {
+// Its own left-to-right run: in a right-to-left name the dot would
+// otherwise land on the far side — "pdf.".
+:host :where([data-slot='name-extension']) {
+  flex: none;
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+:host :where([data-slot='size'], [data-slot='error']) {
   font-family: var(
     --email-attachment-chip-secondary-font-family,
     var(--mat-sys-body-small-font, system-ui, sans-serif)
@@ -340,16 +357,26 @@
   transform: scaleX(0);
 }
 
+// Right to left, the bar fills from the right and the sweep runs leftward:
+// the pseudo-element mirrored, its gradient and its motion with it.
+:host(:dir(rtl)) :where([data-slot='progress-indicator']) {
+  transform-origin: right;
+}
+
+:host(:dir(rtl))::after {
+  scale: -1 1;
+}
+
 // The duration here is a placeholder — the chip binds the real one inline.
 :host :where([data-mode='simulated'] [data-slot='progress-indicator']) {
   animation: email-attachment-chip-fill 1s cubic-bezier(0.2, 0.6, 0.35, 1) forwards;
 }
 
 // ── icon button and tail button ─────────────────────────────────────────
-// The chip's own two — the download arrow and the × — are bare buttons
-// sized to the glyph they hold — a 40px row has no room for a
-// full touch-target button next to a readout.
-:host :where([data-slot='remove'], [data-slot='download-button']) {
+// The chip's own three — the download arrow and the retry over the icon,
+// the × at the end — are bare buttons sized to the glyph they hold — a
+// 40px row has no room for a full touch-target button next to a readout.
+:host :where([data-slot='remove'], [data-slot='download-button'], [data-slot='retry']) {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -371,7 +398,7 @@
 }
 
 // One action glyph size for both ends: 16px in the 24px circle.
-:host :where([data-slot='remove'] svg, [data-slot='download-button'] svg) {
+:host :where([data-slot='remove'] svg, [data-slot='download-button'] svg, [data-slot='retry'] svg) {
   width: 16px;
   height: 16px;
   fill: none;
@@ -448,12 +475,40 @@
   }
 }
 
+// ── failed ──────────────────────────────────────────────────────────────
+// The transfer stopped short: the border, the retry and the words in the
+// size's place take the error colour. The retry has the icon's square for
+// good — on a touch screen too: it is the one thing to act on.
+:host([data-status='failed']) {
+  border-color: var(
+    --email-attachment-chip-error-color,
+    var(--mat-sys-error, light-dark(#b3261e, #f2b8b5))
+  );
+}
+
+:host([data-status='failed']) :where([data-slot='icon-button']) {
+  opacity: 1;
+}
+
+:host([data-status='failed']) :where([data-slot='icon']) {
+  opacity: 0;
+}
+
+:host :where([data-slot='retry'], [data-slot='error']) {
+  color: var(
+    --email-attachment-chip-error-color,
+    var(--mat-sys-error, light-dark(#b3261e, #f2b8b5))
+  );
+}
+
 :host
   :where(
     [data-slot='remove']:hover:not(:disabled),
     [data-slot='remove']:focus-visible,
     [data-slot='download-button']:hover:not(:disabled),
-    [data-slot='download-button']:focus-visible
+    [data-slot='download-button']:focus-visible,
+    [data-slot='retry']:hover:not(:disabled),
+    [data-slot='retry']:focus-visible
   ) {
   background-color: var(
     --email-attachment-chip-hover-background,
@@ -465,13 +520,31 @@
   );
 }
 
-:host :where([data-slot='remove']:focus-visible, [data-slot='download-button']:focus-visible) {
+// The retry stays the error's colour under the pointer and focus too.
+:host :where([data-slot='retry']:hover, [data-slot='retry']:focus-visible) {
+  color: var(
+    --email-attachment-chip-error-color,
+    var(--mat-sys-error, light-dark(#b3261e, #f2b8b5))
+  );
+}
+
+:host
+  :where(
+    [data-slot='remove']:focus-visible,
+    [data-slot='download-button']:focus-visible,
+    [data-slot='retry']:focus-visible
+  ) {
   outline: 2px solid
     var(--email-attachment-chip-focus-ring, var(--mat-sys-primary, light-dark(#0b57d0, #a8c7fa)));
   outline-offset: 1px;
 }
 
-:host :where([data-slot='remove']:disabled, [data-slot='download-button']:disabled) {
+:host
+  :where(
+    [data-slot='remove']:disabled,
+    [data-slot='download-button']:disabled,
+    [data-slot='retry']:disabled
+  ) {
   cursor: default;
 }
 
@@ -584,5 +657,37 @@
   to {
     opacity: 0;
     transform: scale(0.92);
+  }
+}
+
+// ── forced colours ──────────────────────────────────────────────────────
+// High contrast replaces every background with the canvas, so what the chip
+// paints as a fill would vanish: the bar, its track, the sweep and the
+// hover tint. The bar and the sweep keep the system's highlight, the track
+// its grey; a hovered or focused chip shows it in its border. A failure
+// keeps its words, and its border takes the system's mark.
+@media (forced-colors: active) {
+  :host :where([data-slot='progress-indicator']) {
+    forced-color-adjust: none;
+    background-color: Highlight;
+  }
+
+  :host :where([data-slot='progress-track']) {
+    forced-color-adjust: none;
+    background-color: GrayText;
+  }
+
+  :host([data-scanning])::after {
+    forced-color-adjust: none;
+    background-image: linear-gradient(100deg, transparent 35%, Highlight 50%, transparent 65%);
+  }
+
+  :host([data-activatable]:not([aria-disabled='true']):is(:hover, :focus-within)) {
+    border-color: Highlight;
+  }
+
+  :host([data-status='failed']) {
+    border-color: Mark;
+    border-style: dashed;
   }
 }

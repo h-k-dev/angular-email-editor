@@ -55,6 +55,10 @@ export default {
       count: { one: '1 Anhang', other: '{{count}} Anhänge' },
       uploaded: '{{percent}} % hochgeladen',
       preparing: 'Upload wird vorbereitet',
+      failed: 'Hochladen fehlgeschlagen',
+      retry: 'Erneut versuchen',
+      removedOne: '{{name}} entfernt',
+      failedOne: '{{name}} wurde nicht hochgeladen',
     },
     more: 'Weitere Optionen',
     settings: {

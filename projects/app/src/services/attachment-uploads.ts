@@ -56,6 +56,10 @@ export interface AttachmentUploadOptions {
       small file and a middling one visibly take different times — the
       library's own default is a fast line that clamps both to its floor. */
   readonly line: AttachmentUploadLine;
+  /** Whether the connection is up, asked at every tick of an upload: a
+      transfer whose connection drops fails, as a real one does — the
+      browser's own word by default, so DevTools' Offline shows it. */
+  readonly online: () => boolean;
 }
 
 /** Overrides for the simulated store. Specs shorten them all. `preprocess`
@@ -86,6 +90,7 @@ const DEFAULT_OPTIONS: AttachmentUploadOptions = {
     maxDuration: 8000,
     fallbackDuration: 1500,
   },
+  online: () => globalThis.navigator?.onLine ?? true,
 };
 
 /** One transfer as the store sees it: its stage, and how far along the
@@ -122,7 +127,9 @@ const IDLE: UploadSummary = { busy: false, pending: 0, progress: null };
  * size over the line's speed, clamped — a mobile-class line, so sizes tell
  * apart), so the strip shows real, determinate progress from here instead
  * of playing a fake. The full bar lingers a moment, and then the
- * transfer is `complete` and the reference gets its id.
+ * transfer is `complete` and the reference gets its id. An upload whose
+ * connection drops is `failed`: it gives its connection up, keeps its
+ * place in nothing, and waits for `retry` — or for its chip to go.
  *
  * Only references leave this service: the composer's form holds
  * `AttachmentRef`s, its rule blocks a send while any id is still `null`, and
@@ -219,11 +226,15 @@ export class AttachmentUploads {
       {
         source: () => keys().map((key) => [key, this.#transfers.get(key)?.() ?? null] as const),
         computation: (transfers, previous) => {
+          // A failed transfer is out of the batch: nothing of it moves, and
+          // the batch must still be able to finish without it.
           const flying = transfers
-            .filter(([, transfer]) => transfer && transfer.status !== 'complete')
+            .filter(([, transfer]) => transfer && !settled(transfer.status))
             .map(([key]) => key);
           if (!flying.length) return [];
-          const present = new Set(transfers.map(([key]) => key));
+          const present = new Set(
+            transfers.filter(([, transfer]) => transfer?.status !== 'failed').map(([key]) => key),
+          );
           const kept = (previous?.value ?? []).filter((key) => present.has(key));
           return [...new Set([...kept, ...flying])];
         },
@@ -261,6 +272,16 @@ export class AttachmentUploads {
     return this.#done.get(key) ?? new Promise<string>(() => {});
   }
 
+  /** Starts a failed transfer again: back in line for a connection, its
+      bytes from the start. A no-op for any other. */
+  retry(key: string): void {
+    const transfer = this.#transfers.get(key);
+    if (transfer?.().status !== 'failed') return;
+    transfer.set({ status: 'queued', progress: null });
+    this.#waiting.push(key);
+    this.#pump();
+  }
+
   /** Stops a transfer and forgets it — the chip was removed mid-flight. A
       waiting transfer leaves the line; an uploading one frees its
       connection for the next in line. */
@@ -294,6 +315,15 @@ export class AttachmentUploads {
     const started = Date.now();
     transfer.set({ status: 'uploading', progress: 0 });
     const timer = setInterval(() => {
+      // The connection dropped: the transfer fails and frees its slot.
+      if (!this.#options.online()) {
+        clearInterval(timer);
+        this.#stop.delete(key);
+        this.#uploading.delete(key);
+        transfer.set({ status: 'failed', progress: null });
+        this.#pump();
+        return;
+      }
       const elapsed = Date.now() - started;
       transfer.set({ status: 'uploading', progress: Math.min(1, elapsed / duration) });
       // Full, but let it be seen before it goes.
@@ -309,4 +339,9 @@ export class AttachmentUploads {
     }, this.#options.tick);
     this.#stop.set(key, () => clearInterval(timer));
   }
+}
+
+/** Done with, one way or the other: nothing more moves until someone acts. */
+function settled(status: AttachmentStatus): boolean {
+  return status === 'complete' || status === 'failed';
 }

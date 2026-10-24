@@ -7,12 +7,14 @@ import {
   // Signals
   afterNextRender,
   computed,
+  effect,
   inject,
   input,
   linkedSignal,
   model,
   output,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 
@@ -253,14 +255,20 @@ export abstract class MessageSheet {
           ? null
           : { kind: 'body.empty', message: 'Write something before sending' },
       );
-      validate(p.attachments, ({ value }) =>
-        value().some((attachment) => attachment.id === null)
+      validate(p.attachments, ({ value }) => {
+        const pending = value().filter((attachment) => attachment.id === null);
+        if (!pending.length) return null;
+        // One that failed waits on the user, not on the line.
+        return pending.some((attachment) => this.uploads.status(attachment.key)() === 'failed')
           ? {
+              kind: 'attachments.failed',
+              message: 'An attachment didn’t upload — retry it or remove it',
+            }
+          : {
               kind: 'attachments.pending',
               message: 'Still attaching — wait for the uploads to finish',
-            }
-          : null,
-      );
+            };
+      });
     },
     {
       name: 'message',
@@ -497,6 +505,22 @@ export abstract class MessageSheet {
     }
   }
 
+  /** A chip's ×. The chip list has already moved focus to the neighbouring
+      chip and takes the item out; here its transfer stops, a screen reader
+      hears which file went (the chip leaves without a word of its own), and
+      focus the last chip held goes to the text, as the trash's does. */
+  attachmentRemoved(attachment: AttachmentRef): void {
+    const last = this.message().attachments.every((other) => other.key === attachment.key);
+    const inStrip = !!(document.activeElement as HTMLElement | null)?.closest('.attachment-strip');
+    this.uploads.cancel(attachment.key);
+    void this.#announcer.announce(
+      this.i18n.t('composer.attachments.removedOne', { name: attachment.name }),
+    );
+    if (last && inStrip) {
+      afterNextRender({ write: () => this.emailPane().focus() }, { injector: this.#injector });
+    }
+  }
+
   /** A chip's download, faked: the demo's store holds no bytes, so it only
       says what a real host would start — the file is never fetched. */
   downloadAttachment(attachment: AttachmentRef): void {
@@ -581,6 +605,27 @@ export abstract class MessageSheet {
     if (!inject(CdkTrapFocus, { optional: true })?.autoCapture) {
       afterNextRender({ write: () => this.focus() });
     }
+
+    // An upload that fails is said aloud — once per failure — and its chip
+    // brought into sight if the strip was put away: the user has to act on
+    // it before the message can go.
+    const told = new Set<string>();
+    effect(() => {
+      const failed = this.message()
+        .attachments.filter((attachment) => this.uploads.status(attachment.key)() === 'failed');
+      const now = new Set(failed.map((attachment) => attachment.key));
+      for (const key of told) if (!now.has(key)) told.delete(key);
+      const fresh = failed.filter((attachment) => !told.has(attachment.key));
+      if (!fresh.length) return;
+      for (const attachment of fresh) told.add(attachment.key);
+      untracked(() => {
+        this.attachmentsHidden.set(false);
+        void this.#announcer.announce(
+          this.i18n.t('composer.attachments.failedOne', { name: fresh[0].name }),
+          'assertive',
+        );
+      });
+    });
   }
 
   /** Puts the caret in To, where a message starts. */

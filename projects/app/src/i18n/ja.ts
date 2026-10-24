@@ -54,6 +54,10 @@ export default {
       count: { one: '添付ファイル 1 件', other: '添付ファイル {{count}} 件' },
       uploaded: '{{percent}}% アップロード済み',
       preparing: 'アップロードを準備中',
+      failed: 'アップロードに失敗しました',
+      retry: '再試行',
+      removedOne: '{{name}} を削除しました',
+      failedOne: '{{name}} をアップロードできませんでした',
     },
     more: 'その他のオプション',
     settings: {

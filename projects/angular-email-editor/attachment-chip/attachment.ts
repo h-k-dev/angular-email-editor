@@ -22,19 +22,22 @@ export interface Attachment {
  * number; `queued` is accepted and waiting for a connection, with nothing
  * happening yet; `uploading` is the bytes moving, with a number;
  * `postprocessing` is the work after (a transcode, a scan on the far side),
- * again with none; `complete` is done. A chip draws a sweep for the stages
- * where work runs without a number, a bar for the one with, and keeps
- * quiet while a transfer only waits.
+ * again with none; `complete` is done; `failed` stopped short — the store
+ * refused it or the connection dropped — and waits for a retry or a
+ * removal. A chip draws a sweep for the stages where work runs without a
+ * number, a bar for the one with, keeps quiet while a transfer only waits,
+ * and offers a retry once one has failed.
  *
  * The set is a vocabulary, not a sequence: which stages a pipeline has, and
  * in what order, is the host's — a store that scans on the far side queues
  * before it preprocesses, one that caps its connections queues after.
  */
 export type AttachmentStatus =
-  'preprocessing' | 'queued' | 'uploading' | 'postprocessing' | 'complete';
+  'preprocessing' | 'queued' | 'uploading' | 'postprocessing' | 'complete' | 'failed';
 
 /** The stages during which the transfer is not done — a waiting one
-    included, since the message is no more sendable for it. */
+    included, since the message is no more sendable for it. Not `failed`:
+    nothing is in flight there, though nothing is done either. */
 export function attachmentInFlight(status: AttachmentStatus | null | undefined): boolean {
   return (
     status === 'preprocessing' ||
@@ -81,6 +84,34 @@ export function attachmentKind(type: string | undefined): AttachmentKind {
   const mime = type.toLowerCase();
   for (const [pattern, kind] of KINDS) if (pattern.test(mime)) return kind;
   return 'file';
+}
+
+/** The longest extension kept whole beside a cut name, its dot included:
+    `.jpeg`, `.xlsx`, `.docx` — and only `.gz` of `.tar.gz`. */
+const MAX_EXTENSION = 8;
+
+/** A file name in the two parts a chip cuts it into. */
+export interface AttachmentNameParts {
+  /** What gives way to an ellipsis when the name is too long. */
+  readonly stem: string;
+  /** The extension with its dot, never cut; empty when there is none. */
+  readonly extension: string;
+}
+
+/**
+ * A file name split where a long one is cut: the stem, which ellipsizes,
+ * and the extension, which never does — "Quarterly fin….pdf", the way
+ * Gmail, Slack and Drive keep a file's type in sight. No dot, a leading dot
+ * only (`.env`), or a tail too long or spaced to be an extension: the whole
+ * name is the stem.
+ */
+export function splitAttachmentName(name: string): AttachmentNameParts {
+  const dot = name.lastIndexOf('.');
+  const extension = dot > 0 ? name.slice(dot) : '';
+  if (extension.length < 2 || extension.length > MAX_EXTENSION || /\s/.test(extension)) {
+    return { stem: name, extension: '' };
+  }
+  return { stem: name.slice(0, dot), extension };
 }
 
 const SIZE_UNITS = ['B', 'KB', 'MB', 'GB'] as const;

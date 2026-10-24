@@ -23,6 +23,7 @@ import {
   attachmentInFlight,
   attachmentKind,
   formatAttachmentSize,
+  splitAttachmentName,
 } from './attachment';
 import { prefersReducedMotion, scanningState } from './attachment-chip.animation';
 import {
@@ -108,6 +109,7 @@ const STATUS_LABELS: Record<AttachmentStatus, string> = {
   uploading: 'Uploading',
   postprocessing: 'Processing',
   complete: 'Uploaded',
+  failed: 'Upload failed',
 };
 
 /**
@@ -141,6 +143,12 @@ const STATUS_LABELS: Record<AttachmentStatus, string> = {
  * is reflected as `data-status` on the host. Which stages a host has, and
  * in what order, is the host's pipeline; the chip only draws the one it is
  * given.
+ *
+ * **`failed` asks for a retry.** The transfer stopped short: the chip takes
+ * the error colour, says so where the size was (`failedLabel`), and its
+ * icon's square holds a retry button — always shown, on a touch screen too,
+ * since the failure is the one thing to act on. It emits `retried`; the
+ * host starts the transfer again and moves `status` on. The × stays.
  *
  * **State is ARIA.** `aria-busy` is reflected while any stage is in flight,
  * and is also an input for a host with no stages to tell: busy with a
@@ -276,6 +284,12 @@ export class AttachmentChip implements OnInit {
       Left out, it follows the stage: Preparing, Uploading, Processing. */
   readonly progressLabel = input<string | undefined>(undefined);
 
+  /** What a failed chip says in place of its size. */
+  readonly failedLabel = input('Upload failed');
+
+  /** Prefix for the retry button's accessible name — "Retry report.pdf". */
+  readonly retryLabel = input('Retry');
+
   /** The remove button was pressed. The host drops the attachment; the chip
       goes when the host's list no longer has it. */
   readonly removed = output<void>();
@@ -288,6 +302,10 @@ export class AttachmentChip implements OnInit {
   /** The chip itself was clicked (or pressed with Enter or Space), when
       `activatable`. Never for a click on the icon or tail button. */
   readonly activated = output<void>();
+
+  /** The retry button of a failed chip was pressed. A request: the host
+      starts the transfer again and moves `status` on. */
+  readonly retried = output<void>();
 
   /** The host's own icon, if it handed one in. */
   protected readonly iconTemplate = contentChild(AttachmentChipIcon);
@@ -336,6 +354,14 @@ export class AttachmentChip implements OnInit {
     Math.round(Math.min(1, Math.max(0, this.progress() ?? 0)) * 100),
   );
 
+  /** The transfer stopped short: a retry in the icon's square, the error
+      in the size's place. */
+  protected readonly failed = computed(() => this.status() === 'failed');
+
+  /** The name, cut where a long one gives way: its stem ellipsizes, its
+      extension stays. */
+  protected readonly nameParts = computed(() => splitAttachmentName(this.attachment().name));
+
   protected readonly kind = computed(() => attachmentKind(this.attachment().type));
   protected readonly icon = computed(() => ICONS[this.kind()]);
 
@@ -345,9 +371,11 @@ export class AttachmentChip implements OnInit {
   }));
 
   /** The icon button is there — the host's or the chip's download arrow —
-      once nothing is in flight: a file still uploading has nothing to act on. */
+      once nothing is in flight: a file still uploading has nothing to act on.
+      A failed one has no file to hand back: its square is the retry's. */
   protected readonly iconButtonOffered = computed(
-    () => (!!this.iconButtonTemplate() || this.downloadable()) && !this.busy(),
+    () =>
+      (!!this.iconButtonTemplate() || this.downloadable()) && !this.busy() && !this.failed(),
   );
 
   /** The tail button is there — the host's, or the chip's × while
