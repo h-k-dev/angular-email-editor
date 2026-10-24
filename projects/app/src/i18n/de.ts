@@ -27,6 +27,8 @@ export default {
   },
   inbox: {
     title: 'Posteingang',
+    paperDark: 'Auf dunklem Papier lesen',
+    paperLight: 'Auf hellem Papier lesen',
     empty: 'Wähle eine Nachricht, um sie zu lesen',
     missing: 'Diese Nachricht gibt es nicht.',
     body: 'Nachricht',

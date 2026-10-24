@@ -1,6 +1,10 @@
 import { Component, ElementRef, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
+// Angular Material
+import { MatIconButton } from '@angular/material/button';
+import { MatIcon } from '@angular/material/icon';
+
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { I18n } from '../../../../core/translations/i18n';
@@ -12,6 +16,9 @@ import {
   Preferences,
 } from '../../../../core/storages/preferences';
 import { SplitHandle } from '../../../../core/common/directives/split-handle/split-handle';
+import { Paper } from '../../../../core/theme/paper';
+import { PageHeader } from '../../../partials/common/page-header/page-header';
+import { PaperIslandDirective } from '../../../partials/shared/email/paper-island';
 
 /** One row of the list, worked out once per language: the message, and
     the date as the list shows it. */
@@ -27,10 +34,24 @@ interface InboxRow {
  * them dragged to taste; on a phone the open message takes the list's
  * place, and the platform's back button brings the list back — one router
  * outlet, laid out per screen, rather than a split squeezed onto a phone.
+ *
+ * Each half has its header, the two the same height: the list's on the
+ * app's surface, the mail's on the reading paper — the whole half is paper,
+ * light or dark as its button turns it, whatever the app round it is.
  */
 @Component({
   selector: 'app-inbox',
-  imports: [TranslatePipe, RouterLink, RouterLinkActive, RouterOutlet, SplitHandle],
+  imports: [
+    TranslatePipe,
+    RouterLink,
+    RouterLinkActive,
+    RouterOutlet,
+    MatIconButton,
+    MatIcon,
+    SplitHandle,
+    PageHeader,
+    PaperIslandDirective,
+  ],
   templateUrl: './inbox.html',
   styleUrl: './inbox.scss',
   host: {
@@ -42,6 +63,15 @@ export class Inbox {
   readonly #i18n = inject(I18n);
   readonly #route = inject(ActivatedRoute);
   readonly #mailbox = inject(ReceivedMail);
+  readonly #paper = inject(Paper);
+
+  /** The paper the mail's half is read on (`Paper.reading`). */
+  protected readonly paper = this.#paper.reading;
+
+  /** What the paper button does: turns the paper the other way. */
+  protected readonly paperLabel = computed(() =>
+    this.paper() === 'dark' ? 'inbox.paperLight' : 'inbox.paperDark',
+  );
 
   /** The grid the divider resizes: this page. */
   protected readonly grid = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
@@ -76,6 +106,11 @@ export class Inbox {
 
   /** Messages not yet opened, by id. */
   protected readonly unread = this.#mailbox.unread;
+
+  /** The paper button: the mail read on the other paper. */
+  protected flipPaper(): void {
+    this.#paper.flipReading();
+  }
 
   /** The pane changed: a message opened (read from then on, however it was
       reached — a row, a link, the back button) or the note came back. */

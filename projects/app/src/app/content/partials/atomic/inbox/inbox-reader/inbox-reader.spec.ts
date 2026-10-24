@@ -4,6 +4,7 @@ import { ComposeWindows } from '../../../../../core/email/compose-windows';
 import { ReceivedMail } from '../../../../../core/email/mailbox/received-mail';
 import { provideExampleMail } from '../../../../../../../test/received-mail-fixture';
 import { Preferences } from '../../../../../core/storages/preferences';
+import { Paper } from '../../../../../core/theme/paper';
 import { InboxReader } from './inbox-reader';
 
 describe('InboxReader', () => {
@@ -51,16 +52,21 @@ describe('InboxReader', () => {
     expect(document).toContain('<base target="_blank">');
   });
 
-  it('reads on the editor’s paper, in the editor’s scheme', async () => {
-    const island = root.querySelector('.inbox-reader')!;
+  it('reads on the reading paper: the editor’s to start with, either at will', async () => {
     TestBed.inject(Preferences).editorAppearance.set('dark');
     await fixture.whenStable();
-    expect(island.getAttribute('data-paper-scheme')).toBe('dark');
     expect(frame().getAttribute('srcdoc')).toContain('background: #1e1e1e');
 
+    // Turned the other way by hand (the inbox's paper button).
+    TestBed.inject(Paper).flipReading();
+    await fixture.whenStable();
+    expect(frame().getAttribute('srcdoc')).toContain('background: #ffffff');
+
+    // The editor's paper changing takes the reading paper with it.
+    TestBed.inject(Preferences).editorAppearance.set('dark');
+    await fixture.whenStable();
     TestBed.inject(Preferences).editorAppearance.set('light');
     await fixture.whenStable();
-    expect(island.getAttribute('data-paper-scheme')).toBe('light');
     expect(frame().getAttribute('srcdoc')).toContain('background: #ffffff');
   });
 

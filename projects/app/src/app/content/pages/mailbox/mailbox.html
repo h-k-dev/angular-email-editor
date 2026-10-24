@@ -87,12 +87,8 @@
   <div class="mailbox-scrim" aria-hidden="true" (click)="collapsed.set(true)"></div>
 }
 
-<!-- The page, on a sheet of its own beside the aside: a 48px block on top
-     kept for a header every page will have, and the page under it — which
-     scrolls there; the block and the aside never do. -->
+<!-- The page, on a sheet of its own beside the aside: it scrolls here, the
+     aside never does. Its header is its own (`page-header`). -->
 <div class="mailbox-main">
-  <header class="mailbox-header"></header>
-  <div class="mailbox-page">
-    <router-outlet />
-  </div>
+  <router-outlet />
 </div>

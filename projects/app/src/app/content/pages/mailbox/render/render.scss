@@ -1,5 +1,7 @@
+// The page's header on top, the two boxes filling the rest.
 :host {
-  display: block;
+  display: flex;
+  flex-direction: column;
   block-size: 100%;
   min-block-size: 0;
 }
@@ -17,8 +19,9 @@
   justify-content: center;
   column-gap: 24px;
   row-gap: 12px;
-  block-size: 100%;
-  padding: 12px;
+  flex: 1 1 auto;
+  min-block-size: 0;
+  padding: 0 12px 12px;
   box-sizing: border-box;
 }
 

@@ -14,14 +14,14 @@ import { ReceivedMail } from '../../../../../core/email/mailbox/received-mail';
 import { Paper } from '../../../../../core/theme/paper';
 import { I18n } from '../../../../../core/translations/i18n';
 import { EmailViewer } from '../../../common/email-viewer/email-viewer';
-import { PaperIslandDirective } from '../../../shared/email/paper-island';
 
 /**
  * One message of the inbox, read — the inbox's routed pane (`/inbox/:id`):
  * beside the list on a desk, the whole screen on a phone. The body is an
- * `email-viewer` — drawn as a client draws it, on the editor's own paper,
- * light or dark as the editor is (`Paper`) — and the header sits on the
- * same paper: one sheet, a paper island, as a composer is.
+ * `email-viewer` — drawn as a client draws it, on the reading paper
+ * (`Paper.reading`: the editor's, or the other one the inbox's paper button
+ * turned to) — and the header sits on the same paper: one sheet, on the
+ * pane's paper island.
  *
  * Under it the three answers every client has — Reply, Reply all, Forward —
  * each a compose window seeded the way a real client seeds it, with the
@@ -33,7 +33,7 @@ import { PaperIslandDirective } from '../../../shared/email/paper-island';
  */
 @Component({
   selector: 'app-inbox-reader',
-  imports: [TranslatePipe, MatButtonModule, MatIcon, EmailViewer, PaperIslandDirective],
+  imports: [TranslatePipe, MatButtonModule, MatIcon, EmailViewer],
   templateUrl: './inbox-reader.html',
   styleUrl: './inbox-reader.scss',
 })
@@ -54,8 +54,9 @@ export class InboxReader {
   /** Whether the inbox has come: only then is a message not in it missing. */
   protected readonly settled = this.#mailbox.settled;
 
-  /** The paper it is read on: the editor's. */
-  protected readonly scheme = inject(Paper).scheme;
+  /** The paper it is read on: the reading paper — the editor's, or the
+      other one the inbox's paper button turned to. */
+  protected readonly scheme = inject(Paper).reading;
 
   /** Its date in full, in the app's language — or as the message wrote it
       out itself, or none. */

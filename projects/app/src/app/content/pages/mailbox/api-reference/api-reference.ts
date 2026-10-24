@@ -1,6 +1,8 @@
 import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
+import { PageHeader } from '../../../partials/common/page-header/page-header';
+
 /** One export, as the reference table renders it. */
 interface ApiEntry {
   name: string;
@@ -23,7 +25,7 @@ interface ApiGroup {
  */
 @Component({
   selector: 'app-api-reference',
-  imports: [RouterLink],
+  imports: [RouterLink, PageHeader],
   templateUrl: './api-reference.html',
   styleUrl: './api-reference.scss',
 })

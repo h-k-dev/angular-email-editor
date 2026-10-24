@@ -4,6 +4,7 @@ import { RouterTestingHarness } from '@angular/router/testing';
 
 import { ComposeWindows } from '../../../../core/email/compose-windows';
 import { provideExampleMail } from '../../../../../../test/received-mail-fixture';
+import { Preferences } from '../../../../core/storages/preferences';
 import { InboxEmpty } from '../../../partials/atomic/inbox/inbox-empty/inbox-empty';
 import { InboxReader } from '../../../partials/atomic/inbox/inbox-reader/inbox-reader';
 import { Inbox } from './inbox';
@@ -71,6 +72,33 @@ describe('Inbox', () => {
     const when = (id: string) => row(id).querySelector('.inbox-row__when')?.textContent?.trim();
     expect(when('reply-plain-note')).toBe('Aug 18, 2026, 4:32 PM');
     expect(when('mjml-austin')).toBe('');
+  });
+
+  it('gives each half its own header, the two the same height', () => {
+    const side = root.querySelector('.inbox-side > header[page-header]');
+    const pane = root.querySelector('.inbox-pane > header[page-header]');
+    expect(side).not.toBeNull();
+    expect(pane).not.toBeNull();
+  });
+
+  it('reads the mail on paper, turned light or dark by its button whatever the app is', async () => {
+    localStorage.clear();
+    TestBed.inject(Preferences).editorAppearance.set('light');
+    await harness.navigateByUrl('/inbox/reply-plain-note');
+    const pane = root.querySelector('.inbox-pane')!;
+    const button = root.querySelector<HTMLButtonElement>('.inbox-pane__paper')!;
+    expect(pane.getAttribute('data-paper-scheme')).toBe('light');
+    expect(button.getAttribute('aria-label')).toBe('Read on dark paper');
+
+    button.click();
+    await harness.fixture.whenStable();
+    expect(pane.getAttribute('data-paper-scheme')).toBe('dark');
+    expect(button.getAttribute('aria-label')).toBe('Read on light paper');
+    expect(root.querySelector('email-viewer iframe')?.getAttribute('srcdoc')).toContain(
+      'background: #1e1e1e',
+    );
+    // The list's half keeps the app's surface: it is no island.
+    expect(root.querySelector('.inbox-side')!.hasAttribute('data-paper-scheme')).toBe(false);
   });
 
   it('reads a message once it is opened, however it was reached', async () => {

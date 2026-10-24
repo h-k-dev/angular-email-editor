@@ -29,13 +29,20 @@
 
 // Linear's aside, the viewport's height: no surface of its own (the
 // shell's shows through) — its head, its places, its foot.
+// Its end edge, Linear's way: the places' scrollbar gutter (a stable one,
+// the scroll mixin's) is the aside's end padding, and the head and foot
+// keep the same inset — so Compose, the settings and a place's hover wash
+// are one width, in the aside and on the rail.
 .mailbox-aside {
+  --_end: var(--email-scroll-size, 8px);
+
   display: flex;
   flex-direction: column;
   gap: 8px;
   min-block-size: 0;
   min-inline-size: 0;
-  padding: 8px;
+  padding-block: 8px;
+  padding-inline: 8px 0;
   box-sizing: border-box;
 }
 
@@ -69,6 +76,7 @@
   align-items: stretch;
   gap: 12px;
   margin-block-end: 8px;
+  padding-inline-end: var(--_end);
 
   :host([data-collapsed]) & {
     align-items: center;
@@ -131,6 +139,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  padding-inline-end: var(--_end);
 
   :host([data-collapsed]) & {
     flex-direction: column;
@@ -249,21 +258,8 @@
   // Its own column always: an aside lying over the page leaves the flow,
   // and auto-placement would slide the page into the rail's column.
   grid-column: 2;
-  display: grid;
-  grid-template-rows: 48px minmax(0, 1fr);
-  min-block-size: 0;
-  background: var(--mat-sys-surface-bright);
-}
-
-// The header's place: 48px on top of every page, kept whether or not a
-// header is in it yet — so a page never moves the day one is.
-.mailbox-header {
-  min-inline-size: 0;
-}
-
-// The page itself: the rest, scrolling on its own.
-.mailbox-page {
   min-block-size: 0;
   overflow-y: auto;
+  background: var(--mat-sys-surface-bright);
   @include scroll.scroll;
 }

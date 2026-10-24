@@ -7,7 +7,8 @@
   inline-size: 100%;
   max-inline-size: 72rem;
   margin-inline: auto;
-  padding: 1.5rem 1rem 3rem;
+  // No room above: the page's header (`page-header`) is its top 48px.
+  padding: 0 1rem 3rem;
   box-sizing: border-box;
 }
 

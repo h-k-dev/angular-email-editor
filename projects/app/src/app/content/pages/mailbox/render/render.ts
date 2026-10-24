@@ -26,6 +26,7 @@ import { EmailCompose, SourceView } from '../../../partials/shared/email/email-c
 import { HtmlEmailCompose } from '../../../partials/shared/email/html-email-compose/html-email-compose';
 import { releaseEditingSurface } from '../../../partials/shared/email/is-typing';
 import { Examples } from '../../../../core/email/examples';
+import { PageHeader } from '../../../partials/common/page-header/page-header';
 
 /** Appended to the drawn original: the frame scrolls, without a bar. */
 const NO_SCROLLBAR = '<style>html { scrollbar-width: none; }</style>';
@@ -48,7 +49,7 @@ interface RenderPair {
  */
 @Component({
   selector: 'app-render',
-  imports: [TranslatePipe, EmailCompose, HtmlEmailCompose, MatIconButton, MatIcon],
+  imports: [TranslatePipe, EmailCompose, HtmlEmailCompose, MatIconButton, MatIcon, PageHeader],
   templateUrl: './render.html',
   styleUrl: './render.scss',
   providers: [InlineImages],

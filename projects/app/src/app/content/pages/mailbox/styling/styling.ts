@@ -4,6 +4,7 @@ import { MatError, MatFormField, MatHint, MatLabel } from '@angular/material/for
 import { RouterLink } from '@angular/router';
 import { AddressInput, addressList } from '@h-k-dev/angular-email-editor/address-input';
 import { AddressFormField } from '@h-k-dev/angular-email-editor/material';
+import { PageHeader } from '../../../partials/common/page-header/page-header';
 
 /** One custom property, as the token tables render it. */
 interface TokenEntry {
@@ -36,6 +37,7 @@ interface ClassHook {
   selector: 'app-styling',
   imports: [
     RouterLink,
+    PageHeader,
     AddressInput,
     AddressFormField,
     FormField,

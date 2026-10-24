@@ -26,6 +26,8 @@ export default {
   },
   inbox: {
     title: '受信トレイ',
+    paperDark: '暗い紙で読む',
+    paperLight: '明るい紙で読む',
     empty: 'メッセージを選ぶと、ここに表示されます',
     missing: 'このメッセージは見つかりません。',
     body: 'メッセージ',

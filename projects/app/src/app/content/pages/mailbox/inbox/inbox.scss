@@ -45,7 +45,18 @@
   }
 }
 
+// Each half: its 48px header (`page-header`), the two level, and what it
+// holds under it, scrolling on its own.
+.inbox-side,
+.inbox-pane {
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+  min-inline-size: 0;
+}
+
 .inbox-list {
+  flex: 1 1 auto;
   min-block-size: 0;
   overflow-y: auto;
 
@@ -56,15 +67,27 @@
   }
 }
 
+// The mail's half is paper, header included: the island's paper
+// (`--email-paper`), its scheme the reading paper's.
 .inbox-pane {
+  background: var(--email-paper, var(--mat-sys-surface-bright));
+  color: var(--mat-sys-on-surface);
+}
+
+// The paper button at the header's far end.
+.inbox-pane__paper {
+  margin-inline-start: auto;
+}
+
+.inbox-pane__body {
+  flex: 1 1 auto;
   min-block-size: 0;
-  min-inline-size: 0;
 }
 
 // A phone: the list, until a message opens — then the message alone.
 @include bp.phone {
   :host(:not([data-reading])) .inbox-pane,
-  :host([data-reading]) .inbox-list {
+  :host([data-reading]) .inbox-side {
     display: none;
   }
 }

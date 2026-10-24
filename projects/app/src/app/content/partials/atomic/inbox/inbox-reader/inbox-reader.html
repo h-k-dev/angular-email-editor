@@ -1,7 +1,7 @@
 @if (mail(); as mail) {
-  <!-- One sheet of paper: the header and the body on the editor's paper,
-       in the editor's scheme. -->
-  <article class="inbox-reader" [paperIsland]="scheme()" [attr.aria-label]="mail.subject">
+  <!-- One sheet of paper: the header and the body on the reading paper —
+     the inbox's pane is the island it lies on. -->
+  <article class="inbox-reader" [attr.aria-label]="mail.subject">
     <header class="inbox-reader__header">
       <h1 class="inbox-reader__subject">{{ mail.subject }}</h1>
       <div class="inbox-reader__meta">
