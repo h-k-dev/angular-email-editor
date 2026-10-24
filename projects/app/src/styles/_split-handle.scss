@@ -1,0 +1,62 @@
+// The look of a split handle (core/common/directives/split-handle): an 8px
+// grip on the line between two panes, the line itself 1px and vanishing at
+// both ends — never a hard border.
+//
+// Under the pointer it lights up as VS Code's sash does: only after the
+// pointer has rested on it (`--split-handle-hover-delay`, VS Code's 300ms),
+// so a hand crossing the line on its way elsewhere never sets it off — and
+// off again the moment the pointer leaves. In focus or in a drag it is lit
+// at once: then it is being used, not passed.
+//
+//     .divider {
+//       @include split-handle.handle;
+//       inset-inline-start: calc(var(--track) - 4px);
+//     }
+
+@mixin _line($color) {
+  background: linear-gradient(to bottom, transparent 0%, $color 10%, $color 90%, transparent 100%);
+}
+
+@mixin handle {
+  position: absolute;
+  inset-block: 0;
+  z-index: 1;
+  inline-size: 8px;
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+
+  // The line at rest, and the lit line over it — 2px of the primary.
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 50%;
+    translate: -50% 0;
+  }
+
+  &::before {
+    inline-size: 1px;
+    @include _line(var(--mat-sys-outline-variant));
+  }
+
+  // A step, not a fade: 0s of motion, only the wait before it.
+  &::after {
+    inline-size: 2px;
+    opacity: 0;
+    transition: opacity 0s;
+    @include _line(var(--mat-sys-primary));
+  }
+
+  &:hover::after {
+    opacity: 1;
+    transition-delay: var(--split-handle-hover-delay, 300ms);
+  }
+
+  &:focus-visible::after,
+  &[data-dragging]::after {
+    opacity: 1;
+    transition-delay: 0s;
+  }
+}

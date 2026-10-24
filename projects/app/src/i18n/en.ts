@@ -13,7 +13,6 @@
  */
 export default {
   app: {
-    title: 'Email editor',
     nav: {
       composer: 'Composer',
       inbox: 'Inbox',
@@ -22,6 +21,8 @@ export default {
       render: 'Render',
       mailbox: 'Mailbox',
       developers: 'Developers',
+      collapse: 'Collapse sidebar',
+      expand: 'Expand sidebar',
     },
     language: 'Language',
     compose: 'Compose',
@@ -29,6 +30,10 @@ export default {
   },
   inbox: {
     title: 'Inbox',
+    empty: 'Select a message to read it',
+    missing: 'This message is not here.',
+    body: 'Message',
+    resize: 'Resize the list',
     to: 'To',
     cc: 'Cc',
     reply: 'Reply',

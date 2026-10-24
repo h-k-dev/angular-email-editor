@@ -1,20 +1,34 @@
 @use '@angular/material' as mat;
 @use 'styles/menu' as menu;
+@use 'styles/theme';
 // The library's scrollbar — from its source, by the path a host imports it
 // by (`projects` is a Sass load path, angular.json).
 @use '@h-k-dev/angular-email-editor/styles/scroll';
 
+/* Notion in light, Linear in dark (styles/_theme.scss): Notion's generated
+ * palette is the theme's, and every system colour is overridden with its
+ * light-dark() pair of Notion's and Linear's. */
 html {
   @include mat.theme(
     (
       color: (
-        primary: mat.$azure-palette,
-        tertiary: mat.$blue-palette,
+        primary: theme.$light-primary,
+        tertiary: theme.$light-tertiary,
       ),
       typography: Roboto,
       density: 0,
-    )
+    ),
+    theme.$overrides
   );
+
+  /* What fills an empty field, everywhere: the envelope rows, the editor's
+   * empty line and its menu's query, the address and chat inputs — one ink,
+   * a step under a label's (theme.$placeholder). */
+  --mat-sys-placeholder: #{theme.$placeholder};
+  --email-placeholder-color: var(--mat-sys-placeholder);
+  --email-suggestion-placeholder-color: var(--mat-sys-placeholder);
+  --email-address-input-placeholder-color: var(--mat-sys-placeholder);
+  --email-chat-input-placeholder-color: var(--mat-sys-placeholder);
 }
 
 html,
@@ -2199,6 +2213,8 @@ section[html-email-compose][data-wrap='off'] .aee-editor {
       filled-hover-active-indicator-color: transparent,
       filled-focus-active-indicator-color: var(--mat-sys-primary),
       filled-disabled-active-indicator-color: transparent,
+      // The page's placeholder ink, as the bare rows have it.
+      filled-input-text-placeholder-color: var(--mat-sys-placeholder),
       container-text-font: var(--mat-sys-body-medium-font),
       container-text-size: var(--mat-sys-body-medium-size),
       container-text-weight: var(--mat-sys-body-medium-weight),

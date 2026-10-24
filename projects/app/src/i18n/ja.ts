@@ -9,7 +9,6 @@
  */
 export default {
   app: {
-    title: 'メールエディター',
     nav: {
       composer: '作成',
       inbox: '受信トレイ',
@@ -18,6 +17,8 @@ export default {
       render: 'レンダリング',
       mailbox: 'メールボックス',
       developers: '開発者向け',
+      collapse: 'サイドバーを折りたたむ',
+      expand: 'サイドバーを展開',
     },
     language: '言語',
     compose: '作成',
@@ -25,6 +26,10 @@ export default {
   },
   inbox: {
     title: '受信トレイ',
+    empty: 'メッセージを選ぶと、ここに表示されます',
+    missing: 'このメッセージは見つかりません。',
+    body: 'メッセージ',
+    resize: 'リストの幅を変更',
     to: '宛先',
     cc: 'Cc',
     reply: '返信',

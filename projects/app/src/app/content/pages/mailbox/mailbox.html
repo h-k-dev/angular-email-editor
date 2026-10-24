@@ -1,0 +1,94 @@
+<!-- The aside, the viewport's whole height: the rail toggle and Compose on
+     top, the places in the middle (scrolling, should they ever outgrow it),
+     the settings at its foot — Linear's. Collapsed it is the rail, icons
+     alone; on a phone the rail is where it rests, and opened it lies over
+     the page. -->
+<aside class="mailbox-aside" id="mailbox-aside">
+  <header class="mailbox-aside__head">
+    <!-- Aside ⇄ rail, at once: no motion. -->
+    <button
+      matIconButton
+      type="button"
+      class="mailbox-aside__toggle"
+      aria-controls="mailbox-aside"
+      [attr.aria-expanded]="!collapsed()"
+      [attr.aria-label]="(collapsed() ? 'app.nav.expand' : 'app.nav.collapse') | translate"
+      [title]="(collapsed() ? 'app.nav.expand' : 'app.nav.collapse') | translate"
+      (click)="toggle()"
+    >
+      <mat-icon>{{ collapsed() ? 'left_panel_open' : 'left_panel_close' }}</mat-icon>
+    </button>
+    <!-- A new message in a window of its own, over the page — Linear's
+         "New issue": the aside's one primary action, written out; on the
+         rail, its pencil alone. -->
+    <button
+      matButton="filled"
+      type="button"
+      class="mailbox-aside__compose"
+      [attr.aria-label]="'app.compose' | translate"
+      [title]="'app.compose' | translate"
+      (click)="compose()"
+    >
+      <mat-icon>edit</mat-icon>
+      <span class="mailbox-aside__compose-label">{{ 'app.compose' | translate }}</span>
+    </button>
+  </header>
+
+  <!-- The places, a run at a time. The place you are in says so to
+       assistive tech too (aria-current), not only with its wash. -->
+  <nav class="mailbox-aside__nav" [attr.aria-label]="'app.nav.mailbox' | translate">
+    @for (section of sections; track section.id) {
+      <section
+        class="mailbox-section"
+        [attr.aria-labelledby]="section.key ? 'mailbox-' + section.id : null"
+      >
+        @if (section.key) {
+          <h2 class="mailbox-section__title" [id]="'mailbox-' + section.id">
+            {{ section.key | translate }}
+          </h2>
+        }
+        <ul class="mailbox-section__links">
+          @for (link of section.links; track link.path) {
+            <li>
+              <a
+                class="mailbox-link"
+                [routerLink]="link.path"
+                routerLinkActive="mailbox-link--active"
+                ariaCurrentWhenActive="page"
+                [routerLinkActiveOptions]="{ exact: true }"
+                [attr.title]="link.key | translate"
+                (click)="went()"
+              >
+                <mat-icon class="mailbox-link__icon">{{ link.icon }}</mat-icon>
+                <span class="mailbox-link__label">{{ link.key | translate }}</span>
+                @if (link.count) {
+                  <span class="mailbox-link__count">{{ link.count }}</span>
+                }
+              </a>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+  </nav>
+
+  <!-- The app's settings: its language and its light or dark, two plain
+       icon buttons. The menu opens up from the foot, lined up with its
+       start. -->
+  <footer class="mailbox-aside__foot">
+    <div language-menu side="above" align="start"></div>
+    <theme-toggle />
+  </footer>
+</aside>
+
+<!-- A phone's open aside lies over the page: the page under it is out of
+     reach until it closes — a press here closes it. -->
+@if (over()) {
+  <div class="mailbox-scrim" aria-hidden="true" (click)="collapsed.set(true)"></div>
+}
+
+<!-- The page, on a sheet of its own beside the aside: it scrolls here, the
+     aside never does. -->
+<div class="mailbox-main">
+  <router-outlet />
+</div>

@@ -1,0 +1,43 @@
+<!-- The list: one row per message, the open one marked. A row is a link —
+     opening a message is a place (`/inbox/:id`), so the browser's back
+     button leaves it, and a message can be linked to. -->
+<nav class="inbox-list email-scroll" id="inbox-list" [attr.aria-label]="'inbox.title' | translate">
+  <ul>
+    @for (row of rows(); track row.mail.id) {
+      <li>
+        <a
+          class="inbox-row"
+          [routerLink]="row.mail.id"
+          routerLinkActive="inbox-row--open"
+          ariaCurrentWhenActive="page"
+          [class.inbox-row--unread]="unread().has(row.mail.id)"
+        >
+          <span class="inbox-row__name">{{ row.mail.name }}</span>
+          <span class="inbox-row__when">{{ row.when }}</span>
+          <span class="inbox-row__subject">{{ row.mail.subject }}</span>
+        </a>
+      </li>
+    }
+  </ul>
+</nav>
+
+<!-- The divider: a line that fades out at both ends, and a handle — drag
+     it, or focus it and use the arrows, and the list follows. -->
+<div
+  class="inbox-divider"
+  [(splitHandle)]="listWidth"
+  [splitTarget]="grid"
+  splitProperty="--inbox-list-width"
+  [splitMin]="listMin"
+  [splitMax]="listMax"
+  splitKeep="360"
+  aria-controls="inbox-list"
+  [attr.aria-label]="'inbox.resize' | translate"
+></div>
+
+<!-- The pane: the open message (`InboxReader`), or a note while none is.
+     Beside the list on a desk; on a phone it takes the list's place while a
+     message is open. -->
+<div class="inbox-pane">
+  <router-outlet (activate)="opened()" />
+</div>

@@ -3,9 +3,9 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule, MatIconRegistry } from '@angular/material/icon';
 import { RouterOutlet } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
-import { ComposeWindows } from '../services/compose-windows';
-import { Theme } from '../services/theme';
-import { Viewport } from '../services/viewport';
+import { ComposeWindows } from './core/email/compose-windows';
+import { Theme } from './core/theme/theme';
+import { Viewport } from './core/layout/viewport';
 
 /** App shell: the routed page on the whole viewport, and a phone's floating
     Compose over it. No chrome of its own — the landing draws its top bar,

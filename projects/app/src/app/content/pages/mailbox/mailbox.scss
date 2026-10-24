@@ -1,0 +1,256 @@
+@use '@h-k-dev/angular-email-editor/styles/scroll';
+@use '../../../../styles/breakpoints' as bp;
+
+// The aside and the page beside it, the whole viewport (the shell's <main>,
+// whose stretched flex size is definite, so 100% resolves): the page
+// scrolls on its own sheet, the aside holds still. Aside or rail
+// (`data-collapsed`) snaps: no transition anywhere here, on purpose.
+:host {
+  position: relative;
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  block-size: 100%;
+  min-block-size: 0;
+  box-sizing: border-box;
+}
+
+// The rail: a column of icons, every place still one press away.
+:host([data-collapsed]) {
+  grid-template-columns: 56px minmax(0, 1fr);
+}
+
+// A phone keeps the rail's column whatever the aside does: opened, the
+// aside lies over the page (below) instead of taking its width.
+@include bp.phone {
+  :host {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+}
+
+// Linear's aside, the viewport's height: no surface of its own (the
+// shell's shows through) — its head, its places, its foot.
+.mailbox-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-block-size: 0;
+  min-inline-size: 0;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+// A phone's aside, opened: over the page, the aside's own width, on the
+// chrome's surface, lifted — under it a scrim.
+:host([data-over]) .mailbox-aside {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  z-index: 2;
+  inline-size: 232px;
+  background: var(--mat-sys-surface);
+  box-shadow: var(--mat-sys-float-shadow);
+}
+
+.mailbox-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: color-mix(in srgb, var(--mat-sys-scrim) 32%, transparent);
+}
+
+// The rail toggle on its own line at the top left, and Compose on the line
+// under it, the aside's width. On the rail: the two centred. Room between
+// them (12px), and more under Compose before the places (16px with the
+// aside's own gap): three blocks, not one stack.
+.mailbox-aside__head {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  margin-block-end: 8px;
+
+  :host([data-collapsed]) & {
+    align-items: center;
+  }
+}
+
+.mailbox-aside__toggle {
+  align-self: flex-start;
+
+  :host([data-collapsed]) & {
+    align-self: center;
+  }
+}
+
+// Compose, written out: the aside's one primary action. On the rail, the
+// pencil alone in a square of the toggle's size.
+.mailbox-aside__compose {
+  min-inline-size: 0;
+
+  :host([data-collapsed]) & {
+    inline-size: 40px;
+    min-inline-size: 0;
+    padding: 0;
+
+    .mat-icon {
+      margin: 0;
+    }
+  }
+}
+
+.mailbox-aside__compose-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  :host([data-collapsed]) & {
+    display: none;
+  }
+}
+
+// The places: what is left between head and foot, scrolling should the
+// runs ever outgrow it.
+.mailbox-aside__nav {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-block-size: 0;
+  overflow-y: auto;
+  @include scroll.scroll;
+
+  :host([data-collapsed]) & {
+    gap: 8px;
+  }
+}
+
+// The settings, at the foot: two icon buttons side by side — stacked on
+// the rail.
+.mailbox-aside__foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  :host([data-collapsed]) & {
+    flex-direction: column;
+  }
+}
+
+.mailbox-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  // On the rail a run is told from the next by a hairline: its heading
+  // has no room there.
+  :host([data-collapsed]) & + & {
+    padding-block-start: 8px;
+    border-block-start: 1px solid var(--mat-sys-outline-variant);
+  }
+}
+
+.mailbox-section__title {
+  margin: 0;
+  padding: 4px 8px;
+  font: var(--mat-sys-label-medium);
+  color: var(--mat-sys-on-surface-variant);
+
+  :host([data-collapsed]) & {
+    display: none;
+  }
+}
+
+.mailbox-section__links {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+// A place: icon, name, and what waits there. The one you are in is a wash,
+// not a bar or a colour of its own — Linear's.
+.mailbox-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  block-size: 32px;
+  padding-inline: 8px;
+  border-radius: var(--mat-sys-corner-small);
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-large);
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:hover {
+    background: color-mix(in srgb, var(--mat-sys-on-surface) 5%, transparent);
+    color: var(--mat-sys-on-surface);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: -2px;
+  }
+
+  &--active,
+  &--active:hover {
+    background: color-mix(in srgb, var(--mat-sys-on-surface) 8%, transparent);
+    color: var(--mat-sys-on-surface);
+  }
+
+  // On the rail: the icon alone, centred in the toggle's 40px — a thumb's
+  // 48px on a phone.
+  :host([data-collapsed]) & {
+    justify-content: center;
+    block-size: 40px;
+    padding-inline: 0;
+
+    @include bp.phone {
+      block-size: 48px;
+    }
+  }
+}
+
+.mailbox-link__icon {
+  flex: none;
+  inline-size: 18px;
+  block-size: 18px;
+  font-size: 18px;
+}
+
+.mailbox-link__label {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  :host([data-collapsed]) & {
+    display: none;
+  }
+}
+
+.mailbox-link__count {
+  flex: none;
+  font: var(--mat-sys-label-medium);
+  color: var(--mat-sys-on-surface-variant);
+
+  :host([data-collapsed]) & {
+    display: none;
+  }
+}
+
+// The page's sheet, Notion's: the rest of the viewport, top to bottom and
+// out to the edge — no gap round it, no corner, no lift, no line between it
+// and the aside: the surfaces alone tell the two apart (the page's white on
+// Notion's sidebar, Linear's panel on its app). Its page scrolls here.
+.mailbox-main {
+  // Its own column always: an aside lying over the page leaves the flow,
+  // and auto-placement would slide the page into the rail's column.
+  grid-column: 2;
+  min-block-size: 0;
+  overflow-y: auto;
+  background: var(--mat-sys-surface-bright);
+  @include scroll.scroll;
+}

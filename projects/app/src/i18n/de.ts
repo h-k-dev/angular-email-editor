@@ -10,7 +10,6 @@
  */
 export default {
   app: {
-    title: 'E-Mail-Editor',
     nav: {
       composer: 'Editor',
       inbox: 'Posteingang',
@@ -19,6 +18,8 @@ export default {
       render: 'Darstellung',
       mailbox: 'Postfach',
       developers: 'Entwickler',
+      collapse: 'Seitenleiste einklappen',
+      expand: 'Seitenleiste ausklappen',
     },
     language: 'Sprache',
     compose: 'Verfassen',
@@ -26,6 +27,10 @@ export default {
   },
   inbox: {
     title: 'Posteingang',
+    empty: 'Wähle eine Nachricht, um sie zu lesen',
+    missing: 'Diese Nachricht gibt es nicht.',
+    body: 'Nachricht',
+    resize: 'Liste in der Breite ändern',
     to: 'An',
     cc: 'Cc',
     reply: 'Antworten',

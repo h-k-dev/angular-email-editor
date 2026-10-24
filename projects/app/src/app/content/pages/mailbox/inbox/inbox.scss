@@ -1,0 +1,124 @@
+@use '../../../../../styles/breakpoints' as bp;
+@use '../../../../../styles/split-handle';
+
+// A mail client's two panes: the list, as wide as its divider was dragged
+// (`--inbox-list-width`), and the pane with the open message beside it,
+// which keeps 360px whatever the list asks (the handle's `splitKeep`), each
+// scrolling on its own. On a phone there is one at a time: the list, or —
+// while a message is open (`data-reading`) — the message in its place.
+:host {
+  // The list's track, and where the divider stands: one expression, so the
+  // two never part.
+  --_list-track: min(var(--inbox-list-width, 320px), 100% - 360px);
+
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--_list-track) minmax(0, 1fr);
+  block-size: 100%;
+  min-block-size: 0;
+  box-sizing: border-box;
+
+  @include bp.phone {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+// While the divider is dragged: its cursor across the whole page, and no
+// text selected on the way.
+:host([data-resizing]) {
+  cursor: col-resize;
+  user-select: none;
+}
+
+// The divider: the split handle on the line between the panes, out of the
+// grid's flow — a vanishing line that lights up once the pointer rests on
+// it (styles/_split-handle.scss).
+.inbox-divider {
+  @include split-handle.handle;
+  inset-inline-start: calc(var(--_list-track) - 4px);
+
+  // One pane at a time has no side to drag.
+  @include bp.phone {
+    display: none;
+  }
+}
+
+.inbox-list {
+  min-block-size: 0;
+  overflow-y: auto;
+
+  ul {
+    margin: 0;
+    padding: 4px;
+    list-style: none;
+  }
+}
+
+.inbox-pane {
+  min-block-size: 0;
+  min-inline-size: 0;
+}
+
+// A phone: the list, until a message opens — then the message alone.
+@include bp.phone {
+  :host(:not([data-reading])) .inbox-pane,
+  :host([data-reading]) .inbox-list {
+    display: none;
+  }
+}
+
+// A row: the sender and the time on one line, the subject under them.
+.inbox-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--mat-sys-corner-medium);
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+  text-decoration: none;
+
+  &:hover {
+    background-color: color-mix(in oklch, var(--mat-sys-on-surface) 8%, transparent);
+  }
+
+  &--open,
+  &--open:hover {
+    background-color: var(--mat-sys-secondary-container);
+    color: var(--mat-sys-on-secondary-container);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: -2px;
+  }
+}
+
+.inbox-row__name,
+.inbox-row__subject {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inbox-row__name {
+  color: var(--mat-sys-on-surface);
+}
+
+.inbox-row__when {
+  font: var(--mat-sys-label-medium);
+  align-self: center;
+}
+
+.inbox-row__subject {
+  grid-column: 1 / -1;
+}
+
+// Unread: the sender and subject in bold, as every client marks them.
+.inbox-row--unread {
+  .inbox-row__name,
+  .inbox-row__subject {
+    font-weight: 600;
+    color: var(--mat-sys-on-surface);
+  }
+}

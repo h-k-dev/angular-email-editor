@@ -8,27 +8,45 @@ export const routes: Routes = [
   {
     path: '',
     pathMatch: 'full',
-    loadComponent: () => import('./landing/landing').then((m) => m.Landing),
+    loadComponent: () => import('./content/pages/compose/landing').then((m) => m.Landing),
   },
   {
     path: '',
-    loadComponent: () => import('./mailbox/mailbox').then((m) => m.Mailbox),
+    loadComponent: () => import('./content/pages/mailbox/mailbox').then((m) => m.Mailbox),
     children: [
       {
         path: 'inbox',
-        loadComponent: () => import('./inbox/inbox').then((m) => m.Inbox),
+        loadComponent: () => import('./content/pages/mailbox/inbox/inbox').then((m) => m.Inbox),
+        // The pane: a note while no message is open, the message once one is
+        // (its id bound to the reader's `id` input).
+        children: [
+          {
+            path: '',
+            loadComponent: () =>
+              import('./content/partials/atomic/inbox/inbox-empty/inbox-empty').then(
+                (m) => m.InboxEmpty,
+              ),
+          },
+          {
+            path: ':id',
+            loadComponent: () =>
+              import('./content/partials/atomic/inbox/inbox-reader/inbox-reader').then(
+                (m) => m.InboxReader,
+              ),
+          },
+        ],
       },
       {
         path: 'api',
-        loadComponent: () => import('./api-reference/api-reference').then((m) => m.ApiReference),
+        loadComponent: () => import('./content/pages/mailbox/api-reference/api-reference').then((m) => m.ApiReference),
       },
       {
         path: 'styling',
-        loadComponent: () => import('./styling/styling').then((m) => m.Styling),
+        loadComponent: () => import('./content/pages/mailbox/styling/styling').then((m) => m.Styling),
       },
       {
         path: 'render',
-        loadComponent: () => import('./render/render').then((m) => m.Render),
+        loadComponent: () => import('./content/pages/mailbox/render/render').then((m) => m.Render),
       },
     ],
   },

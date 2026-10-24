@@ -1,0 +1,78 @@
+@use '../../../../../../../../styles/menu' as menu;
+
+// Only where the overlay is declared: no box, so no gap in the row.
+:host {
+  display: contents;
+}
+
+// The app's one menu look (styles/_menu.scss) — the suggestion menu's box,
+// rows and hairline, which this dropdown and the table grips' menu both wear.
+.toolbar-menu {
+  @include menu.panel;
+
+  min-inline-size: 11rem;
+}
+
+@include menu.motion;
+
+.toolbar-menu__item {
+  @include menu.item;
+}
+
+// A radio item: the label first, the tick at the item's end. The tick holds
+// its room when unchecked, so every item is as wide as a ticked one; the
+// label starts where the menu's text does, with no icon before it.
+.toolbar-menu__item[role='menuitemradio'] {
+  padding-inline-end: calc(var(--mat-sys-spacing) * 2);
+}
+
+// The letters sit at the end, before the tick: small monospace capitals in a
+// fixed grid, so the columns line up down the menu and a dimmed one reads
+// as a gap in the row, not a different letter.
+.toolbar-menu__badges {
+  display: inline-flex;
+  gap: 0.25ch;
+  margin-inline-start: auto;
+  padding-inline-start: calc(var(--mat-sys-spacing) * 4);
+  color: var(--mat-sys-on-surface-variant);
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.625rem;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.toolbar-menu__badge--off {
+  opacity: 0.3;
+}
+
+.toolbar-menu__check {
+  margin-inline-start: auto;
+  visibility: hidden;
+
+  // The letters took the push to the end; the tick follows them.
+  .toolbar-menu__badges + & {
+    margin-inline-start: 0;
+  }
+
+  [aria-checked='true'] > & {
+    visibility: visible;
+  }
+}
+
+.toolbar-menu__separator {
+  @include menu.separator;
+}
+
+// The host's row (ToolbarMenuRow): a control across the menu, set in from
+// its edges a little less than an item's text, so a full-width control
+// lines up with the items' highlight rather than their words.
+.toolbar-menu__row {
+  display: flex;
+  padding-block: var(--mat-sys-spacing, 4px);
+  padding-inline: calc(var(--mat-sys-spacing, 4px) * 2);
+}
+
+.toolbar-menu__section {
+  @include menu.section;
+}

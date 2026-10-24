@@ -1,0 +1,48 @@
+@if (mail(); as mail) {
+  <!-- One sheet of paper: the header and the body on the editor's paper,
+       in the editor's scheme. -->
+  <article class="inbox-reader" [paperIsland]="scheme()" [attr.aria-label]="mail.subject">
+    <header class="inbox-reader__header">
+      <h1 class="inbox-reader__subject">{{ mail.subject }}</h1>
+      <div class="inbox-reader__meta">
+        <span class="inbox-reader__from">{{ mail.from }}</span>
+        <span class="inbox-reader__date">{{ date() }}</span>
+      </div>
+      <div class="inbox-reader__to">
+        {{ 'inbox.to' | translate }} {{ mail.to }}
+        @if (mail.cc; as cc) {
+          · {{ 'inbox.cc' | translate }} {{ cc }}
+        }
+      </div>
+    </header>
+
+    <!-- The body, as a client draws it: no scripts, its links out to a tab
+         of their own; as tall as what it holds. -->
+    <iframe
+      #frame
+      class="inbox-reader__body"
+      sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+      [title]="'inbox.body' | translate"
+      [srcdoc]="document()"
+      [style.block-size.px]="height()"
+      (load)="fit(frame)"
+    ></iframe>
+
+    <div class="inbox-reader__actions">
+      <button matButton="outlined" type="button" (click)="answer('reply')">
+        <mat-icon>reply</mat-icon>
+        {{ 'inbox.reply' | translate }}
+      </button>
+      <button matButton="outlined" type="button" (click)="answer('reply-all')">
+        <mat-icon>reply_all</mat-icon>
+        {{ 'inbox.replyAll' | translate }}
+      </button>
+      <button matButton="outlined" type="button" (click)="answer('forward')">
+        <mat-icon>forward</mat-icon>
+        {{ 'inbox.forward' | translate }}
+      </button>
+    </div>
+  </article>
+} @else {
+  <p class="inbox-reader__missing">{{ 'inbox.missing' | translate }}</p>
+}

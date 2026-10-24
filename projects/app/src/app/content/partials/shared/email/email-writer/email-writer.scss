@@ -1,0 +1,204 @@
+@use '@angular/material' as mat;
+@use '@h-k-dev/angular-email-editor/styles/scroll';
+@use '../../../../../../styles/breakpoints' as bp;
+
+// The writer is one sheet: the editorial area's surface is the writer's
+// background — bar, editor and formatting toolbar sit on the same paper, so
+// neither toolbar needs a strip of its own. A column of blocks: the envelope,
+// then the editor filling the rest (the host gives the editor flex: 1 —
+// projected content is the host's to style, and the rows are styled in
+// the envelope rows), with the bar above the envelope or under the editor
+// (`bar`).
+:host {
+  // The room between blocks — a token, so a block the host wants flush
+  // against its neighbour (the editor's paper, message-form.scss) can take
+  // back exactly this much.
+  --writer-gap: 8px;
+  // The bar's height: one icon button's state layer — 40px, dense 32px.
+  --writer-bar-size: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--writer-gap);
+  min-height: 0;
+  // The containing block for the writer's drop hint, which overlays the sheet
+  // (projected in by the composer, last).
+  position: relative;
+  // Block only. The sheet deliberately imposes no inline padding: each
+  // section below sets its own from the shared spacing token, so the editing
+  // surface can reserve the room its layout blocks need without that room
+  // becoming an indent every other row has to live with.
+  // No end padding at the full-width breakpoint and below: the sheet is the
+  // screen there, and its last block — the formatting toolbar — sits right on
+  // the virtual keyboard, the way a keyboard's own accessory bar does. Its
+  // 48px touch targets carry their own clearance. The same steep clamp as the
+  // corners below, so the two snap together at the breakpoint.
+  // A frame with a bar of its own above the sheet (a compose window's title
+  // bar) sets --writer-padding-start to take the top room off.
+  padding-block: var(--writer-padding-start, 8px)
+    clamp(0px, (100vw - #{bp.$full-width-max}) * 100, 8px);
+  box-sizing: border-box;
+
+  // The app's sheet colour — or, on a paper island (paper-island.ts), the
+  // island's paper, so bar, rows and text are one page.
+  background-color: var(--email-paper, var(--mat-sys-surface-bright));
+  // Corners only while the sheet has a desk to sit on. At the full-width
+  // breakpoint and below the page's padding is gone (compose.scss) and this is
+  // screen, edge to edge — a rounded screen corner is a device, not a sheet.
+  // The same steep clamp the padding uses, so the two snap in one paint; the
+  // self-driving form (100cqi - 100%) is out because a percentage in
+  // border-radius resolves against the box's *height* on the vertical axis,
+  // and this sheet is taller than the viewport is wide on any tablet held
+  // portrait — it would drop its corners while still centred.
+  // A frame that is the paper itself (a compose window) sets --writer-radius
+  // and --writer-shadow to take both off.
+  border-radius: var(
+    --writer-radius,
+    clamp(0px, (100vw - #{bp.$full-width-max}) * 100, var(--mat-sys-corner-medium, 8px))
+  );
+  // Lifted just off the page — the lowest system elevation, so it reads as
+  // a sheet on a desk rather than a panel.
+  box-shadow: var(--writer-shadow, var(--mat-sys-level1));
+}
+
+:host([data-dense]) {
+  --writer-bar-size: 32px;
+}
+
+// The whole sheet scrolls (`scroll`, the phone's sheet): the envelope goes
+// up and away with the text, which then has the screen above the keyboard
+// to itself — Gmail's. The bar does not: Send stays in reach, stuck to the
+// top, on the sheet's paper, its own share of the sheet's top room with it
+// (so no strip of text shows above it). The body grows with its text
+// instead of scrolling (message-sheet.scss, EmailCompose.scroll), and its
+// floating foot sticks to the bottom of this scroller; a bar at the foot
+// sticks there too, over the foot's room for it. The scroll padding says
+// what the stuck bar covers — the browser keeps a focused row clear of it,
+// and the editor its caret (floating-foot.ts).
+:host([data-scroll='sheet']) {
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  @include scroll.scroll;
+  padding-block-start: 0;
+
+  > header.writer-bar {
+    position: sticky;
+    inset-block-start: 0;
+    block-size: calc(var(--writer-bar-size) + var(--writer-padding-start, 8px));
+    padding-block-start: var(--writer-padding-start, 8px);
+    background-color: var(--email-paper, var(--mat-sys-surface-bright));
+  }
+
+  > footer.writer-bar {
+    position: sticky;
+    inset-block-end: 0;
+  }
+}
+
+:host([data-scroll='sheet'][data-bar='top']) {
+  scroll-padding-block-start: calc(var(--writer-bar-size) + var(--writer-padding-start, 8px));
+}
+
+// The bar at the foot floats, as the composer's foot does: the body
+// (message-form.scss) runs on under it by this much — the bar and the gap
+// over it — and keeps it as room at the foot of its own floating foot, which
+// paints behind the bar, so the strip, the toolbar and the bar are one block
+// lying over the text. Heading the sheet, the bar is in the flow.
+:host([data-bar='bottom']) {
+  --writer-foot-bar: calc(var(--writer-bar-size) + var(--writer-gap));
+}
+
+// No chrome of its own: only its buttons are. The same box in both places —
+// the column's gap already parts it from the envelope or the toolbar. Over
+// the body (at the foot, the body runs on under it).
+.writer-bar {
+  position: relative;
+  z-index: 1;
+  // How far the glyph sits inside its icon button: half of what the state
+  // layer has over the glyph. The bar's inset and Send's margin take it
+  // back, so the glyphs land on the text edge at whatever size the bar's
+  // buttons are.
+  --writer-bar-glyph-inset: calc(
+    (var(--mat-icon-button-state-layer-size, 40px) - var(--mat-icon-button-icon-size, 20px)) / 2
+  );
+  flex: none;
+  display: flex;
+  align-items: center;
+  // Half a system spacing unit between the bar's buttons — 2px at a 16px
+  // root — whether the bar heads the sheet or closes it: the state layers
+  // nearly touch, as a toolbar's do.
+  gap: calc(var(--mat-sys-spacing, 0.25rem) / 2);
+  // Exactly the icon button's state layer: the visible box, and the line
+  // the glyphs centre on. Whatever joins Send never changes the bar's
+  // height — a row that grows with its content would shift the sheet.
+  block-size: var(--writer-bar-size);
+  // Optical, not geometric: inset the box by the glyph's own inset less, and
+  // the glyph — the only part anyone sees — lands on the same edge as the
+  // address labels and the body text.
+  padding-inline: 0.25rem;
+}
+
+// Dense (`dense`, the desktop sheet's) — under the text or heading a zoomed
+// sheet: a compact row, every button 32px with its touch target no bigger
+// (a pointer needs no overhang; 32px still clears WCAG's 24px target size),
+// 20px glyphs in it. The phone's sheet keeps the app's 40/48px: there it is
+// tapped. The sheet decides, not where the bar sits.
+:host([data-dense]) .writer-bar {
+  --mat-icon-button-state-layer-size: 32px;
+  --mat-icon-button-touch-target-size: 32px;
+  --mat-button-filled-touch-target-size: 32px;
+}
+
+.writer-bar__spacer {
+  flex: 1 1 auto;
+}
+
+// Send: a filled button, one line tall, a squared-off corner (the large
+// one) to go with the corner of the sheet or compose window it sits in,
+// instead of a pill — its container height, inline padding and shape set
+// through Material's own button tokens
+// (material.angular.dev/components/button/styling), so the theme's colours
+// and type stay — its edge on the text edge: the bar is inset for icon
+// buttons, whose glyph sits inside their state layer; a filled button has
+// no such margin, so it takes the glyph's inset itself — on whichever edge
+// it sits: the start at the foot, the end heading the sheet (mirrored).
+.writer-bar__send {
+  @include mat.button-overrides(
+    (
+      filled-container-height: 32px,
+      filled-horizontal-padding: 16px,
+      filled-container-shape: var(--mat-sys-corner-large),
+    )
+  );
+  flex: none;
+
+  &:first-child {
+    margin-inline-start: var(--writer-bar-glyph-inset);
+  }
+
+  &:last-child {
+    margin-inline-end: var(--writer-bar-glyph-inset);
+  }
+}
+
+// The writer's column. The sheet is as wide as its frame; what is written
+// on it is not: on a zoomed-out window — a wide sheet — every block, the
+// bar, the envelope and the editor (message-form.scss, which projects it),
+// keeps to one centred column, `--writer-column` wide, the frame's to set
+// (compose-window.scss). What the column leaves at the sides is the room
+// a side panel will take, the way a calendar sits beside a wide compose.
+// Unset, the column is the sheet.
+.writer-bar,
+.writer-envelope {
+  box-sizing: border-box;
+  inline-size: 100%;
+  max-inline-size: var(--writer-column, none);
+  margin-inline: auto;
+}
+
+// The envelope block: the host's rows, marked `envelope`, stacked flush —
+// the column's gap falls between blocks, never between two rows.
+.writer-envelope {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+}
