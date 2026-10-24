@@ -397,6 +397,22 @@
     background-color 120ms ease;
 }
 
+// The × and the retry take a press anywhere in their end of the chip: a
+// touch target the end square's size (8 + 24 + 8 = 40) centred on the
+// button — to the chip's edges and across the gap to the label, never past
+// either, so it never reaches a neighbour or the name. Not the download: on
+// a touch screen it stays unseen, and a target that grew unseen would take
+// the presses meant for the chip itself.
+:host :where([data-slot='remove'], [data-slot='retry']) {
+  position: relative;
+}
+
+:host :where([data-slot='remove'], [data-slot='retry'])::after {
+  content: '';
+  position: absolute;
+  inset: calc((24px - var(--email-attachment-chip-touch-target, 40px)) / 2);
+}
+
 // One action glyph size for both ends: 16px in the 24px circle.
 :host :where([data-slot='remove'] svg, [data-slot='download-button'] svg, [data-slot='retry'] svg) {
   width: 16px;

@@ -107,6 +107,41 @@ describe('AttachmentChip (render)', () => {
     expect(outer.right - trailing.right).toBe(8);
   });
 
+  it('gives the × the whole end square as its target, and the retry the start one when failed', async () => {
+    /** The chip's control under a point, if any. */
+    const at = (x: number, y: number) =>
+      document.elementFromPoint(x, y)?.closest('[data-slot]')?.getAttribute('data-slot');
+    const outer = box(chip());
+    const end = box(part('trailing'));
+    const name = box(part('name'));
+
+    // Every corner of the end square, inside the border, and the gap before it.
+    for (const [x, y] of [
+      [outer.right - 2, outer.top + 2],
+      [outer.right - 2, outer.bottom - 2],
+      [end.left - 7, outer.top + 2],
+      [end.left - 7, outer.bottom - 2],
+    ]) {
+      expect(at(x, y)).toBe('remove');
+    }
+    // The name is the name's, right up to the target.
+    expect(at(name.right - 1, name.top + name.height / 2)).not.toBe('remove');
+    // The start square is no target while nothing there acts.
+    expect(at(outer.left + 2, outer.top + 2)).not.toBe('remove');
+
+    fixture.componentInstance.status.set('failed');
+    await settle();
+    const start = box(part('leading'));
+    for (const [x, y] of [
+      [outer.left + 2, outer.top + 2],
+      [outer.left + 2, outer.bottom - 2],
+      [start.right + 7, outer.top + 2],
+    ]) {
+      expect(at(x, y)).toBe('retry');
+    }
+    expect(at(outer.right - 2, outer.top + 2)).toBe('remove');
+  });
+
   it('cuts a long name in its stem and keeps the extension whole, beside it', async () => {
     fixture.componentInstance.attachment.set({
       name: 'A very long quarterly financial report for the board.pdf',
