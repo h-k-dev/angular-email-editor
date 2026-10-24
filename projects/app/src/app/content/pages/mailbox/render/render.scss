@@ -9,7 +9,8 @@
 /* Two boxes of the email's own 600px, a gap between them, the stepper in a
    thin column beside: a header row serving both, then the boxes on one
    line — their tops level, so the replica and the original read line for
-   line. Each box scrolls inside itself. */
+   line. Each box scrolls inside itself, down to the page's bottom edge: no
+   padding round the whole — a part that wants an inset keeps its own. */
 .render {
   --render-box: 600px;
 
@@ -21,8 +22,6 @@
   row-gap: 12px;
   flex: 1 1 auto;
   min-block-size: 0;
-  padding: 0 12px 12px;
-  box-sizing: border-box;
 }
 
 .render-header {
@@ -118,4 +117,9 @@ section[html-email-compose][hidden] {
 .render-count {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
+}
+
+// The light/dark toggle at the page header's far end.
+.render-scheme {
+  margin-inline-start: auto;
 }

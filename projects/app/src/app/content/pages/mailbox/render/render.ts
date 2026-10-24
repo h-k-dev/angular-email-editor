@@ -26,6 +26,7 @@ import { EmailCompose, SourceView } from '../../../partials/shared/email/email-c
 import { HtmlEmailCompose } from '../../../partials/shared/email/html-email-compose/html-email-compose';
 import { releaseEditingSurface } from '../../../partials/shared/email/is-typing';
 import { Examples } from '../../../../core/email/examples';
+import { renderDawnDark } from '../../../../core/dawn/dawn-dark.render';
 import { PageHeader } from '../../../partials/common/page-header/page-header';
 
 /** Appended to the drawn original: the frame scrolls, without a bar. */
@@ -114,7 +115,13 @@ export class Render {
   protected readonly device = signal<'desktop' | 'phone'>('desktop');
   protected readonly boxWidth = computed(() => (this.device() === 'phone' ? 375 : 600));
   protected readonly clients = RENDERING_CLIENTS;
-  protected readonly clientLabels = CLIENT_LABELS;
+  /** The clients by name — the one this bench draws with our own engine,
+      Dawn (core/dawn), by its name; the others as the library names them,
+      the library drawing them. */
+  protected readonly clientLabels: Record<RenderingClient, string> = {
+    ...CLIENT_LABELS,
+    'apple-mail': 'Dawn',
+  };
 
   /** The original as the client draws it, at a desktop pane, in a fully
       sandboxed frame (no scripts, no same-origin) — so bypassing the
@@ -125,10 +132,14 @@ export class Render {
     // Edge to edge at either width (the client's phone pane, no margin):
     // the box is the email's own, as the editor beside has it — a desktop
     // pane's margin would set the original 16px off the replica.
-    const html = renderForClient(pair.original, this.client(), {
-      dark: this.dark(),
-      pane: 'phone',
-    });
+    // That client's dark is dawn dark (core/dawn/dawn-dark.render.ts):
+    // the email's dark rules where it declares dark, the invert-lightness
+    // turn on its colours where it does not.
+    const options = { dark: this.dark(), pane: 'phone' } as const;
+    const html =
+      this.client() === 'apple-mail'
+        ? renderDawnDark(pair.original, options)
+        : renderForClient(pair.original, this.client(), options);
     // No scrollbar taking width out of the frame — the editor beside has
     // none either, so both boxes give the email their full width.
     return this.#sanitizer.bypassSecurityTrustHtml(html + NO_SCROLLBAR);

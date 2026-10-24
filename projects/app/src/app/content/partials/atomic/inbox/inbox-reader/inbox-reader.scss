@@ -9,29 +9,36 @@
 }
 
 // The sheet: the editor's paper (the island's `--email-paper`), the header
-// and the body on it, the answers under them.
+// and the body on it, the answers under them. No padding round the whole:
+// the email runs from edge to edge of the pane, and the header and the
+// answers keep their own inset (`--_inset`).
 .inbox-reader {
+  --_inset: 32px;
+
   display: flex;
   flex-direction: column;
   gap: 16px;
   block-size: 100%;
   overflow-y: auto;
-  padding: 24px 32px;
   box-sizing: border-box;
   background: var(--email-paper, var(--mat-sys-surface-bright));
   color: var(--mat-sys-on-surface);
   @include scroll.scroll;
 
   @include bp.phone {
-    padding: 16px;
+    --_inset: 16px;
   }
 }
 
 .inbox-reader__header {
   display: grid;
   gap: 4px;
-  padding-block-end: 16px;
+  padding: 24px var(--_inset) 16px;
   border-block-end: 1px solid var(--mat-sys-outline-variant);
+
+  @include bp.phone {
+    padding-block-start: 16px;
+  }
 }
 
 .inbox-reader__subject {
@@ -57,7 +64,7 @@
   font: var(--mat-sys-body-small);
 }
 
-// The body: the viewer, the reader's width.
+// The body: the viewer, the pane's whole width, edge to edge.
 .inbox-reader__body {
   flex: none;
 }
@@ -66,6 +73,11 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  padding: 0 var(--_inset) 24px;
+
+  @include bp.phone {
+    padding-block-end: 16px;
+  }
 }
 
 .inbox-reader__missing {

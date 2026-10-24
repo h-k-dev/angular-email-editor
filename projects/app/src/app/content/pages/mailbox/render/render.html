@@ -1,6 +1,18 @@
-<!-- The page's header: its 48px on top, kept for what the page will put
-     there (`page-header`). -->
-<header page-header></header>
+<!-- The page's header (`page-header`): at its far end the light or dark
+     the original is drawn on — one toggle, the app's own theme button's
+     kind. -->
+<header page-header>
+  <button
+    matIconButton
+    type="button"
+    class="render-scheme"
+    [attr.aria-label]="(dark() ? 'render.toLight' : 'render.toDark') | translate"
+    [title]="(dark() ? 'render.toLight' : 'render.toDark') | translate"
+    (click)="dark.set(!dark())"
+  >
+    <mat-icon>{{ dark() ? 'light_mode' : 'dark_mode' }}</mat-icon>
+  </button>
+</header>
 <!-- Two 600px boxes on one line — the replica in our editor, the original
    as a client draws it — under a header that serves both, and the stepper
    in its own thin column. -->
@@ -62,18 +74,6 @@
         (click)="device.set('phone')"
       >
         {{ 'render.phone' | translate }}
-      </button>
-    </div>
-    <div
-      class="render-choice"
-      role="radiogroup"
-      [attr.aria-label]="'render.surface' | translate"
-    >
-      <button type="button" role="radio" [attr.aria-checked]="!dark()" (click)="dark.set(false)">
-        {{ 'render.light' | translate }}
-      </button>
-      <button type="button" role="radio" [attr.aria-checked]="dark()" (click)="dark.set(true)">
-        {{ 'render.dark' | translate }}
       </button>
     </div>
   </header>

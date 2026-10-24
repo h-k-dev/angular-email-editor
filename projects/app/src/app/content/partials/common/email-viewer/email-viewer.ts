@@ -1,18 +1,16 @@
 import { Component, DestroyRef, computed, inject, input, signal } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
-// Angular Email Editor
-import { injectPalette } from '@h-k-dev/angular-email-editor/palette';
-
-import { PaperScheme, readingDocument } from '../../../../core/render/render';
+import { PaperScheme, dawnDocument } from '../../../../core/dawn/dawn.render';
 import { Paper } from '../../../../core/theme/paper';
 
 /**
- * An email, shown as a client shows it: a frame drawing `readingDocument`
- * (core/render — Apple Mail's rendering, the email's own dark-mode rules,
- * on the editor's paper), with no scripts and its links out to a tab of
- * their own, as tall as what it holds — so the page round it scrolls as
- * one, and the frame never shows a scrollbar of its own.
+ * An email, shown as a client shows it: a frame drawing `dawnDocument`
+ * (core/dawn — its dark mode dawn dark: the email's own dark rules, or
+ * the invert-lightness turn; on the editor's paper), with no
+ * scripts and its links out to a tab of their own, as tall as what it
+ * holds — so the page round it scrolls as one, and the frame never shows a
+ * scrollbar of its own.
  *
  *     <email-viewer [html]="mail.html" label="Message" />
  *
@@ -48,7 +46,6 @@ import { Paper } from '../../../../core/theme/paper';
 })
 export class EmailViewer {
   readonly #sanitizer = inject(DomSanitizer);
-  readonly #palette = injectPalette();
   readonly #paper = inject(Paper).scheme;
 
   /** The email: a fragment or a whole document. */
@@ -64,10 +61,7 @@ export class EmailViewer {
       sanitizer by is safe here, as the compose preview's is. */
   protected readonly document = computed<SafeHtml>(() =>
     this.#sanitizer.bypassSecurityTrustHtml(
-      readingDocument(this.html(), {
-        scheme: this.scheme() ?? this.#paper(),
-        darkMode: this.#palette,
-      }),
+      dawnDocument(this.html(), { scheme: this.scheme() ?? this.#paper() }),
     ),
   );
 

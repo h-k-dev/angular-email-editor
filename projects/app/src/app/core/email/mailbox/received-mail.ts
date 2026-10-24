@@ -2,7 +2,7 @@ import { Service, computed, inject, resource, signal } from '@angular/core';
 
 import type { InboundMessage } from '@h-k-dev/angular-email-editor';
 
-import { messageHtml } from '../../render/render';
+import { messageHtml } from '../../dawn/dawn.render';
 import { BLANK } from '../envelope';
 import { ExampleEntry, ExampleSet, Examples, inbound } from '../examples';
 

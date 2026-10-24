@@ -1,6 +1,6 @@
 import { Service, computed, inject, linkedSignal } from '@angular/core';
 
-import type { PaperScheme } from '../render/render';
+import type { PaperScheme } from '../dawn/dawn.render';
 import { Preferences } from '../storages/preferences';
 import { Theme } from './theme';
 
