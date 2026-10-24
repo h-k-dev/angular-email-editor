@@ -2,8 +2,8 @@
      going never reflows the items. Pointer affordance only — see the class doc.
      `tabindex="-1"` keeps them off the tab ring; the mousedown guard keeps a
      click from parking focus inside an aria-hidden subtree, which `tabindex`
-     alone does not prevent. -->
-@if (canScrollStart()) {
+     alone does not prevent. None at all with `paddles` off. -->
+@if (paddles() && canScrollStart()) {
   <div class="overflow-row__paddle overflow-row__paddle--start" aria-hidden="true">
     <button
       mat-icon-button
@@ -18,25 +18,16 @@
   </div>
 }
 
-<!-- The scrollport takes the drag: a press anywhere on the row, the gaps
-     between items included. -->
-<div
-  #scroller
-  class="overflow-row__scroll"
-  (scroll)="syncPaddles()"
-  (pointerdown)="onPointerDown($event)"
-  (pointermove)="onPointerMove($event)"
-  (pointerup)="onPointerUp($event)"
-  (pointercancel)="onPointerUp($event)"
-  (dragstart)="onPressDefault($event)"
-  (selectstart)="onPressDefault($event)"
->
+<!-- The scrollport: the platform's own scroller. It takes the drag — a
+     press anywhere on the row, the gaps between items included — through
+     listeners the component adds only while `dragScroll` is on. -->
+<div #scroller class="overflow-row__scroll" (scroll)="syncPaddles()">
   <div class="overflow-row__row" [attr.role]="rowRole()" [attr.aria-label]="rowLabel() || null">
     <ng-content />
   </div>
 </div>
 
-@if (canScrollEnd()) {
+@if (paddles() && canScrollEnd()) {
   <div class="overflow-row__paddle overflow-row__paddle--end" aria-hidden="true">
     <button
       mat-icon-button

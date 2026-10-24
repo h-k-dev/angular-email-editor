@@ -1,12 +1,18 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 
 import { OverflowRow, OverflowRowRole } from './overflow-row';
 
 @Component({
   imports: [OverflowRow],
   template: `
-    <overflow-row [rowRole]="rowRole" [rowLabel]="rowLabel" [dragScroll]="dragScroll()">
+    <overflow-row
+      [rowRole]="rowRole"
+      [rowLabel]="rowLabel"
+      [dragScroll]="dragScroll()"
+      [paddles]="paddles()"
+    >
       <button type="button" (click)="clicks = clicks + 1">One</button>
       <button type="button">Two</button>
     </overflow-row>
@@ -16,6 +22,7 @@ class Host {
   rowRole: OverflowRowRole | null = 'group';
   rowLabel = 'Shortcuts';
   readonly dragScroll = signal(true);
+  readonly paddles = signal(true);
   clicks = 0;
 }
 
@@ -118,6 +125,23 @@ describe('OverflowRow', () => {
     startPaddle()!.querySelector('button')!.click();
 
     expect(scrollBy).toHaveBeenCalledWith({ left: -300 * 0.66, behavior: expect.any(String) });
+  });
+
+  it('draws no paddle with paddles off, and still tells that it overflows', () => {
+    fixture.componentInstance.paddles.set(false);
+    fixture.detectChanges();
+    measure(40, 400, 200);
+
+    expect(startPaddle()).toBeNull();
+    expect(endPaddle()).toBeNull();
+    expect(host().hasAttribute('data-paddles')).toBe(false);
+    const row = fixture.debugElement.query(By.directive(OverflowRow)).componentInstance;
+    expect(row.overflows()).toBe(true);
+
+    fixture.componentInstance.paddles.set(true);
+    fixture.detectChanges();
+    expect(startPaddle()).toBeTruthy();
+    expect(host().hasAttribute('data-paddles')).toBe(true);
   });
 
   it('keeps a paddle click from parking focus in the aria-hidden subtree', () => {
@@ -228,6 +252,49 @@ describe('OverflowRow', () => {
       expect(el.scrollLeft).toBe(100);
       expect(move.defaultPrevented).toBe(false);
       expect(fixture.componentInstance.clicks).toBe(1);
+    });
+
+    it('off, leaves the row to the platform: no listener of its own on the scroller', () => {
+      const el = scroller();
+      const added = vi.spyOn(el, 'addEventListener');
+      const removed = vi.spyOn(el, 'removeEventListener');
+
+      fixture.componentInstance.dragScroll.set(false);
+      fixture.detectChanges();
+      const off = removed.mock.calls.map(([type]) => type);
+      expect(off).toEqual(
+        expect.arrayContaining(['pointerdown', 'pointermove', 'pointerup', 'selectstart', 'click']),
+      );
+
+      // A press no longer guards the platform's own selection or drag.
+      measure(0, 600, 200);
+      const item = row().querySelector('button')!;
+      pointer(item, 'pointerdown', 300);
+      const select = new Event('selectstart', { bubbles: true, cancelable: true });
+      item.dispatchEvent(select);
+      expect(select.defaultPrevented).toBe(false);
+
+      // Back on, the drag is back.
+      added.mockClear();
+      fixture.componentInstance.dragScroll.set(true);
+      fixture.detectChanges();
+      expect(added.mock.calls.map(([type]) => type)).toContain('pointerdown');
+      pointer(item, 'pointerdown', 300);
+      pointer(item, 'pointermove', 200);
+      expect(scroller().scrollLeft).toBe(100);
+    });
+
+    it('turned off mid-drag, lets go of it', () => {
+      measure(0, 600, 200);
+      const item = row().querySelector('button')!;
+      pointer(item, 'pointerdown', 300);
+      pointer(item, 'pointermove', 200);
+      fixture.detectChanges();
+      expect(host().hasAttribute('data-dragging')).toBe(true);
+
+      fixture.componentInstance.dragScroll.set(false);
+      fixture.detectChanges();
+      expect(host().hasAttribute('data-dragging')).toBe(false);
     });
   });
 });

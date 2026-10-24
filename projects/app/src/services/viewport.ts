@@ -21,6 +21,7 @@ export const FULL_WIDTH_MAX_WIDTH = 768;
 
 const NARROW = `(max-width: ${DOCKING_MIN_WIDTH - 0.02}px)`;
 const COMPACT = `(max-width: ${FULL_WIDTH_MAX_WIDTH}px)`;
+const TOUCH = '(hover: none) and (pointer: coarse)';
 
 /** The viewport's breakpoints as signals — the CDK's BreakpointObserver,
     app-wide, so every page reads the same thresholds. */
@@ -38,6 +39,15 @@ export class Viewport {
   readonly compact = toSignal(
     this.#breakpoints.observe(COMPACT).pipe(map((state) => state.matches)),
     { initialValue: this.#breakpoints.isMatched(COMPACT) },
+  );
+
+  /** A finger is the main pointer — no hover, a coarse aim: a phone or a
+      tablet, at any width. Not {@link compact}: a narrow desktop window
+      still has a mouse. Where the platform's own touch scrolling stands in
+      for what a mouse needs drawn (paddles, drag to scroll). */
+  readonly touch = toSignal(
+    this.#breakpoints.observe(TOUCH).pipe(map((state) => state.matches)),
+    { initialValue: this.#breakpoints.isMatched(TOUCH) },
   );
 
   /** How much of the layout viewport the virtual keyboard covers, in px — 0

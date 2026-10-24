@@ -62,6 +62,7 @@ import { I18n } from '../../../services/i18n';
 import { AttachmentRef, AttachmentUploads } from '../../../services/attachment-uploads';
 import { EmailSend, SendRejected } from '../../../services/email-send';
 import { Preferences } from '../../../services/preferences';
+import { Viewport } from '../../../services/viewport';
 import { EnvelopeRows } from './envelope-rows/envelope-rows';
 import { BLANK, Envelope, hasContent, isBlank } from './envelope';
 
@@ -149,6 +150,9 @@ export abstract class MessageSheet {
   protected readonly i18n = inject(I18n);
   readonly #snackBar = inject(MatSnackBar);
   readonly #announcer = inject(LiveAnnouncer);
+  /** A finger is the pointer: the attachment strip leaves its scrolling to
+      the platform (no paddles, no drag of its own). */
+  protected readonly touch = inject(Viewport).touch;
 
   /** The body's editor pane. */
   readonly emailPane = viewChild.required(EmailCompose);

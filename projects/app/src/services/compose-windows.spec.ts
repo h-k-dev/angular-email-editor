@@ -22,15 +22,6 @@ HTMLCanvasElement.prototype.getContext = (() => ({
   measureText: (text: string) => ({ width: text.length * 7 }),
 })) as never;
 Element.prototype.setPointerCapture ??= () => {};
-// …nor <dialog>'s modal API (the settings dialog): open and close by the
-// attribute, telling the close as the browser does.
-HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
-  this.open = true;
-};
-HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) {
-  this.open = false;
-  this.dispatchEvent(new Event('close'));
-};
 
 // A window's caret is placed by its focus trap (the CDK's initial focus),
 // which takes only what is visible — and jsdom lays nothing out, so nothing
@@ -125,14 +116,14 @@ describe('ComposeWindows', () => {
     expect(editor().getAttribute('data-aee-static')).toBe('section columns table');
 
     // The settings' switch overrides the mode's default, for this message.
-    // The settings dialog — Settings… in this window's ⋮ — is on <body>.
+    // The settings dialog — Settings… in this window's ⋮ — is the overlay's.
     frame.querySelector<HTMLButtonElement>('[aria-label="More options"]')!.click();
     await settle();
     [...document.querySelectorAll<HTMLElement>('.toolbar-menu [role="menuitem"]')]
       .find((row) => row.textContent?.includes('Settings…'))!
       .click();
     await settle();
-    const dialog = document.querySelector<HTMLDialogElement>('dialog.settings[open]')!;
+    const dialog = document.querySelector<HTMLElement>('.message-settings-pane [role="dialog"]')!;
     expect(frame.contains(dialog)).toBe(false);
     // A page renders when it is first opened.
     [...dialog.querySelectorAll<HTMLElement>('[role="tab"]')]
@@ -455,6 +446,7 @@ describe('ComposeWindows on a phone', () => {
           useValue: {
             compact: compact.asReadonly(),
             narrow: compact.asReadonly(),
+            touch: signal(false).asReadonly(),
             keyboardInset: signal(0),
           },
         },

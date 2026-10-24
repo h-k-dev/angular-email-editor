@@ -1,3 +1,4 @@
+@use '@angular/material' as mat;
 @use '@h-k-dev/angular-email-editor/styles/scroll';
 
 // The message's settings, Notion's and Linear's: a roomy frame of its own
@@ -12,82 +13,14 @@
 // (`Viewport.compact`, `FULL_WIDTH_MAX_WIDTH`).
 $compact: 768px;
 
-// The native dialog, reset to the frame: the panel inside is the surface,
-// and it fills the dialog, so a press on the dialog itself is the
-// backdrop's.
-.settings {
-  --settings-enter: translateY(8px) scale(0.98);
+// The host is the frame's grid: the aside's column (its title over its
+// tabs) and the page beside it, the full height. The header and the tabs' container give
+// their children to the grid. The dialog's surface, its size and its way
+// in and out are Material's (`.message-settings-pane`, styles.scss).
+:host {
+  --settings-aside: 240px;
   // The system's spacing step, short: every room below is a multiple.
   --space: var(--mat-sys-spacing, 4px);
-
-  // Notion's frame, not the global 640: room for the aside and a page
-  // that reads like one.
-  inline-size: min(1100px, calc(100vw - 96px));
-  block-size: min(720px, calc(100dvh - 96px));
-  max-inline-size: none;
-  max-block-size: none;
-  margin: auto;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--mat-sys-on-surface);
-  overflow: visible;
-
-  // In and out: a short rise and fade, the backdrop dimming with it —
-  // `display` and `overlay` held over (allow-discrete) so the way out
-  // animates too.
-  opacity: 0;
-  transform: var(--settings-enter);
-  transition:
-    opacity 160ms ease-out,
-    transform 220ms cubic-bezier(0.2, 0, 0, 1),
-    overlay 220ms allow-discrete,
-    display 220ms allow-discrete;
-
-  &[open] {
-    opacity: 1;
-    transform: none;
-
-    @starting-style {
-      opacity: 0;
-      transform: var(--settings-enter);
-    }
-  }
-
-  &::backdrop {
-    background-color: rgb(0 0 0 / 0%);
-    transition:
-      background-color 220ms ease-out,
-      overlay 220ms allow-discrete,
-      display 220ms allow-discrete;
-  }
-
-  &[open]::backdrop {
-    background-color: rgb(0 0 0 / 32%);
-    backdrop-filter: blur(2px);
-
-    @starting-style {
-      background-color: rgb(0 0 0 / 0%);
-    }
-  }
-
-  @media (max-width: $compact) {
-    --settings-enter: translateY(24px);
-
-    inline-size: var(--dialog-width);
-    block-size: var(--dialog-height);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    --settings-enter: none;
-  }
-}
-
-// The frame's grid: the aside's column (its title over its tabs) and the
-// page beside it, the full height. The header and the tabs' container give
-// their children to the grid.
-.settings__panel {
-  --settings-aside: 240px;
 
   position: relative;
   display: grid;
@@ -97,10 +30,7 @@ $compact: 768px;
     / var(--settings-aside) minmax(0, 1fr);
   block-size: 100%;
   box-sizing: border-box;
-  // The app's surface: a global element, on <body>, never a sheet's paper.
-  background: var(--mat-sys-surface-bright);
-  border-radius: var(--dialog-radius);
-  box-shadow: var(--mat-sys-float-shadow), var(--mat-sys-level3);
+  color: var(--mat-sys-on-surface);
   overflow: hidden;
 
   // The aside's tint, under its title and its tabs alike.
@@ -127,12 +57,19 @@ $compact: 768px;
   font: var(--mat-sys-title-small);
 }
 
-// In the corner, over the page.
+// In the corner, over the page: a quiet close, 28px with a 32px target
+// (the wide toolbar's), the app's icon size.
 .settings__close {
   position: absolute;
   z-index: 2;
-  inset-block-start: calc(var(--space) * 3);
-  inset-inline-end: calc(var(--space) * 3);
+  inset-block-start: calc(var(--space) * 4);
+  inset-inline-end: calc(var(--space) * 4);
+  @include mat.icon-button-overrides(
+    (
+      state-layer-size: 28px,
+      touch-target-size: 32px,
+    )
+  );
 }
 
 .settings__nav {
@@ -169,9 +106,12 @@ $compact: 768px;
     background-color 120ms ease-out,
     color 120ms ease-out;
 
-  &:hover {
-    background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent);
-    color: var(--mat-sys-on-surface);
+  // A real pointer's: a tap would leave it stuck on the tab it left.
+  @media (hover: hover) {
+    &:hover {
+      background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent);
+      color: var(--mat-sys-on-surface);
+    }
   }
 
   &:focus-visible {
@@ -306,18 +246,17 @@ $compact: 768px;
   color: color-mix(in srgb, var(--mat-sys-on-surface) 38%, transparent);
 }
 
-// A phone: the frame is the screen (the tokens' doing), sliding up from
-// the foot; the title and close head it, clear of the notch, the aside a
-// row of tabs under them — sideways when they outgrow the screen — and
-// the page's last row clear of the home bar.
+// A phone: the frame is the screen (the tokens' doing); the title — the
+// desktop's small label — and close head it, clear of the notch, the aside a row of tabs under them —
+// sideways when they outgrow the screen — and the page's last row clear of
+// the home bar.
 @media (max-width: $compact) {
-  .settings__panel {
+  :host {
     grid-template:
       'title close' auto
       'nav nav' auto
       'main main' 1fr
       / minmax(0, 1fr) auto;
-    box-shadow: none;
 
     &::before {
       content: none;
@@ -329,25 +268,36 @@ $compact: 768px;
     padding-block: calc(env(safe-area-inset-top) + var(--space) * 2)
       var(--space);
     padding-inline: var(--mat-sys-mobile-edge, 20px) 0;
-    color: var(--mat-sys-on-surface);
-    font: var(--mat-sys-title-large);
   }
 
+  // Back in the flow, but still positioned: the button's ripple, focus
+  // ring and touch target are absolute layers, and `static` let them
+  // spread over the whole panel — every tap was a press on close.
   .settings__close {
-    position: static;
+    position: relative;
+    inset: auto;
     grid-area: close;
-    align-self: end;
-    margin-inline-end: calc(var(--space) * 2);
+    align-self: center;
+    margin-inline-end: calc(var(--space) * 4);
   }
 
+  // The tabs' row: the overflow row scrolls it sideways, its bar hidden,
+  // paddles over the edges in the dialog's surface.
+  .settings__nav-row {
+    --overflow-row-surface: var(--mat-sys-surface-bright);
+
+    grid-area: nav;
+    padding-block: var(--space);
+  }
+
+  // The list rides in it, the edge's room inside so the first and last tab
+  // scroll clear of the screen's edge; it no longer scrolls itself.
   .settings__nav {
     flex-direction: row;
     gap: var(--space);
-    padding-block: var(--space) calc(var(--space) * 2);
+    padding-block: 0;
     padding-inline: var(--mat-sys-mobile-edge, 20px);
-    border-block-end: 1px solid var(--mat-sys-outline-variant);
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow: visible;
   }
 
   .settings__tab {
@@ -363,10 +313,9 @@ $compact: 768px;
     padding-inline: var(--mat-sys-inner-spacing, 16px);
   }
 
+  // The selected tab names the page already.
   .settings__page-title {
-    margin-block-end: calc(var(--space) * 4);
-    font: var(--mat-sys-title-medium);
-    font-weight: 600;
+    display: none;
   }
 
   .settings__row {

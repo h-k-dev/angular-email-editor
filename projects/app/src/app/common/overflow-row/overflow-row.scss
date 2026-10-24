@@ -44,6 +44,11 @@
   scroll-padding-inline: calc(2 * var(--overflow-row-paddle-size, 2rem));
   scrollbar-width: none;
 
+  // No paddles, no room kept for them.
+  :host(:not([data-paddles])) & {
+    scroll-padding-inline: 0;
+  }
+
   &::-webkit-scrollbar {
     display: none;
   }

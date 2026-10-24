@@ -37,16 +37,6 @@ const context2dStub = {
 };
 HTMLCanvasElement.prototype.getContext = (() => context2dStub) as never;
 
-// jsdom has <dialog> but not its modal API (the settings dialog): open and
-// close by the attribute, telling the close as the browser does.
-HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
-  this.open = true;
-};
-HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) {
-  this.open = false;
-  this.dispatchEvent(new Event('close'));
-};
-
 // Every composer saves its draft when it goes: start each spec without one.
 beforeEach(() => localStorage.clear());
 
@@ -68,9 +58,9 @@ async function chooseView(fixture: ComponentFixture<unknown>, view: 'Editor' | '
 }
 
 /** Opens the writer bar's settings dialog — Settings… in its ⋮ menu, as
-    core's Preferences… — and hands it back: on <body>, a global element,
-    the one open. */
-async function openSettings(fixture: ComponentFixture<unknown>): Promise<HTMLDialogElement> {
+    core's Preferences… — and hands it back: a MatDialog, in the overlay
+    container on <body>, the one open. */
+async function openSettings(fixture: ComponentFixture<unknown>): Promise<HTMLElement> {
   const root = fixture.nativeElement as HTMLElement;
   (root.querySelector('.writer-bar [aria-label="More options"]') as HTMLButtonElement).click();
   await fixture.whenStable();
@@ -80,16 +70,22 @@ async function openSettings(fixture: ComponentFixture<unknown>): Promise<HTMLDia
   if (!item) throw new Error('no Settings… item in the ⋮ menu');
   item.click();
   await fixture.whenStable();
-  const dialog = document.querySelector<HTMLDialogElement>('dialog.settings[open]');
+  const dialog = document.querySelector<HTMLElement>('.message-settings-pane [role="dialog"]');
   if (!dialog) throw new Error('Settings… opened no dialog');
   return dialog;
+}
+
+/** Closes the settings by their close button, as a person would. */
+async function closeSettings(fixture: ComponentFixture<unknown>, dialog: HTMLElement) {
+  dialog.querySelector<HTMLButtonElement>('[aria-label="Close settings"]')!.click();
+  await fixture.whenStable();
 }
 
 /** Opens a page of the settings by its tab — a page renders when it is
     first opened (`ngTabContent`). */
 async function openSection(
   fixture: ComponentFixture<unknown>,
-  dialog: HTMLDialogElement,
+  dialog: HTMLElement,
   label: 'Personalization' | 'Designer' | 'Writer',
 ): Promise<void> {
   [...dialog.querySelectorAll<HTMLElement>('[role="tab"]')]
@@ -913,7 +909,7 @@ describe('Compose', () => {
   it('the settings’ Layout switch turns every layout block static, and stands disabled for plain text', async () => {
     const sheet = (component as any).sheet();
     const dialog = await openSettings(fixture);
-    expect(dialog.open).toBe(true);
+    expect(dialog.getAttribute('aria-labelledby')).toMatch(/-title$/);
     await openSection(fixture, dialog, 'Writer');
 
     const pm = () => sheet.emailPane().editor().view.dom as HTMLElement;
@@ -940,7 +936,7 @@ describe('Compose', () => {
     await fixture.whenStable();
     expect(layoutSwitch().disabled).toBe(false);
     expect(pm().getAttribute('data-aee-static')).toBe('section columns table');
-    dialog.close();
+    await closeSettings(fixture, dialog);
   });
 
   it('the settings’ kept preferences apply at once, and this browser keeps them', async () => {
@@ -996,7 +992,7 @@ describe('Compose', () => {
     expect(source.getAttribute('data-wrap')).toBe('off');
     expect(key('source-wrap')).toBe('off');
 
-    dialog.close();
+    await closeSettings(fixture, dialog);
   });
 
   it('the attachment strip’s corner toggle lays the chips in two rows and back, kept by this browser', async () => {
@@ -1184,9 +1180,9 @@ describe('Compose', () => {
     expect(richAsPublished).toContain('<strong');
 
     /** Picks a Format on the settings' toggle — the dialog stays open. */
-    let dialog: HTMLDialogElement | null = null;
+    let dialog: HTMLElement | null = null;
     const chooseFormat = async (label: 'HTML' | 'Plain text') => {
-      if (!dialog?.open) {
+      if (!dialog?.isConnected) {
         dialog = await openSettings(fixture);
         await openSection(fixture, dialog, 'Writer');
       }
@@ -1443,7 +1439,11 @@ describe('Compose below the docking breakpoint', () => {
       providers: [
         {
           provide: Viewport,
-          useValue: { narrow: narrow.asReadonly(), compact: signal(false).asReadonly() },
+          useValue: {
+            narrow: narrow.asReadonly(),
+            compact: signal(false).asReadonly(),
+            touch: signal(false).asReadonly(),
+          },
         },
       ],
     }).compileComponents();
@@ -1489,7 +1489,11 @@ describe('Compose below the docking breakpoint', () => {
       providers: [
         {
           provide: Viewport,
-          useValue: { narrow: compact.asReadonly(), compact: compact.asReadonly() },
+          useValue: {
+            narrow: compact.asReadonly(),
+            compact: compact.asReadonly(),
+            touch: signal(false).asReadonly(),
+          },
         },
       ],
     }).compileComponents();

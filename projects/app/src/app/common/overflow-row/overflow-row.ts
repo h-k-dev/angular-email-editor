@@ -3,6 +3,7 @@ import {
   DestroyRef,
   ElementRef,
   afterNextRender,
+  afterRenderEffect,
   booleanAttribute,
   inject,
   computed,
@@ -48,7 +49,8 @@ const DRAG_SLOP = 4;
  * Paddles are a pointer affordance only (`aria-hidden`, unfocusable). They
  * appear only while content actually hides behind that edge; keyboard users
  * reach items by focusing them, which `scroll-padding-inline` keeps clear of
- * both the paddle and the fade beside it.
+ * both the paddle and the fade beside it. `paddles` (on by default) turns
+ * them off — on a touch screen, where a finger scrolls the row anyway.
  *
  * **Drag to scroll** (`dragScroll`, on by default): a mouse press that
  * travels more than a few pixels sideways scrolls the row with the pointer
@@ -59,6 +61,13 @@ const DRAG_SLOP = 4;
  * drag scroll is on, the row's items cannot be dragged natively (a link or
  * an image would start the browser's own drag instead) — turn it off for
  * items that drag themselves.
+ *
+ * **Native when it can be.** Both off, the row is the platform's own
+ * scroller with its bar hidden: no paddle, and no pointer listener — the
+ * drag's are added only while `dragScroll` is on. The component asks no
+ * device what it is: a parent that knows (a touch screen, say) passes
+ * `[paddles]="false" [dragScroll]="false"`. `overflows` is measured
+ * either way.
  *
  * LTR only, as core's: the scroll arithmetic is physical (`scrollLeft`).
  *
@@ -73,6 +82,7 @@ const DRAG_SLOP = 4;
   styleUrl: './overflow-row.scss',
   host: {
     '[attr.data-dragging]': "dragging() ? '' : null",
+    '[attr.data-paddles]': "paddles() ? '' : null",
   },
 })
 export class OverflowRow {
@@ -82,9 +92,14 @@ export class OverflowRow {
   /** Accessible name of the row — pass it already translated. */
   readonly rowLabel = input<string>('');
 
-  /** Whether a mouse drag scrolls the row. On by default; off, only the
-      paddles, the wheel and focus move it. */
+  /** Whether a mouse drag scrolls the row. On by default; off, the row
+      holds no pointer listener: the paddles, the wheel, a finger and focus
+      move it, as the platform does. */
   readonly dragScroll = input(true, { transform: booleanAttribute });
+
+  /** Whether paddles stand over an edge that hides items. On by default;
+      off, the row keeps no room for them either. */
+  readonly paddles = input(true, { transform: booleanAttribute });
 
   protected readonly canScrollStart = signal(false);
   protected readonly canScrollEnd = signal(false);
@@ -119,21 +134,45 @@ export class OverflowRow {
         typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => this.syncPaddles());
       observer?.observe(scroller);
       if (scroller.firstElementChild) observer?.observe(scroller.firstElementChild);
+      destroyRef.onDestroy(() => observer?.disconnect());
+    });
 
-      // Capture: the swallowed click must not reach the item it lands on,
-      // which hears it before the row would in the bubbling phase.
-      const onClick = (event: MouseEvent) => {
-        if (!this.#swallowClick) return;
-        this.#swallowClick = false;
-        event.preventDefault();
-        event.stopPropagation();
-      };
-      scroller.addEventListener('click', onClick, true);
-
-      destroyRef.onDestroy(() => {
-        observer?.disconnect();
-        scroller.removeEventListener('click', onClick, true);
-      });
+    // The drag's listeners, only while it is on: off, the scroller is left
+    // to the platform alone.
+    afterRenderEffect({
+      write: (onCleanup) => {
+        if (!this.dragScroll()) return;
+        const scroller = this.scroller().nativeElement;
+        const onPress = (event: Event) => this.#onPressDefault(event);
+        // Capture: the swallowed click must not reach the item it lands on,
+        // which hears it before the row would in the bubbling phase.
+        const onClick = (event: Event) => {
+          if (!this.#swallowClick) return;
+          this.#swallowClick = false;
+          event.preventDefault();
+          event.stopPropagation();
+        };
+        const listeners: [string, (event: Event) => void, boolean][] = [
+          ['pointerdown', (event) => this.#onPointerDown(event as PointerEvent), false],
+          ['pointermove', (event) => this.#onPointerMove(event as PointerEvent), false],
+          ['pointerup', (event) => this.#onPointerUp(event as PointerEvent), false],
+          ['pointercancel', (event) => this.#onPointerUp(event as PointerEvent), false],
+          ['dragstart', onPress, false],
+          ['selectstart', onPress, false],
+          ['click', onClick, true],
+        ];
+        for (const [type, listener, capture] of listeners) {
+          scroller.addEventListener(type, listener, capture);
+        }
+        onCleanup(() => {
+          for (const [type, listener, capture] of listeners) {
+            scroller.removeEventListener(type, listener, capture);
+          }
+          this.#press = null;
+          this.#swallowClick = false;
+          this.dragging.set(false);
+        });
+      },
     });
   }
 
@@ -155,15 +194,15 @@ export class OverflowRow {
   }
 
   /** A mouse's main button, on a row with somewhere to go: a drag may start. */
-  protected onPointerDown(event: PointerEvent): void {
+  #onPointerDown(event: PointerEvent): void {
     this.#swallowClick = false;
-    if (!this.dragScroll() || event.pointerType !== 'mouse' || event.button !== 0) return;
+    if (event.pointerType !== 'mouse' || event.button !== 0) return;
     const el = this.scroller().nativeElement;
     if (el.scrollWidth <= el.clientWidth) return;
     this.#press = { id: event.pointerId, x: event.clientX, scrollLeft: el.scrollLeft };
   }
 
-  protected onPointerMove(event: PointerEvent): void {
+  #onPointerMove(event: PointerEvent): void {
     const press = this.#press;
     if (!press || event.pointerId !== press.id) return;
     const el = this.scroller().nativeElement;
@@ -185,7 +224,7 @@ export class OverflowRow {
   }
 
   /** Let go: a drag swallows the click that follows it. */
-  protected onPointerUp(event: PointerEvent): void {
+  #onPointerUp(event: PointerEvent): void {
     if (!this.#press || event.pointerId !== this.#press.id) return;
     this.#press = null;
     if (!this.dragging()) return;
@@ -202,7 +241,7 @@ export class OverflowRow {
   /** The browser's own drag of a link or an image would steal the press,
       and a selection would grow along with the drag: neither starts from a
       press that may become one. */
-  protected onPressDefault(event: Event): void {
+  #onPressDefault(event: Event): void {
     if (this.#press) event.preventDefault();
   }
 }

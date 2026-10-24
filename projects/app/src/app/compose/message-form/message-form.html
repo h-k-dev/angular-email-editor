@@ -269,7 +269,12 @@
       [heightSwitch]="attachmentStripLook()"
       hoverLinger
     >
-      <overflow-row #strip [hidden]="attachmentsHidden()">
+      <overflow-row
+        #strip
+        [hidden]="attachmentsHidden()"
+        [paddles]="!touch()"
+        [dragScroll]="!touch()"
+      >
         <ul
           email-attachment-chips
           [formField]="envelope.attachments"

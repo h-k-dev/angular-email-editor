@@ -185,6 +185,29 @@ html {
   }
 }
 
+/* The composer's settings (message-settings.ts), a MatDialog: Notion's
+ * frame rather than the global 640, room for its aside and a page that
+ * reads like one — the tokens' whole screen at the compact width. Material
+ * draws the surface, in the app's bright surface and the dialog radius.
+ * Global: the pane is the overlay's. */
+.message-settings-pane {
+  inline-size: min(1100px, calc(100vw - 96px));
+  block-size: min(720px, calc(100dvh - 96px));
+  @include mat.dialog-overrides(
+    (
+      container-color: var(--mat-sys-surface-bright),
+      container-shape: var(--dialog-radius),
+      container-elevation-shadow: (var(--mat-sys-float-shadow), var(--mat-sys-level3)),
+    )
+  );
+
+  @media (max-width: 768px) {
+    inline-size: var(--dialog-width);
+    block-size: var(--dialog-height);
+    @include mat.dialog-overrides((container-elevation-shadow: none));
+  }
+}
+
 /* ProseMirror creates its editable DOM at runtime, outside Angular's emulated
  * view encapsulation, so the editor surface is styled globally. Everything
  * scopes to `.aee-editor` — the identity class the library stamps on its own

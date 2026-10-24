@@ -8,7 +8,12 @@ import { undo } from 'prosemirror-history';
 import { Node } from 'prosemirror-model';
 import { createEditor, Editor } from '../editor';
 import { emailExtensions } from './kits';
-import { TABLE_EXTEND_BADGE_CLASS, columnWidths, setColumnBoundary } from './column-resize';
+import {
+  TABLE_EXTEND_BADGE_CLASS,
+  columnWidths,
+  setColumnBoundary,
+  setTableBox,
+} from './column-resize';
 import { TABLE_COLUMNS } from './nodes/table';
 
 describe('table + pills dragged (render)', () => {
@@ -23,6 +28,16 @@ describe('table + pills dragged (render)', () => {
     });
     return found;
   };
+  const tablePos = (): number => {
+    let at = -1;
+    editor.state.doc.forEach((node, pos) => {
+      if (node.type.name === 'table') at = pos;
+    });
+    return at;
+  };
+  /** The table at `width` percent of its room, its columns scaled with it —
+      room for a drag to add columns in. */
+  const narrow = (width: number) => editor.exec(setTableBox(tablePos(), 0, width));
   const columns = () => TableMap.get(table()!).width;
   const rows = () => TableMap.get(table()!).height;
   const pill = (axis: 'column' | 'row') =>
@@ -30,7 +45,13 @@ describe('table + pills dragged (render)', () => {
   const badge = () => document.querySelector<HTMLElement>(`.${TABLE_EXTEND_BADGE_CLASS}`);
   const pointer = (type: string, x: number, y: number, target: EventTarget = window) =>
     target.dispatchEvent(
-      new PointerEvent(type, { clientX: x, clientY: y, button: 0, bubbles: true, cancelable: true }),
+      new PointerEvent(type, {
+        clientX: x,
+        clientY: y,
+        button: 0,
+        bubbles: true,
+        cancelable: true,
+      }),
     );
 
   /** Presses the pill and moves the pointer by `steps` of its band — half a
@@ -72,6 +93,7 @@ describe('table + pills dragged (render)', () => {
   });
 
   it('a drag right adds a column per half-column step, live, and lands as one undo step', async () => {
+    narrow(50);
     const before = editor.getHTML();
     const gesture = await drag('column', 2.2);
     expect(columns()).toBe(4);
@@ -84,6 +106,7 @@ describe('table + pills dragged (render)', () => {
   });
 
   it('a quarter step of slack before the first column out', async () => {
+    narrow(50);
     const gesture = await drag('column', 0.2);
     expect(columns()).toBe(2);
     await gesture.move(0.3);
@@ -113,17 +136,67 @@ describe('table + pills dragged (render)', () => {
     expect(columns()).toBe(2);
     expect(table()!.attrs['width']).toBeCloseTo(66.7, 1);
     await grow.move(5.2);
-    expect(columns()).toBe(6);
+    // Full at the third: the drag stops there, the first column still half.
+    expect(columns()).toBe(4);
     expect(table()!.attrs['width']).toBe(100);
+    expect(columnWidths(table()!)[0]).toBe(50);
     grow.release(5.2);
   });
 
-  it('stops at ten columns, and past the cap the way back starts at once', async () => {
-    const gesture = await drag('column', 30);
-    expect(columns()).toBe(10);
-    await gesture.move(29);
-    expect(columns()).toBe(9);
-    gesture.release(29);
+  it('a full table takes no column from a drag — none there shrinks — and the way back starts at once', async () => {
+    const before = columnWidths(table()!);
+    const gesture = await drag('column', 3);
+    expect(columns()).toBe(2);
+    expect(columnWidths(table()!)).toEqual(before);
+    expect(badge()?.textContent).toBe('2 × 2');
+    // The travel past the room is dropped: a step back takes one away.
+    await gesture.move(1.8);
+    expect(columns()).toBe(1);
+    gesture.release(1.8);
+  });
+
+  it('the last column a drag adds takes what is left of the room, and the table ends full', async () => {
+    narrow(90);
+    const gesture = await drag('column', 4);
+    expect(columns()).toBe(3);
+    expect(table()!.attrs['width']).toBe(100);
+    expect(columnWidths(table()!)).toEqual([45, 45, 10]);
+    gesture.release(4);
+  });
+
+  it('a click on a full table still adds one, the columns sharing the room', () => {
+    const rect = pill('column').getBoundingClientRect();
+    pointer('pointerdown', rect.left + 2, rect.top + 2, pill('column'));
+    pointer('pointerup', rect.left + 2, rect.top + 2);
+    expect(columns()).toBe(3);
+    expect(table()!.attrs['width']).toBe(100);
+  });
+
+  it('every boundary line stands on its column edge after a drag changes the width', async () => {
+    narrow(50);
+    const lines = () => [
+      ...host.querySelectorAll<HTMLElement>('.aee-col-boundaries > .aee-col-line'),
+    ];
+    const check = () => {
+      const layer = host.querySelector('.aee-col-lines')!.getBoundingClientRect();
+      const edges = [...host.querySelectorAll('tr:first-child td')]
+        .slice(0, -1)
+        .map((td) => td.getBoundingClientRect().right);
+      const placed = lines().map(
+        (line) => layer.left + (parseFloat(line.style.left) / 100) * layer.width,
+      );
+      expect(placed.length).toBe(edges.length);
+      placed.forEach((x, i) => expect(Math.abs(x - edges[i])).toBeLessThan(1.5));
+    };
+    check();
+    const gesture = await drag('column', 2.2);
+    expect(columns()).toBe(4);
+    check();
+    gesture.release();
+    check();
+    // And after undo, the table back at half its room.
+    undo(editor.state, editor.view.dispatch);
+    check();
   });
 
   it('past its last band an empty table fades, and let go there it is taken away — one undo step', async () => {
@@ -180,11 +253,7 @@ describe('table + pills dragged (render)', () => {
   });
 
   it('back at the start, the very columns it had: their widths come back', async () => {
-    let tablePos = 0;
-    editor.state.doc.forEach((node, pos) => {
-      if (node.type.name === 'table') tablePos = pos;
-    });
-    editor.exec(setColumnBoundary(tablePos, 0, 70));
+    editor.exec(setColumnBoundary(tablePos(), 0, 70));
     const widths = () =>
       [...host.querySelectorAll('tr:first-child td')].map((td) => (td as HTMLElement).style.width);
     expect(widths()).toEqual(['70%', '30%']);
@@ -207,6 +276,7 @@ describe('table + pills dragged (render)', () => {
   });
 
   it('a badge by the pointer says columns × rows while it drags, and goes with the drag', async () => {
+    narrow(50);
     const gesture = await drag('column', 1.2);
     expect(badge()?.textContent).toBe('3 × 2');
     await gesture.move(-1.2);

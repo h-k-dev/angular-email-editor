@@ -27,13 +27,10 @@
   padding: 2px 4px 2px 8px;
   box-sizing: border-box;
 
-  // The surface, held in one private property so the boxes that paint over
-  // the icon and the readout wear the same one — hovered and pressed
-  // included, for an activatable chip.
-  --_surface-base: var(
-    --email-attachment-chip-background,
-    var(--mat-sys-surface-container, light-dark(#f1f3f4, #303134))
-  );
+  // The surface: none by default — the chip is its border on whatever it
+  // sits on — or the host's. Held in a private property so hover and press
+  // can mix the ink into it, for an activatable chip.
+  --_surface-base: var(--email-attachment-chip-background, transparent);
   --_surface: var(--_surface-base);
   background-color: var(--_surface);
   transition:
@@ -190,6 +187,7 @@
     --email-attachment-chip-icon-color,
     var(--mat-sys-on-surface-variant, light-dark(#5f6368, #9aa0a6))
   );
+  transition: opacity 120ms ease;
 }
 
 :host :where([data-slot='icon'] > svg) {
@@ -281,6 +279,7 @@
     --email-attachment-chip-secondary-color,
     var(--mat-sys-on-surface-variant, light-dark(#5f6368, #9aa0a6))
   );
+  transition: opacity 120ms ease;
 }
 
 :host :where([data-slot='progress-value']) {
@@ -372,10 +371,10 @@
 
 // The two button boxes — over the icon, in the trailing square — each hold
 // the chip's own button or the host's. They take the size of what they hold
-// (24px at least, so the icon or the readout is covered); a host button
-// larger than the square overhangs it into the padding. Positioned, so they
-// paint above the chip's action and stay their own targets; they wear the
-// chip's surface, so what is under them never shows through.
+// (24px at least, the square's); a host button larger than the square
+// overhangs it into the padding. Positioned, so they paint above the chip's
+// action and stay their own targets. They have no surface: the chip's may
+// be none, so what they share the square with fades out while they show.
 :host :where([data-slot='icon-button'], [data-slot='tail-button']) {
   position: relative;
   display: flex;
@@ -390,16 +389,20 @@
 }
 
 // The icon button is there, unseen, until the pointer or focus arrives;
-// then it paints over the icon, the way the tail button paints over the
-// readout. On a touch screen it stays unseen: the icon keeps telling the
+// then it takes the icon's place, the way the tail button takes the
+// readout's. On a touch screen it stays unseen: the icon keeps telling the
 // kind, and a tap on it is the icon button's.
 :host :where([data-slot='icon-button']) {
   opacity: 0;
-  background-color: var(--_surface);
 }
 
 :host(:is(:hover, :focus-within)) :where([data-slot='icon-button']) {
   opacity: 1;
+}
+
+:host(:is(:hover, :focus-within):not([aria-disabled='true']))
+  :where([data-slot='icon']:has(+ [data-slot='icon-button'])) {
+  opacity: 0;
 }
 
 :host([aria-disabled='true']) :where([data-slot='icon-button']) {
@@ -407,15 +410,18 @@
 }
 
 // While busy the readout has the trailing square: the tail button is there,
-// unseen, until the pointer or focus arrives — and then it paints over the
-// readout on the chip's own surface, so the number never shows through.
+// unseen, until the pointer or focus arrives — and then it takes the
+// square, the number fading out under it.
 :host([aria-busy='true']) :where([data-slot='tail-button']) {
   opacity: 0;
 }
 
 :host([aria-busy='true']:is(:hover, :focus-within)) :where([data-slot='tail-button']) {
   opacity: 1;
-  background-color: var(--_surface);
+}
+
+:host([aria-busy='true']:is(:hover, :focus-within)) :where([data-slot='progress']) {
+  opacity: 0;
 }
 
 // No pointer to hover with: the tail button is always there, and the bar
@@ -423,7 +429,10 @@
 @media (hover: none) {
   :host([aria-busy='true']) :where([data-slot='tail-button']) {
     opacity: 1;
-    background-color: var(--_surface);
+  }
+
+  :host([aria-busy='true']) :where([data-slot='progress']) {
+    opacity: 0;
   }
 }
 

@@ -495,11 +495,15 @@ class TableView {
     // table feel like it is flying apart — Tiptap's TableView skips this
     // path for the same reason. Persistent node identity makes the compare
     // a handful of pointer checks on the rows that did not change.
-    if (!sameTableChrome(this.#node, node) || node.attrs['html'] !== this.#node.attrs['html']) {
+    const prev = this.#node;
+    // The new node first: the render places the lines off its width and
+    // offset (`#toBoxPct`), and the old one's would put every line where
+    // the table no longer is — a `+` drag changes the width.
+    this.#node = node;
+    if (!sameTableChrome(prev, node) || node.attrs['html'] !== prev.attrs['html']) {
       this.#render(node);
     }
     this.#markKind(node);
-    this.#node = node;
     return true;
   }
 
@@ -709,11 +713,13 @@ class TableView {
    * room); a row's, the last row's height. Every column keeps its own size
    * on the page, so the table's edge — and its pill — moves with the
    * count: taking one away shrinks the table by it, and a new one, a step
-   * wide, grows it until it fills its room; past that the columns share
-   * it, none below `MIN_COLUMN_PCT`, so at most ten (an email has no
-   * sideways scroll to spill into). At either limit — the cap, the last
-   * band that can go — the travel beyond it is dropped, so the way back
-   * starts at once.
+   * wide, grows it until it fills its room — the last one takes what is
+   * left — and there the drag stops: it never squeezes the columns that
+   * are there (an email has no sideways scroll to spill into). A click
+   * still adds one to a full table, the columns sharing the room, none
+   * below `MIN_COLUMN_PCT`, so at most ten. At either limit — the room,
+   * the last band that can go — the travel beyond it is dropped, so the
+   * way back starts at once.
    *
    * Only empty bands go (`removeEmptyLastColumn`): a drag loses no words.
    * Past the first one of an empty table, the table itself is on its way
@@ -756,10 +762,14 @@ class TableView {
       ? (room * EXTEND_COLUMN_PCT) / 100
       : (lastRow?.getBoundingClientRect().height ?? 0);
     const bands = column ? map.width : map.height;
+    // How many a click may add: one, while the columns can share the room.
     const most = Math.max(
       0,
       column ? Math.floor(100 / MIN_COLUMN_PCT) - map.width : EXTEND_MAX_ROWS - map.height,
     );
+    // How many a drag may add: only what fits beside the columns that are
+    // there — a drag never squeezes them.
+    const fits = column ? Math.min(most, freshColumnsThatFit(offset, columnPcts)) : most;
     const emptyTable = isTableEmpty(table);
     let origin = column ? event.clientX : event.clientY;
     const add = column ? addColumnAtEnd : addRowAtEnd;
@@ -883,7 +893,7 @@ class TableView {
       const reach = Math.abs(delta) - step / 4;
       const wanted = reach > 0 ? Math.sign(delta) * Math.ceil(reach / step) : 0;
       // Past its last band, an empty table is on its way out.
-      const total = clamp(bands + wanted, emptyTable ? 0 : 1, bands + most);
+      const total = clamp(bands + wanted, emptyTable ? 0 : 1, bands + fits);
       const [keep, more] = steer(total);
       if (keep !== kept || more !== fresh) {
         const result = build(keep, more);
@@ -1059,10 +1069,12 @@ const EXTEND_COLUMN_PCT = 100 / (TABLE_COLUMNS * 2);
 /**
  * Lays a table's columns out at the sizes they had on the page — `sizes`,
  * in percent of the room, one per column the drag's press found; a column
- * past those is a new one, {@link EXTEND_COLUMN_PCT} wide. The table grows
- * or shrinks to hold them, within its room and above `MIN_TABLE_PCT`;
- * where they do not fit, they share the room in proportion, none below
- * `MIN_COLUMN_PCT`. Every cell then declares its share.
+ * past those is a new one, {@link EXTEND_COLUMN_PCT} wide — or what is
+ * left of the room, the last one that fits (`freshColumnsThatFit`). The
+ * table grows or shrinks to hold them, within its room and above
+ * `MIN_TABLE_PCT`; where they do not fit, they share the room in
+ * proportion, none below `MIN_COLUMN_PCT`. Every cell then declares its
+ * share.
  */
 function holdColumnSizes(
   state: EditorState,
@@ -1073,7 +1085,13 @@ function holdColumnSizes(
   const table = state.doc.nodeAt(pos);
   if (!table) return state;
   const map = TableMap.get(table);
-  const wanted = Array.from({ length: map.width }, (_, col) => sizes[col] ?? EXTEND_COLUMN_PCT);
+  let free = 100 - offset;
+  const wanted = Array.from({ length: map.width }, (_, col) => {
+    const fresh = free >= MIN_COLUMN_PCT ? Math.min(EXTEND_COLUMN_PCT, free) : EXTEND_COLUMN_PCT;
+    const size = sizes[col] ?? fresh;
+    free -= size;
+    return size;
+  });
   const total = wanted.reduce((sum, size) => sum + size, 0);
   const width = round1(clamp(total, MIN_TABLE_PCT, 100 - offset));
   const shares = floorShares(wanted.map((size) => (size / total) * 100)).map(round1);
@@ -1089,6 +1107,18 @@ function holdColumnSizes(
   }
   tr.setNodeMarkup(pos, null, { ...table.attrs, width });
   return state.apply(tr);
+}
+
+/** How many fresh columns a `+` drag may add beside columns of `sizes`
+    (percent of the room) in a table at `offset`: a mini each while one
+    fits, and a last one in what is left, if that is a column's worth
+    (`MIN_COLUMN_PCT`) — so the table ends at its room, and the columns
+    there never shrink. A tenth of a percent of rounding is room. */
+function freshColumnsThatFit(offset: number, sizes: number[]): number {
+  const free = 100 - offset - sizes.reduce((sum, size) => sum + size, 0) + 0.1;
+  if (free < MIN_COLUMN_PCT) return 0;
+  const whole = Math.floor(free / EXTEND_COLUMN_PCT);
+  return whole + (free - whole * EXTEND_COLUMN_PCT >= MIN_COLUMN_PCT ? 1 : 0);
 }
 
 /** Shares summing to 100, none below `MIN_COLUMN_PCT`: those below are

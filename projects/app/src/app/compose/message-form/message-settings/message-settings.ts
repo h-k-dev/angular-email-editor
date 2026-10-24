@@ -1,19 +1,17 @@
-import {
-  Component,
-  DOCUMENT,
-  DestroyRef,
-  ElementRef,
-  afterNextRender,
-  inject,
-  signal,
-  viewChild,
-} from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
+import { Component, Injector, WritableSignal, inject } from '@angular/core';
 
 // Angular Aria
 import { Tab, TabContent, TabList, TabPanel, Tabs } from '@angular/aria/tabs';
 
 // Angular Material
 import { MatIconButton } from '@angular/material/button';
+import {
+  MAT_DIALOG_DATA,
+  MatDialog,
+  MatDialogClose,
+  MatDialogRef,
+} from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
 import { MatSlideToggle } from '@angular/material/slide-toggle';
 
@@ -26,11 +24,12 @@ import {
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { Preferences } from '../../../../services/preferences';
+import { OverflowRow } from '../../../common/overflow-row/overflow-row';
 import { Viewport } from '../../../../services/viewport';
 import { MessageSheet } from '../message-sheet';
 
-/** Tells the settings on one page apart: each row's label needs an id of
-    its own for its control. */
+/** Tells one opening of the settings from another: the dialog's id, which
+    each row's label id is made from for its control. */
 let nextSettingsId = 0;
 
 /** The aside's sections, in order: one tab and one page each. */
@@ -40,12 +39,42 @@ const SECTIONS = [
   { id: 'writer', icon: 'edit_note', label: 'composer.settings.sections.writer' },
 ] as const;
 
-type SettingsSection = (typeof SECTIONS)[number]['id'];
+export type SettingsSection = (typeof SECTIONS)[number]['id'];
+
+/** What the dialog opens with: the open section, its opener's to keep from
+    one opening to the next. */
+export interface MessageSettingsData {
+  readonly section: WritableSignal<SettingsSection | undefined>;
+}
 
 /**
- * The message's settings, in a dialog centred over the page,
- * Notion's and Linear's: a roomy frame of its own (the whole screen at the
- * compact width, the global `--dialog-*` tokens) that scrolls inside, so
+ * Opens the settings of the sheet `injector` sits on — it reads and sets
+ * that sheet through DI, whichever it is. One fixed size (the
+ * `.message-settings-pane`, styles.scss), the whole screen at the compact
+ * width; Escape and a press on the backdrop close it, focus goes back to
+ * where it was.
+ */
+export function openMessageSettings(
+  injector: Injector,
+  data: MessageSettingsData,
+): MatDialogRef<MessageSettings> {
+  const id = `message-settings-${nextSettingsId++}`;
+  return injector.get(MatDialog).open<MessageSettings, MessageSettingsData>(MessageSettings, {
+    id,
+    ariaLabelledBy: `${id}-title`,
+    injector,
+    data,
+    panelClass: 'message-settings-pane',
+    // The pane's own size, never Material's 80vw cap.
+    maxWidth: 'none',
+  });
+}
+
+/**
+ * The message's settings, in a dialog centred over the page
+ * (`openMessageSettings`), Notion's and Linear's: a roomy frame of its own
+ * (the whole screen at the compact width, the global `--dialog-*` tokens)
+ * that scrolls inside, so
  * a setting added later fits the same frame. An aside of sections, each its own
  * page (Aria tabs — a row over the page at the compact width):
  * Personalization (the editor's theme), Designer (the HTML source's
@@ -60,23 +89,22 @@ type SettingsSection = (typeof SECTIONS)[number]['id'];
  * next message.
  * Opened by the ⋮'s Settings… (`MessageMenu`, which holds it) — core's
  * Preferences…: the ⋮ is the bar's one entry to the message's options. On
- * either sheet: it reads and sets the sheet it sits on, whichever that is,
- * through DI.
+ * either sheet: it reads and sets the sheet it was opened from, whichever
+ * that is, through DI.
  *
- * A native modal `<dialog>`: the top layer puts it over everything, the
- * browser makes the page behind it inert and hands focus back on close. A
- * global element, so it lives on `<body>` (moved there once rendered,
- * taken away with its menu): it wears the app's theme by plain
- * inheritance — never a sheet's paper island — and Escape reaches no
- * compose window on its way out. A pick is applied at once, behind it;
- * there is nothing to save.
+ * A MatDialog: a global element in the overlay container on `<body>`, so
+ * it wears the app's theme — never a sheet's paper island — and Escape
+ * reaches no compose window on its way out. A pick is applied at once,
+ * behind it; there is nothing to save.
  */
 @Component({
   selector: 'message-settings',
   imports: [
+    NgTemplateOutlet,
     TranslatePipe,
     MatIcon,
     MatIconButton,
+    MatDialogClose,
     MatSlideToggle,
     Tabs,
     TabList,
@@ -86,10 +114,10 @@ type SettingsSection = (typeof SECTIONS)[number]['id'];
     ToggleButtonGroup,
     ToggleButtonGroupIcon,
     ToggleButtonGroupText,
+    OverflowRow,
   ],
   templateUrl: './message-settings.html',
   styleUrl: './message-settings.scss',
-  host: { style: 'display: contents' },
 })
 export class MessageSettings {
   protected readonly sheet = inject(MessageSheet);
@@ -97,13 +125,11 @@ export class MessageSettings {
   protected readonly preferences = inject(Preferences);
 
   protected readonly sections = SECTIONS;
-  /** The open section — kept from one opening to the next. */
-  protected readonly section = signal<SettingsSection | undefined>('personalization');
+  /** The open section — the opener's, kept from one opening to the next. */
+  protected readonly section = inject<MessageSettingsData>(MAT_DIALOG_DATA).section;
 
-  protected readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
-
-  readonly #id = `message-settings-${nextSettingsId++}`;
-  protected readonly dialogId = this.#id;
+  /** The dialog's id (`openMessageSettings`), which names its title. */
+  readonly #id = inject(MatDialogRef).id;
   protected readonly titleId = `${this.#id}-title`;
   protected readonly formatLabelId = `${this.#id}-format`;
   protected readonly themeLabelId = `${this.#id}-theme`;
@@ -113,29 +139,4 @@ export class MessageSettings {
   protected readonly toolbarHintId = `${this.#id}-toolbar-hint`;
   protected readonly layoutLabelId = `${this.#id}-layout`;
   protected readonly layoutHintId = `${this.#id}-layout-hint`;
-
-  constructor() {
-    // Out of the sheet, onto <body>, once rendered — and gone with its
-    // menu: the view only takes its host away, and the dialog is no longer
-    // in it.
-    const body = inject(DOCUMENT).body;
-    afterNextRender({ write: () => body.appendChild(this.dialog().nativeElement) });
-    inject(DestroyRef).onDestroy(() => this.dialog().nativeElement.remove());
-  }
-
-  open(): void {
-    const dialog = this.dialog().nativeElement;
-    if (dialog.open) return;
-    dialog.showModal();
-  }
-
-  close(): void {
-    this.dialog().nativeElement.close();
-  }
-
-  /** A press on the backdrop — the dialog element itself, round the panel
-      that fills it — closes, as Escape does. */
-  protected onPress(event: MouseEvent): void {
-    if (event.target === this.dialog().nativeElement) this.close();
-  }
 }

@@ -1,15 +1,17 @@
 import {
   Component,
+  DestroyRef,
   Injector,
   afterNextRender,
   computed,
   inject,
   input,
-  viewChild,
+  signal,
 } from '@angular/core';
 
 // Angular Material
 import { MatIconButton } from '@angular/material/button';
+import { MatDialogRef } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
 import { MatTooltip } from '@angular/material/tooltip';
 
@@ -24,7 +26,11 @@ import {
   ToolbarMenuItem,
 } from '../../email-compose/formatting-toolbar/toolbar-menu/toolbar-menu';
 import { EditorView, MessageSheet } from '../message-sheet';
-import { MessageSettings } from '../message-settings/message-settings';
+import {
+  MessageSettings,
+  SettingsSection,
+  openMessageSettings,
+} from '../message-settings/message-settings';
 
 /** A pick in the ⋮: the settings dialog, or a View. */
 type MessageMenuValue = 'settings' | EditorView;
@@ -32,8 +38,8 @@ type MessageMenuValue = 'settings' | EditorView;
 /**
  * The bar's ⋮ — the bar's one entry to the message's options, as core's
  * writer has it. First Settings… (core's Preferences…): a menu choice, so
- * the menu closes and the settings dialog opens (`MessageSettings`, held
- * here) — the Theme, the Format and the Layout. Then the View, as two check
+ * the menu closes and the settings dialog opens (`MessageSettings`, opened
+ * from here, closed with the menu) — the Theme, the Format and the Layout. Then the View, as two check
  * options: the editor, or its HTML in the editor's place. Offered where
  * the frame has a source pane and the message is HTML
  * (`MessageSheet.viewOffered`); elsewhere the options stand disabled,
@@ -50,7 +56,6 @@ type MessageMenuValue = 'settings' | EditorView;
     MatTooltip,
     MenuTrigger,
     ToolbarMenu,
-    MessageSettings,
   ],
   templateUrl: './message-menu.html',
   host: { style: 'display: contents' },
@@ -59,7 +64,16 @@ export class MessageMenu {
   protected readonly sheet = inject(MessageSheet);
   readonly #i18n = inject(I18n);
   readonly #injector = inject(Injector);
-  private readonly settings = viewChild.required(MessageSettings);
+
+  /** The settings while open — one at a time. */
+  #settings: MatDialogRef<MessageSettings> | null = null;
+  /** The settings' open section, kept from one opening to the next. */
+  readonly #section = signal<SettingsSection | undefined>('personalization');
+
+  constructor() {
+    // The settings go with the sheet they set.
+    inject(DestroyRef).onDestroy(() => this.#settings?.close());
+  }
 
   /** Which way the menu opens from the bar: away from the sheet's edge —
       up from a bar at the foot, down from one heading the sheet. */
@@ -93,6 +107,13 @@ export class MessageMenu {
     }
     // Once the menu has gone and handed focus back to the ⋮: the dialog
     // takes it from there, and gives it back to the ⋮ when it closes.
-    afterNextRender({ write: () => this.settings().open() }, { injector: this.#injector });
+    afterNextRender({ write: () => this.#openSettings() }, { injector: this.#injector });
+  }
+
+  #openSettings(): void {
+    if (this.#settings) return;
+    const settings = openMessageSettings(this.#injector, { section: this.#section });
+    this.#settings = settings;
+    settings.afterClosed().subscribe(() => (this.#settings = null));
   }
 }
