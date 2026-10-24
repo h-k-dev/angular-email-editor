@@ -60,13 +60,15 @@ describe('SplitButton (render)', () => {
     expect(width(group())).toBe(40);
   });
 
-  it('split, opens the trailing half to its icon box beside a wider leading half', async () => {
+  it('split, opens a smaller trailing half beside the square leading one', async () => {
     fixture.componentInstance.split.set(true);
     await settle();
 
-    expect(width(leading())).toBe(48);
-    expect(width(trailing())).toBe(32);
-    expect(width(group())).toBe(48 + 2 + 32);
+    expect(width(leading())).toBe(40);
+    expect(Math.round(leading().getBoundingClientRect().height)).toBe(40);
+    expect(width(trailing())).toBe(40 - 8 - 2);
+    // Two icon buttons less 8px.
+    expect(width(group())).toBe(72);
     expect(getComputedStyle(leading()).borderTopRightRadius).toBe('4px');
     expect(getComputedStyle(trailing()).borderTopLeftRadius).toBe('4px');
   });

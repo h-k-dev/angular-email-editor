@@ -126,13 +126,15 @@ ul[email-attachment-chips] {
 // the bar's own icon button tokens with no mapping (40px with a 48px
 // target on the phone, 32px dense on the desktop's bar, 20px glyphs), so it
 // is whatever its neighbours are — nothing at rest, a state layer on
-// hover. Its own: the toggle half as wide as a whole button (room for the
-// count).
+// hover. The split button's own geometry (a square attach, the toggle 8px
+// and the gap smaller: 56 on the dense bar, 72 on the phone). Its own here:
+// a spacing unit of room either side, so its neighbours stand three times
+// as far off as its halves do from each other — the two read as one.
 .attach-button {
-  --hk-split-button-trailing-width: var(--mat-icon-button-state-layer-size, 40px);
   --mat-icon-size: var(--mat-icon-button-icon-size, 20px);
 
   flex: none;
+  margin-inline: var(--mat-sys-spacing, 4px);
 }
 
 // The toggle's face: the chevron, as any toggle's — toward the bar while the
@@ -211,12 +213,17 @@ ul[email-attachment-chips] {
   }
 
   // The batch's progress while the strip is away: a ring round the face,
-  // as big as the half leaves room for (a dense bar's 32px half: 24px), from
+  // the half's own width (the state layer less 8px and the gap: 22px on the
+  // dense bar, 30px on the phone), from
   // twelve o'clock round, in the primary colour over a faint track of the
   // ink. With no number yet, a quarter arc sweeps.
   &__ring {
-    inline-size: calc(var(--mat-icon-button-state-layer-size, 40px) - 8px);
-    block-size: calc(var(--mat-icon-button-state-layer-size, 40px) - 8px);
+    inline-size: calc(
+      var(--mat-icon-button-state-layer-size, 40px) - 8px - var(--mat-sys-spacing, 4px) / 2
+    );
+    block-size: calc(
+      var(--mat-icon-button-state-layer-size, 40px) - 8px - var(--mat-sys-spacing, 4px) / 2
+    );
     overflow: visible;
     rotate: -90deg;
     fill: none;

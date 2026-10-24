@@ -1,6 +1,8 @@
 // Trailing: as wide as its track lets it be — nothing while closed, its
 // icon box once open (the track's 1fr is the box's width,
-// --hk-split-button-trailing-width: four fifths of the state layer). It may
+// --hk-split-button-trailing-width: the state layer less 8px and the gap, so
+// the pair is two icon buttons less 8px — 72 at 40, 56 at 32 — and the
+// smaller half reads as the square one's). It may
 // shrink past its content (min-inline-size: 0); the icon box clips the
 // glyph, not the half, so the touch target stays whole — the glyph is
 // revealed from the middle as the half opens, and the half fades in on
@@ -31,7 +33,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  inline-size: var(--hk-split-button-trailing-width, calc(var(--_size) * 0.8));
+  inline-size: var(--hk-split-button-trailing-width, calc(var(--_size) - 8px - var(--_gap)));
   max-inline-size: 100%;
   block-size: 100%;
   overflow: hidden;
