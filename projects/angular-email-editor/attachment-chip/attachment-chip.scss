@@ -7,6 +7,13 @@
 // chip's own that a host's template fills, so the box is what gets sized
 // and the host's markup is never styled from here.
 //
+// The geometry is one inset: every control is a 24px square 8px from each
+// edge it faces — (40 - 24) / 2 above and below, 8 at the side — so each
+// end of the chip is a 40px square cap round its control and the label
+// runs between the two. The corner is Material's small one by default; a
+// host after ends concentric with the round controls sets the token to the
+// inset plus the control's radius (8 + 12 = 20, half the height): a pill.
+//
 // Every value is a three-step cascade: the chip's own --email-attachment-chip-*
 // token, then Material's system token of the same meaning (so a Material
 // host is themed with no mapping at all), then a hardcoded light-dark()
@@ -23,8 +30,10 @@
   min-width: 0;
   min-height: 40px;
   margin: 0;
-  // Two lines of type (20px + 16px) in 2px of block padding make the 40px row.
-  padding: 2px 4px 2px 8px;
+  // Two lines of type (20px + 16px), 1px of block padding and the 1px
+  // border make the 40px row; 7px of inline padding and the border, the
+  // 8px inset to the squares at either end.
+  padding: 1px 7px;
   box-sizing: border-box;
 
   // The surface: none by default — the chip is its border on whatever it
@@ -45,6 +54,8 @@
       --email-attachment-chip-border-color,
       var(--mat-sys-outline-variant, light-dark(#dadce0, #444746))
     );
+  // A length, never Material's corner-full (9999px): the progress track is
+  // inset by it.
   border-radius: var(--email-attachment-chip-corner, var(--mat-sys-corner-small, 8px));
 
   font-family: var(
@@ -155,14 +166,14 @@
 }
 
 // ── leading: the icon and the download arrow share one square ───────────
-// The trailing square's grid, sized to the icon so a chip with no download
-// lays out exactly as before; the download box overhangs it into the padding.
+// The trailing square's twin, 24px: the icon centred in it, the download
+// button filling it exactly.
 :host :where([data-slot='leading']) {
   flex: none;
   display: grid;
   place-items: center;
-  width: var(--email-attachment-chip-icon-size, 20px);
-  height: var(--email-attachment-chip-icon-size, 20px);
+  width: 24px;
+  height: 24px;
 }
 
 :host :where([data-slot='leading'] > *) {
@@ -359,9 +370,10 @@
     background-color 120ms ease;
 }
 
+// One action glyph size for both ends: 16px in the 24px circle.
 :host :where([data-slot='remove'] svg, [data-slot='download-button'] svg) {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.75;
@@ -370,11 +382,11 @@
 }
 
 // The two button boxes — over the icon, in the trailing square — each hold
-// the chip's own button or the host's. They take the size of what they hold
-// (24px at least, the square's); a host button larger than the square
-// overhangs it into the padding. Positioned, so they paint above the chip's
-// action and stay their own targets. They have no surface: the chip's may
-// be none, so what they share the square with fades out while they show.
+// the chip's own button or the host's. They take the size of what they hold,
+// 24px at least — the square's; a host button that size fills it exactly.
+// Positioned, so they paint above the chip's action and stay their own
+// targets. They have no surface: the chip's may be none, so what they share
+// the square with fades out while they show.
 :host :where([data-slot='icon-button'], [data-slot='tail-button']) {
   position: relative;
   display: flex;

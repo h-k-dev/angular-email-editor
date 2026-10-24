@@ -346,19 +346,19 @@ ul[email-attachment-chips] {
   --mat-icon-size: 18px;
 }
 
-// A chip's download slot: the trash's figure a step smaller, so it covers
-// the chip's 20px icon and overhangs only into the chip's own padding.
+// A chip's download slot: the chip's 24px square exactly, its glyph the
+// chip's one action size (16px), as the × at the other end.
 .attachment-chip__download {
   @include mat.icon-button-overrides(
     (
-      icon-size: 18px,
-      state-layer-size: 28px,
-      touch-target-size: 28px,
+      icon-size: 16px,
+      state-layer-size: 24px,
+      touch-target-size: 24px,
       icon-color: var(--mat-sys-on-surface-variant),
     )
   );
 
-  --mat-icon-size: 18px;
+  --mat-icon-size: 16px;
 }
 
 // The rows toggle IS its figure (`dots-morph`): the shape drawn round the
