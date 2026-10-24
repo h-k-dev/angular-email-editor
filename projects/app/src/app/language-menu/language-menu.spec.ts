@@ -28,8 +28,9 @@ describe('LanguageMenu', () => {
 
   afterEach(() => (fixture.nativeElement as HTMLElement).remove());
 
-  it('shows the language in use, in its own words, and names itself', () => {
-    expect(trigger().textContent).toContain('English');
+  it('names itself for the language in use, in its own words — a plain icon button', () => {
+    expect(trigger().textContent?.trim()).toBe('translate');
+    expect(trigger().getAttribute('title')).toBe('Language: English');
     expect(trigger().getAttribute('aria-label')).toBe('Language: English');
     // Angular Aria says `true`, which ARIA reads as "a menu".
     expect(trigger().getAttribute('aria-haspopup')).toBe('true');
@@ -60,7 +61,6 @@ describe('LanguageMenu', () => {
     await vi.waitFor(() => expect(i18n.lang()).toBe('de'));
     await vi.waitFor(() => expect(i18n.t('app.language')).toBe('Sprache'));
     await fixture.whenStable();
-    expect(trigger().textContent).toContain('Deutsch');
     expect(trigger().getAttribute('aria-label')).toBe('Sprache: Deutsch');
   });
 });

@@ -1,28 +1,36 @@
 import { Routes } from '@angular/router';
 
 export const routes: Routes = [
-  // Everything lazy — the shell's initial chunk is the side nav only. The
-  // composer stays the front page; the reference pages are their own chunks
-  // and deep-linkable.
+  // Everything lazy — the shell's initial chunk is the outlet only. The
+  // composer is the front page: the landing, a document on the whole screen
+  // under its own bar. The other pages live in the mailbox, its aside beside
+  // them — each its own chunk, and deep-linkable.
   {
     path: '',
-    loadComponent: () => import('./compose/compose').then((m) => m.Compose),
+    pathMatch: 'full',
+    loadComponent: () => import('./landing/landing').then((m) => m.Landing),
   },
   {
-    path: 'inbox',
-    loadComponent: () => import('./inbox/inbox').then((m) => m.Inbox),
-  },
-  {
-    path: 'api',
-    loadComponent: () => import('./api-reference/api-reference').then((m) => m.ApiReference),
-  },
-  {
-    path: 'styling',
-    loadComponent: () => import('./styling/styling').then((m) => m.Styling),
-  },
-  {
-    path: 'render',
-    loadComponent: () => import('./render/render').then((m) => m.Render),
+    path: '',
+    loadComponent: () => import('./mailbox/mailbox').then((m) => m.Mailbox),
+    children: [
+      {
+        path: 'inbox',
+        loadComponent: () => import('./inbox/inbox').then((m) => m.Inbox),
+      },
+      {
+        path: 'api',
+        loadComponent: () => import('./api-reference/api-reference').then((m) => m.ApiReference),
+      },
+      {
+        path: 'styling',
+        loadComponent: () => import('./styling/styling').then((m) => m.Styling),
+      },
+      {
+        path: 'render',
+        loadComponent: () => import('./render/render').then((m) => m.Render),
+      },
+    ],
   },
   { path: '**', redirectTo: '' },
 ];

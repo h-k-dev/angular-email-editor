@@ -1,15 +1,12 @@
 import {
   Component,
   ElementRef,
-  Injector,
 
   // Signals
-  afterNextRender,
   computed,
   effect,
   inject,
   linkedSignal,
-  signal,
   untracked,
   viewChild,
 } from '@angular/core';
@@ -20,17 +17,13 @@ import { DomPortal } from '@angular/cdk/portal';
 // Angular Material
 import { MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 // Angular File Drop
 import { AngularFileDrop, FileDropEvent } from '@h-k-dev/angular-file-drop';
 
 // Angular Email Editor
-import {
-  HtmlDiagnostic,
-  InlineImages,
-  emailSizeBudget,
-  withQuotedHistory,
-} from '@h-k-dev/angular-email-editor';
+import { InlineImages, withQuotedHistory } from '@h-k-dev/angular-email-editor';
 
 import { SourceView } from './email-compose/email-compose';
 import { releaseEditingSurface } from './is-typing';
@@ -44,20 +37,16 @@ import { MobileMessageForm } from './message-form/mobile-message-form';
 import { MessageSheet } from './message-form/message-sheet';
 import { PaperIslandDirective } from './paper-island';
 import { Viewport } from '../../services/viewport';
-
-/** A status-strip note and the document it is about. */
-interface StatusNote {
-  text: string;
-  html: string;
-}
+import { I18n } from '../../services/i18n';
 
 /**
- * The composer page: the one message this app keeps as its draft, on the
- * sheet every message is written on (`message-form`; the phone's,
- * `mobile-message-form`, where the page opens on a phone), with the desk
- * around it — the preview docked to its left, the HTML source to its right or in
- * the editor's place, the status strip under all three, and the page itself
- * as the zone an .eml is opened by.
+ * The composer page, the app's front page: the one message this app keeps
+ * as its draft, on the sheet every message is written on (`message-form`;
+ * the phone's, `mobile-message-form`, where the page opens on a phone) —
+ * laid out as a document, the zoomed compose window on the whole page — with
+ * the desk around it: the preview docked to its left, the HTML source to its
+ * right or in the editor's place, and the page itself as the zone an .eml is
+ * opened by.
  */
 @Component({
   selector: 'app-compose',
@@ -93,8 +82,12 @@ export class Compose {
       before it is created. */
   protected readonly sheet = viewChild(MessageSheet);
 
-  /** The sheet's draft keeper, for the status strip's note. */
+  /** The sheet's draft keeper. */
   protected readonly draft = viewChild(KeepDraft);
+
+  /** The paper the sheet is on (its Appearance), for chrome the page's
+      host lays over it to stand on the same paper — the landing's bar. */
+  readonly scheme = computed(() => this.sheet()?.editorScheme() ?? null);
 
   /** Canonical email HTML — the sheet's, which the panes bind to. */
   protected readonly html = computed(() => this.sheet()?.html() ?? '');
@@ -106,9 +99,6 @@ export class Compose {
     sheet?.html.set(html);
     sheet?.original.set(html);
   }
-
-  /** Lint results streamed up from the source pane's language service. */
-  protected diagnostics = signal<HtmlDiagnostic[]>([]);
 
   /** Below the docking breakpoint the composer shows one pane at a time: the
       dock toggles leave the writer bar, and a pane already docked beside the
@@ -165,8 +155,6 @@ export class Compose {
     this.sourceView() === 'code' ? new DomPortal(this.sourceEl()) : null,
   );
 
-  readonly #injector = inject(Injector);
-
   constructor() {
     // An example loaded whole is the message's original from then on: the
     // file's HTML, for the preview to draw beside the editor's reading.
@@ -183,75 +171,12 @@ export class Compose {
     withQuotedHistory(this.html(), this.sheet()?.quoted() ?? null),
   );
 
-  /** Live word/line counter, measured mathematically by the email pane. */
-  protected metrics = computed(() => this.sheet()?.metrics());
+  readonly #snackBar = inject(MatSnackBar);
+  readonly #i18n = inject(I18n);
 
-  /** Errors: the source pane's lint errors plus the body's expression
-      syntax problems (the dialect the editor pane opts into). */
-  protected errors = computed(
-    () =>
-      this.diagnostics().filter((d) => d.severity === 'error').length +
-      (this.sheet()?.emailPane().expressionDiagnostics().length ?? 0),
-  );
-
-  protected warnings = computed(
-    () => this.diagnostics().filter((d) => d.severity === 'warning').length,
-  );
-
-  /** The canonical HTML measured against Gmail's 102 KB clipping limit. */
-  protected size = computed(() => emailSizeBudget(this.html()));
-  protected sizeLabel = computed(
-    () =>
-      `${(this.size().bytes / 1024).toFixed(1)} kB of ${Math.round(this.size().limit / 1024)} kB`,
-  );
-
-  /** The form's first complaint, for the status strip. */
-  protected problem = computed(() => this.sheet()?.problem() ?? null);
-
-  /** Jumps to the first diagnostic of the given severity: the source pane
-      for a lint finding, the editor pane for an expression problem. */
-  protected reveal(severity: 'error' | 'warning'): void {
-    const diagnostic = this.diagnostics().find((d) => d.severity === severity);
-    if (diagnostic) {
-      this.#inView(true, () => this.sourcePane().reveal(diagnostic));
-      return;
-    }
-    const pane = this.sheet()?.emailPane();
-    if (!pane) return;
-    const expression = pane.expressionDiagnostics()[0];
-    if (severity === 'error' && expression) {
-      this.#inView(false, () => pane.revealExpression(expression));
-    }
-  }
-
-  /** Runs `show` with the pane it needs on screen — the source (either
-      view of it) or the editor — switching first when it is not, and only
-      after the switch has rendered: selecting and focusing inside a hidden
-      surface is a no-op. A hidden source opens in code view; a source
-      standing in the editor's place steps aside for it. */
-  #inView(source: boolean, show: () => void): void {
-    const view = this.sourceView();
-    const visible = source ? view !== 'hidden' : view !== 'code';
-    if (visible) {
-      show();
-      return;
-    }
-    (document.activeElement as HTMLElement | null)?.blur?.();
-    this.sourceView.set(source ? 'code' : 'hidden');
-    // No phase: `show` selects and focuses inside ProseMirror, which reads
-    // and writes the DOM in one go.
-    afterNextRender(show, { injector: this.#injector });
-  }
-
-  /** A status note describes *one* document: it is stamped with the html it
-      was made for and shown only while that is still the document — a note
-      outliving its document ("1 inline image as cid: part" after the image
-      was deleted) is a status desync. */
-  readonly #importNote = signal<StatusNote | null>(null);
-  protected importNote = computed(() => this.#current(this.#importNote()));
-
-  #current(note: StatusNote | null): string | null {
-    return note && note.html === this.html() ? note.text : null;
+  /** Says something in passing, the way a compose window says it sent. */
+  #say(text: string): void {
+    this.#snackBar.open(text, undefined, { duration: 4000 });
   }
 
   /** The page's gesture, one zone out from the message: an .eml dropped
@@ -262,17 +187,11 @@ export class Compose {
     if (!dropped) return;
     const sheet = this.sheet();
     if (!sheet) return;
-    const text = await sheet.importEml(dropped);
-    this.#importNote.set({ text, html: this.html() });
+    this.#say(await sheet.importEml(dropped));
   }
 
-  /** What the transport accepted, for the footer: the receipt, and what a
-      real host would have handed its mailer — envelope and body alike. A
-      send clears the sheet, so the note stays until the next message is
-      under way. */
-  protected readonly sentNote = signal<string | null>(null);
-  protected lastSend = computed(() => {
-    const note = this.sentNote();
-    return note && this.sheet()?.blank() ? note : null;
-  });
+  /** The sheet sent its message — and cleared itself for the next one. */
+  protected sent(): void {
+    this.#say(this.#i18n.t('composeWindow.sent'));
+  }
 }

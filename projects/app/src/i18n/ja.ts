@@ -9,12 +9,15 @@
  */
 export default {
   app: {
+    title: 'メールエディター',
     nav: {
       composer: '作成',
       inbox: '受信トレイ',
       api: 'API',
       styling: 'スタイル',
       render: 'レンダリング',
+      mailbox: 'メールボックス',
+      developers: '開発者向け',
     },
     language: '言語',
     compose: '作成',

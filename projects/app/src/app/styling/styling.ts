@@ -288,7 +288,7 @@ export class Styling {
         {
           name: '--email-scroll-size',
           system: null,
-          fallback: '6px',
+          fallback: '8px',
           alters:
             'Thickness of every scrollbar (the library’s scroll mixin, .email-scroll) and of the gutter it keeps',
         },

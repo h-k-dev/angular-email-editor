@@ -10,6 +10,19 @@
   min-height: 0;
 }
 
+// A document (`MessageForm.layout`): the composer page, and a zoomed compose
+// window — one layout, so the page is that window on a whole screen. The
+// sheet is the paper, edge to edge: no corners, no lift, nothing of a sheet
+// lying on a desk. The writer's blocks — the bar heading it, the envelope,
+// the editor — keep to one centred column of a long line's width
+// (email-writer.scss), a document's measure; the room at the sides is the
+// paper's still, and starts the marquee (`marqueeStart`).
+:host([data-layout='document']) {
+  --writer-column: min(720px, 90ch);
+  --writer-radius: 0;
+  --writer-shadow: none;
+}
+
 form[email-writer] {
   flex: 1 1 auto;
   min-width: 0;

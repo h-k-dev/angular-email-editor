@@ -35,20 +35,24 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { Preferences } from '../../../services/preferences';
 import { DropHint } from '../drop-hint/drop-hint';
 import { EmailCompose } from '../email-compose/email-compose';
-import { EmailWriter, WriterBarPosition } from '../email-writer/email-writer';
+import { EmailWriter } from '../email-writer/email-writer';
 import { MarqueeStart } from '../paper-island';
 import { EnvelopeRows } from './envelope-rows/envelope-rows';
 import { MessageMenu } from './message-menu/message-menu';
 import { MessageSheet } from './message-sheet';
+
+/** How a desktop sheet is laid out (`MessageForm.layout`). */
+export type MessageLayout = 'sheet' | 'document';
 
 /**
  * The desktop sheet: one message (`MessageSheet`) as a wide screen lays it
  * out — Gmail's compose. The envelope rows on top, the text under them
  * scrolling on its own, and at the foot, floating over the text, the
  * attachment strip, the formatting toolbar (off until asked for) and the
- * writer's bar with Send. A frame that is a document heads the sheet with
- * the bar instead (`bar`: the zoomed window). The composer page docks panes
- * around one of these; a compose window opened on a wide screen holds one.
+ * writer's bar with Send. A frame that is a document lays it out as one
+ * instead (`layout`): the composer page, and a zoomed compose window — the
+ * same sheet either way, so the page is the zoomed window on a whole screen.
+ * A compose window opened on a wide screen holds one.
  *
  * The frame may put its own controls into the writer's bar: `leading` ones
  * after the formatting switch, `actions` ones before Discard.
@@ -90,11 +94,19 @@ import { MessageSheet } from './message-sheet';
   providers: [{ provide: MessageSheet, useExisting: MessageForm }],
   templateUrl: './message-form.html',
   styleUrl: './message-sheet.scss',
+  host: { '[attr.data-layout]': 'layout()' },
 })
 export class MessageForm extends MessageSheet {
-  /** Where the writer's bar sits: at the foot, under the text — or heading
-      the sheet, for a frame that is a document (the zoomed window). */
-  readonly bar = input<WriterBarPosition>('bottom');
+  /** How the sheet is laid out: a `sheet` — Gmail's compose, the bar at the
+      foot under the text — or a `document`: the bar heading it, above From,
+      and bar, envelope and text kept to one centred column of a long line's
+      width on paper that runs edge to edge (message-sheet.scss). The
+      document is what the composer page is, and what a compose window
+      becomes zoomed: one layout, owned here, that either frame just takes. */
+  readonly layout = input<MessageLayout>('sheet');
+
+  /** Where the writer's bar sits: heading a document, at a sheet's foot. */
+  protected readonly bar = computed(() => (this.layout() === 'document' ? 'top' : 'bottom'));
 
   /** The bar heads the sheet: its controls are laid out mirrored — Send at
       the end, Discard at the start. */

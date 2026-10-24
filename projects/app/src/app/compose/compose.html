@@ -59,14 +59,19 @@
      Opened on a phone, the page writes on the phone's sheet instead
      (`mobile`, chosen once): the screen, no panes to dock. The desk is
      where a layout is shaped (`mode="design"`: its blocks take their
-     gestures); the phone's sheet, like every compose window, writes. -->
+     gestures); the phone's sheet, like every compose window, writes.
+     The desk's sheet is a document (`layout`): the zoomed compose window's
+     very layout, on the whole page — the bar heading it, a centred column,
+     paper edge to edge between the panes — with its rows as a window draws
+     them (`fields`). No strip of counts under it: what a send or an import
+     did is said the way a window says it, in a snackbar. -->
   @if (mobile) {
     <div
       mobile-message-form
       #phoneSheet
       [paperIsland]="phoneSheet.editorScheme()"
       keepDraft
-      (sent)="sentNote.set($event)"
+      (sent)="sent()"
     ></div>
   } @else {
     <div
@@ -74,12 +79,14 @@
       #deskSheet
       [paperIsland]="deskSheet.editorScheme()"
       keepDraft
+      layout="document"
+      fields="material"
       mode="design"
       [(sourceView)]="sourceView"
       sourceViews
       [codePortal]="codePortal()"
       [codeEditor]="sourcePane().editor()"
-      (sent)="sentNote.set($event)"
+      (sent)="sent()"
     >
       @if (!viewport.narrow()) {
         <span leading class="writer-panes" role="group" aria-label="Views">
@@ -124,60 +131,6 @@
     [active]="sourceView() !== 'hidden'"
     [html]="html()"
     (htmlChange)="onSourceHtml($event)"
-    [(diagnostics)]="diagnostics"
     aria-label="Email HTML source"
   ></section>
-
-  <!-- The status strip (problems, examples, statistics) is desktop chrome:
-     below the docking breakpoint it is not rendered at all. -->
-  @if (!viewport.narrow()) {
-    <footer class="compose__status" aria-live="polite">
-      <button
-        type="button"
-        class="compose__status-issues compose__status-issues--error"
-        [disabled]="!errors()"
-        (click)="reveal('error')"
-      >
-        {{ errors() }} {{ errors() === 1 ? 'error' : 'errors' }}
-      </button>
-      <button
-        type="button"
-        class="compose__status-issues compose__status-issues--warning"
-        [disabled]="!warnings()"
-        (click)="reveal('warning')"
-      >
-        {{ warnings() }} {{ warnings() === 1 ? 'warning' : 'warnings' }}
-      </button>
-
-      @if (problem(); as note) {
-        <span class="compose__status-send compose__status-send--problem" aria-label="Form problem">{{ note }}</span>
-      }
-
-      @if (lastSend(); as note) {
-        <span class="compose__status-send" aria-label="Last send">{{ note }}</span>
-      }
-
-      @if (draft()?.note(); as note) {
-        <span class="compose__status-send" aria-label="Draft">{{ note }}</span>
-      }
-
-      @if (importNote(); as note) {
-        <span class="compose__status-send" aria-label="Last import">{{ note }}</span>
-      }
-
-      @if (metrics(); as m) {
-        <span class="compose__status-count" aria-label="Document length">
-          {{ m.words }} {{ m.words === 1 ? 'word' : 'words' }} · {{ m.lines }}
-          {{ m.lines === 1 ? 'line' : 'lines' }}
-        </span>
-      }
-      <span
-        class="compose__status-size"
-        [class.compose__status-size--warning]="size().level === 'warning'"
-        [class.compose__status-size--error]="size().level === 'error'"
-      >
-        {{ sizeLabel() }}
-      </span>
-    </footer>
-  }
 </div>

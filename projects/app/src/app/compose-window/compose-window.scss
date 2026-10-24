@@ -110,12 +110,9 @@
   inset: 0;
   z-index: 4;
   margin: auto;
-  // The zoomed-out sheet is a document, wider than a message is: the
-  // writer's blocks — the bar heading it, the envelope, the editor — keep
-  // to one centred column of a long line's width (email-writer.scss), a
-  // document's measure, and the room at the sides is a side panel's to
-  // come. The whole window is a paper island (paper-island.ts).
-  --writer-column: min(720px, 90ch);
+  // The sheet inside is a document (`layout`, message-sheet.scss) — the
+  // composer page's layout, wider than a message is. The whole window is a
+  // paper island (paper-island.ts).
   inline-size: var(--compose-window-dialog-width);
   max-inline-size: none;
   block-size: calc(var(--compose-window-dialog-width) * 9 / 16);

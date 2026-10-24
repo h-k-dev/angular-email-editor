@@ -1,20 +1,23 @@
+<!-- The trigger — the glyph alone, a plain icon button like every other in
+     the app (the language in use is its name and tooltip) — and the menu it
+     opens. -->
 <button
-  matButton
+  matIconButton
   type="button"
   class="language-menu__trigger"
   [attr.aria-label]="('app.language' | translate) + ': ' + current()"
+  [title]="('app.language' | translate) + ': ' + current()"
   ngMenuTrigger
   #trigger="ngMenuTrigger"
   [menu]="languages.menu()"
 >
   <mat-icon>translate</mat-icon>
-  <span>{{ current() }}</span>
-  <mat-icon iconPositionEnd>arrow_drop_down</mat-icon>
 </button>
 <div
   toolbar-menu
   #languages
-  align="end"
+  [align]="align()"
+  [side]="side()"
   [label]="'app.language' | translate"
   [trigger]="trigger"
   [items]="items()"

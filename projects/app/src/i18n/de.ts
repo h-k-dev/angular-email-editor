@@ -10,12 +10,15 @@
  */
 export default {
   app: {
+    title: 'E-Mail-Editor',
     nav: {
       composer: 'Editor',
       inbox: 'Posteingang',
       api: 'API',
       styling: 'Gestaltung',
       render: 'Darstellung',
+      mailbox: 'Postfach',
+      developers: 'Entwickler',
     },
     language: 'Sprache',
     compose: 'Verfassen',

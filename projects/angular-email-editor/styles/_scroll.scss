@@ -17,7 +17,7 @@
 // it. Tokens — `--email-scroll-*` first, then Material's system token of the
 // same meaning, then a fallback:
 //
-// - `--email-scroll-size` — the thumb's thickness and the gutter's (6px).
+// - `--email-scroll-size` — the thumb's thickness and the gutter's (8px).
 // - `--email-scroll-thumb` — the thumb at rest (the outline variant at 50%).
 // - `--email-scroll-thumb-hover` — under the pointer (at 75%).
 // - `--email-scroll-track` — the track (transparent).
@@ -39,7 +39,7 @@
 $_outline-variant: var(--mat-sys-outline-variant, light-dark(#c4c7c5, #444746));
 
 @mixin scroll($smooth: false) {
-  --_email-scroll-size: var(--email-scroll-size, 6px);
+  --_email-scroll-size: var(--email-scroll-size, 8px);
   --_email-scroll-thumb: var(
     --email-scroll-thumb,
     color-mix(in srgb, #{$_outline-variant} 50%, transparent)

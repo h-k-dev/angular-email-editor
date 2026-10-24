@@ -1,4 +1,4 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, input } from '@angular/core';
 
 // Material
 import { MatButtonModule } from '@angular/material/button';
@@ -24,8 +24,8 @@ const NAMES: Record<AppLanguage, string> = {
 };
 
 /**
- * The shell's language picker: a button that shows the language in use and
- * opens an Angular Aria menu of the others — radio items, since exactly one
+ * The app's language picker: a plain icon button, named for the language in
+ * use, that opens an Angular Aria menu of the others — radio items, since exactly one
  * is on. The menu is the app's own Aria menu (`toolbar-menu`), the one the
  * composer's font dropdowns use: one menu in the app, not two.
  */
@@ -38,7 +38,12 @@ const NAMES: Record<AppLanguage, string> = {
 export class LanguageMenu {
   protected readonly i18n = inject(I18n);
 
-  /** The language in use, in its own words — the button's face. */
+  /** Where the menu opens from the button, and which edge it lines up with
+      (the toolbar menu's own placement, flipped where there is no room). */
+  readonly side = input<'above' | 'below'>('above');
+  readonly align = input<'start' | 'end'>('end');
+
+  /** The language in use, in its own words — the button's name. */
   protected readonly current = computed(() => NAMES[this.i18n.lang()]);
 
   protected readonly items = computed<ToolbarMenuItem<AppLanguage>[]>(() =>

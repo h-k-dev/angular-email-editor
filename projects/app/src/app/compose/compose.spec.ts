@@ -114,14 +114,26 @@ describe('Compose', () => {
     await fixture.whenStable();
   });
 
+  /** The form's complaint, as the sheet words it. */
+  const problem = (): string | null => (component as any).sheet().problem();
+
+  /** What the sheet says it sent, from now on. */
+  const sentNotes = (): string[] => {
+    const notes: string[] = [];
+    (component as any).sheet().sent.subscribe((note: string) => notes.push(note));
+    return notes;
+  };
+
   it('should create', () => {
     expect(component).toBeTruthy();
   });
 
-  it('the page frames nothing: its envelope rows hold the bare controls, no Material form field', () => {
+  it('the page is the zoomed window on the whole screen: a document, its rows Material form fields, no strip under it', () => {
     const root = fixture.nativeElement as HTMLElement;
-    expect(root.querySelectorAll('.writer-field').length).toBeGreaterThan(0);
-    expect(root.querySelectorAll('mat-form-field')).toHaveLength(0);
+    expect(root.querySelector('[message-form]')?.getAttribute('data-layout')).toBe('document');
+    expect(root.querySelector('form[email-writer]')?.getAttribute('data-bar')).toBe('top');
+    expect(root.querySelectorAll('mat-form-field').length).toBeGreaterThan(0);
+    expect(root.querySelector('footer')).toBeNull();
   });
 
   it('an external html write during focus applies on blur — a draft restore is never dropped', async () => {
@@ -751,15 +763,14 @@ describe('Compose', () => {
     pm.blur();
     await fixture.whenStable();
     expect(send.type).toBe('submit');
+    const notes = sentNotes();
 
     send.click();
     await settle();
     await fixture.whenStable();
-    // Nothing went out; the strip says why, and the To row wears it.
-    expect(root.querySelector('[aria-label="Last send"]')).toBeNull();
-    expect(root.querySelector('[aria-label="Form problem"]')?.textContent).toContain(
-      'Add at least one address',
-    );
+    // Nothing went out; the sheet says why, and the To row wears it.
+    expect(notes).toEqual([]);
+    expect(problem()).toContain('Add at least one address');
     expect(toRow.getAttribute('data-invalid')).toBe('true');
     // …and the caret is in it: the form focused the control bound to the
     // first field with an error.
@@ -767,13 +778,13 @@ describe('Compose', () => {
 
     (component as any).sheet().message.update((m: object) => ({ ...m, to: ['ada@example.com'] }));
     await fixture.whenStable();
-    expect(root.querySelector('[aria-label="Form problem"]')).toBeNull();
+    expect(problem()).toBeNull();
 
     send.click();
     await settle();
     await fixture.whenStable();
     // The transport's receipt: envelope and body, as a real host would hand its mailer.
-    const note = root.querySelector('[aria-label="Last send"]')?.textContent ?? '';
+    const note = notes[0] ?? '';
     expect(note).toContain('Sent msg_1');
     expect(note).toContain('to 1 recipient');
     expect(note).toContain('no subject');
@@ -887,6 +898,7 @@ describe('Compose', () => {
     expect(labels()).toEqual(['From', 'To', 'Preview']);
 
     const sheet = (component as any).sheet();
+    const notes = sentNotes();
     sheet.emailPane().value.set('<div>hello</div>');
     sheet.message.update((m: object) => ({ ...m, to: ['ada@example.com'], subject: 'Q3' }));
     await fixture.whenStable();
@@ -901,7 +913,7 @@ describe('Compose', () => {
     const article = doc.body.firstElementChild!;
     expect(article.getAttribute('role')).toBe('article');
     expect(article.firstElementChild!.textContent).toContain('Numbers inside');
-    expect(root.querySelector('[aria-label="Last send"]')?.textContent).toContain('preview text');
+    expect(notes[0]).toContain('preview text');
     // The sheet started over, the row with it.
     expect(labels()).toEqual(['From', 'To']);
   });
@@ -1392,9 +1404,7 @@ describe('Compose', () => {
     (root.querySelector('.writer-bar__send') as HTMLButtonElement).click();
     await settle();
     await fixture.whenStable();
-    expect(root.querySelector('[aria-label="Form problem"]')?.textContent).toContain(
-      'Write something',
-    );
+    expect(problem()).toContain('Write something');
     expect((root.querySelector('.email-compose__code') as HTMLElement).hidden).toBe(true);
     expect(document.activeElement).toBe(root.querySelector('[aria-label="Message body"]'));
   });
@@ -1409,17 +1419,16 @@ describe('Compose', () => {
       .sheet()
       .message.update((m: object) => ({ ...m, to: ['bounce@example.com'] }));
     await fixture.whenStable();
+    const notes = sentNotes();
 
     (root.querySelector('.writer-bar__send') as HTMLButtonElement).click();
     await settle();
     await fixture.whenStable();
-    expect(root.querySelector('[aria-label="Last send"]')).toBeNull();
+    expect(notes).toEqual([]);
     const toRow = root.querySelectorAll('[email-address-input]')[1];
     expect(toRow.getAttribute('data-invalid')).toBe('true');
-    // The wording is the composer's, in its strip — the row only wears the state.
-    expect(root.querySelector('[aria-label="Form problem"]')?.textContent).toContain(
-      'bounce@example.com was rejected',
-    );
+    // The wording is the sheet's — the row only wears the state.
+    expect(problem()).toContain('bounce@example.com was rejected');
   });
 
   it('the preview is a detachable pane too — hidden by default, docked to the left', async () => {
@@ -1530,15 +1539,12 @@ describe('Compose below the docking breakpoint', () => {
     expect(viewOffered(fixture.componentInstance)).toBe(true);
     expect(root.classList.contains('compose--detached')).toBe(false);
     expect(root.classList.contains('compose--preview')).toBe(false);
-    // The status strip is desktop chrome.
-    expect(root.querySelector('footer.compose__status')).toBeNull();
 
     // Wide again: the options return; nothing re-docks by itself.
     narrow.set(false);
     await fixture.whenStable();
     expect(btn('Preview')).not.toBeNull();
     expect(root.classList.contains('compose--preview')).toBe(false);
-    expect(root.querySelector('footer.compose__status')).not.toBeNull();
   });
 
   /** The page, opened at a phone's width or a desk's, and the switch to
@@ -1639,6 +1645,10 @@ describe('Compose drafts', () => {
     };
   };
 
+  /** What the page's draft keeper says of the draft. */
+  const draftNote = (fixture: ComponentFixture<Compose>): string | null =>
+    (fixture.componentInstance as any).draft().note();
+
   /** Another tab saving (or removing) the draft. */
   const otherTab = (content: DraftContent | null) => {
     const value = serializeDraft(content);
@@ -1681,12 +1691,12 @@ describe('Compose drafts', () => {
     component.message.update((m: object) => ({ ...m, subject: 'Hello' }));
     await vi.waitFor(() => expect(stored()?.subject).toBe('Hello'));
     await fixture.whenStable();
-    expect(root.querySelector('[aria-label="Draft"]')?.textContent).toContain('Draft saved');
+    expect(draftNote(fixture)).toContain('Draft saved');
 
     component.message.update((m: object) => ({ ...m, subject: '' }));
     await vi.waitFor(() => expect(stored()).toBeNull());
     await fixture.whenStable();
-    expect(root.querySelector('[aria-label="Draft"]')).toBeNull();
+    expect(draftNote(fixture)).toBeNull();
   });
 
   it('leaves an attachment still uploading out of the draft', async () => {
@@ -1745,12 +1755,11 @@ describe('Compose drafts', () => {
     await fixture.whenStable();
     expect(component.message().to).toEqual([]);
     expect(pm.textContent?.trim()).toBe('');
-    expect(root.querySelector('[aria-label="Form problem"]')).toBeNull();
-    expect(root.querySelector('[aria-label="Last send"]')?.textContent).toContain('Sent msg_1');
-
-    component.message.update((m: object) => ({ ...m, subject: 'Next one' }));
-    await fixture.whenStable();
-    expect(root.querySelector('[aria-label="Last send"]')).toBeNull();
+    expect(component.problem()).toBeNull();
+    // Said the way a compose window says it.
+    expect(document.querySelector('.mat-mdc-snack-bar-label')?.textContent).toContain(
+      'Message sent',
+    );
   });
 
   it('Discard throws the draft away and starts over', async () => {

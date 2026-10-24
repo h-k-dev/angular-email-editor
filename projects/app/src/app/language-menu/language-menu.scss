@@ -1,5 +1,5 @@
 // Only where the button and its overlay are declared: no box of its own in
-// the top bar.
+// the bar or foot that holds it.
 :host {
   display: contents;
 }

@@ -13,7 +13,16 @@
  */
 export default {
   app: {
-    nav: { composer: 'Composer', inbox: 'Inbox', api: 'API', styling: 'Styling', render: 'Render' },
+    title: 'Email editor',
+    nav: {
+      composer: 'Composer',
+      inbox: 'Inbox',
+      api: 'API',
+      styling: 'Styling',
+      render: 'Render',
+      mailbox: 'Mailbox',
+      developers: 'Developers',
+    },
     language: 'Language',
     compose: 'Compose',
     theme: { light: 'Switch to light mode', dark: 'Switch to dark mode' },

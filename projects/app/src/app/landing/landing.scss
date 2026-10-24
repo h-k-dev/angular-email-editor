@@ -1,0 +1,30 @@
+@use '../../styles/breakpoints' as bp;
+
+// The bar, and the composer filling what it leaves: a stretched flex item's
+// size is definite, so the composer's `height: 100%` resolves against it.
+:host {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  min-block-size: 0;
+}
+
+// Slim: the 40px home button and 4px round it. The paper's colour — the
+// island's, as the writer under it reads it — so bar and sheet are one.
+.landing-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  block-size: 48px;
+  padding-inline: 4px;
+  background: var(--email-paper, var(--mat-sys-surface-bright));
+
+  @include bp.phone {
+    display: none;
+  }
+}
+
+.landing-page {
+  flex: 1 1 auto;
+  min-block-size: 0;
+}

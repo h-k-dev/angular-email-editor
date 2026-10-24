@@ -1,0 +1,209 @@
+@use '@h-k-dev/angular-email-editor/styles/scroll';
+@use '../../styles/breakpoints' as bp;
+
+// The aside and the page beside it, the whole viewport (the shell's <main>,
+// whose stretched flex size is definite, so 100% resolves): the page
+// scrolls on its own sheet, the aside holds still.
+:host {
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  block-size: 100%;
+  min-block-size: 0;
+  box-sizing: border-box;
+
+  // A phone: the aside folds to a rail of its icons — every place still
+  // one press away, the page keeping the width.
+  @include bp.phone {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+}
+
+// Linear's aside, the viewport's height: no surface of its own (the
+// shell's shows through) — its head, its places, its foot.
+.mailbox-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-block-size: 0;
+  padding: 8px;
+}
+
+// The app's name, and Compose at the row's end.
+.mailbox-aside__head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-inline-start: 8px;
+
+  // On the rail: Compose alone.
+  @include bp.phone {
+    justify-content: center;
+    padding-inline-start: 0;
+  }
+}
+
+.mailbox-aside__name {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: var(--mat-sys-title-small);
+  color: var(--mat-sys-on-surface);
+
+  @include bp.phone {
+    display: none;
+  }
+}
+
+// The places: what is left between head and foot, scrolling should the
+// runs ever outgrow it.
+.mailbox-aside__nav {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-block-size: 0;
+  overflow-y: auto;
+  @include scroll.scroll;
+
+  @include bp.phone {
+    gap: 8px;
+  }
+}
+
+// The settings, at the foot: two icon buttons side by side — stacked on
+// the rail.
+.mailbox-aside__foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  @include bp.phone {
+    flex-direction: column;
+  }
+}
+
+.mailbox-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  // On the rail a run is told from the next by a hairline: its heading
+  // has no room there.
+  @include bp.phone {
+    & + & {
+      padding-block-start: 8px;
+      border-block-start: 1px solid var(--mat-sys-outline-variant);
+    }
+  }
+}
+
+.mailbox-section__title {
+  margin: 0;
+  padding: 4px 8px;
+  font: var(--mat-sys-label-medium);
+  color: var(--mat-sys-on-surface-variant);
+
+  @include bp.phone {
+    display: none;
+  }
+}
+
+.mailbox-section__links {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+// A place: icon, name, and what waits there. The one you are in is a wash,
+// not a bar or a colour of its own — Linear's.
+.mailbox-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  block-size: 32px;
+  padding-inline: 8px;
+  border-radius: var(--mat-sys-corner-small);
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-large);
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:hover {
+    background: color-mix(in srgb, var(--mat-sys-on-surface) 5%, transparent);
+    color: var(--mat-sys-on-surface);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: -2px;
+  }
+
+  &--active,
+  &--active:hover {
+    background: color-mix(in srgb, var(--mat-sys-on-surface) 8%, transparent);
+    color: var(--mat-sys-on-surface);
+  }
+
+  // On the rail: the icon alone, centred, at a thumb's size.
+  @include bp.phone {
+    justify-content: center;
+    block-size: 48px;
+    padding-inline: 0;
+  }
+}
+
+.mailbox-link__icon {
+  flex: none;
+  inline-size: 18px;
+  block-size: 18px;
+  font-size: 18px;
+}
+
+.mailbox-link__label {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  @include bp.phone {
+    display: none;
+  }
+}
+
+.mailbox-link__count {
+  flex: none;
+  font: var(--mat-sys-label-medium);
+  color: var(--mat-sys-on-surface-variant);
+
+  @include bp.phone {
+    display: none;
+  }
+}
+
+// The page's sheet: lifted off the shell, held clear of the screen's edges,
+// rounded — Linear's main panel, the viewport's height. Its page scrolls
+// here.
+.mailbox-main {
+  min-block-size: 0;
+  margin: 8px 8px 8px 0;
+  overflow-y: auto;
+  background: var(--mat-sys-surface-bright);
+  border-radius: var(--mat-sys-corner-large);
+  box-shadow: var(--mat-sys-ring-shadow);
+  @include scroll.scroll;
+
+  // A phone: the sheet is the rest of the screen, square.
+  @include bp.phone {
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+    border-inline-start: 1px solid var(--mat-sys-outline-variant);
+  }
+}

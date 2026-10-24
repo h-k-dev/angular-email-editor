@@ -1,49 +1,14 @@
-<mat-toolbar class="app-toolbar">
-  <nav class="app-nav" aria-label="Pages">
-    @for (page of pages; track page.path) {
-      <a
-        class="app-nav-link"
-        [routerLink]="page.path"
-        routerLinkActive="app-nav-link--active"
-        [routerLinkActiveOptions]="{ exact: true }"
-      >
-        <mat-icon class="app-nav-icon">{{ page.icon }}</mat-icon>
-        <span>{{ page.key | translate }}</span>
-      </a>
-    }
-  </nav>
-
-  <span class="app-spacer"></span>
-
-  <!-- A new message in a window of its own, over whatever page is open —
-       Gmail's Compose. As many as wanted; the service keeps them. On a
-       phone this one gives way to the floating button below. -->
-  <button
-    matButton="tonal"
-    type="button"
-    class="app-compose"
-    [attr.aria-label]="'app.compose' | translate"
-    (click)="compose()"
-  >
-    <mat-icon>edit</mat-icon>
-    <span class="app-compose__label">{{ 'app.compose' | translate }}</span>
-  </button>
-
-  <div language-menu></div>
-
-  <button matIconButton type="button" [attr.aria-label]="themeLabel()" (click)="toggleTheme()">
-    <mat-icon>{{ theme() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
-  </button>
-</mat-toolbar>
-
+<!-- The routed page, and nothing else: each page draws its own chrome —
+     the landing its top bar, the mailbox its aside — on the whole
+     viewport. -->
 <main class="app-main">
   <router-outlet />
 </main>
 
 <!-- Compose on a phone: a floating action button at the screen's lower
      right, the pencil alone, over whatever page is open — the way a mail
-     app's phone client starts a message. The bar's button is away there
-     (app.scss); an open window covers this one. -->
+     app's phone client starts a message. The pages' own Compose is away
+     there; an open window covers this one. -->
 <button
   matFab
   type="button"
