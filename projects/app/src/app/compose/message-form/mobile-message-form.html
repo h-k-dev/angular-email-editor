@@ -184,6 +184,8 @@
               [status]="uploads.status(attachment.key)()"
               [progress]="uploads.progress(attachment.key)()"
               [aria-disabled]="envelope.attachments().disabled()"
+              [isImage]="attachment.image"
+              [preview]="attachment.preview ?? null"
               animate.enter="email-attachment-chip-enter"
               animate.leave="email-attachment-chip-leave"
               activatable

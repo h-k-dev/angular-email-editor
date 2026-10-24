@@ -10,6 +10,20 @@
      which are their own targets. A sibling of them, never their parent: a
      button cannot hold buttons. title: it covers the name, whose own title
      it would otherwise hide. -->
+<!-- An image's picture, faint behind everything the chip holds — the
+     stylesheet keeps it under the content and its text readable. Decorative:
+     the name says what the file is. -->
+@if (previewShown()) {
+  <img
+    data-slot="preview"
+    alt=""
+    decoding="async"
+    loading="lazy"
+    [src]="preview()"
+    (error)="onPreviewError()"
+  />
+}
+
 @if (activatable()) {
   <button
     type="button"

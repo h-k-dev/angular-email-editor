@@ -17,6 +17,8 @@ import {
   simulatedDuration,
 } from '@h-k-dev/angular-email-editor/attachment-chip';
 
+import { isImageFile } from '../app/common/files.utils';
+
 /** The pacing of a simulated transfer: the line's speed and the bounds on
     how long one runs — the library's own pacing shape, so the store and
     the chip's fake speak the same terms. */
@@ -33,6 +35,13 @@ export interface AttachmentRef extends Attachment {
   readonly key: string;
   /** The store's id, once the upload is done; `null` while it is in flight. */
   readonly id: string | null;
+  /** An image, by its type or — where the type says nothing — its name
+      (`isImageFile`): the chip draws it as one. */
+  readonly image?: boolean;
+  /** The picture an image's chip shows behind it: an object URL of the
+      dropped file, this tab's only — a real host would hand the store's
+      thumbnail. None for a file restored from a draft: no bytes came back. */
+  readonly preview?: string;
 }
 
 /** How the simulated store paces itself. */
@@ -142,6 +151,8 @@ export class AttachmentUploads {
   readonly #settled = new Map<string, (id: string) => void>();
   readonly #done = new Map<string, Promise<string>>();
   readonly #sizes = new Map<string, number | undefined>();
+  /** The object URLs made for previews, by key — let go with the transfer. */
+  readonly #previews = new Map<string, string>();
   /** Whatever stops a transfer's current timer, by key. */
   readonly #stop = new Map<string, () => void>();
   /** Preprocessed, waiting for a connection — first in, first out. */
@@ -170,12 +181,24 @@ export class AttachmentUploads {
     );
     this.#stop.set(key, () => clearTimeout(timer));
 
+    // An image's picture, from the bytes in hand — before the upload is
+    // through, as Gmail shows one. Only a Blob has bytes to point at, and
+    // only a browser makes the URL.
+    const image = isImageFile(attachment);
+    const preview =
+      image && attachment instanceof Blob && typeof URL.createObjectURL === 'function'
+        ? URL.createObjectURL(attachment)
+        : undefined;
+    if (preview) this.#previews.set(key, preview);
+
     return {
       key,
       id: null,
       name: attachment.name,
       type: attachment.type,
       size: attachment.size,
+      image,
+      ...(preview ? { preview } : {}),
     };
   }
 
@@ -194,6 +217,7 @@ export class AttachmentUploads {
       name: attachment.name,
       type: attachment.type,
       size: attachment.size,
+      image: isImageFile(attachment),
     };
   }
 
@@ -295,6 +319,9 @@ export class AttachmentUploads {
     this.#sizes.delete(key);
     this.#settled.delete(key);
     this.#done.delete(key);
+    const preview = this.#previews.get(key);
+    if (preview) URL.revokeObjectURL(preview);
+    this.#previews.delete(key);
     this.#pump();
   }
 

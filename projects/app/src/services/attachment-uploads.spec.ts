@@ -58,6 +58,7 @@ describe('AttachmentUploads', () => {
       name: 'report.pdf',
       type: 'application/pdf',
       size: 2048,
+      image: false,
     });
     const status = service.status(ref.key);
     const progress = service.progress(ref.key);
@@ -102,6 +103,7 @@ describe('AttachmentUploads', () => {
       name: 'old.pdf',
       type: 'application/pdf',
       size: undefined,
+      image: false,
     });
     expect(adopted.key).not.toBe(started.key);
     expect(service.status(adopted.key)()).toBe('complete');
@@ -266,6 +268,31 @@ describe('AttachmentUploads', () => {
     await vi.advanceTimersByTimeAsync(duration(1024) + LINGER + 20);
     expect(status(a)).toBe('complete');
     expect(settled).toMatch(/^att_/);
+  });
+
+  it('names an image by its type or its name, and shows a dropped one from its own bytes until it goes', () => {
+    const create = vi.fn(() => 'blob:photo');
+    const revoke = vi.fn();
+    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: create, revokeObjectURL: revoke }));
+    try {
+      const photo = service.start(new File(['x'], 'IMG_0042.HEIC', { type: '' }));
+      expect(photo.image).toBe(true);
+      expect(photo.preview).toBe('blob:photo');
+
+      // Not an image, or no bytes to point at: no picture.
+      expect(service.start(new File(['x'], 'notes.txt', { type: 'text/plain' })).preview).toBeUndefined();
+      const described = service.start({ name: 'photo.jpg', type: 'image/jpeg', size: 10 });
+      expect(described.image).toBe(true);
+      expect(described.preview).toBeUndefined();
+      // A draft's file has no bytes either — still an image.
+      expect(service.adopt({ name: 'old.png', id: 'att_1' })).toMatchObject({ image: true });
+      expect(create).toHaveBeenCalledTimes(1);
+
+      service.cancel(photo.key);
+      expect(revoke).toHaveBeenCalledWith('blob:photo');
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('a cancelled transfer stops and never settles', async () => {

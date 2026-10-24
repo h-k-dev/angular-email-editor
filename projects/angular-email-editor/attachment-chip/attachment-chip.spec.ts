@@ -27,6 +27,8 @@ const settle = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
     [progress]="progress()"
     [progressLabel]="progressLabel()"
     [aria-disabled]="disabled()"
+    [isImage]="isImage()"
+    [preview]="preview()"
     (removed)="removals = removals + 1"
     (downloaded)="downloads = downloads + 1"
     (activated)="activations = activations + 1"
@@ -47,6 +49,8 @@ class Host {
   readonly busy = signal(false);
   readonly progress = signal<number | null>(null);
   readonly disabled = signal(false);
+  readonly isImage = signal<boolean | undefined>(undefined);
+  readonly preview = signal<string | null>(null);
   removals = 0;
   downloads = 0;
   activations = 0;
@@ -204,6 +208,53 @@ describe('AttachmentChip', () => {
     await fixture.whenStable();
 
     expect(part.retry()?.disabled).toBe(true);
+  });
+
+  it('takes the host’s word on whether it is an image over its MIME type', async () => {
+    host.attachment.set({ name: 'IMG_0042.heic', type: '' });
+    await fixture.whenStable();
+    expect(chip.dataset['kind']).toBe('file');
+
+    host.isImage.set(true);
+    await fixture.whenStable();
+    expect(chip.dataset['kind']).toBe('image');
+
+    // A type that only claimed to be an image.
+    host.attachment.set({ name: 'not-really.png', type: 'image/png' });
+    host.isImage.set(false);
+    await fixture.whenStable();
+    expect(chip.dataset['kind']).toBe('file');
+  });
+
+  it('shows an image’s preview behind it, decorative, and nothing for any other file', async () => {
+    const preview = () => chip.querySelector<HTMLImageElement>('[data-slot=preview]');
+    host.preview.set('blob:preview');
+    await fixture.whenStable();
+    // A PDF is no picture, whatever URL it is handed.
+    expect(preview()).toBeNull();
+    expect(chip.hasAttribute('data-preview')).toBe(false);
+
+    host.attachment.set({ name: 'photo.jpg', type: 'image/jpeg' });
+    await fixture.whenStable();
+    expect(preview()?.getAttribute('src')).toBe('blob:preview');
+    expect(preview()?.getAttribute('alt')).toBe('');
+    expect(chip.hasAttribute('data-preview')).toBe(true);
+  });
+
+  it('drops a preview that does not load, and tries again with a new URL', async () => {
+    const preview = () => chip.querySelector<HTMLImageElement>('[data-slot=preview]');
+    host.attachment.set({ name: 'photo.jpg', type: 'image/jpeg' });
+    host.preview.set('blob:gone');
+    await fixture.whenStable();
+
+    preview()!.dispatchEvent(new Event('error'));
+    await fixture.whenStable();
+    expect(preview()).toBeNull();
+    expect(chip.hasAttribute('data-preview')).toBe(false);
+
+    host.preview.set('blob:fresh');
+    await fixture.whenStable();
+    expect(preview()?.getAttribute('src')).toBe('blob:fresh');
   });
 
   it('accepts a browser File unchanged — it already satisfies Attachment', async () => {

@@ -20,6 +20,7 @@ import { AttachmentChip } from './attachment-chip';
         [attachment]="attachment()"
         [status]="status()"
         [progress]="progress()"
+        [preview]="preview()"
       ></li>
     </ul>
   </div>`,
@@ -33,6 +34,35 @@ class Host {
   });
   readonly status = signal<AttachmentStatus | null>(null);
   readonly progress = signal<number | null>(null);
+  readonly preview = signal<string | null>(null);
+}
+
+/** WCAG's relative luminance of an `rgb()` / `rgba()` colour. */
+function luminance([r, g, b]: readonly number[]): number {
+  const channel = (value: number) => {
+    const c = value / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+}
+
+function rgb(colour: string): number[] {
+  return colour.match(/[\d.]+/g)!.slice(0, 3).map(Number);
+}
+
+function contrast(a: readonly number[], b: readonly number[]): number {
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (light + 0.05) / (dark + 0.05);
+}
+
+/** A one-colour PNG, as a data URL. */
+function swatch(colour: string): string {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 8;
+  const context = canvas.getContext('2d')!;
+  context.fillStyle = colour;
+  context.fillRect(0, 0, 8, 8);
+  return canvas.toDataURL('image/png');
 }
 
 describe('AttachmentChip (render)', () => {
@@ -122,6 +152,75 @@ describe('AttachmentChip (render)', () => {
     fixture.componentInstance.dir.set('rtl');
     await settle();
     expect(originX()).toBe(width());
+  });
+
+  for (const scheme of ['light', 'dark'] as const) {
+    it(`keeps every line at AAA and the icons over 3:1 above an image’s worst pixel (${scheme})`, async () => {
+      // The page the chip sits on, Material's surface; the worst pixel is
+      // the one nearest the ink — black under light, white under dark.
+      const surface = scheme === 'light' ? [255, 255, 255] : [19, 19, 20];
+      const worst = scheme === 'light' ? [0, 0, 0] : [255, 255, 255];
+      root().style.colorScheme = scheme;
+      root().style.background = `rgb(${surface.join(',')})`;
+      fixture.componentInstance.attachment.set({ name: 'photo.jpg', type: 'image/jpeg', size: 2048 });
+      fixture.componentInstance.preview.set(swatch(`rgb(${worst.join(',')})`));
+      await settle();
+      const preview = part('preview') as HTMLImageElement;
+      await preview.decode();
+      await settle();
+
+      // What the eye gets behind the text: the pixel at the picture's
+      // opacity over the surface.
+      const alpha = Number(getComputedStyle(preview).opacity);
+      expect(alpha).toBeGreaterThan(0);
+      const behind = surface.map((value, i) => value * (1 - alpha) + worst[i] * alpha);
+      const ink = (slot: string) => rgb(getComputedStyle(part(slot)).color);
+
+      for (const slot of ['name', 'size']) {
+        expect(contrast(ink(slot), behind)).toBeGreaterThanOrEqual(7);
+      }
+      for (const slot of ['icon', 'remove']) {
+        expect(contrast(ink(slot), behind)).toBeGreaterThanOrEqual(3);
+      }
+
+      fixture.componentInstance.status.set('failed');
+      await settle();
+      expect(contrast(ink('error'), behind)).toBeGreaterThanOrEqual(7);
+      expect(contrast(ink('retry'), behind)).toBeGreaterThanOrEqual(3);
+    });
+  }
+
+  it('lays the preview under the content, inside the corner, and drops it under forced colours', async () => {
+    fixture.componentInstance.attachment.set({ name: 'photo.jpg', type: 'image/jpeg', size: 2048 });
+    fixture.componentInstance.preview.set(swatch('rgb(200, 30, 30)'));
+    await settle();
+    const preview = part('preview');
+    const outer = box(chip());
+    const inner = box(preview);
+
+    expect(getComputedStyle(preview).zIndex).toBe('-1');
+    expect(getComputedStyle(chip()).isolation).toBe('isolate');
+    // Inside the 1px border, all round.
+    expect([inner.left - outer.left, outer.right - inner.right]).toEqual([1, 1]);
+    expect([inner.top - outer.top, outer.bottom - inner.bottom]).toEqual([1, 1]);
+    // The name, not the picture, is what a point over the label finds.
+    const label = box(part('name'));
+    expect(
+      document.elementFromPoint(label.left + 4, label.top + label.height / 2)?.closest('[data-slot=name]'),
+    ).toBeTruthy();
+
+    const session = cdp() as unknown as {
+      send(method: string, params: object): Promise<unknown>;
+    };
+    await session.send('Emulation.setEmulatedMedia', {
+      features: [{ name: 'forced-colors', value: 'active' }],
+    });
+    try {
+      await settle();
+      expect(getComputedStyle(part('preview')).display).toBe('none');
+    } finally {
+      await session.send('Emulation.setEmulatedMedia', { features: [] });
+    }
   });
 
   it('keeps the bar and its track in system colours under forced colours', async () => {

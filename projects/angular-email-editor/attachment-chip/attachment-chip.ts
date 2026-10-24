@@ -13,6 +13,7 @@ import {
   contentChild,
   inject,
   input,
+  linkedSignal,
   output,
   signal,
 } from '@angular/core';
@@ -150,6 +151,17 @@ const STATUS_LABELS: Record<AttachmentStatus, string> = {
  * since the failure is the one thing to act on. It emits `retried`; the
  * host starts the transfer again and moves `status` on. The × stays.
  *
+ * **An image shows itself.** `preview` (a URL — the dropped file's object
+ * URL, or the store's thumbnail) puts the picture behind the chip, cover
+ * and faint, a gallery in miniature — for an image only: its MIME type
+ * says so, or `isImage` does where the type does not (a browser that left
+ * it empty, a generic `application/octet-stream`). Faint on purpose: at
+ * the default fifth, even its darkest pixel in the light scheme, or its
+ * brightest in the dark, leaves every line of text at AAA (7:1) and the
+ * icons above 3:1 — every line wears the full ink colour while a picture
+ * is behind it, since the quieter ones would not hold AA. A picture that
+ * does not load is dropped; forced colours drop it too.
+ *
  * **State is ARIA.** `aria-busy` is reflected while any stage is in flight,
  * and is also an input for a host with no stages to tell: busy with a
  * `progress` fills, busy with `null` sweeps. `aria-disabled` takes the
@@ -227,6 +239,7 @@ const STATUS_LABELS: Record<AttachmentStatus, string> = {
     '[attr.data-mode]': 'mode()',
     '[attr.data-scanning]': 'scanning()',
     '[attr.data-activatable]': 'activatable() || null',
+    '[attr.data-preview]': 'previewShown() || null',
     '[attr.aria-busy]': 'busy() || null',
     '[attr.aria-disabled]': 'ariaDisabled() || null',
   },
@@ -283,6 +296,18 @@ export class AttachmentChip implements OnInit {
   /** Prefix for the progress's accessible name — "Uploading report.pdf".
       Left out, it follows the stage: Preparing, Uploading, Processing. */
   readonly progressLabel = input<string | undefined>(undefined);
+
+  /** Whether the file is an image, for a host that knows better than its
+      MIME type — a type the browser left empty, or a generic one. Left out,
+      the type decides. An image draws the image icon, and its `preview`. */
+  readonly isImage = input<boolean | undefined, unknown>(undefined, {
+    transform: (value: unknown) => (value == null ? undefined : booleanAttribute(value)),
+  });
+
+  /** A URL of the picture to show, faint, behind an image's chip — the
+      dropped file's object URL, or the store's thumbnail. Ignored for a
+      file that is not an image. */
+  readonly preview = input<string | null>(null);
 
   /** What a failed chip says in place of its size. */
   readonly failedLabel = input('Upload failed');
@@ -362,7 +387,27 @@ export class AttachmentChip implements OnInit {
       extension stays. */
   protected readonly nameParts = computed(() => splitAttachmentName(this.attachment().name));
 
-  protected readonly kind = computed(() => attachmentKind(this.attachment().type));
+  /** The kind its type names, unless the host said whether it is an
+      image: then an image, or — a type that only claimed to be one — a file. */
+  protected readonly kind = computed<AttachmentKind>(() => {
+    const kind = attachmentKind(this.attachment().type);
+    const image = this.isImage();
+    if (image === true) return 'image';
+    return image === false && kind === 'image' ? 'file' : kind;
+  });
+
+  /** The preview failed to load — start over with every new URL. */
+  readonly #previewBroken = linkedSignal({ source: this.preview, computation: () => false });
+
+  /** The picture is behind the chip: an image, with a URL that loads.
+      Reflected on the host as `data-preview`. */
+  protected readonly previewShown = computed(
+    () => this.kind() === 'image' && !!this.preview() && !this.#previewBroken(),
+  );
+
+  protected onPreviewError(): void {
+    this.#previewBroken.set(true);
+  }
   protected readonly icon = computed(() => ICONS[this.kind()]);
 
   protected readonly iconContext = computed<AttachmentChipIconContext>(() => ({
