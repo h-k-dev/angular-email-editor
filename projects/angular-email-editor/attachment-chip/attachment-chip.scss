@@ -689,6 +689,28 @@
   opacity: var(--email-attachment-chip-preview-opacity, 0.2);
   pointer-events: none;
   user-select: none;
+  // Opacity alone, never a filter: a fade is a blend of what is already
+  // drawn, smooth without a GPU, where a blur is drawn again every frame.
+  transition: opacity 150ms ease;
+}
+
+// Under the pointer or keyboard focus the picture steps back, to half —
+// the gallery's hover, cheap: the controls that come up (the download, the
+// ×, the hover tint) read against less of it. Contrast only grows.
+@media (hover: hover) {
+  :host([data-preview]:hover) :where([data-slot='preview']) {
+    opacity: var(--email-attachment-chip-preview-hover-opacity, 0.1);
+  }
+}
+
+:host([data-preview]:focus-within) :where([data-slot='preview']) {
+  opacity: var(--email-attachment-chip-preview-hover-opacity, 0.1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host :where([data-slot='preview']) {
+    transition: none;
+  }
 }
 
 :host([data-preview]) :where([data-slot='size'], [data-slot='error']) {

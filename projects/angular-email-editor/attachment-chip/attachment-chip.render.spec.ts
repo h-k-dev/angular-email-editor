@@ -7,7 +7,7 @@
  */
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { cdp } from 'vitest/browser';
+import { cdp, userEvent } from 'vitest/browser';
 import { Attachment, AttachmentStatus } from './attachment';
 import { AttachmentChip } from './attachment-chip';
 
@@ -189,6 +189,49 @@ describe('AttachmentChip (render)', () => {
       expect(contrast(ink('retry'), behind)).toBeGreaterThanOrEqual(3);
     });
   }
+
+  it('dims the picture to half under the pointer or focus — a fade only, never a filter', async () => {
+    fixture.componentInstance.attachment.set({ name: 'photo.jpg', type: 'image/jpeg', size: 2048 });
+    fixture.componentInstance.preview.set(swatch('rgb(200, 30, 30)'));
+    await settle();
+    const preview = () => getComputedStyle(part('preview'));
+    /** The picture's opacity, its fade skipped to the end. */
+    const opacity = async () => {
+      await frame();
+      part('preview').getAnimations().forEach((animation) => animation.finish());
+      return Number(preview().opacity);
+    };
+
+    expect(await opacity()).toBe(0.2);
+    // What is transitioned is opacity and nothing else: smooth without a GPU.
+    expect(preview().transitionProperty).toBe('opacity');
+    expect(preview().filter).toBe('none');
+
+    await userEvent.hover(chip());
+    expect(await opacity()).toBe(0.1);
+    expect(preview().filter).toBe('none');
+
+    await userEvent.unhover(chip());
+    expect(await opacity()).toBe(0.2);
+
+    part('remove').focus();
+    expect(await opacity()).toBe(0.1);
+    part('remove').blur();
+    expect(await opacity()).toBe(0.2);
+
+    const session = cdp() as unknown as {
+      send(method: string, params: object): Promise<unknown>;
+    };
+    await session.send('Emulation.setEmulatedMedia', {
+      features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
+    });
+    try {
+      await settle();
+      expect(preview().transitionDuration).toBe('0s');
+    } finally {
+      await session.send('Emulation.setEmulatedMedia', { features: [] });
+    }
+  });
 
   it('lays the preview under the content, inside the corner, and drops it under forced colours', async () => {
     fixture.componentInstance.attachment.set({ name: 'photo.jpg', type: 'image/jpeg', size: 2048 });
