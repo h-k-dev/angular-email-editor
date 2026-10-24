@@ -1,4 +1,13 @@
-import { Component } from '@angular/core';
+import { NgComponentOutlet } from '@angular/common';
+import { Component, InjectionToken, Type, inject } from '@angular/core';
+
+/**
+ * What leads every page header under a frame: a component the frame lends
+ * its pages (the mailbox: a phone's aside opener), drawn first on the row —
+ * part of the header, so it goes where the header goes, scrolled away with
+ * it or not. None outside such a frame.
+ */
+export const PAGE_HEADER_LEAD = new InjectionToken<Type<unknown>>('PAGE_HEADER_LEAD');
 
 /**
  * A page's header: the 48px block on top of a page, the page's own — each
@@ -8,12 +17,19 @@ import { Component } from '@angular/core';
  *
  *     <header page-header>…</header>
  *
- * A row: what is projected sits on the line, 8px apart; the page places its
- * own controls along it (a spacer, or `margin-inline-start: auto`).
+ * A row: the frame's lead (`PAGE_HEADER_LEAD`), then what is projected, 8px
+ * apart; the page places its own controls along it (a spacer, or
+ * `margin-inline-start: auto`).
  */
 @Component({
   selector: 'header[page-header]',
-  template: '<ng-content />',
+  imports: [NgComponentOutlet],
+  template: `
+    @if (lead) {
+      <ng-container *ngComponentOutlet="lead" />
+    }
+    <ng-content />
+  `,
   styles: `
     :host {
       flex: none;
@@ -21,11 +37,11 @@ import { Component } from '@angular/core';
       align-items: center;
       gap: 8px;
       block-size: 48px;
-      /* Its start inset is the frame's to widen (--page-header-start): a
-         phone's mailbox keeps the corner for its aside's opener. */
-      padding-inline: var(--page-header-start, 8px) 8px;
+      padding-inline: 8px;
       box-sizing: border-box;
     }
   `,
 })
-export class PageHeader {}
+export class PageHeader {
+  protected readonly lead = inject(PAGE_HEADER_LEAD, { optional: true });
+}

@@ -127,4 +127,18 @@ describe('InboxReader', () => {
     expect(options?.content?.message.to).toEqual([]);
     expect(options?.content?.message.subject).toBe('Fwd: Plain note');
   });
+
+  it('writes the answers out under the mail too, Gmail’s, each the header’s own', () => {
+    const answers = [...root.querySelectorAll<HTMLButtonElement>('.inbox-reader__answers button')];
+    // After the body: where the reading ends.
+    expect(root.querySelector('email-viewer ~ .inbox-reader__answers')).not.toBeNull();
+    expect(answers.map((b) => b.textContent?.replace(/\s+/g, ' ').trim())).toEqual([
+      'reply Reply',
+      'reply_all Reply all',
+      'forward Forward',
+    ]);
+    answers[2]!.click();
+    expect(opened[0]?.focus).toBe('to');
+    expect(opened[0]?.content?.message.subject).toBe('Fwd: Plain note');
+  });
 });

@@ -81,6 +81,23 @@
       [inset]="inset()"
       [label]="'inbox.body' | translate"
     />
+
+    <!-- Gmail's answers under the mail, written out: where the reading
+         ends, the reply starts — the header's Reply and ⋮ stay too. -->
+    <div class="inbox-reader__answers" role="group" [attr.aria-label]="'inbox.answers' | translate">
+      <button matButton="outlined" type="button" (click)="answer('reply')">
+        <mat-icon>reply</mat-icon>
+        {{ 'inbox.reply' | translate }}
+      </button>
+      <button matButton="outlined" type="button" (click)="answer('reply-all')">
+        <mat-icon>reply_all</mat-icon>
+        {{ 'inbox.replyAll' | translate }}
+      </button>
+      <button matButton="outlined" type="button" (click)="answer('forward')">
+        <mat-icon>forward</mat-icon>
+        {{ 'inbox.forward' | translate }}
+      </button>
+    </div>
   </article>
 } @else if (settled()) {
   <p class="inbox-reader__missing">{{ 'inbox.missing' | translate }}</p>

@@ -37,6 +37,7 @@ export default {
     cc: 'Cc',
     reply: '返信',
     replyAll: '全員に返信',
+    answers: '返信',
     forward: '転送',
   },
   composeWindow: {

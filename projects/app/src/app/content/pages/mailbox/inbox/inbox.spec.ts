@@ -68,10 +68,20 @@ describe('Inbox', () => {
     expect(host().hasAttribute('data-reading')).toBe(false);
   });
 
-  it('shows a date as the message wrote it, and none where it has none', () => {
+  it('shows a date the message wrote out as short as the rest, and none where it has none', () => {
     const when = (id: string) => row(id).querySelector('.inbox-row__when')?.textContent?.trim();
-    expect(when('reply-plain-note')).toBe('Aug 18, 2026, 4:32 PM');
+    // "Aug 18, 2026, 4:32 PM", as the message wrote it: not today, so its day.
+    expect(when('reply-plain-note')).toBe('Aug 18');
     expect(when('mjml-austin')).toBe('');
+  });
+
+  it('leads each row with its sender’s avatar: the initials, on the sender’s own hue', () => {
+    const avatar = (id: string) => row(id).querySelector<HTMLElement>('.inbox-row__avatar')!;
+    expect(avatar('reply-plain-note').textContent?.trim()).toBe('JD');
+    expect(avatar('mjml-austin').textContent?.trim()).toBe('A');
+    expect(avatar('reply-plain-note').getAttribute('aria-hidden')).toBe('true');
+    const hue = Number(avatar('reply-plain-note').style.getPropertyValue('--avatar-hue'));
+    expect(Number.isInteger(hue) && hue >= 0 && hue < 360).toBe(true);
   });
 
   it('gives each half its own header, the two the same height', () => {
@@ -108,5 +118,18 @@ describe('Inbox', () => {
     expect(row('reply-plain-note').classList).not.toContain('inbox-row--unread');
     // Still unread: one not opened yet.
     expect(row('mjml-austin').classList).toContain('inbox-row--unread');
+    // From one message straight to the next — the reader stays, its id
+    // changes: that one is read too.
+    await harness.navigateByUrl('/inbox/mjml-austin');
+    expect(row('mjml-austin').classList).not.toContain('inbox-row--unread');
   });
+
+  it('reads a message reached by a link straight to it', async () => {
+    await harness.navigateByUrl('/');
+    await harness.navigateByUrl('/inbox/mjml-austin');
+    await vi.waitFor(() => expect(row('mjml-austin')).toBeDefined());
+    expect(row('mjml-austin').classList).not.toContain('inbox-row--unread');
+    expect(host().hasAttribute('data-reading')).toBe(true);
+  });
+
 });

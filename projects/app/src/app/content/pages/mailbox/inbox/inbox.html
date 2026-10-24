@@ -15,6 +15,11 @@
             ariaCurrentWhenActive="page"
             [class.inbox-row--unread]="unread().has(row.mail.id)"
           >
+            <!-- Proton's leading avatar: the sender's initials on the
+                 sender's own hue. Decoration — the name says who. -->
+            <span class="inbox-row__avatar" aria-hidden="true" [style.--avatar-hue]="row.hue">
+              {{ row.initials }}
+            </span>
             <span class="inbox-row__name">{{ row.mail.name }}</span>
             <span class="inbox-row__when">{{ row.when }}</span>
             <span class="inbox-row__subject">{{ row.mail.subject }}</span>
@@ -43,10 +48,11 @@
      (`InboxPaper`), light or dark as the reader's button turns it
      (Thunderbird's), never the app's colour. Under the header, the open
      message (`InboxReader`), or a note while none is. Beside the list on a
-     desk; on a phone it takes the list's place while a message is open. -->
-<div class="inbox-pane" [paperIsland]="paper()">
+     desk; on a phone it takes the list's place while a message is open.
+     It scrolls as one sheet: the header goes up with the mail. -->
+<div #pane class="inbox-pane" [paperIsland]="paper()">
   <header page-header></header>
   <div class="inbox-pane__body">
-    <router-outlet (activate)="opened()" />
+    <router-outlet />
   </div>
 </div>

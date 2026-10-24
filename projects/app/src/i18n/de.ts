@@ -38,6 +38,7 @@ export default {
     cc: 'Cc',
     reply: 'Antworten',
     replyAll: 'Allen antworten',
+    answers: 'Antworten',
     forward: 'Weiterleiten',
   },
   composeWindow: {

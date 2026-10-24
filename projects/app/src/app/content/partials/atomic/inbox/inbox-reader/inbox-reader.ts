@@ -1,7 +1,7 @@
 import { Component, computed, inject, input } from '@angular/core';
 
 // Angular Material
-import { MatIconButton } from '@angular/material/button';
+import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 
 // Aria
@@ -32,7 +32,8 @@ import { InboxPaper } from '../inbox-paper';
  *
  * The header is Gmail's, without its avatar: the subject, who sent it and to
  * whom, and at the line's end the date, the paper button and the answers
- * every client has — Reply, and Reply all and Forward in ⋮ — each a compose
+ * every client has — Reply, and Reply all and Forward in ⋮ — and, Gmail's
+ * again, the three written out under the mail, where the reading ends; each a compose
  * window seeded the way a real client seeds it, with the library's helpers:
  * `replyEnvelope` for who the answer goes to and what it is called,
  * `replyQuote` / `forwardQuote` for the quoted history the editor keeps
@@ -41,7 +42,7 @@ import { InboxPaper } from '../inbox-paper';
  */
 @Component({
   selector: 'app-inbox-reader',
-  imports: [TranslatePipe, MatIconButton, MatIcon, MenuTrigger, ToolbarMenu, EmailViewer],
+  imports: [TranslatePipe, MatButton, MatIconButton, MatIcon, MenuTrigger, ToolbarMenu, EmailViewer],
   templateUrl: './inbox-reader.html',
   styleUrl: './inbox-reader.scss',
 })

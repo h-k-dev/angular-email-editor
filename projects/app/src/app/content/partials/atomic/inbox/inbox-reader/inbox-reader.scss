@@ -1,11 +1,9 @@
-@use '@h-k-dev/angular-email-editor/styles/scroll';
 @use '../../../../../../styles/breakpoints' as bp;
 
-// The pane the inbox gives it: filled, and scrolled as one sheet.
+// The pane the inbox gives it, as tall as the mail: the pane scrolls, its
+// header and this sheet as one.
 :host {
   display: block;
-  block-size: 100%;
-  min-block-size: 0;
 }
 
 // The sheet: the editor's paper (the island's `--email-paper`), the header
@@ -18,12 +16,9 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  block-size: 100%;
-  overflow-y: auto;
   box-sizing: border-box;
   background: var(--email-paper, var(--mat-sys-surface-bright));
   color: var(--mat-sys-on-surface);
-  @include scroll.scroll;
 
   @include bp.phone {
     --_inset: 16px;
@@ -66,8 +61,9 @@
   font: var(--mat-sys-body-medium);
 }
 
+// The sender: 500, a weight the app loads (a 600 is a smeared faux bold).
 .inbox-reader__name {
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .inbox-reader__address,
@@ -104,6 +100,15 @@
 // The body: the viewer, the pane's whole width, edge to edge.
 .inbox-reader__body {
   flex: none;
+}
+
+// Gmail's answers under the mail: outlined, written out, at the header's
+// inset, room under them before the pane ends.
+.inbox-reader__answers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px var(--_inset) 32px;
 }
 
 .inbox-reader__missing {

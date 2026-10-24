@@ -1,4 +1,4 @@
-import { Component, Signal, computed, inject, linkedSignal } from '@angular/core';
+import { Component, Signal, computed, inject } from '@angular/core';
 
 // Angular Material
 import { MatButton, MatIconButton } from '@angular/material/button';
@@ -8,9 +8,11 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { ComposeWindows } from '../../../core/email/compose-windows';
-import { Viewport } from '../../../core/layout/viewport';
 import { ReceivedMail } from '../../../core/email/mailbox/received-mail';
+import { MailboxAside } from '../../partials/atomic/mailbox/mailbox-aside';
+import { MailboxOpener } from '../../partials/atomic/mailbox/mailbox-opener';
 import { LanguageMenu } from '../../partials/common/language-menu/language-menu';
+import { PAGE_HEADER_LEAD } from '../../partials/common/page-header/page-header';
 import { ThemeToggle } from '../../partials/common/theme-toggle/theme-toggle';
 
 /** A place the aside leads to. */
@@ -39,8 +41,9 @@ interface MailboxSection {
  * chrome of its own; the aside leads back to it.
  *
  * Collapsed, the aside is a rail of its icons — at once, no motion. On a
- * phone there is no rail: shut, the aside is not there (one button over the
- * page's header opens it); opened, it lies over the page.
+ * phone there is no rail: shut, the aside is not there (the opener it lends
+ * every page header opens it, `MailboxOpener`); opened, it lies over the
+ * page.
  */
 @Component({
   selector: 'app-mailbox',
@@ -57,6 +60,9 @@ interface MailboxSection {
   ],
   templateUrl: './mailbox.html',
   styleUrl: './mailbox.scss',
+  // The aside's state, shared with the opener every page header leads with
+  // — part of the header, so it scrolls away with one that does.
+  providers: [MailboxAside, { provide: PAGE_HEADER_LEAD, useValue: MailboxOpener }],
   host: {
     '[attr.data-collapsed]': 'collapsed() || null',
     '[attr.data-over]': 'over() || null',
@@ -69,24 +75,21 @@ export class Mailbox {
   readonly #mailbox = inject(ReceivedMail);
   /** The inbox's unread, as it goes down. */
   readonly #unread = computed(() => this.#mailbox.unread().size);
-  readonly #viewport = inject(Viewport);
+  readonly #aside = inject(MailboxAside);
 
-  /** Whether the aside is the rail. Open on a desk, the rail on a phone —
-      and back to that whenever the screen crosses the breakpoint: state
-      that resets with its source, not an effect writing into a signal. */
-  readonly collapsed = linkedSignal(() => this.#viewport.compact());
+  /** Whether the aside is the rail (`MailboxAside`). */
+  readonly collapsed = this.#aside.collapsed;
 
   /** A phone's aside, opened: it lies over the page, under a scrim. */
-  protected readonly over = computed(() => this.#viewport.compact() && !this.collapsed());
+  protected readonly over = this.#aside.over;
 
-  /** A phone's aside, shut: no rail — it is not there at all, and the
-      page has the screen; one button, where the aside's own toggle
-      stands, opens it. */
-  protected readonly closed = computed(() => this.#viewport.compact() && this.collapsed());
+  /** A phone's aside, shut: not there at all — the page headers' opener
+      opens it. */
+  protected readonly closed = this.#aside.closed;
 
   /** The toggle: aside ⇄ rail. */
   protected toggle(): void {
-    this.collapsed.update((collapsed) => !collapsed);
+    this.#aside.toggle();
   }
 
   /** Compose: a new message in a window, over the page. */

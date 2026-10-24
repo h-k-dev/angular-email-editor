@@ -41,6 +41,7 @@ export default {
     cc: 'Cc',
     reply: 'Reply',
     replyAll: 'Reply all',
+    answers: 'Answer',
     forward: 'Forward',
   },
   composeWindow: {

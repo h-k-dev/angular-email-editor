@@ -170,7 +170,8 @@ $compact: 768px;
   border-block-end: 1px solid var(--mat-sys-outline-variant);
   color: var(--mat-sys-on-surface);
   font: var(--mat-sys-title-large);
-  font-weight: 600;
+  // 500: a weight the app loads (a 600 is a smeared faux bold).
+  font-weight: 500;
 }
 
 .settings__card {

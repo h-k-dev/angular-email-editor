@@ -6,9 +6,13 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import { ComposeWindows } from '../../../core/email/compose-windows';
 import { Viewport } from '../../../core/layout/viewport';
 import { provideExampleMail } from '../../../../../test/received-mail-fixture';
+import { PageHeader } from '../../partials/common/page-header/page-header';
 import { Mailbox } from './mailbox';
 
-@Component({ template: '<p class="page">a page</p>' })
+@Component({
+  imports: [PageHeader],
+  template: '<header page-header><h1>A page</h1></header><p class="page">a page</p>',
+})
 class Page {}
 
 describe('Mailbox', () => {
@@ -133,6 +137,12 @@ describe('Mailbox', () => {
       expect(root.querySelector('.mailbox-scrim')).toBeNull();
       const opener = root.querySelector<HTMLButtonElement>('.mailbox-opener')!;
       expect(opener.getAttribute('aria-label')).toBe('Expand sidebar');
+      // It leads the page's own header — part of it, so it scrolls away
+      // with a header that does.
+      expect(opener.closest('.mailbox-main header[page-header]')).not.toBeNull();
+      expect(opener.closest('header')!.querySelector('h1')!.compareDocumentPosition(opener)).toBe(
+        Node.DOCUMENT_POSITION_PRECEDING,
+      );
 
       opener.click();
       await harness.fixture.whenStable();
