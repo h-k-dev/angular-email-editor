@@ -112,7 +112,10 @@ export default {
     close: 'Close',
     unsaved: 'Unsaved changes',
     phone: 'Phone preview',
+    phoneSplit: 'Light and dark divider',
     details: 'Message details',
+    envelope: 'Envelope',
+    panels: 'Details',
     message: 'Message',
     revert: 'Revert to saved',
     save: 'Save',
@@ -128,6 +131,7 @@ export default {
       none: 'None',
       centered: 'Centred column',
       width: 'Column width',
+      spacing: 'Room above and below',
       page: 'Page colour',
       column: 'Column colour',
       noColor: 'None',
@@ -182,7 +186,6 @@ export default {
   },
   composer: {
     format: { title: 'Format', html: 'HTML', text: 'Plain text' },
-    view: { title: 'View', editor: 'Editor', html: 'HTML' },
     attach: 'Attach files',
     attachments: {
       label: 'Attachments',

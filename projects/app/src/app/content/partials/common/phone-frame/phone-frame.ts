@@ -27,6 +27,11 @@ export type PhoneChrome = 'none' | 'browser';
  *
  *     <phone-frame chrome="browser" url="mail.example.com" label="Phone preview">…</phone-frame>
  *
+ * An element marked `phoneOverlay` is laid over the page instead, still
+ * while the page scrolls under it — a control on the screen, not of the
+ * page (the template designer's light / dark divider). It places itself:
+ * the page between the bars is its box.
+ *
  * The page wears the paper (`--email-paper`) of the island it sits on; the
  * bars the island's surface, light or dark with it.
  */

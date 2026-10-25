@@ -30,8 +30,13 @@
     </div>
   }
 
-  <div class="phone-frame__scroller" floatingScrollbar tabindex="0" [attr.aria-label]="label()">
-    <ng-content />
+  <!-- The page: what scrolls, and over it what stays put while it does
+       (`[phoneOverlay]`). -->
+  <div class="phone-frame__page">
+    <div class="phone-frame__scroller" floatingScrollbar tabindex="0" [attr.aria-label]="label()">
+      <ng-content />
+    </div>
+    <ng-content select="[phoneOverlay]" />
   </div>
 
   <!-- Brave's toolbar: back, forward, new tab, the tabs (one open), the

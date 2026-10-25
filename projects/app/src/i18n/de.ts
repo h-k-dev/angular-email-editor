@@ -109,7 +109,10 @@ export default {
     close: 'Schließen',
     unsaved: 'Nicht gespeichert',
     phone: 'Handyvorschau',
+    phoneSplit: 'Trenner zwischen hell und dunkel',
     details: 'Nachrichtendetails',
+    envelope: 'Umschlag',
+    panels: 'Details',
     message: 'Nachricht',
     revert: 'Auf Gespeichertes zurücksetzen',
     save: 'Speichern',
@@ -125,6 +128,7 @@ export default {
       none: 'Keins',
       centered: 'Zentrierte Spalte',
       width: 'Spaltenbreite',
+      spacing: 'Abstand oben und unten',
       page: 'Seitenfarbe',
       column: 'Spaltenfarbe',
       noColor: 'Keine',
@@ -179,7 +183,6 @@ export default {
   },
   composer: {
     format: { title: 'Format', html: 'HTML', text: 'Nur Text' },
-    view: { title: 'Ansicht', editor: 'Editor', html: 'HTML' },
     attach: 'Dateien anhängen',
     attachments: {
       label: 'Anhänge',

@@ -4,7 +4,7 @@ import { keymap } from 'prosemirror-keymap';
 import { defineNode } from '../../extension';
 import { fillTextColor } from '../../dual-contrast';
 import { isSafeColor, toEmailSafeColor } from '../marks/text-style';
-import { parsePadding } from './table';
+import { CellVerticalAlignment, parsePadding } from './table';
 import { layoutMarker, markedAs, markerAttrs } from '../../layout-marker';
 
 /**
@@ -73,9 +73,10 @@ const columnStyle = (
   background: string | null,
   padding: string | null,
   hold = false,
+  valign: CellVerticalAlignment = 'top',
 ): string =>
   `display: inline-block; width: ${hold ? `${columnShare(maxWidth)}%` : '100%'}; max-width: ${maxWidth}px; ` +
-  `vertical-align: top; box-sizing: border-box;` +
+  `vertical-align: ${valign}; box-sizing: border-box;` +
   (padding ? ` padding: ${padding};` : '') +
   (background ? ` background-color: ${background}; color: ${fillTextColor(background)};` : '');
 
@@ -214,6 +215,12 @@ export const Column = defineNode({
           percent `width` of their own rather than the stacking pattern's
           `width: 100%`. Emitted as that percent. */
       hold: { default: false },
+      /** Where the column's content sits beside a taller neighbour — top
+          (the default), middle or bottom: `vertical-align` on the
+          inline-block, and `valign` on its cell in Outlook's table
+          (`outlookColumns`), the two places a client reads it. Stacked,
+          a column is as tall as its content, so it means nothing there. */
+      valign: { default: 'top' },
     },
     parseDOM: [
       {
@@ -237,6 +244,7 @@ export const Column = defineNode({
             background: isSafeColor(bg) ? bg : null,
             padding: parsePadding(el),
             hold: !!share && +share[1] < 100,
+            valign: parseColumnVerticalAlign(el),
           };
         },
       },
@@ -253,6 +261,7 @@ export const Column = defineNode({
           node.attrs['background'],
           node.attrs['padding'],
           node.attrs['hold'],
+          node.attrs['valign'],
         ),
       },
       0,
@@ -266,6 +275,7 @@ export const Column = defineNode({
           node.attrs['background'],
           node.attrs['padding'],
           node.attrs['hold'],
+          node.attrs['valign'],
         ),
       },
       0,
@@ -317,6 +327,10 @@ export const Columns = defineNode({
     insertColumns: (count = 2): Command => insertColumns(schema, count),
     /** Fill the column the cursor is in (or clear it with `null`). */
     setColumnBackground: (color: string | null): Command => setColumnBackground(color),
+    /** Where the content of the column the cursor is in sits: top, middle,
+        bottom. */
+    setColumnVerticalAlign: (valign: CellVerticalAlignment): Command =>
+      setColumnVerticalAlign(valign),
     // Caret-relative structural edits, for a host's own controls (the
     // block's pills use the position-addressed `appendColumn` /
     // `removeLastColumn`). Named apart from the table's
@@ -791,6 +805,26 @@ const selectColumnContent: Command = (state, dispatch) => {
   return true;
 };
 
+/** A column's vertical alignment off its markup: `middle` or `bottom` as
+    written, anything else — `top`, a builder's `baseline`, none — top. */
+function parseColumnVerticalAlign(el: HTMLElement): CellVerticalAlignment {
+  const align = (el.style?.verticalAlign ?? '').trim().toLowerCase();
+  return align === 'middle' || align === 'bottom' ? align : 'top';
+}
+
+/** Sets where the content of the `column` the cursor is in sits beside a
+    taller neighbour (top, middle, bottom). */
+export function setColumnVerticalAlign(valign: CellVerticalAlignment): Command {
+  return (state, dispatch) => {
+    const ctx = findColumnContext(state);
+    if (!ctx) return false;
+    if (dispatch) {
+      dispatch(state.tr.setNodeMarkup(ctx.pos, undefined, { ...ctx.node.attrs, valign }));
+    }
+    return true;
+  };
+}
+
 /** Sets (or clears) the `background` of the `column` the cursor is in. */
 export function setColumnBackground(color: string | null): Command {
   return (state, dispatch) => {
@@ -834,7 +868,8 @@ export function outlookColumns(root: HTMLElement): void {
     if (columns.length < 2 || columns.length !== container.children.length) continue;
     const doc = container.ownerDocument;
     const cell = (column: HTMLElement) =>
-      `<td width="${parseColumnMaxWidth(column.getAttribute('style'))}" valign="top">`;
+      `<td width="${parseColumnMaxWidth(column.getAttribute('style'))}" ` +
+      `valign="${parseColumnVerticalAlign(column)}">`;
     container.insertBefore(
       doc.createComment(
         '[if mso]><table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center">' +

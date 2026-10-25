@@ -65,6 +65,7 @@ export * from './extensions/marks/text-style';
 export * from './extensions/history';
 export * from './extensions/column-resize';
 export * from './extensions/table-handles';
+export * from './extensions/column-handles';
 export * from './extensions/columns-resize';
 export * from './extensions/gapcursor';
 export * from './extensions/click-below';

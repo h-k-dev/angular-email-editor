@@ -68,6 +68,16 @@
   }
 }
 
+// The page between the bars: the scroller, and the overlay laid over it
+// (absolute, the page its box).
+.phone-frame__page {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+}
+
 .phone-frame__scroller {
   flex: 1 1 auto;
   min-block-size: 0;

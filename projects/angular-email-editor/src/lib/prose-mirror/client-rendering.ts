@@ -6,6 +6,8 @@ import {
   markDarkMode,
 } from './dark-mode';
 import { hasDocumentEnvelope } from './envelope';
+import { sentBody } from './email-document';
+import { STACK_RULE } from './extensions/nodes/columns';
 
 /** The clients a rendering can be drawn for: the three that matter, and
     that read HTML differently enough to look at one by one. */
@@ -64,8 +66,10 @@ export interface ClientRenderingOptions {
  * Takes a fragment (the editor's canonical HTML) or a whole document (an
  * import as it was pasted): a document keeps its head — its `<style>`,
  * subject to the client — with the client's surface laid before it. A
- * fragment is drawn as `emailDocument` sends it: its dark-mode classes
- * and rules put in. Outlook.com's markers (`[data-ogsc]`) are set by none
+ * fragment is drawn as `emailDocument` sends it: its body as sent
+ * (`sentBody` — the images fitted, the stacking columns marked, under the
+ * head's phone rule) and its dark-mode classes and rules put in.
+ * Outlook.com's markers (`[data-ogsc]`) are set by none
  * of the three, so their rules never apply here.
  */
 export function renderForClient(
@@ -74,10 +78,17 @@ export function renderForClient(
   options: ClientRenderingOptions = {},
 ): string {
   const palette = options.darkMode ?? emailDarkModePalette;
-  const dark = palette && !hasDocumentEnvelope(html) ? markDarkMode(html, palette) : null;
-  const marked = dark ? dark.html : html;
+  const fragment = !hasDocumentEnvelope(html);
+  const sent = fragment ? sentBody(html) : html;
+  const dark = palette && fragment ? markDarkMode(sent, palette) : null;
+  const marked = dark ? dark.html : sent;
   const source = client === 'outlook-desktop' ? openOutlookConditionals(marked) : marked;
   const doc = new DOMParser().parseFromString(source, 'text/html');
+  if (fragment) {
+    const sheet = doc.createElement('style');
+    sheet.textContent = STACK_RULE;
+    doc.head.appendChild(sheet);
+  }
   if (dark) {
     const sheet = doc.createElement('style');
     sheet.textContent = [COLOR_SCHEME_RULE, dark.css].filter(Boolean).join(' ');

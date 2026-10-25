@@ -32,6 +32,7 @@ import { AngularFileDrop } from '@h-k-dev/angular-file-drop';
 // Angular Email Editor
 import {
   InlineImages,
+  PAGE_SPACING_MAX,
   PAGE_WIDTH_MAX,
   PAGE_WIDTH_MIN,
   PageLayout,
@@ -54,8 +55,10 @@ import { DIALECT_NAMES, EmailTemplate, Templates } from '../../../../../core/ema
 import { Badge } from '../../../common/badge/badge';
 import { PageHeader } from '../../../common/page-header/page-header';
 import { PhoneFrame } from '../../../common/phone-frame/phone-frame';
+import { OverflowRow } from '../../../common/overflow-row/overflow-row';
 import { MailView } from '../../../shared/email/mail-view/mail-view';
 import { ScrollOwner } from '../../../../../core/common/directives/scroll-owner/scroll-owner';
+import { SplitHandle } from '../../../../../core/common/directives/split-handle/split-handle';
 import { atRest } from '../../../shared/email/at-rest';
 import { EmailCompose } from '../../../shared/email/email-compose/email-compose';
 import { ColorPalette } from '../../../shared/email/email-compose/formatting-toolbar/color-palette/color-palette';
@@ -63,8 +66,16 @@ import { HtmlEmailCompose } from '../../../shared/email/html-email-compose/html-
 import { EnvelopeRows } from '../../../shared/email/message-form/envelope-rows/envelope-rows';
 import { MessageMenu } from '../../../shared/email/message-form/message-menu/message-menu';
 import { MessageSheet } from '../../../shared/email/message-form/message-sheet';
-import { IslandMarquee, MarqueeStart, PaperIsland } from '../../../shared/email/paper-island';
+import {
+  IslandMarquee,
+  MarqueeStart,
+  PaperIsland,
+  PaperIslandDirective,
+} from '../../../shared/email/paper-island';
 import { TemplateDesignerData } from './open-template-designer';
+
+/** The phone's screen, px — the phone frame's own default. */
+const PHONE_WIDTH = 375;
 
 /** The same message, as far as a template keeps one: its rows, its body and
     its files. */
@@ -102,7 +113,9 @@ function sameMessage(a: Envelope, b: Envelope): boolean {
  *   layout's: the container is the bound, never the canvas.
  * - The phone: the message as the inbox shows it received on a 375px phone
  *   — the very `mail-view` the reader uses, which lays itself out by the
- *   room the phone gives it — live as typing settles. On when asked for,
+ *   room the phone gives it — live as typing settles, on the light paper
+ *   and the dark at once: a divider down the screen parts the two, and
+ *   slides to show all of either. On when asked for,
  *   centred in the room left of the email's column; it pushes the column
  *   only where that room is too narrow to hold it.
  * - Its HTML: the bar's </> puts the source in the editor's place (code
@@ -136,10 +149,13 @@ function sameMessage(a: Envelope, b: Envelope): boolean {
     MessageMenu,
     MarqueeStart,
     ScrollOwner,
+    SplitHandle,
+    PaperIslandDirective,
     MailView,
     Badge,
     PageHeader,
     PhoneFrame,
+    OverflowRow,
     ToggleButtonGroup,
     ToggleButtonGroupText,
     ColorPalette,
@@ -199,8 +215,22 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
   /** The phone on the left of the canvas. */
   protected readonly phoneOpen = signal(false);
 
-  /** The details' two blocks on the right — the rows, the files — each
-      open, or folded to its heading. */
+  /** The phone's screen, px: the narrowest a message is still read on. */
+  protected readonly phoneWidth = PHONE_WIDTH;
+  /** The papers the phone reads the mail on, left to right of its divider. */
+  protected readonly papers = ['light', 'dark'] as const;
+  /** Where the divider stands, px from the screen's left: the light paper
+      to the left of it, the dark to the right — half and half to start. */
+  protected readonly phoneSplit = signal(PHONE_WIDTH / 2);
+
+  /** Which of the details shows on the right, picked by its chip: the
+      envelope — the message's rows and its files — or the page layout. The
+      other stays, hidden, its state kept. */
+  protected readonly detailsPanel = signal<'envelope' | 'layout'>('envelope');
+  protected readonly detailsPanels = ['envelope', 'layout'] as const;
+
+  /** The details' blocks on the right — the rows, the files, the layout —
+      each open, or folded to its heading. */
   protected readonly messageOpen = signal(true);
   protected readonly filesOpen = signal(true);
   protected readonly layoutOpen = signal(true);
@@ -218,6 +248,7 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
   protected readonly backgroundPalette = emailBackgroundPalette;
   protected readonly widthMin = PAGE_WIDTH_MIN;
   protected readonly widthMax = PAGE_WIDTH_MAX;
+  protected readonly spacingMax = PAGE_SPACING_MAX;
 
   /** The phone's email: the body as typing settles — a frame redrawn on
       every key would flicker. */
@@ -345,6 +376,13 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
   protected setLayoutWidth(value: string): void {
     const layout = this.pageLayout();
     if (layout && value.trim()) this.#setLayout({ ...layout, width: Number(value) });
+  }
+
+  /** The page's room above and below the column, as the field says it —
+      snapped to its grid; an empty field is none. */
+  protected setLayoutSpacing(value: string): void {
+    const layout = this.pageLayout();
+    if (layout) this.#setLayout({ ...layout, spacing: Number(value) || 0 });
   }
 
   protected setPageColor(background: string | null): void {

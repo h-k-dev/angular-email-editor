@@ -108,7 +108,10 @@ export default {
     close: '閉じる',
     unsaved: '未保存の変更',
     phone: 'スマートフォンプレビュー',
+    phoneSplit: 'ライトとダークの境界',
     details: 'メッセージの詳細',
+    envelope: '封筒',
+    panels: '詳細',
     message: 'メッセージ',
     revert: '保存した状態に戻す',
     save: '保存',
@@ -124,6 +127,7 @@ export default {
       none: 'なし',
       centered: '中央の列',
       width: '列の幅',
+      spacing: '上下の余白',
       page: 'ページの色',
       column: '列の色',
       noColor: 'なし',
@@ -178,7 +182,6 @@ export default {
   },
   composer: {
     format: { title: '形式', html: 'HTML', text: 'プレーンテキスト' },
-    view: { title: '表示', editor: 'エディター', html: 'HTML' },
     attach: 'ファイルを添付',
     attachments: {
       label: '添付ファイル',

@@ -51,20 +51,13 @@ const leaveText = async (fixture: ComponentFixture<Compose>): Promise<Element | 
   return started;
 };
 
-/** Picks a View in the writer bar's ⋮ menu — the editor, or its HTML in
-    the editor's place (code view) — one of its two check options. A pick
-    closes the menu. */
+/** Switches the sheet's View — the editor, or its HTML in the editor's
+    place (code view). No menu offers it any more (the ⋮ is Settings…
+    alone); the sheet's own switch is what a frame's </> calls. */
 async function chooseView(fixture: ComponentFixture<unknown>, view: 'Editor' | 'HTML') {
-  const root = fixture.nativeElement as HTMLElement;
-  (root.querySelector('.writer-bar [aria-label="More options"]') as HTMLButtonElement).click();
-  await fixture.whenStable();
-  const option = [
-    ...document.querySelectorAll<HTMLElement>('.toolbar-menu [role="menuitemradio"]'),
-  ].find((item) => item.textContent?.trim().startsWith(view));
-  if (!option || option.getAttribute('aria-disabled') === 'true') {
-    throw new Error(`no ${view} option in the ⋮ menu`);
-  }
-  option.click();
+  const sheet = (fixture.componentInstance as any).sheet();
+  if (!sheet.viewOffered()) throw new Error(`no ${view} view offered`);
+  sheet.onEditorView(view === 'HTML' ? 'html' : 'editor');
   await fixture.whenStable();
 }
 
@@ -1553,7 +1546,7 @@ describe('Compose below the docking breakpoint', () => {
     expect(root.classList.contains('compose--preview')).toBe(true);
 
     // Narrow: the options are gone, the docked panes collapse — code view
-    // (in place, the ⋮ menu's View) stays.
+    // (in place) stays.
     narrow.set(true);
     await fixture.whenStable();
     expect(btn('Preview')).toBeNull();

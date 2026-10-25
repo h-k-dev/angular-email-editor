@@ -75,10 +75,8 @@ export interface EmailDocumentOptions {
  */
 export function emailDocument(html: string, options: EmailDocumentOptions = {}): string {
   const { lang, dir = 'auto', title, previewText, darkMode = emailDarkModePalette } = options;
-  // Images first — no border, and no gap under one alone on its line
-  // (image.ts); then the columns' stacking class, by pattern, on the markup
-  // as the editor wrote it; the dark-mode classes join it on the element.
-  const stacked = markStackingColumns(fitEmailImages(html));
+  // The dark-mode classes join the sent body's on the element.
+  const stacked = sentBody(html);
   const dark = darkMode ? markDarkMode(stacked, darkMode) : null;
   const darkStyle = dark ? [COLOR_SCHEME_RULE, dark.css].filter(Boolean).join(' ') : '';
   const body = bodyFill(dark ? dark.html : stacked);
@@ -107,6 +105,18 @@ export function emailDocument(html: string, options: EmailDocumentOptions = {}):
     '</body>' +
     '</html>'
   );
+}
+
+/**
+ * The editor's canonical HTML as {@link emailDocument} puts it in the body:
+ * images first — no border, and no gap under one alone on its line
+ * (image.ts) — then the columns' stacking class, by pattern, on the markup
+ * as the editor wrote it. The head's {@link STACK_RULE} is what that class
+ * hangs on. Anything that draws a fragment as it is sent (client-rendering.ts)
+ * takes both, so a preview stacks a phone's columns as the email does.
+ */
+export function sentBody(html: string): string {
+  return markStackingColumns(fitEmailImages(html));
 }
 
 /** The page's colour on the body, as attribute pieces — empty for a body

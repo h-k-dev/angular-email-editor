@@ -23,7 +23,12 @@ import { Menu, MenuItem } from '@angular/aria/menu';
 import { ConnectedPosition } from '@angular/cdk/overlay';
 
 // Library
-import { TableHandleTarget, caretCellPos } from '@h-k-dev/angular-email-editor';
+import {
+  ColumnHandleTarget,
+  TableHandleTarget,
+  caretCellPos,
+  findColumnContext,
+} from '@h-k-dev/angular-email-editor';
 import { injectPalette } from '@h-k-dev/angular-email-editor/palette';
 import { TextSelection } from 'prosemirror-state';
 
@@ -39,7 +44,9 @@ type CellAction = string;
 
 /**
  * The cell's menu, Notion's: the grip on the caret cell's edge opens it —
- * Color, Alignment, Clear contents — and its lists open beside their rows
+ * Color, Alignment, Clear contents — and so does a columns block's grip on
+ * the caret column's edge, for the column (no clearing there: a column's
+ * content is blocks, taken away the usual way). Its lists open beside their rows
  * on hover, or on the right arrow, as a cascading menu does — on the side
  * with room, pushed into the screen (`SubmenuPlacement`). A panel of the
  * composer's one popover, anchored to the grip.
@@ -71,8 +78,9 @@ type CellAction = string;
 export class CellMenu {
   readonly #commands = inject(FormattingCommands);
 
-  /** The grip that was pressed — this menu's when it is a cell's. */
-  readonly target = input.required<TableHandleTarget | null>();
+  /** The grip that was pressed — this menu's when it is a cell's or a
+      layout column's. */
+  readonly target = input.required<TableHandleTarget | ColumnHandleTarget | null>();
 
   /** The menu asked to close — after an action, on Escape, on a click
       outside. The composer clears the target it passed in. */
@@ -81,7 +89,14 @@ export class CellMenu {
   /** The palette in use — text colours and fills, as the colour list's rows. */
   protected readonly palette = injectPalette();
 
-  protected readonly open = computed(() => this.target()?.kind === 'cell');
+  protected readonly open = computed(() => {
+    const kind = this.target()?.kind;
+    return kind === 'cell' || kind === 'layout-column';
+  });
+
+  /** A layout column's menu, not a table cell's: its commands are the
+      column's, and it has nothing to clear. */
+  protected readonly column = computed(() => this.target()?.kind === 'layout-column');
 
   /** The root menu's element, to put the focus in once it is on screen. */
   readonly element = viewChild<ElementRef<HTMLElement>>('menu');
@@ -136,13 +151,14 @@ export class CellMenu {
         this.colorText(value || null);
         break;
       case 'fill':
-        this.#run('setCellBackground', value || null);
+        this.#run(this.column() ? 'setColumnBackground' : 'setCellBackground', value || null);
         break;
       case 'align':
-        this.#run('setCellAlignment', value);
+        if (this.column()) this.alignColumn(value);
+        else this.#run('setCellAlignment', value);
         break;
       case 'valign':
-        this.#run('setCellVerticalAlign', value);
+        this.#run(this.column() ? 'setColumnVerticalAlign' : 'setCellVerticalAlign', value);
         break;
       case 'clear':
         this.#run('clearCells');
@@ -158,22 +174,44 @@ export class CellMenu {
     this.#commands.focus();
   }
 
-  /** The cell's text colour: on all of the cell's words — the caret alone
-      is in it, so the cell is selected for the mark and the caret put back. */
+  /** The cell's text colour — or the column's: on all of its words. The
+      caret alone is in it, so the whole of it is selected for the mark and
+      the caret put back. */
   private colorText(color: string | null): void {
+    this.#acrossAll(() => {
+      const editor = this.#commands.editor()!;
+      if (color) editor.commands['setColor'](color);
+      else editor.commands['unsetColor']();
+    });
+  }
+
+  /** A column's alignment is its lines': every one of them, at once. */
+  private alignColumn(align: string): void {
+    this.#acrossAll(() =>
+      this.#commands.editor()!.commands['setAlignment'](align === 'left' ? null : align),
+    );
+  }
+
+  /** Runs `apply` with the whole of the caret's cell — or column — selected,
+      then puts the caret back where it was. */
+  #acrossAll(apply: () => void): void {
     const editor = this.#commands.editor();
     if (!editor) return;
-    const pos = caretCellPos(editor.state);
+    const pos = this.column()
+      ? (findColumnContext(editor.state)?.pos ?? null)
+      : caretCellPos(editor.state);
     if (pos === null) return;
     const { from } = editor.state.selection;
-    const cell = editor.state.doc.nodeAt(pos)!;
+    const node = editor.state.doc.nodeAt(pos)!;
     editor.view.dispatch(
       editor.state.tr.setSelection(
-        TextSelection.create(editor.state.doc, pos + 1, pos + cell.nodeSize - 1),
+        TextSelection.between(
+          editor.state.doc.resolve(pos + 1),
+          editor.state.doc.resolve(pos + node.nodeSize - 1),
+        ),
       ),
     );
-    if (color) editor.commands['setColor'](color);
-    else editor.commands['unsetColor']();
+    apply();
     editor.view.dispatch(
       editor.state.tr.setSelection(TextSelection.create(editor.state.doc, from)),
     );

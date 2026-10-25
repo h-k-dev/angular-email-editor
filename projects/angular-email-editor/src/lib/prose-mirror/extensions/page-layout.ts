@@ -38,6 +38,7 @@ export interface PageLayoutOptions {
  * that works on top-level blocks works as before:
  *
  * - `--aee-page-width` — the column's width (`600px`);
+ * - `--aee-page-spacing` — the page's room above and below the column (`32px`);
  * - `--aee-page-background`, `--aee-page-column` — the page's and the
  *   column's colours, each left out when there is none;
  * - `--aee-page-background-dark`, `--aee-page-column-dark` — their dark
@@ -74,7 +75,10 @@ function rootAttributes(
   if (!layout) return {};
   const dark = (hex: string) =>
     palette.find((color) => color.value.toLowerCase() === hex.toLowerCase())?.dark ?? null;
-  const vars: [string, string | null][] = [['--aee-page-width', `${layout.width}px`]];
+  const vars: [string, string | null][] = [
+    ['--aee-page-width', `${layout.width}px`],
+    ['--aee-page-spacing', `${layout.spacing}px`],
+  ];
   if (layout.background) {
     vars.push(['--aee-page-background', layout.background]);
     vars.push(['--aee-page-background-dark', dark(layout.background)]);

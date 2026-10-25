@@ -85,29 +85,61 @@
        `mail-view`, laid out by the 375px the phone gives it (a container
        query), under the page header the inbox gives an open message on a
        phone — the way back to the list — the body as typing settles. Only
-       shown: inert, its buttons press nothing; the screen still scrolls. -->
+       shown: inert, its buttons press nothing; the screen still scrolls.
+       Read on both papers at once: the light one left of the divider, the
+       dark one right of it — one scroller, so the two halves never part.
+       The divider slides either way, to all of one or all of the other. -->
   @if (phoneOpen()) {
-    <section class="designer-phone" [attr.aria-label]="'designer.phone' | translate">
-      <phone-frame chrome="browser" url="mail.example.com" [label]="'designer.phone' | translate">
+    <section
+      class="designer-phone"
+      #phoneRoom
+      [style.--phone-split.px]="phoneSplit()"
+      [attr.aria-label]="'designer.phone' | translate"
+    >
+      <phone-frame
+        chrome="browser"
+        url="mail.example.com"
+        [width]="phoneWidth"
+        [label]="'designer.phone' | translate"
+      >
         @let mail = received();
-        <header page-header inert>
-          <button matIconButton type="button" [attr.aria-label]="'inbox.back' | translate">
-            <mat-icon>arrow_back</mat-icon>
-          </button>
-        </header>
-        <article
-          mail-view
-          inert
-          [subject]="mail.subject"
-          [name]="mail.name"
-          [address]="mail.address"
-          [to]="mail.to"
-          [cc]="mail.cc"
-          [date]="mail.date"
-          [html]="phoneHtml.value() ?? html()"
-          [scheme]="scheme()"
-          [bodyLabel]="'designer.phone' | translate"
-        ></article>
+        @let body = phoneHtml.value() ?? html();
+        <div class="designer-phone__papers">
+          @for (paper of papers; track paper) {
+            <div class="designer-phone__paper" [paperIsland]="paper">
+              <header page-header inert>
+                <button matIconButton type="button" [attr.aria-label]="'inbox.back' | translate">
+                  <mat-icon>arrow_back</mat-icon>
+                </button>
+              </header>
+              <article
+                mail-view
+                inert
+                [subject]="mail.subject"
+                [name]="mail.name"
+                [address]="mail.address"
+                [to]="mail.to"
+                [cc]="mail.cc"
+                [date]="mail.date"
+                [html]="body"
+                [scheme]="paper"
+                [bodyLabel]="'designer.phone' | translate"
+              ></article>
+            </div>
+          }
+        </div>
+
+        <!-- The divider: drag it, or focus it and use the arrows — Home for
+             all dark, End for all light. -->
+        <div
+          phoneOverlay
+          class="designer-phone__divider"
+          [(splitHandle)]="phoneSplit"
+          [splitTarget]="phoneRoom"
+          splitProperty="--phone-split"
+          [splitMax]="phoneWidth"
+          [attr.aria-label]="'designer.phoneSplit' | translate"
+        ></div>
       </phone-frame>
     </section>
   }
@@ -156,11 +188,33 @@
     ></section>
   </main>
 
-  <!-- The details, on the right: two blocks on the paper, each outlined and
-       each folding to its heading on its own — the message's rows, and its
-       files. -->
+  <!-- The details, on the right: the envelope — the message's rows and its
+       files — or the page layout, picked by a chip on top (one line that
+       scrolls sideways rather than wrapping, `overflow-row`); each block
+       folds to its heading on its own. -->
   <aside class="designer-details" [attr.aria-label]="'designer.details' | translate">
-    <section class="designer-block" [attr.data-open]="messageOpen() || null">
+    <overflow-row
+      class="designer-panels"
+      rowRole="group"
+      [rowLabel]="'designer.panels' | translate"
+    >
+      @for (panel of detailsPanels; track panel) {
+        <button
+          type="button"
+          class="designer-panel-chip"
+          [attr.aria-pressed]="detailsPanel() === panel"
+          (click)="detailsPanel.set(panel)"
+        >
+          {{ (panel === 'envelope' ? 'designer.envelope' : 'designer.layout.title') | translate }}
+        </button>
+      }
+    </overflow-row>
+
+    <section
+      class="designer-block"
+      [attr.data-open]="messageOpen() || null"
+      [hidden]="detailsPanel() !== 'envelope'"
+    >
       <h2 class="designer-block__head">
         <button
           type="button"
@@ -184,6 +238,7 @@
     <section
       class="designer-block"
       [attr.data-open]="filesOpen() || null"
+      [hidden]="detailsPanel() !== 'envelope'"
       dropZone
       #zone="dropZone"
       [clickable]="false"
@@ -246,7 +301,11 @@
     <!-- The layout: the email's page — none, or a centred column. Set only
          here; every pick is a step of the editor's. A kind's own settings
          show under it while it is the kind. -->
-    <section class="designer-block" [attr.data-open]="layoutOpen() || null">
+    <section
+      class="designer-block"
+      [attr.data-open]="layoutOpen() || null"
+      [hidden]="detailsPanel() !== 'layout'"
+    >
       <h2 class="designer-block__head">
         <button
           type="button"
@@ -294,6 +353,24 @@
                 [value]="layout.width"
                 (change)="setLayoutWidth(width.value)"
                 (keydown.enter)="setLayoutWidth(width.value)"
+              />
+              px
+            </span>
+          </label>
+
+          <label class="designer-layout__row">
+            <span class="designer-layout__label">{{ 'designer.layout.spacing' | translate }}</span>
+            <span class="designer-layout__field">
+              <input
+                #spacing
+                type="number"
+                inputmode="numeric"
+                step="4"
+                min="0"
+                [max]="spacingMax"
+                [value]="layout.spacing"
+                (change)="setLayoutSpacing(spacing.value)"
+                (keydown.enter)="setLayoutSpacing(spacing.value)"
               />
               px
             </span>

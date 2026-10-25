@@ -89,6 +89,26 @@ describe('renderForClient', () => {
     );
   });
 
+  it('draws a fragment’s body as it is sent: stacking columns marked under the phone rule, images fitted', () => {
+    const column =
+      '<div class="aee-layout-column" style="display: inline-block; width: 100%; max-width: 280px; vertical-align: top; box-sizing: border-box;"><div>a</div></div>';
+    const fragment =
+      `<div class="aee-layout-columns" style="width: 100%; max-width: 600px;">${column}${column}</div>` +
+      '<div style="text-align: center;"><img src="x.png"></div>';
+    const apple = renderForClient(fragment, 'apple-mail', { pane: 'phone' });
+    expect(apple).toContain('class="aee-layout-column aee-stack"');
+    expect(apple).toContain('.aee-stack { max-width: 100% !important; }');
+    expect(apple).toContain('border="0"');
+    // Gmail reads a class rule in a media query; Outlook reads none.
+    expect(renderForClient(fragment, 'gmail')).toContain(
+      '.aee-stack { max-width: 100% !important; }',
+    );
+    expect(renderForClient(fragment, 'outlook-desktop')).not.toContain('.aee-stack {');
+    // A whole document is drawn as it came.
+    const page = `<html><head></head><body>${fragment}</body></html>`;
+    expect(renderForClient(page, 'apple-mail')).not.toContain('aee-stack');
+  });
+
   it('answers a document’s own scheme queries for the frame', () => {
     expect(
       resolveColorScheme(

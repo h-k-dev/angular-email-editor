@@ -12,7 +12,8 @@ import { layoutMarker, markedAs } from './layout-marker';
  *
  * The first kind, `centered`, is the newsletter's page: a colour across the
  * window (`background`) and the text in a column of `width` px down its
- * middle, with a colour of its own (`columnBackground`) — MJML's `mj-body`,
+ * middle, with a colour of its own (`columnBackground`) and the page's room
+ * above and below it (`spacing`, the page cell's padding) — MJML's `mj-body`,
  * learned from what MJML produces, not from how.
  *
  * **One column, everything in it.** The whole body stands in the column —
@@ -57,6 +58,10 @@ export interface CenteredPageLayout {
   readonly background: string | null;
   /** The column's own colour, as hex — or null for the page's. */
   readonly columnBackground: string | null;
+  /** The page's room above and below the column, px — 0 to
+      {@link PAGE_SPACING_MAX}, in 4px steps: the column a card on the page
+      rather than a stripe down it. 0 is none. */
+  readonly spacing: number;
 }
 
 /** The email's classic measure — and a section's (section.ts). */
@@ -66,12 +71,19 @@ export const PAGE_WIDTH_MIN = 320;
 /** The widest: past it, lines grow too long to read in a desktop client. */
 export const PAGE_WIDTH_MAX = 800;
 
+/** The most room above and below the column. */
+export const PAGE_SPACING_MAX = 96;
+
+/** A new centred page's room above and below its column. */
+export const PAGE_SPACING = 32;
+
 /** The room round the text inside a column — a section's inline inset, so
     the text in a column and in a band line up. */
 export const PAGE_COLUMN_INSET = SECTION_INSET;
 
-/** A centred page: the palette's grey round a white column, 600px — the
-    newsletter's look — with any of it overridden. */
+/** A centred page: the palette's grey round a white column, 600px, with
+    {@link PAGE_SPACING} above and below it — the newsletter's look — with
+    any of it overridden. */
 export function centeredPageLayout(
   layout: Partial<Omit<CenteredPageLayout, 'kind'>> = {},
 ): CenteredPageLayout {
@@ -80,13 +92,14 @@ export function centeredPageLayout(
     width: PAGE_WIDTH,
     background: paletteValue('Gray'),
     columnBackground: paletteValue('White'),
+    spacing: PAGE_SPACING,
     ...layout,
   })!;
 }
 
 /** A layout as the document may hold it — or null for anything that is not
-    one. The width snaps to its 4px grid within its bounds; a colour that is
-    not a safe one is dropped. */
+    one. The width and the room snap to their 4px grid within their bounds
+    (no room said is none); a colour that is not a safe one is dropped. */
 export function normalizePageLayout(value: unknown): PageLayout | null {
   if (!value || typeof value !== 'object') return null;
   const layout = value as Record<string, unknown>;
@@ -95,11 +108,16 @@ export function normalizePageLayout(value: unknown): PageLayout | null {
   const width = Number.isFinite(raw)
     ? Math.min(PAGE_WIDTH_MAX, Math.max(PAGE_WIDTH_MIN, Math.round(raw / 4) * 4))
     : PAGE_WIDTH;
+  const room = Number(layout['spacing']);
+  const spacing = Number.isFinite(room)
+    ? Math.min(PAGE_SPACING_MAX, Math.max(0, Math.round(room / 4) * 4))
+    : 0;
   return {
     kind: 'centered',
     width,
     background: color(layout['background']),
     columnBackground: color(layout['columnBackground']),
+    spacing,
   };
 }
 
@@ -110,7 +128,8 @@ export function samePageLayout(a: PageLayout | null, b: PageLayout | null): bool
     a.kind === b.kind &&
     a.width === b.width &&
     a.background === b.background &&
-    a.columnBackground === b.columnBackground
+    a.columnBackground === b.columnBackground &&
+    a.spacing === b.spacing
   );
 }
 
@@ -143,10 +162,14 @@ export function wrapPageLayout(container: HTMLElement, layout: PageLayout): void
   });
   table.style.cssText = 'width: 100%; border-collapse: collapse;';
   const cell = table.createTBody().insertRow().insertCell();
-  if (layout.background) {
-    cell.setAttribute('bgcolor', layout.background);
-    cell.style.cssText = fillStyle(layout.background);
-  }
+  // The room above and below the column: the page cell's padding — the one
+  // padding Outlook's Word engine honours, on a cell.
+  const room = layout.spacing ? `padding: ${layout.spacing}px 0px;` : '';
+  if (layout.background) cell.setAttribute('bgcolor', layout.background);
+  const style = [room, layout.background ? fillStyle(layout.background) : '']
+    .filter(Boolean)
+    .join(' ');
+  if (style) cell.style.cssText = style;
   const column = doc.createElement('div');
   column.className = layoutMarker('page-column');
   column.style.cssText =
@@ -255,6 +278,7 @@ function readPage(page: HTMLTableElement): PageLayout {
     width: Number.isFinite(width) ? width : PAGE_WIDTH,
     background: cell ? fillOf(cell) : null,
     columnBackground: column ? fillOf(column) : null,
+    spacing: cell ? parseFloat(cell.style.paddingTop) || 0 : 0,
   })!;
 }
 

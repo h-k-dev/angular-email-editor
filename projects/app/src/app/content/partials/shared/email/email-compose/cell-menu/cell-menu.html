@@ -10,7 +10,7 @@
     menuSafeTriangle
     #menu
     class="cell-menu"
-    aria-label="Cell options"
+    [attr.aria-label]="column() ? 'Column options' : 'Cell options'"
     (itemSelected)="pick($event)"
     (keydown.escape)="leave()"
   >
@@ -88,9 +88,11 @@
       </div>
     </div>
 
-    <div ngMenuItem class="cell-menu__item" value="clear">
-      <mat-icon>backspace</mat-icon>
-      <span>Clear contents</span>
-    </div>
+    @if (!column()) {
+      <div ngMenuItem class="cell-menu__item" value="clear">
+        <mat-icon>backspace</mat-icon>
+        <span>Clear contents</span>
+      </div>
+    }
   </div>
 </ng-template>

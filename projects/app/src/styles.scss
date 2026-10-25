@@ -426,6 +426,11 @@ html {
   --aee-page-fill: var(--aee-page-background, transparent);
   --aee-page-column-fill: var(--aee-page-column, var(--aee-page-fill));
   padding-inline: var(--aee-page-gutter);
+  // The page's room above and below the column (`--aee-page-spacing`): a
+  // border in the page's colour, the column's gradient kept off it — the
+  // column a card on the page, as the email's padded page cell draws it.
+  border-block: var(--aee-page-spacing, 0px) solid var(--aee-page-fill);
+  background-clip: padding-box;
   background-image: linear-gradient(
     to right,
     var(--aee-page-fill) calc(50% - var(--aee-page-half)),
@@ -1415,6 +1420,12 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
 
 .aee-editor .aee-grip--cell > i::after {
   inset-block-start: 4px;
+}
+
+/* A layout column's grip (column-handles.ts) is the cell's pill, on the
+ * caret column's right edge: the column is what it is placed against. */
+.aee-editor .aee-column:has(> .aee-grip--layout-column) {
+  position: relative;
 }
 
 /* Pointing at the cell's grip, pressing it, its menu up: the boundary under

@@ -59,6 +59,7 @@ import { injectDarkPaletteStyle } from './dark-palette-style';
 // Library
 import {
   BlockMenuState,
+  ColumnHandleTarget,
   TableHandleTarget,
   BubbleMenuState,
   Editor,
@@ -68,6 +69,7 @@ import {
   beginBlockMarquee,
   createBlockMarquee,
   createTableHandles,
+  createColumnHandles,
   createBubbleMenu,
   createButtonEdit,
   createContentProposal,
@@ -429,6 +431,19 @@ export class EmailCompose implements FormValueControl<string> {
       selected either way. */
   protected readonly tableHandle = signal<TableHandleTarget | null>(null);
 
+  /** Which layout column's grip was pressed: the cell menu opens on it for
+      the column, and clears when the menu closes. */
+  protected readonly columnHandle = signal<ColumnHandleTarget | null>(null);
+
+  /** The cell menu's grip — a table cell's or a layout column's. */
+  protected readonly cellHandle = computed(() => this.tableHandle() ?? this.columnHandle());
+
+  /** Any grip's menu closed: none is open now. */
+  protected closeHandles(): void {
+    this.tableHandle.set(null);
+    this.columnHandle.set(null);
+  }
+
   /** Body stats measured mathematically via pretext — no DOM reads. */
   bodyMetrics = signal<TextMetrics | undefined>(undefined);
 
@@ -621,7 +636,7 @@ export class EmailCompose implements FormValueControl<string> {
     this.editor()?.destroy();
     this.bubbleMenuState.set({ isOpen: false, boundingBox: null });
     this.blockMenuState.set({ isOpen: false, boundingBox: null, block: null });
-    this.tableHandle.set(null);
+    this.closeHandles();
     this.suggestionState.set(undefined);
     this.#published = null;
     this.#publishedQuoted = this.quoted();
@@ -666,6 +681,13 @@ export class EmailCompose implements FormValueControl<string> {
       createTableHandles({
         onOpen: (target) => this.tableHandle.set(target),
         label: (kind, number) => this.i18n.t(`editor.table.${kind}Options`, { number }),
+      }),
+      // The caret column's grip on a columns block: the cell menu, for the
+      // column — its fill, its lines' alignment, where it sits beside a
+      // taller neighbour.
+      createColumnHandles({
+        onOpen: (target) => this.columnHandle.set(target),
+        label: (number) => this.i18n.t('editor.table.columnOptions', { number }),
       }),
       // One suggestion menu, a trigger per list: `/` for the kit's commands
       // and the Templates group, `{{` for the variable catalogue — and any

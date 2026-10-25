@@ -48,6 +48,13 @@ describe('columns serialization', () => {
     expect(canonical(once)).toBe(once);
   });
 
+  it('reads a column’s vertical alignment as written — a builder’s baseline is the top', () => {
+    const at = (align: string) =>
+      canonical(TWO_COLS.replace('vertical-align: top;', `vertical-align: ${align};`));
+    expect(at('bottom')).toContain('max-width: 300px; vertical-align: bottom;');
+    expect(at('baseline')).not.toContain('baseline');
+  });
+
   it('emits a fluid container and inline-block columns', () => {
     const html = canonical(TWO_COLS);
     expect(html).toContain('width: 100%; max-width: 600px;'); // container
@@ -278,6 +285,21 @@ describe('columns editing', () => {
     // Clearing removes it again.
     editor.commands['setColumnBackground'](null);
     expect(editor.getHTML()).not.toContain('background-color');
+  });
+
+  it('setColumnVerticalAlign sits the current column’s content middle or bottom — in the style and in Outlook’s cell — round-tripping', () => {
+    editor.commands['insertColumns'](2); // cursor in the first column
+    editor.commands['setColumnVerticalAlign']('middle');
+    const html = editor.getHTML();
+    expect(html).toContain('max-width: 280px; vertical-align: middle;');
+    expect(html).toContain('<td width="280" valign="middle">');
+    // The other column keeps the top, in both places.
+    expect(html).toContain('<td width="280" valign="top">');
+    expect(html).toContain('max-width: 280px; vertical-align: top;');
+    expect(canonical(html)).toBe(html);
+    expect(lintHTML(html)).toEqual([]);
+    editor.commands['setColumnVerticalAlign']('top');
+    expect(editor.getHTML()).not.toContain('middle');
   });
 
   it('addColumn inserts after the cursor, re-splits the caps, and lands in the new column', () => {

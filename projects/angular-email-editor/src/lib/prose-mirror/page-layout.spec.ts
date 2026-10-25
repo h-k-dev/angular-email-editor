@@ -153,9 +153,27 @@ describe('page layout', () => {
       width: 600,
       background: null,
       columnBackground: '#fff',
+      spacing: 0,
     });
     expect(normalizePageLayout({ kind: 'centered', width: 2000 })?.width).toBe(800);
+    expect(normalizePageLayout({ kind: 'centered', spacing: 30 })?.spacing).toBe(32);
+    expect(normalizePageLayout({ kind: 'centered', spacing: 500 })?.spacing).toBe(96);
+    expect(normalizePageLayout({ kind: 'centered', spacing: -8 })?.spacing).toBe(0);
     expect(normalizePageLayout({ kind: 'other' })).toBeNull();
+  });
+
+  it('gives the page room above and below the column as its cell’s padding — Outlook’s too — and reads it back', () => {
+    expect(LAYOUT.spacing).toBe(32);
+    const html = withLayout(LAYOUT);
+    expect(html).toContain(
+      '<td bgcolor="#f1f3f4" style="padding: 32px 0px; background-color: rgb(241, 243, 244); color: rgb(32, 33, 36);">',
+    );
+    mount(html);
+    expect(pageLayoutOf(editor.state)).toEqual(LAYOUT);
+    expect(editor.getHTML()).toBe(html);
+    expect(editor.view.dom.style.getPropertyValue('--aee-page-spacing')).toBe('32px');
+    // None: no padding said at all.
+    expect(withLayout({ ...LAYOUT, spacing: 0 })).not.toContain('padding: 0px');
   });
 
   it('paints the body with the page colour in the email document, dark class and all', () => {
