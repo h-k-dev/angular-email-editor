@@ -31,10 +31,10 @@ describe('table serialization', () => {
     expect(canonical(once)).toBe(once);
   });
 
-  it('serializes a borderless presentation table with a tbody', () => {
+  it('serializes a borderless content table with a tbody — data, so no presentation role', () => {
     const html = canonical(SAMPLE);
     expect(html).toContain(
-      '<table role="presentation" style="width: 100%; table-layout: fixed; border-collapse: collapse;">',
+      '<table style="width: 100%; table-layout: fixed; border-collapse: collapse;">',
     );
     expect(html).toContain('<tbody>');
     // Borderless: grid lines are editor-only, never in the email itself.
@@ -293,8 +293,9 @@ describe('table editing', () => {
       editor.setContent('<div>start</div>');
       editor.exec(action(id).command!);
       const html = editor.getHTML();
+      // Content, not layout: no marker, no presentation role.
       expect(html).toContain(
-        `<table role="presentation" style="width: 100%; ${spacing} table-layout: fixed; border-collapse: collapse;">`,
+        `<table style="width: 100%; ${spacing} table-layout: fixed; border-collapse: collapse;">`,
       );
       // Never the sides: the table stays on the text column.
       expect(html).not.toMatch(/margin-(left|right)|margin:/);
@@ -897,11 +898,36 @@ describe('tableKind', () => {
     });
   }
 
-  it('reads an imported template’s flush, unlined table as layout', () => {
+  it('reads an imported template’s flush, unlined presentation table as layout', () => {
     expect(
       tableKind(
-        firstTable('<table><tbody><tr><td style="padding: 0 24px">a</td></tr></tbody></table>'),
+        firstTable(
+          '<table role="presentation"><tbody><tr><td style="padding: 0 24px">a</td></tr></tbody></table>',
+        ),
       ),
+    ).toBe('layout');
+  });
+
+  it('reads a table written without the role — another editor’s, its lines a stylesheet’s — as content', () => {
+    // Summernote's `table` with no inline line: the writer keeps its rows
+    // and columns, layout blocks off or not.
+    expect(
+      tableKind(
+        firstTable('<table class="table"><tbody><tr><td>a</td><td>b</td></tr></tbody></table>'),
+      ),
+    ).toBe('borderless');
+  });
+
+  it('reads its marker first: marked, a layout table whatever its lines; unmarked layout markup of ours, as before', () => {
+    const marked =
+      '<table class="aee-layout-table" style="margin-top: 16px; margin-bottom: 16px;"><tbody><tr><td style="border: 1px solid rgb(218, 220, 224);">a</td></tr></tbody></table>';
+    expect(tableKind(firstTable(marked))).toBe('layout');
+    // A client's renamed marker (Outlook.com, Gmail) reads as ours.
+    expect(tableKind(firstTable(marked.replace('aee-layout-table', 'x_aee-layout-table')))).toBe(
+      'layout',
+    );
+    expect(
+      tableKind(firstTable(marked.replace('aee-layout-table', 'm_-8812345aee-layout-table'))),
     ).toBe('layout');
   });
 });

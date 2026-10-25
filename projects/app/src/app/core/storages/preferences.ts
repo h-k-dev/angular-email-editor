@@ -12,11 +12,17 @@ export type ThemePreference = ThemeScheme | 'system';
     else on the origin. */
 const PREFIX = 'angular-email-editor:';
 
-/** How narrow the inbox's list may be dragged, px, and how wide a width
-    may be kept — a sanity bound, not a layout one: what really stops the
-    list is the message beside it, which keeps {@link INBOX_READER_MIN}. */
-export const INBOX_LIST_MIN = 240;
+/** How narrow the inbox's list may be dragged, px: a row's least — the
+    40px avatar, the five 28px quick actions a hovered row shows (156px),
+    their insets and the scrollbar's gutter, and still ~90px of the
+    sender's name beside them. How wide a width may be kept is a sanity
+    bound, not a layout one: what really stops the list is the message
+    beside it, which keeps {@link INBOX_READER_MIN}. */
+export const INBOX_LIST_MIN = 360;
 export const INBOX_LIST_MAX = 4000;
+
+/** The list's width until its divider is dragged, px. */
+export const INBOX_LIST_DEFAULT = 400;
 
 /** What the open message keeps at least, px, however far the list is
     dragged — the email renders no narrower than this. */
@@ -79,20 +85,36 @@ export class Preferences {
     oneOf(['one', 'two'], 'one'),
   );
 
+  /** Whether the mailbox aside shows its Designer run — the templates.
+      Unset reads as shown. */
+  readonly asideDesignerOpen = this.#storage.pairSignal(
+    `${PREFIX}aside-designer-open`,
+    onOff(true),
+  );
+
   /** Whether the mailbox aside shows its Developers run, the API
-      reference's pages under its row, and the styling reference's — each
-      folds its own. Unset reads as shown. */
+      reference's pages under its row, the styling reference's, the
+      components' and the utilities' — each folds its own. Unset reads as
+      shown. */
   readonly asideDevelopersOpen = this.#storage.pairSignal(
     `${PREFIX}aside-developers-open`,
     onOff(true),
   );
   readonly asideApiOpen = this.#storage.pairSignal(`${PREFIX}aside-api-open`, onOff(true));
   readonly asideStylingOpen = this.#storage.pairSignal(`${PREFIX}aside-styling-open`, onOff(true));
+  readonly asideComponentsOpen = this.#storage.pairSignal(
+    `${PREFIX}aside-components-open`,
+    onOff(true),
+  );
+  readonly asideUtilitiesOpen = this.#storage.pairSignal(
+    `${PREFIX}aside-utilities-open`,
+    onOff(true),
+  );
 
-  /** How wide the inbox's list is, px — its divider, dragged. Unset reads
-      as 320. */
+  /** How wide the inbox's list is, px — its divider, dragged. Unset — or
+      kept from before the least grew — reads as {@link INBOX_LIST_DEFAULT}. */
   readonly inboxListWidth = this.#storage.pairSignal(
     `${PREFIX}inbox-list-width`,
-    wholeIn(INBOX_LIST_MIN, INBOX_LIST_MAX, 320),
+    wholeIn(INBOX_LIST_MIN, INBOX_LIST_MAX, INBOX_LIST_DEFAULT),
   );
 }

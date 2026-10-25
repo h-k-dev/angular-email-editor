@@ -1,0 +1,39 @@
+// How a trigger looks is the host's: on, off and at rest.
+.act {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 32px;
+  block-size: 32px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--mat-sys-corner-small, 8px);
+  background: transparent;
+  color: var(--mat-sys-on-surface);
+  cursor: pointer;
+
+  mat-icon {
+    inline-size: 20px;
+    block-size: 20px;
+    font-size: 20px;
+  }
+
+  &:hover {
+    background: color-mix(in srgb, var(--mat-sys-on-surface) 8%, transparent);
+  }
+}
+
+.act--on {
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+}
+
+.act--off {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.act__id {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+}

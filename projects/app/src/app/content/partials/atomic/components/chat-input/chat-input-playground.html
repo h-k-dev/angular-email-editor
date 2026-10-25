@@ -1,0 +1,14 @@
+<playground-frame [knobs]="knobs" [actions]="actions" [value]="value()">
+  <div
+    email-chat-input
+    playgroundSubject="Input"
+    [placeholder]="placeholder()"
+    [label]="label()"
+    [disabled]="disabled()"
+    [readonly]="readonly()"
+    [(value)]="value"
+    (sent)="playground.log('sent', $event)"
+    (escaped)="playground.log('escaped')"
+    (touch)="playground.log('touch')"
+  ></div>
+</playground-frame>

@@ -101,6 +101,7 @@ describe('createSuggestionMenu — the / menu', () => {
       'Heading 3 (layout)',
       'Bulleted list (layout)',
       'Numbered list (layout)',
+      'Spacer',
       'Button',
       'Table',
       'Borderless table',

@@ -1,0 +1,44 @@
+<playground-frame [knobs]="knobs" [actions]="actions" [value]="value()">
+  <table class="stage-table">
+    <thead>
+      <tr>
+        <th scope="col">Entry</th>
+        <th scope="col">Name</th>
+        <th scope="col">Address</th>
+        <th scope="col">Is</th>
+        <th scope="col">Key</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (entry of entries(); track $index) {
+        <tr>
+          <td>
+            <code>{{ entry.raw }}</code>
+          </td>
+          <td>{{ entry.name ?? '—' }}</td>
+          <td>
+            <code>{{ entry.address }}</code>
+          </td>
+          <td>
+            @if (entry.mailbox) {
+              <span class="stage-yes">mailbox</span>
+            } @else if (entry.pending) {
+              <span>pending</span>
+            } @else {
+              <span class="stage-no">invalid</span>
+            }
+            @if (entry.duplicate) {
+              <span class="stage-no"> · duplicate</span>
+            }
+          </td>
+          <td>
+            <code>{{ entry.key }}</code>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+  <p class="stage-note stage-note--after">
+    <code>joinAddresses</code> → <code>{{ joined() }}</code>
+  </p>
+</playground-frame>

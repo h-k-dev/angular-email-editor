@@ -1,0 +1,29 @@
+<playground-frame [knobs]="knobs" [actions]="playgroundActions" [value]="state()">
+  <!-- The host's own buttons, an [emailAction] each. The toolbar keeps the
+       editor's focus on a press, so the selection stays. -->
+  <div class="stage-bar" role="toolbar" aria-label="Formatting" [emailKeepFocus]="keepFocus()">
+    @for (action of actions.all(); track action.id) {
+      <button
+        type="button"
+        class="act"
+        #trigger="emailAction"
+        [playgroundSubject]="action.id === 'bold' ? 'Trigger · bold' : ''"
+        [emailAction]="action.id"
+        [emailActionFrom]="actions"
+        [emailActionFocus]="returnFocus()"
+        [emailActionAria]="aria()"
+        [class.act--on]="action.pressed()"
+        [class.act--off]="action.disabled()"
+        [title]="action.action?.title ?? action.id"
+        (click)="ran(action.id, trigger)"
+      >
+        @if (action.action?.icon; as icon) {
+          <mat-icon>{{ icon }}</mat-icon>
+        } @else {
+          <span class="act__id">{{ action.id }}</span>
+        }
+      </button>
+    }
+  </div>
+  <div #host class="stage-editor"></div>
+</playground-frame>

@@ -10,6 +10,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltip, TooltipPosition } from '@angular/material/tooltip';
 
+import { ScrollOwner } from '../../../../../core/common/directives/scroll-owner/scroll-owner';
+
 /** Where the writer's bar sits: closing the sheet, or heading it. */
 export type WriterBarPosition = 'top' | 'bottom';
 
@@ -78,12 +80,16 @@ export class EmailWriter {
   readonly dense = input(false, { transform: booleanAttribute });
 
   /** What scrolls: `body` — the text alone, under the bar and the envelope
-      held in place — or `sheet` — everything, so where the keyboard leaves
-      little screen (a phone) the bar and the envelope scroll away above the
-      text as it is written (Gmail's) and the text has the screen to itself;
-      a bar at the foot stays put. The body must agree (`EmailCompose.scroll`):
-      a composer that scrolls itself inside a scrolling sheet scrolls twice. */
-  readonly scroll = input<WriterScroll>('body');
+      held in place — or `sheet` — everything, so the bar sticks on top and
+      the envelope scrolls away above the text as it is written (a phone,
+      Gmail's; a document: the zoomed window, the composer page). The sheet
+      scrolls where the writer owns the scroll: a `scrollOwner` on its own
+      element, which the body (`EmailCompose`) inside hears too — one
+      scroller, never two. */
+  readonly #owner = inject(ScrollOwner, { self: true, optional: true });
+  protected readonly scroll = computed<WriterScroll>(() =>
+    this.#owner?.active() ? 'sheet' : 'body',
+  );
 
   /** The bar heads the sheet, mirrored: Send at its end. */
   protected readonly barOnTop = computed(() => this.bar() === 'top');

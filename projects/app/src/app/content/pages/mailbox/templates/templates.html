@@ -38,7 +38,7 @@
 >
   <ng-container *virtualGridItem="let cell of cells()">
     @if (cell.kind === 'template') {
-      <article template-card [card]="cell"></article>
+      <article template-card [card]="cell" [hueOf]="cell.setKey" (changed)="patch($event)"></article>
     } @else {
       <div class="gallery-ghost" aria-hidden="true">
         <div class="gallery-ghost__thumb"></div>

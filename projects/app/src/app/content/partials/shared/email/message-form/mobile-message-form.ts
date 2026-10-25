@@ -1,4 +1,4 @@
-import { Component, computed, signal } from '@angular/core';
+import { Component, signal } from '@angular/core';
 
 // Angular Signal Forms
 import { FormField, FormRoot } from '@angular/forms/signals';
@@ -27,7 +27,7 @@ import {
 import { DotsMorph } from '../../../common/dots-morph/dots-morph';
 import { HeightSwitch } from '../../../../../core/common/directives/height-switch/height-switch';
 import { HoverLinger } from '../../../../../core/common/directives/hover-linger/hover-linger';
-import { FloatingScrollbar } from '../../../../../core/common/directives/floating-scrollbar/floating-scrollbar';
+import { ScrollOwner } from '../../../../../core/common/directives/scroll-owner/scroll-owner';
 import { OverflowRow } from '../../../common/overflow-row/overflow-row';
 import { ActionTrigger } from '@h-k-dev/angular-email-editor/actions';
 import { TranslatePipe } from '@ngx-translate/core';
@@ -72,7 +72,7 @@ import { MessageSheet } from './message-sheet';
     DotsMorph,
     HeightSwitch,
     HoverLinger,
-    FloatingScrollbar,
+    ScrollOwner,
     AttachmentChip,
     AttachmentChipIcon,
     AttachmentChipIconButton,
@@ -92,11 +92,6 @@ import { MessageSheet } from './message-sheet';
 export class MobileMessageForm extends MessageSheet {
   /** The bar heads the phone's sheet. */
   protected readonly barAtTop = signal(true).asReadonly();
-
-  /** What the composer's floating foot covers of the sheet's foot, px —
-      the sheet's end scroll padding, as the stuck bar is its start's: a
-      focused row stays clear of it, and so does the sheet's scrollbar. */
-  protected readonly footRoom = computed(() => this.emailPane().footRoom());
 
   /** The strip starts put away: on a phone the text needs every line, and
       the attach button's toggle already says how many are attached. */

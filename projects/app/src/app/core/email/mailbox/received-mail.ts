@@ -37,6 +37,9 @@ interface InboxListing {
   mails: (Omit<InboxHeader, 'to' | 'date'> & { to?: string; date?: string })[];
 }
 
+/** Where a message moved out of the inbox went. */
+export type MailPlace = 'trash' | 'archive' | 'snoozed';
+
 /** Whoever the examples were sent to: the account's own address. */
 const SELF = BLANK.from.join(', ');
 
@@ -51,7 +54,8 @@ const SELF = BLANK.from.join(', ');
  * opened — its path, `/inbox/:id` — or about to be (a row pointed at),
  * each once. None where nothing serves them: a unit test, an offline start.
  * Every message unread until it is opened, the list, the reader and the
- * aside's count one state.
+ * aside's count one state. What a row's actions do — read or not, starred,
+ * moved out to the trash, the archive or snoozed — lasts this visit only.
  */
 @Service()
 export class ReceivedMail {
@@ -79,21 +83,69 @@ export class ReceivedMail {
       that is not in it missing, rather than on its way. */
   readonly settled = computed(() => !this.#source.isLoading());
 
-  /** The messages opened so far. */
+  /** Messages moved out of the inbox, by id, and where to. For this visit
+      only: a reload brings them back. */
+  readonly #moved = signal<ReadonlyMap<string, MailPlace>>(new Map());
+
+  /** What the inbox lists: the headers, less those moved out of it. */
+  readonly inbox = computed<readonly InboxHeader[]>(() =>
+    this.mails().filter((mail) => !this.#moved().has(mail.id)),
+  );
+
+  /** The messages opened (or marked read) so far. */
   readonly #read = signal<ReadonlySet<string>>(new Set());
 
-  /** Messages not yet opened, by id. */
+  /** The inbox's messages not yet read, by id. */
   readonly unread = computed(
-    () => new Set(this.mails().filter((mail) => !this.#read().has(mail.id)).map((mail) => mail.id)),
+    () => new Set(this.inbox().filter((mail) => !this.#read().has(mail.id)).map((mail) => mail.id)),
   );
+
+  /** Starred messages, by id. */
+  readonly #starred = signal<ReadonlySet<string>>(new Set());
+  readonly starred = this.#starred.asReadonly();
 
   /** Bodies asked for, by id: each fetched once. */
   readonly #opened = new Map<string, Promise<InboxMail | null>>();
 
-  /** A message has been opened: it is read from then on. */
+  /** A message has been opened (or marked read): it is read from then on. */
   read(id: string): void {
     if (this.#read().has(id)) return;
     this.#read.update((read) => new Set(read).add(id));
+  }
+
+  /** A message marked unread again, until it is next opened. */
+  markUnread(id: string): void {
+    if (!this.#read().has(id)) return;
+    this.#read.update((read) => {
+      const next = new Set(read);
+      next.delete(id);
+      return next;
+    });
+  }
+
+  /** Starred ⇄ not. */
+  toggleStar(id: string): void {
+    this.#starred.update((starred) => {
+      const next = new Set(starred);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  }
+
+  /** A message moved out of the inbox: to the trash, the archive, or
+      snoozed away. */
+  move(id: string, place: MailPlace): void {
+    this.#moved.update((moved) => new Map(moved).set(id, place));
+  }
+
+  /** A moved message back in the inbox — the undo. */
+  restore(id: string): void {
+    if (!this.#moved().has(id)) return;
+    this.#moved.update((moved) => {
+      const next = new Map(moved);
+      next.delete(id);
+      return next;
+    });
   }
 
   /** The message with this id, its body fetched — null where the listing

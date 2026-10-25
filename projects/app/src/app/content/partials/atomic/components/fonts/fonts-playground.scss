@@ -1,0 +1,74 @@
+.fp-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fp-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border-radius: var(--mat-sys-corner-small, 8px);
+
+  & + & {
+    border-block-start: 1px solid var(--mat-sys-outline-variant);
+  }
+}
+
+// The font the knob's family comes to.
+.fp-row--matched {
+  background: var(
+    --email-selection-wash,
+    color-mix(in srgb, var(--mat-sys-primary) 12%, transparent)
+  );
+}
+
+.fp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.fp-name {
+  font: var(--mat-sys-label-large);
+}
+
+.fp-clients {
+  display: flex;
+  gap: 4px;
+}
+
+.fp-client {
+  display: grid;
+  place-items: center;
+  inline-size: 20px;
+  block-size: 20px;
+  border-radius: 50%;
+  font: var(--mat-sys-label-small);
+  text-decoration: none;
+  color: var(--mat-sys-on-surface-variant);
+  outline: 1px dashed var(--mat-sys-outline-variant);
+  outline-offset: -1px;
+}
+
+.fp-client--has {
+  outline: 0;
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+}
+
+.fp-sample {
+  margin: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+
+.fp-stack {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  color: var(--mat-sys-on-surface-variant);
+}

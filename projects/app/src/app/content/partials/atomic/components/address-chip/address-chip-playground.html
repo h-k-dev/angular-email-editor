@@ -1,0 +1,40 @@
+<playground-frame [knobs]="knobs" [actions]="actions">
+  <p class="stage-note">Hold a chip to copy it. The first is the chip under test.</p>
+  <ul class="stage-list">
+    @for (chip of chips(); track chip.label; let first = $first) {
+      <li
+        email-address-chip
+        [playgroundSubject]="chip.label"
+        [address]="chip.address"
+        [removable]="removable()"
+        [inline]="inline()"
+        [aria-current]="first && current()"
+        [aria-disabled]="ariaDisabled()"
+        [draggable]="draggable()"
+        [removeTabbable]="removeTabbable()"
+        [holdDelay]="holdDelay()"
+        (removed)="playground.log('removed', chip.address)"
+        (copied)="playground.log('copied', $event)"
+      >
+        @if (removeSlot()) {
+          <ng-template
+            emailAddressChipRemove
+            let-remove="remove"
+            let-label="label"
+            let-disabled="disabled"
+          >
+            <button
+              type="button"
+              class="stage-remove"
+              [attr.aria-label]="label"
+              [disabled]="disabled"
+              (click)="remove()"
+            >
+              remove
+            </button>
+          </ng-template>
+        }
+      </li>
+    }
+  </ul>
+</playground-frame>

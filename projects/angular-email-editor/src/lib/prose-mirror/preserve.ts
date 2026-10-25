@@ -51,6 +51,7 @@ import {
 import { defineMark, defineNode } from './extension';
 import { AttributePairs, verbatimElement } from './verbatim';
 import { AUTHORED_ATTR, AUTHORED_SPEC_KEY, canonicalRender, renderedPath } from './authored';
+import { withoutMarkers } from './layout-marker';
 
 export type { AttributePairs } from './verbatim';
 export { verbatimElement } from './verbatim';
@@ -536,12 +537,29 @@ function normalizeStyle(style: string): string {
     .join('; ');
 }
 
-/** Same tag, same attribute set, same values (styles declaration-wise). */
+/** An element's attributes as compared: layout markers taken out of its
+    class (layout-marker.ts), and a class left empty by that, gone. */
+function comparedAttributes(element: Element): Map<string, string> {
+  const attributes = new Map<string, string>();
+  for (const { name, value } of Array.from(element.attributes)) {
+    if (name !== 'class') attributes.set(name, value);
+    else if (withoutMarkers(value)) attributes.set(name, withoutMarkers(value));
+  }
+  return attributes;
+}
+
+/** Same tag, same attribute set, same values (styles declaration-wise). A
+    layout marker is no difference: markup written before the markers is
+    still exactly the node's rendering — and comes out marked — and a
+    client's renamed marker (`x_aee-layout-section`) reads as ours. */
 function sameOpeningTag(a: Element, b: Element): boolean {
-  if (a.tagName !== b.tagName || a.attributes.length !== b.attributes.length) return false;
-  for (const { name, value } of Array.from(a.attributes)) {
-    const other = b.getAttribute(name);
-    if (other === null) return false;
+  if (a.tagName !== b.tagName) return false;
+  const ours = comparedAttributes(a);
+  const theirs = comparedAttributes(b);
+  if (ours.size !== theirs.size) return false;
+  for (const [name, value] of ours) {
+    const other = theirs.get(name);
+    if (other === undefined) return false;
     if (name === 'style' ? normalizeStyle(value) !== normalizeStyle(other) : value !== other) {
       return false;
     }

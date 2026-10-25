@@ -592,6 +592,11 @@ describe('MJML examples imported as our own blocks look like the original', () =
     }
   }
 
+  /** The stacking class taken off every column — alone, or beside the
+      column's layout marker. */
+  const unstack = (h: string): string =>
+    h.replace(/class="aee-stack" /g, '').replace(/ aee-stack(?=[ "])/g, '');
+
   // The harness itself: each of the import's fixes, undone on Racoon's
   // import, is seen — the face, the line height, the phone width, the
   // label on one line, the nav links' bare face.
@@ -603,16 +608,11 @@ describe('MJML examples imported as our own blocks look like the original', () =
       'face',
     ],
     ['the line height', 600, (h) => h.replace(/line-height: [^;"]+;?/g, ''), 'line height'],
-    [
-      'a stacked column full width on a phone',
-      375,
-      (h) => h.replace(/class="aee-stack" /g, ''),
-      'box width',
-    ],
+    ['a stacked column full width on a phone', 375, (h) => unstack(h), 'box width'],
     [
       'a label on one line',
       375,
-      (h) => h.replace(/class="aee-stack" /g, '').replace(/white-space: nowrap; /g, ''),
+      (h) => unstack(h).replace(/white-space: nowrap; /g, ''),
       'link "BUY NOW" wraps',
     ],
     [

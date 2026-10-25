@@ -1,0 +1,19 @@
+<header page-header class="alone-header">
+  <a
+    matIconButton
+    [routerLink]="back()"
+    [attr.aria-label]="'components.openDocs' | translate"
+    [title]="'components.openDocs' | translate"
+  >
+    <mat-icon>arrow_back</mat-icon>
+  </a>
+  <mat-icon class="alone-header__icon" aria-hidden="true">{{ link().icon }}</mat-icon>
+  <h1 class="alone-header__title">{{ link().key | translate }}</h1>
+  <code class="alone-header__entry">&#64;h-k-dev/angular-email-editor/{{ link().id }}</code>
+</header>
+
+<div class="alone-body">
+  @if (playground.value(); as type) {
+    <ng-container *ngComponentOutlet="type; injector: placeInjector()" />
+  }
+</div>

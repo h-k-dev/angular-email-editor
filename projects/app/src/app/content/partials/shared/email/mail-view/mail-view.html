@@ -1,0 +1,102 @@
+<!-- Gmail's header, without its avatar: the subject; under it who sent it
+     and to whom, and at the line's end the date, the paper's light or dark,
+     and the answers — Reply, the rest in ⋮. -->
+<header class="mail-view__header">
+  <h1 class="mail-view__subject">{{ subject() }}</h1>
+  <div class="mail-view__line">
+    <div class="mail-view__who">
+      <div class="mail-view__from">
+        <span class="mail-view__name">{{ name() }}</span>
+        @if (address(); as address) {
+          <span class="mail-view__address">&lt;{{ address }}&gt;</span>
+        }
+      </div>
+      @if (to()) {
+        <div class="mail-view__to">
+          {{ 'inbox.to' | translate }} {{ to() }}
+          @if (cc(); as cc) {
+            · {{ 'inbox.cc' | translate }} {{ cc }}
+          }
+        </div>
+      }
+    </div>
+    <span class="mail-view__date">{{ date() }}</span>
+    <div class="mail-view__actions" role="group" [attr.aria-label]="subject()">
+      <button
+        matIconButton
+        type="button"
+        class="mail-view__paper"
+        [attr.aria-label]="(scheme() === 'dark' ? 'inbox.paperLight' : 'inbox.paperDark') | translate"
+        [title]="(scheme() === 'dark' ? 'inbox.paperLight' : 'inbox.paperDark') | translate"
+        (click)="flipPaper.emit()"
+      >
+        <mat-icon>{{ scheme() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
+      </button>
+      <button
+        matIconButton
+        type="button"
+        class="mail-view__reply"
+        [attr.aria-label]="'inbox.reply' | translate"
+        [title]="'inbox.reply' | translate"
+        (click)="answer.emit('reply')"
+      >
+        <mat-icon>reply</mat-icon>
+      </button>
+      <button
+        matIconButton
+        type="button"
+        class="mail-view__more"
+        [attr.aria-label]="'inbox.more' | translate"
+        [title]="'inbox.more' | translate"
+        ngMenuTrigger
+        #trigger="ngMenuTrigger"
+        [menu]="more.menu()"
+      >
+        <mat-icon>more_vert</mat-icon>
+      </button>
+      <div
+        toolbar-menu
+        #more
+        side="below"
+        align="end"
+        [label]="'inbox.more' | translate"
+        [trigger]="trigger"
+        [items]="moreItems()"
+        (selected)="answer.emit($event)"
+      ></div>
+    </div>
+  </div>
+</header>
+
+<!-- The body, as Dawn draws it (`email-viewer`): no scripts, its links out
+     to a tab of their own; as tall as what it holds, edge to edge — a simple
+     email's text inset under the header, a newsletter not. Drawn once it
+     has come, the answers with it — where the reading ends. -->
+@if (html(); as html) {
+  <email-viewer
+    class="mail-view__body"
+    [html]="html"
+    [scheme]="scheme()"
+    [inset]="inset()"
+    [label]="bodyLabel()"
+  />
+
+  <!-- Gmail's answers under the mail, written out: where the reading ends,
+       the reply starts — the header's Reply and ⋮ stay too. -->
+  <div class="mail-view__answers" role="group" [attr.aria-label]="'inbox.answers' | translate">
+    <button matButton="outlined" type="button" (click)="answer.emit('reply')">
+      <mat-icon>reply</mat-icon>
+      {{ 'inbox.reply' | translate }}
+    </button>
+    <button matButton="outlined" type="button" (click)="answer.emit('reply-all')">
+      <mat-icon>reply_all</mat-icon>
+      {{ 'inbox.replyAll' | translate }}
+    </button>
+    <button matButton="outlined" type="button" (click)="answer.emit('forward')">
+      <mat-icon>forward</mat-icon>
+      {{ 'inbox.forward' | translate }}
+    </button>
+  </div>
+} @else {
+  <div class="mail-view__loading" role="status" [attr.aria-label]="'inbox.loading' | translate"></div>
+}

@@ -1,0 +1,152 @@
+@use '../../../../../../styles/breakpoints' as bp;
+
+// The sheet: the editor's paper (the island's `--email-paper`), the header
+// and the body on it, the answers under them, as tall as the mail — whatever
+// scrolls round it scrolls it as one. No padding round the whole: the email
+// runs from edge to edge, and the header and the answers keep their own
+// inset (`--_inset`). A container: its phone layout is asked of the room it
+// is given (`bp.phone-container`), never of the screen.
+:host {
+  container: mail-view / inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-sizing: border-box;
+  background: var(--email-paper, var(--mat-sys-surface-bright));
+  color: var(--mat-sys-on-surface);
+}
+
+.mail-view__header,
+.mail-view__answers,
+.mail-view__loading {
+  --_inset: 32px;
+
+  @include bp.phone-container(mail-view) {
+    --_inset: 16px;
+  }
+}
+
+// Gmail's header, without its avatar: the subject, and under it one line —
+// who sent it and to whom, then at its end the date and the icon buttons.
+.mail-view__header {
+  display: grid;
+  gap: 8px;
+  padding: 24px var(--_inset) 0;
+
+  @include bp.phone-container(mail-view) {
+    padding-block-start: 16px;
+  }
+}
+
+.mail-view__subject {
+  margin: 0;
+  font: var(--mat-sys-title-large);
+}
+
+.mail-view__line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-inline-size: 0;
+}
+
+.mail-view__who {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.mail-view__from {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: var(--mat-sys-body-medium);
+}
+
+// The sender: 500, a weight the app loads (a 600 is a smeared faux bold).
+.mail-view__name {
+  font-weight: 500;
+}
+
+.mail-view__address,
+.mail-view__date,
+.mail-view__to {
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-small);
+}
+
+.mail-view__address {
+  margin-inline-start: 4px;
+}
+
+.mail-view__to {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mail-view__date {
+  flex: none;
+  white-space: nowrap;
+}
+
+// The paper button, Reply and ⋮: a row of icon buttons, 2px apart as every
+// icon row here — out of the text's inset to the edge column the page
+// header's buttons keep (8px), so ⋮ ends where Gmail's does, not 40px in.
+.mail-view__actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-inline-end: calc(8px - var(--_inset));
+}
+
+// The body: the viewer, the sheet's whole width, edge to edge.
+.mail-view__body {
+  flex: none;
+}
+
+// Gmail's answers under the mail: outlined, written out, at the header's
+// inset, room under them before the sheet ends.
+.mail-view__answers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px var(--_inset) 32px;
+}
+
+// The body on its way: Gmail's thin bar at the header's inset — held back a
+// moment, so a body that comes at once (pointed at, fetched before) never
+// flashes it.
+.mail-view__loading {
+  height: 2px;
+  margin: 8px var(--_inset) 32px;
+  border-radius: 1px;
+  background: linear-gradient(90deg, transparent, var(--mat-sys-primary) 50%, transparent) 0 0 /
+    40% 100% no-repeat;
+  opacity: 0;
+  animation:
+    mail-view-show 0s 300ms forwards,
+    mail-view-slide 1.2s 300ms ease-in-out infinite;
+}
+
+@keyframes mail-view-show {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes mail-view-slide {
+  from {
+    background-position: -40% 0;
+  }
+  to {
+    background-position: 140% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mail-view__loading {
+    background-size: 100% 100%;
+    animation: mail-view-show 0s 300ms forwards;
+  }
+}

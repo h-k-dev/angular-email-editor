@@ -1,0 +1,25 @@
+<playground-frame [knobs]="knobs" [actions]="actions" [value]="value()">
+  <ul class="fp-list">
+    @for (row of rows(); track row.id) {
+      <li class="fp-row" [class.fp-row--matched]="row.matched">
+        <div class="fp-head">
+          <span class="fp-name">{{ row.name }}</span>
+          <span class="fp-clients">
+            @for (client of row.clients; track client.letter) {
+              <abbr
+                class="fp-client"
+                [class.fp-client--has]="client.has"
+                [title]="client.name + (client.has ? ' draws it' : ' falls back')"
+                >{{ client.letter }}</abbr
+              >
+            }
+          </span>
+        </div>
+        <p class="fp-sample" [style.font-family]="row.stack" [style.font-size.px]="sizePx()">
+          {{ sample() }}
+        </p>
+        <code class="fp-stack">{{ row.stack }}</code>
+      </li>
+    }
+  </ul>
+</playground-frame>

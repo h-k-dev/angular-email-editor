@@ -1,0 +1,227 @@
+@use '@angular/material' as mat;
+@use '@h-k-dev/angular-email-editor/styles/scroll';
+
+// The designer fills the dialog, which fills the screen: the bar, then the
+// desk under it — one paper, edge to edge, as the zoomed window's document
+// is: bar, canvas, phone and details all lie on it, with no surface of their
+// own. The whole of it is a paper island (`data-paper-scheme`).
+:host {
+  // The details' width.
+  --designer-details-width: 360px;
+
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  block-size: 100%;
+  background: var(--email-paper, var(--mat-sys-surface-bright));
+  color: var(--mat-sys-on-surface);
+}
+
+.designer-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  block-size: 48px;
+  padding-inline: 4px 12px;
+}
+
+.designer-bar__title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-inline-size: 0;
+  margin: 0;
+  margin-inline-start: 4px;
+  font: var(--mat-sys-title-small);
+}
+
+.designer-bar__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.designer-bar__tag {
+  flex: none;
+  align-self: center;
+}
+
+.designer-bar__state {
+  flex: none;
+  font: var(--mat-sys-label-medium);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.designer-bar__spacer {
+  flex: 1 1 auto;
+}
+
+.designer-bar__save {
+  @include mat.button-overrides(
+    (
+      filled-container-height: 32px,
+      filled-horizontal-padding: 16px,
+      filled-container-shape: var(--mat-sys-corner-large),
+    )
+  );
+  margin-inline-start: 8px;
+}
+
+// The desk, three rooms in a row: what is left of the email's column, the
+// column, what is right of it — the two sides equal, so the email stands in
+// the middle of the screen; the details float over the right room and take
+// none of their own. The canvas spans them all (its empty room starts the marquee) and
+// lends the rows its columns (subgrid). The phone stands in the left room,
+// over the canvas: it never moves the email — unless that room is narrower
+// than the phone, which then widens it (the room's minimum is the phone's
+// width) and the email gives way only by what is missing. The email's
+// column is a document's (styles.scss): 720px where the room allows, never
+// under 600.
+.designer-body {
+  position: relative;
+  display: grid;
+  grid-template-columns:
+    [left] 1fr
+    [email] minmax(var(--email-column-min), var(--email-column-max))
+    [right] 1fr;
+  grid-template-rows: minmax(0, 1fr);
+  column-gap: 12px;
+  min-block-size: 0;
+}
+
+// The phone, dead centre of the left room: as tall as the desk lets it be,
+// up to the phone's own, and centred on both axes in it.
+.designer-phone {
+  z-index: 1;
+  grid-area: 1 / left;
+  justify-self: center;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  block-size: 100%;
+  padding: 24px;
+}
+
+// The canvas: every room, the editor in the email's — and the scroller
+// (`scrollOwner`): the editor grows with the email, at least the canvas
+// tall, and the canvas scrolls it, its toolbar stuck to the canvas's foot.
+.designer-canvas {
+  grid-area: 1 / 1 / auto / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+
+// The editor: the email's measure and the inset its layout blocks' grips
+// hang into, nothing round it — the text sits on the paper.
+.designer-paper {
+  grid-column: email;
+  min-inline-size: 0;
+  min-block-size: 100%;
+  --email-compose-surface-padding-block: 16px;
+}
+
+// The HTML source waits here, out of sight, while the editor shows: it is
+// only ever seen in the editor's place (the toggle moves it in) — the swap
+// is in place, never a pane beside the editor. Its own `display` would
+// beat the `hidden` attribute.
+.designer-canvas > section[html-email-compose][hidden] {
+  display: none;
+}
+
+// The details: two blocks floating down the right edge, over the canvas —
+// as tall as they are, scrolling when the rows outgrow the screen.
+.designer-details {
+  @include scroll.scroll;
+
+  position: absolute;
+  z-index: 1;
+  inset-block-start: 12px;
+  inset-inline-end: 12px;
+  max-block-size: calc(100% - 24px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-sizing: border-box;
+  inline-size: var(--designer-details-width);
+  overflow-y: auto;
+}
+
+// A block: no edge of its own — its heading says where it starts; its fill
+// the paper's own, so text it floats over on a narrow screen goes under it.
+.designer-block {
+  flex: none;
+  background: var(--email-paper, var(--mat-sys-surface-bright));
+}
+
+.designer-block__head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-block-size: 40px;
+  margin: 0;
+  padding-inline-end: 4px;
+  font: var(--mat-sys-title-small);
+  --mat-icon-button-state-layer-size: 32px;
+  --mat-icon-button-touch-target-size: 32px;
+}
+
+// The heading is the fold: the whole row, the chevron turned to say which
+// way it goes.
+.designer-block__toggle {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 8px;
+  align-self: stretch;
+  padding: 0 12px 0 8px;
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: -2px;
+  }
+}
+
+.designer-block__chevron {
+  flex: none;
+  color: var(--mat-sys-on-surface-variant);
+  transform: rotate(-90deg);
+  transition: transform 150ms ease;
+
+  [data-open] > .designer-block__head & {
+    transform: none;
+  }
+}
+
+.designer-block__count {
+  font: var(--mat-sys-label-medium);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.designer-block__body {
+  padding: 0 12px 12px;
+
+  &[hidden] {
+    display: none;
+  }
+
+  // The chips line up at the end — the screen's edge the details float on.
+  ul[email-attachment-chips] {
+    --email-attachment-chips-inset: 0;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+}
+
+.designer-block__empty {
+  margin: 0;
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
+}

@@ -1,0 +1,5 @@
+// As wide as the email column, never wider than the stage.
+.mp-field {
+  inline-size: 100%;
+  max-inline-size: 600px;
+}

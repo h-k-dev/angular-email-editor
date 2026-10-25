@@ -1,6 +1,7 @@
 import { CanMatchFn, Routes } from '@angular/router';
 
 import { API_PAGES } from './content/pages/mailbox/api-reference/api-pages';
+import { ENTRY_PAGES } from './content/pages/mailbox/components/component-pages';
 import { STYLING_PAGES } from './content/pages/mailbox/styling/styling-pages';
 import { DocPageLink } from './content/partials/common/doc-page/doc';
 
@@ -68,11 +69,27 @@ export const routes: Routes = [
         canMatch: [knownPage(STYLING_PAGES)],
         loadComponent: () => import('./content/pages/mailbox/styling/styling').then((m) => m.Styling),
       },
+      // The components and utilities, a page each — every one a playground.
+      { path: 'components', pathMatch: 'full', redirectTo: `components/${ENTRY_PAGES[0].id}` },
+      {
+        path: 'components/:page',
+        canMatch: [knownPage(ENTRY_PAGES)],
+        loadComponent: () =>
+          import('./content/pages/mailbox/components/components').then((m) => m.Components),
+      },
       {
         path: 'render',
         loadComponent: () => import('./content/pages/mailbox/render/render').then((m) => m.Render),
       },
     ],
+  },
+  // A component's playground alone, nothing of the app around it — for
+  // debugging the component by itself; its page links here.
+  {
+    path: 'playground/:entry',
+    canMatch: [knownPage(ENTRY_PAGES)],
+    loadComponent: () =>
+      import('./content/pages/playground/playground-alone').then((m) => m.PlaygroundAlone),
   },
   { path: '**', redirectTo: '' },
 ];

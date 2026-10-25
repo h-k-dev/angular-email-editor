@@ -25,10 +25,10 @@ describe('outlookColumns — the hybrid’s Outlook half', () => {
     editor.commands['insertColumns'](2);
     const out = editor.getHTML();
     expect(out).toContain(
-      '<!--[if mso]><table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center"><tr><td width="280" valign="top"><![endif]--><div style="display: inline-block; width: 100%; max-width: 280px;',
+      '<!--[if mso]><table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center"><tr><td width="280" valign="top"><![endif]--><div class="aee-layout-column" style="display: inline-block; width: 100%; max-width: 280px;',
     );
     expect(out).toContain(
-      '<!--[if mso]></td><td width="280" valign="top"><![endif]--><div style="display: inline-block;',
+      '<!--[if mso]></td><td width="280" valign="top"><![endif]--><div class="aee-layout-column" style="display: inline-block;',
     );
     expect(out).toContain('</div><!--[if mso]></td></tr></table><![endif]--></div>');
     // The round trip: the comments go on parse, the block writes them again.

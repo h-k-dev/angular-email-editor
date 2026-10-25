@@ -1,0 +1,54 @@
+.pp-title {
+  display: block;
+  margin: 0 0 8px;
+
+  &:not(:first-child) {
+    margin-block-start: 16px;
+  }
+}
+
+.pp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pp-swatch {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font: var(--mat-sys-body-small);
+}
+
+// The colour on both pages, side by side.
+.pp-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  overflow: hidden;
+  margin-block-end: 4px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: var(--mat-sys-corner-small, 8px);
+}
+
+.pp-page {
+  display: grid;
+  place-items: center;
+  block-size: 40px;
+  font:
+    600 18px / 1 Arial,
+    Helvetica,
+    sans-serif;
+}
+
+.pp-name {
+  font: var(--mat-sys-label-large);
+}
+
+.pp-code {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  color: var(--mat-sys-on-surface-variant);
+}

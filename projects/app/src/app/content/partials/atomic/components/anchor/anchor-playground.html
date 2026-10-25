@@ -1,0 +1,29 @@
+<playground-frame [knobs]="knobs" [value]="{ rect: rect() }">
+  <p #text class="ap-text">
+    Select a few words of this paragraph. The selection's box goes to
+    <code>[emailAnchor]</code>, which puts a real element over it — fixed, out of the pointer's way
+    — and the connected overlay hangs off that element as it would off a button. Collapse the
+    selection and the box is null: the anchor stays where it last was.
+  </p>
+
+  <!-- The anchor: an element over a box, nothing rendered. -->
+  <span
+    playgroundSubject="Anchor"
+    class="ap-anchor"
+    [class.ap-anchor--outlined]="outline()"
+    [emailAnchor]="rect()"
+    cdkOverlayOrigin
+    #origin="cdkOverlayOrigin"
+  ></span>
+
+  <ng-template
+    cdkConnectedOverlay
+    [cdkConnectedOverlayOrigin]="origin"
+    [cdkConnectedOverlayOpen]="overlay() && !!rect()"
+    [cdkConnectedOverlayPositions]="positions"
+  >
+    <div class="ap-overlay" role="tooltip">
+      {{ rect()?.width }} × {{ rect()?.height }} at {{ rect()?.left }}, {{ rect()?.top }}
+    </div>
+  </ng-template>
+</playground-frame>

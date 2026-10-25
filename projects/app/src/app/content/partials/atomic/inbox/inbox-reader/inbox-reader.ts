@@ -1,12 +1,5 @@
 import { Component, computed, inject, input, resource } from '@angular/core';
 
-// Angular Material
-import { MatButton, MatIconButton } from '@angular/material/button';
-import { MatIcon } from '@angular/material/icon';
-
-// Aria
-import { MenuTrigger } from '@angular/aria/menu';
-
 // Angular Email Editor
 import { ReplyKind, forwardQuote, replyEnvelope, replyQuote } from '@h-k-dev/angular-email-editor';
 import { TranslatePipe } from '@ngx-translate/core';
@@ -14,13 +7,8 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { ComposeWindows } from '../../../../../core/email/compose-windows';
 import { BLANK } from '../../../../../core/email/envelope';
 import { ReceivedMail } from '../../../../../core/email/mailbox/received-mail';
-import { Viewport } from '../../../../../core/layout/viewport';
 import { I18n } from '../../../../../core/translations/i18n';
-import { EmailViewer } from '../../../common/email-viewer/email-viewer';
-import {
-  ToolbarMenu,
-  ToolbarMenuItem,
-} from '../../../shared/email/email-compose/formatting-toolbar/toolbar-menu/toolbar-menu';
+import { MailView } from '../../../shared/email/mail-view/mail-view';
 import { InboxPaper } from '../inbox-paper';
 
 /**
@@ -28,7 +16,11 @@ import { InboxPaper } from '../inbox-paper';
  * beside the list on a desk, the whole screen on a phone. The body is an
  * `email-viewer`, drawn by Dawn on the reading paper (`InboxPaper`, the
  * inbox page's — the editor's, or the other one this reader's button turned
- * to); the header sits on the same paper: one sheet, on the pane's island.
+ * to); the header sits on the same paper: one sheet, on the pane's island —
+ * the `mail-view`, which lays itself out by the pane's width (a container
+ * query), so a phone, a phone-wide pane and the designer's drawn phone
+ * show it alike. This reader is what makes it the inbox's: the route's
+ * message, its paper, and what its answers open.
  *
  * The header is Gmail's, without its avatar: the subject, who sent it and to
  * whom, and at the line's end the date, the paper button and the answers
@@ -46,7 +38,7 @@ import { InboxPaper } from '../inbox-paper';
  */
 @Component({
   selector: 'app-inbox-reader',
-  imports: [TranslatePipe, MatButton, MatIconButton, MatIcon, MenuTrigger, ToolbarMenu, EmailViewer],
+  imports: [TranslatePipe, MailView],
   templateUrl: './inbox-reader.html',
   styleUrl: './inbox-reader.scss',
 })
@@ -55,7 +47,6 @@ export class InboxReader {
   readonly #i18n = inject(I18n);
   readonly #mailbox = inject(ReceivedMail);
   readonly #paper = inject(InboxPaper);
-  readonly #viewport = inject(Viewport);
 
   /** The message's id — the route's `:id`. */
   readonly id = input.required<string>();
@@ -88,11 +79,6 @@ export class InboxReader {
   /** The paper it is read on (`InboxPaper`). */
   protected readonly paper = this.#paper.scheme;
 
-  /** The header's side inset (the stylesheet's `--_inset`: 32px, 16px on
-      a phone), for a simple email's text to line up under it inside its
-      frame; a newsletter runs edge to edge. */
-  protected readonly inset = computed(() => (this.#viewport.compact() ? 16 : 32));
-
   /** The sender's address, beside the name: the part of `from` in angle
       brackets — none where `from` is a bare address (the name is it). */
   protected readonly address = computed(
@@ -109,12 +95,6 @@ export class InboxReader {
       timeStyle: 'short',
     }).format(date);
   });
-
-  /** ⋮: the answers beside Reply, in the app's language. */
-  protected readonly moreItems = computed<ToolbarMenuItem<ReplyKind>[]>(() => [
-    { value: 'reply-all', label: this.#i18n.t('inbox.replyAll'), icon: 'reply_all' },
-    { value: 'forward', label: this.#i18n.t('inbox.forward'), icon: 'forward' },
-  ]);
 
   /** The paper button: the mail read on the other paper. */
   protected flipPaper(): void {

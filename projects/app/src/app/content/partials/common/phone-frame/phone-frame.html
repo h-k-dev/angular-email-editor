@@ -1,0 +1,49 @@
+<div class="phone-frame__screen">
+  <!-- The status bar: the time, the island, signal, Wi-Fi and battery. -->
+  <div class="phone-frame__status" aria-hidden="true">
+    <span class="phone-frame__time">9:41</span>
+    <span class="phone-frame__island"></span>
+    <svg class="phone-frame__icons" viewBox="0 0 66 12">
+      <rect x="0" y="8" width="3" height="4" rx="1" />
+      <rect x="5" y="5.5" width="3" height="6.5" rx="1" />
+      <rect x="10" y="3" width="3" height="9" rx="1" />
+      <rect x="15" y="0.5" width="3" height="11.5" rx="1" />
+      <path
+        d="M30 2.6a10.6 10.6 0 0 1 7.4 3l1.2-1.3A12.4 12.4 0 0 0 30 .8a12.4 12.4 0 0 0-8.6 3.5l1.2 1.3a10.6 10.6 0 0 1 7.4-3Zm0 3.6a6.8 6.8 0 0 1 4.8 2l1.2-1.3A8.6 8.6 0 0 0 30 4.4 8.6 8.6 0 0 0 24 6.9l1.2 1.3a6.8 6.8 0 0 1 4.8-2Zm0 3.6a3 3 0 0 1 2.2.9L30 12l-2.2-2.3a3 3 0 0 1 2.2-.9Z"
+      />
+      <rect class="phone-frame__battery" x="42.5" y="0.5" width="21" height="11" rx="3.5" />
+      <rect x="44.5" y="2.5" width="17" height="7" rx="2" />
+      <path d="M64.8 4v4a2.2 2.2 0 0 0 0-4Z" />
+    </svg>
+  </div>
+
+  <!-- Brave's address bar: home, and the host in its field — the padlock
+       before it, the shields at its end. -->
+  @if (chrome() === 'browser') {
+    <div class="phone-frame__address-bar" aria-hidden="true">
+      <mat-icon>home</mat-icon>
+      <span class="phone-frame__address">
+        <mat-icon class="phone-frame__lock">lock</mat-icon>
+        <span class="phone-frame__url">{{ url() }}</span>
+        <mat-icon class="phone-frame__shield">shield</mat-icon>
+      </span>
+    </div>
+  }
+
+  <div class="phone-frame__scroller" floatingScrollbar tabindex="0" [attr.aria-label]="label()">
+    <ng-content />
+  </div>
+
+  <!-- Brave's toolbar: back, forward, new tab, the tabs (one open), the
+       menu — over the home indicator. -->
+  @if (chrome() === 'browser') {
+    <div class="phone-frame__toolbar" aria-hidden="true">
+      <mat-icon>arrow_back_ios_new</mat-icon>
+      <mat-icon class="phone-frame__disabled">arrow_forward_ios</mat-icon>
+      <mat-icon>add</mat-icon>
+      <span class="phone-frame__tabs">1</span>
+      <mat-icon>more_horiz</mat-icon>
+    </div>
+  }
+  <span class="phone-frame__home" aria-hidden="true"></span>
+</div>

@@ -17,10 +17,21 @@ export function inbound(text: string): InboundMessage {
 }
 
 /** One example document, as the catalogue lists it: a name for the strip
-    and the file it is in, under {@link EXAMPLES_PATH}. */
+    and the file it is in, under {@link EXAMPLES_PATH} — and, for a template
+    that is always sent the same way (a one-time code from a no-reply
+    address), the message round it: who it is from, its subject, its
+    preview text. */
 export interface ExampleEntry {
   name: string;
   file: string;
+  envelope?: ExampleEnvelope;
+}
+
+/** What a catalogue entry may say of the message round its template. */
+export interface ExampleEnvelope {
+  from?: string[];
+  subject?: string;
+  previewText?: string;
 }
 
 /** An example's id: its file, without the extension — `angularjs/platzhalter-im-ueberblick`.

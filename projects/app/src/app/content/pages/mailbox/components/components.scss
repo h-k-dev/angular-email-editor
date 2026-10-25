@@ -1,0 +1,12 @@
+.components-import {
+  margin-block-start: 24px;
+}
+
+.components-usage {
+  margin-block-start: 24px;
+}
+
+// Where the playground lands, its height held while its chunk loads.
+.components-loading {
+  min-block-size: 480px;
+}

@@ -1,110 +1,21 @@
 @if (missing()) {
   <p class="inbox-reader__missing">{{ 'inbox.missing' | translate }}</p>
 } @else if (header(); as head) {
-  <!-- One sheet of paper: the header and the body on the reading paper —
-     the inbox's pane is the island it lies on. -->
-  <article class="inbox-reader" [attr.aria-label]="head.subject">
-    <!-- Gmail's header, without its avatar: the subject; under it who sent
-         it and to whom, and at the line's end the date, the paper's light
-         or dark, and the answers — Reply, the rest in ⋮. -->
-    <header class="inbox-reader__header">
-      <h1 class="inbox-reader__subject">{{ head.subject }}</h1>
-      <div class="inbox-reader__line">
-        <div class="inbox-reader__who">
-          <div class="inbox-reader__from">
-            <span class="inbox-reader__name">{{ head.name }}</span>
-            @if (address(); as address) {
-              <span class="inbox-reader__address">&lt;{{ address }}&gt;</span>
-            }
-          </div>
-          <div class="inbox-reader__to">
-            {{ 'inbox.to' | translate }} {{ head.to }}
-            @if (head.cc; as cc) {
-              · {{ 'inbox.cc' | translate }} {{ cc }}
-            }
-          </div>
-        </div>
-        <span class="inbox-reader__date">{{ date() }}</span>
-        <div class="inbox-reader__actions" role="group" [attr.aria-label]="head.subject">
-          <!-- The paper it is read on, turned at will (`InboxPaper`). -->
-          <button
-            matIconButton
-            type="button"
-            class="inbox-reader__paper"
-            [attr.aria-label]="(paper() === 'dark' ? 'inbox.paperLight' : 'inbox.paperDark') | translate"
-            [title]="(paper() === 'dark' ? 'inbox.paperLight' : 'inbox.paperDark') | translate"
-            (click)="flipPaper()"
-          >
-            <mat-icon>{{ paper() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
-          </button>
-          <button
-            matIconButton
-            type="button"
-            class="inbox-reader__reply"
-            [attr.aria-label]="'inbox.reply' | translate"
-            [title]="'inbox.reply' | translate"
-            (click)="answer('reply')"
-          >
-            <mat-icon>reply</mat-icon>
-          </button>
-          <button
-            matIconButton
-            type="button"
-            class="inbox-reader__more"
-            [attr.aria-label]="'inbox.more' | translate"
-            [title]="'inbox.more' | translate"
-            ngMenuTrigger
-            #trigger="ngMenuTrigger"
-            [menu]="more.menu()"
-          >
-            <mat-icon>more_vert</mat-icon>
-          </button>
-          <div
-            toolbar-menu
-            #more
-            side="below"
-            align="end"
-            [label]="'inbox.more' | translate"
-            [trigger]="trigger"
-            [items]="moreItems()"
-            (selected)="answer($event)"
-          ></div>
-        </div>
-      </div>
-    </header>
-
-    <!-- The body, as Dawn draws it (`email-viewer`): no scripts, its links
-         out to a tab of their own; as tall as what it holds, edge to edge —
-         a simple email's text inset under the header, a newsletter not.
-         Fetched by the path's id: drawn once it has come, the answers with
-         it — where the reading ends. -->
-    @if (mail(); as opened) {
-      <email-viewer
-        class="inbox-reader__body"
-        [html]="opened.html"
-        [scheme]="paper()"
-        [inset]="inset()"
-        [label]="'inbox.body' | translate"
-      />
-
-      <!-- Gmail's answers under the mail, written out: where the reading
-           ends, the reply starts — the header's Reply and ⋮ stay too. -->
-      <div class="inbox-reader__answers" role="group" [attr.aria-label]="'inbox.answers' | translate">
-        <button matButton="outlined" type="button" (click)="answer('reply')">
-          <mat-icon>reply</mat-icon>
-          {{ 'inbox.reply' | translate }}
-        </button>
-        <button matButton="outlined" type="button" (click)="answer('reply-all')">
-          <mat-icon>reply_all</mat-icon>
-          {{ 'inbox.replyAll' | translate }}
-        </button>
-        <button matButton="outlined" type="button" (click)="answer('forward')">
-          <mat-icon>forward</mat-icon>
-          {{ 'inbox.forward' | translate }}
-        </button>
-      </div>
-    } @else {
-      <div class="inbox-reader__loading" role="status" [attr.aria-label]="'inbox.loading' | translate"></div>
-    }
-  </article>
+  <!-- One sheet of paper (`mail-view`): the header and the body on the
+       reading paper — the inbox's pane is the island it lies on. The header
+       is the listing's, there at once; the body comes when fetched. -->
+  <article
+    mail-view
+    [subject]="head.subject"
+    [name]="head.name"
+    [address]="address()"
+    [to]="head.to"
+    [cc]="head.cc ?? null"
+    [date]="date()"
+    [html]="mail()?.html ?? null"
+    [scheme]="paper()"
+    [bodyLabel]="'inbox.body' | translate"
+    (answer)="answer($event)"
+    (flipPaper)="flipPaper()"
+  ></article>
 }

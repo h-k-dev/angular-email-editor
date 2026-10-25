@@ -28,6 +28,7 @@ import {
 import { DotsMorph } from '../../../common/dots-morph/dots-morph';
 import { HeightSwitch } from '../../../../../core/common/directives/height-switch/height-switch';
 import { HoverLinger } from '../../../../../core/common/directives/hover-linger/hover-linger';
+import { ScrollOwner } from '../../../../../core/common/directives/scroll-owner/scroll-owner';
 import { OverflowRow } from '../../../common/overflow-row/overflow-row';
 import { ActionTrigger } from '@h-k-dev/angular-email-editor/actions';
 import { TranslatePipe } from '@ngx-translate/core';
@@ -89,6 +90,7 @@ export type MessageLayout = 'sheet' | 'document';
     DropHint,
     AngularFileDrop,
     MarqueeStart,
+    ScrollOwner,
     ActionTrigger,
   ],
   providers: [{ provide: MessageSheet, useExisting: MessageForm }],

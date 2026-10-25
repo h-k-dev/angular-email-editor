@@ -72,12 +72,16 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
+// A width of its own: centred by auto margins alone it would be
+// fit-content, and a code block's longest line would widen it past a
+// phone's sheet. The 720px column, its 24px insets round it.
 .doc-body {
   min-inline-size: 0;
-  max-inline-size: 720px;
+  inline-size: 100%;
+  max-inline-size: calc(720px + 2 * 24px);
   margin-inline: auto;
   padding: 24px 24px 96px;
-  box-sizing: content-box;
+  box-sizing: border-box;
 
   @container (inline-size < 600px) {
     padding-inline: 16px;

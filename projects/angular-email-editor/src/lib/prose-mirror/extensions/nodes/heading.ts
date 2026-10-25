@@ -4,6 +4,7 @@ import { setBlockType } from 'prosemirror-commands';
 import { textblockTypeInputRule } from 'prosemirror-inputrules';
 import { defineNode } from '../../extension';
 import { declaresFlushTop } from '../../inline-style';
+import { markedAs, markerAttrs } from '../../layout-marker';
 
 /** The levels the schema knows. No h5 or h6: an imported one is a plain
     line, and `##### ` stays the text it is. */
@@ -68,13 +69,21 @@ export const Heading = defineNode({
     defining: true,
     parseDOM: HEADING_LEVELS.map((level) => ({
       tag: `h${level}`,
-      // Written flush — the composer's own before headings were spaced, a
-      // builder's reset title — it stays flush.
-      getAttrs: (dom: HTMLElement) => ({ level, layout: declaresFlushTop(dom) }),
+      // Marked a layout heading (layout-marker.ts): one. Unmarked, written
+      // flush — the composer's own before headings were spaced, a builder's
+      // reset title — it stays flush.
+      getAttrs: (dom: HTMLElement) => ({
+        level,
+        layout: markedAs(dom) === 'heading' || (!markedAs(dom) && declaresFlushTop(dom)),
+      }),
     })),
+    // A layout heading says so (`aee-layout-heading`); a spaced one is plain.
     toDOM: (node) => [
       `h${node.attrs['level']}`,
-      { style: headingStyle(node.attrs['level'] as number, node.attrs['layout'] as boolean) },
+      {
+        ...markerAttrs('heading', node.attrs['layout'] as boolean),
+        style: headingStyle(node.attrs['level'] as number, node.attrs['layout'] as boolean),
+      },
       0,
     ],
   },

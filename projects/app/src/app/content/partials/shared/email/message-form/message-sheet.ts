@@ -240,6 +240,14 @@ export abstract class MessageSheet {
       prefill it. */
   readonly message = linkedSignal<Envelope>(() => this.seed() ?? this.newMessage());
 
+  /** Whether To needs a recipient — a message about to go does; a template
+      (the designer's) may leave it to whoever writes on it. A method, not a
+      field: the form below reads it as the base is built, before a subclass's
+      fields exist, and only the prototype's override is there by then. */
+  protected recipientsRequired(): boolean {
+    return true;
+  }
+
   /**
    * The form over the message. The rules are the ones a mail client
    * enforces before it lets go: one sender, at least one recipient and all
@@ -254,7 +262,7 @@ export abstract class MessageSheet {
     this.message,
     (p) => {
       addressList(p.from, { max: 1 });
-      addressList(p.to);
+      addressList(p.to, { min: this.recipientsRequired() ? 1 : 0 });
       addressList(p.cc, { min: 0 });
       addressList(p.bcc, { min: 0 });
       validate(p.html, ({ value }) =>
@@ -566,7 +574,13 @@ export abstract class MessageSheet {
 
   /** The settings' View row — the editor or its HTML — where the frame has
       a source pane and the message is HTML. */
-  readonly viewOffered = computed(() => this.sourceViews() && !this.plainText());
+  readonly viewOffered = computed(() => this.sourceOffered() && !this.plainText());
+
+  /** Whether this sheet has a source pane to switch to: its frame says so
+      (`sourceViews`), or the sheet holds one itself (the designer's). */
+  protected sourceOffered(): boolean {
+    return this.sourceViews();
+  }
 
   /** The View toggle's pick: the HTML in the editor's place (code view), or
       the editor — the docked source beside it included. */
@@ -584,10 +598,11 @@ export abstract class MessageSheet {
       starts it over. */
   readonly layoutInteractive = linkedSignal(() => this.mode() === 'design');
 
-  /** The switch, as the editor takes it: every layout block alike. */
+  /** The switch, as the editor takes it: every layout block alike — a
+      spacer's height drag too. */
   readonly layoutInteraction = computed<LayoutInteractivity>(() => {
     const on = this.layoutInteractive();
-    return { section: on, columns: on, table: on };
+    return { section: on, columns: on, table: on, spacer: on };
   });
 
   /** The View toggle: moves the source into the editor's place or out of

@@ -1,5 +1,5 @@
 import { NgComponentOutlet } from '@angular/common';
-import { Component, InjectionToken, Type, inject } from '@angular/core';
+import { Component, InjectionToken, Type, booleanAttribute, inject, input } from '@angular/core';
 
 /**
  * What leads every page header under a frame: a component the frame lends
@@ -19,13 +19,16 @@ export const PAGE_HEADER_LEAD = new InjectionToken<Type<unknown>>('PAGE_HEADER_L
  *
  * A row: the frame's lead (`PAGE_HEADER_LEAD`), then what is projected, 8px
  * apart; the page places its own controls along it (a spacer, or
- * `margin-inline-start: auto`).
+ * `margin-inline-start: auto`). A header that leads with a control of its
+ * own — a phone's back button, out of a message to its list — sets
+ * `[frameLead]="false"`: the back arrow stands where the opener stood, as
+ * a mail app's message view has it.
  */
 @Component({
   selector: 'header[page-header]',
   imports: [NgComponentOutlet],
   template: `
-    @if (lead) {
+    @if (lead && frameLead()) {
       <ng-container *ngComponentOutlet="lead" />
     }
     <ng-content />
@@ -44,4 +47,7 @@ export const PAGE_HEADER_LEAD = new InjectionToken<Type<unknown>>('PAGE_HEADER_L
 })
 export class PageHeader {
   protected readonly lead = inject(PAGE_HEADER_LEAD, { optional: true });
+
+  /** Whether the frame's lead heads this header. */
+  readonly frameLead = input(true, { transform: booleanAttribute });
 }

@@ -250,7 +250,9 @@ describe('unwrapLayoutTables', () => {
     // right-to-left section's words first. The full-width column takes the
     // whole budget — not the two-column default it would fall back to were
     // the sheet not read.
-    expect(out.match(/<table role="presentation" width="100%"/g)).toHaveLength(2);
+    expect(
+      out.match(/<table class="aee-layout-section" role="presentation" width="100%"/g),
+    ).toHaveLength(2);
     expect(out.match(/padding: 20px 0px;/g)).toHaveLength(2);
     expect(out.match(/max-width: 560px/g)).toHaveLength(1);
     expect(out.match(/max-width: 280px/g)).toHaveLength(2);

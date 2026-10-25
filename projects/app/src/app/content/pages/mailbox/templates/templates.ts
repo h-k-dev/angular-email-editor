@@ -2,14 +2,13 @@ import { Component, computed, inject, resource, signal } from '@angular/core';
 
 import { TranslatePipe } from '@ngx-translate/core';
 
+import { HueOf } from '../../../../core/common/directives/hue-of/hue-of';
 import { Examples, ExampleSet } from '../../../../core/email/examples';
 import { Filter, escapeLike } from '../../../../core/email/loopback-filter';
-import { EmailTemplate, Templates } from '../../../../core/email/templates';
+import { DIALECT_NAMES, EmailTemplate, Templates } from '../../../../core/email/templates';
 import { Viewport } from '../../../../core/layout/viewport';
 import { PageScroller } from '../../../../core/router/page-scroller';
 import { I18n } from '../../../../core/translations/i18n';
-import { hue } from '../../../../core/randomisation/hue';
-import { initials } from '../../../../core/utils/avatar';
 import {
   TemplateCard,
   TemplateCardModel,
@@ -43,12 +42,6 @@ interface Shelf {
   readonly pressed: boolean;
 }
 
-/** The dialects by name — names, the same in every language. */
-const DIALECTS: Record<EmailTemplate['dialect'], string> = {
-  angularjs: 'AngularJS',
-  handlebars: 'Handlebars',
-};
-
 /** Every `{{ … }}` written, each counted once. */
 const mergeTagsIn = (html: string): number =>
   new Set(html.match(/\{\{[^{}]*\}\}/g)?.map((tag) => tag.replace(/\s+/g, ''))).size;
@@ -65,7 +58,15 @@ const mergeTagsIn = (html: string): number =>
  */
 @Component({
   selector: 'app-template-gallery',
-  imports: [TranslatePipe, PageHeader, OverflowRow, VirtualGrid, VirtualGridItem, TemplateCard],
+  imports: [
+    TranslatePipe,
+    HueOf,
+    PageHeader,
+    OverflowRow,
+    VirtualGrid,
+    VirtualGridItem,
+    TemplateCard,
+  ],
   templateUrl: './templates.html',
   styleUrl: './templates.scss',
 })
@@ -123,10 +124,9 @@ export class TemplateGallery {
         id: template.id,
         template,
         set: label,
-        initials: initials(label),
-        hue: hue(key),
+        setKey: key,
         mergeTags: this.#mergeTagsOf(template),
-        dialect: DIALECTS[template.dialect],
+        dialect: DIALECT_NAMES[template.dialect],
       };
     });
     return this.#loading() ? [...cards, ...GHOSTS] : cards;
@@ -176,6 +176,13 @@ export class TemplateGallery {
         this.#loading.set(false);
       }
     }
+  }
+
+  /** A template saved in the designer: its card redrawn as stored, in
+      place — the feed is not asked again. */
+  protected patch(template: EmailTemplate): void {
+    this.#mergeTags.delete(template.id);
+    this.#rows.update((rows) => rows.map((row) => (row.id === template.id ? template : row)));
   }
 
   /** A set's name in the language in use; the catalogue's where the

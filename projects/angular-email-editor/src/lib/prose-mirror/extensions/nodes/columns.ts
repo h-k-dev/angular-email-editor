@@ -5,6 +5,7 @@ import { defineNode } from '../../extension';
 import { fillTextColor } from '../../dual-contrast';
 import { isSafeColor, toEmailSafeColor } from '../marks/text-style';
 import { parsePadding } from './table';
+import { layoutMarker, markedAs, markerAttrs } from '../../layout-marker';
 
 /**
  * Responsive layout columns — the fluid, no-media-query answer to MJML. Each
@@ -177,15 +178,19 @@ export const STACK_RULE =
   `@media only screen and (max-width: 479px) { ` +
   `.${STACK_CLASS} { max-width: 100% !important; } }`;
 
-/** The opening of a stacking column as {@link columnStyle} writes it — a
-    held column's `width` is a percentage, and never matches. */
-const STACKING_COLUMN = /<div style="display: inline-block; width: 100%; max-width: \d+px;/g;
+/** The opening of a stacking column as {@link columnStyle} writes it, its
+    layout marker first (layout-marker.ts) — a held column's `width` is a
+    percentage, and never matches. */
+const STACKING_COLUMN =
+  /<div (?:class="([^"]*)" )?style="display: inline-block; width: 100%; max-width: \d+px;/g;
 
 /** Canonical HTML with every stacking column carrying {@link STACK_CLASS}
-    — for the email document only. */
+    beside its marker — for the email document only. */
 export function markStackingColumns(html: string): string {
-  return html.replace(STACKING_COLUMN, (open) =>
-    open.replace('<div style=', `<div class="${STACK_CLASS}" style=`),
+  return html.replace(STACKING_COLUMN, (open, classes: string | undefined) =>
+    classes === undefined
+      ? open.replace('<div style=', `<div class="${STACK_CLASS}" style=`)
+      : open.replace(`class="${classes}"`, `class="${classes} ${STACK_CLASS}"`),
   );
 }
 
@@ -217,7 +222,11 @@ export const Column = defineNode({
         getAttrs: (dom) => {
           const el = dom as HTMLElement;
           const style = el.getAttribute('style') ?? '';
-          if (!/display:\s*inline-block/i.test(style)) return false;
+          // Marked a column (layout-marker.ts): one, whatever its display
+          // says; marked as anything else, never; unmarked, by its shape.
+          const kind = markedAs(el);
+          if (kind && kind !== 'column') return false;
+          if (!kind && !/display:\s*inline-block/i.test(style)) return false;
           const bg = el.style?.backgroundColor;
           // The width the author wrote, before an import folded a sheet's
           // `!important` over it (`noteOwnWidths`), else the inline one.
@@ -232,12 +241,13 @@ export const Column = defineNode({
         },
       },
     ],
-    // The class is an editor-only CSS hook for the layout guides; `emitDOM`
-    // (serialization) drops it, so the email stays a bare inline-block div.
+    // `aee-column` is an editor-only CSS hook for the layout guides;
+    // `emitDOM` (serialization) drops it and keeps the marker
+    // (layout-marker.ts), which the clipboard's copy carries too.
     toDOM: (node) => [
       'div',
       {
-        class: 'aee-column',
+        class: `aee-column ${layoutMarker('column')}`,
         style: columnStyle(
           node.attrs['maxWidth'],
           node.attrs['background'],
@@ -250,6 +260,7 @@ export const Column = defineNode({
     emitDOM: (node: { attrs: Record<string, any> }) => [
       'div',
       {
+        ...markerAttrs('column'),
         style: columnStyle(
           node.attrs['maxWidth'],
           node.attrs['background'],
@@ -286,15 +297,19 @@ export const Columns = defineNode({
             : false,
       },
     ],
-    // Editor-only class (see the Column node) — `emitDOM` keeps the email clean.
+    // Editor-only class (see the Column node) — `emitDOM` keeps the marker
+    // alone.
     toDOM: (node) => [
       'div',
-      { class: 'aee-columns', style: containerStyle(node.attrs['align']) },
+      {
+        class: `aee-columns ${layoutMarker('columns')}`,
+        style: containerStyle(node.attrs['align']),
+      },
       0,
     ],
     emitDOM: (node: { attrs: Record<string, any> }) => [
       'div',
-      { style: containerStyle(node.attrs['align']) },
+      { ...markerAttrs('columns'), style: containerStyle(node.attrs['align']) },
       0,
     ],
   },
@@ -358,11 +373,15 @@ export const Columns = defineNode({
 });
 
 function hasColumnChildren(dom: HTMLElement): boolean {
+  // Marked (layout-marker.ts): a columns block is one; marked as anything
+  // else, never. Unmarked: by a child that is a column — marked, or shaped.
+  const kind = markedAs(dom);
+  if (kind) return kind === 'columns';
   for (const child of Array.from(dom.children)) {
-    if (
-      child.tagName === 'DIV' &&
-      /display:\s*inline-block/i.test(child.getAttribute('style') ?? '')
-    ) {
+    if (child.tagName !== 'DIV') continue;
+    const childKind = markedAs(child);
+    if (childKind === 'column') return true;
+    if (!childKind && /display:\s*inline-block/i.test(child.getAttribute('style') ?? '')) {
       return true;
     }
   }

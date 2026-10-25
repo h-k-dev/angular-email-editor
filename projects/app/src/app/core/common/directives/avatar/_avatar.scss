@@ -1,0 +1,21 @@
+@use '../hue-of/hue-of';
+
+// The look of an avatar (avatar.ts, next to this file) — global, since any
+// element anywhere may be one. Round, `--avatar-size` across (40px), the
+// initials white on the name's hue — its container's (`[hueOf]`), or its
+// own.
+.avatar {
+  @include hue-of.colors;
+
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  inline-size: var(--avatar-size, 40px);
+  block-size: var(--avatar-size, 40px);
+  border-radius: 50%;
+  background: var(--avatar-fill);
+  color: #ffffff;
+  // label-large: 500, a weight the app loads.
+  font: var(--mat-sys-label-large);
+  user-select: none;
+}

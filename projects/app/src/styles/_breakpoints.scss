@@ -13,6 +13,21 @@ $full-width-max: 768px;
   }
 }
 
+// PHONE_CONTAINER_MAX: the room a phone gives its content — the widest
+// phone held upright is 430px; 480 leaves it margin. Inclusive.
+$phone-container-max: 480px;
+
+// A phone's width, asked of a container instead of the viewport: a part that
+// lays itself out by the room it is GIVEN (a pane, a phone drawn in a desk)
+// names itself a container and asks this. A phone's content width, not the
+// viewport's `phone` breakpoint: a narrow pane beside a list on a desk is
+// still a desk's, and keeps the wide layout.
+@mixin phone-container($name) {
+  @container #{$name} (max-width: #{$phone-container-max}) {
+    @content;
+  }
+}
+
 // Anything wider — the exact inverse of `phone`, so no width is both or
 // neither.
 @mixin wide {

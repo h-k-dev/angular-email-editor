@@ -1,0 +1,172 @@
+<div class="pg">
+  <!-- The bench's own bar: the stage's light or dark, its width (and the way
+     back to the room it has), and the way to the other place. -->
+  <div class="pg-bar">
+    <hk-tgb
+      class="pg-bar__scheme"
+      [attr.aria-label]="'components.scheme' | translate"
+      [value]="scheme()"
+      (valueChange)="scheme.set($event)"
+    >
+      <button
+        hkTgbIcon
+        value="light"
+        [attr.aria-label]="'components.light' | translate"
+        [title]="'components.light' | translate"
+      >
+        <mat-icon inline>light_mode</mat-icon>
+      </button>
+      <button
+        hkTgbIcon
+        value="dark"
+        [attr.aria-label]="'components.dark' | translate"
+        [title]="'components.dark' | translate"
+      >
+        <mat-icon inline>dark_mode</mat-icon>
+      </button>
+      <button hkTgbText value="auto">{{ 'components.auto' | translate }}</button>
+    </hk-tgb>
+
+    <span class="pg-bar__width" [title]="'components.widthHint' | translate">{{ width() }}px</span>
+    @if (resized()) {
+      <button matButton type="button" class="pg-bar__button" (click)="resetWidth()">
+        {{ 'components.resetWidth' | translate }}
+      </button>
+    }
+
+    @if (place; as place) {
+      <a matButton class="pg-bar__button pg-bar__place" [routerLink]="place.link">
+        <mat-icon>{{ place.alone ? 'menu_book' : 'open_in_full' }}</mat-icon>
+        {{ (place.alone ? 'components.openDocs' : 'components.openAlone') | translate }}
+      </a>
+    }
+  </div>
+
+  <!-- The stage: the component as a host would place it, nothing else
+     around it. Its width follows the drag at its corner. -->
+  <div #stage class="pg-stage" [style.color-scheme]="colorScheme()">
+    <ng-content />
+  </div>
+
+  <div class="pg-panels">
+    @if (knobs().length || actions().length) {
+      <section class="pg-panel" aria-labelledby="pg-inputs">
+        <h3 class="pg-panel__title" id="pg-inputs">{{ 'components.inputs' | translate }}</h3>
+        @if (knobs().length) {
+          <dl class="pg-knobs">
+            @for (knob of knobs(); track knob.name) {
+              <div class="pg-knob">
+                <dt [id]="'pg-knob-' + knob.name">{{ knob.name }}</dt>
+                <dd>
+                  @switch (knob.kind) {
+                    @case ('boolean') {
+                      <mat-slide-toggle
+                        [checked]="knob.value()"
+                        [aria-labelledby]="'pg-knob-' + knob.name"
+                        (change)="setBoolean(knob, $event.checked)"
+                      />
+                    }
+                    @case ('text') {
+                      <input
+                        class="pg-input"
+                        type="text"
+                        [value]="knob.value()"
+                        [attr.aria-labelledby]="'pg-knob-' + knob.name"
+                        (input)="setText(knob, $event)"
+                      />
+                    }
+                    @case ('number') {
+                      <input
+                        class="pg-input pg-input--number"
+                        type="number"
+                        [value]="knob.value()"
+                        [attr.min]="knob.min ?? null"
+                        [attr.max]="knob.max ?? null"
+                        [attr.step]="knob.step ?? null"
+                        [attr.aria-labelledby]="'pg-knob-' + knob.name"
+                        (input)="setNumber(knob, $event)"
+                      />
+                    }
+                    @case ('choice') {
+                      <hk-tgb
+                        class="pg-choice"
+                        [attr.aria-labelledby]="'pg-knob-' + knob.name"
+                        [value]="knob.value()"
+                        (valueChange)="setChoice(knob, $event)"
+                      >
+                        @for (option of knob.options; track option) {
+                          <button hkTgbText [value]="option">{{ option }}</button>
+                        }
+                      </hk-tgb>
+                    }
+                  }
+                </dd>
+              </div>
+            }
+          </dl>
+        }
+        @if (actions().length) {
+          <div class="pg-actions">
+            @for (action of actions(); track action.name) {
+              <button matButton="outlined" type="button" class="pg-action" (click)="run(action)">
+                {{ action.name }}
+              </button>
+            }
+          </div>
+        }
+      </section>
+    }
+
+    <section class="pg-panel" aria-labelledby="pg-state">
+      <h3 class="pg-panel__title" id="pg-state">{{ 'components.state' | translate }}</h3>
+      @for (state of states(); track $index) {
+        <div class="pg-subject">
+          <span class="pg-subject__label">{{ state.label }}</span>
+          @if (state.attributes.length) {
+            <dl class="pg-attributes">
+              @for (attribute of state.attributes; track attribute.name) {
+                <div class="pg-attribute">
+                  <dt>{{ attribute.name }}</dt>
+                  <dd>{{ attribute.value === '' ? '""' : attribute.value }}</dd>
+                </div>
+              }
+            </dl>
+          } @else {
+            <p class="pg-empty">{{ 'components.noAttributes' | translate }}</p>
+          }
+        </div>
+      }
+      @if (hasValue()) {
+        <div class="pg-subject">
+          <span class="pg-subject__label">{{ 'components.value' | translate }}</span>
+          <pre class="pg-value">{{ valueText() }}</pre>
+        </div>
+      }
+    </section>
+
+    <section class="pg-panel pg-panel--events" aria-labelledby="pg-events">
+      <div class="pg-panel__head">
+        <h3 class="pg-panel__title" id="pg-events">{{ 'components.events' | translate }}</h3>
+        @if (playground.events().length) {
+          <button matButton type="button" class="pg-bar__button" (click)="clear()">
+            {{ 'components.clear' | translate }}
+          </button>
+        }
+      </div>
+      <!-- Polite: a screen reader hears what the component just emitted. -->
+      <ol class="pg-events" aria-live="polite">
+        @for (event of playground.events(); track event.id) {
+          <li class="pg-event">
+            <span class="pg-event__time">{{ event.time }}</span>
+            <span class="pg-event__name">{{ event.name }}</span>
+            @if (event.detail) {
+              <code class="pg-event__detail">{{ event.detail }}</code>
+            }
+          </li>
+        } @empty {
+          <li class="pg-empty">{{ 'components.noEvents' | translate }}</li>
+        }
+      </ol>
+    </section>
+  </div>
+</div>

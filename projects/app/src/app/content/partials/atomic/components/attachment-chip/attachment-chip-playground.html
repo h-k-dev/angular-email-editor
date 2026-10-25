@@ -1,0 +1,28 @@
+<playground-frame [knobs]="knobs" [actions]="actions">
+  <ul class="stage-list">
+    @for (run of runs(); track run) {
+      <li
+        email-attachment-chip
+        playgroundSubject="Chip"
+        [attachment]="attachment()"
+        [status]="chipStatus()"
+        [progress]="chipProgress()"
+        [removable]="removable()"
+        [downloadable]="downloadable()"
+        [activatable]="activatable()"
+        [aria-busy]="ariaBusy()"
+        [aria-disabled]="ariaDisabled()"
+        [simulateProgress]="simulateProgress()"
+        [preview]="previewUrl()"
+        (removed)="playground.log('removed')"
+        (downloaded)="playground.log('downloaded')"
+        (activated)="playground.log('activated')"
+        (retried)="playground.log('retried')"
+      >
+        @if (iconSlot()) {
+          <mat-icon *emailAttachmentIcon="let kind = kind" inline>{{ icons[kind] }}</mat-icon>
+        }
+      </li>
+    }
+  </ul>
+</playground-frame>

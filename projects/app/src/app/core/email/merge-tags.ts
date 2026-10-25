@@ -26,6 +26,12 @@ export class MergeTags {
     { path: 'email', label: 'Email address' },
     { path: 'company.name', label: 'Company' },
     { path: 'unsubscribeUrl', label: 'Unsubscribe URL' },
+    { path: 'otp.code', label: 'One-time code' },
+    { path: 'otp.minutes', label: 'One-time code valid for (minutes)' },
+    { path: 'order.number', label: 'Order number' },
+    { path: 'order.date', label: 'Order date' },
+    { path: 'order.item', label: 'Order item' },
+    { path: 'order.total', label: 'Order total' },
     ...Array.from({ length: 80 }, (_, i) => ({
       path: `custom.field${i + 1}`,
       label: `Custom field ${i + 1}`,
@@ -46,6 +52,16 @@ export class MergeTags {
     ['email', 'ada@example.com'],
     ['company.name', 'Analytical Engines Ltd'],
     ['unsubscribeUrl', 'https://example.com/unsubscribe'],
+    // The one-time code the sign-in example sends
+    // (examples/angularjs/sign-in-code.html).
+    ['otp.code', '483920'],
+    ['otp.minutes', '10'],
+    // The order the confirmation example confirms
+    // (examples/angularjs/order-confirmation.html).
+    ['order.number', 'A-10427'],
+    ['order.date', '25.10.2026'],
+    ['order.item', 'Difference Engine No. 2 (kit)'],
+    ['order.total', '149,00 €'],
     // The custom fields the AngularJS example's trade-mark table reads
     // (examples/angularjs/platzhalter-im-ueberblick.html): its mark and
     // infringement are choices,

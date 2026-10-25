@@ -950,7 +950,7 @@ describe('Compose', () => {
     layoutSwitch().click();
     await fixture.whenStable();
     expect(layoutSwitch().getAttribute('aria-checked')).toBe('false');
-    expect(pm().getAttribute('data-aee-static')).toBe('section columns table');
+    expect(pm().getAttribute('data-aee-static')).toBe('section columns table spacer');
 
     // Plain text has no layout: the switch is still there, disabled.
     sheet.onFormat('text');
@@ -964,7 +964,7 @@ describe('Compose', () => {
     await settle();
     await fixture.whenStable();
     expect(layoutSwitch().disabled).toBe(false);
-    expect(pm().getAttribute('data-aee-static')).toBe('section columns table');
+    expect(pm().getAttribute('data-aee-static')).toBe('section columns table spacer');
     await closeSettings(fixture, dialog);
   });
 
@@ -1624,14 +1624,17 @@ describe('Compose below the docking breakpoint', () => {
     const desk = await openAt(false);
     const toolbar = desk.root.querySelector('.formatting-toolbar') as HTMLElement;
     expect(toolbar.hidden).toBe(true);
+    const writer = () => desk.root.querySelector('form[email-writer]');
+    // A document owns its scroll: the whole sheet scrolls, at any width.
+    expect(writer()?.getAttribute('data-scroll')).toBe('sheet');
     desk.compact.set(true);
     await desk.fixture.whenStable();
     expect(desk.root.querySelector('[message-form]')).not.toBeNull();
     expect(desk.root.querySelector('[mobile-message-form]')).toBeNull();
     expect(toolbar.hidden).toBe(true);
     expect(toggle(desk.root)!.getAttribute('aria-pressed')).toBe('false');
-    expect(desk.root.querySelector('form[email-writer]')?.getAttribute('data-scroll')).toBe('body');
-    // Its suggestion menu stays by the caret, in the scrolling paper.
+    expect(writer()?.getAttribute('data-scroll')).toBe('sheet');
+    // Its suggestion menu stays by the caret, in the paper.
     const menu = desk.root.querySelector('[email-suggestion-menu]');
     expect(menu?.closest('.email-compose__editor')).not.toBeNull();
     expect(menu?.getAttribute('data-placement')).toBe('caret');

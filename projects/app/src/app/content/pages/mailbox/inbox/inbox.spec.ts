@@ -19,6 +19,11 @@ describe('Inbox', () => {
     [...root.querySelectorAll<HTMLAnchorElement>('.inbox-row')].find((a) =>
       a.getAttribute('href')?.endsWith(`/${id}`),
     )!;
+  /** A row's list item: the link, its avatar's checkbox, its actions. */
+  const item = (id: string) => row(id).parentElement!;
+  const action = (id: string, name: string) =>
+    item(id).querySelector<HTMLButtonElement>(`.inbox-actions button[aria-label="${name}"]`)!;
+  const settle = () => harness.fixture.whenStable();
 
   beforeEach(async () => {
     fetched = [];
@@ -59,7 +64,7 @@ describe('Inbox', () => {
   it('opens a message as a place of its own: the row links to it, the pane reads it', async () => {
     expect(row('reply-plain-note').getAttribute('href')).toBe('/inbox/reply-plain-note');
     await harness.navigateByUrl('/inbox/reply-plain-note');
-    expect(root.querySelector('app-inbox-reader .inbox-reader__subject')?.textContent).toBe(
+    expect(root.querySelector('app-inbox-reader .mail-view__subject')?.textContent).toBe(
       'Plain note',
     );
     expect(row('reply-plain-note').getAttribute('aria-current')).toBe('page');
@@ -77,13 +82,16 @@ describe('Inbox', () => {
     expect(when('mjml-austin')).toBe('');
   });
 
-  it('leads each row with its sender’s avatar: the initials, on the sender’s own hue', () => {
-    const avatar = (id: string) => row(id).querySelector<HTMLElement>('.inbox-row__avatar')!;
+  it('leads each row with its sender’s avatar: the initials, in the row’s hue — the sender’s own', () => {
+    const avatar = (id: string) => item(id).querySelector<HTMLElement>('.inbox-row__avatar')!;
     expect(avatar('reply-plain-note').textContent?.trim()).toBe('JD');
     expect(avatar('mjml-austin').textContent?.trim()).toBe('A');
     expect(avatar('reply-plain-note').getAttribute('aria-hidden')).toBe('true');
-    const hue = Number(avatar('reply-plain-note').style.getPropertyValue('--avatar-hue'));
+    // The row is the hue's container (its wash, its frame); the avatar wears it.
+    expect(item('reply-plain-note').classList).toContain('hued');
+    const hue = Number(item('reply-plain-note').style.getPropertyValue('--avatar-hue'));
     expect(Number.isInteger(hue) && hue >= 0 && hue < 360).toBe(true);
+    expect(avatar('reply-plain-note').style.getPropertyValue('--avatar-hue')).toBe('');
   });
 
   it('gives each half its own header, the two the same height', () => {
@@ -99,7 +107,7 @@ describe('Inbox', () => {
     await harness.navigateByUrl('/inbox/reply-plain-note');
     const pane = root.querySelector('.inbox-pane')!;
     // The reader's button turns the page's paper (InboxPaper).
-    const button = root.querySelector<HTMLButtonElement>('.inbox-reader__paper')!;
+    const button = root.querySelector<HTMLButtonElement>('.mail-view__paper')!;
     expect(pane.getAttribute('data-paper-scheme')).toBe('light');
     expect(button.getAttribute('aria-label')).toBe('Read on dark paper');
 
@@ -155,4 +163,62 @@ describe('Inbox', () => {
     expect(fetched).toHaveLength(3);
   });
 
+  it('marks a message read or unread again from its row', async () => {
+    expect(row('reply-plain-note').classList).toContain('inbox-row--unread');
+    action('reply-plain-note', 'Mark as read').click();
+    await settle();
+    expect(row('reply-plain-note').classList).not.toContain('inbox-row--unread');
+
+    action('reply-plain-note', 'Mark as unread').click();
+    await settle();
+    expect(row('reply-plain-note').classList).toContain('inbox-row--unread');
+  });
+
+  it('stars a message: the star pressed, and a filled one beside its date', async () => {
+    const star = action('reply-plain-note', 'Star');
+    expect(star.getAttribute('aria-pressed')).toBe('false');
+    expect(row('reply-plain-note').querySelector('.inbox-row__starred')).toBeNull();
+
+    star.click();
+    await settle();
+    expect(star.getAttribute('aria-pressed')).toBe('true');
+    expect(
+      row('reply-plain-note').querySelector('.inbox-row__starred')?.getAttribute('aria-label'),
+    ).toBe('Starred');
+  });
+
+  it('moves a message out to the trash, the archive or snoozed — the open one closes with it', async () => {
+    await harness.navigateByUrl('/inbox/reply-plain-note');
+    action('reply-plain-note', 'Move to trash').click();
+    await settle();
+    expect(row('reply-plain-note')).toBeUndefined();
+    expect(host().hasAttribute('data-reading')).toBe(false);
+    expect(root.querySelector('app-inbox-empty')).not.toBeNull();
+
+    action('mjml-austin', 'Move to archive').click();
+    await settle();
+    expect(row('mjml-austin')).toBeUndefined();
+    expect(root.querySelectorAll('.inbox-row')).toHaveLength(1);
+  });
+
+  it('takes a moved message back with the snackbar’s Undo', async () => {
+    action('mjml-austin', 'Snooze').click();
+    await settle();
+    expect(row('mjml-austin')).toBeUndefined();
+    const undo = [...document.querySelectorAll<HTMLButtonElement>('.mat-mdc-snack-bar-container button')].find(
+      (button) => button.textContent?.trim() === 'Undo',
+    )!;
+    undo.click();
+    await settle();
+    expect(row('mjml-austin')).toBeDefined();
+  });
+
+  it('ticks a row’s checkbox through its avatar, the box shown while ticked', async () => {
+    const box = item('reply-plain-note').querySelector<HTMLInputElement>('.inbox-pick__box input')!;
+    expect(box.getAttribute('aria-label')).toBe('Select Jane Doe');
+    box.click();
+    await settle();
+    expect(box.checked).toBe(true);
+    expect(item('reply-plain-note').classList).toContain('inbox-item--picked');
+  });
 });

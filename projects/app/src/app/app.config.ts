@@ -1,5 +1,6 @@
 import { ViewportScroller } from '@angular/common';
 import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
+import { MAT_TOOLTIP_DEFAULT_OPTIONS, MatTooltipDefaultOptions } from '@angular/material/tooltip';
 import { provideRouter, withComponentInputBinding, withInMemoryScrolling } from '@angular/router';
 
 import { provideI18n } from '../i18n/loader';
@@ -23,5 +24,16 @@ export const appConfig: ApplicationConfig = {
     // English is bundled; any other language is a chunk of its own, fetched
     // when it is first switched to (see i18n/loader.ts).
     provideI18n(),
+    // Every tooltip waits a moment before it shows: a pointer passing over a
+    // row of buttons on its way elsewhere raises none. Hiding stays
+    // Material's.
+    {
+      provide: MAT_TOOLTIP_DEFAULT_OPTIONS,
+      useValue: {
+        showDelay: 500,
+        hideDelay: 0,
+        touchendHideDelay: 1500,
+      } satisfies MatTooltipDefaultOptions,
+    },
   ],
 };

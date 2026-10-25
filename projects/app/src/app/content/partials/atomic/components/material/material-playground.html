@@ -1,0 +1,23 @@
+<playground-frame [knobs]="knobs" [value]="state()">
+  <mat-form-field
+    class="mp-field"
+    playgroundSubject="mat-form-field"
+    [appearance]="appearance()"
+    [floatLabel]="floatLabel()"
+    [subscriptSizing]="subscriptSizing()"
+  >
+    <mat-label>{{ label() }}</mat-label>
+    <div
+      email-address-input
+      emailMatFormField
+      playgroundSubject="Address input"
+      [formField]="fields.to"
+      (touch)="playground.log('touch')"
+      (valueChange)="playground.log('valueChange', $event)"
+    ></div>
+    @if (hint()) {
+      <mat-hint>{{ hint() }}</mat-hint>
+    }
+    <mat-error>{{ state().errors[0]?.message }}</mat-error>
+  </mat-form-field>
+</playground-frame>

@@ -95,6 +95,7 @@ export function dropHidden(root: ParentNode): void {
 
 import { isFillTextColor } from './dual-contrast';
 import { inlinePadding, isZeroSide, normalizeStyleText } from './inline-style';
+import { markedAs } from './layout-marker';
 
 /**
  * Writes down, on each element, the `width` its author gave it inline —
@@ -417,6 +418,9 @@ export function holdsBlock(cell: Element): boolean {
     canonical form writes none of the builders' attributes. */
 function isWrapperTable(table: HTMLTableElement): boolean {
   if (table.getAttribute('role') !== 'presentation') return false;
+  // Marked (layout-marker.ts): what it says it is — a band, a layout table —
+  // and never taken out.
+  if (markedAs(table)) return false;
   // A wrapper with a fill or a padding on it is a band — the section node's
   // to parse, not this pass's to take out.
   if (isBand(table)) return false;

@@ -1,0 +1,246 @@
+<!-- The designer's bar, a design tool's: close and the template's name on
+     the left, what it shows and Save on the right. No Send — a template is
+     not sent. -->
+<header class="designer-bar">
+  <!-- Close: always — a press on it is a decision, unsaved changes and
+       all; only a stray Escape is kept from closing (`disableClose`). -->
+  <button
+    matIconButton
+    type="button"
+    [attr.aria-label]="'designer.close' | translate"
+    [matTooltip]="'designer.close' | translate"
+    matTooltipPosition="below"
+    (click)="close()"
+  >
+    <mat-icon>close</mat-icon>
+  </button>
+  <h1 class="designer-bar__title">
+    <span class="designer-bar__name">{{ name() }}</span>
+    <span badge class="designer-bar__tag">{{ tag() }}</span>
+    @if (dirty()) {
+      <span class="designer-bar__state">{{ 'designer.unsaved' | translate }}</span>
+    }
+  </h1>
+
+  <span class="designer-bar__spacer"></span>
+
+  <!-- The editor or its HTML, in the editor's place: the design's source,
+       Summernote's </>. The ⋮'s View says the same. -->
+  <button
+    matIconButton
+    type="button"
+    disabledInteractive
+    [disabled]="!viewOffered()"
+    [attr.aria-label]="'designer.source' | translate"
+    [matTooltip]="'designer.source' | translate"
+    matTooltipPosition="below"
+    [attr.aria-pressed]="editorView() === 'html'"
+    (click)="toggleSource()"
+  >
+    <mat-icon>code</mat-icon>
+  </button>
+
+  <button
+    matIconButton
+    type="button"
+    [attr.aria-label]="'designer.phone' | translate"
+    [matTooltip]="'designer.phone' | translate"
+    matTooltipPosition="below"
+    [attr.aria-pressed]="phoneOpen()"
+    (click)="phoneOpen.set(!phoneOpen())"
+  >
+    <mat-icon>smartphone</mat-icon>
+  </button>
+  <message-menu side="below" align="end" />
+  <button
+    matIconButton
+    type="button"
+    disabledInteractive
+    [disabled]="!dirty()"
+    [attr.aria-label]="'designer.revert' | translate"
+    [matTooltip]="'designer.revert' | translate"
+    matTooltipPosition="below"
+    (click)="revert()"
+  >
+    <mat-icon>undo</mat-icon>
+  </button>
+  <button
+    matButton="filled"
+    type="button"
+    class="designer-bar__save"
+    disabledInteractive
+    [disabled]="!dirty() || saving()"
+    [matTooltip]="'designer.saveHint' | translate"
+    matTooltipPosition="below"
+    (click)="save()"
+  >
+    {{ (saving() ? 'designer.saving' : 'designer.save') | translate }}
+  </button>
+</header>
+
+<div class="designer-body">
+  <!-- The phone, centred in the room left of the email's column: a mobile
+       browser (Brave's bars) on the webmail, the message as the inbox shows
+       it received — the reader's own
+       `mail-view`, laid out by the 375px the phone gives it (a container
+       query), under the page header the inbox gives an open message on a
+       phone — the way back to the list — the body as typing settles. Only
+       shown: inert, its buttons press nothing; the screen still scrolls. -->
+  @if (phoneOpen()) {
+    <section class="designer-phone" [attr.aria-label]="'designer.phone' | translate">
+      <phone-frame chrome="browser" url="mail.example.com" [label]="'designer.phone' | translate">
+        @let mail = received();
+        <header page-header inert>
+          <button matIconButton type="button" [attr.aria-label]="'inbox.back' | translate">
+            <mat-icon>arrow_back</mat-icon>
+          </button>
+        </header>
+        <article
+          mail-view
+          inert
+          [subject]="mail.subject"
+          [name]="mail.name"
+          [address]="mail.address"
+          [to]="mail.to"
+          [cc]="mail.cc"
+          [date]="mail.date"
+          [html]="phoneHtml.value() ?? html()"
+          [scheme]="scheme()"
+          [bodyLabel]="'designer.phone' | translate"
+        ></article>
+      </phone-frame>
+    </section>
+  }
+
+  <!-- The canvas: the email's 600px column on the paper, the editor in it —
+       the zoomed window's document. It owns the scroll (`scrollOwner`): the
+       editor grows with the email and the whole canvas scrolls, the wheel
+       anywhere on it. Its own empty room starts the block marquee, as the
+       editor's margin does. -->
+  <main class="designer-canvas" marqueeStart scrollOwner>
+    <!-- Focusable from the first render, before its editor mounts: the
+         dialog's initial focus lands on it (openTemplateDesigner), and the
+         pane hands the caret on into the text. -->
+    <section
+      email-compose
+      class="designer-paper"
+      tabindex="-1"
+      [formField]="envelope.html"
+      [(quoted)]="quoted"
+      (placeholdersFilled)="placeholdersFilled($event)"
+      (placeholdersFailed)="placeholdersFailed()"
+      (fileDrop)="onAttachmentDrop($event)"
+      [(sourceView)]="sourceView"
+      [toolbar]="!plainText()"
+      [format]="bodyFormat()"
+      [colorScheme]="editorScheme()"
+      [layoutInteraction]="layoutInteraction()"
+      [placeholder]="placeholders()"
+      [codePortal]="sourcePortal()"
+      [codeEditor]="sourcePane().editor()"
+      aria-label="Email editor"
+    ></section>
+
+    <!-- The HTML source: moved into the editor's place while the toggle
+         shows the HTML (a DomPortal — the same node, never re-created, so
+         its undo history and lint carry across); out of sight otherwise. -->
+    <section
+      html-email-compose
+      #sourceEl
+      class="email-scroll"
+      [hidden]="editorView() !== 'html'"
+      [active]="editorView() === 'html'"
+      [html]="html()"
+      (htmlChange)="html.set($event)"
+      aria-label="Email HTML source"
+    ></section>
+  </main>
+
+  <!-- The details, on the right: two blocks on the paper, each outlined and
+       each folding to its heading on its own — the message's rows, and its
+       files. -->
+  <aside class="designer-details" [attr.aria-label]="'designer.details' | translate">
+    <section class="designer-block" [attr.data-open]="messageOpen() || null">
+      <h2 class="designer-block__head">
+        <button
+          type="button"
+          class="designer-block__toggle"
+          aria-controls="designer-message"
+          [attr.aria-expanded]="messageOpen()"
+          (click)="messageOpen.set(!messageOpen())"
+        >
+          <mat-icon class="designer-block__chevron">expand_more</mat-icon>
+          {{ 'designer.message' | translate }}
+        </button>
+      </h2>
+      <!-- Folded, the rows stay — hidden, their state kept. -->
+      <div id="designer-message" class="designer-block__body" [hidden]="!messageOpen()">
+        <div envelope-rows [form]="envelope" fields="material" [plainText]="plainText()"></div>
+      </div>
+    </section>
+
+    <!-- The files: a block of their own, and the place a file dropped on
+         the details attaches. -->
+    <section
+      class="designer-block"
+      [attr.data-open]="filesOpen() || null"
+      dropZone
+      #zone="dropZone"
+      [clickable]="false"
+      [directory]="false"
+      [multiple]="true"
+      (fileDrop)="onAttachmentDrop($event)"
+    >
+      <h2 class="designer-block__head">
+        <button
+          type="button"
+          class="designer-block__toggle"
+          aria-controls="designer-files"
+          [attr.aria-expanded]="filesOpen()"
+          (click)="filesOpen.set(!filesOpen())"
+        >
+          <mat-icon class="designer-block__chevron">expand_more</mat-icon>
+          {{ 'composer.attachments.label' | translate }}
+          @if (attachmentCount()) {
+            <span class="designer-block__count">{{ attachmentCount() }}</span>
+          }
+        </button>
+        <button
+          matIconButton
+          type="button"
+          [attr.aria-label]="'composer.attach' | translate"
+          [matTooltip]="'composer.attach' | translate"
+          (click)="zone.openFilePicker($event)"
+        >
+          <mat-icon>attach_file</mat-icon>
+        </button>
+      </h2>
+      <div id="designer-files" class="designer-block__body" [hidden]="!filesOpen()">
+        @if (attachmentCount()) {
+          <ul email-attachment-chips [formField]="envelope.attachments">
+            @for (attachment of envelope.attachments().value(); track attachment.key) {
+              <li
+                email-attachment-chip
+                [attachment]="attachment"
+                [status]="uploads.status(attachment.key)()"
+                [progress]="uploads.progress(attachment.key)()"
+                [isImage]="attachment.image"
+                [preview]="attachment.preview ?? null"
+                [failedLabel]="'composer.attachments.failed' | translate"
+                [retryLabel]="'composer.attachments.retry' | translate"
+                (removed)="attachmentRemoved(attachment)"
+                (retried)="uploads.retry(attachment.key)"
+              >
+                <mat-icon *emailAttachmentIcon="let kind = kind" inline>
+                  {{ attachmentIcons[kind] }}
+                </mat-icon>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="designer-block__empty">{{ 'designer.noAttachments' | translate }}</p>
+        }
+      </div>
+    </section>
+  </aside>
+</div>

@@ -4,17 +4,22 @@ import { defineExtension } from '../extension';
 import { LayoutBlockType } from './layout-guides';
 import { tableKind } from './nodes/table';
 
+/** The layout blocks whose interaction can be switched: the guides' three,
+    and the spacer, whose one gesture is its height's drag. */
+export type InteractiveLayoutType = LayoutBlockType | 'spacer';
+
 /** Which layout blocks take their own interaction — grips, boundary drags,
-    add pills, the block menu — by type. `table` is the *layout* table: a
-    bordered or borderless one is content, not layout, and always takes its
-    own ({@link layoutBlockInteractive}). */
-export type LayoutInteractivity = Readonly<Record<LayoutBlockType, boolean>>;
+    add pills, the block menu, a spacer's drag — by type. `table` is the
+    *layout* table: a bordered or borderless one is content, not layout, and
+    always takes its own ({@link layoutBlockInteractive}). */
+export type LayoutInteractivity = Readonly<Record<InteractiveLayoutType, boolean>>;
 
 /** Every layout block interactive: the editor's default. */
 export const LAYOUT_INTERACTIVE: LayoutInteractivity = {
   section: true,
   columns: true,
   table: true,
+  spacer: true,
 };
 
 /** The attribute on the editor root naming the layout blocks whose
@@ -27,7 +32,7 @@ const layoutInteractionKey = new PluginKey<LayoutInteractivity>('layoutInteracti
 
 /** Whether a layout block of `type` takes its interaction in this state —
     true in an editor without the extension. */
-export function layoutInteractive(state: EditorState, type: LayoutBlockType): boolean {
+export function layoutInteractive(state: EditorState, type: InteractiveLayoutType): boolean {
   return layoutInteractionKey.getState(state)?.[type] ?? true;
 }
 
@@ -41,6 +46,7 @@ export function layoutBlockInteractive(state: EditorState, node: Node): boolean 
       return tableKind(node) !== 'layout' || layoutInteractive(state, 'table');
     case 'columns':
     case 'section':
+    case 'spacer':
       return layoutInteractive(state, node.type.name);
     default:
       return true;
@@ -101,7 +107,7 @@ export const LayoutInteraction = defineExtension({
       props: {
         attributes: (state): Record<string, string> => {
           const interactivity = layoutInteractivity(state);
-          const off = (Object.keys(interactivity) as LayoutBlockType[]).filter(
+          const off = (Object.keys(interactivity) as InteractiveLayoutType[]).filter(
             (type) => !interactivity[type],
           );
           return off.length ? { [LAYOUT_STATIC_ATTRIBUTE]: off.join(' ') } : {};

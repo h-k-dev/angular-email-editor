@@ -1,0 +1,23 @@
+// The four numbers, large, over the text they count.
+.mp-readout {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 12px;
+
+  div {
+    display: flex;
+    flex-direction: column;
+  }
+
+  dt {
+    font: var(--mat-sys-label-medium);
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  dd {
+    margin: 0;
+    font: var(--mat-sys-title-large);
+    font-variant-numeric: tabular-nums;
+  }
+}

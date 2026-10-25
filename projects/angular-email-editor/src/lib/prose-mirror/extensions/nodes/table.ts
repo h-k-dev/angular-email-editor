@@ -41,6 +41,7 @@ import { fillTextColor } from '../../dual-contrast';
 import { isSafeColor, toEmailSafeColor } from '../marks/text-style';
 import { marksAcrossBreak } from '../split-keeping-marks';
 import { inlinePadding } from '../../inline-style';
+import { markedAs, markerAttrs } from '../../layout-marker';
 
 /**
  * Email data tables: a real `<table>` (the most client-compatible layout there
@@ -200,16 +201,19 @@ export const TABLE_BLOCK_SPACING = 16;
  *    its content flush in its cells, in the editor and the email alike. For
  *    arranging content side by side, where the author owns every pixel.
  *
- * Not a node attr: the kind is just the cells' `border` and `padding` and
- * the table's `spacing`, which is all the email carries, so a parsed table
- * needs no hint to come back as the kind it was inserted as.
+ * Layout or content is intent — the table's `layout` attr, written as its
+ * marker (`aee-layout-table`, layout-marker.ts) and read back from it, so a
+ * content table never turns layout for having no lines (another editor's,
+ * its lines a stylesheet's). Bordered or borderless is just the cells'
+ * `border` and the table's `spacing`, which is all the email carries.
  */
 export type TableKind = 'bordered' | 'borderless' | 'layout';
 
-/** The {@link TableKind} a table reads as: a line on any cell makes it
-    bordered, room above and below it borderless, neither a layout table —
-    which is what an imported template's tables, flush and unlined, are. */
+/** The {@link TableKind} a table is: a layout table where it says so
+    (`layout`); otherwise a line on any cell makes it bordered, and a table
+    without one is borderless content. */
 export function tableKind(table: Node): TableKind {
+  if (table.attrs['layout']) return 'layout';
   let bordered = false;
   table.forEach((row) =>
     row.forEach((cell) => {
@@ -217,7 +221,7 @@ export function tableKind(table: Node): TableKind {
     }),
   );
   if (bordered) return 'bordered';
-  return table.attrs['spacing'] != null ? 'borderless' : 'layout';
+  return 'borderless';
 }
 
 /** Canonical percentage: one decimal at most, no trailing zero (25%, 33.3%). */
@@ -248,13 +252,32 @@ function parseTableBox(dom: HTMLElement): {
   width: number;
   offset: number;
   spacing: number | null;
+  layout: boolean;
 } {
   const width = Math.min(
     Math.max(pctOf(dom.style?.width || dom.getAttribute('width') || '') ?? 100, MIN_TABLE_PCT),
     100,
   );
   const offset = Math.min(Math.max(pctOf(dom.style?.marginLeft || '') ?? 0, 0), 100 - width);
-  return { width, offset, spacing: parseBlockSpacing(dom) };
+  const spacing = parseBlockSpacing(dom);
+  return { width, offset, spacing, layout: parseTableLayout(dom, spacing) };
+}
+
+/**
+ * Whether parsed markup is a layout table. Marked (layout-marker.ts): what
+ * the marker says — a band's marker included, on a table the band's shape
+ * did not fit. Unmarked, the shape our own markup had before the markers: a
+ * presentation table with no line on any cell and no room round it. A table
+ * without the role — what other editors write (Summernote's
+ * `table table-bordered`, its lines a stylesheet's, none inline) — is
+ * content, and keeps its rows and columns for the writer.
+ */
+function parseTableLayout(dom: HTMLElement, spacing: number | null): boolean {
+  const kind = markedAs(dom);
+  if (kind) return kind === 'table' || kind === 'section';
+  if (dom.getAttribute('role') !== 'presentation' || spacing != null) return false;
+  const rows = dom instanceof HTMLTableElement ? Array.from(dom.rows) : [];
+  return !rows.some((row) => Array.from(row.cells).some((cell) => parseCellBorder(cell)));
 }
 
 /** The room above and below a table off parsed markup: px, the same above as
@@ -436,17 +459,31 @@ export const Table = defineNode({
     // (100, 0) serialize identically to the pre-attr canonical form.
     // `spacing`: px of room above and below (`TABLE_BLOCK_SPACING` for the
     // bordered and borderless kinds), null — the default — for none.
-    attrs: { width: { default: 100 }, offset: { default: 0 }, spacing: { default: null } },
+    // `layout`: a layout table — arrangement, the designer's — rather than
+    // content (`TableKind`): intent, not a reading of its lines, written as
+    // its marker (layout-marker.ts) and read back from it.
+    attrs: {
+      width: { default: 100 },
+      offset: { default: 0 },
+      spacing: { default: null },
+      layout: { default: false },
+    },
     parseDOM: [{ tag: 'table', getAttrs: (dom) => parseTableBox(dom) }],
     // <tbody> wrapper matches what mail clients expect and what the HTML
     // parser re-injects, so serialize → parse → serialize is a fixpoint.
     // `style` last: ProseMirror writes it through `style.cssText`, and a
     // browser materialises that attribute after any set later, where jsdom
     // keeps insertion order — last in the spec, it is last in both.
+    // A layout table is arrangement: its marker, and `role="presentation"`
+    // so a screen reader reads through it. A content table is data — no
+    // role, read as the table it is — and so never mistaken, read back, for
+    // a layout table written before the markers (`parseTableLayout`).
     toDOM: (node) => [
       'table',
       {
-        role: 'presentation',
+        ...(node.attrs['layout']
+          ? { ...markerAttrs('table'), role: 'presentation' }
+          : {}),
         style: tableStyle(
           node.attrs['width'] as number,
           node.attrs['offset'] as number,
@@ -1239,7 +1276,7 @@ function buildTable(schema: Schema, rows: number, cols: number, kind: TableKind)
       Array.from({ length: cols }, () => cellType.createAndFill(attrs)!),
     );
   return tableType.create(
-    { spacing: kind === 'layout' ? null : TABLE_BLOCK_SPACING },
+    { spacing: kind === 'layout' ? null : TABLE_BLOCK_SPACING, layout: kind === 'layout' },
     Array.from({ length: rows }, makeRow),
   )!;
 }

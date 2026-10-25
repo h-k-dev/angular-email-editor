@@ -1,0 +1,53 @@
+// The editor's box: a short scroll container, as a compose window's
+// editor is — the menu must stay whole inside it.
+.sm-box {
+  position: relative;
+  max-block-size: 320px;
+  overflow-y: auto;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: var(--mat-sys-corner-small, 8px);
+  background: var(--mat-sys-surface-bright);
+}
+
+// A definite height: the editor inside fills it (`.aee-editor` is
+// `height: 100%`), so a press anywhere in the box is a press in the text.
+// Longer text runs past it and the box scrolls.
+.sm-editor {
+  box-sizing: border-box;
+  block-size: 200px;
+  padding: 12px;
+}
+
+kbd {
+  padding: 0 4px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 4px;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+// What the host lays out in a row, as the composer does.
+[email-suggestion-menu-item] mat-icon {
+  flex: none;
+  inline-size: 20px;
+  block-size: 20px;
+  font-size: 20px;
+}
+
+.sm-title {
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sm-detail {
+  flex: none;
+  padding-inline-start: 16px;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-small);
+}
+
+.sm-more {
+  opacity: 0.7;
+}

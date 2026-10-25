@@ -38,6 +38,24 @@
         {
           "name": "Platzhalter im Überblick",
           "file": "angularjs/platzhalter-im-ueberblick.html"
+        },
+        {
+          "name": "Sign-in code",
+          "file": "angularjs/sign-in-code.html",
+          "envelope": {
+            "from": ["no-reply@example.com"],
+            "subject": "{{ otp.code }} is your {{ company.name }} sign-in code",
+            "previewText": "Valid for {{ otp.minutes }} minutes. Never share this code."
+          }
+        },
+        {
+          "name": "Order confirmation",
+          "file": "angularjs/order-confirmation.html",
+          "envelope": {
+            "from": ["orders@example.com"],
+            "subject": "Your order {{ order.number }} is confirmed",
+            "previewText": "Thank you — we are packing it now."
+          }
         }
       ]
     },

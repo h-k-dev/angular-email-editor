@@ -1,0 +1,48 @@
+<playground-frame [knobs]="knobs" [actions]="actions" [value]="state()">
+  <!-- The rows are the host's, as in a composer: a label, then the control,
+       a click anywhere on the row putting the caret in. One drag group: a
+       chip dragged from To lands in Cc. -->
+  <div class="stage-rows" emailAddressDragGroup>
+    <div class="stage-row" (click)="to.focus()">
+      @if (!labelSlot()) {
+        <label class="stage-label" [for]="to.id">To</label>
+      }
+      <div
+        email-address-input
+        #to
+        playgroundSubject="To"
+        [formField]="fields.to"
+        [placeholder]="placeholder()"
+        [limit]="cap()"
+        [allowDrag]="allowDrag()"
+        (valueChange)="playground.log('To · valueChange', $event)"
+        (touch)="playground.log('To · touch')"
+      >
+        @if (labelSlot()) {
+          <ng-template emailAddressLabel><span class="stage-label">To</span></ng-template>
+        }
+      </div>
+    </div>
+    <div class="stage-row" (click)="cc.focus()">
+      @if (!labelSlot()) {
+        <label class="stage-label" [for]="cc.id">Cc</label>
+      }
+      <div
+        email-address-input
+        #cc
+        playgroundSubject="Cc"
+        [formField]="fields.cc"
+        [allowDrag]="allowDrag()"
+        (valueChange)="playground.log('Cc · valueChange', $event)"
+        (touch)="playground.log('Cc · touch')"
+      >
+        @if (labelSlot()) {
+          <ng-template emailAddressLabel><span class="stage-label">Cc</span></ng-template>
+        }
+      </div>
+    </div>
+  </div>
+  @if (state().errors[0]; as error) {
+    <p class="stage-error">{{ error.message }}</p>
+  }
+</playground-frame>

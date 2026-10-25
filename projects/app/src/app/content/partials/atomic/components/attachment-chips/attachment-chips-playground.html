@@ -1,0 +1,23 @@
+<playground-frame [knobs]="knobs" [actions]="actions" [value]="names()">
+  @if (!files().length) {
+    <p class="stage-note">The value is empty: the strip hides itself.</p>
+  }
+  <ul
+    email-attachment-chips
+    playgroundSubject="Strip"
+    [label]="label()"
+    [disabled]="disabled()"
+    [value]="files()"
+    (valueChange)="changed($event)"
+  >
+    @for (file of files(); track file.key) {
+      <li
+        email-attachment-chip
+        [attachment]="file"
+        [aria-disabled]="disabled()"
+        [simulateProgress]="simulateProgress()"
+        (removed)="playground.log('removed', file.name)"
+      ></li>
+    }
+  </ul>
+</playground-frame>

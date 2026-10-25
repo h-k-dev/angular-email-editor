@@ -88,8 +88,12 @@ describe('createEditor', () => {
   });
 
   it('setContent replaces the document', () => {
-    editor.setContent('<h1 style="margin: 0px; font-size: 24px;">Subject</h1>');
-    expect(editor.getHTML()).toBe('<h1 style="margin: 0px; font-size: 24px;">Subject</h1>');
+    editor.setContent(
+      '<h1 class="aee-layout-heading" style="margin: 0px; font-size: 24px;">Subject</h1>',
+    );
+    expect(editor.getHTML()).toBe(
+      '<h1 class="aee-layout-heading" style="margin: 0px; font-size: 24px;">Subject</h1>',
+    );
   });
 
   it('setContent never fires onUpdate — mirrored editors cannot echo', () => {

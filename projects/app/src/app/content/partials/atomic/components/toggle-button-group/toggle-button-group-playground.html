@@ -1,0 +1,43 @@
+<playground-frame [knobs]="knobs" [actions]="actions" [value]="value()">
+  <div class="stage-center" [style.--hk-tgb-size.px]="size()" [style.--hk-tgb-inset.px]="inset()">
+    <hk-tgb
+      #themes
+      aria-label="Theme"
+      playgroundSubject="Theme"
+      [orientation]="orientation()"
+      [disabled]="disabled()"
+      [readonly]="readonly()"
+      [(value)]="theme"
+      (touch)="playground.log('Theme · touch')"
+      (valueChange)="playground.log('Theme · valueChange', $event)"
+    >
+      <button hkTgbIcon value="light" aria-label="Light" title="Light">
+        <mat-icon inline>light_mode</mat-icon>
+      </button>
+      <button
+        hkTgbIcon
+        value="dark"
+        aria-label="Dark"
+        title="Dark"
+        [aria-disabled]="darkDisabled()"
+      >
+        <mat-icon inline>dark_mode</mat-icon>
+      </button>
+      <button hkTgbText value="auto">Auto</button>
+    </hk-tgb>
+
+    <hk-tgb
+      aria-label="Format"
+      playgroundSubject="Format"
+      [orientation]="orientation()"
+      [disabled]="disabled()"
+      [readonly]="readonly()"
+      [(value)]="format"
+      (valueChange)="playground.log('Format · valueChange', $event)"
+    >
+      <button hkTgbText value="html">HTML</button>
+      <button hkTgbText value="text">Plain text</button>
+      <button hkTgbText value="markdown">Markdown, a longer pill</button>
+    </hk-tgb>
+  </div>
+</playground-frame>

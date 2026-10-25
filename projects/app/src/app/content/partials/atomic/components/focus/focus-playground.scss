@@ -1,0 +1,68 @@
+.kf {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.kf-field {
+  box-sizing: border-box;
+  inline-size: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: var(--mat-sys-corner-small, 8px);
+  background: var(--mat-sys-surface-bright);
+  color: inherit;
+  font: var(--mat-sys-body-large);
+  resize: vertical;
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: -1px;
+  }
+
+  &::selection {
+    background: var(
+      --email-selection-wash,
+      color-mix(in srgb, var(--mat-sys-primary) 30%, transparent)
+    );
+  }
+}
+
+.kf-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.kf-label {
+  flex: none;
+  min-inline-size: 120px;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.kf-bar {
+  margin: 0;
+
+  button {
+    min-inline-size: 32px;
+    block-size: 32px;
+    border: 1px solid var(--mat-sys-outline-variant);
+    border-radius: var(--mat-sys-corner-small, 8px);
+    background: transparent;
+    color: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+}
+
+.kf-input {
+  block-size: 32px;
+  padding-inline: 8px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: var(--mat-sys-corner-small, 8px);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}

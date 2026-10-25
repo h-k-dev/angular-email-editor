@@ -15,7 +15,7 @@ describe('InboxReader', () => {
   let opened: Parameters<ComposeWindows['open']>[0][];
 
   const button = (name: string) =>
-    root.querySelector<HTMLButtonElement>(`.inbox-reader__line button[aria-label="${name}"]`)!;
+    root.querySelector<HTMLButtonElement>(`.mail-view__line button[aria-label="${name}"]`)!;
   /** Picks an answer from ⋮. */
   const more = (value: string) =>
     fixture.debugElement.query(By.directive(ToolbarMenu)).componentInstance.selected.emit(value);
@@ -48,11 +48,11 @@ describe('InboxReader', () => {
   });
 
   it('heads the message as Gmail does, without the avatar: subject, sender, then date and the buttons', () => {
-    expect(root.querySelector('.inbox-reader__name')?.textContent).toBe('Jane Doe');
-    expect(root.querySelector('.inbox-reader__address')?.textContent).toBe('<jane@example.com>');
-    const line = [...root.querySelector('.inbox-reader__line')!.children].map((el) => el.className);
-    expect(line).toEqual(['inbox-reader__who', 'inbox-reader__date', 'inbox-reader__actions']);
-    const buttons = [...root.querySelectorAll('.inbox-reader__actions button')].map((b) =>
+    expect(root.querySelector('.mail-view__name')?.textContent).toBe('Jane Doe');
+    expect(root.querySelector('.mail-view__address')?.textContent).toBe('<jane@example.com>');
+    const line = [...root.querySelector('.mail-view__line')!.children].map((el) => el.className);
+    expect(line).toEqual(['mail-view__who', 'mail-view__date', 'mail-view__actions']);
+    const buttons = [...root.querySelectorAll('.mail-view__actions button')].map((b) =>
       b.getAttribute('aria-label'),
     );
     // The paper button left of Reply, the rest in ⋮.
@@ -60,8 +60,8 @@ describe('InboxReader', () => {
   });
 
   it('reads the message: its header, and its body as a client draws it on the paper', () => {
-    expect(root.querySelector('.inbox-reader__subject')?.textContent).toBe('Plain note');
-    expect(root.querySelector('.inbox-reader__date')?.textContent).toBe('Aug 18, 2026, 4:32 PM');
+    expect(root.querySelector('.mail-view__subject')?.textContent).toBe('Plain note');
+    expect(root.querySelector('.mail-view__date')?.textContent).toBe('Aug 18, 2026, 4:32 PM');
     const document = frame().getAttribute('srcdoc') ?? '';
     expect(document).toContain('Are we still on');
     // A scriptless frame, its links out to a tab of their own.
@@ -90,7 +90,7 @@ describe('InboxReader', () => {
 
   it('reads a newsletter whole: its own document, in the frame, edge to edge', async () => {
     await open('mjml-austin');
-    expect(root.querySelector('.inbox-reader__subject')?.textContent).toBe('Discount Light');
+    expect(root.querySelector('.mail-view__subject')?.textContent).toBe('Discount Light');
     expect(frame().getAttribute('srcdoc')).toContain('<title>Discount Light</title>');
     expect(frame().getAttribute('srcdoc')).not.toContain('padding-inline');
   });
@@ -101,7 +101,7 @@ describe('InboxReader', () => {
 
   it('says so where the id names no message', async () => {
     await open('nowhere');
-    expect(root.querySelector('.inbox-reader')).toBeNull();
+    expect(root.querySelector('article[mail-view]')).toBeNull();
     expect(root.querySelector('.inbox-reader__missing')).not.toBeNull();
   });
 
@@ -129,9 +129,9 @@ describe('InboxReader', () => {
   });
 
   it('writes the answers out under the mail too, Gmail’s, each the header’s own', () => {
-    const answers = [...root.querySelectorAll<HTMLButtonElement>('.inbox-reader__answers button')];
+    const answers = [...root.querySelectorAll<HTMLButtonElement>('.mail-view__answers button')];
     // After the body: where the reading ends.
-    expect(root.querySelector('email-viewer ~ .inbox-reader__answers')).not.toBeNull();
+    expect(root.querySelector('email-viewer ~ .mail-view__answers')).not.toBeNull();
     expect(answers.map((b) => b.textContent?.replace(/\s+/g, ' ').trim())).toEqual([
       'reply Reply',
       'reply_all Reply all',

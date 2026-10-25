@@ -10,6 +10,8 @@ const roundTrip = (html: string) => serializeToHTML(parseHTML(html, schema), sch
 
 const SPACED = 'margin: 12px 0px; padding-left: 24px;';
 const FLUSH = 'margin: 0px; padding-left: 24px;';
+/** A layout list's marker (layout-marker.ts), written before its style. */
+const MARKED = 'class="aee-layout-list"';
 
 describe('list spacing', () => {
   it('keeps 12px above and below; a layout list sits flush', () => {
@@ -18,9 +20,12 @@ describe('list spacing', () => {
   });
 
   it('round-trips both kinds byte for byte, either flavour', () => {
-    for (const style of [SPACED, FLUSH]) {
-      const ul = `<ul style="${style}"><li><div>one</div></li></ul>`;
-      const ol = `<ol start="3" style="${style}"><li><div>three</div></li></ol>`;
+    for (const [marker, style] of [
+      ['', SPACED],
+      [`${MARKED} `, FLUSH],
+    ]) {
+      const ul = `<ul ${marker}style="${style}"><li><div>one</div></li></ul>`;
+      const ol = `<ol ${marker}start="3" style="${style}"><li><div>three</div></li></ol>`;
       expect(roundTrip(ul)).toBe(ul);
       expect(roundTrip(ol)).toBe(ol);
     }
@@ -28,7 +33,7 @@ describe('list spacing', () => {
 
   it('reads a flush list — its top margin said, and zero — as layout; a bare one as spaced', () => {
     expect(roundTrip('<ul style="margin:0"><li><div>a</div></li></ul>')).toBe(
-      `<ul style="${FLUSH}"><li><div>a</div></li></ul>`,
+      `<ul ${MARKED} style="${FLUSH}"><li><div>a</div></li></ul>`,
     );
     expect(roundTrip('<ul><li><div>a</div></li></ul>')).toBe(`<ul style="${SPACED}"><li><div>a</div></li></ul>`);
     expect(roundTrip('<ol style="margin-bottom: 0"><li><div>a</div></li></ol>')).toBe(
@@ -38,7 +43,7 @@ describe('list spacing', () => {
 
   it('a nested list is always flush: it belongs to its item’s line', () => {
     expect(roundTrip('<ul><li><div>a</div><ol><li><div>b</div></li></ol></li></ul>')).toBe(
-      `<ul style="${SPACED}"><li><div>a</div><ol style="${FLUSH}"><li><div>b</div></li></ol></li></ul>`,
+      `<ul style="${SPACED}"><li><div>a</div><ol ${MARKED} style="${FLUSH}"><li><div>b</div></li></ol></li></ul>`,
     );
   });
 
@@ -83,7 +88,7 @@ describe('list spacing', () => {
         f(editor.view, new KeyboardEvent('keydown', { key: 'Tab' })),
       );
       expect(editor.getHTML()).toBe(
-        `<ul style="${SPACED}"><li><div>a</div><ul style="${FLUSH}"><li><div>b</div></li></ul></li></ul>`,
+        `<ul style="${SPACED}"><li><div>a</div><ul ${MARKED} style="${FLUSH}"><li><div>b</div></li></ul></li></ul>`,
       );
       editor.commands['undo']();
       expect(editor.getHTML()).toBe(
@@ -95,7 +100,7 @@ describe('list spacing', () => {
       editor.setContent('<div>a</div>');
       caretIn('a');
       expect(run('bulleted-list-layout')).toBe(true);
-      expect(editor.getHTML()).toBe(`<ul style="${FLUSH}"><li><div>a</div></li></ul>`);
+      expect(editor.getHTML()).toBe(`<ul ${MARKED} style="${FLUSH}"><li><div>a</div></li></ul>`);
 
       expect(run('bulleted-list-layout')).toBe(true);
       expect(editor.getHTML()).toBe('<div>a</div>');
@@ -103,14 +108,14 @@ describe('list spacing', () => {
       run('numbered-list');
       expect(editor.getHTML()).toBe(`<ol style="${SPACED}"><li><div>a</div></li></ol>`);
       run('numbered-list-layout');
-      expect(editor.getHTML()).toBe(`<ol style="${FLUSH}"><li><div>a</div></li></ol>`);
+      expect(editor.getHTML()).toBe(`<ol ${MARKED} style="${FLUSH}"><li><div>a</div></li></ol>`);
     });
 
     it('a flavour change keeps a layout list flush', () => {
-      editor.setContent(`<ul style="${FLUSH}"><li><div>a</div></li></ul>`);
+      editor.setContent(`<ul ${MARKED} style="${FLUSH}"><li><div>a</div></li></ul>`);
       caretIn('a');
       editor.commands['toggleOrderedList']();
-      expect(editor.getHTML()).toBe(`<ol style="${FLUSH}"><li><div>a</div></li></ol>`);
+      expect(editor.getHTML()).toBe(`<ol ${MARKED} style="${FLUSH}"><li><div>a</div></li></ol>`);
     });
 
     it('marks the right item active: spaced or layout', () => {
@@ -119,7 +124,7 @@ describe('list spacing', () => {
           ...BulletList.actions!({ schema: editor.schema, extensions: [] }),
           ...OrderedList.actions!({ schema: editor.schema, extensions: [] }),
         ].find((candidate) => candidate.id === id)!.isActive!(editor.state);
-      editor.setContent(`<ul style="${FLUSH}"><li><div>a</div></li></ul>`);
+      editor.setContent(`<ul ${MARKED} style="${FLUSH}"><li><div>a</div></li></ul>`);
       caretIn('a');
       expect(active('bulleted-list-layout')).toBe(true);
       expect(active('bulleted-list')).toBe(false);

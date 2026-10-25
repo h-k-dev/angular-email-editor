@@ -6,6 +6,9 @@
 @use '@h-k-dev/angular-email-editor/styles/scroll';
 // The floating scrollbar's bar, drawn outside any component's view.
 @use 'app/core/common/directives/floating-scrollbar/floating-scrollbar';
+// Avatars and the containers in their hue ([avatar], [hueOf]): any element
+// can be one, so their look is global.
+@use 'app/core/common/directives/avatar/avatar';
 
 /* Notion in light, Linear in dark (styles/_theme.scss): Notion's generated
  * palette is the theme's, and every system colour is overridden with its
@@ -180,6 +183,16 @@ html {
   --email-suggestion-menu-section-padding-inline: calc(var(--mat-sys-spacing) * 3);
 }
 
+/* The editor's column where a message is a document — the zoomed compose
+ * window, the composer page, the template designer: as wide as the room
+ * lets it be between the two, editor inset included. Never under the 600px
+ * an email is written for, never over a long line's 720px. Set here, once:
+ * every document reads these. */
+html {
+  --email-column-min: 600px;
+  --email-column-max: 720px;
+}
+
 /* A dialog — the composer's settings, and whatever dialog comes next: one
  * fixed size, Notion's and Slack's settings, so the box never jumps with
  * what it holds and a group added later fits the same frame, scrolling. Centred with
@@ -222,6 +235,18 @@ html {
     block-size: var(--dialog-height);
     @include mat.dialog-overrides((container-elevation-shadow: none));
   }
+}
+
+// The template designer (openTemplateDesigner): the screen itself — no
+// corners, no lift, nothing round it to lift off.
+.template-designer-pane {
+  @include mat.dialog-overrides(
+    (
+      container-color: var(--mat-sys-surface-bright),
+      container-shape: 0,
+      container-elevation-shadow: none,
+    )
+  );
 }
 
 /* ProseMirror creates its editable DOM at runtime, outside Angular's emulated
@@ -401,6 +426,86 @@ html {
     var(--email-table-grid, light-dark(rgb(230, 229, 227), #383836))
   );
   transition-delay: 0ms;
+}
+
+/* The spacer (the library's Spacer node view): a gap exactly its height,
+ * invisible as sent. Revealed like the layout guides — selected, under the
+ * pointer, mid-drag, or while Ctrl is held (`aee-guides-peek`) — it is a
+ * colour-coded band, Figma's spacing pink in stripes, its height written in
+ * it and a handle on its lower edge to drag. Static (layout off,
+ * `data-aee-static~=spacer`): never revealed, no handle. The ring is an
+ * inset shadow, never a border: the band is exactly the gap it stands for. */
+.aee-editor .aee-spacer {
+  --aee-spacer-ink: light-dark(rgb(219, 39, 119), rgb(244, 114, 182));
+  position: relative;
+  box-sizing: border-box;
+  container-type: size;
+  border-radius: 2px;
+  transition:
+    background-color 140ms ease-out 400ms,
+    box-shadow 140ms ease-out 400ms;
+}
+
+.aee-editor .aee-spacer__label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--aee-spacer-ink);
+  font: 500 11px / 1 system-ui, sans-serif;
+  opacity: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Too low for words: the band and its handle say enough. */
+@container (max-height: 15px) {
+  .aee-editor .aee-spacer__label {
+    display: none;
+  }
+}
+
+/* The handle: an 8px grip across the lower edge, its pill in the middle. */
+.aee-editor .aee-spacer__handle {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: -4px;
+  z-index: 1;
+  block-size: 8px;
+  cursor: ns-resize;
+  opacity: 0;
+  touch-action: none;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset-block-start: 2px;
+    inset-inline-start: calc(50% - 12px);
+    inline-size: 24px;
+    block-size: 4px;
+    border-radius: 2px;
+    background: var(--aee-spacer-ink);
+  }
+}
+
+.aee-editor:not([data-aee-static~='spacer']) {
+  .aee-spacer:hover,
+  .aee-spacer.ProseMirror-selectednode,
+  .aee-spacer[data-dragging],
+  &.aee-guides-peek .aee-spacer {
+    background: repeating-linear-gradient(
+      -45deg,
+      color-mix(in srgb, var(--aee-spacer-ink) 16%, transparent) 0 4px,
+      color-mix(in srgb, var(--aee-spacer-ink) 6%, transparent) 4px 8px
+    );
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--aee-spacer-ink) 45%, transparent);
+    transition-delay: 0ms;
+
+    .aee-spacer__label,
+    .aee-spacer__handle {
+      opacity: 1;
+    }
+  }
 }
 
 /* Cell selection (prosemirror-tables): shift-drag or shift-click a rectangle

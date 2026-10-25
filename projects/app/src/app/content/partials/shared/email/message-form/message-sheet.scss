@@ -18,7 +18,8 @@
 // (email-writer.scss), a document's measure; the room at the sides is the
 // paper's still, and starts the marquee (`marqueeStart`).
 :host([data-layout='document']) {
-  --writer-column: min(720px, 90ch);
+  --writer-column: var(--email-column-max);
+  --writer-column-min: var(--email-column-min);
   --writer-radius: 0;
   --writer-shadow: none;
 }
@@ -61,6 +62,7 @@ section[email-compose] {
   // keeps to it with the bar and the envelope.
   box-sizing: border-box;
   inline-size: 100%;
+  min-inline-size: var(--writer-column-min, 0);
   max-inline-size: var(--writer-column, none);
   margin-inline: auto;
 

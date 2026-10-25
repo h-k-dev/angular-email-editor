@@ -19,6 +19,13 @@ export const DOCKING_MIN_WIDTH = 1200;
     exactly or that one width renders a centred sheet with square corners. */
 export const FULL_WIDTH_MAX_WIDTH = 768;
 
+/** The room a phone gives its content, px — the widest phone held upright
+    is 430px; this leaves it margin. Inclusive. What a part that lays itself
+    out by its own width (a container query, `bp.phone-container`) calls a
+    phone: never the viewport's {@link FULL_WIDTH_MAX_WIDTH}, which a narrow
+    desk pane is under too. */
+export const PHONE_CONTAINER_MAX = 480;
+
 const NARROW = `(max-width: ${DOCKING_MIN_WIDTH - 0.02}px)`;
 const COMPACT = `(max-width: ${FULL_WIDTH_MAX_WIDTH}px)`;
 const TOUCH = '(hover: none) and (pointer: coarse)';

@@ -2,18 +2,16 @@
      Send on its bar, every field of the one message bound to the same
      `envelope`, and the attachment zone for anything dropped on it.
      On a phone the bar heads the sheet, mirrored, at the app's tap size, and
-     the whole sheet scrolls (`scroll="sheet"`): the bar and the rows go up
-     and away above the text. Its scrollbar floats (`floatingScrollbar`),
-     clear of the stuck bar above and of the composer's foot below — the
-     sheet's scroll padding at either end says what each covers. -->
+     the whole sheet scrolls — it owns the scroll (`scrollOwner`): the bar
+     and the rows go up and away above the text. Its scrollbar floats, clear
+     of the stuck bar above and of the composer's foot below — the sheet's
+     scroll padding at either end says what each covers. -->
 <form
   email-writer
   emailAddressDragGroup
   [formRoot]="envelope"
   bar="top"
-  scroll="sheet"
-  floatingScrollbar
-  [style.scroll-padding-block-end.px]="footRoom()"
+  scrollOwner
   aria-label="Email writer"
   dropZone
   #writerZone="dropZone"
@@ -131,8 +129,8 @@
   ></div>
 
   <!-- The editor, as on the desktop sheet — but it hands its scrolling to
-       the sheet (`scroll="host"`), so its floating foot sticks to the bottom
-       of the screen; its toolbar is always shown — it is the bar on the
+       the sheet (the sheet owns the scroll), so its floating foot sticks to
+       the bottom of the screen; its toolbar is always shown — it is the bar on the
        keyboard — and its suggestion menu is docked over that bar
        (`suggestions="docked"`): by the caret there is no room. -->
   <section
@@ -146,7 +144,6 @@
     (placeholdersFailed)="placeholdersFailed()"
     (fileDrop)="onAttachmentDrop($event)"
     [toolbar]="!plainText()"
-    scroll="host"
     suggestions="docked"
     [format]="bodyFormat()"
     [colorScheme]="editorScheme()"

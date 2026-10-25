@@ -24,11 +24,16 @@
      starts the editor's block marquee, as its margin does (on an island —
      every composer is one).
      The desktop sheet: the bar at the foot (or heading the sheet, `bar`),
-     dense, the text scrolling on its own under the envelope. -->
+     dense, the text scrolling on its own under the envelope — or, a
+     document, the whole sheet owning the scroll (`scrollOwner`): the bar
+     stays on top, the rows scroll away with the text, and the wheel scrolls
+     the message wherever the pointer is on it, the room beside the column
+     included. -->
 <form
   email-writer
   emailAddressDragGroup
   marqueeStart
+  [scrollOwner]="layout() === 'document'"
   [formRoot]="envelope"
   [bar]="bar()"
   dense

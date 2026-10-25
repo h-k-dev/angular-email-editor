@@ -79,17 +79,26 @@ describe('Mailbox', () => {
       const labels = [...root.querySelectorAll('.mailbox-link__label')].map((el) =>
         el.textContent?.trim(),
       );
-      expect(labels.slice(0, 2)).toEqual(['Composer', 'Inbox']);
+      // A one-way trip: no place leads back to the composer's front page.
+      expect(labels.slice(0, 2)).toEqual(['Inbox', 'Templates']);
       expect(labels).toContain('Editor');
       expect(labels).toContain('Theming');
       expect(labels.at(-1)).toBe('Render');
       expect(heading('Developers')).toBeDefined();
       expect(group('API')).toBeDefined();
       expect(group('Styling')).toBeDefined();
+      expect(group('Components')).toBeDefined();
+      expect(link('Address input').closest('.mailbox-group')).toBe(
+        group('Components').parentElement,
+      );
+      expect(link('Address input').getAttribute('href')).toBe('/components/address-input');
+      // The utilities share the path, under a group of their own.
+      expect(link('Keep focus').closest('.mailbox-group')).toBe(group('Utilities').parentElement);
+      expect(link('Keep focus').getAttribute('href')).toBe('/components/focus');
       // Render is on the first level, beside the groups — not in one.
       expect(link('Render').closest('.mailbox-group')).toBeNull();
       expect(link('Addresses').closest('.mailbox-group')).toBe(group('API').parentElement);
-      expect(link('Composer').getAttribute('href')).toBe('/');
+      expect(root.querySelector('.mailbox-link[href="/"]')).toBeNull();
       expect(link('Templates').getAttribute('href')).toBe('/templates');
       expect(link('Addresses').getAttribute('href')).toBe('/api/addresses');
       expect(link('Theming').getAttribute('href')).toBe('/styling/theming');

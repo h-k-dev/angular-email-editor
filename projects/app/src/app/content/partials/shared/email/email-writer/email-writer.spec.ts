@@ -1,19 +1,21 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { form } from '@angular/forms/signals';
-import { EmailWriter, WriterBarPosition, WriterScroll } from './email-writer';
+import { ScrollOwner } from '../../../../../core/common/directives/scroll-owner/scroll-owner';
+import { EmailWriter, WriterBarPosition } from './email-writer';
 
 /** A host the way the sheets use the writer: a form over a model, with an
     action the test settles by hand, and the fields projected in. The bar's
-    place, its size and what scrolls are the host's to say. */
+    place and its size are the host's to say; what scrolls, whether the
+    host makes the writer own the scroll (`scrollOwner`). */
 @Component({
-  imports: [EmailWriter],
+  imports: [EmailWriter, ScrollOwner],
   template: `<form
     email-writer
     [formRoot]="envelope"
     [bar]="bar()"
     [dense]="dense()"
-    [scroll]="scroll()"
+    [scrollOwner]="owner()"
   >
     <button type="button" class="test-lead" leading>Panes</button>
     <button type="button" class="test-action" actions>Discard</button>
@@ -24,7 +26,7 @@ class Host {
   readonly model = signal({ subject: '' });
   readonly bar = signal<WriterBarPosition>('bottom');
   readonly dense = signal(true);
-  readonly scroll = signal<WriterScroll>('body');
+  readonly owner = signal(false);
   submissions = 0;
   settle!: () => void;
   readonly envelope = form(this.model, {
@@ -83,13 +85,16 @@ describe('EmailWriter', () => {
     expect(root.querySelectorAll('.writer-bar')).toHaveLength(1);
   });
 
-  it('scrolls the body alone, or the whole sheet where its host asks', async () => {
+  it('scrolls the body alone, or the whole sheet where it owns the scroll', async () => {
     expect(writer().getAttribute('data-scroll')).toBe('body');
-    // The phone's sheet: the bar and the envelope scroll away above the
-    // text, as Gmail's do.
-    host.scroll.set('sheet');
+    expect(writer().hasAttribute('data-scroll-owner')).toBe(false);
+    // The phone's sheet, a document: the bar sticks, the envelope scrolls
+    // away above the text, as Gmail's does — the writer is the scroller.
+    host.owner.set(true);
     await fixture.whenStable();
     expect(writer().getAttribute('data-scroll')).toBe('sheet');
+    expect(writer().hasAttribute('data-scroll-owner')).toBe(true);
+    expect(writer().style.overflowY).toBe('auto');
   });
 
   it('sizes its bar for a pointer or a finger, as its host says', async () => {

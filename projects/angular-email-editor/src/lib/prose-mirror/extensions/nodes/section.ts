@@ -6,6 +6,7 @@ import { isSafeColor, toEmailSafeColor } from '../marks/text-style';
 import { parsePadding } from './table';
 import { holdsBlock, holdsColumn, isPadded } from '../../import-html';
 import { inlinePadding } from '../../inline-style';
+import { layoutMarker, markedAs } from '../../layout-marker';
 
 /** How wide a section's content runs: the email's container, centred in
     the band. */
@@ -54,6 +55,10 @@ export const SECTION_INSET = 16;
  * only way to a picture behind text in Outlook; without it the colour
  * shows, which is the fallback anyway. A band without an image emits no
  * comment at all.
+ *
+ * **Marked** (`aee-layout-section` on the table, layout-marker.ts): a
+ * table marked so is a band whatever its fill — a bare one included — and
+ * the marker goes out with it.
  *
  * **On parse** a section is a one-cell presentation table whose cell holds
  * nothing but elements and carries a fill, an image or a padding — a
@@ -147,7 +152,10 @@ const bandStyle = ({ background, padding, image, contentBackground }: SectionAtt
     .filter(Boolean)
     .join(' ');
 
+// The marker first (layout-marker.ts): what the band is, for whatever
+// reads it next — the class order a browser and jsdom print alike.
 const TABLE_ATTRS = {
+  class: layoutMarker('section'),
   role: 'presentation',
   width: '100%',
   cellpadding: '0',
@@ -244,7 +252,13 @@ function vertical(padding: string, side: 'top' | 'bottom'): string {
 
 /** A section's attrs off a table — or false for a table that is a table. */
 function sectionAttrs(table: HTMLTableElement): Record<string, unknown> | false {
-  if (table.getAttribute('role') !== 'presentation') return false;
+  // Marked a section (layout-marker.ts): one, whatever else it says — no
+  // role, no fill — as long as it has a band's shape. Marked as anything
+  // else (a layout table with one filled cell): never one.
+  const kind = markedAs(table);
+  if (kind && kind !== 'section') return false;
+  const marked = kind === 'section';
+  if (!marked && table.getAttribute('role') !== 'presentation') return false;
   if (table.rows.length !== 1 || table.rows[0].cells.length !== 1) return false;
   const cell = table.rows[0].cells[0];
   const hasWords = Array.from(cell.childNodes).some(
@@ -278,7 +292,13 @@ function sectionAttrs(table: HTMLTableElement): Record<string, unknown> | false 
   const image = declaredImage(table, cell, parent);
   // A padding alone makes a band only round a column: a builder's text
   // block sits in a padded cell too, and is a block, not a section.
-  if (!background && !contentBackground && !image && !(isPadded(cell) && holdsColumn(cell))) {
+  if (
+    !marked &&
+    !background &&
+    !contentBackground &&
+    !image &&
+    !(isPadded(cell) && holdsColumn(cell))
+  ) {
     return false;
   }
   return { background, contentBackground, padding: padding ?? SECTION_PADDING, image };

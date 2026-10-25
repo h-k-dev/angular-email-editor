@@ -1,0 +1,5 @@
+// The opt-in container: the split's own token, a tonal fill.
+.tonal {
+  --hk-split-button-container-color: var(--mat-sys-secondary-container);
+  --hk-split-button-icon-color: var(--mat-sys-on-secondary-container);
+}

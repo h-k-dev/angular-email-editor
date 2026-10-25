@@ -14,6 +14,7 @@ import { Blockquote } from './nodes/blockquote';
 import { BulletList, ListItem, OrderedList } from './nodes/lists';
 import { Image } from './nodes/image';
 import { Divider } from './nodes/divider';
+import { Spacer } from './nodes/spacer';
 import { Button } from './nodes/button';
 import { InlineAtomSelection } from './inline-atom-selection';
 import { SelectedBlocks } from './block-selection';
@@ -58,6 +59,8 @@ const withParagraph = (paragraph: NodeExtension): Extension[] => [
   ListItem,
   Image,
   Divider,
+  // Room of its own between blocks, nobody's margin.
+  Spacer,
   Button,
   // Images and buttons selected like characters: a drag covers them.
   InlineAtomSelection,

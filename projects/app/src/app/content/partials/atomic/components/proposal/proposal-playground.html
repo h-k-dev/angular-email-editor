@@ -1,0 +1,43 @@
+<playground-frame [knobs]="knobs" [actions]="actions" [value]="state()">
+  <!-- The host's panel: its own buttons, the proposal bound to each; its
+       keys heard from anywhere while a proposal stands. -->
+  <div
+    class="stage-bar"
+    [emailProposalKeys]="proposal"
+    (accepted)="playground.log('accepted (Ctrl-Enter)')"
+    (escape)="$event.preventDefault(); proposal.discard(); playground.log('escape → discard()')"
+  >
+    <button matButton="tonal" type="button" (click)="propose()">Propose</button>
+    <button
+      matButton
+      type="button"
+      [disabled]="!proposal.selectedPart() || proposal.streaming()"
+      (click)="revise()"
+    >
+      Revise selection
+    </button>
+    <button
+      matButton
+      type="button"
+      #accept="emailProposalAccept"
+      [emailProposalAccept]="proposal"
+      [disabled]="accept.disabled()"
+      (click)="playground.log('accept')"
+    >
+      Apply
+    </button>
+    <button
+      matButton
+      type="button"
+      [emailProposalDiscard]="proposal"
+      [disabled]="!proposal.active()"
+      (click)="playground.log('discard')"
+    >
+      Discard
+    </button>
+    @if (proposal.thinking()) {
+      <span class="stage-note">Thinking…</span>
+    }
+  </div>
+  <div #host class="stage-editor"></div>
+</playground-frame>

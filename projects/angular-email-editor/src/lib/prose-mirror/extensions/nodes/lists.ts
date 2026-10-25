@@ -10,6 +10,7 @@ import { NodeType, ResolvedPos } from 'prosemirror-model';
 import { isNodeActive } from '../../editor';
 import { defineNode } from '../../extension';
 import { declaresFlushTop } from '../../inline-style';
+import { markedAs, markerAttrs } from '../../layout-marker';
 
 /** Depth of the innermost list wrapping the selection start, or null. */
 export const findListDepth = ($from: ResolvedPos): number | null => {
@@ -103,10 +104,21 @@ export const LIST_SPACE = 12;
 export const listStyle = (layout = false): string =>
   `margin: ${layout ? '0px' : `${LIST_SPACE}px 0px`}; padding-left: 24px;`;
 
-/** Whether a parsed list is a layout list: written flush (the composer's own
-    before lists were spaced, a builder's reset), or nested in another. */
-const parsedLayout = (dom: HTMLElement): boolean =>
-  declaresFlushTop(dom) || !!dom.parentElement?.closest('li, ul, ol');
+/** Whether a parsed list is a layout list: marked one (layout-marker.ts) —
+    or, unmarked, written flush (the composer's own before lists were
+    spaced, a builder's reset), or nested in another. */
+const parsedLayout = (dom: HTMLElement): boolean => {
+  const kind = markedAs(dom);
+  if (kind) return kind === 'list';
+  return declaresFlushTop(dom) || !!dom.parentElement?.closest('li, ul, ol');
+};
+
+/** A list's attributes as written: a layout list says so
+    (`aee-layout-list`), then its style. */
+const listAttrs = (layout: boolean): Record<string, string> => ({
+  ...markerAttrs('list', layout),
+  style: listStyle(layout),
+});
 
 /** Ranges a run of transactions wrote, in the last document's positions. */
 const writtenRanges = (trs: readonly Transaction[]): [number, number][] => {
@@ -175,7 +187,7 @@ export const BulletList = defineNode({
     content: 'listItem+',
     group: 'block list',
     parseDOM: [{ tag: 'ul', getAttrs: (dom: HTMLElement) => ({ layout: parsedLayout(dom) }) }],
-    toDOM: (node) => ['ul', { style: listStyle(node.attrs['layout'] as boolean) }, 0],
+    toDOM: (node) => ['ul', listAttrs(node.attrs['layout'] as boolean), 0],
   },
   plugins: () => [listRepair()],
   commands: ({ schema }) => ({
@@ -230,10 +242,18 @@ export const OrderedList = defineNode({
       },
     ],
     toDOM: (node) => {
-      const style = listStyle(node.attrs['layout'] as boolean);
+      const layout = node.attrs['layout'] as boolean;
       return node.attrs['order'] === 1
-        ? ['ol', { style }, 0]
-        : ['ol', { start: node.attrs['order'], style }, 0];
+        ? ['ol', listAttrs(layout), 0]
+        : [
+            'ol',
+            {
+              ...markerAttrs('list', layout),
+              start: node.attrs['order'],
+              style: listStyle(layout),
+            },
+            0,
+          ];
     },
   },
   commands: ({ schema }) => ({

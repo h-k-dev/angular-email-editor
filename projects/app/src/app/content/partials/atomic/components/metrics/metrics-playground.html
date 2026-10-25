@@ -1,0 +1,21 @@
+<playground-frame [actions]="actions" [value]="{ metrics: metrics(), measuredHeight: measured() }">
+  <dl class="mp-readout" aria-live="polite">
+    <div>
+      <dt>words</dt>
+      <dd>{{ metrics()?.words ?? '–' }}</dd>
+    </div>
+    <div>
+      <dt>characters</dt>
+      <dd>{{ metrics()?.characters ?? '–' }}</dd>
+    </div>
+    <div>
+      <dt>lines</dt>
+      <dd>{{ metrics()?.lines ?? '–' }}</dd>
+    </div>
+    <div>
+      <dt>height</dt>
+      <dd>{{ metrics()?.estimatedHeight ?? '–' }}px</dd>
+    </div>
+  </dl>
+  <div #host class="stage-editor"></div>
+</playground-frame>

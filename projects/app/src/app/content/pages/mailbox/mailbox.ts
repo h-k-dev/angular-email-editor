@@ -19,6 +19,7 @@ import { PAGE_HEADER_LEAD } from '../../partials/common/page-header/page-header'
 import { ThemeToggle } from '../../partials/common/theme-toggle/theme-toggle';
 import { DocPageLink } from '../../partials/common/doc-page/doc';
 import { API_PAGES } from './api-reference/api-pages';
+import { COMPONENT_PAGES, UTILITY_PAGES } from './components/component-pages';
 import { STYLING_PAGES } from './styling/styling-pages';
 
 /** A place the aside leads to. */
@@ -71,7 +72,8 @@ const pageLinks = (base: string, pages: readonly DocPageLink[]): MailboxLink[] =
  * are in a wash, never a bar — and the settings at its foot), and the page
  * itself beside it on a sheet of its own. No bar across the top: the page
  * has the viewport. The composer is not in here: it is the front page, with
- * chrome of its own; the aside leads back to it.
+ * chrome of its own, and the way in is one way — nothing here leads back to
+ * it (Compose opens a window over the page instead).
  *
  * Collapsed, the aside is a rail of its icons — at once, no motion. On a
  * phone there is no rail: shut, the aside is not there (the opener it lends
@@ -156,8 +158,19 @@ export class Mailbox {
   readonly #preferences = inject(Preferences);
   readonly #router = inject(Router);
 
-  /** The aside, in reading order: the mail, then the developers' places —
-      each reference a group of its pages (Linear's teams), and the render
+  /** The components and the utilities share `/components/…`: each group
+      is lit by its own pages, not by the path they share. */
+  readonly #componentLinks = pageLinks('components', COMPONENT_PAGES);
+  readonly #utilityLinks = pageLinks('components', UTILITY_PAGES);
+  #anyActive(links: readonly MailboxLink[]): Signal<boolean> {
+    const active = links.map((link) => isActive(link.path, this.#router));
+    return computed(() => active.some((one) => one()));
+  }
+
+  /** The aside, in reading order: the mail, the designer's places (the
+      templates), then the developers' places —
+      each reference a group of its pages (Linear's teams), the components
+      and the utilities a group each of their playgrounds, and the render
       bench on the first level. */
   protected readonly sections: readonly MailboxSection[] = [
     {
@@ -165,7 +178,6 @@ export class Mailbox {
       key: null,
       open: null,
       items: [
-        { kind: 'link', path: '/', icon: 'edit_note', key: 'app.nav.composer' },
         {
           kind: 'link',
           path: '/inbox',
@@ -173,8 +185,13 @@ export class Mailbox {
           key: 'app.nav.inbox',
           count: this.#unread,
         },
-        { kind: 'link', path: '/templates', icon: 'grid_view', key: 'app.nav.templates' },
       ],
+    },
+    {
+      id: 'designer',
+      key: 'app.nav.designer',
+      open: this.#preferences.asideDesignerOpen,
+      items: [{ kind: 'link', path: '/templates', icon: 'grid_view', key: 'app.nav.templates' }],
     },
     {
       id: 'developers',
@@ -198,6 +215,24 @@ export class Mailbox {
           open: this.#preferences.asideStylingOpen,
           current: isActive('/styling', this.#router),
           links: pageLinks('styling', STYLING_PAGES),
+        },
+        {
+          kind: 'group',
+          id: 'components',
+          icon: 'widgets',
+          key: 'app.nav.components',
+          open: this.#preferences.asideComponentsOpen,
+          current: this.#anyActive(this.#componentLinks),
+          links: this.#componentLinks,
+        },
+        {
+          kind: 'group',
+          id: 'utilities',
+          icon: 'build',
+          key: 'app.nav.utilities',
+          open: this.#preferences.asideUtilitiesOpen,
+          current: this.#anyActive(this.#utilityLinks),
+          links: this.#utilityLinks,
         },
         { kind: 'link', path: '/render', icon: 'compare', key: 'app.nav.render' },
       ],

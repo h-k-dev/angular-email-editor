@@ -9,7 +9,14 @@ import { vi } from 'vitest';
 export function stubExampleAssets(): void {
   // The catalogue's own names (public/examples/index.json), so the store's
   // specs search what the app ships.
-  const angularjs = ['Platzhalter im Überblick'];
+  const angularjs = ['Platzhalter im Überblick', 'Sign-in code', 'Order confirmation'];
+  // The one entry the catalogue gives an envelope (a no-reply sender).
+  const envelopes: Record<string, object> = {
+    'Sign-in code': {
+      from: ['no-reply@example.com'],
+      subject: '{{ otp.code }} is your {{ company.name }} sign-in code',
+    },
+  };
   const handlebars = ['Fields & blocks', 'Table & columns'];
   const files = new Map<string, string>();
   const set = (key: string, dialect: string, names: string[]) => ({
@@ -21,7 +28,7 @@ export function stubExampleAssets(): void {
     examples: names.map((name, index) => {
       const file = `${key}/${index}.html`;
       files.set(file, `<div>${name}: {{ customer_surname }}</div>`);
-      return { name, file };
+      return { name, file, ...(envelopes[name] && { envelope: envelopes[name] }) };
     }),
   });
   files.set(

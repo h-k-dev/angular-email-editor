@@ -1,0 +1,213 @@
+// The phone's body: a dark bezel the same in light and dark (a device is not
+// themed), round corners, a hairline of metal round it and the buttons on its
+// sides. The screen inside is exactly `--phone-frame-width` wide; the body is
+// that and the bezel, and as tall as its box allows — up to the phone's own.
+:host {
+  --phone-frame-bezel: 12px;
+  --phone-frame-radius: 56px;
+  --phone-frame-status: 48px;
+
+  position: relative;
+  display: block;
+  flex: none;
+  box-sizing: border-box;
+  inline-size: calc(var(--phone-frame-width, 375px) + 2 * var(--phone-frame-bezel));
+  block-size: 100%;
+  max-block-size: calc(812px + 2 * var(--phone-frame-bezel));
+  padding: var(--phone-frame-bezel);
+  border-radius: var(--phone-frame-radius);
+  background: #1c1c1f;
+  box-shadow:
+    0 0 0 2px #3b3b40,
+    var(--mat-sys-level3);
+
+  // The side buttons: the action button and volume on the left, power on
+  // the right — a body read as a phone at a glance.
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    inline-size: 4px;
+    background: #3b3b40;
+  }
+
+  &::before {
+    inset-inline-start: -5px;
+    inset-block-start: 120px;
+    block-size: 64px;
+    border-radius: 2px 0 0 2px;
+    box-shadow: 0 80px 0 #3b3b40;
+  }
+
+  &::after {
+    inset-inline-end: -5px;
+    inset-block-start: 160px;
+    block-size: 96px;
+    border-radius: 0 2px 2px 0;
+  }
+}
+
+// The screen: the status bar, the browser's address bar, the page scrolling
+// under them, the browser's toolbar — one column, only the page moving.
+.phone-frame__screen {
+  // The bars' surface: the page's paper with no browser round it, the
+  // island's surface (light or dark with it) as a browser's.
+  --phone-frame-bar: var(--email-paper, var(--mat-sys-surface-bright));
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  overflow: hidden;
+  border-radius: calc(var(--phone-frame-radius) - var(--phone-frame-bezel));
+  background: var(--email-paper, var(--mat-sys-surface-bright));
+  color: var(--mat-sys-on-surface);
+
+  :host([data-chrome='browser']) & {
+    --phone-frame-bar: var(--mat-sys-surface-container);
+  }
+}
+
+.phone-frame__scroller {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  outline: none;
+
+  &:focus-visible {
+    box-shadow: inset 0 0 0 2px var(--mat-sys-primary);
+  }
+}
+
+// The status bar: the time on the left, the island in the middle, the
+// icons on the right.
+.phone-frame__status {
+  flex: none;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  block-size: var(--phone-frame-status);
+  padding-inline: 32px 24px;
+  background: var(--phone-frame-bar);
+  font: 600 15px / 1 -apple-system, 'SF Pro Text', system-ui, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+.phone-frame__time {
+  justify-self: start;
+}
+
+.phone-frame__island {
+  inline-size: 120px;
+  block-size: 34px;
+  border-radius: 17px;
+  background: #000;
+}
+
+.phone-frame__icons {
+  justify-self: end;
+  inline-size: 66px;
+  block-size: 12px;
+  fill: currentColor;
+}
+
+.phone-frame__battery {
+  fill: none;
+  stroke: currentColor;
+  stroke-opacity: 0.4;
+}
+
+// The browser's bars: Brave's on a phone — 20px glyphs on the bars' surface,
+// the page's edge a hairline under the one and over the other.
+.phone-frame__address-bar,
+.phone-frame__toolbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  background: var(--phone-frame-bar);
+  color: var(--mat-sys-on-surface-variant);
+
+  mat-icon {
+    flex: none;
+    inline-size: 20px;
+    block-size: 20px;
+    font-size: 20px;
+  }
+}
+
+.phone-frame__address-bar {
+  gap: 12px;
+  padding: 4px 12px 8px 16px;
+  border-block-end: 1px solid var(--mat-sys-outline-variant);
+}
+
+// The address field: a pill, the host in the middle of it.
+.phone-frame__address {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-inline-size: 0;
+  block-size: 36px;
+  padding-inline: 12px 8px;
+  border-radius: 18px;
+  background: var(--mat-sys-surface-container-highest);
+  color: var(--mat-sys-on-surface);
+  font: 400 15px / 1 -apple-system, 'SF Pro Text', system-ui, sans-serif;
+
+  .phone-frame__lock {
+    inline-size: 14px;
+    block-size: 14px;
+    font-size: 14px;
+    color: var(--mat-sys-on-surface-variant);
+  }
+}
+
+.phone-frame__url {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// The shields, in the browser's own orange.
+.phone-frame__shield {
+  color: #fb542b;
+}
+
+// The toolbar: five places spread across, over the home indicator's room.
+.phone-frame__toolbar {
+  justify-content: space-around;
+  block-size: 44px;
+  padding-block-end: 22px;
+  border-block-start: 1px solid var(--mat-sys-outline-variant);
+}
+
+.phone-frame__disabled {
+  opacity: 0.38;
+}
+
+// The tabs: a rounded square with the count in it.
+.phone-frame__tabs {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  inline-size: 20px;
+  block-size: 20px;
+  border: 1.75px solid currentColor;
+  border-radius: 5px;
+  font: 600 11px / 1 -apple-system, 'SF Pro Text', system-ui, sans-serif;
+}
+
+// The home indicator, over whatever ends the screen.
+.phone-frame__home {
+  position: absolute;
+  inset-block-end: 8px;
+  inset-inline-start: 50%;
+  inline-size: 134px;
+  block-size: 5px;
+  border-radius: 3px;
+  background: currentColor;
+  transform: translateX(-50%);
+}

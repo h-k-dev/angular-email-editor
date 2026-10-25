@@ -1,0 +1,27 @@
+<playground-frame [knobs]="knobs" [actions]="actions" [value]="state()">
+  <div class="ip">
+    <div #host class="stage-editor ip-editor"></div>
+
+    <!-- The host's field: a popover while an image is selected, or a panel
+         that is always there. Either way the field is the host's own. -->
+    @if (mode() === 'panel' || selected()) {
+      <div class="ip-field">
+        <label class="stage-label" for="ip-alt">Alt text</label>
+        <input
+          id="ip-alt"
+          class="ip-input"
+          dir="auto"
+          placeholder="Describe the picture"
+          #alt="emailImageAlt"
+          [emailImageAlt]="editor()"
+          [emailImageAltAutoSelect]="mode() === 'popover'"
+          [emailImageAltFocus]="returnFocus()"
+          (emailImageAltClosed)="playground.log('emailImageAltClosed', $event)"
+        />
+        <button matButton type="button" [disabled]="!alt.active()" (click)="alt.apply()">
+          Apply
+        </button>
+      </div>
+    }
+  </div>
+</playground-frame>

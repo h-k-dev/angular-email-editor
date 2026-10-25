@@ -16,7 +16,7 @@ const schema = createSchema(emailExtensions);
 const roundTrip = (html: string) => serializeToHTML(parseHTML(html, schema), schema);
 
 const SPACED_H2 = '<h2 style="margin: 16px 0px 4px; font-size: 20px;">Title</h2>';
-const LAYOUT_H2 = '<h2 style="margin: 0px; font-size: 20px;">Title</h2>';
+const LAYOUT_H2 = '<h2 class="aee-layout-heading" style="margin: 0px; font-size: 20px;">Title</h2>';
 
 describe('heading', () => {
   it('sits nearer its words than the ones before; Outlook stacking two lands on the size', () => {
@@ -110,14 +110,20 @@ describe('heading', () => {
 
       editor.setContent('<div>Title</div>');
       layout(1).command!(editor.state, editor.view.dispatch, editor.view);
-      expect(editor.getHTML()).toBe('<h1 style="margin: 0px; font-size: 24px;">Title</h1>');
+      expect(editor.getHTML()).toBe(
+        '<h1 class="aee-layout-heading" style="margin: 0px; font-size: 24px;">Title</h1>',
+      );
 
       layout(2).command!(editor.state, editor.view.dispatch, editor.view);
-      expect(editor.getHTML()).toBe('<h2 style="margin: 0px; font-size: 20px;">Title</h2>');
+      expect(editor.getHTML()).toBe(
+        '<h2 class="aee-layout-heading" style="margin: 0px; font-size: 20px;">Title</h2>',
+      );
 
       editor.setContent('<h3>Title</h3>');
       layout(3).command!(editor.state, editor.view.dispatch, editor.view);
-      expect(editor.getHTML()).toBe('<h3 style="margin: 0px; font-size: 18px;">Title</h3>');
+      expect(editor.getHTML()).toBe(
+        '<h3 class="aee-layout-heading" style="margin: 0px; font-size: 18px;">Title</h3>',
+      );
 
       const h3 = actions.find((action) => action.id === 'heading-3')!;
       h3.command!(editor.state, editor.view.dispatch, editor.view);
@@ -127,7 +133,9 @@ describe('heading', () => {
 
       // The command keeps a heading's level — the API's flush toggle.
       editor.commands['setLayoutHeading']();
-      expect(editor.getHTML()).toBe('<h3 style="margin: 0px; font-size: 18px;">Title</h3>');
+      expect(editor.getHTML()).toBe(
+        '<h3 class="aee-layout-heading" style="margin: 0px; font-size: 18px;">Title</h3>',
+      );
     });
   });
 });

@@ -200,11 +200,22 @@ function withViewAttributes(
   return path.map((element, i) => {
     let result = element;
     for (const { name, value } of Array.from(viewPath[i].attributes)) {
-      if (name === 'style' || emitPath[i].hasAttribute(name)) continue;
       if (name === 'class') {
+        // Class by class: the email may write one too (a layout marker) —
+        // the view's own (`aee-column`) still join the authored ones.
+        const emitted = new Set((emitPath[i].getAttribute('class') ?? '').split(/\s+/));
         const authored = authoredAttribute(result, 'class');
-        result = withAttribute(result, 'class', authored ? `${authored} ${value}` : value);
-      } else if (authoredAttribute(result, name) === null) {
+        const own = new Set((authored ?? '').split(/\s+/));
+        const added = value
+          .split(/\s+/)
+          .filter((token) => token && !emitted.has(token) && !own.has(token));
+        if (added.length) {
+          result = withAttribute(result, 'class', [authored, ...added].filter(Boolean).join(' '));
+        }
+        continue;
+      }
+      if (name === 'style' || emitPath[i].hasAttribute(name)) continue;
+      if (authoredAttribute(result, name) === null) {
         result = withAttribute(result, name, value);
       }
     }

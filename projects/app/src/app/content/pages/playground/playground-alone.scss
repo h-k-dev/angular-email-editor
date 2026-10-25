@@ -1,0 +1,48 @@
+@use '@h-k-dev/angular-email-editor/styles/scroll';
+
+// The header, then the bench scrolling under it, on the sheet's surface.
+:host {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  min-block-size: 0;
+  background: var(--mat-sys-surface-bright);
+  color: var(--mat-sys-on-surface);
+}
+
+.alone-header {
+  border-block-end: 1px solid var(--mat-sys-outline-variant);
+}
+
+.alone-header__icon {
+  flex: none;
+  inline-size: 18px;
+  block-size: 18px;
+  font-size: 18px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.alone-header__title {
+  margin: 0;
+  font: var(--mat-sys-title-medium);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.alone-header__entry {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.alone-body {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  padding: 12px;
+  overflow: auto;
+  @include scroll.scroll;
+}

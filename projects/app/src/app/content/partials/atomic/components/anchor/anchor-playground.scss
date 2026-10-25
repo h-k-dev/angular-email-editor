@@ -1,0 +1,20 @@
+.ap-text {
+  margin: 0;
+  line-height: 1.7;
+}
+
+// The anchor places itself; this only draws its box, for the eye.
+.ap-anchor--outlined {
+  outline: 1px dashed var(--mat-sys-primary);
+  outline-offset: 1px;
+}
+
+.ap-overlay {
+  padding: 4px 8px;
+  border-radius: var(--mat-sys-corner-small, 8px);
+  background: var(--mat-sys-inverse-surface);
+  color: var(--mat-sys-inverse-on-surface);
+  font: var(--mat-sys-label-medium);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

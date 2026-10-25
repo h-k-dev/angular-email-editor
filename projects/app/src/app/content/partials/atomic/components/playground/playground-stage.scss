@@ -1,0 +1,138 @@
+// What the playgrounds put on their stages around the component — the
+// host's own parts (a row, its label, an error line), as the composer
+// draws them. Shared: each playground lists this as its stylesheet.
+
+.stage-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+// A composer's row: the label, then the control; parted by a hairline.
+.stage-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding-block: 6px;
+  cursor: text;
+
+  & + & {
+    border-block-start: 1px solid var(--mat-sys-outline-variant);
+  }
+
+  > :last-child {
+    flex: 1;
+    min-inline-size: 0;
+  }
+}
+
+.stage-label {
+  flex: none;
+  min-inline-size: 32px;
+  font: var(--mat-sys-body-medium);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.stage-error {
+  margin: 8px 0 0;
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-error);
+}
+
+.stage-note {
+  margin: 0 0 12px;
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+// A list the host draws its own chips into.
+.stage-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stage-center {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  min-block-size: 112px;
+}
+
+// A host's own remove control, for a slot: plain text, the chip's ink.
+.stage-remove {
+  padding: 0 4px;
+  border: 0;
+  border-radius: 4px;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  color: inherit;
+  font: var(--mat-sys-label-small);
+  cursor: pointer;
+}
+
+// A small live editor: a definite height, so the editor inside fills it
+// (`.aee-editor` is `height: 100%`) and a press anywhere in the box is a
+// press in the text. Longer text runs past it and the box scrolls.
+.stage-editor {
+  position: relative;
+  box-sizing: border-box;
+  block-size: 200px;
+  padding: 12px;
+  overflow-y: auto;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: var(--mat-sys-corner-small, 8px);
+  background: var(--mat-sys-surface-bright);
+}
+
+// A row of the host's own controls over or under a stage's editor.
+.stage-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-block: 0 8px;
+}
+
+// A plain table of what a function made of its input.
+.stage-table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font: var(--mat-sys-body-medium);
+
+  th,
+  td {
+    padding: 6px 8px;
+    text-align: start;
+    vertical-align: top;
+    border-block-end: 1px solid var(--mat-sys-outline-variant);
+    overflow-wrap: anywhere;
+  }
+
+  th {
+    font: var(--mat-sys-label-medium);
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  code {
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 0.8125rem;
+  }
+}
+
+.stage-yes {
+  color: var(--mat-sys-primary);
+}
+
+.stage-no {
+  color: var(--mat-sys-error);
+}
+
+.stage-note--after {
+  margin: 12px 0 0;
+  overflow-wrap: anywhere;
+}

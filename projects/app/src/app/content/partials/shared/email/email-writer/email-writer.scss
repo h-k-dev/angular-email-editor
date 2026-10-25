@@ -74,10 +74,8 @@
 // what the stuck bar covers — the browser keeps a focused row clear of it,
 // and the editor its caret (floating-foot.ts).
 :host([data-scroll='sheet']) {
-  overflow-y: auto;
-  overscroll-behavior-y: contain;
-  // Its scrollbar floats (`floatingScrollbar`, on the sheet that scrolls
-  // so: mobile-message-form.html), clear of what the scroll padding covers.
+  // The scroller and its floating bar are the owner's (`scrollOwner`, on
+  // this element), clear of what the scroll padding covers.
   padding-block-start: 0;
 
   > header.writer-bar {
@@ -191,6 +189,7 @@
 .writer-envelope {
   box-sizing: border-box;
   inline-size: 100%;
+  min-inline-size: var(--writer-column-min, 0);
   max-inline-size: var(--writer-column, none);
   margin-inline: auto;
 }

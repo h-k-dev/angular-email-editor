@@ -7,25 +7,101 @@
   <nav class="inbox-list email-scroll" id="inbox-list" [attr.aria-label]="'inbox.title' | translate">
     <ul>
       @for (row of rows(); track row.mail.id) {
-        <li>
+        <li class="inbox-item" [hueOf]="row.mail.name" [class.inbox-item--picked]="row.picked">
           <a
             class="inbox-row"
             [routerLink]="row.mail.id"
             routerLinkActive="inbox-row--open"
             ariaCurrentWhenActive="page"
-            [class.inbox-row--unread]="unread().has(row.mail.id)"
+            [class.inbox-row--unread]="row.unread"
             (pointerenter)="prefetch(row.mail.id)"
             (focus)="prefetch(row.mail.id)"
           >
-            <!-- Proton's leading avatar: the sender's initials on the
-                 sender's own hue. Decoration — the name says who. -->
-            <span class="inbox-row__avatar" aria-hidden="true" [style.--avatar-hue]="row.hue">
-              {{ row.initials }}
-            </span>
             <span class="inbox-row__name">{{ row.mail.name }}</span>
-            <span class="inbox-row__when">{{ row.when }}</span>
+            <span class="inbox-row__when">
+              @if (row.starred) {
+                <mat-icon
+                  class="inbox-row__starred"
+                  role="img"
+                  [attr.aria-label]="'inbox.starred' | translate"
+                  >star</mat-icon
+                >
+              }
+              {{ row.when }}
+            </span>
             <span class="inbox-row__subject">{{ row.mail.subject }}</span>
           </a>
+          <!-- Proton's leading avatar: the sender's initials on the sender's
+               own hue (the row's, `[hueOf]` — its wash and frame are in it
+               too) — and the row's checkbox under it, shown while the
+               pointer is on it or it is ticked. Pressing the avatar is
+               pressing the checkbox. Beside the link, not in it: a link
+               holds no controls. -->
+          <div class="inbox-pick">
+            <span class="inbox-row__avatar" [avatar]="row.mail.name"></span>
+            <mat-checkbox
+              class="inbox-pick__box"
+              [checked]="row.picked"
+              [aria-label]="'inbox.actions.select' | translate: { name: row.mail.name }"
+              (change)="pick(row.mail.id)"
+            />
+          </div>
+          <!-- Proton's quick actions, over the date while the row is under
+               the pointer (or focus is in it) — only where there is a
+               pointer to hover with: a touch screen never shows them. -->
+          <div
+            class="inbox-actions"
+            role="toolbar"
+            [attr.aria-label]="'inbox.actions.label' | translate"
+          >
+            <button
+              matIconButton
+              type="button"
+              [attr.aria-label]="(row.unread ? 'inbox.actions.markRead' : 'inbox.actions.markUnread') | translate"
+              [matTooltip]="(row.unread ? 'inbox.actions.markRead' : 'inbox.actions.markUnread') | translate"
+              (click)="toggleRead(row)"
+            >
+              <mat-icon>{{ row.unread ? 'mark_email_read' : 'mark_email_unread' }}</mat-icon>
+            </button>
+            <button
+              matIconButton
+              type="button"
+              [attr.aria-label]="'inbox.actions.trash' | translate"
+              [matTooltip]="'inbox.actions.trash' | translate"
+              (click)="move(row.mail.id, 'trash')"
+            >
+              <mat-icon>delete</mat-icon>
+            </button>
+            <button
+              matIconButton
+              type="button"
+              [attr.aria-label]="'inbox.actions.archive' | translate"
+              [matTooltip]="'inbox.actions.archive' | translate"
+              (click)="move(row.mail.id, 'archive')"
+            >
+              <mat-icon>archive</mat-icon>
+            </button>
+            <button
+              matIconButton
+              type="button"
+              [attr.aria-label]="'inbox.actions.snooze' | translate"
+              [matTooltip]="'inbox.actions.snooze' | translate"
+              (click)="move(row.mail.id, 'snoozed')"
+            >
+              <mat-icon>schedule</mat-icon>
+            </button>
+            <button
+              matIconButton
+              type="button"
+              class="inbox-actions__star"
+              [attr.aria-pressed]="row.starred"
+              [attr.aria-label]="'inbox.actions.star' | translate"
+              [matTooltip]="(row.starred ? 'inbox.actions.unstar' : 'inbox.actions.star') | translate"
+              (click)="toggleStar(row.mail.id)"
+            >
+              <mat-icon>star</mat-icon>
+            </button>
+          </div>
         </li>
       }
     </ul>
@@ -51,9 +127,24 @@
      (Thunderbird's), never the app's colour. Under the header, the open
      message (`InboxReader`), or a note while none is. Beside the list on a
      desk; on a phone it takes the list's place while a message is open.
-     It scrolls as one sheet: the header goes up with the mail. -->
+     It scrolls as one sheet: the header goes up with the mail. On a phone
+     its header leads with the way back to the list, in the aside opener's
+     place. -->
 <div #pane class="inbox-pane" [paperIsland]="paper()">
-  <header page-header></header>
+  <header page-header [frameLead]="!backButton()">
+    @if (backButton()) {
+      <button
+        matIconButton
+        type="button"
+        class="inbox-back"
+        [attr.aria-label]="'inbox.back' | translate"
+        [matTooltip]="'inbox.back' | translate"
+        (click)="back()"
+      >
+        <mat-icon>arrow_back</mat-icon>
+      </button>
+    }
+  </header>
   <div class="inbox-pane__body">
     <router-outlet />
   </div>

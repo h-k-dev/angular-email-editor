@@ -1,0 +1,298 @@
+@use '@h-k-dev/angular-email-editor/styles/scroll';
+
+$mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+// Narrow — a reference page's column — the panels go under the stage; with
+// the room, beside it.
+:host {
+  display: block;
+  container-type: inline-size;
+}
+
+.pg {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  font: var(--mat-sys-body-medium);
+  color: var(--mat-sys-on-surface);
+}
+
+.pg-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-block-size: 40px;
+}
+
+.pg-bar__scheme {
+  --hk-tgb-size: 32px;
+  --hk-tgb-inset: 4px;
+}
+
+.pg-bar__width {
+  font-family: $mono;
+  font-size: 0.8125rem;
+  color: var(--mat-sys-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+}
+
+.pg-bar__button {
+  --mat-button-text-container-height: 32px;
+}
+
+.pg-bar__place {
+  margin-inline-start: auto;
+}
+
+// The stage: the component on the app's own surface — or the other one —
+// under a quiet dot grid that shows where its box ends. Dragged narrower
+// at its corner, never wider than the room.
+.pg-stage {
+  position: relative;
+  // What floats on the stage (a suggestion menu, z 10) stays under the
+  // page's own chrome — the sticky header passes over it.
+  isolation: isolate;
+  box-sizing: border-box;
+  inline-size: 100%;
+  min-inline-size: 160px;
+  max-inline-size: 100%;
+  min-block-size: 160px;
+  padding: 24px;
+  overflow: auto;
+  resize: horizontal;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: var(--mat-sys-corner-medium, 12px);
+  background-color: var(--mat-sys-surface);
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--mat-sys-on-surface) 12%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 16px 16px;
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-large);
+}
+
+.pg-panels {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+
+@container (inline-size >= 960px) {
+  .pg {
+    grid-template-columns: minmax(0, 1fr) 360px;
+    grid-template-rows: auto 1fr;
+    align-items: start;
+  }
+
+  .pg-bar {
+    grid-column: 1 / -1;
+  }
+
+  .pg-panels {
+    grid-column: 2;
+    grid-row: 2;
+  }
+}
+
+.pg-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: var(--mat-sys-corner-medium, 12px);
+  min-inline-size: 0;
+}
+
+.pg-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-block-size: 32px;
+}
+
+.pg-panel__title {
+  margin: 0;
+  font: var(--mat-sys-title-small);
+  font-weight: 600;
+}
+
+// ── Knobs: the input's name, then its control, a row each ────────────────
+.pg-knobs {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+
+.pg-knob {
+  display: grid;
+  grid-template-columns: minmax(96px, 2fr) minmax(0, 3fr);
+  align-items: center;
+  gap: 12px;
+  min-block-size: 40px;
+
+  & + & {
+    border-block-start: 1px solid var(--mat-sys-outline-variant);
+  }
+
+  dt {
+    font-family: $mono;
+    font-size: 0.8125rem;
+    overflow-wrap: anywhere;
+  }
+
+  dd {
+    display: flex;
+    justify-content: flex-end;
+    margin: 0;
+    min-inline-size: 0;
+  }
+}
+
+.pg-input {
+  box-sizing: border-box;
+  inline-size: 100%;
+  block-size: 32px;
+  padding-inline: 8px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: var(--mat-sys-corner-small, 8px);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-family: $mono;
+  font-size: 0.8125rem;
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: -1px;
+  }
+}
+
+.pg-input--number {
+  inline-size: 96px;
+}
+
+.pg-choice {
+  --hk-tgb-size: 28px;
+  --hk-tgb-inset: 4px;
+
+  flex-wrap: wrap;
+  font-family: $mono;
+  font-size: 0.75rem;
+}
+
+.pg-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-block-start: 8px;
+  border-block-start: 1px solid var(--mat-sys-outline-variant);
+}
+
+.pg-action {
+  --mat-button-outlined-container-height: 32px;
+
+  font-family: $mono;
+  font-size: 0.8125rem;
+}
+
+// ── State: each subject's attributes, then the value ─────────────────────
+.pg-subject {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  & + & {
+    padding-block-start: 8px;
+    border-block-start: 1px solid var(--mat-sys-outline-variant);
+  }
+}
+
+.pg-subject__label {
+  font: var(--mat-sys-label-medium);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.pg-attributes {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  font-family: $mono;
+  font-size: 0.8125rem;
+}
+
+.pg-attribute {
+  display: flex;
+  gap: 8px;
+
+  dt {
+    flex: none;
+    color: var(--mat-sys-primary);
+  }
+
+  dd {
+    margin: 0;
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+.pg-value {
+  margin: 0;
+  max-block-size: 240px;
+  padding: 8px;
+  overflow: auto;
+  border-radius: var(--mat-sys-corner-small, 8px);
+  background: var(--mat-sys-surface-container);
+  font-family: $mono;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  @include scroll.scroll;
+}
+
+// ── Events, newest first ─────────────────────────────────────────────────
+.pg-events {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-block-size: 240px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  font-family: $mono;
+  font-size: 0.8125rem;
+  @include scroll.scroll;
+}
+
+.pg-event {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 8px;
+  padding-block: 2px;
+}
+
+.pg-event__time {
+  color: var(--mat-sys-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+}
+
+.pg-event__name {
+  font-weight: 600;
+}
+
+.pg-event__detail {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.pg-empty {
+  margin: 0;
+  font: var(--mat-sys-body-medium);
+  color: var(--mat-sys-on-surface-variant);
+}

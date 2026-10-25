@@ -1,0 +1,18 @@
+// The colours of a name's family (hue-of.ts, next to this file), off the
+// `--avatar-hue` the directive sets — global, since any element may be a
+// container. An avatar (`.avatar`) derives them too: inside a container it
+// inherits the container's hue, on its own it has its own.
+@mixin colors {
+  --avatar-fill: light-dark(
+    oklch(0.58 0.13 var(--avatar-hue, 0)),
+    oklch(0.48 0.12 var(--avatar-hue, 0))
+  );
+  --avatar-tint: light-dark(
+    oklch(0.58 0.13 var(--avatar-hue, 0)),
+    oklch(0.74 0.11 var(--avatar-hue, 0))
+  );
+}
+
+.hued {
+  @include colors;
+}

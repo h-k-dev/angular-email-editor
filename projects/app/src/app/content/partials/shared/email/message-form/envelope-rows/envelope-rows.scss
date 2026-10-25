@@ -44,6 +44,7 @@ section[email-compose] {
   // keeps to it with the bar and the envelope.
   box-sizing: border-box;
   inline-size: 100%;
+  min-inline-size: var(--writer-column-min, 0);
   max-inline-size: var(--writer-column, none);
   margin-inline: auto;
 }

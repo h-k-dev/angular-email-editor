@@ -42,13 +42,13 @@ describe('prose-mirror core', () => {
     const html =
       '<p>Hello <strong>bold</strong> <em>italic</em> <u>underlined</u></p>' +
       '<blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><p>quoted<br>line</p></blockquote>' +
-      '<h2 style="margin: 0px; font-size: 20px;">Title</h2>' +
+      '<h2 class="aee-layout-heading" style="margin: 0px; font-size: 20px;">Title</h2>' +
       '<p><a href="https://example.com" title="Example">link</a></p>';
     const doc = parseHTML(html, schema);
     expect(serializeToHTML(doc, schema)).toBe(
       '<p dir="auto">Hello <strong style="font-weight: bold;">bold</strong> <em style="font-style: italic;">italic</em> <u style="text-decoration: underline;">underlined</u></p>' +
         '<blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><p dir="auto">quoted<br>line</p></blockquote>' +
-        '<h2 style="margin: 0px; font-size: 20px;">Title</h2>' +
+        '<h2 class="aee-layout-heading" style="margin: 0px; font-size: 20px;">Title</h2>' +
         '<p dir="auto"><a href="https://example.com" title="Example" target="_blank" rel="noopener noreferrer">link</a></p>',
     );
   });
@@ -91,11 +91,11 @@ describe('prose-mirror core', () => {
 
   it('round-trips lists', () => {
     const html =
-      '<ul style="margin: 0px; padding-left: 24px;"><li><p>one</p></li><li><p>two</p></li></ul>' +
-      '<ol start="3" style="margin: 0px; padding-left: 24px;"><li><p>three</p></li></ol>';
+      '<ul class="aee-layout-list" style="margin: 0px; padding-left: 24px;"><li><p>one</p></li><li><p>two</p></li></ul>' +
+      '<ol class="aee-layout-list" start="3" style="margin: 0px; padding-left: 24px;"><li><p>three</p></li></ol>';
     expect(serializeToHTML(parseHTML(html, schema), schema)).toBe(
-      '<ul style="margin: 0px; padding-left: 24px;"><li><p dir="auto">one</p></li><li><p dir="auto">two</p></li></ul>' +
-        '<ol start="3" style="margin: 0px; padding-left: 24px;"><li><p dir="auto">three</p></li></ol>',
+      '<ul class="aee-layout-list" style="margin: 0px; padding-left: 24px;"><li><p dir="auto">one</p></li><li><p dir="auto">two</p></li></ul>' +
+        '<ol class="aee-layout-list" start="3" style="margin: 0px; padding-left: 24px;"><li><p dir="auto">three</p></li></ol>',
     );
   });
 
@@ -111,13 +111,13 @@ describe('prose-mirror core', () => {
 
   it('toggleOrderedList converts a bullet list in place', () => {
     let state = stateFromHTML(
-      '<ul style="margin: 0px; padding-left: 24px;"><li><p>item</p></li></ul>',
+      '<ul class="aee-layout-list" style="margin: 0px; padding-left: 24px;"><li><p>item</p></li></ul>',
       3,
       3,
     );
     state = runCommand(state, 'orderedList', 'toggleOrderedList');
     expect(serializeToHTML(state.doc, schema)).toBe(
-      '<ol style="margin: 0px; padding-left: 24px;"><li><p dir="auto">item</p></li></ol>',
+      '<ol class="aee-layout-list" style="margin: 0px; padding-left: 24px;"><li><p dir="auto">item</p></li></ol>',
     );
   });
 

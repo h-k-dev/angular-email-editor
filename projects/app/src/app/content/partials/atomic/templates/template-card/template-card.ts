@@ -1,4 +1,4 @@
-import { Component, computed, inject, input } from '@angular/core';
+import { Component, Injector, computed, inject, input, output } from '@angular/core';
 
 // Angular Material
 import { MatIconButton } from '@angular/material/button';
@@ -12,8 +12,11 @@ import { ComposeWindows } from '../../../../../core/email/compose-windows';
 import { BLANK } from '../../../../../core/email/envelope';
 import { EmailTemplate } from '../../../../../core/email/templates';
 import { I18n } from '../../../../../core/translations/i18n';
+import { Avatar } from '../../../../../core/common/directives/avatar/avatar';
+import { Badge } from '../../../common/badge/badge';
 import { EmailThumbnail } from '../../../common/email-thumbnail/email-thumbnail';
 import { GridSeen } from '../../../common/virtual-grid/virtual-grid';
+import { openTemplateDesigner } from '../template-designer/open-template-designer';
 import {
   ToolbarMenu,
   ToolbarMenuItem,
@@ -26,40 +29,52 @@ export interface TemplateCardModel {
   readonly template: EmailTemplate;
   /** The set it is from, in words — the card's "channel". */
   readonly set: string;
-  /** The set's avatar: its initials, on its hue (`core/randomisation`) —
-      the hue the card's wash is drawn in too, one colour family. */
-  readonly initials: string;
-  readonly hue: number;
+  /** The set's key: the card's hue is the key's (`[hueOf]`, bound by the
+      gallery) — its avatar and its wash one colour family. */
+  readonly setKey: string;
   /** Its distinct merge tags, counted. */
   readonly mergeTags: number;
-  /** Its dialect, in words — the badge on the thumbnail. */
+  /** Its dialect, in words — its category tag, the badge on the thumbnail. */
   readonly dialect: string;
 }
 
-type TemplateAction = 'use' | 'copy';
+type TemplateAction = 'design' | 'use' | 'copy';
 
 /**
  * A template in the gallery, YouTube's video card: the thumbnail (its top,
  * drawn once the card is looked at — `*gridSeen`), with its dialect over the
  * corner as a video's length is; under it the set's avatar, the name, the
- * set and what it holds; ⋮ at the end. The whole card is the press: a new
- * message written on the template. The wash a press lands on reaches 12px
+ * set and what it holds; ⋮ at the end. The whole card is the press: the
+ * template opened in the designer (the ⋮ also writes a new message on it). The wash a press lands on reaches 12px
  * past the card, in its avatar's colour, and grows into place on
  * hover — YouTube's touch feedback shape.
  */
 @Component({
   selector: 'article[template-card]',
-  imports: [TranslatePipe, MatIconButton, MatIcon, MenuTrigger, ToolbarMenu, EmailThumbnail, GridSeen],
+  imports: [
+    TranslatePipe,
+    Avatar,
+    Badge,
+    MatIconButton,
+    MatIcon,
+    MenuTrigger,
+    ToolbarMenu,
+    EmailThumbnail,
+    GridSeen,
+  ],
   templateUrl: './template-card.html',
   styleUrl: './template-card.scss',
-  host: { '[style.--avatar-hue]': 'card().hue' },
 })
 export class TemplateCard {
   readonly #windows = inject(ComposeWindows);
   readonly #snackBar = inject(MatSnackBar);
   readonly #i18n = inject(I18n);
+  readonly #injector = inject(Injector);
 
   readonly card = input.required<TemplateCardModel>();
+
+  /** The template was saved in the designer — as stored now. */
+  readonly changed = output<EmailTemplate>();
 
   /** "1 merge tag", "8 merge tags", "No merge tags". */
   protected readonly mergeTagsKey = computed(() => {
@@ -68,20 +83,33 @@ export class TemplateCard {
   });
 
   protected readonly moreItems = computed<ToolbarMenuItem<TemplateAction>[]>(() => [
+    { value: 'design', label: this.#i18n.t('templates.design'), icon: 'design_services' },
     { value: 'use', label: this.#i18n.t('templates.use'), icon: 'edit' },
     { value: 'copy', label: this.#i18n.t('templates.copy'), icon: 'content_copy' },
   ]);
 
   protected act(action: TemplateAction): void {
-    if (action === 'use') this.use();
+    if (action === 'design') void this.design();
+    else if (action === 'use') this.use();
     else void this.copy();
+  }
+
+  /** The template, in the designer over the whole screen. Each save comes
+      out (`changed`) while it is open, so the card behind it is redrawn as
+      the template is stored. */
+  protected async design(): Promise<void> {
+    const ref = await openTemplateDesigner(this.#injector, this.card().template);
+    const saves = ref.componentInstance.saved.subscribe((template) => this.changed.emit(template));
+    ref.afterClosed().subscribe(() => saves.unsubscribe());
   }
 
   /** A new message, written on the template: its HTML the body, and the
       original the preview draws beside the editor's reading. */
   protected use(): void {
-    const { html } = this.card().template;
-    void this.#windows.open({ content: { message: { ...BLANK, html, original: html }, images: [] } });
+    const { html, envelope } = this.card().template;
+    void this.#windows.open({
+      content: { message: { ...BLANK, ...envelope, html, original: html }, images: [] },
+    });
   }
 
   protected async copy(): Promise<void> {

@@ -1,0 +1,33 @@
+<playground-frame [knobs]="knobs" [actions]="actions" [value]="state()">
+  <div #stage class="kf">
+    <textarea #field class="kf-field" aria-label="Field" rows="3">
+The quick brown fox jumps over the lazy dog. Select a few words, then press a tool below.</textarea>
+
+    <div class="kf-row">
+      <span class="kf-label">emailKeepFocus</span>
+      <div
+        class="stage-bar kf-bar"
+        role="toolbar"
+        aria-label="Kept toolbar"
+        [emailKeepFocus]="enabled()"
+        [emailKeepFocusExcept]="except()"
+      >
+        <button type="button" aria-label="Kept · Bold" (click)="pressed('kept · bold')">B</button>
+        <button type="button" aria-label="Kept · Italic" (click)="pressed('kept · italic')">
+          <em>I</em>
+        </button>
+        <input class="kf-input" aria-label="Kept · Font size" value="14" size="3" />
+      </div>
+    </div>
+
+    <div class="kf-row">
+      <span class="kf-label">none</span>
+      <div class="stage-bar kf-bar" role="toolbar" aria-label="Plain toolbar">
+        <button type="button" aria-label="Plain · Bold" (click)="pressed('plain · bold')">B</button>
+        <button type="button" aria-label="Plain · Italic" (click)="pressed('plain · italic')">
+          <em>I</em>
+        </button>
+      </div>
+    </div>
+  </div>
+</playground-frame>

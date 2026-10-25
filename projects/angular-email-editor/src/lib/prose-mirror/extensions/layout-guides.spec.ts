@@ -56,12 +56,14 @@ describe('layout guides', () => {
     expect(editor.view.dom.querySelectorAll('.aee-column').length).toBe(2);
   });
 
-  it('never leaks the editor-only hooks into the email', () => {
+  it('never leaks the editor-only hooks into the email — only the layout markers', () => {
     editor.commands['insertColumns'](2);
     const html = editor.getHTML();
-    // emitDOM drops the class: the email is bare inline-block divs.
-    expect(html).not.toContain('aee-');
-    expect(html).not.toContain('class=');
+    // emitDOM drops the editor's classes: the email is inline-block divs
+    // carrying their marker (layout-marker.ts) and nothing else of ours.
+    expect(html.match(/aee-[\w-]+/g)?.every((name) => name.startsWith('aee-layout-'))).toBe(true);
+    expect(html).not.toContain('aee-columns');
+    expect(html).not.toContain('class="aee-column ');
     expect(html).toContain('display: inline-block');
   });
 });

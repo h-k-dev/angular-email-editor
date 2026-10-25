@@ -3,17 +3,15 @@
      its dialect over the corner. -->
 <div class="template-card__thumb">
   <email-thumbnail *gridSeen [html]="card().template.html" />
-  <span class="template-card__badge">{{ card().dialect }}</span>
+  <span badge tone="overlay" class="template-card__badge">{{ card().dialect }}</span>
 </div>
 
 <div class="template-card__meta">
-  <span class="template-card__avatar" aria-hidden="true">
-    {{ card().initials }}
-  </span>
+  <span class="template-card__avatar" [avatar]="card().set"></span>
   <div class="template-card__text">
     <!-- The card's press: its name, its hit area the whole card. -->
     <h3 class="template-card__title">
-      <button type="button" class="template-card__open" (click)="use()">
+      <button type="button" class="template-card__open" (click)="design()">
         {{ card().template.name }}
       </button>
     </h3>

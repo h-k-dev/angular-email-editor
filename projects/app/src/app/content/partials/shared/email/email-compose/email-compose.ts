@@ -104,6 +104,8 @@ import { emailDefaultFont } from '@h-k-dev/angular-email-editor/fonts';
 import { TextMetrics, createTextMetrics } from '@h-k-dev/angular-email-editor/metrics';
 import { TranslatePipe } from '@ngx-translate/core';
 
+import { ScrollOwner } from '../../../../../core/common/directives/scroll-owner/scroll-owner';
+
 /** Where the HTML source shows: nowhere, in the editing surface's place
     (code view), or beside the editor in its own column (detached). */
 export type SourceView = 'hidden' | 'code' | 'detached';
@@ -259,12 +261,14 @@ export class EmailCompose implements FormValueControl<string> {
       shortcuts, the slash menu and the bubble menu. */
   toolbar = input(true);
 
-  /** Who scrolls the text: the surface itself (`own`), or a scroller round
-      the composer (`host` — the writer's whole sheet on a phone, so the
-      envelope above scrolls away with it). Handed over, the composer grows
-      with its text, and its floating foot sticks to the bottom of whatever
-      scrolls. */
-  scroll = input<'own' | 'host'>('own');
+  /** Who scrolls the text: the surface itself (`own`), or the view round
+      the composer (`host`) — wherever an ancestor owns the scroll
+      (`ScrollOwner`: the phone's sheet, a document's, the designer's
+      canvas), so what is above the text scrolls away with it. Handed over,
+      the composer grows with its text, its floating foot sticks to the
+      owner's bottom, and the owner keeps the foot's room clear at its end. */
+  readonly #scrollOwner = inject(ScrollOwner, { optional: true });
+  readonly scroll = computed<'own' | 'host'>(() => (this.#scrollOwner?.active() ? 'host' : 'own'));
 
   /** Where the suggestion menu (`/`, `{{`) opens: by the trigger's line
       (`caret`), or docked in the foot, over the toolbar (`docked` — a
@@ -454,6 +458,16 @@ export class EmailCompose implements FormValueControl<string> {
     // No phase: mounting ProseMirror writes the DOM and reads it back (the
     // selection, the caret's coordinates) in one go.
     afterNextRender(() => this.#mountEditor());
+
+    // A view that owns the scroll keeps the floating foot's room clear at
+    // its end — told once the foot exists (a render in), for as long as
+    // this composer lives.
+    const owner = this.#scrollOwner;
+    if (owner) {
+      let release = (): void => {};
+      afterNextRender(() => (release = owner.stickFoot(this.footRoom)));
+      this.#destroyRef.onDestroy(() => release());
+    }
 
     this.#commands.connect({
       codeView: this.codeView,

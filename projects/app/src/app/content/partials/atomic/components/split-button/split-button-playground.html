@@ -1,0 +1,31 @@
+<playground-frame [knobs]="knobs">
+  <div class="stage-center">
+    @for (size of ['40px', '48px']; track size) {
+      <hk-split-button
+        aria-label="Attachments"
+        [playgroundSubject]="'Split button · ' + size"
+        [split]="split()"
+        [class.tonal]="tonal()"
+        [style.--hk-split-button-state-layer-size]="size"
+      >
+        <button
+          hkSplitButtonLeading
+          aria-label="Attach files"
+          [disabled]="leadingDisabled()"
+          (click)="leading()"
+        >
+          <mat-icon>attach_file</mat-icon>
+        </button>
+        <button
+          hkSplitButtonTrailing
+          aria-label="Show attachments"
+          [attr.aria-expanded]="open()"
+          [disabled]="trailingDisabled()"
+          (click)="trailing()"
+        >
+          <mat-icon>{{ open() ? 'expand_less' : 'expand_more' }}</mat-icon>
+        </button>
+      </hk-split-button>
+    }
+  </div>
+</playground-frame>
