@@ -1,113 +1,135 @@
-<!-- The page's header: its 48px on top, kept for what the page will put
-     there (`page-header`). -->
-<header page-header></header>
-<header class="doc-header">
+<doc-page icon="palette" [trail]="['app.nav.developers', 'app.nav.styling']" [toc]="toc">
   <h1 class="doc-title">Styling</h1>
   <p class="doc-lede">
-    Every visual aspect resolves through a three-step chain, at point of use:
-    <code>--email-*</code> &rarr; <code>--mat-sys-*</code> &rarr; a hardcoded fallback. Set any
-    token on <code>:root</code>, on a container, or on the element itself &mdash; with a Material M3
-    theme present (like this example app) the middle step already carries light and dark, so most
-    hosts set nothing at all. The exports behind these surfaces are on the
+    Every colour, corner and size in the editor is a custom property you can override. Most
+    hosts with a Material theme set none at all. The exports behind these surfaces are on the
     <a routerLink="/api">API</a> page.
   </p>
-</header>
 
-<section class="doc-card" aria-label="How theming works">
-  <h2 class="doc-card-title">Where the styles live</h2>
-  <p class="doc-card-hint">
-    ProseMirror creates the editable DOM at runtime, outside Angular&rsquo;s emulated view
-    encapsulation &mdash; so the editor surface is styled <em>globally</em>, and every rule scopes
-    to <code>.aee-editor</code>, the identity class the library stamps on its own editable roots.
-    Never style bare <code>.ProseMirror</code>: a ProseMirror instance the host runs for anything
-    else has to be left alone. The composer&rsquo;s own chrome (menus, pickers, preview) is
-    component-scoped as usual.
-  </p>
-  <pre class="doc-snippet"><code>{{ example }}</code></pre>
-</section>
+  <section class="doc-section" id="theming" aria-labelledby="theming-title">
+    <h2 class="doc-h2" id="theming-title">
+      <a class="doc-anchor" routerLink="." fragment="theming">How theming works</a>
+    </h2>
+    <p class="doc-intro">Each token resolves in three steps, at the point of use:</p>
+    <p class="doc-chain doc-chain--lead">
+      <code>--email-*</code><span class="doc-chain__then"></span><code>--mat-sys-*</code
+      ><span class="doc-chain__then"></span><span>a hardcoded fallback</span>
+    </p>
+    <ul class="doc-points">
+      <li>Set a token on <code>:root</code>, on a container, or on the element itself.</li>
+      <li>
+        With a Material M3 theme present — like this app — the middle step already carries light
+        and dark, so most hosts set nothing.
+      </li>
+      <li>The fallback keeps the editor usable with no theme at all.</li>
+    </ul>
 
-@for (group of groups; track group.title) {
-  <section class="doc-card" [attr.aria-label]="group.title">
-    <h2 class="doc-card-title">{{ group.title }}</h2>
-    <p class="doc-card-hint">{{ group.hint }}</p>
-    <div class="doc-table-scroll">
-      <table class="doc-table doc-table--signatures">
-        <thead>
-          <tr>
-            <th>Token</th>
-            <th>M3 system fallback</th>
-            <th>Final fallback</th>
-            <th>Alters</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (token of group.tokens; track token.name) {
-            <tr>
-              <td>
-                <code>{{ token.name }}</code>
-              </td>
-              <td>
-                @if (token.system) {
-                  <code>{{ token.system }}</code>
-                } @else {
-                  &mdash;
-                }
-              </td>
-              <td>
-                <code>{{ token.fallback }}</code>
-              </td>
-              <td>{{ token.alters }}</td>
-            </tr>
-          }
-        </tbody>
-      </table>
+    <div class="doc-topic" id="where-styles-live">
+      <h3 class="doc-h3">
+        <a class="doc-anchor" routerLink="." fragment="where-styles-live">Where the styles live</a>
+      </h3>
+      <p class="doc-text">
+        ProseMirror creates the editable DOM at runtime, outside Angular’s view encapsulation, so
+        the editor surface is styled <em>globally</em>. Every rule scopes to
+        <code>.aee-editor</code>, the class the library stamps on its own editable roots.
+      </p>
+      <ul class="doc-points">
+        <li>
+          Never style bare <code>.ProseMirror</code>: a ProseMirror instance the host runs for
+          anything else must be left alone.
+        </li>
+        <li>The composer’s own chrome — menus, pickers, preview — is component-scoped as usual.</li>
+      </ul>
+      <pre class="doc-code doc-code--example"><code>{{ example }}</code></pre>
     </div>
   </section>
-}
 
-<section class="doc-card" aria-label="Inside an Angular Material form field">
-  <h2 class="doc-card-title">Inside an Angular Material form field</h2>
-  <p class="doc-card-hint">
-    The address input is a control, never its own row &mdash; in a Material app the row is a
-    <code>mat-form-field</code>. Opt in per field with <code>emailMatFormField</code>
-    (<code>@h-k-dev/angular-email-editor/material</code>, the one entry that imports Material): the label
-    floats, <code>mat-error</code> shows once the field is touched and invalid, hint and error are
-    read out, and a click anywhere in the field puts the caret in.
-  </p>
-  <pre class="doc-snippet"><code>{{ materialRecipe }}</code></pre>
-  <mat-form-field class="doc-recipe-field">
-    <mat-label>To</mat-label>
-    <div email-address-input emailMatFormField [formField]="recipientForm.to"></div>
-    <mat-hint>Separate addresses with a comma</mat-hint>
-    <mat-error>{{ recipientForm.to().errors()[0]?.message }}</mat-error>
-  </mat-form-field>
-</section>
+  @for (section of sections; track section.id) {
+    <section class="doc-section" [id]="section.id" [attr.aria-labelledby]="section.id + '-title'">
+      <h2 class="doc-h2" [id]="section.id + '-title'">
+        <a class="doc-anchor" routerLink="." [fragment]="section.id">{{ section.title }}</a>
+      </h2>
+      <p class="doc-intro" [docProse]="section.intro"></p>
 
-<section class="doc-card" aria-label="Class hooks">
-  <h2 class="doc-card-title">Class hooks</h2>
-  <p class="doc-card-hint">
-    Below the tokens: the classes the library puts on its own runtime DOM. Reach for these when a
-    token does not exist for what you want to change &mdash; and tell us, because a missing token is
-    usually the real bug.
-  </p>
-  <div class="doc-table-scroll">
-    <table class="doc-table doc-table--signatures">
-      <thead>
-        <tr>
-          <th>Class</th>
-          <th>Applies to</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (hook of hooks; track hook.name) {
-          <tr>
-            <td>
-              <code>{{ hook.name }}</code>
-            </td>
-            <td>{{ hook.applies }}</td>
-          </tr>
-        }
-      </tbody>
-    </table>
-  </div>
-</section>
+      @for (group of section.groups; track group.id) {
+        <div class="doc-topic" [id]="group.id">
+          @if (section.groups.length > 1) {
+            <h3 class="doc-h3">
+              <a class="doc-anchor" routerLink="." [fragment]="group.id">{{ group.title }}</a>
+            </h3>
+          }
+          <dl class="doc-defs">
+            @for (token of group.tokens; track token.name) {
+              <div class="doc-def">
+                <dt>{{ token.name }}</dt>
+                <dd [docProse]="token.alters"></dd>
+                <dd class="doc-chain">
+                  <span>Falls back to</span>
+                  @if (token.system) {
+                    <code>{{ token.system }}</code><span class="doc-chain__then"></span>
+                  }
+                  <code>{{ token.fallback }}</code>
+                </dd>
+              </div>
+            }
+          </dl>
+        </div>
+      }
+    </section>
+  }
+
+  <section class="doc-section" id="material-form-field" aria-labelledby="material-form-field-title">
+    <h2 class="doc-h2" id="material-form-field-title">
+      <a class="doc-anchor" routerLink="." fragment="material-form-field">Material form field</a>
+    </h2>
+    <p class="doc-intro">
+      The address input is a control, never its own row — in a Material app the row is a
+      <code>mat-form-field</code>.
+    </p>
+    <p class="doc-text">
+      Opt in per field with <code>emailMatFormField</code> from
+      <code>&#64;h-k-dev/angular-email-editor/material</code>, the one entry point that imports
+      Material:
+    </p>
+    <ul class="doc-points">
+      <li>the label floats;</li>
+      <li><code>mat-error</code> shows once the field is touched and invalid;</li>
+      <li>hint and error are read out;</li>
+      <li>a click anywhere in the field puts the caret in.</li>
+    </ul>
+    <pre class="doc-code doc-code--example"><code>{{ materialRecipe }}</code></pre>
+    <p class="doc-text">Try it:</p>
+    <mat-form-field class="doc-recipe-field">
+      <mat-label>To</mat-label>
+      <div email-address-input emailMatFormField [formField]="recipientForm.to"></div>
+      <mat-hint>Separate addresses with a comma</mat-hint>
+      <mat-error>{{ recipientForm.to().errors()[0]?.message }}</mat-error>
+    </mat-form-field>
+  </section>
+
+  <section class="doc-section" id="class-hooks" aria-labelledby="class-hooks-title">
+    <h2 class="doc-h2" id="class-hooks-title">
+      <a class="doc-anchor" routerLink="." fragment="class-hooks">Class hooks</a>
+    </h2>
+    <p class="doc-intro">
+      The classes the library puts on its own runtime DOM, for when no token covers what you want
+      to change — and tell us, because a missing token is usually the real bug.
+    </p>
+
+    @for (group of hookGroups; track group.id) {
+      <div class="doc-topic" [id]="group.id">
+        <h3 class="doc-h3">
+          <a class="doc-anchor" routerLink="." [fragment]="group.id">{{ group.title }}</a>
+        </h3>
+        <dl class="doc-defs">
+          @for (hook of group.hooks; track hook.name) {
+            <div class="doc-def">
+              <dt>{{ hook.name }}</dt>
+              <dd [docProse]="hook.applies"></dd>
+            </div>
+          }
+        </dl>
+      </div>
+    }
+  </section>
+</doc-page>

@@ -4,96 +4,78 @@ import type { InboundMessage } from '@h-k-dev/angular-email-editor';
 
 import { messageHtml } from '../../dawn/dawn.render';
 import { BLANK } from '../envelope';
-import { ExampleEntry, ExampleSet, Examples, inbound } from '../examples';
+import { ExampleAssets, inbound, sentDate } from '../examples';
 
-/** A message in the demo inbox: what the library's reply seeds read
-    (`InboundMessage`), plus what a list row shows. */
-export interface InboxMail extends InboundMessage {
+/** A message as the inbox lists it — the listing's line (`inbox.json`):
+    what a row shows and the reader heads the message with, without its
+    body. */
+export interface InboxHeader extends Omit<InboundMessage, 'html' | 'text'> {
   /** A path segment — `/inbox/:id`. */
   readonly id: string;
+  /** Where its body is, under the examples. */
+  readonly file: string;
+  /** What the file holds: `reply` — an inbound message as JSON; `html` —
+      the document itself. */
+  readonly kind: 'reply' | 'html';
   /** The sender's name for the list, without the address. */
   readonly name: string;
+  readonly from: string;
+  readonly to: string;
   readonly subject: string;
-  /** The body to read, as HTML (a fragment or a whole document). */
-  readonly html: string;
 }
 
-/** The catalogue's sets the inbox holds, in its order: the inbound
-    messages first, then the newsletters — the very MJML documents the
-    Render page and the render specs read. */
-const INBOX_SETS = ['reply', 'mjml'];
+/** A message, opened: its header, and what the library's reply seeds read
+    (`InboundMessage`). */
+export interface InboxMail extends InboxHeader {
+  /** The body to read, as HTML (a fragment or a whole document). */
+  readonly html: string;
+  readonly text?: string;
+}
+
+/** The listing as `inbox.json` holds it (`scripts/inbox-listing.mjs`). */
+interface InboxListing {
+  mails: (Omit<InboxHeader, 'to' | 'date'> & { to?: string; date?: string })[];
+}
 
 /** Whoever the examples were sent to: the account's own address. */
 const SELF = BLANK.from.join(', ');
 
-/** "Jane Doe <jane@x>" → "Jane Doe"; a bare address stays as it is. */
-function displayName(from: string): string {
-  return from.replace(/\s*<[^>]*>\s*$/, '').trim() || from;
-}
-
-/** A catalogue name without its provenance: "Worldly (compiled MJML)" →
-    "Worldly". */
-function shortName(entry: ExampleEntry): string {
-  return entry.name.replace(/\s*\([^)]*\)\s*$/, '');
-}
-
-/** The file's base name: `mjml/worldly.html` → `worldly`. */
-function slug(entry: ExampleEntry): string {
-  return entry.file.replace(/^.*\//, '').replace(/\.[^.]+$/, '');
-}
-
-/** A reply example — an inbound message as JSON — as it arrived. Its
-    subject is what the catalogue calls it; it was sent to us. */
-function fromReply(set: ExampleSet, entry: ExampleEntry, text: string): InboxMail {
-  const message = inbound(text);
-  const from = message.from ?? '';
-  return {
-    ...message,
-    id: `${set.key}-${slug(entry)}`,
-    name: displayName(from) || entry.name,
-    from,
-    to: message.to ?? SELF,
-    subject: message.subject ?? entry.name,
-    html: messageHtml(message),
-  };
-}
-
-/** An MJML example — a whole newsletter document — as it arrived: from the
-    sender its name says, its subject the document's title where it has
-    one. It carries no date, so it shows none. */
-function fromDocument(set: ExampleSet, entry: ExampleEntry, html: string): InboxMail {
-  const name = shortName(entry);
-  const title = /<title>([^<]*)<\/title>/i.exec(html)?.[1]?.trim();
-  return {
-    id: `${set.key}-${slug(entry)}`,
-    name,
-    from: `${name} <${slug(entry)}@example.com>`,
-    to: SELF,
-    subject: title || name,
-    html,
-  };
-}
-
 /**
  * The demo inbox: the example catalogue's received mail — its reply
  * examples, as the messages they are, and its MJML newsletters — never a
- * made-up set beside them. Loaded with the examples (none where nothing
- * serves them: a unit test, an offline start), and read here: every
- * message unread until it is opened, the list, the reader and the aside's
- * count one state.
+ * made-up set beside them.
+ *
+ * Read the way Gmail reads a mailbox: the listing first (`inbox.json`, a
+ * header per message, written out of the files by
+ * `scripts/inbox-listing.mjs`), then a message's body only when it is
+ * opened — its path, `/inbox/:id` — or about to be (a row pointed at),
+ * each once. None where nothing serves them: a unit test, an offline start.
+ * Every message unread until it is opened, the list, the reader and the
+ * aside's count one state.
  */
 @Service()
 export class ReceivedMail {
-  readonly #examples = inject(Examples);
+  readonly #assets = inject(ExampleAssets);
 
-  readonly #source = resource({ loader: () => this.#load() });
+  readonly #listing = this.#assets.file('inbox.json').then(
+    (text) =>
+      (JSON.parse(text) as InboxListing).mails.map<InboxHeader>((line) => ({
+        ...line,
+        to: line.to ?? SELF,
+        date: sentDate(line.date),
+      })),
+    (): InboxHeader[] => [],
+  );
 
-  /** The inbox, in the catalogue's order. Empty until it has loaded. */
-  readonly mails = computed<readonly InboxMail[]>(() =>
+  readonly #source = resource({ loader: () => this.#listing });
+
+  /** The inbox's headers, in the catalogue's order. Empty until the
+      listing has come. */
+  readonly mails = computed<readonly InboxHeader[]>(() =>
     this.#source.hasValue() ? this.#source.value() : [],
   );
 
-  /** Whether the inbox has come — or will not: only then is a message
+  /** Whether the listing has come — or will not: only then is a message
       that is not in it missing, rather than on its way. */
   readonly settled = computed(() => !this.#source.isLoading());
 
@@ -105,27 +87,40 @@ export class ReceivedMail {
     () => new Set(this.mails().filter((mail) => !this.#read().has(mail.id)).map((mail) => mail.id)),
   );
 
+  /** Bodies asked for, by id: each fetched once. */
+  readonly #opened = new Map<string, Promise<InboxMail | null>>();
+
   /** A message has been opened: it is read from then on. */
   read(id: string): void {
     if (this.#read().has(id)) return;
     this.#read.update((read) => new Set(read).add(id));
   }
 
-  async #load(): Promise<readonly InboxMail[]> {
-    const sets = await this.#examples.sets();
-    const mails = await Promise.all(
-      sets
-        .filter((set) => INBOX_SETS.includes(set.key))
-        .sort((a, b) => INBOX_SETS.indexOf(a.key) - INBOX_SETS.indexOf(b.key))
-        .flatMap((set) =>
-          set.examples.map(async (entry) => {
-            const text = await this.#examples.raw(entry);
-            return set.kind === 'reply'
-              ? fromReply(set, entry, text)
-              : fromDocument(set, entry, text);
-          }),
-        ),
-    );
-    return mails;
+  /** The message with this id, its body fetched — null where the listing
+      names none. Once per message; one that failed is fetched again the
+      next time it is asked for. */
+  open(id: string): Promise<InboxMail | null> {
+    let pending = this.#opened.get(id);
+    if (!pending) {
+      pending = this.#fetch(id);
+      pending.catch(() => this.#opened.delete(id));
+      this.#opened.set(id, pending);
+    }
+    return pending;
+  }
+
+  /** A message about to be opened (its row pointed at, focused): its body
+      on its way already, so opening it is instant. */
+  prefetch(id: string): void {
+    this.open(id).catch(() => undefined);
+  }
+
+  async #fetch(id: string): Promise<InboxMail | null> {
+    const header = (await this.#listing).find((mail) => mail.id === id);
+    if (!header) return null;
+    const text = await this.#assets.file(header.file);
+    if (header.kind === 'html') return { ...header, html: text };
+    const message = inbound(text);
+    return { ...header, text: message.text, html: messageHtml(message) };
   }
 }

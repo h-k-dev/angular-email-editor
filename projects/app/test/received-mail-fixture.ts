@@ -1,31 +1,42 @@
 import type { Provider } from '@angular/core';
 
-import type { ExampleEntry, ExampleSet } from '../src/app/core/email/examples';
-import { Examples } from '../src/app/core/email/examples';
+import { ExampleAssets } from '../src/app/core/email/examples';
 
-/** The catalogue's own entries (public/examples/index.json) and files, a
-    few of them as they ship: an inbound HTML message, a text-only one, and
-    an MJML newsletter. */
-const REPLY: ExampleSet = {
-  key: 'reply',
-  label: 'Reply example',
-  short: 'Reply',
-  kind: 'reply',
-  examples: [
-    { name: 'Plain note', file: 'reply/plain-note.json' },
-    { name: 'Text-only', file: 'reply/text-only.json' },
+/** The inbox's listing as `scripts/inbox-listing.mjs` writes it, for a few
+    of the catalogue's messages as they ship: an inbound HTML message, a
+    text-only one, and an MJML newsletter. */
+const LISTING = {
+  mails: [
+    {
+      id: 'reply-plain-note',
+      file: 'reply/plain-note.json',
+      kind: 'reply',
+      name: 'Jane Doe',
+      from: 'Jane Doe <jane@example.com>',
+      date: 'Aug 18, 2026, 4:32 PM',
+      subject: 'Plain note',
+    },
+    {
+      id: 'reply-text-only',
+      file: 'reply/text-only.json',
+      kind: 'reply',
+      name: 'ops@example.com',
+      from: 'ops@example.com',
+      subject: 'Text-only',
+    },
+    {
+      id: 'mjml-austin',
+      file: 'mjml/austin.html',
+      kind: 'html',
+      name: 'Austin',
+      from: 'Austin <austin@example.com>',
+      subject: 'Discount Light',
+    },
   ],
 };
 
-const MJML: ExampleSet = {
-  key: 'mjml',
-  label: 'MJML template example',
-  short: 'MJML',
-  kind: 'html',
-  examples: [{ name: 'Austin (compiled MJML, Mailjet)', file: 'mjml/austin.html' }],
-};
-
 const FILES: Record<string, string> = {
+  'inbox.json': JSON.stringify(LISTING),
   'reply/plain-note.json': JSON.stringify({
     html: '<div>Hi,</div><div><br></div><div>Are we still on for the review tomorrow at 10?</div><div><br></div><div>Best,<br>Jane</div>',
     from: 'Jane Doe <jane@example.com>',
@@ -41,15 +52,20 @@ const FILES: Record<string, string> = {
 
 /**
  * The inbox for a jsdom spec, where nothing serves the examples: the
- * `Examples` service answered from memory, so `ReceivedMail` reads them as
- * it reads the real catalogue.
+ * `ExampleAssets` service answered from memory, so `ReceivedMail` reads
+ * them as it reads the real ones. `fetched` lists every file asked for, in
+ * order — what was fetched, and when.
  */
-export function provideExampleMail(): Provider {
+export function provideExampleMail(fetched: string[] = []): Provider {
   return {
-    provide: Examples,
+    provide: ExampleAssets,
     useValue: {
-      sets: async () => [REPLY, MJML],
-      raw: async (entry: ExampleEntry) => FILES[entry.file],
+      file: async (file: string) => {
+        fetched.push(file);
+        const text = FILES[file];
+        if (text === undefined) throw new Error(`Example ${file}: 404`);
+        return text;
+      },
     },
   };
 }

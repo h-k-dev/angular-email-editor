@@ -32,6 +32,10 @@ jobs:
       - name: Install
         run: npm ci
 
+      # The inbox's listing is read out of the example files: stale is wrong.
+      - name: Inbox listing
+        run: node scripts/inbox-listing.mjs --check
+
       # jsdom, against the library's sources.
       - name: Test library
         run: npx ng test angular-email-editor --watch=false

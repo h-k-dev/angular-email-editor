@@ -1,5 +1,4 @@
 @use '@angular/material' as mat;
-@use '@h-k-dev/angular-email-editor/styles/scroll';
 @use '../../../../../../styles/breakpoints' as bp;
 
 // The writer is one sheet: the editorial area's surface is the writer's
@@ -77,7 +76,8 @@
 :host([data-scroll='sheet']) {
   overflow-y: auto;
   overscroll-behavior-y: contain;
-  @include scroll.scroll;
+  // Its scrollbar floats (`floatingScrollbar`, on the sheet that scrolls
+  // so: mobile-message-form.html), clear of what the scroll padding covers.
   padding-block-start: 0;
 
   > header.writer-bar {

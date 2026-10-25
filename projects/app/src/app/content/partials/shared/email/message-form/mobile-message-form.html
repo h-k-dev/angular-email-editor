@@ -3,13 +3,17 @@
      `envelope`, and the attachment zone for anything dropped on it.
      On a phone the bar heads the sheet, mirrored, at the app's tap size, and
      the whole sheet scrolls (`scroll="sheet"`): the bar and the rows go up
-     and away above the text. -->
+     and away above the text. Its scrollbar floats (`floatingScrollbar`),
+     clear of the stuck bar above and of the composer's foot below — the
+     sheet's scroll padding at either end says what each covers. -->
 <form
   email-writer
   emailAddressDragGroup
   [formRoot]="envelope"
   bar="top"
   scroll="sheet"
+  floatingScrollbar
+  [style.scroll-padding-block-end.px]="footRoom()"
   aria-label="Email writer"
   dropZone
   #writerZone="dropZone"

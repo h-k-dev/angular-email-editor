@@ -52,6 +52,7 @@ describe('Mailbox', () => {
             narrow: compact.asReadonly(),
             compact: compact.asReadonly(),
             touch: signal(false).asReadonly(),
+            floatingScrollbars: signal(true).asReadonly(),
             keyboardInset: signal(0).asReadonly(),
           },
         },

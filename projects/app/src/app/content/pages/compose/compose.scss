@@ -21,11 +21,11 @@
 .compose__page {
   display: grid;
   // The writer's natural width: 600px is the *sheet*, insets included — not
-  // the text column — plus the scrollbar gutter (`.email-scroll` in
-  // styles.scss), a scroll affordance outside the sheet's measure. Declared,
-  // not measured: the text column is fluid, so an auto track would size the
-  // column to whatever happens to be typed.
-  --compose-writer-width: calc(600px + var(--email-scroll-size, 8px));
+  // the text column. The text's scrollbar floats over it (`floatingScrollbar`
+  // on the editing surface) and adds nothing. Declared, not measured: the
+  // text column is fluid, so an auto track would size the column to
+  // whatever happens to be typed.
+  --compose-writer-width: 600px;
 
   // Three tracks — a flank, the writer's width, a flank — that the panes
   // dock into: the phone-width-first preview (ledger: 320px first) into the

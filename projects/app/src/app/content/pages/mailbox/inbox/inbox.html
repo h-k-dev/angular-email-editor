@@ -14,6 +14,8 @@
             routerLinkActive="inbox-row--open"
             ariaCurrentWhenActive="page"
             [class.inbox-row--unread]="unread().has(row.mail.id)"
+            (pointerenter)="prefetch(row.mail.id)"
+            (focus)="prefetch(row.mail.id)"
           >
             <!-- Proton's leading avatar: the sender's initials on the
                  sender's own hue. Decoration — the name says who. -->

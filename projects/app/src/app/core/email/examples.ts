@@ -1,14 +1,18 @@
 import { DOCUMENT, Service, inject, signal } from '@angular/core';
 import { InboundMessage, replyDocument, replyQuote } from '@h-k-dev/angular-email-editor';
 
-/** A reply example's file as the inbound message. A date written as ISO is
-    a `Date`, formatted by the locale; anything else is a preformatted
-    string, shown as it is. */
+/** A date as an example writes it: one written as ISO is a `Date`,
+    formatted by the locale; anything else is a preformatted string, shown
+    as it is. */
+export function sentDate(date: InboundMessage['date']): InboundMessage['date'] {
+  return typeof date === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(date) ? new Date(date) : date;
+}
+
+/** A reply example's file as the inbound message, its date read
+    ({@link sentDate}). */
 export function inbound(text: string): InboundMessage {
   const message = JSON.parse(text) as InboundMessage;
-  if (typeof message.date === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(message.date)) {
-    message.date = new Date(message.date);
-  }
+  if (message.date !== undefined) message.date = sentDate(message.date);
   return message;
 }
 
@@ -62,23 +66,54 @@ export interface ExampleDocument {
 export const EXAMPLES_PATH = 'examples/';
 
 /**
+ * The example assets as files: each fetched once, whoever asks — the
+ * catalogue and its examples (`Examples`), the inbox's listing and the
+ * message opened (`ReceivedMail`). Fetches only what is asked for: the
+ * inbox reads through it without the whole catalogue coming too.
+ */
+@Service()
+export class ExampleAssets {
+  readonly #document = inject(DOCUMENT);
+
+  readonly #files = new Map<string, Promise<string>>();
+
+  /** A file under {@link EXAMPLES_PATH}, as text. One that failed is asked
+      for again next time. */
+  file(file: string): Promise<string> {
+    let pending = this.#files.get(file);
+    if (!pending) {
+      pending = this.#fetch(file);
+      pending.catch(() => this.#files.delete(file));
+      this.#files.set(file, pending);
+    }
+    return pending;
+  }
+
+  async #fetch(file: string): Promise<string> {
+    const url = new URL(EXAMPLES_PATH + file, this.#document.baseURI);
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Example ${file}: ${response.status} ${response.statusText}`);
+    return response.text();
+  }
+}
+
+/**
  * The example documents — demo data: the composer's example cycler seeds
  * the sheet from them, the template store lists them. They are assets,
  * not code: a catalogue (`index.json`) naming the sets and their files,
  * and a file per example beside it — a reply example as the inbound
  * message in JSON, a template as its HTML — so an example is added by
  * dropping a file in and a line in the catalogue, and none of them is
- * bundled. Fetched once — all of them, when the app starts, so the `/`
- * menu's Examples group is a plain local list the moment it is opened
- * ({@link documents}); each file once, whoever asks.
+ * bundled. Fetched once — all of them, when the service is first asked
+ * for (the composer, when the app starts), so the `/` menu's Examples
+ * group is a plain local list the moment it is opened ({@link documents});
+ * each file once, whoever asks (`ExampleAssets`).
  */
 @Service()
 export class Examples {
-  readonly #document = inject(DOCUMENT);
+  readonly #assets = inject(ExampleAssets);
 
   #catalogue: Promise<ExampleSet[]> | null = null;
-
-  readonly #files = new Map<string, Promise<string>>();
 
   /** Every example, loaded — empty until the assets have come, and empty
       for good where they cannot (nothing serves them in a unit test). */
@@ -95,7 +130,7 @@ export class Examples {
 
   /** The catalogue's sets, in its order. */
   sets(): Promise<ExampleSet[]> {
-    return (this.#catalogue ??= this.#fetch('index.json').then(
+    return (this.#catalogue ??= this.#assets.file('index.json').then(
       (text) => (JSON.parse(text) as ExampleCatalogue).sets,
     ));
   }
@@ -103,12 +138,6 @@ export class Examples {
   /** The set with this key, if the catalogue has it. */
   async set(key: string): Promise<ExampleSet | undefined> {
     return (await this.sets()).find((set) => set.key === key);
-  }
-
-  /** An example's file as it is — a reply example's JSON, a template's
-      HTML — for what reads the examples another way (the inbox). */
-  raw(entry: ExampleEntry): Promise<string> {
-    return this.#file(entry.file);
   }
 
   /** An example's document, as canonical email HTML — a reply example's
@@ -142,18 +171,6 @@ export class Examples {
   }
 
   #file(file: string): Promise<string> {
-    let pending = this.#files.get(file);
-    if (!pending) {
-      pending = this.#fetch(file);
-      this.#files.set(file, pending);
-    }
-    return pending;
-  }
-
-  async #fetch(file: string): Promise<string> {
-    const url = new URL(EXAMPLES_PATH + file, this.#document.baseURI);
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Example ${file}: ${response.status} ${response.statusText}`);
-    return response.text();
+    return this.#assets.file(file);
   }
 }

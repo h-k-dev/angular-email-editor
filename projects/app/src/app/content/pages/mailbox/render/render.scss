@@ -74,9 +74,8 @@
 .render-editor {
   --email-compose-surface-padding-inline: 0px;
   --email-compose-surface-padding-block: 0px;
-  // No scrollbar taking width out of the box: the frame beside has none
-  // either (render.ts), so the two columns of text are the same width.
-  --email-compose-scrollbar-width: none;
+  // No scrollbar takes width out of the box (the editor's floats), as the
+  // frame beside has none (render.ts): the two columns of text are one width.
 
   grid-row: 2;
   min-block-size: 0;

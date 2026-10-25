@@ -1,0 +1,82 @@
+// The look of a floating scrollbar (floating-scrollbar.ts, next to this
+// file) — global, since the bar is drawn outside any component's view.
+//
+// Where the platform's bars float (`native`) nothing here touches the
+// scroller: styling its `::-webkit-scrollbar` at all would turn a Mac's
+// floating bar classic, gutter and all. Where they are classic (`drawn`)
+// the platform's bar goes, and the directive's thin thumb floats over the
+// scroller's end edge instead — out of sight until a scroll, fading a
+// moment after it, wider under the pointer.
+//
+// Tokens — the scroll mixin's where they mean the same, then Material's:
+//
+// - `--email-scroll-size` — the thumb's thickness under the pointer (8px);
+//   at rest it is 2px less.
+// - `--email-scroll-thumb` / `--email-scroll-thumb-hover` — the thumb, and
+//   the thumb under the pointer.
+//
+// The rail's ends keep clear of the scroller's block scroll padding (what
+// is stuck over its top or foot), read by the directive as `--_cover-*`.
+
+[data-floating-scrollbar='drawn'] {
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.floating-scrollbar {
+  --_size: var(--email-scroll-size, 8px);
+
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0;
+  // Gone after the linger, slower than it came.
+  transition: opacity 300ms ease-out;
+
+  &[data-shown] {
+    opacity: 1;
+    transition-duration: 80ms;
+  }
+}
+
+// The strip it can be taken by: a little wider than the thumb, on the end
+// edge, live only while the bar shows — a hidden bar never takes a press
+// meant for the text's margin.
+.floating-scrollbar__rail {
+  position: absolute;
+  // 2px off each end, as off the edge: the thumb never touches the box.
+  inset-block: calc(var(--_cover-start, 0px) + 2px) calc(var(--_cover-end, 0px) + 2px);
+  inset-inline-end: 0;
+  inline-size: calc(var(--_size) + 4px);
+
+  .floating-scrollbar[data-shown] & {
+    pointer-events: auto;
+  }
+}
+
+.floating-scrollbar__thumb {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: 2px;
+  inline-size: calc(var(--_size) - 2px);
+  border-radius: 1e3px;
+  background-color: var(
+    --email-scroll-thumb,
+    color-mix(in srgb, var(--mat-sys-outline, #747775) 60%, transparent)
+  );
+  transition:
+    inline-size 120ms ease-out,
+    background-color 120ms ease-out;
+
+  .floating-scrollbar__rail:hover &,
+  .floating-scrollbar[data-dragging] & {
+    inline-size: var(--_size);
+    background-color: var(
+      --email-scroll-thumb-hover,
+      color-mix(in srgb, var(--mat-sys-outline, #747775) 80%, transparent)
+    );
+  }
+}

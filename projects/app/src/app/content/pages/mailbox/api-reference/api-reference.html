@@ -1,43 +1,40 @@
-<!-- The page's header: its 48px on top, kept for what the page will put
-     there (`page-header`). -->
-<header page-header></header>
-<header class="doc-header">
-  <h1 class="doc-title">API</h1>
+<doc-page icon="api" [trail]="['app.nav.developers', 'app.nav.api']" [toc]="toc">
+  <h1 class="doc-title">API reference</h1>
   <p class="doc-lede">
-    Everything <code>angular-email-editor</code> exports, grouped the way a host meets it. The core
-    is framework-free ProseMirror; the only Angular pieces are the
-    <code>InlineImages</code> registry and the panes this example app builds around the editor.
-    Colours, spacing and class hooks live on the <a routerLink="/styling">Styling</a> page.
+    Everything <code>&#64;h-k-dev/angular-email-editor</code> exports, in the order you meet it:
+    mount an editor, add menus, move documents in and out, send. Each export shows where it is
+    imported from when that is not the main entry point. Colours, spacing and class hooks are on
+    the <a routerLink="/styling">Styling</a> page.
   </p>
-</header>
 
-@for (group of groups; track group.title) {
-  <section class="doc-card" [attr.aria-label]="group.title">
-    <h2 class="doc-card-title">{{ group.title }}</h2>
-    <p class="doc-card-hint">{{ group.hint }}</p>
-    <div class="doc-table-scroll">
-      <table class="doc-table doc-table--signatures">
-        <thead>
-          <tr>
-            <th>Export</th>
-            <th>Signature</th>
-            <th>What it does</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (entry of group.entries; track entry.name) {
-            <tr>
-              <td>
-                <code>{{ entry.name }}</code>
-              </td>
-              <td>
-                <code>{{ entry.signature }}</code>
-              </td>
-              <td>{{ entry.does }}</td>
-            </tr>
+  @for (section of sections; track section.id) {
+    <section class="doc-section" [id]="section.id" [attr.aria-labelledby]="section.id + '-title'">
+      <h2 class="doc-h2" [id]="section.id + '-title'">
+        <a class="doc-anchor" routerLink="." [fragment]="section.id">{{ section.title }}</a>
+      </h2>
+      <p class="doc-intro" [docProse]="section.intro"></p>
+
+      @for (entry of section.entries; track entry.id) {
+        <article class="doc-entry" [id]="entry.id" [attr.aria-labelledby]="entry.id + '-name'">
+          <header class="doc-entry__head">
+            <h3 class="doc-entry__name" [id]="entry.id + '-name'">
+              <a class="doc-anchor" routerLink="." [fragment]="entry.id">{{ entry.name }}</a>
+            </h3>
+            @if (entry.from) {
+              <span class="doc-entry__from">{{ entry.from }}</span>
+            }
+          </header>
+          <pre class="doc-code"><code>{{ entry.signature }}</code></pre>
+          <p class="doc-text" [docProse]="entry.summary"></p>
+          @if (entry.details) {
+            <ul class="doc-points">
+              @for (point of entry.details; track point) {
+                <li [docProse]="point"></li>
+              }
+            </ul>
           }
-        </tbody>
-      </table>
-    </div>
-  </section>
-}
+        </article>
+      }
+    </section>
+  }
+</doc-page>

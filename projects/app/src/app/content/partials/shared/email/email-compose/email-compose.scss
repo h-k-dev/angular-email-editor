@@ -70,9 +70,12 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  // A host that lines the text up against another box (the render bench)
-  // takes the scrollbar out of the width.
-  scrollbar-width: var(--email-compose-scrollbar-width, auto);
+  // No scrollbar takes width here: it floats (`floatingScrollbar`) — the
+  // platform's where its bars float, a drawn one where they are classic.
+  // The foot lies over the scroller's end, and its scroll padding says so:
+  // a focused node stays clear of it, and so does the drawn bar's rail
+  // (the text keeps the same room, styles.scss; the caret, footClearance).
+  scroll-padding-block-end: var(--email-compose-foot-room, 0px);
   cursor: text;
 
   // The editing surface is a section like any other in the writer, so it
@@ -92,13 +95,6 @@
   // the form layout that places this pane between the envelope rows and
   // whatever follows — sets it through this token.
   --email-editor-padding-block: var(--email-compose-surface-padding-block, 16px);
-
-  // The text keeps the foot's room clear at its end (styles.scss — the
-  // editor's root is ProseMirror's), and so does the scrollbar: its track
-  // ends where the foot begins, so the thumb never slides under it.
-  &::-webkit-scrollbar-track {
-    margin-block-end: var(--email-compose-foot-room, 0px);
-  }
 }
 
 // The foot: the strip and the dock, over the end of the text — the text

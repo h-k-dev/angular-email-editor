@@ -1,4 +1,4 @@
-import { Component, computed, inject, input } from '@angular/core';
+import { Component, computed, inject, input, resource } from '@angular/core';
 
 // Angular Material
 import { MatButton, MatIconButton } from '@angular/material/button';
@@ -39,6 +39,10 @@ import { InboxPaper } from '../inbox-paper';
  * `replyQuote` / `forwardQuote` for the quoted history the editor keeps
  * under the text. A reply's rows are filled, so its caret starts in the
  * editor; a forward has nobody to go to yet, so its caret starts in To.
+ *
+ * Gmail's lazy reading: the header is the listing's, there at once; the
+ * body is fetched by the path's id (`ReceivedMail.open`) and drawn when it
+ * comes — at once too, where the row's pointing fetched it already.
  */
 @Component({
   selector: 'app-inbox-reader',
@@ -56,14 +60,30 @@ export class InboxReader {
   /** The message's id — the route's `:id`. */
   readonly id = input.required<string>();
 
-  /** The message, or nothing where the id names none (or the inbox is
-      still on its way). */
-  protected readonly mail = computed(
+  /** The message's header, from the listing — or nothing where the id
+      names none (or the listing is still on its way). */
+  protected readonly header = computed(
     () => this.#mailbox.mails().find((mail) => mail.id === this.id()) ?? null,
   );
 
-  /** Whether the inbox has come: only then is a message not in it missing. */
-  protected readonly settled = this.#mailbox.settled;
+  /** The message's body, fetched for the path's id. */
+  readonly #body = resource({
+    params: () => this.id(),
+    loader: ({ params }) => this.#mailbox.open(params),
+  });
+
+  /** The message opened: header and body — nothing while the body is on its
+      way (the last message's never stands in for it). */
+  protected readonly mail = computed(() => {
+    const mail = this.#body.hasValue() ? this.#body.value() : null;
+    return mail?.id === this.id() ? mail : null;
+  });
+
+  /** Whether the message is missing: the listing has come without it, or
+      its body cannot be fetched. */
+  protected readonly missing = computed(
+    () => (this.#mailbox.settled() && !this.header()) || this.#body.status() === 'error',
+  );
 
   /** The paper it is read on (`InboxPaper`). */
   protected readonly paper = this.#paper.scheme;
@@ -76,13 +96,13 @@ export class InboxReader {
   /** The sender's address, beside the name: the part of `from` in angle
       brackets — none where `from` is a bare address (the name is it). */
   protected readonly address = computed(
-    () => /<([^>]+)>/.exec(this.mail()?.from ?? '')?.[1] ?? null,
+    () => /<([^>]+)>/.exec(this.header()?.from ?? '')?.[1] ?? null,
   );
 
   /** Its date in full, in the app's language — or as the message wrote it
       out itself, or none. */
   protected readonly date = computed(() => {
-    const date = this.mail()?.date;
+    const date = this.header()?.date;
     if (!(date instanceof Date)) return date ?? '';
     return new Intl.DateTimeFormat(this.#i18n.lang(), {
       dateStyle: 'medium',
@@ -101,8 +121,10 @@ export class InboxReader {
     this.#paper.flip();
   }
 
-  protected answer(kind: ReplyKind): void {
-    const mail = this.mail();
+  /** An answer, seeded from the whole message: asked for before its body
+      came, it waits for it. */
+  protected async answer(kind: ReplyKind): Promise<void> {
+    const mail = this.mail() ?? (await this.#mailbox.open(this.id()).catch(() => null));
     if (!mail) return;
     const { to, cc, subject } = replyEnvelope(mail, kind, { self: BLANK.from });
     const quoted = kind === 'forward' ? forwardQuote(mail) : replyQuote(mail);

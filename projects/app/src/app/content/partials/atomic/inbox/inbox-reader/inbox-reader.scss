@@ -111,6 +111,48 @@
   padding: 8px var(--_inset) 32px;
 }
 
+// The body on its way: Gmail's thin bar at the header's inset — held back a
+// moment, so a body that comes at once (pointed at, fetched before) never
+// flashes it.
+.inbox-reader__loading {
+  height: 2px;
+  margin: 8px var(--_inset) 32px;
+  border-radius: 1px;
+  background: linear-gradient(
+      90deg,
+      transparent,
+      var(--mat-sys-primary) 50%,
+      transparent
+    )
+    0 0 / 40% 100% no-repeat;
+  opacity: 0;
+  animation:
+    inbox-reader-show 0s 300ms forwards,
+    inbox-reader-slide 1.2s 300ms ease-in-out infinite;
+}
+
+@keyframes inbox-reader-show {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes inbox-reader-slide {
+  from {
+    background-position: -40% 0;
+  }
+  to {
+    background-position: 140% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inbox-reader__loading {
+    background-size: 100% 100%;
+    animation: inbox-reader-show 0s 300ms forwards;
+  }
+}
+
 .inbox-reader__missing {
   margin: 0;
   padding: 24px 32px;

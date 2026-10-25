@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { scanMergeTags } from '@h-k-dev/angular-email-editor';
 import { MergeTags } from './merge-tags';
 
 describe('MergeTags', () => {
@@ -60,5 +61,22 @@ describe('MergeTags', () => {
     await vi.runAllTimersAsync();
     // Inherited keys of an object are no paths: the lookup is a Map's.
     expect(await pending).toEqual(['Ada', 'Analytical Engines Ltd', '', '']);
+  });
+
+  it('fills every placeholder of the Brand protection example, its choices as their words', async () => {
+    const fs = (globalThis as any).process.getBuiltinModule('fs');
+    const html: string = fs.readFileSync(
+      'projects/app/public/examples/angularjs/brand-protection-instruction.html',
+      'utf8',
+    );
+    const expressions = scanMergeTags(html).map(({ expr: [from, to] }) => html.slice(from, to));
+    const pending = service.resolve(expressions);
+    await vi.runAllTimersAsync();
+    const values = await pending;
+
+    expect(expressions.length).toBe(7);
+    expect(values.filter((value) => !value)).toEqual([]);
+    expect(values).toContain('Swoosh (figurative mark)');
+    expect(values).toContain('Marketplace listing');
   });
 });

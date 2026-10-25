@@ -16,6 +16,7 @@ export function stubExampleAssets(): void {
     'Lange Anrede (zweizeilig)',
     'Sehr lange Anrede (dreizeilig)',
     'Tabelle & Spalten',
+    'Brand protection instruction',
   ];
   const handlebars = ['Simple fields', 'Blocks stay literal', 'Table & columns'];
   const everyday = [

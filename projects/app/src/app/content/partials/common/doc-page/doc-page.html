@@ -1,0 +1,58 @@
+<!-- Where you are, small, at the top left: the page's icon, its group, and
+     the page itself. -->
+<header page-header>
+  <nav class="doc-trail" [attr.aria-label]="'docs.trail' | translate">
+    <mat-icon class="doc-trail__icon" aria-hidden="true">{{ icon() }}</mat-icon>
+    <ol class="doc-trail__steps">
+      @for (key of trail(); track key; let last = $last) {
+        <li class="doc-trail__step" [attr.aria-current]="last ? 'page' : null">
+          {{ key | translate }}
+        </li>
+      }
+    </ol>
+  </nav>
+</header>
+
+<div class="doc-layout">
+  <article class="doc-body">
+    <ng-content />
+  </article>
+
+  <!-- The table of contents, once there is room beside the column: every
+       section, and the topics of the one being read. -->
+  @if (toc().length) {
+    <nav class="doc-toc" [attr.aria-label]="'docs.onThisPage' | translate">
+      <h2 class="doc-toc__title">{{ 'docs.onThisPage' | translate }}</h2>
+      <ol class="doc-toc__list">
+        @for (entry of toc(); track entry.id) {
+          <li>
+            <a
+              class="doc-toc__link"
+              routerLink="."
+              [fragment]="entry.id"
+              [class.doc-toc__link--active]="reading() === entry.id"
+              [attr.aria-current]="reading() === entry.id ? 'location' : null"
+              >{{ entry.title }}</a
+            >
+            @if (reading() === entry.id && entry.topics?.length) {
+              <ol class="doc-toc__list doc-toc__list--topics">
+                @for (topic of entry.topics; track topic.id) {
+                  <li>
+                    <a
+                      class="doc-toc__link doc-toc__link--topic"
+                      routerLink="."
+                      [fragment]="topic.id"
+                      [class.doc-toc__link--code]="topic.code"
+                      [class.doc-toc__link--active]="readingTopic() === topic.id"
+                      >{{ topic.title }}</a
+                    >
+                  </li>
+                }
+              </ol>
+            }
+          </li>
+        }
+      </ol>
+    </nav>
+  }
+</div>

@@ -25,6 +25,7 @@ export default {
     compose: 'Verfassen',
     theme: { light: 'Zum hellen Design wechseln', dark: 'Zum dunklen Design wechseln' },
   },
+  docs: { onThisPage: 'Auf dieser Seite', trail: 'Wo Sie sind' },
   inbox: {
     title: 'Posteingang',
     more: 'Mehr',
@@ -32,6 +33,7 @@ export default {
     paperLight: 'Auf hellem Papier lesen',
     empty: 'Wähle eine Nachricht, um sie zu lesen',
     missing: 'Diese Nachricht gibt es nicht.',
+    loading: 'Nachricht wird geladen',
     body: 'Nachricht',
     resize: 'Liste in der Breite ändern',
     to: 'An',

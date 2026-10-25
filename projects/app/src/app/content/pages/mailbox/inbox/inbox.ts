@@ -15,7 +15,7 @@ import { filter } from 'rxjs';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { I18n } from '../../../../core/translations/i18n';
-import { InboxMail, ReceivedMail } from '../../../../core/email/mailbox/received-mail';
+import { InboxHeader, ReceivedMail } from '../../../../core/email/mailbox/received-mail';
 import {
   INBOX_LIST_MAX,
   INBOX_LIST_MIN,
@@ -30,7 +30,7 @@ import { PaperIslandDirective } from '../../../partials/shared/email/paper-islan
 /** One row of the list, worked out once per language: the message, the
     date as the list shows it, and its sender's avatar. */
 interface InboxRow {
-  readonly mail: InboxMail;
+  readonly mail: InboxHeader;
   readonly when: string;
   /** The sender's initials, the avatar's face: up to two letters. */
   readonly initials: string;
@@ -56,7 +56,7 @@ function initials(name: string): string {
     ("Aug 18, 2026, 4:32 PM") read as the date it names, so it shows as
     short as the rest — one no date can be read from stays as written. The
     reader and the quote keep it as the message wrote it. */
-function sent(date: InboxMail['date']): Date | string {
+function sent(date: InboxHeader['date']): Date | string {
   if (date === undefined || date instanceof Date) return date ?? '';
   const parsed = new Date(date);
   return Number.isNaN(parsed.getTime()) ? date : parsed;
@@ -76,7 +76,8 @@ function hue(name: string): number {
 /**
  * A pretend mail client: the example catalogue's received mail (`ReceivedMail`)
  * — the list, and the open message in a routed pane (`/inbox/:id`, `InboxReader`), where its
- * answers are. On a desk the two stand side by side, the divider between
+ * answers are. Gmail's way: the list is headers only; a message's body is
+ * fetched when its path is opened, or as its row is pointed at. On a desk the two stand side by side, the divider between
  * them dragged to taste; on a phone the open message takes the list's
  * place, and the platform's back button brings the list back — one router
  * outlet, laid out per screen, rather than a split squeezed onto a phone.
@@ -157,6 +158,12 @@ export class Inbox {
 
   /** Messages not yet opened, by id. */
   protected readonly unread = this.#mailbox.unread;
+
+  /** A row pointed at or focused: Gmail's head start — its body fetched
+      before the click, so the message opens at once. */
+  protected prefetch(id: string): void {
+    this.#mailbox.prefetch(id);
+  }
 
   constructor() {
     // The navigation that made this page: over before it could listen —

@@ -21,9 +21,12 @@
        clickable=false: a click on the paper must never open a file picker.
        data-color-scheme: the paper's own light or dark (`colorScheme`) —
        the editor's root is ProseMirror's, so its look is the global
-       stylesheet's, keyed on this. -->
+       stylesheet's, keyed on this.
+       floatingScrollbar: the text's bar floats over the paper, never a
+       gutter beside it. -->
   <div
-    class="email-compose__editor email-scroll"
+    class="email-compose__editor"
+    floatingScrollbar
     #editorHost
     [attr.data-color-scheme]="colorScheme()"
     dropZone

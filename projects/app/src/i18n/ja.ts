@@ -24,6 +24,7 @@ export default {
     compose: '作成',
     theme: { light: 'ライトモードに切り替え', dark: 'ダークモードに切り替え' },
   },
+  docs: { onThisPage: 'このページの内容', trail: '現在地' },
   inbox: {
     title: '受信トレイ',
     more: 'その他',
@@ -31,6 +32,7 @@ export default {
     paperLight: '明るい紙で読む',
     empty: 'メッセージを選ぶと、ここに表示されます',
     missing: 'このメッセージは見つかりません。',
+    loading: 'メッセージを読み込み中',
     body: 'メッセージ',
     resize: 'リストの幅を変更',
     to: '宛先',

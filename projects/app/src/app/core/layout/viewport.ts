@@ -1,7 +1,7 @@
 import { DOCUMENT, Service, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { BreakpointObserver } from '@angular/cdk/layout';
-import { Observable, fromEvent, map, merge, of, startWith } from 'rxjs';
+import { Observable, distinctUntilChanged, fromEvent, map, merge, of, startWith } from 'rxjs';
 
 /** Below this the composer shows one pane at a time: the dock-out options
     (source beside the editor, preview beside the editor) leave the toolbar. */
@@ -59,6 +59,43 @@ export class Viewport {
   readonly keyboardInset = toSignal(keyboardInset(inject(DOCUMENT).defaultView), {
     initialValue: 0,
   });
+
+  /** The platform's scrollbars float over the content rather than standing
+      beside it — macOS's, a phone's: they take no room and show only while
+      a scroll is on, and how they show is the person's own setting. The
+      shell hands this to the scroll mixin (`--email-scrollbars`), which then
+      leaves the platform's bar alone. Measured, never sniffed: an unstyled
+      probe's scrollbar, watched — a Mac set to follow its pointing device
+      turns classic the moment a mouse is plugged in. */
+  readonly floatingScrollbars = toSignal(floatingScrollbars(inject(DOCUMENT)), {
+    requireSync: true,
+  });
+}
+
+function floatingScrollbars(document: Document): Observable<boolean> {
+  const body = document.body;
+  if (!body || typeof ResizeObserver === 'undefined') return of(false);
+  return new Observable<boolean>((subscriber) => {
+    // A box that always scrolls, out of sight and out of the way, with no
+    // scrollbar styling of its own: its scrollbar is the platform's. One
+    // that floats takes nothing off the width; a classic one does, and
+    // coming or going it resizes the filler, which is what is watched.
+    const probe = document.createElement('div');
+    probe.setAttribute('aria-hidden', 'true');
+    probe.style.cssText =
+      'position:fixed;inset:0 auto auto 0;inline-size:100px;block-size:100px;' +
+      'overflow:scroll;visibility:hidden;pointer-events:none;contain:strict';
+    const filler = probe.appendChild(document.createElement('div'));
+    body.append(probe);
+    const measure = () => subscriber.next(probe.offsetWidth === probe.clientWidth);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(filler);
+    return () => {
+      observer.disconnect();
+      probe.remove();
+    };
+  }).pipe(distinctUntilChanged());
 }
 
 function keyboardInset(window: Window | null): Observable<number> {

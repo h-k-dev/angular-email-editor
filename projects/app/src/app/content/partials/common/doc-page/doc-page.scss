@@ -1,0 +1,165 @@
+@use '@h-k-dev/angular-email-editor/styles/scroll';
+
+// The page's width decides whether the toc fits beside the column (the
+// sheet's, not the viewport's: the aside takes its share).
+:host {
+  display: block;
+  container-type: inline-size;
+}
+
+// Where you are: small, quiet, the page itself a shade stronger.
+.doc-trail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-inline-size: 0;
+  padding-inline: 8px;
+  font: var(--mat-sys-label-large);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.doc-trail__icon {
+  flex: none;
+  inline-size: 18px;
+  block-size: 18px;
+  font-size: 18px;
+}
+
+.doc-trail__steps {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  white-space: nowrap;
+}
+
+.doc-trail__step {
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  & + &::before {
+    content: '›' / '';
+    margin-inline-end: 6px;
+  }
+
+  &[aria-current] {
+    color: var(--mat-sys-on-surface);
+  }
+}
+
+// One reading column; the toc joins it once there is room for both,
+// the pair centred on the sheet.
+.doc-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-content: center;
+}
+
+.doc-body {
+  min-inline-size: 0;
+  max-inline-size: 720px;
+  margin-inline: auto;
+  padding: 24px 24px 96px;
+  box-sizing: content-box;
+
+  @container (inline-size < 600px) {
+    padding-inline: 16px;
+  }
+}
+
+.doc-toc {
+  display: none;
+}
+
+@container (inline-size >= 1040px) {
+  .doc-layout {
+    grid-template-columns: minmax(0, 720px) 224px;
+    column-gap: 48px;
+  }
+
+  .doc-body {
+    max-inline-size: none;
+  }
+
+  // Held in view while the page scrolls under it (the sheet is the
+  // scroller); as tall as the sheet, scrolling on its own past that.
+  .doc-toc {
+    display: block;
+    position: sticky;
+    inset-block-start: 0;
+    align-self: start;
+    max-block-size: 100dvh;
+    padding: 24px 16px 24px 0;
+    overflow-y: auto;
+    box-sizing: border-box;
+    @include scroll.scroll;
+  }
+}
+
+.doc-toc__title {
+  margin: 0 0 8px;
+  padding-inline: 10px;
+  font: var(--mat-sys-label-medium);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.doc-toc__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  &--topics {
+    margin-block: 2px 6px;
+    padding-inline-start: 12px;
+  }
+}
+
+// A row: the section's name, the one being read on the wash the aside's
+// place wears.
+.doc-toc__link {
+  display: block;
+  padding: 4px 10px;
+  border-radius: var(--mat-sys-corner-small);
+  font: var(--mat-sys-body-medium);
+  color: var(--mat-sys-on-surface-variant);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &:hover {
+    color: var(--mat-sys-on-surface);
+    background: color-mix(in srgb, var(--mat-sys-on-surface) 5%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: -2px;
+  }
+
+  &--active,
+  &--active:hover {
+    color: var(--mat-sys-on-surface);
+    background: color-mix(in srgb, var(--mat-sys-on-surface) 8%, transparent);
+  }
+
+  &--topic {
+    padding-block: 3px;
+    font: var(--mat-sys-body-small);
+  }
+
+  &--topic.doc-toc__link--active {
+    background: none;
+    color: var(--mat-sys-primary);
+  }
+
+  &--code {
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  }
+}

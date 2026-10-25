@@ -9,6 +9,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 
 import { ComposeWindows } from '../../../core/email/compose-windows';
 import { ReceivedMail } from '../../../core/email/mailbox/received-mail';
+import { PageScrollerSheet } from '../../../core/router/page-scroller';
 import { MailboxAside } from '../../partials/atomic/mailbox/mailbox-aside';
 import { MailboxOpener } from '../../partials/atomic/mailbox/mailbox-opener';
 import { LanguageMenu } from '../../partials/common/language-menu/language-menu';
@@ -55,6 +56,7 @@ interface MailboxSection {
     RouterLink,
     RouterLinkActive,
     RouterOutlet,
+    PageScrollerSheet,
     LanguageMenu,
     ThemeToggle,
   ],

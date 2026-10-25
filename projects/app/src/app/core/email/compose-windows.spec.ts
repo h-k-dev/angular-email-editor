@@ -447,6 +447,7 @@ describe('ComposeWindows on a phone', () => {
             compact: compact.asReadonly(),
             narrow: compact.asReadonly(),
             touch: signal(false).asReadonly(),
+            floatingScrollbars: signal(true).asReadonly(),
             keyboardInset: signal(0),
           },
         },

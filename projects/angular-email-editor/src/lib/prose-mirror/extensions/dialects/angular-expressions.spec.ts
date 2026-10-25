@@ -106,6 +106,8 @@ describe('AngularJS required fields', () => {
     expect(fields('customer.note = draft; customer.note')).toEqual(['customer', 'draft']);
     expect(fields('x = 1', 'x + y')).toEqual(['y']); // a local assigned in another token
     expect(fields("'it\\'s ' + name")).toEqual(['name']);
+    // Only true/false/null/undefined are literals, not what an object inherits.
+    expect(fields('constructor', 'toString')).toEqual(['constructor', 'toString']);
   });
 });
 

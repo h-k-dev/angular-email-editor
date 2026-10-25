@@ -40,6 +40,7 @@ import { BubbleMenu } from './bubble-menu/bubble-menu';
 import { FormattingCommands } from './formatting-commands';
 import { FormattingToolbar } from './formatting-toolbar/formatting-toolbar';
 import { HeightSwitch } from '../../../../../core/common/directives/height-switch/height-switch';
+import { FloatingScrollbar } from '../../../../../core/common/directives/floating-scrollbar/floating-scrollbar';
 import { FloatingFoot, footClearance } from './floating-foot';
 import { LinkEditor } from './link-editor/link-editor';
 import { AltTextEditor } from './alt-text-editor/alt-text-editor';
@@ -145,6 +146,7 @@ export type BodyFormat = 'html' | 'text';
     AltTextEditor,
     ChatBasedSuggestion,
     HeightSwitch,
+    FloatingScrollbar,
     FloatingFoot,
     PopoverOutlet,
     SuggestionMenu,
@@ -816,6 +818,10 @@ export class EmailCompose implements FormValueControl<string> {
   /** What the foot covers of the text, as it stands — asked by the caret
       as it scrolls (`footClearance`). */
   readonly #footRoom = (): number => this.foot().room();
+
+  /** What the foot covers of the text, px — for a host that scrolls the
+      text itself (`scroll: 'host'`) to say so as its end scroll padding. */
+  readonly footRoom = computed(() => this.foot().room());
 
   /** The foot grew over the text — the docked menu opening, the toolbar
       switched on: the caret, if it is being written at, comes back out from

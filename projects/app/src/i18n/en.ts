@@ -28,6 +28,7 @@ export default {
     compose: 'Compose',
     theme: { light: 'Switch to light mode', dark: 'Switch to dark mode' },
   },
+  docs: { onThisPage: 'On this page', trail: 'Where you are' },
   inbox: {
     title: 'Inbox',
     more: 'More',
@@ -35,6 +36,7 @@ export default {
     paperLight: 'Read on light paper',
     empty: 'Select a message to read it',
     missing: 'This message is not here.',
+    loading: 'Loading the message',
     body: 'Message',
     resize: 'Resize the list',
     to: 'To',

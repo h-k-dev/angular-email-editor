@@ -12,6 +12,7 @@ import { Inbox } from './inbox';
 describe('Inbox', () => {
   let harness: RouterTestingHarness;
   let root: HTMLElement;
+  let fetched: string[];
 
   const host = () => root.querySelector('app-inbox') as HTMLElement;
   const row = (id: string) =>
@@ -20,6 +21,7 @@ describe('Inbox', () => {
     )!;
 
   beforeEach(async () => {
+    fetched = [];
     TestBed.configureTestingModule({
       providers: [
         provideRouter(
@@ -36,7 +38,7 @@ describe('Inbox', () => {
           withComponentInputBinding(),
         ),
         { provide: ComposeWindows, useValue: { open: async () => undefined } },
-        provideExampleMail(),
+        provideExampleMail(fetched),
       ],
     });
     harness = await RouterTestingHarness.create('/inbox');
@@ -130,6 +132,27 @@ describe('Inbox', () => {
     await vi.waitFor(() => expect(row('mjml-austin')).toBeDefined());
     expect(row('mjml-austin').classList).not.toContain('inbox-row--unread');
     expect(host().hasAttribute('data-reading')).toBe(true);
+  });
+
+  it('lists from the headers alone, and fetches a body when its path is opened', async () => {
+    expect(fetched).toEqual(['inbox.json']);
+    await harness.navigateByUrl('/inbox/mjml-austin');
+    await harness.fixture.whenStable();
+    expect(fetched).toEqual(['inbox.json', 'mjml/austin.html']);
+    expect(root.querySelector('email-viewer iframe')?.getAttribute('srcdoc')).toContain(
+      '<title>Discount Light</title>',
+    );
+  });
+
+  it('fetches a row’s body as it is pointed at or focused: open, it is there already', async () => {
+    row('reply-plain-note').dispatchEvent(new PointerEvent('pointerenter'));
+    row('mjml-austin').dispatchEvent(new FocusEvent('focus'));
+    await vi.waitFor(() =>
+      expect(fetched).toEqual(['inbox.json', 'reply/plain-note.json', 'mjml/austin.html']),
+    );
+    await harness.navigateByUrl('/inbox/reply-plain-note');
+    await harness.fixture.whenStable();
+    expect(fetched).toHaveLength(3);
   });
 
 });

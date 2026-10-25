@@ -324,7 +324,8 @@ class Parser {
     }
     if (token.kind === 'identifier') {
       this.index++;
-      if (token.text in LITERALS) return { type: 'Literal', value: LITERALS[token.text] };
+      // Own keys only: `constructor` is a field, not what an object inherits.
+      if (Object.hasOwn(LITERALS, token.text)) return { type: 'Literal', value: LITERALS[token.text] };
       return { type: 'Identifier', name: token.text };
     }
     return this.fail();

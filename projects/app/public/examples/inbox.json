@@ -1,0 +1,128 @@
+{
+  "mails": [
+    {
+      "id": "reply-plain-note",
+      "file": "reply/plain-note.json",
+      "kind": "reply",
+      "name": "Jane Doe",
+      "from": "Jane Doe <jane@example.com>",
+      "date": "Aug 18, 2026, 4:32 PM",
+      "subject": "Plain note"
+    },
+    {
+      "id": "reply-gmail-thread",
+      "file": "reply/gmail-thread.json",
+      "kind": "reply",
+      "name": "Ravi Patel",
+      "from": "Ravi Patel <ravi@example.com>",
+      "date": "2026-08-18T09:05:00.000Z",
+      "subject": "Gmail thread"
+    },
+    {
+      "id": "reply-outlook-memo",
+      "file": "reply/outlook-memo.json",
+      "kind": "reply",
+      "name": "Monika Weber",
+      "from": "Monika Weber",
+      "date": "Aug 14, 2026",
+      "subject": "Outlook memo"
+    },
+    {
+      "id": "reply-text-only",
+      "file": "reply/text-only.json",
+      "kind": "reply",
+      "name": "ops@example.com",
+      "from": "ops@example.com",
+      "subject": "Text-only"
+    },
+    {
+      "id": "reply-suspicious-newsletter",
+      "file": "reply/suspicious-newsletter.json",
+      "kind": "reply",
+      "name": "deals@newsletter.example",
+      "from": "deals@newsletter.example",
+      "date": "Aug 19, 2026, 6:00 AM",
+      "subject": "Suspicious newsletter"
+    },
+    {
+      "id": "mjml-worldly",
+      "file": "mjml/worldly.html",
+      "kind": "html",
+      "name": "Worldly",
+      "from": "Worldly <worldly@example.com>",
+      "subject": "Worldly"
+    },
+    {
+      "id": "mjml-happy-new-year",
+      "file": "mjml/happy-new-year.html",
+      "kind": "html",
+      "name": "Happy New Year",
+      "from": "Happy New Year <happy-new-year@example.com>",
+      "subject": "Happy New Year"
+    },
+    {
+      "id": "mjml-austin",
+      "file": "mjml/austin.html",
+      "kind": "html",
+      "name": "Austin",
+      "from": "Austin <austin@example.com>",
+      "subject": "Discount Light"
+    },
+    {
+      "id": "mjml-appointment-alert",
+      "file": "mjml/appointment-alert.html",
+      "kind": "html",
+      "name": "Appointment Alert",
+      "from": "Appointment Alert <appointment-alert@example.com>",
+      "subject": "Appointment Alert"
+    },
+    {
+      "id": "mjml-arturia",
+      "file": "mjml/arturia.html",
+      "kind": "html",
+      "name": "Arturia iSpark",
+      "from": "Arturia iSpark <arturia@example.com>",
+      "subject": "Arturia iSpark"
+    },
+    {
+      "id": "mjml-card",
+      "file": "mjml/card.html",
+      "kind": "html",
+      "name": "Say hello to card",
+      "from": "Say hello to card <card@example.com>",
+      "subject": "Say hello to card"
+    },
+    {
+      "id": "mjml-food-delivery",
+      "file": "mjml/food-delivery.html",
+      "kind": "html",
+      "name": "Food Delivery receipt",
+      "from": "Food Delivery receipt <food-delivery@example.com>",
+      "subject": "Food Delivery receipt"
+    },
+    {
+      "id": "mjml-loyal-client",
+      "file": "mjml/loyal-client.html",
+      "kind": "html",
+      "name": "Loyal Client gift",
+      "from": "Loyal Client gift <loyal-client@example.com>",
+      "subject": "Loyal Client gift"
+    },
+    {
+      "id": "mjml-nya-cart",
+      "file": "mjml/nya-cart.html",
+      "kind": "html",
+      "name": "NYA abandoned cart",
+      "from": "NYA abandoned cart <nya-cart@example.com>",
+      "subject": "NYA abandoned cart"
+    },
+    {
+      "id": "mjml-racoon",
+      "file": "mjml/racoon.html",
+      "kind": "html",
+      "name": "Racoon spring promo",
+      "from": "Racoon spring promo <racoon@example.com>",
+      "subject": "Racoon spring promo"
+    }
+  ]
+}

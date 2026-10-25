@@ -58,6 +58,10 @@
         {
           "name": "Tabelle & Spalten",
           "file": "angularjs/tabelle-spalten.html"
+        },
+        {
+          "name": "Brand protection instruction",
+          "file": "angularjs/brand-protection-instruction.html"
         }
       ]
     },

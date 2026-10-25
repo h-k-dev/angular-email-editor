@@ -4,6 +4,8 @@
 // The library's scrollbar — from its source, by the path a host imports it
 // by (`projects` is a Sass load path, angular.json).
 @use '@h-k-dev/angular-email-editor/styles/scroll';
+// The floating scrollbar's bar, drawn outside any component's view.
+@use 'app/core/common/directives/floating-scrollbar/floating-scrollbar';
 
 /* Notion in light, Linear in dark (styles/_theme.scss): Notion's generated
  * palette is the theme's, and every system colour is overridden with its
@@ -2073,78 +2075,207 @@ section[html-email-compose][data-wrap='off'] .aee-editor {
 }
 
 /* ---------------------------------------------------------------------------
- * Reference-page chrome (API + Styling). Global because both pages share it
- * and neither owns it; scoped to `.doc-*` so nothing here can reach the
- * editor surface above.
+ * Reference pages (API + Styling): the prose inside `doc-page`, which lays
+ * the page out. Global because both pages write it and neither owns it;
+ * scoped to `.doc-*` so nothing here can reach the editor surface above.
  * ------------------------------------------------------------------------ */
-.doc-card {
-  flex: 0 0 auto;
-  padding: 1rem 1.25rem 1.25rem;
-  border: 1px solid var(--mat-sys-outline-variant);
-  border-radius: var(--mat-sys-corner-medium, 12px);
-  background: var(--mat-sys-surface);
-}
-
-.doc-card code {
-  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-}
-
-.doc-card-title {
-  margin: 0 0 0.25rem;
-  font: var(--mat-sys-title-medium);
+.doc-title {
+  margin: 0 0 8px;
+  font: var(--mat-sys-headline-medium);
+  font-weight: 600;
+  letter-spacing: -0.01em;
   color: var(--mat-sys-on-surface);
 }
 
-.doc-card-hint {
-  margin: 0.25rem 0 0.75rem;
+.doc-lede {
+  margin: 0;
+  font: var(--mat-sys-body-large);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+/* Code in running prose: a quiet chip, the text's own size. */
+.doc-body :not(pre) > code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--mat-sys-surface-container);
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.875em;
+  color: var(--mat-sys-on-surface);
+  overflow-wrap: anywhere;
+}
+
+.doc-body a:not(.doc-anchor) {
+  color: var(--mat-sys-primary);
+}
+
+/* A section: room above it, not a line — the heading parts them. Its
+ * #fragment lands it a little below the sheet's top edge. */
+.doc-section {
+  margin-block-start: 56px;
+  scroll-margin-block-start: 16px;
+}
+
+.doc-h2 {
+  margin: 0 0 8px;
+  font: var(--mat-sys-title-large);
+  font-weight: 600;
+  color: var(--mat-sys-on-surface);
+}
+
+.doc-h3 {
+  margin: 0 0 6px;
+  font: var(--mat-sys-title-medium);
+  font-weight: 600;
+  color: var(--mat-sys-on-surface);
+}
+
+/* A heading is a link to itself: its "#" shows on hover, for copying. */
+.doc-anchor {
+  color: inherit;
+  text-decoration: none;
+
+  &::after {
+    content: '#' / '';
+    margin-inline-start: 8px;
+    color: var(--mat-sys-outline);
+    opacity: 0;
+  }
+
+  &:hover::after,
+  &:focus-visible::after {
+    opacity: 1;
+  }
+}
+
+.doc-intro {
+  margin: 0 0 8px;
+  font: var(--mat-sys-body-large);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.doc-text {
+  margin: 0;
   font: var(--mat-sys-body-medium);
+  line-height: 1.6;
+  color: var(--mat-sys-on-surface);
+}
+
+.doc-points {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding-inline-start: 20px;
+  font: var(--mat-sys-body-medium);
+  line-height: 1.6;
+  color: var(--mat-sys-on-surface);
+}
+
+/* One export: its name, where it comes from, its signature, what it does. */
+.doc-entry,
+.doc-topic {
+  margin-block-start: 32px;
+  scroll-margin-block-start: 16px;
+}
+
+.doc-entry__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin-block-end: 8px;
+}
+
+.doc-entry__name {
+  margin: 0;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--mat-sys-on-surface);
+  overflow-wrap: anywhere;
+}
+
+.doc-entry__from {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+/* Code blocks — a signature, a recipe. Long lines wrap: a signature is read,
+ * not scanned sideways. */
+.doc-code {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: var(--mat-sys-corner-small, 6px);
+  background: var(--mat-sys-surface-container);
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--mat-sys-on-surface);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* A list of names and what they do — tokens, class hooks: the name on its
+ * own line, the words under it, rows parted by space. */
+.doc-defs {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 12px 0 0;
+}
+
+.doc-def {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  dt {
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--mat-sys-on-surface);
+    overflow-wrap: anywhere;
+  }
+
+  dd {
+    margin: 0;
+    font: var(--mat-sys-body-medium);
+    line-height: 1.6;
+    color: var(--mat-sys-on-surface);
+  }
+}
+
+/* A token's fallbacks, in the order they are tried. */
+.doc-chain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin-block-start: 2px;
+  font: var(--mat-sys-body-small);
   color: var(--mat-sys-on-surface-variant);
 
-  code {
-    font-size: 0.8125rem;
+  .doc-chain__then::before {
+    content: '→' / 'then';
   }
 }
 
-/* Wide tables keep their layout and scroll inside their card rather than
- * squeezing the columns into unreadable slivers. */
-.doc-table-scroll {
-  overflow-x: auto;
-  @include scroll.scroll;
+/* Inside a definition: the quieter line under the words. */
+.doc-def dd.doc-chain {
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
 }
 
-.doc-table {
-  inline-size: 100%;
-  min-inline-size: 52rem;
-  border-collapse: collapse;
-  font: var(--mat-sys-body-medium);
-
-  th,
-  td {
-    padding: 0.625rem 0.75rem;
-    border-block-end: 1px solid var(--mat-sys-outline-variant);
-    text-align: start;
-    vertical-align: top;
-  }
-
-  th {
-    font: var(--mat-sys-label-large);
-    color: var(--mat-sys-on-surface-variant);
-    white-space: nowrap;
-  }
-
-  code {
-    padding: 0 0.375rem;
-    border-radius: 4px;
-    background: var(--mat-sys-surface-container);
-    font-size: 0.8125rem;
-    white-space: nowrap;
-  }
+/* The chain on its own, leading a section. */
+.doc-chain--lead {
+  margin: 4px 0 12px;
+  font: var(--mat-sys-body-large);
+  color: var(--mat-sys-on-surface);
 }
 
-/* Signatures are long — let them wrap instead of forcing the whole table
- * into horizontal scroll. */
-.doc-table--signatures td:nth-child(2) code {
-  white-space: normal;
+.doc-code--example {
+  margin-block-start: 16px;
 }
 
 /* The composer's one popover (email-compose/popover): the CDK pane it
