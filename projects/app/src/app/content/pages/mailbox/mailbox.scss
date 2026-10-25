@@ -174,12 +174,56 @@
 
 .mailbox-section__title {
   margin: 0;
-  padding: 4px 8px;
-  font: var(--mat-sys-label-medium);
-  color: var(--mat-sys-on-surface-variant);
+  font: inherit;
 
   :host([data-collapsed]) & {
     display: none;
+  }
+}
+
+// A run's heading, Linear's: small and quiet, its own toggle — the
+// triangle after the name shows on hover (and while focused), pointing
+// down while the run shows.
+.mailbox-section__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-inline-size: 100%;
+  block-size: 24px;
+  padding: 0 4px 0 8px;
+  border: 0;
+  border-radius: var(--mat-sys-corner-small);
+  background: none;
+  font: var(--mat-sys-label-medium);
+  color: var(--mat-sys-on-surface-variant);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--mat-sys-on-surface);
+    background: color-mix(in srgb, var(--mat-sys-on-surface) 5%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: -2px;
+  }
+}
+
+.mailbox-section__triangle {
+  flex: none;
+  inline-size: 16px;
+  block-size: 16px;
+  fill: currentColor;
+  opacity: 0;
+
+  .mailbox-section__toggle:hover &,
+  .mailbox-section__toggle:focus-visible &,
+  .mailbox-section__toggle[aria-expanded='false'] & {
+    opacity: 1;
+  }
+
+  .mailbox-section__toggle[aria-expanded='true'] & {
+    transform: rotate(90deg);
   }
 }
 
@@ -190,6 +234,11 @@
   margin: 0;
   padding: 0;
   list-style: none;
+
+  // A folded run.
+  &[hidden] {
+    display: none;
+  }
 }
 
 // A place: icon, name, and what waits there. The one you are in is a wash,
@@ -227,6 +276,67 @@
     justify-content: center;
     block-size: 40px;
     padding-inline: 0;
+  }
+}
+
+// A group's row, Linear's team: a place's look, its name followed by the
+// triangle (on hover, and always while folded), its pages one step in —
+// 12px, Linear's step (spacing stays on the 4px grid, insets 6 or 12).
+.mailbox-group__toggle {
+  inline-size: 100%;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  text-align: start;
+
+  // Folded over the place you are in: the wash that place would wear.
+  .mailbox-group--current > &[aria-expanded='false'] {
+    background: color-mix(in srgb, var(--mat-sys-on-surface) 8%, transparent);
+    color: var(--mat-sys-on-surface);
+  }
+
+  :host([data-collapsed]) & {
+    display: none;
+  }
+}
+
+.mailbox-group__label {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// The row's triangle sits right after its name, Linear's.
+.mailbox-group__toggle .mailbox-section__triangle {
+  margin-inline-start: -4px;
+}
+
+.mailbox-group__toggle:hover .mailbox-section__triangle,
+.mailbox-group__toggle:focus-visible .mailbox-section__triangle,
+.mailbox-group__toggle[aria-expanded='false'] .mailbox-section__triangle {
+  opacity: 1;
+}
+
+.mailbox-group__toggle[aria-expanded='true'] .mailbox-section__triangle {
+  transform: rotate(90deg);
+}
+
+.mailbox-group__links {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 2px 0 0;
+  padding: 0 0 0 12px;
+  list-style: none;
+
+  &[hidden] {
+    display: none;
+  }
+
+  // On the rail the row is gone: its pages stand on the first level.
+  :host([data-collapsed]) & {
+    margin: 0;
+    padding: 0;
   }
 }
 

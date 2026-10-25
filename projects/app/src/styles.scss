@@ -2095,7 +2095,7 @@ section[html-email-compose][data-wrap='off'] .aee-editor {
 
 /* Code in running prose: a quiet chip, the text's own size. */
 .doc-body :not(pre) > code {
-  padding: 1px 5px;
+  padding: 0 4px;
   border-radius: 4px;
   background: var(--mat-sys-surface-container);
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
@@ -2113,6 +2113,11 @@ section[html-email-compose][data-wrap='off'] .aee-editor {
 .doc-section {
   margin-block-start: 56px;
   scroll-margin-block-start: 16px;
+
+  /* A page of one section: no heading to part it from the lede. */
+  &:not(:has(> .doc-h2)) {
+    margin-block-start: 32px;
+  }
 }
 
 .doc-h2 {
@@ -2205,7 +2210,7 @@ section[html-email-compose][data-wrap='off'] .aee-editor {
  * not scanned sideways. */
 .doc-code {
   margin: 0 0 12px;
-  padding: 10px 14px;
+  padding: 12px;
   border-radius: var(--mat-sys-corner-small, 6px);
   background: var(--mat-sys-surface-container);
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;

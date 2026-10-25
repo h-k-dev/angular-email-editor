@@ -1,18 +1,16 @@
-<doc-page icon="api" [trail]="['app.nav.developers', 'app.nav.api']" [toc]="toc">
-  <h1 class="doc-title">API reference</h1>
-  <p class="doc-lede">
-    Everything <code>&#64;h-k-dev/angular-email-editor</code> exports, in the order you meet it:
-    mount an editor, add menus, move documents in and out, send. Each export shows where it is
-    imported from when that is not the main entry point. Colours, spacing and class hooks are on
-    the <a routerLink="/styling">Styling</a> page.
-  </p>
+<doc-page [icon]="link().icon" [trail]="trail()" [toc]="toc()">
+  <h1 class="doc-title">{{ content().title }}</h1>
+  <p class="doc-lede" [docProse]="content().lede"></p>
 
-  @for (section of sections; track section.id) {
+  @for (section of content().sections; track section.id) {
     <section class="doc-section" [id]="section.id" [attr.aria-labelledby]="section.id + '-title'">
-      <h2 class="doc-h2" [id]="section.id + '-title'">
-        <a class="doc-anchor" routerLink="." [fragment]="section.id">{{ section.title }}</a>
-      </h2>
-      <p class="doc-intro" [docProse]="section.intro"></p>
+      <!-- A page of one section is that section: the title says it. -->
+      @if (content().sections.length > 1) {
+        <h2 class="doc-h2" [id]="section.id + '-title'">
+          <a class="doc-anchor" routerLink="." [fragment]="section.id">{{ section.title }}</a>
+        </h2>
+        <p class="doc-intro" [docProse]="section.intro"></p>
+      }
 
       @for (entry of section.entries; track entry.id) {
         <article class="doc-entry" [id]="entry.id" [attr.aria-labelledby]="entry.id + '-name'">

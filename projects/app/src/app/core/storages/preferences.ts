@@ -62,7 +62,10 @@ export class Preferences {
   /** Whether a composer opens with its formatting toolbar — the writer
       bar's formatting button and the settings' Formatting toolbar. Unset
       reads as off: a message is written first, its marks have their keys. */
-  readonly formattingToolbar = this.#storage.pairSignal(`${PREFIX}formatting-toolbar`, onOff(false));
+  readonly formattingToolbar = this.#storage.pairSignal(
+    `${PREFIX}formatting-toolbar`,
+    onOff(false),
+  );
 
   /** Whether long lines wrap in the HTML source — Alt+Z and the settings'
       Word wrap. Unset reads as on (VS Code's word wrap); off, a line stays
@@ -75,6 +78,16 @@ export class Preferences {
     `${PREFIX}attachment-rows`,
     oneOf(['one', 'two'], 'one'),
   );
+
+  /** Whether the mailbox aside shows its Developers run, the API
+      reference's pages under its row, and the styling reference's — each
+      folds its own. Unset reads as shown. */
+  readonly asideDevelopersOpen = this.#storage.pairSignal(
+    `${PREFIX}aside-developers-open`,
+    onOff(true),
+  );
+  readonly asideApiOpen = this.#storage.pairSignal(`${PREFIX}aside-api-open`, onOff(true));
+  readonly asideStylingOpen = this.#storage.pairSignal(`${PREFIX}aside-styling-open`, onOff(true));
 
   /** How wide the inbox's list is, px — its divider, dragged. Unset reads
       as 320. */

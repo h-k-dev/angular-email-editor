@@ -1,18 +1,18 @@
-import { Component } from '@angular/core';
+import { Component, computed, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { DocSection } from '../../../partials/common/doc-page/doc';
 import { DocPage } from '../../../partials/common/doc-page/doc-page';
 import { DocProse } from '../../../partials/common/doc-page/doc-prose';
-import { API_SECTIONS } from './api-reference.content';
+import { API_PAGE_CONTENT } from './api-reference.content';
+import { API_PAGES } from './api-pages';
 
 /**
- * The API reference page: the library's public surface, a section per
- * thing a host does — mount an editor, pick a kit, add menus, move
- * documents in and out, hand a send payload to a transport. Each export
- * says where it is imported from, its signature, what it is for in a
- * sentence, and what to know in points. The content is
- * `api-reference.content.ts`; the styling side lives on its own page.
+ * A page of the API reference (`/api/:page`): a few sections of the
+ * library's public surface, each export with where it is imported from,
+ * its signature, what it is for in a sentence, and what to know in points.
+ * The aside lists the pages (`API_PAGES`); the content is
+ * `api-reference.content.ts`; the styling side has pages of its own.
  */
 @Component({
   selector: 'app-api-reference',
@@ -20,12 +20,28 @@ import { API_SECTIONS } from './api-reference.content';
   templateUrl: './api-reference.html',
 })
 export class ApiReference {
-  protected readonly sections = API_SECTIONS;
+  /** The route's `:page` — always one of `API_PAGES` (the route checks). */
+  readonly page = input.required<string>();
 
-  /** Every section, its exports under it. */
-  protected readonly toc: readonly DocSection[] = API_SECTIONS.map((section) => ({
-    id: section.id,
-    title: section.title,
-    topics: section.entries.map((entry) => ({ id: entry.id, title: entry.name, code: true })),
-  }));
+  protected readonly content = computed(
+    () => API_PAGE_CONTENT.find((page) => page.id === this.page()) ?? API_PAGE_CONTENT[0],
+  );
+  protected readonly link = computed(
+    () => API_PAGES.find((page) => page.id === this.content().id) ?? API_PAGES[0],
+  );
+  protected readonly trail = computed(() => ['app.nav.api', this.link().key]);
+
+  /** A page of several sections lists them, their exports under them; a
+      page of one lists its exports. */
+  protected readonly toc = computed<readonly DocSection[]>(() => {
+    const sections = this.content().sections;
+    const exports = (section: (typeof sections)[number]) =>
+      section.entries.map((entry) => ({ id: entry.id, title: entry.name, code: true }));
+    if (sections.length === 1) return exports(sections[0]);
+    return sections.map((section) => ({
+      id: section.id,
+      title: section.title,
+      topics: exports(section),
+    }));
+  });
 }

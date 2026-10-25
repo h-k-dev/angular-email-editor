@@ -1,23 +1,29 @@
-import { Component, Signal, computed, inject } from '@angular/core';
+import { Component, Signal, WritableSignal, computed, inject } from '@angular/core';
 
 // Angular Material
 import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { NgTemplateOutlet } from '@angular/common';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet, isActive } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { ComposeWindows } from '../../../core/email/compose-windows';
 import { ReceivedMail } from '../../../core/email/mailbox/received-mail';
 import { PageScrollerSheet } from '../../../core/router/page-scroller';
+import { Preferences } from '../../../core/storages/preferences';
 import { MailboxAside } from '../../partials/atomic/mailbox/mailbox-aside';
 import { MailboxOpener } from '../../partials/atomic/mailbox/mailbox-opener';
 import { LanguageMenu } from '../../partials/common/language-menu/language-menu';
 import { PAGE_HEADER_LEAD } from '../../partials/common/page-header/page-header';
 import { ThemeToggle } from '../../partials/common/theme-toggle/theme-toggle';
+import { DocPageLink } from '../../partials/common/doc-page/doc';
+import { API_PAGES } from './api-reference/api-pages';
+import { STYLING_PAGES } from './styling/styling-pages';
 
 /** A place the aside leads to. */
 interface MailboxLink {
+  readonly kind: 'link';
   readonly path: string;
   readonly icon: string;
   readonly key: string;
@@ -25,12 +31,38 @@ interface MailboxLink {
   readonly count?: Signal<number>;
 }
 
-/** A run of links under a heading of its own, or none (the first). */
+/** Places one level down, behind a row of their own that folds them —
+    Linear's team under "Your teams": a reference and its pages. */
+interface MailboxGroup {
+  readonly kind: 'group';
+  readonly id: string;
+  readonly icon: string;
+  readonly key: string;
+  readonly links: readonly MailboxLink[];
+  /** Whether its places show — kept across reloads. */
+  readonly open: WritableSignal<boolean>;
+  /** Whether the place you are in is one of its own. */
+  readonly current: Signal<boolean>;
+}
+
+/** A run of places under a heading of its own, or none (the first). */
 interface MailboxSection {
   readonly id: string;
   readonly key: string | null;
-  readonly links: readonly MailboxLink[];
+  readonly items: readonly (MailboxLink | MailboxGroup)[];
+  /** Whether the run shows under its heading — kept across reloads; a
+      run without a heading never folds. */
+  readonly open: WritableSignal<boolean> | null;
 }
+
+/** A reference's pages as links under it: `/api/editor`. */
+const pageLinks = (base: string, pages: readonly DocPageLink[]): MailboxLink[] =>
+  pages.map((page) => ({
+    kind: 'link',
+    path: `/${base}/${page.id}`,
+    icon: page.icon,
+    key: page.key,
+  }));
 
 /**
  * The mailbox: the app's pages as a mail client lays them out, Linear's —
@@ -49,6 +81,7 @@ interface MailboxSection {
 @Component({
   selector: 'app-mailbox',
   imports: [
+    NgTemplateOutlet,
     TranslatePipe,
     MatIcon,
     MatButton,
@@ -114,14 +147,27 @@ export class Mailbox {
     this.collapsed.set(true);
   }
 
-  /** The aside, in reading order: the mail, then the reference pages. */
+  /** A heading or a group's row pressed: what it holds folds away, or
+      comes back. */
+  protected fold(folding: MailboxSection | MailboxGroup): void {
+    folding.open?.update((open) => !open);
+  }
+
+  readonly #preferences = inject(Preferences);
+  readonly #router = inject(Router);
+
+  /** The aside, in reading order: the mail, then the developers' places —
+      each reference a group of its pages (Linear's teams), and the render
+      bench on the first level. */
   protected readonly sections: readonly MailboxSection[] = [
     {
       id: 'mail',
       key: null,
-      links: [
-        { path: '/', icon: 'edit_note', key: 'app.nav.composer' },
+      open: null,
+      items: [
+        { kind: 'link', path: '/', icon: 'edit_note', key: 'app.nav.composer' },
         {
+          kind: 'link',
           path: '/inbox',
           icon: 'inbox',
           key: 'app.nav.inbox',
@@ -132,10 +178,27 @@ export class Mailbox {
     {
       id: 'developers',
       key: 'app.nav.developers',
-      links: [
-        { path: '/api', icon: 'api', key: 'app.nav.api' },
-        { path: '/styling', icon: 'palette', key: 'app.nav.styling' },
-        { path: '/render', icon: 'compare', key: 'app.nav.render' },
+      open: this.#preferences.asideDevelopersOpen,
+      items: [
+        {
+          kind: 'group',
+          id: 'api',
+          icon: 'api',
+          key: 'app.nav.api',
+          open: this.#preferences.asideApiOpen,
+          current: isActive('/api', this.#router),
+          links: pageLinks('api', API_PAGES),
+        },
+        {
+          kind: 'group',
+          id: 'styling',
+          icon: 'palette',
+          key: 'app.nav.styling',
+          open: this.#preferences.asideStylingOpen,
+          current: isActive('/styling', this.#router),
+          links: pageLinks('styling', STYLING_PAGES),
+        },
+        { kind: 'link', path: '/render', icon: 'compare', key: 'app.nav.render' },
       ],
     },
   ];

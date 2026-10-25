@@ -9,10 +9,16 @@ export interface DocTopic {
 }
 
 /** A section of a reference page, as its table of contents lists it. */
-export interface DocSection {
-  readonly id: string;
-  readonly title: string;
+export interface DocSection extends DocTopic {
   readonly topics?: readonly DocTopic[];
+}
+
+/** One page of a reference, as the aside lists it: its route segment, its
+    name (a translation key) and its icon. */
+export interface DocPageLink {
+  readonly id: string;
+  readonly key: string;
+  readonly icon: string;
 }
 
 /** A run of prose: plain text, or code (`…` in the source string). */

@@ -20,6 +20,17 @@ export interface ApiSection {
   readonly entries: readonly ApiEntry[];
 }
 
+/** A page of the reference: one aside link, a few sections. A page of one
+    section is that section: its intro is the page's lede, no heading
+    repeats the title. */
+export interface ApiPage {
+  /** The route segment — its `API_PAGES` id. */
+  readonly id: string;
+  readonly title: string;
+  readonly lede: string;
+  readonly sections: readonly ApiSection[];
+}
+
 const LIB = '@h-k-dev/angular-email-editor';
 
 /**
@@ -41,9 +52,7 @@ export const API_SECTIONS: readonly ApiSection[] = [
         signature: '(options: EditorOptions) => Editor',
         summary:
           'Builds the schema from the extension set and mounts a ProseMirror view into `options.parent`.',
-        details: [
-          'Collects every extension’s plugins, keymaps, input rules and named commands.',
-        ],
+        details: ['Collects every extension’s plugins, keymaps, input rules and named commands.'],
       },
       {
         id: 'editor-options',
@@ -111,7 +120,8 @@ export const API_SECTIONS: readonly ApiSection[] = [
         id: 'rich-text-extensions',
         name: 'richTextExtensions',
         signature: 'Extension[]',
-        summary: 'Semantic HTML (`p` paragraphs) for content rendered inside an app rather than mailed.',
+        summary:
+          'Semantic HTML (`p` paragraphs) for content rendered inside an app rather than mailed.',
       },
       {
         id: 'html-source-extensions',
@@ -253,8 +263,7 @@ export const API_SECTIONS: readonly ApiSection[] = [
       {
         id: 'list-source',
         name: 'listSource · matchSuggestions',
-        signature:
-          '({ from, with?, map, cache? }) => SuggestionSource · (items, query) => items',
+        signature: '({ from, with?, map, cache? }) => SuggestionSource · (items, query) => items',
         summary:
           'The same grammar for a list loaded in one request and searched the way the menu searches its own items.',
         details: [
@@ -266,7 +275,8 @@ export const API_SECTIONS: readonly ApiSection[] = [
       {
         id: 'debounced-source',
         name: 'debouncedSource · cachedSource',
-        signature: '(source, wait? = 300) => SuggestionSource · (source, { ttl?, max? }?) => SuggestionSource',
+        signature:
+          '(source, wait? = 300) => SuggestionSource · (source, { ttl?, max? }?) => SuggestionSource',
         summary: '`pagedSource`’s two behaviours, for a source written by hand.',
         details: [
           '`debouncedSource` holds a query asked within `wait` of the previous one.',
@@ -278,7 +288,8 @@ export const API_SECTIONS: readonly ApiSection[] = [
   {
     id: 'writing',
     title: 'Writing aids',
-    intro: 'Placeholders on empty lines, and content streamed in — a model’s answer — while the writer keeps typing.',
+    intro:
+      'Placeholders on empty lines, and content streamed in — a model’s answer — while the writer keeps typing.',
     entries: [
       {
         id: 'create-placeholder',
@@ -312,7 +323,8 @@ export const API_SECTIONS: readonly ApiSection[] = [
   {
     id: 'behaviour',
     title: 'Built-in behaviour',
-    intro: 'Ready-made singleton extensions. Each is exported on its own, so a custom kit takes only what it needs.',
+    intro:
+      'Ready-made singleton extensions. Each is exported on its own, so a custom kit takes only what it needs.',
     entries: [
       {
         id: 'layout-guides',
@@ -353,7 +365,8 @@ export const API_SECTIONS: readonly ApiSection[] = [
         id: 'inline-styles',
         name: 'inlineStyles · dropHidden · unwrapLayoutTables · inheritTextStyles',
         signature: '(doc: Document, viewportWidth?) => void · (root) => void',
-        summary: 'What `parseHTML` runs on a whole document before the schema sees it — so an MJML export arrives as clean sections and columns.',
+        summary:
+          'What `parseHTML` runs on a whole document before the schema sees it — so an MJML export arrives as clean sections and columns.',
         details: [
           '`inlineStyles` folds the `<style>` sheet into the elements it matches: document order, `!important` over inline, media queries answered for a 600px screen.',
           '`dropHidden` removes `display: none` elements.',
@@ -364,7 +377,8 @@ export const API_SECTIONS: readonly ApiSection[] = [
       {
         id: 'section',
         name: 'Section · insertSection · setSectionBackground · setSectionImage · removeSection',
-        signature: 'node · (background?) => Command · (color | null) => Command · (url | null) => Command · () => Command',
+        signature:
+          'node · (background?) => Command · (color | null) => Command · (url | null) => Command · () => Command',
         summary: 'A full-width band: a fill edge to edge, the content centred in the 600px column.',
         details: [
           'Emitted as one presentation table with `bgcolor` and inline `background-color` (Outlook reads the attribute, Gmail the style) and an inline `max-width` div — no stylesheet, no conditional comment.',
@@ -376,13 +390,15 @@ export const API_SECTIONS: readonly ApiSection[] = [
         id: 'sanitize-pasted-html',
         name: 'sanitizePastedHTML',
         signature: '(html: string) => string',
-        summary: 'Strips what a paste from a word processor or web page drags along, before it reaches the schema.',
+        summary:
+          'Strips what a paste from a word processor or web page drags along, before it reaches the schema.',
       },
       {
         id: 'email-plain-text',
         name: 'emailPlainText',
         signature: '(html: string) => string',
-        summary: 'The `text/plain` projection of the HTML — the other half of a `multipart/alternative` body.',
+        summary:
+          'The `text/plain` projection of the HTML — the other half of a `multipart/alternative` body.',
       },
       {
         id: 'email-document',
@@ -400,7 +416,8 @@ export const API_SECTIONS: readonly ApiSection[] = [
         name: 'renderForClient · RENDERING_CLIENTS',
         signature:
           "(html, client: 'apple-mail' | 'gmail' | 'outlook-desktop', { dark?, pane?, darkMode? }) => string",
-        summary: 'The email as a given client would draw it — a whole document for a sandboxed frame.',
+        summary:
+          'The email as a given client would draw it — a whole document for a sandboxed frame.',
         details: [
           'Lays the client’s surface under the HTML (a fragment, or a pasted document with its head kept).',
           'Removes what the client ignores: Gmail’s dropped comments, form controls and unmatched style rules; Outlook’s opened conditional comments, lost media queries and ignored declarations; stacks inline-block columns.',
@@ -419,7 +436,8 @@ export const API_SECTIONS: readonly ApiSection[] = [
         id: 'create-html-language',
         name: 'createHtmlLanguage · createHtmlAutocomplete · createSourceMarks',
         signature: '(options) => FunctionalExtension',
-        summary: 'Highlighting with lint diagnostics, tag and attribute completion, and mark shortcuts.',
+        summary:
+          'Highlighting with lint diagnostics, tag and attribute completion, and mark shortcuts.',
         details: [
           'Paced for the fastest typist: a keystroke only moves the highlighting along.',
           'The whole text is rescanned — and `onDiagnostics` called — once typing rests (`rescanDelay`, default `TYPING_REST` = 200 ms), and at once for a mirrored write or a large edit.',
@@ -438,7 +456,8 @@ export const API_SECTIONS: readonly ApiSection[] = [
         id: 'html-diagnostic',
         name: 'HtmlDiagnostic',
         signature: '{ severity: "error" | "warning", message, from, to }',
-        summary: 'One lint finding, positioned in the source — what the status strip counts and jumps to.',
+        summary:
+          'One lint finding, positioned in the source — what the status strip counts and jumps to.',
       },
       {
         id: 'format-html',
@@ -450,13 +469,15 @@ export const API_SECTIONS: readonly ApiSection[] = [
         id: 'completion-context-at',
         name: 'completionContextAt · openTags',
         signature: '(source, offset) => CompletionContext | null · (source, scan?) => string[]',
-        summary: 'What the caret sits in (tag, attribute name, attribute value) and which elements are still open there — the autocomplete’s input.',
+        summary:
+          'What the caret sits in (tag, attribute name, attribute value) and which elements are still open there — the autocomplete’s input.',
       },
       {
         id: 'email-safe-tags',
         name: 'EMAIL_SAFE_TAGS · VOID_TAGS · EMAIL_SAFE_STYLE_PROPERTIES · EMAIL_TAG_ATTRIBUTES',
         signature: 'Set<string> · string[] · Record<string, string[]>',
-        summary: 'The vocabulary lint and completion both read: the tags, attributes and style properties that survive mail clients.',
+        summary:
+          'The vocabulary lint and completion both read: the tags, attributes and style properties that survive mail clients.',
       },
     ],
   },
@@ -477,7 +498,8 @@ export const API_SECTIONS: readonly ApiSection[] = [
         id: 'to-inbound-message',
         name: 'toInboundMessage',
         signature: '(parsed: ParsedEmailLike, options?: { addressRules? }) => InboundMessage',
-        summary: 'Bridges a parser’s result into the seeds. Duck-typed, so the library depends on no parser.',
+        summary:
+          'Bridges a parser’s result into the seeds. Duck-typed, so the library depends on no parser.',
         details: [
           'A group comes in as its members.',
           'Addresses are written by the address rule in force (`options.addressRules`, ours by default).',
@@ -497,13 +519,15 @@ export const API_SECTIONS: readonly ApiSection[] = [
         id: 'with-quoted-history',
         name: 'withQuotedHistory',
         signature: '(html, quoted: string | null) => string',
-        summary: 'A body with its quoted history under it — the message as it goes out, for a preview. A whole document keeps its head.',
+        summary:
+          'A body with its quoted history under it — the message as it goes out, for a preview. A whole document keeps its head.',
       },
       {
         id: 'reply-document',
         name: 'replyDocument · forwardDocument',
         signature: '(inbound, options?: ComposeSeedOptions) => string',
-        summary: 'The seed as one document, the history in the body as ordinary text — for a host without the kept history.',
+        summary:
+          'The seed as one document, the history in the body as ordinary text — for a host without the kept history.',
         details: [
           'An empty composing area above the attribution line (reply) or forwarded header block (forward).',
           '`options.locale` formats a `Date`; a string date is used verbatim.',
@@ -526,7 +550,8 @@ export const API_SECTIONS: readonly ApiSection[] = [
         id: 'imported-document',
         name: 'importedDocument · importLoss',
         signature: '(inbound) => string · (inbound) => ImportLoss',
-        summary: 'The message itself as the document — what a dropped `.eml` becomes — and what that import drops.',
+        summary:
+          'The message itself as the document — what a dropped `.eml` becomes — and what that import drops.',
         details: [
           '`importLoss` returns `{ removedElements, removedTags, inlineImages }`, computed from the same HTML. Show it to the user: silent loss is the failure mode.',
         ],
@@ -543,7 +568,8 @@ export const API_SECTIONS: readonly ApiSection[] = [
         id: 'address-rules',
         name: 'AddressRules',
         from: `${LIB}/address`,
-        signature: '{ split(raw), parse(raw), format(mailbox), isValid(address), identity(address) }',
+        signature:
+          '{ split(raw), parse(raw), format(mailbox), isValid(address), identity(address) }',
         summary: 'The contract.',
         details: [
           '`split` — typed, pasted or header text as mailboxes in header form.',
@@ -568,7 +594,8 @@ export const API_SECTIONS: readonly ApiSection[] = [
         name: 'provideAddressRules',
         from: `${LIB}/address`,
         signature: '(rules: Partial<AddressRules>) => Provider',
-        summary: 'Puts a host’s rule in force through the `ADDRESS_RULES` token, whole or in part — the parts left out stay ours.',
+        summary:
+          'Puts a host’s rule in force through the `ADDRESS_RULES` token, whole or in part — the parts left out stay ours.',
         details: [
           'The address input, address chip and `addressList` read it; `replyEnvelope` and `toInboundMessage` take it as `addressRules`.',
         ],
@@ -578,14 +605,16 @@ export const API_SECTIONS: readonly ApiSection[] = [
         name: 'isMailbox · addressKey',
         from: `${LIB}/address`,
         signature: '(raw: string, rules?: AddressRules) => boolean | string',
-        summary: 'Whether an entry is a well-formed mailbox, and its identity for keeping each recipient once.',
+        summary:
+          'Whether an entry is a well-formed mailbox, and its identity for keeping each recipient once.',
       },
       {
         id: 'join-addresses',
         name: 'joinAddresses',
         from: `${LIB}/address`,
         signature: '(list: readonly string[], rules?: AddressRules) => string',
-        summary: 'The list as one header value — `"Müller, Hans" <h@x.de>, b@c.de` — for a backend that keeps To/Cc/Bcc as text.',
+        summary:
+          'The list as one header value — `"Müller, Hans" <h@x.de>, b@c.de` — for a backend that keeps To/Cc/Bcc as text.',
         details: [
           'The rule’s `split` reads it back entry for entry. What is not a mailbox — a typo, a `{{placeholder}}` — goes in as it is.',
         ],
@@ -619,7 +648,8 @@ export const API_SECTIONS: readonly ApiSection[] = [
         id: 'merge-tag-fields',
         name: 'mergeTagFields · mergeTagExpressions',
         signature: '(doc: Node) => string[]',
-        summary: 'Every field the body reads, in first-use order — what `SendIntent.requiredFields` carries.',
+        summary:
+          'Every field the body reads, in first-use order — what `SendIntent.requiredFields` carries.',
       },
       {
         id: 'create-angular-expressions',
@@ -634,7 +664,8 @@ export const API_SECTIONS: readonly ApiSection[] = [
         id: 'expression-dialect',
         name: 'ExpressionDialect · analyzeAngularExpression · angularRequiredFields',
         signature: 'interface · (expr) => ExpressionIssue[] · (expressions) => string[]',
-        summary: 'The template dialect contract — parse, diagnose, report fields. `angularDialect` is the one that ships.',
+        summary:
+          'The template dialect contract — parse, diagnose, report fields. `angularDialect` is the one that ships.',
       },
       {
         id: 'create-merge-tag-resolution',
@@ -661,7 +692,8 @@ export const API_SECTIONS: readonly ApiSection[] = [
         id: 'create-send-intent',
         name: 'createSendIntent',
         signature: '(options: { onSend: (intent: SendIntent) => void }) => FunctionalExtension',
-        summary: 'Three ways in, one payload: the `/send` slash item, Mod-Enter, and the `requestSend` command for a toolbar button.',
+        summary:
+          'Three ways in, one payload: the `/send` slash item, Mod-Enter, and the `requestSend` command for a toolbar button.',
       },
       {
         id: 'send-intent',
@@ -697,26 +729,30 @@ export const API_SECTIONS: readonly ApiSection[] = [
         id: 'create-inline-images',
         name: 'createInlineImages',
         signature: '(options: { registry: InlineImageRegistry }) => FunctionalExtension',
-        summary: 'Wires the registry into the editor, so a `cid:` image repaints the moment its part arrives.',
+        summary:
+          'Wires the registry into the editor, so a `cid:` image repaints the moment its part arrives.',
       },
       {
         id: 'promote-inline-images',
         name: 'promoteInlineImages',
         signature: '(doc: Node, registry?) => PromotedInlineImages',
-        summary: 'A copy of the document with every data-URL image pointing at its `cid:`, plus the parts it references — each once, in document order.',
+        summary:
+          'A copy of the document with every data-URL image pointing at its `cid:`, plus the parts it references — each once, in document order.',
         details: ['Pure: the editor keeps showing its data URLs.'],
       },
       {
         id: 'rewrite-inline-image-sources',
         name: 'rewriteInlineImageSources',
         signature: '(html: string, resolve: (cid) => string | undefined) => string',
-        summary: 'For a preview: every known `cid:` becomes a data URL, since a sandboxed frame cannot load the editor’s blob URLs. Unknown cids are left alone.',
+        summary:
+          'For a preview: every known `cid:` becomes a data URL, since a sandboxed frame cannot load the editor’s blob URLs. Unknown cids are left alone.',
       },
       {
         id: 'decode-data-url',
         name: 'decodeDataUrl',
         signature: '(src: string) => Blob | null',
-        summary: 'A `data:` URL as a typed Blob — base64 or percent-encoded. `null` for anything malformed, so a bad source is never sent as garbage.',
+        summary:
+          'A `data:` URL as a typed Blob — base64 or percent-encoded. `null` for anything malformed, so a bad source is never sent as garbage.',
       },
     ],
   },
@@ -731,7 +767,9 @@ export const API_SECTIONS: readonly ApiSection[] = [
         name: 'emailSizeBudget',
         signature: '(html: string) => SizeBudget',
         summary: 'UTF-8 size against Gmail’s clipping limit (`GMAIL_CLIP_BYTES`, 102 kB).',
-        details: ['Returns `{ bytes, limit, level }`: warning from 80% of the budget, error above it.'],
+        details: [
+          'Returns `{ bytes, limit, level }`: warning from 80% of the budget, error above it.',
+        ],
       },
       {
         id: 'find-css-issues',
@@ -765,7 +803,8 @@ export const API_SECTIONS: readonly ApiSection[] = [
       {
         id: 'mark-dark-mode',
         name: 'markDarkMode · darkModeEditorCss · emailDarkModePalette',
-        signature: '(html, palette?) => { html, css } · (scope: string, palette?) => string · DarkModePalette',
+        signature:
+          '(html, palette?) => { html, css } · (scope: string, palette?) => string · DarkModePalette',
         summary: 'Dark mode written into the email.',
         details: [
           'A palette fill goes dark (`aee-db-<hex>`) when nothing in it wears a colour outside the palette and every background around it goes dark too.',
@@ -799,7 +838,8 @@ export const API_SECTIONS: readonly ApiSection[] = [
         name: 'createTextMetrics',
         from: `${LIB}/metrics`,
         signature: '({ onMetrics, onError? }: TextMetricsOptions) => FunctionalExtension',
-        summary: 'Streams live `TextMetrics`: words, characters, lines, estimated height — never touching the DOM.',
+        summary:
+          'Streams live `TextMetrics`: words, characters, lines, estimated height — never touching the DOM.',
         details: [
           'Where nothing can measure (a server render, jsdom), `onError` hears why and the editor carries on.',
         ],
@@ -808,8 +848,10 @@ export const API_SECTIONS: readonly ApiSection[] = [
         id: 'measure-doc',
         name: 'readTypography · measureDoc · createBlockMeasureCache',
         from: `${LIB}/metrics`,
-        signature: '(dom) => EditorTypography · (doc, contentWidth, typography, cache) => TextMetrics',
-        summary: 'Read the editable’s typography once, then measure the whole document at a content width.',
+        signature:
+          '(dom) => EditorTypography · (doc, contentWidth, typography, cache) => TextMetrics',
+        summary:
+          'Read the editable’s typography once, then measure the whole document at a content width.',
         details: ['Pure arithmetic, no DOM access, results cached per node.'],
       },
     ],
@@ -837,7 +879,8 @@ export const API_SECTIONS: readonly ApiSection[] = [
         from: `${LIB}/actions`,
         signature:
           '(editor: () => Editor | undefined) => EditorActions · => Signal<EditorState> · emailAction="id" [emailActionFrom]="actions"',
-        summary: 'The extensions’ actions bound to a live editor as signals — pressed, disabled, run.',
+        summary:
+          'The extensions’ actions bound to a live editor as signals — pressed, disabled, run.',
         details: [
           'Actions are what extensions declare (`editor.actions`: id, title, icon, command, `isActive`, `isEnabled`). The editor is read reactively, so a code view is one `computed`.',
           '`emailAction` makes a host’s own control the trigger for the action of that id: `aria-pressed` and `aria-disabled` (never native `disabled` or a style), and the caret returns to the editor after running.',
@@ -849,12 +892,65 @@ export const API_SECTIONS: readonly ApiSection[] = [
         name: 'emailAnchor',
         from: `${LIB}/anchor`,
         signature: '[emailAnchor]="rect | null" · exportAs emailAnchor',
-        summary: 'A real element kept over a box the editor reports — a selection, a caret, a block.',
+        summary:
+          'A real element kept over a box the editor reports — a selection, a caret, a block.',
         details: [
           'For anything that floats from an element: `cdkOverlayOrigin`, `matMenuTriggerFor`, an Aria menu trigger, CSS anchor positioning, Floating UI.',
           'Holds its last place while the box is `null`, so what it carries closes in place.',
         ],
       },
     ],
+  },
+];
+
+const section = (id: string): ApiSection => {
+  const found = API_SECTIONS.find((candidate) => candidate.id === id);
+  if (!found) throw new Error(`No API section ${id}`);
+  return found;
+};
+
+/** The pages, in the aside's order (`API_PAGES`). */
+export const API_PAGE_CONTENT: readonly ApiPage[] = [
+  {
+    id: 'editor',
+    title: 'Editor',
+    lede: 'Mount an editor, choose a kit, and the behaviour that comes with it.',
+    sections: [section('editor'), section('kits'), section('behaviour')],
+  },
+  {
+    id: 'menus',
+    title: 'Menus & suggestions',
+    lede: 'Floating menus and handles, the menus that open at the caret, and the writing aids around them.',
+    sections: [section('menus'), section('suggestions'), section('writing')],
+  },
+  {
+    id: 'documents',
+    title: 'Documents & source',
+    lede: 'HTML in and out of the editor, the source pane’s tooling, and the seeds for a reply, a forward or an import.',
+    sections: [section('documents'), section('source'), section('reply-forward-import')],
+  },
+  {
+    id: 'addresses',
+    title: 'Addresses',
+    lede: section('addresses').intro,
+    sections: [section('addresses')],
+  },
+  {
+    id: 'sending',
+    title: 'Merge tags & sending',
+    lede: 'Personalization, the payload a send produces, and the inline images it carries.',
+    sections: [section('merge-tags'), section('send'), section('inline-images')],
+  },
+  {
+    id: 'safety',
+    title: 'Email safety',
+    lede: 'What mail clients will do to the document, and how long it is — answered before it is sent.',
+    sections: [section('email-safety'), section('measurement')],
+  },
+  {
+    id: 'integration',
+    title: 'Integration directives',
+    lede: section('integration').intro,
+    sections: [section('integration')],
   },
 ];

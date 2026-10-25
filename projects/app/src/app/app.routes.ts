@@ -1,4 +1,14 @@
-import { Routes } from '@angular/router';
+import { CanMatchFn, Routes } from '@angular/router';
+
+import { API_PAGES } from './content/pages/mailbox/api-reference/api-pages';
+import { STYLING_PAGES } from './content/pages/mailbox/styling/styling-pages';
+import { DocPageLink } from './content/partials/common/doc-page/doc';
+
+/** Matches `<reference>/:page` only for a page the reference has. */
+const knownPage =
+  (pages: readonly DocPageLink[]): CanMatchFn =>
+  (_route, segments) =>
+    pages.some((page) => page.id === segments[1]?.path);
 
 export const routes: Routes = [
   // Everything lazy — the shell's initial chunk is the outlet only. The
@@ -36,12 +46,19 @@ export const routes: Routes = [
           },
         ],
       },
+      // The references: a page each per aside link (`/api/editor`), its
+      // `:page` bound to the component's `page` input. A reference on its
+      // own opens at its first page; a page it does not have is nowhere.
+      { path: 'api', pathMatch: 'full', redirectTo: `api/${API_PAGES[0].id}` },
       {
-        path: 'api',
+        path: 'api/:page',
+        canMatch: [knownPage(API_PAGES)],
         loadComponent: () => import('./content/pages/mailbox/api-reference/api-reference').then((m) => m.ApiReference),
       },
+      { path: 'styling', pathMatch: 'full', redirectTo: `styling/${STYLING_PAGES[0].id}` },
       {
-        path: 'styling',
+        path: 'styling/:page',
+        canMatch: [knownPage(STYLING_PAGES)],
         loadComponent: () => import('./content/pages/mailbox/styling/styling').then((m) => m.Styling),
       },
       {

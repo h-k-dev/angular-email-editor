@@ -101,7 +101,7 @@
 
 .doc-toc__title {
   margin: 0 0 8px;
-  padding-inline: 10px;
+  padding-inline: 12px;
   font: var(--mat-sys-label-medium);
   color: var(--mat-sys-on-surface-variant);
 }
@@ -124,7 +124,7 @@
 // place wears.
 .doc-toc__link {
   display: block;
-  padding: 4px 10px;
+  padding: 4px 12px;
   border-radius: var(--mat-sys-corner-small);
   font: var(--mat-sys-body-medium);
   color: var(--mat-sys-on-surface-variant);
@@ -150,7 +150,7 @@
   }
 
   &--topic {
-    padding-block: 3px;
+    padding-block: 2px;
     font: var(--mat-sys-body-small);
   }
 

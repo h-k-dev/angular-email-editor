@@ -35,7 +35,11 @@
   </header>
 
   <!-- The places, a run at a time. The place you are in says so to
-       assistive tech too (aria-current), not only with its wash. -->
+       assistive tech too (aria-current), not only with its wash. Linear's
+       folding, twice over: a run folds behind its heading, and a group —
+       a reference and its pages — behind its own row, its pages one step
+       in; each toggle's triangle shows on hover. On the rail there are no
+       headings or rows to fold with: every place shows. -->
   <nav class="mailbox-aside__nav" [attr.aria-label]="'app.nav.mailbox' | translate">
     @for (section of sections; track section.id) {
       <section
@@ -43,34 +47,99 @@
         [attr.aria-labelledby]="section.key ? 'mailbox-' + section.id : null"
       >
         @if (section.key) {
-          <h2 class="mailbox-section__title" [id]="'mailbox-' + section.id">
-            {{ section.key | translate }}
+          <h2 class="mailbox-section__title">
+            <button
+              type="button"
+              class="mailbox-section__toggle"
+              [id]="'mailbox-' + section.id"
+              [attr.aria-expanded]="section.open?.() ?? true"
+              [attr.aria-controls]="'mailbox-' + section.id + '-links'"
+              (click)="fold(section)"
+            >
+              {{ section.key | translate }}
+              <svg class="mailbox-section__triangle" viewBox="0 0 16 16" aria-hidden="true">
+                <path
+                  d="M6.75 10.62c-.33.2-.75-.04-.75-.43V5.81c0-.39.42-.63.75-.43l3.76 2.19c.33.2.33.67 0 .86l-3.76 2.19Z"
+                />
+              </svg>
+            </button>
           </h2>
         }
-        <ul class="mailbox-section__links">
-          @for (link of section.links; track link.path) {
-            <li>
-              <a
-                class="mailbox-link"
-                [routerLink]="link.path"
-                routerLinkActive="mailbox-link--active"
-                ariaCurrentWhenActive="page"
-                [routerLinkActiveOptions]="{ exact: true }"
-                [attr.title]="link.key | translate"
-                (click)="went()"
-              >
-                <mat-icon class="mailbox-link__icon">{{ link.icon }}</mat-icon>
-                <span class="mailbox-link__label">{{ link.key | translate }}</span>
-                @if (link.count?.(); as count) {
-                  <span class="mailbox-link__count">{{ count }}</span>
-                }
-              </a>
-            </li>
+        <ul
+          class="mailbox-section__links"
+          [id]="'mailbox-' + section.id + '-links'"
+          [hidden]="!collapsed() && section.open?.() === false"
+        >
+          @for (item of section.items; track item.key) {
+            @if (item.kind === 'group') {
+              <!-- A group's row says so while it is folded over the place
+                   you are in. -->
+              <li class="mailbox-group" [class.mailbox-group--current]="item.current()">
+                <button
+                  type="button"
+                  class="mailbox-link mailbox-group__toggle"
+                  [id]="'mailbox-' + item.id"
+                  [attr.aria-expanded]="item.open()"
+                  [attr.aria-controls]="'mailbox-' + item.id + '-links'"
+                  [attr.title]="item.key | translate"
+                  (click)="fold(item)"
+                >
+                  <mat-icon class="mailbox-link__icon">{{ item.icon }}</mat-icon>
+                  <span class="mailbox-group__label">{{ item.key | translate }}</span>
+                  <svg class="mailbox-section__triangle" viewBox="0 0 16 16" aria-hidden="true">
+                    <path
+                      d="M6.75 10.62c-.33.2-.75-.04-.75-.43V5.81c0-.39.42-.63.75-.43l3.76 2.19c.33.2.33.67 0 .86l-3.76 2.19Z"
+                    />
+                  </svg>
+                </button>
+                <ul
+                  class="mailbox-group__links"
+                  [id]="'mailbox-' + item.id + '-links'"
+                  [attr.aria-labelledby]="'mailbox-' + item.id"
+                  [hidden]="!collapsed() && !item.open()"
+                >
+                  @for (link of item.links; track link.path) {
+                    <li>
+                      <ng-container
+                        [ngTemplateOutlet]="place"
+                        [ngTemplateOutletContext]="{ $implicit: link }"
+                      />
+                    </li>
+                  }
+                </ul>
+              </li>
+            } @else {
+              <li>
+                <ng-container
+                  [ngTemplateOutlet]="place"
+                  [ngTemplateOutletContext]="{ $implicit: item }"
+                />
+              </li>
+            }
           }
         </ul>
       </section>
     }
   </nav>
+
+  <!-- A place: its icon, its name, and what waits there. -->
+  <ng-template #place let-link>
+    <a
+      class="mailbox-link"
+      [routerLink]="link.path"
+      routerLinkActive="mailbox-link--active"
+      ariaCurrentWhenActive="page"
+      [routerLinkActiveOptions]="{ exact: true }"
+      [attr.title]="link.key | translate"
+      (click)="went()"
+    >
+      <mat-icon class="mailbox-link__icon">{{ link.icon }}</mat-icon>
+      <span class="mailbox-link__label">{{ link.key | translate }}</span>
+      @if (link.count?.(); as count) {
+        <span class="mailbox-link__count">{{ count }}</span>
+      }
+    </a>
+  </ng-template>
 
   <!-- The app's settings: its language and its light or dark, two plain
        icon buttons. The menu opens up from the foot, lined up with its

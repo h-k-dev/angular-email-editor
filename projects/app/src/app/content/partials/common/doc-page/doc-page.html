@@ -30,6 +30,7 @@
               class="doc-toc__link"
               routerLink="."
               [fragment]="entry.id"
+              [class.doc-toc__link--code]="entry.code"
               [class.doc-toc__link--active]="reading() === entry.id"
               [attr.aria-current]="reading() === entry.id ? 'location' : null"
               >{{ entry.title }}</a

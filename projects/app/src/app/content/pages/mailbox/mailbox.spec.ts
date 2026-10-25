@@ -26,6 +26,14 @@ describe('Mailbox', () => {
     [...root.querySelectorAll<HTMLAnchorElement>('.mailbox-link')].find(
       (a) => a.querySelector('.mailbox-link__label')?.textContent?.trim() === name,
     )!;
+  const heading = (name: string) =>
+    [...root.querySelectorAll<HTMLButtonElement>('.mailbox-section__toggle')].find(
+      (button) => button.textContent?.trim() === name,
+    )!;
+  const group = (name: string) =>
+    [...root.querySelectorAll<HTMLButtonElement>('.mailbox-group__toggle')].find(
+      (button) => button.querySelector('.mailbox-group__label')?.textContent?.trim() === name,
+    )!;
   const host = () => root.querySelector('app-mailbox') as HTMLElement;
   const toggle = () => root.querySelector('.mailbox-aside__toggle') as HTMLButtonElement;
   const compose = () => root.querySelector('.mailbox-aside__compose') as HTMLButtonElement;
@@ -42,7 +50,7 @@ describe('Mailbox', () => {
             component: Mailbox,
             children: [
               { path: 'inbox', component: Page },
-              { path: 'api', component: Page },
+              { path: 'api/:page', component: Page },
             ],
           },
         ]),
@@ -67,21 +75,68 @@ describe('Mailbox', () => {
   describe('on a desk', () => {
     beforeEach(() => start(false));
 
-    it('lays the places down the aside, the reference pages under a heading of their own', () => {
+    it('lays the mail down the aside, then the developers: each reference a group of its pages, Render beside them', () => {
       const labels = [...root.querySelectorAll('.mailbox-link__label')].map((el) =>
         el.textContent?.trim(),
       );
-      expect(labels).toEqual(['Composer', 'Inbox', 'API', 'Styling', 'Render']);
-      expect(root.querySelector('.mailbox-section__title')?.textContent?.trim()).toBe(
-        'Developers',
-      );
+      expect(labels.slice(0, 3)).toEqual(['Composer', 'Inbox', 'Editor']);
+      expect(labels).toContain('Theming');
+      expect(labels.at(-1)).toBe('Render');
+      expect(heading('Developers')).toBeDefined();
+      expect(group('API')).toBeDefined();
+      expect(group('Styling')).toBeDefined();
+      // Render is on the first level, beside the groups — not in one.
+      expect(link('Render').closest('.mailbox-group')).toBeNull();
+      expect(link('Addresses').closest('.mailbox-group')).toBe(group('API').parentElement);
       expect(link('Composer').getAttribute('href')).toBe('/');
+      expect(link('Addresses').getAttribute('href')).toBe('/api/addresses');
+      expect(link('Theming').getAttribute('href')).toBe('/styling/theming');
+    });
+
+    it('folds a reference behind its row, and shows every page on the rail', async () => {
+      const api = group('API');
+      const pages = root.querySelector<HTMLElement>('#' + api.getAttribute('aria-controls'))!;
+      expect(api.getAttribute('aria-expanded')).toBe('true');
+
+      api.click();
+      await harness.fixture.whenStable();
+      expect(api.getAttribute('aria-expanded')).toBe('false');
+      expect(pages.hidden).toBe(true);
+
+      // The rail has no rows to unfold with: every place shows.
+      toggle().click();
+      await harness.fixture.whenStable();
+      expect(pages.hidden).toBe(false);
+      toggle().click();
+      await harness.fixture.whenStable();
+
+      api.click();
+      await harness.fixture.whenStable();
+      expect(pages.hidden).toBe(false);
+    });
+
+    it('marks a folded group that holds the place you are in', async () => {
+      await harness.navigateByUrl('/api/addresses');
+      const row = group('API').parentElement!;
+      expect(row.classList).toContain('mailbox-group--current');
+      expect(group('Styling').parentElement!.classList).not.toContain('mailbox-group--current');
+    });
+
+    it('folds the whole developers run behind its heading', async () => {
+      const developers = heading('Developers');
+      const run = root.querySelector<HTMLElement>('#' + developers.getAttribute('aria-controls'))!;
+      developers.click();
+      await harness.fixture.whenStable();
+      expect(run.hidden).toBe(true);
+      developers.click();
+      await harness.fixture.whenStable();
+      expect(run.hidden).toBe(false);
     });
 
     it('shows the page beside it, and says which place it is', () => {
       expect(root.querySelector('.mailbox-main .page')).not.toBeNull();
       expect(link('Inbox').getAttribute('aria-current')).toBe('page');
-      expect(link('API').hasAttribute('aria-current')).toBe(false);
+      expect(link('Addresses').hasAttribute('aria-current')).toBe(false);
     });
 
     it('counts what is unread in the inbox', async () => {
@@ -123,8 +178,8 @@ describe('Mailbox', () => {
     });
 
     it('follows the route to another place', async () => {
-      await harness.navigateByUrl('/api');
-      expect(link('API').getAttribute('aria-current')).toBe('page');
+      await harness.navigateByUrl('/api/addresses');
+      expect(link('Addresses').getAttribute('aria-current')).toBe('page');
       expect(link('Inbox').hasAttribute('aria-current')).toBe(false);
     });
   });
@@ -161,7 +216,7 @@ describe('Mailbox', () => {
     it('steps back to the rail once a place is picked, or on Escape', async () => {
       toggle().click();
       await harness.fixture.whenStable();
-      link('API').click();
+      link('Addresses').click();
       await harness.fixture.whenStable();
       expect(host().hasAttribute('data-over')).toBe(false);
 
