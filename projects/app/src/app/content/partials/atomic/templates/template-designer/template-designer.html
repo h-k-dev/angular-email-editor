@@ -242,5 +242,94 @@
         }
       </div>
     </section>
+
+    <!-- The layout: the email's page — none, or a centred column. Set only
+         here; every pick is a step of the editor's. A kind's own settings
+         show under it while it is the kind. -->
+    <section class="designer-block" [attr.data-open]="layoutOpen() || null">
+      <h2 class="designer-block__head">
+        <button
+          type="button"
+          class="designer-block__toggle"
+          aria-controls="designer-layout"
+          [attr.aria-expanded]="layoutOpen()"
+          (click)="layoutOpen.set(!layoutOpen())"
+        >
+          <mat-icon class="designer-block__chevron">expand_more</mat-icon>
+          {{ 'designer.layout.title' | translate }}
+        </button>
+      </h2>
+      @let layout = pageLayout();
+      <div
+        id="designer-layout"
+        class="designer-block__body designer-layout"
+        [hidden]="!layoutOpen()"
+      >
+        <p class="designer-block__empty">{{ 'designer.layout.hint' | translate }}</p>
+        <div class="designer-layout__row">
+          <span class="designer-layout__label" id="designer-layout-kind">{{
+            'designer.layout.kind' | translate
+          }}</span>
+          <hk-tgb
+            aria-labelledby="designer-layout-kind"
+            [value]="layout?.kind ?? 'none'"
+            (valueChange)="setLayoutKind($event)"
+          >
+            <button hkTgbText value="none">{{ 'designer.layout.none' | translate }}</button>
+            <button hkTgbText value="centered">{{ 'designer.layout.centered' | translate }}</button>
+          </hk-tgb>
+        </div>
+
+        @if (layout) {
+          <label class="designer-layout__row">
+            <span class="designer-layout__label">{{ 'designer.layout.width' | translate }}</span>
+            <span class="designer-layout__field">
+              <input
+                #width
+                type="number"
+                inputmode="numeric"
+                step="4"
+                [min]="widthMin"
+                [max]="widthMax"
+                [value]="layout.width"
+                (change)="setLayoutWidth(width.value)"
+                (keydown.enter)="setLayoutWidth(width.value)"
+              />
+              px
+            </span>
+          </label>
+
+          <div class="designer-layout__colors">
+            <span class="designer-layout__label" id="designer-layout-page">{{
+              'designer.layout.page' | translate
+            }}</span>
+            <div
+              color-palette
+              aria-labelledby="designer-layout-page"
+              [resetLabel]="'designer.layout.noColor' | translate"
+              [colors]="backgroundPalette"
+              [customLabel]="'designer.layout.custom' | translate"
+              [value]="layout.background"
+              (picked)="setPageColor($event)"
+            ></div>
+          </div>
+
+          <div class="designer-layout__colors">
+            <span class="designer-layout__label" id="designer-layout-column">{{
+              'designer.layout.column' | translate
+            }}</span>
+            <div
+              color-palette
+              aria-labelledby="designer-layout-column"
+              [resetLabel]="'designer.layout.noColor' | translate"
+              [colors]="backgroundPalette"
+              [customLabel]="'designer.layout.custom' | translate"
+              [value]="layout.columnBackground"
+              (picked)="setColumnColor($event)"
+            ></div>
+          </div>
+        }
+      </div>
+    </section>
   </aside>
 </div>

@@ -35,10 +35,17 @@ export class MergeTags {
     { path: 'company.website', label: 'Company website' },
     { path: 'company.address', label: 'Company address' },
     { path: 'company.logoUrl', label: 'Company logo URL' },
+    { path: 'company.bannerUrl', label: 'Company banner image URL' },
     { path: 'order.number', label: 'Order number' },
     { path: 'order.date', label: 'Order date' },
     { path: 'order.item', label: 'Order item' },
     { path: 'order.total', label: 'Order total' },
+    { path: 'shipment.merchant', label: 'Shipment sent by (shop)' },
+    { path: 'shipment.merchantLogoUrl', label: 'Shipment shop logo URL' },
+    { path: 'shipment.trackingNumber', label: 'Tracking number' },
+    { path: 'shipment.trackingUrl', label: 'Tracking URL' },
+    { path: 'shipment.eta', label: 'Expected delivery day' },
+    { path: 'shipment.window', label: 'Expected delivery window' },
     ...Array.from({ length: 80 }, (_, i) => ({
       path: `custom.field${i + 1}`,
       label: `Custom field ${i + 1}`,
@@ -72,12 +79,22 @@ export class MergeTags {
     // The demo's own logo (public/assets/brand) — a real host fills an
     // absolute https URL, which is what a sent email needs.
     ['company.logoUrl', 'assets/brand/logo.png'],
+    // The picture behind a hero band (a section's image), the same way.
+    ['company.bannerUrl', 'assets/brand/banner.png'],
     // The order the confirmation example confirms
     // (examples/angularjs/order-confirmation.html).
     ['order.number', 'A-10427'],
     ['order.date', '25.10.2026'],
     ['order.item', 'Difference Engine No. 2 (kit)'],
     ['order.total', '149,00 €'],
+    // The parcel the shipping example announces
+    // (examples/angularjs/shipping-confirmation.html).
+    ['shipment.merchant', 'Babbage & Daughters'],
+    ['shipment.merchantLogoUrl', 'assets/brand/merchant.png'],
+    ['shipment.trackingNumber', '00340434161094042557'],
+    ['shipment.trackingUrl', 'https://example.com/track/00340434161094042557'],
+    ['shipment.eta', 'Tuesday, 27.10.2026'],
+    ['shipment.window', '12:00 – 15:30'],
     // The custom fields the AngularJS example's trade-mark table reads
     // (examples/angularjs/platzhalter-im-ueberblick.html): its mark and
     // infringement are choices,

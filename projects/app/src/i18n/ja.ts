@@ -118,6 +118,18 @@ export default {
     saveFailed: 'テンプレートを保存できませんでした',
     noSubject: '（件名なし）',
     noAttachments: '添付ファイルはありません。ここにドロップしてください。',
+    layout: {
+      title: 'レイアウト',
+      kind: 'ページレイアウト',
+      none: 'なし',
+      centered: '中央の列',
+      width: '列の幅',
+      page: 'ページの色',
+      column: '列の色',
+      noColor: 'なし',
+      custom: 'カスタムカラー…',
+      hint: 'メール全体が読み手のウィンドウにどう収まるか：すべてがページの色の上の一つの列に入ります。',
+    },
   },
   inbox: {
     back: '受信トレイに戻る',

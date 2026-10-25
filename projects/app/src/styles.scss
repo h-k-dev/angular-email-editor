@@ -401,6 +401,87 @@ html {
   transition: border-color 140ms ease-out 400ms;
 }
 
+/* The page layout (the library's PageLayout): the email's page, told to the
+ * editor root as custom properties (`--aee-page-width`, `-background`,
+ * `-column`, their `-dark` variants, `--aee-page-ink`) and drawn as the
+ * email draws it — no wrapper round the blocks, so every block gesture works
+ * as before. The surface gives its inline inset to the page: the root runs
+ * edge to edge, painted with the page's colour and the column's down the
+ * middle (one gradient, so the column is unbroken by the blocks' margins),
+ * and its inline padding stands the text in the column with the column's
+ * inset. A section stays in the column, as in the email: it pulls out over
+ * the column's inset onto the column's edges (its own rule above), its
+ * inner column the layout's width; a bare one shows the column.
+ * Between a section and the text on either side, the column's own inset
+ * above and below — what the email's column div carries. Lengths are the
+ * surface's (a container), so the root and the sections in it agree. */
+.email-compose__editor:has(> .aee-editor.aee-page-layout) {
+  padding-inline: 0;
+  container-type: inline-size;
+}
+
+.aee-editor.aee-page-layout {
+  --aee-page-half: min(50cqi, var(--aee-page-width) / 2);
+  --aee-page-gutter: calc(50cqi - var(--aee-page-half) + var(--mat-sys-inner-spacing, 16px));
+  --aee-page-fill: var(--aee-page-background, transparent);
+  --aee-page-column-fill: var(--aee-page-column, var(--aee-page-fill));
+  padding-inline: var(--aee-page-gutter);
+  background-image: linear-gradient(
+    to right,
+    var(--aee-page-fill) calc(50% - var(--aee-page-half)),
+    var(--aee-page-column-fill) calc(50% - var(--aee-page-half)),
+    var(--aee-page-column-fill) calc(50% + var(--aee-page-half)),
+    var(--aee-page-fill) calc(50% + var(--aee-page-half))
+  );
+
+  > .aee-section > .aee-section__inner {
+    max-width: var(--aee-page-width) !important;
+  }
+
+  > .aee-section + :not(.aee-section) {
+    padding-block-start: var(--mat-sys-inner-spacing, 16px);
+  }
+
+  > :not(.aee-section):has(+ .aee-section) {
+    padding-block-end: var(--mat-sys-inner-spacing, 16px);
+  }
+
+  &:has(> .aee-section:first-child) {
+    padding-block-start: 0;
+  }
+}
+
+.email-compose__editor[data-color-scheme='light'] > .aee-editor.aee-page-layout {
+  color: var(--aee-page-ink, var(--mat-sys-on-surface));
+}
+
+.email-compose__editor[data-color-scheme='dark'] > .aee-editor.aee-page-layout {
+  --aee-page-fill: var(--aee-page-background-dark, var(--aee-page-background, transparent));
+  --aee-page-column-fill: var(--aee-page-column-dark, var(--aee-page-column, var(--aee-page-fill)));
+}
+
+/* A band whose image is still a token (`{{ company.heroUrl }}`): the fill
+ * alone shows, and the token stands in its top corner — a pill in the
+ * band's own ink, as the image placeholder names its token. Drawn, never
+ * text: nothing of it is in the document. */
+.aee-editor .aee-section[data-pending-image] {
+  position: relative;
+}
+
+.aee-editor .aee-section[data-pending-image]::before {
+  content: attr(data-pending-image);
+  position: absolute;
+  inset-block-start: 8px;
+  inset-inline-end: 8px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background-color: color-mix(in srgb, currentColor 16%, transparent);
+  font: var(--mat-sys-body-small, 12px sans-serif);
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}
+
 /* 1. cursor inside — on both blocks the class lands on the NodeView wrapper */
 .aee-editor .aee-section.aee-guides-active,
 .aee-editor .aee-section:hover,

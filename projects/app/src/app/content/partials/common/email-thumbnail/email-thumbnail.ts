@@ -2,7 +2,7 @@ import { Component, computed, inject, input, signal } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 // Library
-import { hasDocumentEnvelope } from '@h-k-dev/angular-email-editor';
+import { hasDocumentEnvelope, pendingImageSource } from '@h-k-dev/angular-email-editor';
 
 import { PaperScheme, dawnDocument } from '../../../../core/dawn/dawn.render';
 import { Paper } from '../../../../core/theme/paper';
@@ -20,6 +20,36 @@ const STILL = '<style>html, body { overflow: hidden !important; scrollbar-width:
     runs edge to edge, as it is designed to. */
 const MARGIN = 32;
 const LETTER = `<style>body { padding-block-start: ${MARGIN}px; }</style>`;
+
+/** The image placeholder's frame, as the editor draws it, in the email's own
+    ink (`currentColor`), so it reads on light paper and dark alike. */
+const FRAME_STYLE =
+  'display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; ' +
+  'width: 100%; aspect-ratio: 4 / 3; vertical-align: middle; overflow: visible; ' +
+  'border: 2px dashed color-mix(in srgb, currentColor 30%, transparent); border-radius: 8px; ' +
+  'font: 12px/1.4 sans-serif; white-space: nowrap;';
+const TOKEN_STYLE =
+  'padding: 1px 4px; border-radius: 4px; ' +
+  'background-color: color-mix(in srgb, currentColor 12%, transparent);';
+
+/**
+ * Every image whose source is still a token (`src="{{ company.logoUrl }}"`,
+ * `pendingImageSource`) drawn as the editor's placeholder — the frame at the
+ * image's width, the expression dead centre — instead of the browser's
+ * broken icon: a template is shown before its tags are filled. Only those
+ * `<img>` tags change; the rest of the email is kept as written.
+ */
+export function framePendingImages(html: string): string {
+  return html.replace(/<img\b[^>]*>/gi, (tag) => {
+    const source = /\ssrc\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(tag);
+    const pending = pendingImageSource(source?.[1] ?? source?.[2]);
+    if (!pending) return tag;
+    const width = /\swidth\s*=\s*["']?(\d+)/i.exec(tag)?.[1];
+    const max = width ? ` max-width: ${width}px;` : '';
+    const text = pending.replaceAll('<', '&lt;');
+    return `<span style="${FRAME_STYLE}${max}"><span style="${TOKEN_STYLE}">${text}</span></span>`;
+  });
+}
 
 /**
  * An email in small, the top of it as a client draws it (`dawnDocument`, on
@@ -119,7 +149,7 @@ export class EmailThumbnail {
       passing the sanitizer by is safe here, as the viewer's is. */
   protected readonly document = computed<SafeHtml>(() =>
     this.#sanitizer.bypassSecurityTrustHtml(
-      dawnDocument(this.html(), { scheme: this.paper(), inset: MARGIN }) +
+      dawnDocument(framePendingImages(this.html()), { scheme: this.paper(), inset: MARGIN }) +
         STILL +
         (hasDocumentEnvelope(this.html()) ? '' : LETTER),
     ),

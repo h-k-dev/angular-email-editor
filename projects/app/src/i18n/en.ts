@@ -122,6 +122,18 @@ export default {
     saveFailed: 'The template could not be saved',
     noSubject: '(no subject)',
     noAttachments: 'Nothing attached. Drop files here.',
+    layout: {
+      title: 'Layout',
+      kind: 'Page layout',
+      none: 'None',
+      centered: 'Centred column',
+      width: 'Column width',
+      page: 'Page colour',
+      column: 'Column colour',
+      noColor: 'None',
+      custom: 'Custom colour…',
+      hint: 'How the whole email stands in the reader’s window: everything in one column on the page colour.',
+    },
   },
   inbox: {
     back: 'Back to Inbox',

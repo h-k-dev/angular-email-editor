@@ -1,11 +1,15 @@
+import { liftPageLayout } from './page-layout';
+
 /**
  * The `text/plain` projection of canonical email HTML — the multipart
  * alternative every well-formed email should carry (spam scoring cares, and
  * some recipients read it). Blockquotes become `> `, lists become `- ` /
- * `1. `, links keep their URL, images fall back to their alt text.
+ * `1. `, links keep their URL, images fall back to their alt text. The page
+ * round a body (page-layout.ts) is taken off first: it is no text.
  */
 export function emailPlainText(html: string): string {
   const body = new DOMParser().parseFromString(html, 'text/html').body;
+  liftPageLayout(body);
   const lines: string[] = [];
   renderChildren(body, lines, '');
   return lines.join('\n');

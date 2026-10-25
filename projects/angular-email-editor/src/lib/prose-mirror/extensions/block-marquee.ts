@@ -333,12 +333,16 @@ export const createBlockMarquee = (options: BlockMarqueeOptions = {}): Functiona
                 // A click: the caret at the nearest spot in the text — the
                 // point brought onto the editor's box when it fell outside.
                 // Not from a start point elsewhere: a click beside a form is
-                // no click in the text — it only lets selected blocks go,
-                // as a press anywhere does (`SelectedBlocks`; this one kept
-                // the editor's focus, so it is let go here).
+                // no click in the text — it is a press outside the editor,
+                // and does what one does: lets selected blocks go
+                // (`SelectedBlocks`) and takes the focus away, which closes
+                // whatever stands on the editor's focus (an image's or a
+                // button's bubble menu). The press was declined to keep the
+                // focus for a drag, so both are done here.
                 if (view.isDestroyed || current.moved) return;
                 if (elsewhere) {
                   releaseBlockSelection(view);
+                  view.dom.blur();
                   return;
                 }
                 // Below the last block: a line to type in, as the editor's
@@ -442,8 +446,9 @@ export const createBlockMarquee = (options: BlockMarqueeOptions = {}): Functiona
  * the press is one (its own empty room, not a control); from there it is the
  * surface's gesture in every way: the box on the canvas, the blocks it
  * covers of the surface, the scroll, Escape. Released in place it puts no
- * caret on a line (only the editor's own room does) — it only lets selected
- * blocks go, as any press outside the editor does.
+ * caret on a line (only the editor's own room does) — it does what any press
+ * outside the editor does: lets selected blocks go and takes the focus from
+ * the editor, so the menus that stand on it (an image's bubble menu) close.
  *
  * Call it from the start point's `mousedown`. It returns whether the box
  * started (and then took the press: `preventDefault`); `false` without

@@ -34,6 +34,7 @@ describe('MergeTags', () => {
       { path: 'company.website', label: 'Company website' },
       { path: 'company.address', label: 'Company address' },
       { path: 'company.logoUrl', label: 'Company logo URL' },
+      { path: 'company.bannerUrl', label: 'Company banner image URL' },
     ]);
   });
 

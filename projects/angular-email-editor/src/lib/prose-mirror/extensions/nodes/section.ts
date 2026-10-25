@@ -7,6 +7,8 @@ import { parsePadding } from './table';
 import { holdsBlock, holdsColumn, isPadded } from '../../import-html';
 import { inlinePadding } from '../../inline-style';
 import { layoutMarker, markedAs } from '../../layout-marker';
+import { pendingImageSource } from './image';
+import { COMMENT_ATTR, COMMENT_TAG } from '../../preserve';
 
 /** How wide a section's content runs: the email's container, centred in
     the band. */
@@ -56,6 +58,13 @@ export const SECTION_INSET = 16;
  * shows, which is the fallback anyway. A band without an image emits no
  * comment at all.
  *
+ * **An image still to come** — a `{{ … }}` token for its source
+ * (`{{ company.heroUrl }}`, {@link pendingImageSource}) — goes out as
+ * written, in all three places, for the sender to fill (resolving the tags
+ * fills it like any attribute). The editor cannot load it: its band shows
+ * the fill alone and names the token (`data-pending-image`, the host's to
+ * draw).
+ *
  * **Marked** (`aee-layout-section` on the table, layout-marker.ts): a
  * table marked so is a band whatever its fill — a bare one included — and
  * the marker goes out with it.
@@ -65,7 +74,7 @@ export const SECTION_INSET = 16;
  * builder's section (MJML's, with the fill on its table or wrapping div,
  * the image as the table's `background` or a `url()` in a style) as much
  * as our own. A one-cell table with words in it is a table, and stays one.
- * Only an `http(s)` image is taken.
+ * Only an `http(s)` image is taken, or a token.
  */
 export const Section = defineNode({
   name: 'section',
@@ -79,7 +88,8 @@ export const Section = defineNode({
       background: { default: null },
       /** The band's padding, as `parsePadding` normalises it. */
       padding: { default: SECTION_PADDING },
-      /** An image behind the content — an `http(s)` URL — or null. */
+      /** An image behind the content — an `http(s)` URL or a `{{ … }}`
+          token — or null. */
       image: { default: null },
       /** A fill on the content column alone, as hex — a builder's card
           (MJML's section on a coloured page: the page is the band's fill,
@@ -96,12 +106,21 @@ export const Section = defineNode({
       },
     ],
     // The editor's DOM: a band with the inner column — the layout guides'
-    // class on it, which the email never sees.
-    toDOM: (node) => [
-      'div',
-      { class: 'aee-section', style: bandStyle(node.attrs as SectionAttrs) },
-      ['div', { class: 'aee-section__inner', style: innerStyle(node.attrs as SectionAttrs) }, 0],
-    ],
+    // class on it, which the email never sees. A token image is named, not
+    // fetched: the browser would ask for the token as a path.
+    toDOM: (node) => {
+      const attrs = node.attrs as SectionAttrs;
+      const pending = pendingImageSource(attrs.image);
+      return [
+        'div',
+        {
+          class: 'aee-section',
+          style: bandStyle(pending ? { ...attrs, image: null } : attrs),
+          ...(pending && { 'data-pending-image': pending }),
+        },
+        ['div', { class: 'aee-section__inner', style: innerStyle(attrs) }, 0],
+      ];
+    },
     emitDOM: (node: { attrs: Record<string, any> }) => emitBand(node.attrs as SectionAttrs),
   },
   commands: ({ schema }) => ({
@@ -109,7 +128,8 @@ export const Section = defineNode({
     /** Fill the section the cursor is in (or clear it with `null`). */
     setSectionBackground: (color: string | null): Command => setSectionBackground(color),
     /** Put an image behind the section the cursor is in (or take it away
-        with `null`) — an `http(s)` URL; anything else is refused. */
+        with `null`) — an `http(s)` URL or a `{{ … }}` token; anything else
+        is refused. */
     setSectionImage: (url: string | null): Command => setSectionImage(url),
     /** Take the band away, its content staying where it stood. */
     removeSection: (): Command => removeSection,
@@ -214,10 +234,11 @@ const VML_CLOSE = '[if mso]></v:textbox></v:rect><![endif]';
 const escapeAttribute = (value: string): string =>
   value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
-/** Whether a URL may stand as a band's image: `http(s)` only — never a
-    script, a data URL (Gmail shows nothing for it) or a file. */
+/** Whether a URL may stand as a band's image: `http(s)`, or a `{{ … }}`
+    token the sender fills — never a script, a data URL (Gmail shows nothing
+    for it) or a file. */
 export function isSectionImageUrl(url: string | null): url is string {
-  return !!url && /^https?:\/\/\S+$/i.test(url.trim());
+  return !!url && (/^https?:\/\/\S+$/i.test(url.trim()) || !!pendingImageSource(url));
 }
 
 /** The section's content column: the container's width, centred, with the
@@ -398,13 +419,35 @@ function sectionContent(table: HTMLTableElement): HTMLElement {
     for (const child of Array.from(cell.childNodes).reverse()) cell.appendChild(child);
     cell.style.direction = '';
   }
-  const only = cell.children.length === 1 ? cell.children[0] : null;
+  const only = cell.children.length === 1 ? cell.children[0] : ownVmlContent(table, cell);
   if (!(only instanceof HTMLElement) || only.tagName !== 'DIV') return cell;
   const centred =
     !!only.style?.maxWidth &&
     only.style?.marginLeft === 'auto' &&
     !/inline-block/i.test(only.style?.display ?? '');
   return centred ? only : cell;
+}
+
+/** The div between the band's own VML comments — read where the parse
+    keeps comments as elements (preserve's placeholders, `COMMENT_TAG`): the
+    cell is then [open, content, close], and only exactly the comments
+    `emitBand` writes for this image and fill make it ours. Anything else —
+    VML edited by hand, a builder's conditionals — is no band of ours, and
+    keeps its markup as written. */
+function ownVmlContent(table: HTMLTableElement, cell: HTMLTableCellElement): Element | null {
+  const [open, content, close, ...rest] = Array.from(cell.children);
+  if (!close || rest.length) return null;
+  const placeholder = (el: Element) => el.tagName.toLowerCase() === COMMENT_TAG;
+  if (!placeholder(open) || placeholder(content) || !placeholder(close)) return null;
+  const image = declaredImage(table, cell, table.parentElement);
+  if (!image) return null;
+  const fill = cell.getAttribute('bgcolor');
+  const background = fill && isSafeColor(fill) ? toEmailSafeColor(fill) : null;
+  const expected = vmlOpen({ image, background, padding: null, contentBackground: null });
+  return open.getAttribute(COMMENT_ATTR) === expected &&
+    close.getAttribute(COMMENT_ATTR) === VML_CLOSE
+    ? content
+    : null;
 }
 
 /** The section around the cursor, innermost. */

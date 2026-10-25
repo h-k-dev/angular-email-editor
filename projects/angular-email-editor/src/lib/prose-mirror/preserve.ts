@@ -70,7 +70,8 @@ import {
 /** Placeholder element the comment pre-pass turns DOM comments into:
     ProseMirror's parser never sees comment nodes, elements it does. */
 export const COMMENT_TAG = 'aee-comment';
-const COMMENT_ATTR = 'data-text';
+/** The placeholder's attribute holding the comment's text. */
+export const COMMENT_ATTR = 'data-text';
 
 /** Below every canonical rule (default 50): a preserve rule only ever takes
     what no canonical rule claimed. */

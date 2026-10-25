@@ -82,10 +82,15 @@ export class BlockMenu {
     computation: (key, previous) => (previous?.source === key ? previous.value : false),
   });
 
+  /** What the field takes, said in it while empty — braces a template
+      cannot write. */
+  protected readonly imagePlaceholder = 'https://…/image.jpg or {{ field }}';
+
   /** What the field opened with: the section's image, or nothing. */
   protected readonly imageValue = signal('');
 
-  /** The field holds an address that is not an http(s) URL. */
+  /** The field holds an address that is neither an http(s) URL nor a
+      `{{ … }}` token. */
   protected readonly imageRefused = signal(false);
 
   /** Whether the section under the caret has an image — the field's

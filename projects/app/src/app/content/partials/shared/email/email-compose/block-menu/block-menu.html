@@ -11,8 +11,9 @@
     (keydown.escape)="leave()"
   >
     <!-- A band's picture: a field for its URL, opened by the button —
-         Enter sets it, an address that is not http(s) turns the field
-         red. Its fill is the toolbar's colour button, like a cell's. -->
+         Enter sets it, an address that is neither http(s) nor a {{ … }}
+         token turns the field red. Its fill is the toolbar's colour
+         button, like a cell's. -->
     <button
       mat-icon-button
       type="button"
@@ -33,7 +34,7 @@
         spellcheck="false"
         autocomplete="off"
         aria-label="Background image URL"
-        placeholder="https://…/image.jpg"
+        [placeholder]="imagePlaceholder"
         [value]="imageValue()"
         [attr.aria-invalid]="imageRefused() ? true : null"
         (input)="imageRefused.set(false)"

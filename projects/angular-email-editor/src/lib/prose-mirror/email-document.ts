@@ -1,9 +1,12 @@
 import { escapeAttribute, escapeText } from './utils/escape';
 import { STACK_RULE, markStackingColumns } from './extensions/nodes/columns';
 import { fitEmailImages } from './extensions/nodes/image';
+import { pageCellOf, pageFillOf } from './page-layout';
+import { fillTextColor } from './dual-contrast';
 import {
   COLOR_SCHEME_META,
   COLOR_SCHEME_RULE,
+  DARK_FILL_CLASS,
   DarkModePalette,
   emailDarkModePalette,
   markDarkMode,
@@ -55,6 +58,11 @@ export interface EmailDocumentOptions {
  * keeps the cap — narrower, still whole — and loses nothing else, which is
  * the same rule the canonical HTML already keeps.
  *
+ * A body in its page (page-layout.ts) paints the `<body>` with the page's
+ * colour too, and its dark class: webmail drops the body and keeps the
+ * page's 100% table; Apple Mail and Outlook keep the body, and with it the
+ * colour reaches the window's edges below a short email.
+ *
  * Dark mode is the other enhancement (dark-mode.ts): the document says it
  * is drawn for both schemes, and the palette's colours in it wear a class
  * that their dark variant hangs on, in a `<style>` of its own — a client
@@ -73,6 +81,7 @@ export function emailDocument(html: string, options: EmailDocumentOptions = {}):
   const stacked = markStackingColumns(fitEmailImages(html));
   const dark = darkMode ? markDarkMode(stacked, darkMode) : null;
   const darkStyle = dark ? [COLOR_SCHEME_RULE, dark.css].filter(Boolean).join(' ') : '';
+  const body = bodyFill(dark ? dark.html : stacked);
   const langAttr = lang ? ` lang="${escapeAttribute(lang)}"` : '';
   const dirAttr = ` dir="${dir}"`;
   return (
@@ -89,7 +98,8 @@ export function emailDocument(html: string, options: EmailDocumentOptions = {}):
     `<style type="text/css">${STACK_RULE}</style>` +
     (dark ? `<style type="text/css">${darkStyle}</style>` : '') +
     '</head>' +
-    `<body style="${BODY_STYLE}">` +
+    `<body${body.className}` +
+    ` style="${BODY_STYLE}${body.style}"${body.bgcolor}>` +
     `<div role="article" aria-roledescription="email"${langAttr}${dirAttr}>` +
     (previewText ? previewBlock(previewText) : '') +
     (dark ? dark.html : stacked) +
@@ -97,6 +107,25 @@ export function emailDocument(html: string, options: EmailDocumentOptions = {}):
     '</body>' +
     '</html>'
   );
+}
+
+/** The page's colour on the body, as attribute pieces — empty for a body
+    with no page, or a page with no colour. The class is the dark one the
+    page's cell wears (markDarkMode), so the body darkens with it. */
+function bodyFill(html: string): { className: string; style: string; bgcolor: string } {
+  const none = { className: '', style: '', bgcolor: '' };
+  if (!html.includes('aee-layout-page')) return none;
+  const template = document.createElement('template');
+  template.innerHTML = html;
+  const cell = pageCellOf(template.content);
+  const color = cell ? pageFillOf(cell) : null;
+  if (!cell || !color) return none;
+  const dark = Array.from(cell.classList).find((name) => name.startsWith(DARK_FILL_CLASS));
+  return {
+    className: dark ? ` class="${dark}"` : '',
+    style: ` background-color: ${color}; color: ${fillTextColor(color)};`,
+    bgcolor: ` bgcolor="${color}"`,
+  };
 }
 
 const OUTLOOK_SETTINGS =

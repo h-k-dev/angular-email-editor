@@ -7,7 +7,7 @@
  * selection wash and the selected-block and marquee rules, so this guards
  * what the app ships — the box and the blocks it lights in one colour.
  */
-import { TextSelection } from 'prosemirror-state';
+import { NodeSelection, TextSelection } from 'prosemirror-state';
 import appStyles from '../../../../../app/src/styles.scss' with { loader: 'text' };
 import { createEditor, Editor } from '../editor';
 import { emailExtensions } from './kits';
@@ -15,6 +15,7 @@ import { BLOCK_RELEASING_CLASS, BLOCK_SELECTED_CLASS, BlockSelection } from './b
 import { BLOCK_MARQUEE_CLASS, beginBlockMarquee, createBlockMarquee } from './block-marquee';
 import { extensionSuggestions } from '../extension';
 import { SuggestionMenuState, createSuggestionMenu } from './suggestion-menu';
+import { BubbleMenuState, createBubbleMenu } from './bubble-menu';
 
 /** The app's wash token, its hide-selection rules (the browser's highlight
     gone under a block selection) and its selected-block / marquee section. */
@@ -225,17 +226,52 @@ describe('block marquee (render)', () => {
     mouse('mouseup', x + 100, rect(block(1)).top + 5, window);
     expect(selected()).toEqual([0, 1]);
 
-    // A click there now lets the blocks go — the editor keeps its focus
-    // (the press is taken), so the marquee lets go itself.
+    // A click there now lets the blocks go and takes the focus away, as a
+    // press outside the editor does — the press was taken, so the marquee
+    // does both itself.
     mouse('mousedown', x, y, header);
     mouse('mouseup', x, y, window);
     expect(selected()).toEqual([]);
     expect(editor.state.selection).toBeInstanceOf(TextSelection);
+    expect(editor.view.hasFocus()).toBe(false);
 
     // Not a plain primary press: not started.
     const right = new MouseEvent('mousedown', { button: 2, bubbles: true, cancelable: true });
     header.dispatchEvent(right);
     expect(started).toBe(false);
+  });
+
+  it('a click at a start point of the host’s closes a selected image’s bubble menu', async () => {
+    editor.destroy();
+    const header = document.createElement('header');
+    header.className = 'header';
+    document.body.insertBefore(header, surface);
+    let menu: BubbleMenuState = { isOpen: false, boundingBox: null };
+    editor = createEditor({
+      parent: surface,
+      extensions: [
+        ...emailExtensions,
+        createBlockMarquee(),
+        createBubbleMenu({ updateDelay: 0, onStateChange: (next) => (menu = next) }),
+      ],
+      content:
+        '<div><img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="100"></div><div>after</div>',
+    });
+    header.addEventListener('mousedown', (event) => beginBlockMarquee(editor.view, event));
+
+    editor.view.focus();
+    editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, 1)));
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(menu).toMatchObject({ isOpen: true, kind: 'image' });
+
+    const x = rect(header).left + 20;
+    const y = rect(header).top + 20;
+    mouse('mousedown', x, y, header);
+    mouse('mouseup', x, y, window);
+    await frame();
+    expect(editor.view.hasFocus()).toBe(false);
+    expect(menu.isOpen).toBe(false);
+    header.remove();
   });
 
   it('let go, the blocks fade their wash out over 150ms, then drop the mark', async () => {

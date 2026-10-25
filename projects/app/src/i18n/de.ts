@@ -119,6 +119,18 @@ export default {
     saveFailed: 'Die Vorlage konnte nicht gespeichert werden',
     noSubject: '(kein Betreff)',
     noAttachments: 'Nichts angehängt. Dateien hierher ziehen.',
+    layout: {
+      title: 'Layout',
+      kind: 'Seitenlayout',
+      none: 'Keins',
+      centered: 'Zentrierte Spalte',
+      width: 'Spaltenbreite',
+      page: 'Seitenfarbe',
+      column: 'Spaltenfarbe',
+      noColor: 'Keine',
+      custom: 'Eigene Farbe…',
+      hint: 'Wie die ganze E-Mail im Fenster steht: alles in einer Spalte auf der Seitenfarbe.',
+    },
   },
   inbox: {
     back: 'Zurück zum Posteingang',

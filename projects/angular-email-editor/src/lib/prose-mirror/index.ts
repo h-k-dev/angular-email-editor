@@ -73,6 +73,8 @@ export * from './extensions/quoted-history';
 export * from './extensions/code-line-indent';
 export * from './fold';
 export * from './extensions/document-styles';
+export * from './page-layout';
+export * from './extensions/page-layout';
 export * from './extensions/send-intent';
 export * from './extensions/placeholder';
 export * from './extensions/merge-tag-resolution';

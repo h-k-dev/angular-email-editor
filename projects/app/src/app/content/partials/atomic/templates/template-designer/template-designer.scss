@@ -225,3 +225,55 @@
   font: var(--mat-sys-body-small);
   color: var(--mat-sys-on-surface-variant);
 }
+
+// The layout block: its kind, then — while it has one — the column's width
+// and the two colours, one row each.
+.designer-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.designer-layout__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-block-size: 32px;
+}
+
+.designer-layout__label {
+  font: var(--mat-sys-body-medium);
+}
+
+.designer-layout__colors {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.designer-layout__field {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font: var(--mat-sys-body-medium);
+  color: var(--mat-sys-on-surface-variant);
+
+  input {
+    box-sizing: border-box;
+    inline-size: 72px;
+    block-size: 32px;
+    padding: 0 8px;
+    border: 1px solid var(--mat-sys-outline-variant);
+    border-radius: var(--mat-sys-corner-small);
+    background: transparent;
+    color: var(--mat-sys-on-surface);
+    font: inherit;
+    text-align: end;
+
+    &:focus-visible {
+      outline: 2px solid var(--mat-sys-primary);
+      outline-offset: -1px;
+    }
+  }
+}

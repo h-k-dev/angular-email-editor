@@ -30,12 +30,23 @@ import { MatTooltip } from '@angular/material/tooltip';
 import { AngularFileDrop } from '@h-k-dev/angular-file-drop';
 
 // Angular Email Editor
-import { InlineImages } from '@h-k-dev/angular-email-editor';
 import {
-  AttachmentChip,
-  AttachmentChipIcon,
-} from '@h-k-dev/angular-email-editor/attachment-chip';
+  InlineImages,
+  PAGE_WIDTH_MAX,
+  PAGE_WIDTH_MIN,
+  PageLayout,
+  centeredPageLayout,
+  emailBackgroundPalette,
+  pageLayoutOf,
+  samePageLayout,
+} from '@h-k-dev/angular-email-editor';
+import { editorState } from '@h-k-dev/angular-email-editor/actions';
+import { AttachmentChip, AttachmentChipIcon } from '@h-k-dev/angular-email-editor/attachment-chip';
 import { AttachmentChips } from '@h-k-dev/angular-email-editor/attachment-chips';
+import {
+  ToggleButtonGroup,
+  ToggleButtonGroupText,
+} from '@h-k-dev/angular-email-editor/toggle-button-group';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { BLANK, Envelope } from '../../../../../core/email/envelope';
@@ -47,6 +58,7 @@ import { MailView } from '../../../shared/email/mail-view/mail-view';
 import { ScrollOwner } from '../../../../../core/common/directives/scroll-owner/scroll-owner';
 import { atRest } from '../../../shared/email/at-rest';
 import { EmailCompose } from '../../../shared/email/email-compose/email-compose';
+import { ColorPalette } from '../../../shared/email/email-compose/formatting-toolbar/color-palette/color-palette';
 import { HtmlEmailCompose } from '../../../shared/email/html-email-compose/html-email-compose';
 import { EnvelopeRows } from '../../../shared/email/message-form/envelope-rows/envelope-rows';
 import { MessageMenu } from '../../../shared/email/message-form/message-menu/message-menu';
@@ -80,9 +92,14 @@ function sameMessage(a: Envelope, b: Envelope): boolean {
  * - The canvas: the editor in the email's 600px column, its layout blocks
  *   taking their gestures (design, never write) and the formatting toolbar
  *   always there.
- * - On the right, two outlined blocks: the message's rows — From, To, Cc,
- *   Bcc, Subject, Preview — and its attachments, each folding to its
- *   heading on its own.
+ * - On the right, three outlined blocks: the message's rows — From, To,
+ *   Cc, Bcc, Subject, Preview — its attachments, and its layout, each
+ *   folding to its heading on its own.
+ * - The layout is the email's page (the library's `PageLayout`): none, or
+ *   a centred column of a width on a page colour, the column's own colour
+ *   over it — set only here, a step of the editor's, so undo takes it back.
+ *   The page shows inside the email's own column (720px), round the
+ *   layout's: the container is the bound, never the canvas.
  * - The phone: the message as the inbox shows it received on a 375px phone
  *   — the very `mail-view` the reader uses, which lays itself out by the
  *   room the phone gives it — live as typing settles. On when asked for,
@@ -123,6 +140,9 @@ function sameMessage(a: Envelope, b: Envelope): boolean {
     Badge,
     PageHeader,
     PhoneFrame,
+    ToggleButtonGroup,
+    ToggleButtonGroupText,
+    ColorPalette,
   ],
   providers: [
     { provide: MessageSheet, useExisting: TemplateDesigner },
@@ -183,6 +203,21 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
       open, or folded to its heading. */
   protected readonly messageOpen = signal(true);
   protected readonly filesOpen = signal(true);
+  protected readonly layoutOpen = signal(true);
+
+  /** The email's page layout, as its editor holds it — null for none. The
+      same layout reads as no change, so a keystroke redraws nothing here. */
+  readonly #editorState = editorState(() => this.emailPane().editor());
+  protected readonly pageLayout = computed(
+    () => {
+      const state = this.#editorState();
+      return state ? pageLayoutOf(state) : null;
+    },
+    { equal: samePageLayout },
+  );
+  protected readonly backgroundPalette = emailBackgroundPalette;
+  protected readonly widthMin = PAGE_WIDTH_MIN;
+  protected readonly widthMax = PAGE_WIDTH_MAX;
 
   /** The phone's email: the body as typing settles — a frame redrawn on
       every key would flicker. */
@@ -300,6 +335,33 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
     this.message.set(clean);
   }
 
+  /** The layout's kind: a centred column — the one it had, else the
+      newsletter's default — or none. */
+  protected setLayoutKind(kind: string): void {
+    this.#setLayout(kind === 'centered' ? (this.pageLayout() ?? centeredPageLayout()) : null);
+  }
+
+  /** The column's width, as the field says it — snapped to its grid. */
+  protected setLayoutWidth(value: string): void {
+    const layout = this.pageLayout();
+    if (layout && value.trim()) this.#setLayout({ ...layout, width: Number(value) });
+  }
+
+  protected setPageColor(background: string | null): void {
+    const layout = this.pageLayout();
+    if (layout) this.#setLayout({ ...layout, background });
+  }
+
+  protected setColumnColor(columnBackground: string | null): void {
+    const layout = this.pageLayout();
+    if (layout) this.#setLayout({ ...layout, columnBackground });
+  }
+
+  /** A step of the editor's: the body publishes it, and undo takes it back. */
+  #setLayout(layout: PageLayout | null): void {
+    this.emailPane().editor()?.commands['setPageLayout'](layout);
+  }
+
   /** Closes the designer — the close button's, unsaved changes and all:
       a press on it is a decision, not a slip. */
   protected close(): void {
@@ -308,7 +370,8 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
 
   /** Ctrl/⌘+S saves, as in every design tool — never the page. */
   protected shortcut(event: KeyboardEvent): void {
-    if (event.key.toLowerCase() !== 's' || !(event.ctrlKey || event.metaKey) || event.altKey) return;
+    if (event.key.toLowerCase() !== 's' || !(event.ctrlKey || event.metaKey) || event.altKey)
+      return;
     event.preventDefault();
     if (this.dirty()) void this.save();
   }

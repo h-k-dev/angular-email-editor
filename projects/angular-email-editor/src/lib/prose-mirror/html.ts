@@ -24,6 +24,8 @@ import { ParseMode } from './parse-mode';
 import { createDOMParser, materializeComments, realizeComments, trimInlineBoxes } from './preserve';
 import { applyEmailVocabulary } from './email-vocabulary';
 import { correctStoredMistakes } from './corrections';
+import { CONTENT_ATTRS } from './extensions/nodes/document';
+import { PageLayout, liftPageLayout, normalizePageLayout, wrapPageLayout } from './page-layout';
 
 const serializerCache = new WeakMap<Schema, DOMSerializer>();
 
@@ -78,7 +80,8 @@ function getSerializer(schema: Schema): DOMSerializer {
 
 /** Serializes a document (or any node) to an HTML string, e.g. for the email
     body. A document carrying an envelope (see {@link DocumentEnvelope})
-    serializes as a whole document — doctype, head and all. */
+    serializes as a whole document — doctype, head and all; one with a page
+    layout (see {@link PageLayout}) stands in its page. */
 export function serializeToHTML(doc: Node, schema: Schema): string {
   const fragment = getSerializer(schema).serializeFragment(doc.content);
   const container = document.createElement('div');
@@ -86,6 +89,10 @@ export function serializeToHTML(doc: Node, schema: Schema): string {
   // The Outlook half of the columns hybrid: comments between the columns,
   // where no node's own emit can put them (columns.ts).
   if (schema.nodes['columns']) outlookColumns(container);
+  // The page round the body — the document's own, never a node's.
+  const layout =
+    doc.type === schema.topNodeType ? normalizePageLayout(doc.attrs['pageLayout']) : null;
+  if (layout) wrapPageLayout(container, layout);
   realizeComments(container);
   const body = container.innerHTML;
   const envelope = doc.attrs['envelope'] as DocumentEnvelope | null | undefined;
@@ -125,6 +132,10 @@ export interface ParseOptions {
  * the raw Handlebars-flavoured text, and parse restores the structured form.
  * Button atoms lose marks the parser painted from their own `font-weight`
  * (`bareButtons`) — the box is already bold.
+ *
+ * In every mode the page comes off first (`liftPageLayout`): the body's
+ * page layout lands on the document node's `pageLayout` attribute, and the
+ * blocks it wrapped read as they would without it.
  */
 export function parseHTML(html: string, schema: Schema, options: ParseOptions = {}): Node {
   const mode = options.mode ?? 'repair';
@@ -133,6 +144,7 @@ export function parseHTML(html: string, schema: Schema, options: ParseOptions = 
 
   if (mode === 'repair') {
     const dom = new window.DOMParser().parseFromString(html, 'text/html');
+    const layout = liftPageLayout(dom.body);
     // First: what an engine's CSSOM might misread is rewritten so every
     // engine reads it alike (a `background` shorthand, a box's longhand
     // after its shorthand) — the import must come out the same wherever
@@ -147,9 +159,11 @@ export function parseHTML(html: string, schema: Schema, options: ParseOptions = 
     // would collapse into the link beside them, joining a navbar's items.
     trimInlineBoxes(dom.body);
     inheritTextStyles(dom.body);
-    parsed = parser.parse(dom.body);
+    const topNode = documentNode(schema, null, layout);
+    parsed = parser.parse(dom.body, topNode ? { topNode } : undefined);
   } else {
     const dom = parseDocument(html);
+    const layout = liftPageLayout(dom.body);
     if (mode === 'email') {
       // Before the vocabulary: an embed becomes a link before it is refused.
       correctStoredMistakes(dom);
@@ -157,14 +171,29 @@ export function parseHTML(html: string, schema: Schema, options: ParseOptions = 
     }
     materializeComments(dom.body);
     trimInlineBoxes(dom.body);
-    const docType = schema.topNodeType;
-    const topNode =
-      hasDocumentEnvelope(html) && docType.spec.attrs?.['envelope']
-        ? docType.create({ envelope: readEnvelope(dom) })
-        : undefined;
+    const topNode = documentNode(
+      schema,
+      hasDocumentEnvelope(html) ? readEnvelope(dom) : null,
+      layout,
+    );
     parsed = parser.parse(dom.body, topNode ? { topNode } : undefined);
   }
   return bareButtons(promoteMergeTags(repairTables(parsed, schema), schema), schema);
+}
+
+/** The document node a parse fills: one carrying what the markup said of
+    the whole — its envelope, its page layout — where the schema's document
+    holds them; undefined when there is nothing to carry. */
+function documentNode(
+  schema: Schema,
+  envelope: DocumentEnvelope | null,
+  layout: PageLayout | null,
+): Node | undefined {
+  const docType = schema.topNodeType;
+  const attrs: Record<string, unknown> = {};
+  if (envelope && docType.spec.attrs?.['envelope']) attrs['envelope'] = envelope;
+  if (layout && docType.spec.attrs?.['pageLayout']) attrs['pageLayout'] = layout;
+  return Object.keys(attrs).length ? docType.create(attrs) : undefined;
 }
 
 /**
@@ -184,18 +213,19 @@ export const insertHTML =
 /** A command that puts `html` in the whole document's place — an example
     loaded over what is written, as one undoable change; the caret lands at
     its end. A whole document parsed in the `email` or `preserve` mode brings
-    its envelope along. */
+    its envelope along, and a body in its page its page layout. */
 export const replaceHTML =
   (html: string, options?: ParseOptions): Command =>
   (state, dispatch) => {
     const doc = parseHTML(html, state.schema, options);
     if (dispatch) {
       const tr = state.tr.replaceWith(0, state.doc.content.size, doc.content);
-      if (
-        JSON.stringify(state.doc.attrs['envelope'] ?? null) !==
-        JSON.stringify(doc.attrs['envelope'] ?? null)
-      ) {
-        tr.setDocAttribute('envelope', doc.attrs['envelope'] ?? null);
+      for (const name of CONTENT_ATTRS) {
+        if (!(name in doc.attrs)) continue;
+        const value = doc.attrs[name] ?? null;
+        if (JSON.stringify(state.doc.attrs[name] ?? null) !== JSON.stringify(value)) {
+          tr.setDocAttribute(name, value);
+        }
       }
       dispatch(tr.setSelection(Selection.atEnd(tr.doc)).scrollIntoView());
     }

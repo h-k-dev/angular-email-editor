@@ -41,6 +41,7 @@ import { ClearFormatting } from './clear-formatting';
 import { QuotedHistory } from './quoted-history';
 import { Section } from './nodes/section';
 import { DocumentStyles } from './document-styles';
+import { PageLayoutExtension } from './page-layout';
 import { AuthoredEnter, preserveExtensions } from '../preserve';
 
 /** Everything but the paragraph flavour, which is what the kits swap. */
@@ -126,6 +127,9 @@ export const emailExtensions: Extension[] = [
   // this editor only — the visual pane renders a template as the recipient
   // sees it.
   DocumentStyles,
+  // The page the whole email stands in — a centred column on a colour —
+  // told to the editor's root (page-layout.ts); the host draws it.
+  PageLayoutExtension,
   // Reply-specific (so not in the rich-text kit): the quoted history, kept
   // beside the body and folded behind Gmail's `⋯`. A host in another
   // language swaps it for its own `createQuotedHistory({ labels })`.

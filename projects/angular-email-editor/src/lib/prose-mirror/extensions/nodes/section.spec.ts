@@ -131,6 +131,58 @@ describe('section', () => {
     expect(editor.getHTML()).not.toContain('background=');
   });
 
+  it('takes a token for its image: sent as written for the sender to fill, named in the editor rather than fetched', () => {
+    editor.commands['insertSection']('#0b3d3f');
+    expect(editor.commands['setSectionImage']('{{ company.heroUrl }}')).toBe(true);
+    const out = editor.getHTML();
+    expect(out).toContain('background="{{ company.heroUrl }}"');
+    expect(out).toContain('background-image: url(&quot;{{ company.heroUrl }}&quot;);');
+    expect(out).toContain('<v:fill type="frame" src="{{ company.heroUrl }}" color="#0b3d3f" />');
+    expect(canonical(out)).toBe(out);
+
+    const band = host.querySelector<HTMLElement>('.aee-section')!;
+    expect(band.dataset['pendingImage']).toBe('{{ company.heroUrl }}');
+    expect(band.style.backgroundImage).toBe('');
+    expect(band.style.backgroundColor).toBe('rgb(11, 61, 63)');
+
+    // Filled, it is an image like any other.
+    editor.commands['setSectionImage']('https://x.io/hero.jpg');
+    const filled = host.querySelector<HTMLElement>('.aee-section')!;
+    expect(filled.dataset['pendingImage']).toBeUndefined();
+    expect(filled.style.backgroundImage).toContain('https://x.io/hero.jpg');
+  });
+
+  it('an image band reads back as a band where comments are kept (preserve) — its own VML only; VML edited by hand stays as written', () => {
+    for (const parseMode of ['preserve', 'email'] as const)
+      for (const image of ['https://x.io/hero.jpg', '{{ company.bannerUrl }}']) {
+        editor.commands['insertSection']('#0b3d3f');
+        editor.commands['setSectionImage'](image);
+        const html = editor.getHTML();
+        const kept = createEditor({
+          parent: host,
+          extensions: emailExtensions,
+          content: html,
+          parseMode,
+        });
+        expect(kept.state.doc.child(0).type.name).toBe('section');
+        expect(kept.state.doc.child(0).attrs['image']).toBe(image);
+        expect(kept.getHTML()).toBe(html);
+
+        const edited = html.replace('type="frame"', 'type="tile"');
+        const verbatim = createEditor({
+          parent: host,
+          extensions: emailExtensions,
+          content: edited,
+          parseMode,
+        });
+        expect(verbatim.state.doc.child(0).type.name).not.toBe('section');
+        expect(verbatim.getHTML()).toBe(edited);
+        kept.destroy();
+        verbatim.destroy();
+        editor.commands['removeSection']();
+      }
+  });
+
   it('takes only an http(s) image: a script, a data URL or a file is refused, on the command and on parse', () => {
     editor.commands['insertSection']('#202124');
     expect(editor.commands['setSectionImage']('javascript:alert(1)')).toBe(false);

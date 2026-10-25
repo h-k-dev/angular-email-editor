@@ -9,7 +9,12 @@ import { vi } from 'vitest';
 export function stubExampleAssets(): void {
   // The catalogue's own names (public/examples/index.json), so the store's
   // specs search what the app ships.
-  const angularjs = ['Platzhalter im Überblick', 'Sign-in code', 'Order confirmation'];
+  const angularjs = [
+    'Platzhalter im Überblick',
+    'Sign-in code',
+    'Order confirmation',
+    'Shipping confirmation',
+  ];
   // The one entry the catalogue gives an envelope (a no-reply sender).
   const envelopes: Record<string, object> = {
     'Sign-in code': {

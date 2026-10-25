@@ -21,3 +21,34 @@
     (click)="picked.emit(color.value)"
   ></button>
 }
+<!-- The custom colour, where the host offers one: a swatch opening the
+     platform's picker — the picker's input under it, unseen, so the picker
+     opens on the swatch. -->
+@if (customLabel(); as label) {
+  <span class="color-palette__custom">
+    <button
+      type="button"
+      class="color-palette__swatch color-palette__swatch--custom"
+      role="option"
+      [attr.aria-selected]="custom() !== null"
+      [title]="label"
+      [attr.aria-label]="label"
+      [attr.data-filled]="custom() !== null || null"
+      [style.--email-swatch]="custom()"
+      (click)="openPicker(picker)"
+    >
+      @if (custom() === null) {
+        <mat-icon>colorize</mat-icon>
+      }
+    </button>
+    <input
+      #picker
+      type="color"
+      class="color-palette__picker"
+      tabindex="-1"
+      aria-hidden="true"
+      [value]="custom() ?? '#ffffff'"
+      (input)="pickCustom(picker)"
+    />
+  </span>
+}
