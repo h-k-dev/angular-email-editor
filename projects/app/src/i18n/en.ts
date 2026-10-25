@@ -269,6 +269,8 @@ export default {
       fontValue: 'Font: {{font}}',
       size: 'Font size',
       sizeValue: 'Font size: {{size}}',
+      customSize: 'Custom size',
+      applySize: 'Apply size',
       more: 'More formatting',
       undo: 'Undo',
       redo: 'Redo',

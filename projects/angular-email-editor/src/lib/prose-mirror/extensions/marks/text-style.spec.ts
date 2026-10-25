@@ -60,14 +60,15 @@ describe('textStyle text-transform', () => {
 });
 
 describe('parseFontSize', () => {
-  it('reads a rung as itself and snaps a size off the ladder to the nearest rung, upward on a tie', () => {
+  it('reads every px size as written — a rung, a custom size, 0 — to two decimals', () => {
     expect(parseFontSize('14px')).toBe(14);
-    expect(parseFontSize('11px')).toBe(12);
-    expect(parseFontSize('13px')).toBe(14);
-    expect(parseFontSize('15px')).toBe(16);
-    expect(parseFontSize('28px')).toBe(32);
-    expect(parseFontSize('40px')).toBe(32);
-    expect(parseFontSize('9')).toBe(10);
+    expect(parseFontSize('13px')).toBe(13);
+    expect(parseFontSize('40px')).toBe(40);
+    expect(parseFontSize('13.5px')).toBe(13.5);
+    expect(parseFontSize('12.345px')).toBe(12.35);
+    expect(parseFontSize('9')).toBe(9);
+    expect(parseFontSize('0px')).toBe(0);
+    expect(parseFontSize('-4px')).toBeNull();
     // Not a px size: not a size.
     expect(parseFontSize('1.2em')).toBeNull();
     expect(parseFontSize('small')).toBeNull();
@@ -91,13 +92,21 @@ describe('textStyle font-size', () => {
     );
   });
 
-  it('refuses a size outside the allowed set', () => {
+  it('takes a custom size from 0 up — a display title’s 40px — and refuses a negative one', () => {
     const doc = parseHTML('<div>hello</div>', schema);
     const state = EditorState.create({
       doc,
       selection: TextSelection.create(doc, 1, doc.content.size - 1),
     });
-    expect(commands['setFontSize'](13)(state)).toBe(false);
+    expect(commands['setFontSize'](40)(state)).toBe(true);
+    expect(commands['setFontSize'](0)(state)).toBe(true);
+    expect(commands['setFontSize'](-1)(state)).toBe(false);
+    expect(commands['setFontSize'](Number.NaN)(state)).toBe(false);
+    let next = state;
+    commands['setFontSize'](40)(state, (tr) => (next = state.apply(tr)));
+    const html = serializeToHTML(next.doc, schema);
+    expect(html).toBe('<div><span style="font-size: 40px;">hello</span></div>');
+    expect(serializeToHTML(parseHTML(html, schema), schema)).toBe(html);
   });
 
   it('offers only phone-safe sizes (≥14px) in the picker', () => {

@@ -2147,6 +2147,26 @@ section[html-email-compose][data-wrap='off'] .aee-editor {
   color: var(--mat-sys-primary, #4c6ef5);
 }
 
+/* A token's image (`src="{{ company.logoUrl }}"`) is the same placeholder
+ * until the tags are filled: the expression dead centre, a pill as the text
+ * draws a tag. One line always — on a frame narrower than the expression
+ * (a 48px logo) it runs past both edges evenly rather than wrap. */
+.aee-editor .aee-image__placeholder--pending {
+  overflow: visible;
+}
+
+.aee-editor .aee-image__token {
+  flex: none;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background-color: var(
+    --email-merge-tag-background,
+    color-mix(in srgb, var(--mat-sys-primary, #4c6ef5) 12%, transparent)
+  );
+  color: var(--mat-sys-on-surface, #1f1f1f);
+  white-space: nowrap;
+}
+
 /* A `cid:` image whose part the registry does not hold — a restored draft
  * without its parts, an import the host never registered: a frame that
  * says so, never a broken icon. Same box as the placeholder, error-toned. */

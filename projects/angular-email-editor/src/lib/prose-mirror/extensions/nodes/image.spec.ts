@@ -549,6 +549,33 @@ describe('image node', () => {
       unmount();
     });
 
+    it('a token source is the same placeholder: its expression dead centre, a click opens the picker, the token kept in the HTML', () => {
+      const { editor, unmount } = mount(
+        '<div style="text-align: center;"><img src="{{ company.logoUrl }}" alt="{{ company.name }}" width="48"></div>',
+      );
+      const wrapper = editor.view.dom.querySelector('.aee-image') as HTMLElement;
+      expect(wrapper.classList.contains('aee-image--placeholder')).toBe(true);
+      const frame = wrapper.querySelector('.aee-image__placeholder--pending')!;
+      expect(frame.querySelector('.aee-image__token')?.textContent).toBe('{{ company.logoUrl }}');
+      expect(wrapper.querySelector('img')).toBeNull();
+      expect(editor.getHTML()).toContain('src="{{ company.logoUrl }}"');
+
+      const chooser = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => {});
+      frame.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      expect(chooser).toHaveBeenCalledTimes(1);
+      chooser.mockRestore();
+      document.body.querySelectorAll('input[type="file"]').forEach((input) => input.remove());
+      unmount();
+    });
+
+    it('a source merely holding braces outside a token is drawn as the image', () => {
+      const { editor, unmount } = mount('<div><img src="x.png?q={a}" width="48"></div>');
+      const wrapper = editor.view.dom.querySelector('.aee-image') as HTMLElement;
+      expect(wrapper.classList.contains('aee-image--placeholder')).toBe(false);
+      expect(wrapper.querySelector('img')).not.toBeNull();
+      unmount();
+    });
+
     it('filling keeps the frame the author sized and their alt, taking the file for the rest', () => {
       const placeholder: ImageAttrs = { src: null, alt: 'hero', width: 320 };
       expect(filledPlaceholderAttrs(placeholder, { src: 'a.png', alt: 'a', width: 600 })).toEqual({

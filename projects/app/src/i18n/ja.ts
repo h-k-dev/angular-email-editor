@@ -326,6 +326,8 @@ export default {
       fontValue: 'フォント: {{font}}',
       size: 'フォントサイズ',
       sizeValue: 'フォントサイズ: {{size}}',
+      customSize: 'カスタムサイズ',
+      applySize: 'サイズを適用',
       more: 'その他の書式',
       undo: '元に戻す',
       redo: 'やり直す',

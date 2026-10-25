@@ -50,7 +50,40 @@
     [trigger]="sizeTrigger"
     [items]="font.sizeItems()"
     (selected)="commands.applyFontSize($event)"
-  ></div>
+  >
+    <!-- A size of one's own, under the menu's: typed in px (0 or more),
+         applied by the button beside it or Enter. Text set in a custom size
+         fills the field with it, to adjust. -->
+    <ng-template [toolbarMenuRow]="'editor.toolbar.customSize' | translate">
+      <div class="formatting-toolbar__custom-size">
+        <input
+          #customSizeField
+          type="number"
+          min="0"
+          step="any"
+          inputmode="decimal"
+          tabindex="0"
+          class="formatting-toolbar__custom-size-input"
+          [attr.aria-label]="'editor.toolbar.customSize' | translate"
+          [value]="customSize()"
+          (input)="customSize.set(customSizeField.value)"
+          (keydown)="customSizeKey($event, sizeTrigger)"
+        />
+        <span class="formatting-toolbar__custom-size-unit" aria-hidden="true">px</span>
+        <button
+          matIconButton
+          type="button"
+          class="formatting-toolbar__custom-size-apply"
+          [disabled]="customSizeValue() === null"
+          [attr.aria-label]="'editor.toolbar.applySize' | translate"
+          [title]="'editor.toolbar.applySize' | translate"
+          (click)="applyCustomSize(sizeTrigger)"
+        >
+          <mat-icon>check</mat-icon>
+        </button>
+      </div>
+    </ng-template>
+  </div>
 
   <mat-divider class="formatting-toolbar__wide" [vertical]="true" />
 

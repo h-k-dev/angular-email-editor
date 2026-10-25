@@ -28,6 +28,13 @@ export class MergeTags {
     { path: 'unsubscribeUrl', label: 'Unsubscribe URL' },
     { path: 'otp.code', label: 'One-time code' },
     { path: 'otp.minutes', label: 'One-time code valid for (minutes)' },
+    { path: 'otp.requestedAt', label: 'One-time code requested at' },
+    { path: 'otp.device', label: 'One-time code requested from (device)' },
+    { path: 'otp.location', label: 'One-time code requested near (place)' },
+    { path: 'otp.reference', label: 'One-time code reference' },
+    { path: 'company.website', label: 'Company website' },
+    { path: 'company.address', label: 'Company address' },
+    { path: 'company.logoUrl', label: 'Company logo URL' },
     { path: 'order.number', label: 'Order number' },
     { path: 'order.date', label: 'Order date' },
     { path: 'order.item', label: 'Order item' },
@@ -56,6 +63,15 @@ export class MergeTags {
     // (examples/angularjs/sign-in-code.html).
     ['otp.code', '483920'],
     ['otp.minutes', '10'],
+    ['otp.requestedAt', '25.10.2026, 14:32'],
+    ['otp.device', 'Firefox on Windows'],
+    ['otp.location', 'Berlin, Germany'],
+    ['otp.reference', 'OTP-7F3K-92QD'],
+    ['company.website', 'example.com'],
+    ['company.address', 'Example Street 1, 10115 Berlin'],
+    // The demo's own logo (public/assets/brand) — a real host fills an
+    // absolute https URL, which is what a sent email needs.
+    ['company.logoUrl', 'assets/brand/logo.png'],
     // The order the confirmation example confirms
     // (examples/angularjs/order-confirmation.html).
     ['order.number', 'A-10427'],

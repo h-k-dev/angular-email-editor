@@ -29,7 +29,12 @@ describe('MergeTags', () => {
     const rows = await find({
       where: { or: [{ path: { ilike: like } }, { label: { ilike: like } }] },
     });
-    expect(rows).toEqual([{ path: 'company.name', label: 'Company' }]);
+    expect(rows).toEqual([
+      { path: 'company.name', label: 'Company' },
+      { path: 'company.website', label: 'Company website' },
+      { path: 'company.address', label: 'Company address' },
+      { path: 'company.logoUrl', label: 'Company logo URL' },
+    ]);
   });
 
   it('sorts numbers by value, so the custom fields page in order', async () => {

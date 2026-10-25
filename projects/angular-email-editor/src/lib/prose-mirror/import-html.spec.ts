@@ -380,10 +380,10 @@ describe('unwrapLayoutTables', () => {
     console.log('MJML COLUMN OUT', out);
     // The title: centred, in the colour, the line height and the face its
     // wrapping div declared — the web font read as the Sans-serif it falls
-    // back to, `line-height: 1` as the 15px a client draws it at — its 15px
-    // snapped to the ladder's 16px.
+    // back to, `line-height: 1` as the 15px a client draws it at — and its
+    // 15px kept as written.
     expect(out).toContain(
-      '<div style="text-align: center; margin: 10px 25px; line-height: 15px;"><span style="color: rgb(189, 135, 20); font-size: 16px; font-family: Arial, Helvetica, sans-serif;">SUNNIEST DESTINATIONS</span></div>',
+      '<div style="text-align: center; margin: 10px 25px; line-height: 15px;"><span style="color: rgb(189, 135, 20); font-size: 15px; font-family: Arial, Helvetica, sans-serif;">SUNNIEST DESTINATIONS</span></div>',
     );
     // The button: ours, in MJML's colour, centred, on a line as tall as
     // its `line-height: 120%` of 13px — and no section round it.

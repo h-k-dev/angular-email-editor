@@ -130,6 +130,15 @@ export function createFontState(commands: FormattingCommands, enabled: Signal<bo
   /** The size in effect, in px: the chosen one, or the own. */
   const size = computed(() => font().size ?? font().own.size);
 
+  /** A size chosen on the text that is none of the menu's — a custom one:
+      what the menu's custom field starts from. */
+  const customSize = computed(() => {
+    const chosen = font().size;
+    return chosen !== null && !(emailFontSizes as readonly number[]).includes(chosen)
+      ? chosen
+      : null;
+  });
+
   const sizeItems = computed<ToolbarMenuItem<number | null>[]>(() => {
     const own = ownSize();
     const current = size();
@@ -154,5 +163,5 @@ export function createFontState(commands: FormattingCommands, enabled: Signal<bo
     ];
   });
 
-  return { familyLabel, familyItems, size, sizeItems };
+  return { familyLabel, familyItems, size, sizeItems, customSize };
 }

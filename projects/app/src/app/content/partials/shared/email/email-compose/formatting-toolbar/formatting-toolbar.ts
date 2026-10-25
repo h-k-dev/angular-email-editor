@@ -6,6 +6,7 @@ import {
   computed,
   inject,
   input,
+  linkedSignal,
   signal,
   viewChild,
   TemplateRef,
@@ -38,7 +39,7 @@ import { ColorPicker } from './color-picker/color-picker';
 import { createFontState } from './font-state';
 import { TablePicker } from './table-picker/table-picker';
 import { ToolbarKeys } from './toolbar-keys';
-import { ToolbarMenu, ToolbarMenuItem } from './toolbar-menu/toolbar-menu';
+import { ToolbarMenu, ToolbarMenuItem, ToolbarMenuRow } from './toolbar-menu/toolbar-menu';
 import { PaperIslandScheme } from '../../paper-island';
 import { ToolbarOverflow, ToolbarOverflowItem } from './toolbar-overflow';
 import { KeepFocus } from '@h-k-dev/angular-email-editor/focus';
@@ -93,6 +94,7 @@ const LAYOUT: FormattingLayout = [
     ColorPicker,
     TablePicker,
     ToolbarMenu,
+    ToolbarMenuRow,
     PaperIslandScheme,
     ToolbarOverflow,
     ToolbarOverflowItem,
@@ -130,6 +132,39 @@ export class FormattingToolbar {
     this.commands,
     computed(() => this.wide() && this.shown()),
   );
+
+  /** The size menu's custom field, as typed: it starts from the custom size
+      on the text (none for a size of the menu's), and starts over whenever
+      the text under the caret changes it. */
+  protected readonly customSize = linkedSignal(() => this.font.customSize()?.toString() ?? '');
+
+  /** What the field says, as a size — px, 0 or more — or null while it says
+      nothing a size can be (empty, negative, not a number). */
+  protected readonly customSizeValue = computed(() => {
+    const text = this.customSize().trim();
+    const size = Number(text);
+    return text !== '' && Number.isFinite(size) && size >= 0 ? size : null;
+  });
+
+  /** The custom size applied to the text — the field's button, or Enter in
+      it — and the menu closed. */
+  protected applyCustomSize(trigger: MenuTrigger<unknown>): void {
+    const size = this.customSizeValue();
+    if (size === null) return;
+    trigger.close();
+    this.commands.applyFontSize(size);
+  }
+
+  /** The field's keys are its own — the menu would read a digit as a jump
+      to an item — except Escape (the menu's to close) and Tab; Enter
+      applies. */
+  protected customSizeKey(event: KeyboardEvent, trigger: MenuTrigger<unknown>): void {
+    if (event.key === 'Escape' || event.key === 'Tab') return;
+    event.stopPropagation();
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    this.applyCustomSize(trigger);
+  }
 
   /** The picker that is open, if any, and where it is anchored: its button,
       or the ⋯ when the button has moved there. */

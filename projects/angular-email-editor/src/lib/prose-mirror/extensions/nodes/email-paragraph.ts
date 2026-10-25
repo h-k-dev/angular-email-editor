@@ -58,7 +58,7 @@ function isEmptyLineMarker(node: HTMLElement): boolean {
     never serializes, so unaligned text stays free of declarations (which
     also keeps `dir="auto"` meaningful for RTL). Justify is not offered:
     Outlook's Word engine mangles it. */
-function alignmentOf(node: HTMLElement): ParagraphAlignment {
+export function alignmentOf(node: HTMLElement): ParagraphAlignment {
   const align = node.style?.textAlign || node.getAttribute('align');
   return align === 'center' || align === 'right' ? align : null;
 }
@@ -169,8 +169,9 @@ function cellAround($pos: ResolvedPos): number | null {
 }
 
 /**
- * Applies an alignment to every paragraph the selection touches — and to
- * every table cell it touches that holds no paragraph to take it.
+ * Applies an alignment to every paragraph and heading the selection
+ * touches — and to every table cell it touches that holds no line to take
+ * it.
  *
  * A cell in this schema holds inline content directly (see the table node),
  * so there is no line inside it to align: the alignment belongs to the
@@ -186,7 +187,7 @@ function cellAround($pos: ResolvedPos): number | null {
 const setAlignment =
   (align: ParagraphAlignment): Command =>
   (state, dispatch) => {
-    const paragraph = state.schema.nodes['paragraph'];
+    const lineTypes = new Set([state.schema.nodes['paragraph'], state.schema.nodes['heading']]);
     const tr = state.tr;
     const cells = new Set<number>();
     let applied = false;
@@ -195,7 +196,7 @@ const setAlignment =
       const { $from, $to } = range;
       let lines = false;
       state.doc.nodesBetween($from.pos, $to.pos, (node, pos) => {
-        if (node.type !== paragraph) return true;
+        if (!lineTypes.has(node.type)) return true;
         tr.setNodeMarkup(pos, undefined, { ...node.attrs, align });
         lines = true;
         applied = true;
@@ -226,7 +227,9 @@ const setAlignment =
     paragraphs; only where there is none does the cell answer. */
 const isAligned = (state: EditorState, align: ParagraphAlignment): boolean => {
   const paragraph = state.schema.nodes['paragraph'];
+  const heading = state.schema.nodes['heading'];
   if (isNodeActive(state, paragraph)) return isNodeActive(state, paragraph, { align });
+  if (heading && isNodeActive(state, heading)) return isNodeActive(state, heading, { align });
   const pos = cellAround(state.selection.$from);
   const cell = pos === null ? null : state.doc.nodeAt(pos);
   return !!cell && 'align' in cell.attrs && cell.attrs['align'] === align;

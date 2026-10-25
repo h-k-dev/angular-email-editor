@@ -4,12 +4,7 @@ import { defineMark } from '../../extension';
 import { fillTextColor, isFillTextColor } from '../../dual-contrast';
 import { setMark } from './set.utils';
 import { unsetMark } from './unset.utils';
-import {
-  FontSize,
-  allowedFontSizes,
-  isEmailFontStack,
-  matchEmailFont,
-} from '@h-k-dev/angular-email-editor/fonts';
+import { isEmailFontStack, matchEmailFont } from '@h-k-dev/angular-email-editor/fonts';
 
 /**
  * Allow only color values that can't smuggle extra declarations into the
@@ -97,30 +92,27 @@ function isUppercase(state: EditorState, schema: Schema): boolean {
 // the main entry carries it too, as it always has.
 export * from '@h-k-dev/angular-email-editor/fonts';
 
-export function isSafeFontSize(value: unknown): value is FontSize {
-  return allowedFontSizes.includes(value as FontSize);
+/** A size the mark stores, in px: any finite one from 0 up — the picker's
+    ladder (`emailFontSizes`) and a custom one typed beside it alike (a
+    display title's 40px, a builder's 13px). Two decimals at most. */
+export function isSafeFontSize(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
 }
 
+/** A size, kept to two decimals — what is written is what is read back. */
+const roundSize = (size: number): number => Math.round(size * 100) / 100;
+
 /**
- * Parse a font-size value from the DOM into one of our allowed sizes.
- * Handles px strings ("16px"), plain numbers, and rejects everything else.
+ * Parse a font-size value from the DOM: a px string ("16px", "13.5px") or a
+ * plain number, as written — none snaps to the picker's ladder, so a
+ * custom size reads back as the size it is. Anything else (an em, a
+ * keyword, a negative) is no size of ours.
  */
-export function parseFontSize(raw: string | null | undefined): FontSize | null {
+export function parseFontSize(raw: string | null | undefined): number | null {
   if (!raw) return null;
+  if (!/^\s*\d+(?:\.\d+)?(?:px)?\s*$/.test(raw)) return null;
   const n = parseFloat(raw);
-  if (!Number.isFinite(n) || n <= 0 || !/^\s*\d+(?:\.\d+)?(?:px)?\s*$/.test(raw)) return null;
-  if (isSafeFontSize(n)) return n;
-  // A size off the ladder — a builder's 11px, 13px, 15px — snaps to the
-  // nearest rung, upward on a tie: read as the size it is nearest to, not
-  // dropped to the default. (The schema still emits only its own rungs.)
-  let nearest: FontSize = allowedFontSizes[0];
-  for (const size of allowedFontSizes) {
-    const better =
-      Math.abs(size - n) < Math.abs(nearest - n) ||
-      (Math.abs(size - n) === Math.abs(nearest - n) && size > nearest);
-    if (better) nearest = size;
-  }
-  return nearest;
+  return isSafeFontSize(n) ? roundSize(n) : null;
 }
 
 /** Whether `value` is one of the curated stacks (`@h-k-dev/angular-email-editor/fonts`). */
@@ -229,11 +221,12 @@ export const TextStyle = defineMark({
     unsetColor: () => unsetMark(schema.marks['textStyle'], ['color']),
 
     /**
-     * Apply a font-size to the selection.
+     * Apply a font-size to the selection: px, 0 or more (two decimals) —
+     * one of the ladder's or a custom one.
      */
     setFontSize: (size: number) => (state, dispatch) =>
       isSafeFontSize(size)
-        ? setMark(schema.marks['textStyle'], { fontSize: size })(state, dispatch)
+        ? setMark(schema.marks['textStyle'], { fontSize: roundSize(size) })(state, dispatch)
         : false,
 
     /**

@@ -1,5 +1,6 @@
 import { escapeAttribute, escapeText } from './utils/escape';
 import { STACK_RULE, markStackingColumns } from './extensions/nodes/columns';
+import { fitEmailImages } from './extensions/nodes/image';
 import {
   COLOR_SCHEME_META,
   COLOR_SCHEME_RULE,
@@ -43,6 +44,9 @@ export interface EmailDocumentOptions {
  *   `x-apple-disable-message-reformatting` is set.
  * - The body sits in `role="article" aria-roledescription="email"`, which
  *   screen readers announce as the message, carrying `lang` and `dir`.
+ * - Images lose the border Outlook draws round a linked one, and one alone
+ *   on its line — a logo — becomes a block, so no descender gap shows under
+ *   it (`fitEmailImages`).
  *
  * Everything the email needs is inline. The head's one `<style>` rule is an
  * enhancement nothing depends on: on a phone a stacked column takes the
@@ -63,9 +67,10 @@ export interface EmailDocumentOptions {
  */
 export function emailDocument(html: string, options: EmailDocumentOptions = {}): string {
   const { lang, dir = 'auto', title, previewText, darkMode = emailDarkModePalette } = options;
-  // Columns first: the stacking class goes in by pattern, on the markup as
-  // the editor wrote it; the dark-mode classes join it on the element.
-  const stacked = markStackingColumns(html);
+  // Images first — no border, and no gap under one alone on its line
+  // (image.ts); then the columns' stacking class, by pattern, on the markup
+  // as the editor wrote it; the dark-mode classes join it on the element.
+  const stacked = markStackingColumns(fitEmailImages(html));
   const dark = darkMode ? markDarkMode(stacked, darkMode) : null;
   const darkStyle = dark ? [COLOR_SCHEME_RULE, dark.css].filter(Boolean).join(' ') : '';
   const langAttr = lang ? ` lang="${escapeAttribute(lang)}"` : '';

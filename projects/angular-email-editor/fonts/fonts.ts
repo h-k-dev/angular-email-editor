@@ -119,7 +119,8 @@ export const emailDefaultFont: EmailFont = emailFontFamilies[0];
  */
 export const emailFontFaces: readonly string[] = emailFontFamilies.map((f) => f.face);
 
-/** Every size the editor stores, in px. */
+/** The size ladder, in px: every size the editor names. A custom size —
+    any px from 0 up, typed beside the picker — is stored as well. */
 export const allowedFontSizes = [10, 12, 14, 16, 18, 24, 32] as const;
 export type FontSize = (typeof allowedFontSizes)[number];
 

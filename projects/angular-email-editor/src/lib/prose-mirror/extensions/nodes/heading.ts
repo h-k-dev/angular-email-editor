@@ -5,6 +5,7 @@ import { textblockTypeInputRule } from 'prosemirror-inputrules';
 import { defineNode } from '../../extension';
 import { declaresFlushTop } from '../../inline-style';
 import { markedAs, markerAttrs } from '../../layout-marker';
+import { alignmentOf } from './email-paragraph';
 
 /** The levels the schema knows. No h5 or h6: an imported one is a plain
     line, and `##### ` stays the text it is. */
@@ -33,7 +34,10 @@ export const HEADING_SPACE_BELOW = 4;
  * spacing left to the layout around it. No `line-height` — Outlook
  * substitutes its own (the client-support module says so) and our output
  * stays lint-clean. Incoming heading styles never survive: the scale is the
- * schema's, not the author's.
+ * schema's, not the author's — except the alignment, which a heading takes
+ * as a line does (`text-align` after the scale; left writes nothing). A
+ * bigger, display-size title is the words' own size (the text style's
+ * `font-size`), not another level.
  */
 export const headingStyle = (level: number, layout = false): string => {
   const size = HEADING_SIZES[level] ?? 16;
@@ -42,9 +46,15 @@ export const headingStyle = (level: number, layout = false): string => {
   return `margin: ${margin}; font-size: ${size}px;`;
 };
 
-/** Makes the line a heading of `level`; a layout heading when `layout`. */
-const toHeading = (type: NodeType, level: number, layout = false): Command =>
-  setBlockType(type, { level, layout });
+/** Makes the line a heading of `level`; a layout heading when `layout`.
+    The line's alignment comes along: a centred line stays centred. */
+const toHeading =
+  (type: NodeType, level: number, layout = false): Command =>
+  (state, dispatch, view) => {
+    const align =
+      (state.selection.$from.parent.attrs['align'] as string | null | undefined) ?? null;
+    return setBlockType(type, { level, layout, align })(state, dispatch, view);
+  };
 
 /** Makes the line a layout heading, at its level when it is a heading
     already, else at 1. */
@@ -63,10 +73,16 @@ export const Heading = defineNode({
       level: { default: 1 },
       /** Flush, without the space above — see {@link headingStyle}. */
       layout: { default: false },
+      /** Centred or right, as a line is (`setAlignment`); null for the
+          default, left, which writes nothing. */
+      align: { default: null },
     },
     content: 'inline*',
     group: 'block',
     defining: true,
+    // Authored, aligned back to the default: `text-align: left` written, as
+    // a line does, rather than inheriting a container's centre.
+    authoredStyleDefaults: { 'text-align': 'left' },
     parseDOM: HEADING_LEVELS.map((level) => ({
       tag: `h${level}`,
       // Marked a layout heading (layout-marker.ts): one. Unmarked, written
@@ -75,6 +91,7 @@ export const Heading = defineNode({
       getAttrs: (dom: HTMLElement) => ({
         level,
         layout: markedAs(dom) === 'heading' || (!markedAs(dom) && declaresFlushTop(dom)),
+        align: alignmentOf(dom),
       }),
     })),
     // A layout heading says so (`aee-layout-heading`); a spaced one is plain.
@@ -82,7 +99,9 @@ export const Heading = defineNode({
       `h${node.attrs['level']}`,
       {
         ...markerAttrs('heading', node.attrs['layout'] as boolean),
-        style: headingStyle(node.attrs['level'] as number, node.attrs['layout'] as boolean),
+        style:
+          headingStyle(node.attrs['level'] as number, node.attrs['layout'] as boolean) +
+          (node.attrs['align'] ? ` text-align: ${node.attrs['align']};` : ''),
       },
       0,
     ],

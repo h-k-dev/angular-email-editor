@@ -268,3 +268,38 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+// The size menu's custom size row: a px field, its unit, and the button that
+// applies it — one line under the menu's sizes, the field as wide as a size.
+.formatting-toolbar__custom-size {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-inline: 12px 4px;
+
+  --mat-icon-button-state-layer-size: 32px;
+  --mat-icon-button-touch-target-size: 32px;
+}
+
+.formatting-toolbar__custom-size-input {
+  box-sizing: border-box;
+  inline-size: 64px;
+  block-size: 32px;
+  padding-inline: 8px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: var(--mat-sys-corner-small);
+  background: transparent;
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: -1px;
+    border-color: transparent;
+  }
+}
+
+.formatting-toolbar__custom-size-unit {
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+}

@@ -53,6 +53,15 @@ describe('heading', () => {
     expect(roundTrip('<h2 style="margin-bottom: 0">Title</h2>')).toBe(SPACED_H2);
   });
 
+  it('reads an alignment, written or legacy, and writes it after the scale', () => {
+    const centred =
+      '<h2 style="margin: 16px 0px 4px; font-size: 20px; text-align: center;">Title</h2>';
+    expect(roundTrip(centred)).toBe(centred);
+    expect(roundTrip('<h2 align="right">Title</h2>')).toContain('text-align: right;');
+    // Left is the default: nothing written.
+    expect(roundTrip('<h2 style="text-align: left">Title</h2>')).toBe(SPACED_H2);
+  });
+
   it('knows no h5 or h6: they come in as plain lines', () => {
     expect(roundTrip('<h5>Five</h5><h6>Six</h6>')).toBe('<div>Five</div><div>Six</div>');
   });
@@ -70,6 +79,41 @@ describe('heading', () => {
     afterEach(() => {
       editor.destroy();
       host.remove();
+    });
+
+    it('aligns a heading as a line: centred or right, left writing nothing', () => {
+      editor.setContent(SPACED_H2);
+      editor.commands['setAlignment']('center');
+      expect(editor.getHTML()).toBe(
+        '<h2 style="margin: 16px 0px 4px; font-size: 20px; text-align: center;">Title</h2>',
+      );
+      editor.commands['setAlignment']('right');
+      expect(editor.getHTML()).toContain('text-align: right;');
+      editor.commands['setAlignment'](null);
+      expect(editor.getHTML()).toBe(
+        '<h2 style="margin: 16px 0px 4px; font-size: 20px;">Title</h2>',
+      );
+    });
+
+    it('keeps a centred line centred as it becomes a heading, a layout one included', () => {
+      editor.setContent('<div style="text-align: center;">Title</div>');
+      editor.commands['setHeading'](1, true);
+      expect(editor.getHTML()).toBe(
+        '<h1 class="aee-layout-heading" style="margin: 0px; font-size: 24px; text-align: center;">Title</h1>',
+      );
+    });
+
+    it('takes a bigger size on its words — a display title is the text’s own size', () => {
+      editor.setContent('<h1 style="margin: 20px 0px 4px; font-size: 24px;">Title</h1>');
+      editor.exec((state, dispatch) => {
+        dispatch?.(
+          state.tr.addMark(1, 6, state.schema.marks['textStyle'].create({ fontSize: 32 })),
+        );
+        return true;
+      });
+      const html = editor.getHTML();
+      expect(html).toContain('<span style="font-size: 32px;">Title</span>');
+      expect(roundTrip(html)).toBe(html);
     });
 
     /** Types `text` then a space at the end of the first line, as the

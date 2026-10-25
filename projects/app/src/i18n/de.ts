@@ -337,6 +337,8 @@ export default {
       fontValue: 'Schriftart: {{font}}',
       size: 'Schriftgröße',
       sizeValue: 'Schriftgröße: {{size}}',
+      customSize: 'Eigene Größe',
+      applySize: 'Größe anwenden',
       more: 'Weitere Formatierung',
       undo: 'Rückgängig',
       redo: 'Wiederholen',

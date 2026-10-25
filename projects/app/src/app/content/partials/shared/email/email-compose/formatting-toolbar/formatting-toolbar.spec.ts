@@ -178,4 +178,49 @@ describe('FormattingToolbar', () => {
     // Keys the toolbar does not own pass through.
     expect(press(button('Bold'), 'ArrowDown')).toBe(button('Bold'));
   });
+
+  it('offers a custom size under the sizes — 0 or more px, applied by its button or Enter', async () => {
+    const commands = fixture.debugElement.injector.get(FormattingCommands);
+    const apply = vi.spyOn(commands, 'applyFontSize').mockImplementation(() => {});
+    (root.querySelector('.formatting-toolbar__select--size') as HTMLElement).click();
+    await fixture.whenStable();
+    const field = document.querySelector<HTMLInputElement>('.formatting-toolbar__custom-size-input')!;
+    const go = () => document.querySelector<HTMLButtonElement>('.formatting-toolbar__custom-size-apply')!;
+    const type = async (value: string) => {
+      field.value = value;
+      field.dispatchEvent(new Event('input'));
+      await fixture.whenStable();
+    };
+    expect(field).not.toBeNull();
+    // Nothing typed, or no size a size can be: nothing to apply.
+    expect(go().disabled).toBe(true);
+    await type('-4');
+    expect(go().disabled).toBe(true);
+    // 0 is a size, for whatever reason.
+    await type('0');
+    expect(go().disabled).toBe(false);
+    // A digit is the field's, never the menu's jump to an item.
+    const digit = new KeyboardEvent('keydown', { key: '4', bubbles: true });
+    const heard = vi.fn();
+    document.addEventListener('keydown', heard);
+    field.dispatchEvent(digit);
+    document.removeEventListener('keydown', heard);
+    expect(heard).not.toHaveBeenCalled();
+    await type('40');
+    go().click();
+    expect(apply).toHaveBeenLastCalledWith(40);
+  });
+
+  it('applies the custom size on Enter', async () => {
+    const commands = fixture.debugElement.injector.get(FormattingCommands);
+    const apply = vi.spyOn(commands, 'applyFontSize').mockImplementation(() => {});
+    (root.querySelector('.formatting-toolbar__select--size') as HTMLElement).click();
+    await fixture.whenStable();
+    const field = document.querySelector<HTMLInputElement>('.formatting-toolbar__custom-size-input')!;
+    field.value = '13.5';
+    field.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    expect(apply).toHaveBeenLastCalledWith(13.5);
+  });
 });

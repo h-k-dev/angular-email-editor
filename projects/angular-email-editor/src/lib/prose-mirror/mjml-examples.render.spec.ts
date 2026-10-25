@@ -425,11 +425,11 @@ function imagesOf(doc: Document): { file: string; width: number }[] {
     }));
 }
 
-/** Line height over size: the ladder's snapped size moves a px line height's ratio a little. */
+/** Line height over size: a px line height read against a size a client rounds moves a little. */
 const LEADING_SLACK = 0.15;
 /** Our columns budget 560px of the 600 for a client's insets: a box may start that much off. */
 const BOX_SLACK = 30;
-/** Snapped sizes and our own spacing add up over a long email. */
+/** Our own spacing adds up over a long email. */
 const HEIGHT_SLACK = 0.2;
 
 /** Where the import's rendering strays from the original's past what our
@@ -469,8 +469,8 @@ async function importDifferences(source: string, result: string, width: number):
       if (Math.abs(x.size - y.size) > Math.max(2, x.size * 0.25)) {
         stray('size', x.text, x.size, y.size);
       }
-      // Either measure holds: a px line height keeps its px on a snapped
-      // size, a factor keeps its ratio.
+      // Either measure holds: a px line height keeps its px, a factor
+      // keeps its ratio.
       if (
         Math.abs(x.leading - y.leading) > LEADING_SLACK &&
         Math.abs(x.lineHeight - y.lineHeight) > 2
@@ -531,6 +531,8 @@ const BUDGET = 'a lone column is capped at the 560px side-by-side budget, not 60
 const FIXED_WIDTH = "a button keeps no fixed width (MJML's `width`)";
 const LINKLESS = "a button without a link (MJML's `<p>` box) reads as a line";
 const ROW = 'a row narrower than the container sits left, not centred';
+const SPAN_LEADING =
+  "a span's own line-height is not kept (the text style holds none): its line's applies";
 
 const KNOWN: Record<string, [kind: string, why: string][]> = {
   'appointment-alert@375': [['box width', INSET]],
@@ -556,6 +558,8 @@ const KNOWN: Record<string, [kind: string, why: string][]> = {
     ['box width', LINKLESS],
   ],
   'worldly@600': [['box start', BUDGET]],
+  'nya-cart@375': [['line height', SPAN_LEADING]],
+  'nya-cart@600': [['line height', SPAN_LEADING]],
 };
 
 // The replica the bench shows is what the editor makes: the import must

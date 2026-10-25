@@ -14,6 +14,7 @@ import { FunctionalExtension, defineExtension, defineNode } from '../../extensio
 import { isSafeUrl } from '../marks/link';
 import { InlineImageRegistry, inlineImageRegistry } from '../inline-images';
 import { soleInlineAtom } from '../inline-atoms';
+import { parseDeclarations } from '../../inline-style';
 
 export interface ImageAttrs {
   /** `null` is a placeholder: a sized frame awaiting its file (see the
@@ -495,6 +496,28 @@ function imageFrame(className: string, label: string): HTMLElement {
 }
 
 /**
+ * The source of an image still waiting on its value — a `{{ … }}` token in
+ * it (`{{ company.logoUrl }}`, a URL built round one) — as written; null
+ * for a source that can be drawn. Such an image is a placeholder until the
+ * placeholders are filled: the browser cannot load the token, and the
+ * frame says what will stand there.
+ */
+export function pendingImageSource(src: string | null | undefined): string | null {
+  return src && /\{\{[\s\S]*?\}\}/.test(src) ? src.trim() : null;
+}
+
+/** The placeholder's frame for a pending source: the expression in its
+    middle, a token as the text writes one (`.aee-image__token`). */
+function pendingFrame(source: string): HTMLElement {
+  const box = imageFrame('aee-image__placeholder aee-image__placeholder--pending', '');
+  const token = document.createElement('span');
+  token.className = 'aee-image__token';
+  token.textContent = source;
+  box.append(token);
+  return box;
+}
+
+/**
  * The image's editor-only wrapper — `span.aee-image > img`, a NodeView. The
  * `<img>` inside is exactly `toDOM` (one source of truth; the serializer and
  * the clipboard never see the span) — except that a `cid:` source is
@@ -526,6 +549,12 @@ function imageFrame(className: string, label: string): HTMLElement {
  * model — Keynote's media placeholder — and the image counterpart of the
  * merge tag. Its words are the placeholder's `image` (a node decoration
  * whose spec carries `placeholder`), "Choose an image" without one.
+ *
+ * An image whose source is a **token** (`{{ company.logoUrl }}`,
+ * {@link pendingImageSource}) is the same placeholder until the
+ * placeholders are filled — the frame at its width, the expression dead
+ * centre where the words would be — and takes a click the same way: a
+ * picked file replaces the token, the frame's width and alt kept.
  */
 class ImageView implements NodeView {
   readonly dom: HTMLSpanElement;
@@ -562,6 +591,8 @@ class ImageView implements NodeView {
   private render(node: Node): HTMLElement {
     const src = node.attrs['src'] as string | null;
     if (!src) return imageFrame('aee-image__placeholder', frameWords(this.decorations));
+    const pending = pendingImageSource(src);
+    if (pending) return pendingFrame(pending);
     const img = DOMSerializer.renderSpec(document, node.type.spec.toDOM!(node)).dom as HTMLElement;
     const cid = /^\s*cid:(.+)$/i.exec(src)?.[1]?.trim();
     if (cid) {
@@ -603,7 +634,10 @@ class ImageView implements NodeView {
     this.dom.style.width = width && !authored ? `${width}px` : '';
     this.dom.style.display =
       authored && /(?:^|;)\s*display\s*:\s*block\b/i.test(style) ? 'block' : '';
-    this.dom.classList.toggle('aee-image--placeholder', !node.attrs['src']);
+    this.dom.classList.toggle(
+      'aee-image--placeholder',
+      !node.attrs['src'] || !!pendingImageSource(node.attrs['src'] as string),
+    );
   }
 
   selectNode(): void {
@@ -621,11 +655,12 @@ class ImageView implements NodeView {
     return !!target?.closest?.('.aee-image__pad');
   }
 
-  /** A click on a placeholder opens the picker; the picked file fills the
-      frame in place and leaves it selected. Pads and a just-finished resize
-      are not clicks. */
+  /** A click on a placeholder — one awaiting its file, or a token's —
+      opens the picker; the picked file fills the frame in place and leaves
+      it selected. Pads and a just-finished resize are not clicks. */
   private onClick(event: MouseEvent): void {
-    if (this.node.attrs['src'] || this.resized) return;
+    const src = this.node.attrs['src'] as string | null;
+    if ((src && !pendingImageSource(src)) || this.resized) return;
     if ((event.target as Element | null)?.closest?.('.aee-image__pad')) return;
     void pickImageFiles(false).then(async ([file]) => {
       if (!file || this.view.isDestroyed) return;
@@ -929,3 +964,93 @@ export const Image = defineNode({
     }),
   ],
 });
+
+/** The tags a line of the email is written in — what an image can stand
+    alone on. */
+const LINE_TAGS = new Set(['DIV', 'P', 'TD', 'TH', 'LI', 'H1', 'H2', 'H3', 'H4']);
+
+/** Whether `node` is nothing a reader would see beside an image: blank
+    text, a comment. */
+const isBlank = (node: globalThis.Node): boolean =>
+  node.nodeType === 8 || (node.nodeType === 3 && !(node.textContent ?? '').trim());
+
+/** The line `image` stands alone on — itself, or the one link round it, the
+    only thing there — or null where it shares its line. */
+function soleLineOf(image: HTMLImageElement): HTMLElement | null {
+  let box: HTMLElement = image;
+  const parent = image.parentElement;
+  if (
+    parent?.tagName === 'A' &&
+    Array.from(parent.childNodes).every((n) => n === image || isBlank(n))
+  ) {
+    box = parent;
+  }
+  const line = box.parentElement;
+  if (!line || !LINE_TAGS.has(line.tagName)) return null;
+  return Array.from(line.childNodes).every((n) => n === box || isBlank(n)) ? line : null;
+}
+
+/** A line's alignment, as a client reads it: its `text-align`, else its
+    legacy `align`. */
+function alignmentOfLine(line: HTMLElement): string | null {
+  const declared = parseDeclarations(line.getAttribute('style') ?? '').filter(
+    ({ name }) => name === 'text-align',
+  );
+  return (declared.at(-1)?.value ?? line.getAttribute('align') ?? '').trim().toLowerCase() || null;
+}
+
+/** Appends declarations to an element's style text — as text, never
+    through the CSSOM — leaving the ones it already says alone. */
+function addStyle(element: Element, declarations: [name: string, value: string][]): void {
+  const style = element.getAttribute('style') ?? '';
+  const said = new Set(parseDeclarations(style).map(({ name }) => name));
+  const added = declarations.filter(([name]) => !said.has(name)).map(([n, v]) => `${n}: ${v};`);
+  if (!added.length) return;
+  const base = style.trim();
+  element.setAttribute(
+    'style',
+    `${base}${base && !base.endsWith(';') ? ';' : ''}${base ? ' ' : ''}${added.join(' ')}`,
+  );
+}
+
+/**
+ * The images of the email as sent, made what Outlook and the rest draw
+ * cleanly — for the email document only; the editor's HTML stays as it is
+ * (`emailDocument` runs this, as it adds the columns' stacking class).
+ *
+ * - **No border**: Outlook draws a link's border round a linked image unless
+ *   told not to — `border="0"` for its Word engine, `border: 0` for the rest.
+ * - **No gap under one alone on its line** (a logo, a banner, a linked
+ *   picture): an inline image sits on the line's baseline, and the room for
+ *   the letters' descenders shows under it as a few px of the line's
+ *   colour. Alone on its line, it is a block instead (`display: block`),
+ *   kept where the line put it — centred or right by auto margins, the
+ *   line's `text-align` no longer reaching a block. An image sharing its
+ *   line with words stays inline: a block would break the line.
+ *
+ * Idempotent: what an image already says it keeps.
+ */
+export function fitEmailImages(html: string): string {
+  if (!/<img\b/i.test(html)) return html;
+  const template = document.createElement('template');
+  template.innerHTML = html;
+  for (const image of Array.from(template.content.querySelectorAll('img'))) {
+    if (!image.hasAttribute('border')) image.setAttribute('border', '0');
+    addStyle(image, [['border', '0']]);
+    const line = soleLineOf(image);
+    if (!line) continue;
+    const align = alignmentOfLine(line);
+    addStyle(image, [
+      ['display', 'block'],
+      ...(align === 'center'
+        ? ([
+            ['margin-left', 'auto'],
+            ['margin-right', 'auto'],
+          ] as [string, string][])
+        : align === 'right'
+          ? ([['margin-left', 'auto']] as [string, string][])
+          : []),
+    ]);
+  }
+  return template.innerHTML;
+}

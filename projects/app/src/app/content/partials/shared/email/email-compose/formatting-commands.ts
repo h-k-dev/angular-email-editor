@@ -269,7 +269,8 @@ export class FormattingCommands {
   applyFontSize(size: number | null): void {
     const editor = this.target();
     if (!editor) return;
-    if (size) editor.commands['setFontSize'](size);
+    // 0 is a size too (a custom one): only null clears.
+    if (size !== null) editor.commands['setFontSize'](size);
     else editor.commands['unsetFontSize']();
     editor.focus();
   }
