@@ -75,11 +75,12 @@ describe('Mailbox', () => {
   describe('on a desk', () => {
     beforeEach(() => start(false));
 
-    it('lays the mail down the aside, then the developers: each reference a group of its pages, Render beside them', () => {
+    it('lays the mail down the aside, the templates under it, then the developers: each reference a group of its pages, Render beside them', () => {
       const labels = [...root.querySelectorAll('.mailbox-link__label')].map((el) =>
         el.textContent?.trim(),
       );
-      expect(labels.slice(0, 3)).toEqual(['Composer', 'Inbox', 'Editor']);
+      expect(labels.slice(0, 2)).toEqual(['Composer', 'Inbox']);
+      expect(labels).toContain('Editor');
       expect(labels).toContain('Theming');
       expect(labels.at(-1)).toBe('Render');
       expect(heading('Developers')).toBeDefined();
@@ -89,6 +90,7 @@ describe('Mailbox', () => {
       expect(link('Render').closest('.mailbox-group')).toBeNull();
       expect(link('Addresses').closest('.mailbox-group')).toBe(group('API').parentElement);
       expect(link('Composer').getAttribute('href')).toBe('/');
+      expect(link('Templates').getAttribute('href')).toBe('/templates');
       expect(link('Addresses').getAttribute('href')).toBe('/api/addresses');
       expect(link('Theming').getAttribute('href')).toBe('/styling/theming');
     });

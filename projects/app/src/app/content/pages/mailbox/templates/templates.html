@@ -1,0 +1,59 @@
+<header page-header>
+  <h1 class="gallery-title">{{ 'templates.title' | translate }}</h1>
+</header>
+
+<!-- The shelves, YouTube's chips: every template, or one set's — one line
+     that scrolls sideways (`overflow-row`) on a narrow screen rather than
+     wrapping. They stay on top as the feed scrolls under them. -->
+<overflow-row
+  class="gallery-shelves"
+  rowRole="group"
+  [rowLabel]="'templates.shelves' | translate"
+  [paddles]="!touch()"
+  [dragScroll]="!touch()"
+>
+  @for (shelf of shelves(); track shelf.id) {
+    <button
+      type="button"
+      class="gallery-shelf"
+      [attr.aria-pressed]="shelf.pressed"
+      (click)="pick(shelf.key)"
+    >
+      {{ shelf.label }}
+    </button>
+  }
+</overflow-row>
+
+<!-- The feed: only the rows in view drawn, the next page asked for as its
+     end comes near. Big cards: 400px at the least and four at the most — a
+     2K screen holds four, the aside open or the rail; 1080p three, a laptop
+     two. -->
+<virtual-grid
+  class="gallery-grid"
+  [min]="400"
+  [maxColumns]="4"
+  [estimate]="400"
+  [attr.aria-busy]="loading()"
+  (endReached)="more()"
+>
+  <ng-container *virtualGridItem="let cell of cells()">
+    @if (cell.kind === 'template') {
+      <article template-card [card]="cell"></article>
+    } @else {
+      <div class="gallery-ghost" aria-hidden="true">
+        <div class="gallery-ghost__thumb"></div>
+        <div class="gallery-ghost__meta">
+          <div class="gallery-ghost__avatar"></div>
+          <div class="gallery-ghost__lines">
+            <div class="gallery-ghost__line"></div>
+            <div class="gallery-ghost__line gallery-ghost__line--short"></div>
+          </div>
+        </div>
+      </div>
+    }
+  </ng-container>
+</virtual-grid>
+
+@if (empty()) {
+  <p class="gallery-empty">{{ 'templates.empty' | translate }}</p>
+}

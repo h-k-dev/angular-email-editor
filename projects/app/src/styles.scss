@@ -812,7 +812,10 @@ html {
  * root grows with the text instead of being the scroller's height, so the
  * room at its end is at the end of the TEXT — the editor's own breath plus
  * all the foot covers (`--email-compose-foot-room`) — and the last line
- * scrolls up out from under the foot. Still at least the scroller's height:
+ * scrolls up out from under the foot. Between the two, two empty lines
+ * (`--email-compose-end-room`): the editor's own room under the last block,
+ * so a click there starts a line below a template's last table (ClickBelow)
+ * even at the end of a long message. Still at least the scroller's height:
  * the room below a short message is the editor's to click and start a
  * marquee in, and it fills the content box exactly, so a short message
  * never scrolls. */
@@ -820,14 +823,17 @@ html {
   height: auto;
   min-height: 100%;
   padding-block-end: calc(
-    var(--email-editor-padding-block, 0px) + var(--email-compose-foot-room, 0px)
+    var(--email-editor-padding-block, 0px) + var(--email-compose-end-room, 2lh) +
+      var(--email-compose-foot-room, 0px)
   );
 }
 
 /* …unless a scroller round the composer scrolls the text (a phone): then
  * the foot is in the flow after the last line, and takes its own room. */
 section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor {
-  padding-block-end: var(--email-editor-padding-block, 0px);
+  padding-block-end: calc(
+    var(--email-editor-padding-block, 0px) + var(--email-compose-end-room, 2lh)
+  );
 }
 
 .email-compose__editor[data-color-scheme] {
@@ -1654,9 +1660,11 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
 /* The quoted history (the QuotedHistory extension): kept beside the body,
  * drawn after its last block — a bar of ⋯ / Edit / trash over the read-only
  * history. Behaviour and structure ship with the library (`data-slot`
- * parts); these are only the pixels. Token cascade as always. */
+ * parts); these are only the pixels. Token cascade as always. Two empty
+ * lines above it: the body ends well clear of the history, and that room is
+ * the editor's — a click in it starts a line under the body (ClickBelow). */
 .aee-editor .aee-quoted {
-  margin-top: 8px;
+  margin-top: 2lh;
   cursor: default;
   user-select: text;
 
@@ -2078,7 +2086,17 @@ section[html-email-compose][data-wrap='off'] .aee-editor {
  * Reference pages (API + Styling): the prose inside `doc-page`, which lays
  * the page out. Global because both pages write it and neither owns it;
  * scoped to `.doc-*` so nothing here can reach the editor surface above.
+ *
+ * Read like docs, not like a table: 16px text at 1.7 in the full ink, the
+ * quieter ink only for ledes and asides; sections parted by a hairline;
+ * each export a card of its own; code in `doc-code` blocks.
  * ------------------------------------------------------------------------ */
+.doc-body {
+  font: var(--mat-sys-body-large);
+  line-height: 1.7;
+  color: var(--mat-sys-on-surface);
+}
+
 .doc-title {
   margin: 0 0 8px;
   font: var(--mat-sys-headline-medium);
@@ -2089,13 +2107,14 @@ section[html-email-compose][data-wrap='off'] .aee-editor {
 
 .doc-lede {
   margin: 0;
-  font: var(--mat-sys-body-large);
+  font-size: 1.125rem;
+  line-height: 1.6;
   color: var(--mat-sys-on-surface-variant);
 }
 
 /* Code in running prose: a quiet chip, the text's own size. */
 .doc-body :not(pre) > code {
-  padding: 0 4px;
+  padding: 2px 4px;
   border-radius: 4px;
   background: var(--mat-sys-surface-container);
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
@@ -2106,31 +2125,30 @@ section[html-email-compose][data-wrap='off'] .aee-editor {
 
 .doc-body a:not(.doc-anchor) {
   color: var(--mat-sys-primary);
+  text-underline-offset: 4px;
 }
 
-/* A section: room above it, not a line — the heading parts them. Its
- * #fragment lands it a little below the sheet's top edge. */
+/* A section: a hairline across the column above its heading, room on both
+ * sides of it. Its #fragment lands it just under the sticky header. */
 .doc-section {
-  margin-block-start: 56px;
-  scroll-margin-block-start: 16px;
+  margin-block-start: 48px;
+  padding-block-start: 32px;
+  border-block-start: 1px solid var(--mat-sys-outline-variant);
+  scroll-margin-block-start: calc(var(--doc-header, 0px) + 16px);
 
-  /* A page of one section: no heading to part it from the lede. */
+  /* A page of one section: the lede leads straight into it. */
   &:not(:has(> .doc-h2)) {
     margin-block-start: 32px;
+    padding-block-start: 0;
+    border-block-start: 0;
   }
 }
 
 .doc-h2 {
   margin: 0 0 8px;
-  font: var(--mat-sys-title-large);
+  font: var(--mat-sys-headline-small);
   font-weight: 600;
-  color: var(--mat-sys-on-surface);
-}
-
-.doc-h3 {
-  margin: 0 0 6px;
-  font: var(--mat-sys-title-medium);
-  font-weight: 600;
+  letter-spacing: -0.01em;
   color: var(--mat-sys-on-surface);
 }
 
@@ -2153,34 +2171,34 @@ section[html-email-compose][data-wrap='off'] .aee-editor {
 }
 
 .doc-intro {
-  margin: 0 0 8px;
-  font: var(--mat-sys-body-large);
+  margin: 0 0 24px;
   color: var(--mat-sys-on-surface-variant);
 }
 
 .doc-text {
   margin: 0;
-  font: var(--mat-sys-body-medium);
-  line-height: 1.6;
-  color: var(--mat-sys-on-surface);
 }
 
 .doc-points {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin: 8px 0 0;
-  padding-inline-start: 20px;
-  font: var(--mat-sys-body-medium);
-  line-height: 1.6;
-  color: var(--mat-sys-on-surface);
+  gap: 8px;
+  margin: 0;
+  padding-inline-start: 24px;
+
+  li::marker {
+    color: var(--mat-sys-outline);
+  }
 }
 
-/* One export: its name, where it comes from, its signature, what it does. */
-.doc-entry,
-.doc-topic {
-  margin-block-start: 32px;
-  scroll-margin-block-start: 16px;
+/* One export, a card: its name and where it comes from on a strip, then
+ * what it is for, its signature, what to know, and how it is used. */
+.doc-entry {
+  margin-block-start: 16px;
+  overflow: hidden;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: var(--mat-sys-corner-medium, 12px);
+  scroll-margin-block-start: calc(var(--doc-header, 0px) + 16px);
 }
 
 .doc-entry__head {
@@ -2188,66 +2206,79 @@ section[html-email-compose][data-wrap='off'] .aee-editor {
   flex-wrap: wrap;
   align-items: baseline;
   gap: 4px 12px;
-  margin-block-end: 8px;
+  padding: 12px;
+  border-block-end: 1px solid var(--mat-sys-outline-variant);
+  background: var(--mat-sys-surface-container-low);
 }
 
 .doc-entry__name {
   margin: 0;
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 0.9375rem;
+  font-size: 1rem;
   font-weight: 600;
-  color: var(--mat-sys-on-surface);
+  line-height: 1.5;
   overflow-wrap: anywhere;
 }
 
 .doc-entry__from {
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 0.75rem;
-  color: var(--mat-sys-on-surface-variant);
-}
-
-/* Code blocks — a signature, a recipe. Long lines wrap: a signature is read,
- * not scanned sideways. */
-.doc-code {
-  margin: 0 0 12px;
-  padding: 12px;
-  border-radius: var(--mat-sys-corner-small, 6px);
-  background: var(--mat-sys-surface-container);
-  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 0.8125rem;
-  line-height: 1.6;
-  color: var(--mat-sys-on-surface);
-  white-space: pre-wrap;
+  color: var(--mat-sys-on-surface-variant);
   overflow-wrap: anywhere;
 }
 
-/* A list of names and what they do — tokens, class hooks: the name on its
- * own line, the words under it, rows parted by space. */
-.doc-defs {
+.doc-entry__body {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  margin: 12px 0 0;
+  gap: 12px;
+  padding: 12px;
+}
+
+/* A small heading inside a card or a section: "Example", a token group. */
+.doc-h3 {
+  margin: 0;
+  font: var(--mat-sys-title-medium);
+  font-weight: 600;
+  color: var(--mat-sys-on-surface);
+}
+
+.doc-topic {
+  margin-block-start: 32px;
+  scroll-margin-block-start: calc(var(--doc-header, 0px) + 16px);
+
+  > .doc-h3 {
+    margin-block-end: 12px;
+  }
+}
+
+/* A list of names and what they do — tokens, class hooks: one bordered
+ * list, a row each, rows parted by hairlines. */
+.doc-defs {
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: var(--mat-sys-corner-medium, 12px);
 }
 
 .doc-def {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
+  padding: 12px;
+
+  & + & {
+    border-block-start: 1px solid var(--mat-sys-outline-variant);
+  }
 
   dt {
     font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-    font-size: 0.8125rem;
+    font-size: 0.875rem;
     font-weight: 600;
-    color: var(--mat-sys-on-surface);
     overflow-wrap: anywhere;
   }
 
   dd {
     margin: 0;
-    font: var(--mat-sys-body-medium);
-    line-height: 1.6;
-    color: var(--mat-sys-on-surface);
   }
 }
 
@@ -2256,9 +2287,8 @@ section[html-email-compose][data-wrap='off'] .aee-editor {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px 6px;
-  margin-block-start: 2px;
-  font: var(--mat-sys-body-small);
+  gap: 4px 8px;
+  font: var(--mat-sys-body-medium);
   color: var(--mat-sys-on-surface-variant);
 
   .doc-chain__then::before {
@@ -2266,21 +2296,20 @@ section[html-email-compose][data-wrap='off'] .aee-editor {
   }
 }
 
-/* Inside a definition: the quieter line under the words. */
-.doc-def dd.doc-chain {
-  font: var(--mat-sys-body-small);
-  color: var(--mat-sys-on-surface-variant);
-}
-
 /* The chain on its own, leading a section. */
 .doc-chain--lead {
-  margin: 4px 0 12px;
+  margin: 0 0 24px;
   font: var(--mat-sys-body-large);
   color: var(--mat-sys-on-surface);
 }
 
-.doc-code--example {
-  margin-block-start: 16px;
+/* Code blocks in running prose get room from the text around them. */
+.doc-body doc-code {
+  margin-block: 16px;
+}
+
+.doc-entry__body doc-code {
+  margin-block: 0;
 }
 
 /* The composer's one popover (email-compose/popover): the CDK pane it

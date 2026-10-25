@@ -74,6 +74,7 @@
 .render-editor {
   --email-compose-surface-padding-inline: 0px;
   --email-compose-surface-padding-block: 0px;
+  --email-compose-end-room: 0px;
   // No scrollbar takes width out of the box (the editor's floats), as the
   // frame beside has none (render.ts): the two columns of text are one width.
 

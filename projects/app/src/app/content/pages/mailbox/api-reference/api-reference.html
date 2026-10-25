@@ -12,6 +12,8 @@
         <p class="doc-intro" [docProse]="section.intro"></p>
       }
 
+      <!-- An export, a card: its name and entry point on the strip; what it
+           is for, its signature, what to know, and how it is used. -->
       @for (entry of section.entries; track entry.id) {
         <article class="doc-entry" [id]="entry.id" [attr.aria-labelledby]="entry.id + '-name'">
           <header class="doc-entry__head">
@@ -22,15 +24,20 @@
               <span class="doc-entry__from">{{ entry.from }}</span>
             }
           </header>
-          <pre class="doc-code"><code>{{ entry.signature }}</code></pre>
-          <p class="doc-text" [docProse]="entry.summary"></p>
-          @if (entry.details) {
-            <ul class="doc-points">
-              @for (point of entry.details; track point) {
-                <li [docProse]="point"></li>
-              }
-            </ul>
-          }
+          <div class="doc-entry__body">
+            <p class="doc-text" [docProse]="entry.summary"></p>
+            <doc-code [code]="entry.signature" label="Signature" [wrap]="true" />
+            @if (entry.details) {
+              <ul class="doc-points">
+                @for (point of entry.details; track point) {
+                  <li [docProse]="point"></li>
+                }
+              </ul>
+            }
+            @if (entry.example) {
+              <doc-code [code]="entry.example" label="Example" />
+            }
+          </div>
         </article>
       }
     </section>

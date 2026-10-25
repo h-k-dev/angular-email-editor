@@ -22,6 +22,8 @@ import {
   INBOX_READER_MIN,
   Preferences,
 } from '../../../../core/storages/preferences';
+import { hue } from '../../../../core/randomisation/hue';
+import { initials } from '../../../../core/utils/avatar';
 import { SplitHandle } from '../../../../core/common/directives/split-handle/split-handle';
 import { InboxPaper } from '../../../partials/atomic/inbox/inbox-paper';
 import { PageHeader } from '../../../partials/common/page-header/page-header';
@@ -38,20 +40,6 @@ interface InboxRow {
   readonly hue: number;
 }
 
-/** A sender's initials: the first letters of the first two words of the
-    name — or of the address's local part, for a bare address. */
-function initials(name: string): string {
-  const words = name
-    .replace(/@.*$/, '')
-    .split(/[\s._+-]+/)
-    .filter((word) => /\p{L}|\p{N}/u.test(word));
-  return words
-    .slice(0, 2)
-    .map((word) => [...word][0])
-    .join('')
-    .toUpperCase();
-}
-
 /** When it was sent, for the list: a date the message wrote out itself
     ("Aug 18, 2026, 4:32 PM") read as the date it names, so it shows as
     short as the rest — one no date can be read from stays as written. The
@@ -60,17 +48,6 @@ function sent(date: InboxHeader['date']): Date | string {
   if (date === undefined || date instanceof Date) return date ?? '';
   const parsed = new Date(date);
   return Number.isNaN(parsed.getTime()) ? date : parsed;
-}
-
-/** A sender's hue: the name hashed round the wheel (FNV-1a), so a sender
-    keeps one colour wherever it is listed — no logo needed, none made up. */
-function hue(name: string): number {
-  let hash = 0x811c9dc5;
-  for (const char of name.toLowerCase()) {
-    hash ^= char.codePointAt(0) ?? 0;
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return (hash >>> 0) % 360;
 }
 
 /**

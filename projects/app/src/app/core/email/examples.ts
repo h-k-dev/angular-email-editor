@@ -23,7 +23,7 @@ export interface ExampleEntry {
   file: string;
 }
 
-/** An example's id: its file, without the extension — `angularjs/rechnen-filter`.
+/** An example's id: its file, without the extension — `angularjs/platzhalter-im-ueberblick`.
     Unique the way a path is and stable as long as the file is; never made
     from the name, which is words for the eye and may be reworded or
     translated. */

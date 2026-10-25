@@ -16,6 +16,7 @@ export default {
     nav: {
       composer: 'Composer',
       inbox: 'Inbox',
+      templates: 'Templates',
       api: 'API',
       styling: 'Styling',
       render: 'Render',
@@ -47,6 +48,23 @@ export default {
     theme: { light: 'Switch to light mode', dark: 'Switch to dark mode' },
   },
   docs: { onThisPage: 'On this page', trail: 'Where you are' },
+  templates: {
+    title: 'Templates',
+    shelves: 'Template sets',
+    all: 'All',
+    more: 'More',
+    use: 'Write with this template',
+    copy: 'Copy HTML',
+    copied: 'HTML copied',
+    mergeTag: '1 merge tag',
+    mergeTags: '{{count}} merge tags',
+    noMergeTags: 'No merge tags',
+    empty: 'No templates here.',
+    sets: {
+      angularjs: 'AngularJS expressions',
+      handlebars: 'Handlebars',
+    },
+  },
   inbox: {
     title: 'Inbox',
     more: 'More',

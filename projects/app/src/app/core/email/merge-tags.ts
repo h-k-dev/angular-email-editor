@@ -46,8 +46,9 @@ export class MergeTags {
     ['email', 'ada@example.com'],
     ['company.name', 'Analytical Engines Ltd'],
     ['unsubscribeUrl', 'https://example.com/unsubscribe'],
-    // The custom fields the Brand protection example reads
-    // (examples/angularjs): its trade mark and infringement are choices,
+    // The custom fields the AngularJS example's trade-mark table reads
+    // (examples/angularjs/platzhalter-im-ueberblick.html): its mark and
+    // infringement are choices,
     // stored as the keys its ternaries test.
     ['custom.field1', 'swoosh'],
     ['custom.field2', 'UK00000123456'],

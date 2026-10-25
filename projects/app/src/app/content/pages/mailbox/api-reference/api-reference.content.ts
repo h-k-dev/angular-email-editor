@@ -1,3 +1,5 @@
+import { API_EXAMPLES } from './api-reference.examples';
+
 /** One export, as the reference renders it. Prose marks code with `backticks`. */
 export interface ApiEntry {
   /** The heading's id, and the URL's #fragment. */
@@ -10,6 +12,8 @@ export interface ApiEntry {
   readonly summary: string;
   /** What to know before using it, a point each. */
   readonly details?: readonly string[];
+  /** How a host uses it — TypeScript, ready to copy. */
+  readonly example?: string;
 }
 
 /** A section: what a host is doing when it meets these exports. */
@@ -74,7 +78,7 @@ export const API_SECTIONS: readonly ApiSection[] = [
           '{ view, schema, state, commands, exec(), isActive(), getHTML(), setContent(), getQuoted(), setQuoted(), getText(), setText(), focus(), destroy() }',
         summary: 'The mounted editor.',
         details: [
-          '`commands` are the extensions’ named commands bound to the live view: `editor.commands.toggleBold()`.',
+          "`commands` are the extensions’ named commands bound to the live view: `editor.commands['toggleBold']()` (the index form, which compiles under `noPropertyAccessFromIndexSignature`).",
           '`setContent` / `setText` apply a minimal diff as an external sync: selection, scroll and plugin state survive, nothing enters the undo history, and `onUpdate` does not fire — two editors mirroring each other cannot echo.',
           '`getHTML` returns the body alone. `getQuoted` / `setQuoted` read and replace the quoted history, which `setContent` never touches.',
         ],
@@ -164,7 +168,7 @@ export const API_SECTIONS: readonly ApiSection[] = [
       {
         id: 'create-block-marquee',
         name: 'createBlockMarquee · BlockSelection',
-        signature: '(options?: { surface?, threshold? }) => FunctionalExtension',
+        signature: '(options?: { surface?, canvas?, threshold? }) => FunctionalExtension',
         summary:
           'Notion’s marquee: drag from the empty room around the text to select whole blocks.',
         details: [
@@ -358,7 +362,8 @@ export const API_SECTIONS: readonly ApiSection[] = [
       {
         id: 'parse-html',
         name: 'parseHTML · serializeToHTML',
-        signature: '(html, schema) => Node · (doc, schema) => string',
+        signature:
+          "(html, schema, options?: { mode?: 'repair' | 'email' | 'preserve' }) => Node · (doc, schema) => string",
         summary: 'The document in and out of the schema — the round trip both panes share.',
       },
       {
@@ -446,7 +451,7 @@ export const API_SECTIONS: readonly ApiSection[] = [
       {
         id: 'lint-html',
         name: 'scanHTML · lintHTML',
-        signature: '(source) => HtmlScan · (source, scan?) => HtmlDiagnostic[]',
+        signature: '(source) => HtmlScan · (source, scan?, options?) => HtmlDiagnostic[]',
         summary: 'Tokenizes the source, then reports what will not survive a mail client.',
         details: [
           'Tags outside `EMAIL_SAFE_TAGS`, unsupported CSS, fonts below `MIN_FONT_SIZE`, unbroken runs past `MAX_UNBROKEN_RUN`.',
@@ -869,6 +874,7 @@ export const API_SECTIONS: readonly ApiSection[] = [
         signature: '[emailKeepFocus] · [emailKeepFocusExcept]="selector"',
         summary: 'A press on the element never takes focus from where it is.',
         details: [
+          'Import the directive as `KeepFocus`. `[emailKeepFocusExcept]` names what may still take focus (`""` for nothing); `[emailKeepFocus]="false"` turns it off.',
           'The editor keeps its caret and selection through a click on a tool, and menus that depend on its focus stay open.',
           'One on a container covers everything in it; text entry inside is the default exception. The keyboard still reaches every tool.',
         ],
@@ -883,7 +889,7 @@ export const API_SECTIONS: readonly ApiSection[] = [
           'The extensions’ actions bound to a live editor as signals — pressed, disabled, run.',
         details: [
           'Actions are what extensions declare (`editor.actions`: id, title, icon, command, `isActive`, `isEnabled`). The editor is read reactively, so a code view is one `computed`.',
-          '`emailAction` makes a host’s own control the trigger for the action of that id: `aria-pressed` and `aria-disabled` (never native `disabled` or a style), and the caret returns to the editor after running.',
+          '`emailAction` (import `ActionTrigger`, exported as `emailAction`) makes a host’s own control the trigger for the action of that id: `aria-pressed` and `aria-disabled` (never native `disabled` or a style), and the caret returns to the editor after running. `[emailActionAria]="false"` and `[emailActionFocus]="false"` turn either off.',
           'A host’s own buttons join as `HostAction` — a run, never a command: `host` for what stands alone (a link dialog), `override` to replace a kit action’s run (a table size picker).',
         ],
       },
@@ -897,16 +903,21 @@ export const API_SECTIONS: readonly ApiSection[] = [
         details: [
           'For anything that floats from an element: `cdkOverlayOrigin`, `matMenuTriggerFor`, an Aria menu trigger, CSS anchor positioning, Floating UI.',
           'Holds its last place while the box is `null`, so what it carries closes in place.',
+          'Import the directive as `Anchor`; `anchor.element` is the element, for an API that wants one. It takes no pointer events, so a `matMenuTriggerFor` on it opens from code (`trigger.openMenu()`).',
         ],
       },
     ],
   },
 ];
 
+/** A section by id, each export with its example (`API_EXAMPLES`). */
 const section = (id: string): ApiSection => {
   const found = API_SECTIONS.find((candidate) => candidate.id === id);
   if (!found) throw new Error(`No API section ${id}`);
-  return found;
+  return {
+    ...found,
+    entries: found.entries.map((entry) => ({ ...entry, example: API_EXAMPLES[entry.id] })),
+  };
 };
 
 /** The pages, in the aside's order (`API_PAGES`). */

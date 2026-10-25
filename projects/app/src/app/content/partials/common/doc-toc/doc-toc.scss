@@ -1,0 +1,55 @@
+// shadcn's: a quiet title, then the headings as plain text links — no
+// rows, no wash; a level in is 12px in; the one being read is the text's
+// own colour, a weight up.
+:host {
+  display: block;
+}
+
+.doc-toc__title {
+  margin: 0 0 8px;
+  font: var(--mat-sys-label-medium);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.doc-toc__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  &--nested {
+    margin-block-start: 8px;
+    padding-inline-start: 12px;
+  }
+}
+
+.doc-toc__link {
+  display: block;
+  overflow: hidden;
+  border-radius: 4px;
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &:hover {
+    color: var(--mat-sys-on-surface);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: 2px;
+  }
+
+  &[aria-current] {
+    color: var(--mat-sys-on-surface);
+    font-weight: 500;
+  }
+
+  &--code {
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  }
+}

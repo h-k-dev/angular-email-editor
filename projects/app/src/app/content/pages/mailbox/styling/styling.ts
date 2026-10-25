@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { AddressInput, addressList } from '@h-k-dev/angular-email-editor/address-input';
 import { AddressFormField } from '@h-k-dev/angular-email-editor/material';
 
+import { DocCode } from '../../../partials/common/doc-code/doc-code';
 import { DocSection } from '../../../partials/common/doc-page/doc';
 import { DocPage } from '../../../partials/common/doc-page/doc-page';
 import { DocProse } from '../../../partials/common/doc-page/doc-prose';
@@ -26,6 +27,7 @@ import { HOOK_GROUPS, MATERIAL_RECIPE, OVERRIDE_EXAMPLE, TOKEN_SECTIONS } from '
     RouterLink,
     DocPage,
     DocProse,
+    DocCode,
     AddressInput,
     AddressFormField,
     FormField,

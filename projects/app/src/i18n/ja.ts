@@ -12,6 +12,7 @@ export default {
     nav: {
       composer: '作成',
       inbox: '受信トレイ',
+      templates: 'テンプレート',
       api: 'API',
       styling: 'スタイル',
       render: 'レンダリング',
@@ -43,6 +44,23 @@ export default {
     theme: { light: 'ライトモードに切り替え', dark: 'ダークモードに切り替え' },
   },
   docs: { onThisPage: 'このページの内容', trail: '現在地' },
+  templates: {
+    title: 'テンプレート',
+    shelves: 'テンプレートの種類',
+    all: 'すべて',
+    more: 'その他',
+    use: 'このテンプレートで書く',
+    copy: 'HTML をコピー',
+    copied: 'HTML をコピーしました',
+    mergeTag: '差し込みタグ 1 個',
+    mergeTags: '差し込みタグ {{count}} 個',
+    noMergeTags: '差し込みタグなし',
+    empty: 'テンプレートがありません。',
+    sets: {
+      angularjs: 'AngularJS 式',
+      handlebars: 'Handlebars',
+    },
+  },
   inbox: {
     title: '受信トレイ',
     more: 'その他',

@@ -9,34 +9,8 @@ import { vi } from 'vitest';
 export function stubExampleAssets(): void {
   // The catalogue's own names (public/examples/index.json), so the store's
   // specs search what the app ships.
-  const angularjs = [
-    'Anrede & Bedingungen',
-    'Rechnen & Filter',
-    'Daten & calcDate',
-    'Lange Anrede (zweizeilig)',
-    'Sehr lange Anrede (dreizeilig)',
-    'Tabelle & Spalten',
-    'Brand protection instruction',
-  ];
-  const handlebars = ['Simple fields', 'Blocks stay literal', 'Table & columns'];
-  const everyday = [
-    'Eingangsbestätigung',
-    'Terminbestätigung',
-    'Terminerinnerung',
-    'Unterlagen anfordern',
-    'Zahlungserinnerung',
-    'Mahnung (zweite Stufe)',
-    'Zahlungseingang bestätigt',
-    'Vollmacht zur Unterschrift',
-    'Sachstandsmitteilung',
-    'Fristverlängerung beantragt',
-    'Mandatsbeendigung',
-    'Abwesenheitsnotiz',
-    'Rückrufbitte',
-    'Kostenvoranschlag',
-    'Vergleichsangebot weitergeleitet',
-    'Feedback erbeten',
-  ];
+  const angularjs = ['Platzhalter im Überblick'];
+  const handlebars = ['Fields & blocks', 'Table & columns'];
   const files = new Map<string, string>();
   const set = (key: string, dialect: string, names: string[]) => ({
     key,
@@ -56,7 +30,6 @@ export function stubExampleAssets(): void {
       sets: [
         set('angularjs', 'angularjs', angularjs),
         set('handlebars', 'handlebars', handlebars),
-        set('everyday', 'angularjs', everyday),
       ],
     }),
   );

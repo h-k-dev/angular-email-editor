@@ -1,0 +1,94 @@
+@use '@h-k-dev/angular-email-editor/styles/scroll';
+
+// GitHub's code block on our surfaces: a bar naming the code, the code
+// beneath on the quiet fill, one hairline round both.
+:host {
+  display: block;
+}
+
+.doc-code {
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: var(--mat-sys-corner-small, 8px);
+  background: var(--mat-sys-surface-container-low);
+}
+
+.doc-code__bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  block-size: 36px;
+  padding-inline: 12px 4px;
+  border-block-end: 1px solid var(--mat-sys-outline-variant);
+  font: var(--mat-sys-label-medium);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.doc-code__label {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// The toolbar size: 28px, its glyph 16.
+.doc-code__copy {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  inline-size: 28px;
+  block-size: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--mat-sys-corner-small, 4px);
+  background: none;
+  color: inherit;
+  cursor: pointer;
+
+  &:hover {
+    background: color-mix(in srgb, var(--mat-sys-on-surface) 8%, transparent);
+    color: var(--mat-sys-on-surface);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: -2px;
+  }
+
+  .mat-icon {
+    inline-size: 16px;
+    block-size: 16px;
+    font-size: 16px;
+  }
+}
+
+.doc-code__pre {
+  margin: 0;
+  padding: 12px;
+  overflow-x: auto;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  color: var(--mat-sys-on-surface);
+  tab-size: 2;
+  @include scroll.scroll;
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: -2px;
+  }
+
+  // Wrapped (a signature): read, not scrolled.
+  :host([data-wrap]) & {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+}
+
+// A line a block of its own: an empty one keeps its height.
+.doc-code__line {
+  display: block;
+  min-block-size: 1lh;
+}

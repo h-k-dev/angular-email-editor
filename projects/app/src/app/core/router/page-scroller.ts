@@ -45,6 +45,12 @@ export class PageScroller extends ViewportScroller {
     });
   }
 
+  /** What the page scrolls in now: the attached sheet, or the document's
+      own scroller. */
+  get scroller(): HTMLElement {
+    return this.#sheet ?? (this.#document.scrollingElement as HTMLElement);
+  }
+
   /** The sheet the page scrolls in, from now on; the release hands the
       scrolling back to the window. */
   attach(sheet: HTMLElement): () => void {

@@ -13,7 +13,11 @@ import { prose } from './doc';
 @Component({
   selector: '[docProse]',
   template: `@for (part of parts(); track $index) {
-    @if (part.code) {<code>{{ part.text }}</code>} @else {<ng-container>{{ part.text }}</ng-container>}
+    @if (part.code) {
+      <code>{{ part.text }}</code>
+    } @else {
+      <ng-container>{{ part.text }}</ng-container>
+    }
   }`,
 })
 export class DocProse {

@@ -13,6 +13,7 @@ export default {
     nav: {
       composer: 'Editor',
       inbox: 'Posteingang',
+      templates: 'Vorlagen',
       api: 'API',
       styling: 'Gestaltung',
       render: 'Darstellung',
@@ -44,6 +45,23 @@ export default {
     theme: { light: 'Zum hellen Design wechseln', dark: 'Zum dunklen Design wechseln' },
   },
   docs: { onThisPage: 'Auf dieser Seite', trail: 'Wo Sie sind' },
+  templates: {
+    title: 'Vorlagen',
+    shelves: 'Vorlagensätze',
+    all: 'Alle',
+    more: 'Mehr',
+    use: 'Mit dieser Vorlage schreiben',
+    copy: 'HTML kopieren',
+    copied: 'HTML kopiert',
+    mergeTag: '1 Platzhalter',
+    mergeTags: '{{count}} Platzhalter',
+    noMergeTags: 'Keine Platzhalter',
+    empty: 'Hier sind keine Vorlagen.',
+    sets: {
+      angularjs: 'AngularJS-Ausdrücke',
+      handlebars: 'Handlebars',
+    },
+  },
   inbox: {
     title: 'Posteingang',
     more: 'Mehr',

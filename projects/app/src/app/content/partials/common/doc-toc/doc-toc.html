@@ -1,0 +1,33 @@
+@if (entries().length) {
+  <h2 class="doc-toc__title" [id]="titleId">{{ 'docs.onThisPage' | translate }}</h2>
+  <ol class="doc-toc__list">
+    @for (entry of entries(); track entry.id) {
+      <li>
+        <a
+          class="doc-toc__link"
+          routerLink="."
+          [fragment]="entry.id"
+          [class.doc-toc__link--code]="entry.code"
+          [attr.aria-current]="current() === entry.id ? 'location' : null"
+          >{{ entry.title }}</a
+        >
+        @if (entry.topics?.length) {
+          <ol class="doc-toc__list doc-toc__list--nested">
+            @for (topic of entry.topics; track topic.id) {
+              <li>
+                <a
+                  class="doc-toc__link"
+                  routerLink="."
+                  [fragment]="topic.id"
+                  [class.doc-toc__link--code]="topic.code"
+                  [attr.aria-current]="current() === topic.id ? 'location' : null"
+                  >{{ topic.title }}</a
+                >
+              </li>
+            }
+          </ol>
+        }
+      </li>
+    }
+  </ol>
+}

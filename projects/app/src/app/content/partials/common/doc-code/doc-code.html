@@ -1,0 +1,17 @@
+<figure class="doc-code">
+  <figcaption class="doc-code__bar">
+    <span class="doc-code__label">{{ heading() }}</span>
+    <button
+      type="button"
+      class="doc-code__copy"
+      [attr.aria-label]="copied() ? 'Copied' : 'Copy code'"
+      [title]="copied() ? 'Copied' : 'Copy code'"
+      (click)="copy()"
+    >
+      <mat-icon>{{ copied() ? 'check' : 'content_copy' }}</mat-icon>
+    </button>
+  </figcaption>
+  <!-- One line of markup: inside <pre> every character shows. Focusable,
+       so a keyboard can scroll a long line. -->
+  <pre class="doc-code__pre" tabindex="0"><code>@if (lines.hasValue()) {@for (line of lines.value(); track $index) {<span class="doc-code__line">@for (token of line; track $index) {<span [style.color]="token.color">{{ token.content }}</span>}</span>}} @else {<ng-container>{{ code() }}</ng-container>}</code></pre>
+</figure>

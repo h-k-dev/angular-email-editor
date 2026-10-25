@@ -173,6 +173,7 @@ export class Mailbox {
           key: 'app.nav.inbox',
           count: this.#unread,
         },
+        { kind: 'link', path: '/templates', icon: 'grid_view', key: 'app.nav.templates' },
       ],
     },
     {

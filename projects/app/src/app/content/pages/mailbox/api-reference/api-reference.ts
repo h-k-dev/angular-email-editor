@@ -1,6 +1,7 @@
 import { Component, computed, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
+import { DocCode } from '../../../partials/common/doc-code/doc-code';
 import { DocSection } from '../../../partials/common/doc-page/doc';
 import { DocPage } from '../../../partials/common/doc-page/doc-page';
 import { DocProse } from '../../../partials/common/doc-page/doc-prose';
@@ -16,7 +17,7 @@ import { API_PAGES } from './api-pages';
  */
 @Component({
   selector: 'app-api-reference',
-  imports: [RouterLink, DocPage, DocProse],
+  imports: [RouterLink, DocPage, DocProse, DocCode],
   templateUrl: './api-reference.html',
 })
 export class ApiReference {

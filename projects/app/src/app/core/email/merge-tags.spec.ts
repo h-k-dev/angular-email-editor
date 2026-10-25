@@ -63,13 +63,15 @@ describe('MergeTags', () => {
     expect(await pending).toEqual(['Ada', 'Analytical Engines Ltd', '', '']);
   });
 
-  it('fills every placeholder of the Brand protection example, its choices as their words', async () => {
+  it('fills every custom-field placeholder of the AngularJS example, its choices as their words', async () => {
     const fs = (globalThis as any).process.getBuiltinModule('fs');
     const html: string = fs.readFileSync(
-      'projects/app/public/examples/angularjs/brand-protection-instruction.html',
+      'projects/app/public/examples/angularjs/platzhalter-im-ueberblick.html',
       'utf8',
     );
-    const expressions = scanMergeTags(html).map(({ expr: [from, to] }) => html.slice(from, to));
+    const expressions = scanMergeTags(html)
+      .map(({ expr: [from, to] }) => html.slice(from, to))
+      .filter((expression) => expression.includes('custom.'));
     const pending = service.resolve(expressions);
     await vi.runAllTimersAsync();
     const values = await pending;

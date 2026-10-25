@@ -46,6 +46,13 @@ export const routes: Routes = [
           },
         ],
       },
+      // The template gallery: every template the store holds, a feed of
+      // thumbnails.
+      {
+        path: 'templates',
+        loadComponent: () =>
+          import('./content/pages/mailbox/templates/templates').then((m) => m.TemplateGallery),
+      },
       // The references: a page each per aside link (`/api/editor`), its
       // `:page` bound to the component's `page` input. A reference on its
       // own opens at its first page; a page it does not have is nowhere.

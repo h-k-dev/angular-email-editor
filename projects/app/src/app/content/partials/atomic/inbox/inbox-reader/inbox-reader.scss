@@ -89,12 +89,14 @@
 }
 
 // The paper button, Reply and ⋮: a row of icon buttons, 2px apart as every
-// icon row here.
+// icon row here — out of the text's inset to the edge column the page
+// header's buttons keep (8px), so ⋮ ends where Gmail's does, not 40px in.
 .inbox-reader__actions {
   flex: none;
   display: flex;
   align-items: center;
   gap: 2px;
+  margin-inline-end: calc(8px - var(--_inset));
 }
 
 // The body: the viewer, the pane's whole width, edge to edge.

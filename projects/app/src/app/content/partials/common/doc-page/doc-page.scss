@@ -1,10 +1,24 @@
 @use '@h-k-dev/angular-email-editor/styles/scroll';
 
 // The page's width decides whether the toc fits beside the column (the
-// sheet's, not the viewport's: the aside takes its share).
+// sheet's, not the viewport's: the aside takes its share). The header's
+// height is one number: what the header is, where the toc holds, and
+// what a heading's scroll-margin keeps clear (styles.scss, `.doc-*`).
 :host {
+  --doc-header: 48px;
+
   display: block;
   container-type: inline-size;
+}
+
+// Held at the top while the page scrolls under it, on the sheet's own
+// surface so nothing shows through.
+.doc-header {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+  block-size: var(--doc-header);
+  background: var(--mat-sys-surface-bright);
 }
 
 // Where you are: small, quiet, the page itself a shade stronger.
@@ -51,11 +65,11 @@
 }
 
 // One reading column; the toc joins it once there is room for both,
-// the pair centred on the sheet.
+// shadcn's: the column centred in the room it has, and — on a wide
+// window — the toc against the sheet's far edge, never touching it.
 .doc-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  justify-content: center;
 }
 
 .doc-body {
@@ -74,92 +88,26 @@
   display: none;
 }
 
-@container (inline-size >= 1040px) {
+// From this window width on, the toc has its own column at the far right
+// (shadcn shows it from xl); narrower, the column has the sheet.
+$toc-min: 1200px;
+
+@media (min-width: $toc-min) {
   .doc-layout {
-    grid-template-columns: minmax(0, 720px) 224px;
-    column-gap: 48px;
+    grid-template-columns: minmax(0, 1fr) 224px;
   }
 
-  .doc-body {
-    max-inline-size: none;
-  }
-
-  // Held in view while the page scrolls under it (the sheet is the
-  // scroller); as tall as the sheet, scrolling on its own past that.
+  // Held in view under the header while the page scrolls (the sheet is
+  // the scroller); as tall as what is left, scrolling on its own past it.
   .doc-toc {
     display: block;
     position: sticky;
-    inset-block-start: 0;
+    inset-block-start: var(--doc-header);
     align-self: start;
-    max-block-size: 100dvh;
-    padding: 24px 16px 24px 0;
+    max-block-size: calc(100dvh - var(--doc-header));
+    padding: 24px 12px;
     overflow-y: auto;
     box-sizing: border-box;
     @include scroll.scroll;
-  }
-}
-
-.doc-toc__title {
-  margin: 0 0 8px;
-  padding-inline: 12px;
-  font: var(--mat-sys-label-medium);
-  color: var(--mat-sys-on-surface-variant);
-}
-
-.doc-toc__list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-
-  &--topics {
-    margin-block: 2px 6px;
-    padding-inline-start: 12px;
-  }
-}
-
-// A row: the section's name, the one being read on the wash the aside's
-// place wears.
-.doc-toc__link {
-  display: block;
-  padding: 4px 12px;
-  border-radius: var(--mat-sys-corner-small);
-  font: var(--mat-sys-body-medium);
-  color: var(--mat-sys-on-surface-variant);
-  text-decoration: none;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-
-  &:hover {
-    color: var(--mat-sys-on-surface);
-    background: color-mix(in srgb, var(--mat-sys-on-surface) 5%, transparent);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--mat-sys-primary);
-    outline-offset: -2px;
-  }
-
-  &--active,
-  &--active:hover {
-    color: var(--mat-sys-on-surface);
-    background: color-mix(in srgb, var(--mat-sys-on-surface) 8%, transparent);
-  }
-
-  &--topic {
-    padding-block: 2px;
-    font: var(--mat-sys-body-small);
-  }
-
-  &--topic.doc-toc__link--active {
-    background: none;
-    color: var(--mat-sys-primary);
-  }
-
-  &--code {
-    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   }
 }
