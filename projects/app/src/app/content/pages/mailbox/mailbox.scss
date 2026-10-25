@@ -216,13 +216,12 @@
   fill: currentColor;
   opacity: 0;
 
-  .mailbox-section__toggle:hover &,
-  .mailbox-section__toggle:focus-visible &,
-  .mailbox-section__toggle[aria-expanded='false'] & {
+  // A run's heading and a group's row alike.
+  :is(.mailbox-section__toggle, .mailbox-group__toggle):is(:hover, :focus-visible, [aria-expanded='false']) & {
     opacity: 1;
   }
 
-  .mailbox-section__toggle[aria-expanded='true'] & {
+  [aria-expanded='true'] > & {
     transform: rotate(90deg);
   }
 }
@@ -309,16 +308,6 @@
 // The row's triangle sits right after its name, Linear's.
 .mailbox-group__toggle .mailbox-section__triangle {
   margin-inline-start: -4px;
-}
-
-.mailbox-group__toggle:hover .mailbox-section__triangle,
-.mailbox-group__toggle:focus-visible .mailbox-section__triangle,
-.mailbox-group__toggle[aria-expanded='false'] .mailbox-section__triangle {
-  opacity: 1;
-}
-
-.mailbox-group__toggle[aria-expanded='true'] .mailbox-section__triangle {
-  transform: rotate(90deg);
 }
 
 .mailbox-group__links {
