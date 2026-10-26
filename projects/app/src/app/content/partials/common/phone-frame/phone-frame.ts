@@ -3,7 +3,7 @@ import { Component, input } from '@angular/core';
 // Angular Material
 import { MatIcon } from '@angular/material/icon';
 
-import { FloatingScrollbar } from '../../../../core/common/directives/floating-scrollbar/floating-scrollbar';
+import { FloatingScrollbar } from '../floating-scrollbar/floating-scrollbar';
 
 /** What the phone shows round its content: nothing but the status bar, or
     a mobile browser's bars (Brave's — the address on top, the toolbar at

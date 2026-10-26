@@ -5,10 +5,10 @@
 // by (`projects` is a Sass load path, angular.json).
 @use '@h-k-dev/angular-email-editor/styles/scroll';
 // The floating scrollbar's bar, drawn outside any component's view.
-@use 'app/core/common/directives/floating-scrollbar/floating-scrollbar';
+@use 'styles/floating-scrollbar';
 // Avatars and the containers in their hue ([avatar], [hueOf]): any element
 // can be one, so their look is global.
-@use 'app/core/common/directives/avatar/avatar';
+@use 'styles/avatar';
 
 /* Notion in light, Linear in dark (styles/_theme.scss): Notion's generated
  * palette is the theme's, and every system colour is overridden with its

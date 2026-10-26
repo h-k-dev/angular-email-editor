@@ -18,9 +18,13 @@
 // same meaning, then a fallback:
 //
 // - `--email-scroll-size` — the thumb's thickness and the gutter's (8px).
-// - `--email-scroll-thumb` — the thumb at rest (the outline variant at 50%).
+// - `--email-scroll-thumb` — the thumb at rest (the outline at 50%).
 // - `--email-scroll-thumb-hover` — under the pointer (at 75%).
 // - `--email-scroll-track` — the track (transparent).
+//
+// The same tokens, with the same fallbacks, colour the floating scrollbar —
+// one thumb, whichever way a scroller shows it: in a stable gutter here, or
+// floating over the content there. A host sets them once.
 //
 // **Smooth scrolling is opt-in** (`$smooth: true`, and then only without
 // reduced motion). Most of what scrolls here is driven by a caret or by keys —
@@ -36,17 +40,17 @@
 // `scrollbar-color` — kept to Firefox, because in Chrome either one switches
 // the pseudo-elements, and so the thickness and the round thumb, off.
 
-$_outline-variant: var(--mat-sys-outline-variant, light-dark(#c4c7c5, #444746));
+$_outline: var(--mat-sys-outline, light-dark(#747775, #8e918f));
 
 @mixin scroll($smooth: false) {
   --_email-scroll-size: var(--email-scroll-size, 8px);
   --_email-scroll-thumb: var(
     --email-scroll-thumb,
-    color-mix(in srgb, #{$_outline-variant} 50%, transparent)
+    color-mix(in srgb, #{$_outline} 50%, transparent)
   );
   --_email-scroll-thumb-hover: var(
     --email-scroll-thumb-hover,
-    color-mix(in srgb, #{$_outline-variant} 75%, transparent)
+    color-mix(in srgb, #{$_outline} 75%, transparent)
   );
   // The thumb's colour now: none until the scroller is in use. Declared on
   // every scroller, so a nested one starts out of sight however its outer

@@ -10,7 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltip, TooltipPosition } from '@angular/material/tooltip';
 
-import { ScrollOwner } from '../../../../../core/common/directives/scroll-owner/scroll-owner';
+import { ScrollOwner } from '../../../../../core/directives/scroll-owner/scroll-owner';
 
 /** Where the writer's bar sits: closing the sheet, or heading it. */
 export type WriterBarPosition = 'top' | 'bottom';

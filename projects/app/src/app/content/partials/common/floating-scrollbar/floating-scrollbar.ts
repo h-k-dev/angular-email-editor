@@ -1,6 +1,6 @@
 import { Directive, ElementRef, afterRenderEffect, inject } from '@angular/core';
 
-import { Viewport } from '../../../layout/viewport';
+import { Viewport } from '../../../../core/layout/viewport';
 
 /** How long the bar stays after the last scroll, in ms — then it fades. */
 export const FLOATING_SCROLLBAR_LINGER = 1000;
@@ -34,8 +34,8 @@ const MIN_THUMB = 32;
  * The rail keeps clear of what is stuck over the scroller's ends — what its
  * block scroll padding says covers them (a stuck bar, the composer's
  * floating foot), the same padding that keeps a focused row and the caret
- * clear. Its look is _floating-scrollbar.scss's, next to this file
- * (global, in styles.scss).
+ * clear. Its look is global (styles/_floating-scrollbar.scss, in
+ * styles.scss).
  */
 @Directive({
   selector: '[floatingScrollbar]',

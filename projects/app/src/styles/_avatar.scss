@@ -1,6 +1,7 @@
-@use '../hue-of/hue-of';
+@use 'hue-of';
 
-// The look of an avatar (avatar.ts, next to this file) — global, since any
+// The look of an avatar (the directive: app/content/partials/common/avatar)
+// — global, since any
 // element anywhere may be one. Round, `--avatar-size` across (40px), the
 // initials white on the name's hue — its container's (`[hueOf]`), or its
 // own.

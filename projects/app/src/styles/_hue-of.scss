@@ -1,4 +1,5 @@
-// The colours of a name's family (hue-of.ts, next to this file), off the
+// The colours of a name's family (the directive:
+// app/content/partials/common/hue-of), off the
 // `--avatar-hue` the directive sets — global, since any element may be a
 // container. An avatar (`.avatar`) derives them too: inside a container it
 // inherits the container's hue, on its own it has its own.

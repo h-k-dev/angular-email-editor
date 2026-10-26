@@ -12,7 +12,7 @@ import { ComposeWindows } from '../../../../../core/email/compose-windows';
 import { BLANK } from '../../../../../core/email/envelope';
 import { EmailTemplate } from '../../../../../core/email/templates';
 import { I18n } from '../../../../../core/translations/i18n';
-import { Avatar } from '../../../../../core/common/directives/avatar/avatar';
+import { Avatar } from '../../../common/avatar/avatar';
 import { Badge } from '../../../common/badge/badge';
 import { EmailThumbnail } from '../../../common/email-thumbnail/email-thumbnail';
 import { GridSeen } from '../../../common/virtual-grid/virtual-grid';

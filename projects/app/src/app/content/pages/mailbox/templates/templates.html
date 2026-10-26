@@ -25,14 +25,14 @@
 </overflow-row>
 
 <!-- The feed: only the rows in view drawn, the next page asked for as its
-     end comes near. Big cards: 400px at the least and four at the most — a
-     2K screen holds four, the aside open or the rail; 1080p three, a laptop
-     two. -->
+     end comes near. Cards 360px at the least and four at the most — a 2K
+     screen holds four, 1080p too, the aside open or the rail; a laptop
+     three, a small one two. -->
 <virtual-grid
   class="gallery-grid"
-  [min]="400"
+  [min]="360"
   [maxColumns]="4"
-  [estimate]="400"
+  [estimate]="340"
   [attr.aria-busy]="loading()"
   (endReached)="more()"
 >

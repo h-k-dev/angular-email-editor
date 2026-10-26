@@ -33,9 +33,9 @@ import {
   INBOX_READER_MIN,
   Preferences,
 } from '../../../../core/storages/preferences';
-import { Avatar } from '../../../../core/common/directives/avatar/avatar';
-import { HueOf } from '../../../../core/common/directives/hue-of/hue-of';
-import { SplitHandle } from '../../../../core/common/directives/split-handle/split-handle';
+import { Avatar } from '../../../partials/common/avatar/avatar';
+import { HueOf } from '../../../partials/common/hue-of/hue-of';
+import { SplitHandle } from '../../../partials/common/split-handle/split-handle';
 import { InboxPaper } from '../../../partials/atomic/inbox/inbox-paper';
 import { PageHeader } from '../../../partials/common/page-header/page-header';
 import { PaperIslandDirective } from '../../../partials/shared/email/paper-island';

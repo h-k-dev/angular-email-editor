@@ -1,7 +1,7 @@
 import { Directive, computed, inject, input } from '@angular/core';
 
-import { hue } from '../../../randomisation/hue';
-import { initials } from '../../../utils/avatar';
+import { hue } from '../../../../core/randomisation/hue';
+import { initials } from '../../../../core/utils/avatar';
 import { HueOf } from '../hue-of/hue-of';
 
 /**
@@ -12,7 +12,7 @@ import { HueOf } from '../hue-of/hue-of';
  * It writes the initials in itself. Its colour is its container's: inside
  * a `[hueOf]` it takes that hue, so the avatar and what surrounds it (a
  * row's wash, a card's) are one colour family; on its own it sets the
- * name's own hue. The look is _avatar.scss's (global, in styles.scss):
+ * name's own hue. The look is styles/_avatar.scss's (global, in styles.scss):
  * round, `--avatar-size` across (40px). Decoration — whatever it stands
  * beside says the name.
  *

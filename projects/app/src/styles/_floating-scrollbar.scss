@@ -1,5 +1,6 @@
-// The look of a floating scrollbar (floating-scrollbar.ts, next to this
-// file) — global, since the bar is drawn outside any component's view.
+// The look of a floating scrollbar (the directive:
+// app/content/partials/common/floating-scrollbar) — global, since the bar is
+// drawn outside any component's view; in styles.scss.
 //
 // Where the platform's bars float (`native`) nothing here touches the
 // scroller: styling its `::-webkit-scrollbar` at all would turn a Mac's
@@ -8,7 +9,8 @@
 // scroller's end edge instead — out of sight until a scroll, fading a
 // moment after it, wider under the pointer.
 //
-// Tokens — the scroll mixin's where they mean the same, then Material's:
+// Tokens — the scroll mixin's, with its fallbacks: one thumb, in a gutter or
+// floating (@h-k-dev/angular-email-editor/styles/scroll):
 //
 // - `--email-scroll-size` — the thumb's thickness under the pointer (8px);
 //   at rest it is 2px less.
@@ -65,7 +67,7 @@
   border-radius: 1e3px;
   background-color: var(
     --email-scroll-thumb,
-    color-mix(in srgb, var(--mat-sys-outline, #747775) 60%, transparent)
+    color-mix(in srgb, var(--mat-sys-outline, light-dark(#747775, #8e918f)) 50%, transparent)
   );
   transition:
     inline-size 120ms ease-out,
@@ -76,7 +78,7 @@
     inline-size: var(--_size);
     background-color: var(
       --email-scroll-thumb-hover,
-      color-mix(in srgb, var(--mat-sys-outline, #747775) 80%, transparent)
+      color-mix(in srgb, var(--mat-sys-outline, light-dark(#747775, #8e918f)) 75%, transparent)
     );
   }
 }

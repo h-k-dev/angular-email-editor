@@ -2,7 +2,7 @@ import { Component, computed, inject, resource, signal } from '@angular/core';
 
 import { TranslatePipe } from '@ngx-translate/core';
 
-import { HueOf } from '../../../../core/common/directives/hue-of/hue-of';
+import { HueOf } from '../../../partials/common/hue-of/hue-of';
 import { Examples, ExampleSet } from '../../../../core/email/examples';
 import { Filter, escapeLike } from '../../../../core/email/loopback-filter';
 import { DIALECT_NAMES, EmailTemplate, Templates } from '../../../../core/email/templates';

@@ -9,7 +9,7 @@ import {
   signal,
 } from '@angular/core';
 
-import { FloatingScrollbar } from '../floating-scrollbar/floating-scrollbar';
+import { FloatingScrollbar } from '../../../content/partials/common/floating-scrollbar/floating-scrollbar';
 
 /**
  * The one element that scrolls a view, told to everything inside it: the

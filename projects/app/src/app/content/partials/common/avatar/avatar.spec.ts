@@ -1,7 +1,7 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { hue } from '../../../randomisation/hue';
+import { hue } from '../../../../core/randomisation/hue';
 import { HueOf } from '../hue-of/hue-of';
 import { Avatar } from './avatar';
 

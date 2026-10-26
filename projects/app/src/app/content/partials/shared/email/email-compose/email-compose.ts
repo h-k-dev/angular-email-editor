@@ -39,8 +39,8 @@ import { CellMenu } from './cell-menu/cell-menu';
 import { BubbleMenu } from './bubble-menu/bubble-menu';
 import { FormattingCommands } from './formatting-commands';
 import { FormattingToolbar } from './formatting-toolbar/formatting-toolbar';
-import { HeightSwitch } from '../../../../../core/common/directives/height-switch/height-switch';
-import { FloatingScrollbar } from '../../../../../core/common/directives/floating-scrollbar/floating-scrollbar';
+import { HeightSwitch } from '../../../../../core/directives/height-switch/height-switch';
+import { FloatingScrollbar } from '../../../common/floating-scrollbar/floating-scrollbar';
 import { FloatingFoot, footClearance } from './floating-foot';
 import { LinkEditor } from './link-editor/link-editor';
 import { AltTextEditor } from './alt-text-editor/alt-text-editor';
@@ -106,7 +106,7 @@ import { emailDefaultFont } from '@h-k-dev/angular-email-editor/fonts';
 import { TextMetrics, createTextMetrics } from '@h-k-dev/angular-email-editor/metrics';
 import { TranslatePipe } from '@ngx-translate/core';
 
-import { ScrollOwner } from '../../../../../core/common/directives/scroll-owner/scroll-owner';
+import { ScrollOwner } from '../../../../../core/directives/scroll-owner/scroll-owner';
 
 /** Where the HTML source shows: nowhere, in the editing surface's place
     (code view), or beside the editor in its own column (detached). */

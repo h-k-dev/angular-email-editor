@@ -1,7 +1,7 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { form } from '@angular/forms/signals';
-import { ScrollOwner } from '../../../../../core/common/directives/scroll-owner/scroll-owner';
+import { ScrollOwner } from '../../../../../core/directives/scroll-owner/scroll-owner';
 import { EmailWriter, WriterBarPosition } from './email-writer';
 
 /** A host the way the sheets use the writer: a form over a model, with an

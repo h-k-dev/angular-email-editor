@@ -7,7 +7,7 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { Viewport } from '../../../layout/viewport';
+import { Viewport } from '../../../../core/layout/viewport';
 import { FLOATING_SCROLLBAR_LINGER, FloatingScrollbar } from './floating-scrollbar';
 
 @Component({
