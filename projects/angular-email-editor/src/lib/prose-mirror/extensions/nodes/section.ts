@@ -1,5 +1,5 @@
 import { Command, EditorState, TextSelection } from 'prosemirror-state';
-import { DOMOutputSpec, Node, Schema } from 'prosemirror-model';
+import { DOMOutputSpec, DOMSerializer, Node, Schema } from 'prosemirror-model';
 import { defineNode } from '../../extension';
 import { emailBackgroundPalette, fillTextColor } from '../../dual-contrast';
 import { isSafeColor, toEmailSafeColor } from '../marks/text-style';
@@ -149,7 +149,7 @@ export const Section = defineNode({
 
 const DEFAULT_FILL = emailBackgroundPalette.find((color) => color.name === 'Gray')?.value ?? null;
 
-interface SectionAttrs {
+export interface SectionAttrs {
   background: string | null;
   padding: string | null;
   image: string | null;
@@ -212,6 +212,24 @@ function emitBand(attrs: SectionAttrs): DOMOutputSpec {
   inner.style.cssText = innerStyle(attrs);
   td.append(document.createComment(vmlOpen(attrs)), inner, document.createComment(VML_CLOSE));
   return { dom: table, contentDOM: inner };
+}
+
+/** A band as the email writes it, empty: its table and the element its
+    blocks go in — for markup that is a band in all but its form (a page's
+    row, page-layout.ts) to take the band's own. */
+export function sectionShell(
+  doc: Document,
+  attrs: Partial<SectionAttrs> = {},
+): { dom: HTMLElement; contentDOM: HTMLElement } {
+  const spec = emitBand({
+    background: null,
+    padding: SECTION_PADDING,
+    image: null,
+    contentBackground: null,
+    ...attrs,
+  });
+  const { dom, contentDOM } = DOMSerializer.renderSpec(doc, spec);
+  return { dom: dom as HTMLElement, contentDOM: contentDOM as HTMLElement };
 }
 
 function setAttribute(el: HTMLElement, name: string, value: string): void {

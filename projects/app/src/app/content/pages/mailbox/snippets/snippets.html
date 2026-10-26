@@ -1,0 +1,82 @@
+<!-- The list's half: its header — the page's name and a new snippet — the
+     search, and the list under them, on the app's own surface. A row is a
+     link: opening a snippet is a place (`/snippets/:id`), so the browser's
+     back button leaves it, and a snippet can be linked to. -->
+<div class="snippets-side">
+  <header page-header>
+    <h1 class="snippets-title">{{ 'snippets.title' | translate }}</h1>
+    <button
+      matIconButton
+      type="button"
+      class="snippets-new"
+      [attr.aria-label]="'snippets.new' | translate"
+      [matTooltip]="'snippets.new' | translate"
+      [disabled]="creating()"
+      (click)="create()"
+    >
+      <mat-icon>add</mat-icon>
+    </button>
+  </header>
+
+  <!-- Names and words alike; the list follows once the typing stops. -->
+  <label class="snippets-search">
+    <mat-icon class="snippets-search__icon" aria-hidden="true">search</mat-icon>
+    <input
+      type="search"
+      class="snippets-search__field"
+      [placeholder]="'snippets.search' | translate"
+      [attr.aria-label]="'snippets.search' | translate"
+      aria-controls="snippets-list"
+      [value]="query()"
+      (input)="search($event)"
+    />
+  </label>
+
+  <nav
+    class="snippets-list email-scroll"
+    id="snippets-list"
+    [attr.aria-label]="'snippets.title' | translate"
+    [attr.aria-busy]="!settled()"
+  >
+    <ul>
+      @for (row of rows(); track row.snippet.id) {
+        <li>
+          <a
+            class="snippets-row"
+            [routerLink]="row.snippet.id"
+            routerLinkActive="snippets-row--open"
+            ariaCurrentWhenActive="page"
+          >
+            <span class="snippets-row__name">{{ row.snippet.name || ('snippets.untitled' | translate) }}</span>
+            <span class="snippets-row__preview">{{ row.preview || ('snippets.noText' | translate) }}</span>
+          </a>
+        </li>
+      }
+    </ul>
+    @if (empty(); as empty) {
+      <p class="snippets-empty">{{ empty | translate: { query: query() } }}</p>
+    }
+  </nav>
+</div>
+
+<!-- The divider: drag it, or focus it and use the arrows, and the list
+     follows — the inbox's. -->
+<div
+  class="snippets-divider"
+  [(splitHandle)]="listWidth"
+  [splitTarget]="grid"
+  splitProperty="--snippets-list-width"
+  [splitMin]="listMin"
+  [splitMax]="listMax"
+  [splitKeep]="editorMin"
+  aria-controls="snippets-list"
+  [attr.aria-label]="'snippets.resize' | translate"
+></div>
+
+<!-- The snippet's half: on the editor's paper, header and all. Under it, the
+     open snippet (`SnippetEditor`) — it draws its own header — or a note
+     while none is. Beside the list on a desk; on a phone it takes the list's
+     place while a snippet is open. -->
+<div class="snippets-pane" [paperIsland]="paper()">
+  <router-outlet />
+</div>

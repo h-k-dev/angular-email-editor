@@ -210,6 +210,31 @@ export const insertHTML =
     return true;
   };
 
+/**
+ * A command inserting a snippet at the caret — into the line, not as lines
+ * of its own: its first line's words join the text before the caret, its
+ * last line's the text after it, and any lines between stand between the
+ * two halves (a snippet of one line is words typed in). A snippet that
+ * starts or ends with something other than a line (a list) keeps that
+ * edge whole. Parsed as {@link insertHTML} parses, so merge tags are
+ * promoted on the way in; the caret lands after it.
+ */
+export const insertSnippet =
+  (html: string, options?: ParseOptions): Command =>
+  (state, dispatch) => {
+    const { content } = parseHTML(html, state.schema, options);
+    // Nothing to put in: no content at all, or the one empty line a parse
+    // of nothing makes.
+    const only = content.childCount === 1 ? content.firstChild! : null;
+    if (!content.size || (only?.isTextblock && !only.content.size)) return false;
+    const openStart = content.firstChild!.isTextblock ? 1 : 0;
+    const openEnd = content.lastChild!.isTextblock ? 1 : 0;
+    dispatch?.(
+      state.tr.replaceSelection(new Slice(content, openStart, openEnd)).scrollIntoView(),
+    );
+    return true;
+  };
+
 /** A command that puts `html` in the whole document's place — an example
     loaded over what is written, as one undoable change; the caret lands at
     its end. A whole document parsed in the `email` or `preserve` mode brings

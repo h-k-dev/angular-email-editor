@@ -91,7 +91,7 @@
        it moves with the group's first button, and a phone drops it with a
        group that is wide-only through and through. -->
   @let movedFrom = row.overflowFrom();
-  @for (entry of entries; track entry.item.id; let i = $index) {
+  @for (entry of entries(); track entry.item.id; let i = $index) {
     @let item = entry.item;
     @if (entry.separated) {
       <mat-divider

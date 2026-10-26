@@ -156,9 +156,10 @@
   <div class="mailbox-scrim" aria-hidden="true" (click)="collapsed.set(true)"></div>
 }
 
-<!-- The page, on a sheet of its own beside the aside: it scrolls here, the
-     aside never does. Its header is its own (`page-header`) — on a phone
-     led by the aside's opener (`MailboxOpener`), which goes with it. -->
-<div class="mailbox-main" pageScroller>
+<!-- The page, on a sheet of its own beside the aside: it scrolls the
+     document, the aside holds still. Its header is its own (`page-header`)
+     — on a phone led by the aside's opener (`MailboxOpener`), which goes
+     with it. -->
+<div class="mailbox-main">
   <router-outlet />
 </div>

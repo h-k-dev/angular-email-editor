@@ -19,7 +19,7 @@ import {
 import { editorState, injectActions } from '@h-k-dev/angular-email-editor/actions';
 
 import { I18n } from '../../../../../core/translations/i18n';
-import { FormattingItem, formattingItems } from './formatting-items';
+import { FormattingItem, FormattingItemId, formattingItems } from './formatting-items';
 
 /** What the composer hands the commands: the source pane's editor and
     whether it stands in the email editor's place (code view), the html both
@@ -69,6 +69,12 @@ export class FormattingCommands {
       item.label
     );
   }
+
+  /** The buttons the mounted kit has a use for, or null for all of them —
+      the composer says, as it mounts an editor: a snippet's kit has no
+      table to insert, so its bars never show the button. (In code view a
+      button the kit has but the source lacks locks instead.) */
+  readonly offered = signal<ReadonlySet<FormattingItemId> | null>(null);
 
   /** Every formatting button, bound to these commands — defined once; a
       surface picks a layout of them (`layoutEntries`). */

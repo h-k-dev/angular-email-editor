@@ -1,16 +1,14 @@
 @use '@h-k-dev/angular-email-editor/styles/scroll';
 @use '../../../../styles/breakpoints' as bp;
 
-// The aside and the page beside it, the whole viewport (the shell's <main>,
-// whose stretched flex size is definite, so 100% resolves): the page
-// scrolls on its own sheet, the aside holds still. Aside or rail
-// (`data-collapsed`) snaps: no transition anywhere here, on purpose.
+// The aside and the page beside it, at least the viewport: the page
+// scrolls the document (app.scss), the aside holds still beside it. Aside
+// or rail (`data-collapsed`) snaps: no transition anywhere here, on purpose.
 :host {
   position: relative;
   display: grid;
   grid-template-columns: 232px minmax(0, 1fr);
-  block-size: 100%;
-  min-block-size: 0;
+  min-block-size: 100dvh;
   box-sizing: border-box;
 }
 
@@ -40,8 +38,9 @@
   }
 }
 
-// Linear's aside, the viewport's height: no surface of its own (the
-// shell's shows through) — its head, its places, its foot.
+// Linear's aside, the viewport's height, held there while the document
+// scrolls: no surface of its own (the shell's shows through) — its head,
+// its places, its foot.
 // Its end edge, Linear's way: the places' scrollbar gutter (a stable one,
 // the scroll mixin's) is the aside's end padding, and the head and foot
 // keep the same inset — so Compose, the settings and a place's hover wash
@@ -49,10 +48,13 @@
 .mailbox-aside {
   --_end: var(--email-scroll-size, 8px);
 
+  position: sticky;
+  inset-block-start: 0;
+  align-self: start;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-block-size: 0;
+  block-size: 100dvh;
   min-inline-size: 0;
   padding-block: 8px;
   padding-inline: 8px 0;
@@ -60,10 +62,12 @@
 }
 
 // A phone's aside, opened: over the page, the aside's own width, on the
-// chrome's surface, lifted — under it a scrim.
+// chrome's surface, lifted — under it a scrim. Both fixed to the viewport
+// wherever the document stands; the document holds still under them
+// (styles.scss).
 :host([data-over]) .mailbox-aside {
-  position: absolute;
-  inset-block: 0;
+  position: fixed;
+  inset-block-start: 0;
   inset-inline-start: 0;
   z-index: 2;
   inline-size: 232px;
@@ -72,7 +76,7 @@
 }
 
 .mailbox-scrim {
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: 1;
   background: color-mix(in srgb, var(--mat-sys-scrim) 32%, transparent);
@@ -138,6 +142,7 @@
   gap: 12px;
   min-block-size: 0;
   overflow-y: auto;
+  overscroll-behavior-y: contain;
   @include scroll.scroll;
 
   :host([data-collapsed]) & {
@@ -360,15 +365,14 @@
 // The page's sheet, Notion's: the rest of the viewport, top to bottom and
 // out to the edge — no gap round it, no corner, no lift, no line between it
 // and the aside: the surfaces alone tell the two apart (the page's white on
-// Notion's sidebar, Linear's panel on its app). Its page scrolls here.
+// Notion's sidebar, Linear's panel on its app). Not a scroller: its page
+// scrolls the document — or, a frame, inside itself (app.scss).
 .mailbox-main {
   // Its own column always: an aside lying over the page leaves the flow,
   // and auto-placement would slide the page into the rail's column.
   grid-column: 2;
-  min-block-size: 0;
-  overflow-y: auto;
+  min-inline-size: 0;
   background: var(--mat-sys-surface-bright);
-  @include scroll.scroll;
 
   // A phone: the only column.
   @include bp.phone {

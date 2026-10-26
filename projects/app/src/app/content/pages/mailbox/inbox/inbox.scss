@@ -5,9 +5,10 @@
 // A mail client's two panes: the list, as wide as its divider was dragged
 // (`--inbox-list-width`), and the pane with the open message beside it,
 // which keeps 720px whatever the list asks (INBOX_READER_MIN, the handle's
-// `splitKeep`) — the email renders no narrower — each scrolling on its own.
-// On a phone there is one at a time: the list, or — while a message is open
-// (`data-reading`) — the message in its place.
+// `splitKeep`) — the email renders no narrower — each scrolling on its own:
+// a frame (app.scss). On a phone there is one at a time: the list, or —
+// while a message is open (`data-reading`) — the message in its place, and
+// that one scrolls the document, so a pull at its top refreshes.
 :host {
   // The list's track, and where the divider stands: one expression, so the
   // two never part. The message keeps 720px; only where the page cannot
@@ -17,12 +18,14 @@
   position: relative;
   display: grid;
   grid-template-columns: var(--_list-track) minmax(0, 1fr);
-  block-size: 100%;
+  block-size: var(--app-frame);
   min-block-size: 0;
   box-sizing: border-box;
 
   @include bp.phone {
     grid-template-columns: minmax(0, 1fr);
+    block-size: auto;
+    min-block-size: 100dvh;
   }
 }
 
@@ -90,11 +93,25 @@
   flex: 1 0 auto;
 }
 
-// A phone: the list, until a message opens — then the message alone.
+// A phone: the list, until a message opens — then the message alone, each
+// in the document's scroll instead of its own. The list's header stays at
+// the top over it.
 @include bp.phone {
   :host(:not([data-reading])) .inbox-pane,
   :host([data-reading]) .inbox-side {
     display: none;
+  }
+
+  .inbox-list,
+  .inbox-pane {
+    overflow: visible;
+  }
+
+  .inbox-side > header {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 1;
+    background: var(--mat-sys-surface-bright);
   }
 }
 

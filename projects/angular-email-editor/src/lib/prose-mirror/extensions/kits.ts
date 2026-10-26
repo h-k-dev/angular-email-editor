@@ -161,7 +161,41 @@ export const plainTextExtensions: Extension[] = [
 ];
 
 /**
- * The parallel source-editor kit: the document is HTML source text, one
+ * A snippet — a piece of text kept to drop into any message at the caret
+ * (`insertSnippet`): words and their formatting, nothing a message is laid
+ * out with. Lines (the email kit's `<div>` lines), marks — bold, italic,
+ * underline, strike, links, the text style's font, size and colours —
+ * lists, and merge tags; no headings, quotes, tables, columns, sections,
+ * images, buttons, dividers or spacers, so neither a shortcut, an input
+ * rule nor a paste can bring one in (HTML is read down to its text). What
+ * the editor publishes is email HTML any email kit reads as it is.
+ */
+export const snippetExtensions: Extension[] = [
+  Document,
+  EmailParagraph,
+  Text,
+  HardBreak,
+  MergeTag,
+  BulletList,
+  OrderedList,
+  ListItem,
+  Bold,
+  Italic,
+  Underline,
+  Link,
+  Strike,
+  TextStyle,
+  History,
+  NoTextDrag,
+  // Before BaseKeymap, as in the email kit: keeps font/colour across Enter.
+  SplitKeepingMarks,
+  BaseKeymap,
+  PasteHygiene,
+  ClearFormatting,
+];
+
+/**
+ * The parallel source-editor kit:the document is HTML source text, one
  * `codeLine` per line, with highlighting, linting and formatting instead of
  * rich-text nodes. Developed alongside the email kit on the same extension
  * contract — only the extension set differs.

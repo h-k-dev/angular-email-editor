@@ -126,7 +126,9 @@ export class FormattingToolbar {
   /** Wide: one dense line with a ⋯; otherwise a phone's scrolling row. */
   protected readonly wide = computed(() => !this.#viewport.compact());
 
-  protected readonly entries = layoutEntries(this.commands.items, LAYOUT);
+  protected readonly entries = computed(() =>
+    layoutEntries(this.commands.items, LAYOUT, this.commands.offered()),
+  );
 
   protected readonly font = createFontState(
     this.commands,
@@ -184,7 +186,7 @@ export class FormattingToolbar {
   protected readonly moreItems = computed<ToolbarMenuItem<FormattingItemId>[]>(() => {
     const from = this.overflow()?.overflowFrom() ?? null;
     if (from === null) return [];
-    return this.entries.slice(from).map(({ item, separated }, i) => ({
+    return this.entries().slice(from).map(({ item, separated }, i) => ({
       value: item.id,
       label: item.title(),
       icon: item.icon,
@@ -208,7 +210,7 @@ export class FormattingToolbar {
   }
 
   protected pressById(id: FormattingItemId, origin: Element): void {
-    const entry = this.entries.find(({ item }) => item.id === id);
+    const entry = this.entries().find(({ item }) => item.id === id);
     if (entry) this.press(entry.item, origin);
   }
 

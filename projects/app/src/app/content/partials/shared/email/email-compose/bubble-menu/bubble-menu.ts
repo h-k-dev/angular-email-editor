@@ -120,7 +120,9 @@ export class BubbleMenu {
 
   readonly #commands = inject(FormattingCommands);
 
-  protected readonly entries = layoutEntries(this.#commands.items, LAYOUT);
+  protected readonly entries = computed(() =>
+    layoutEntries(this.#commands.items, LAYOUT, this.#commands.offered()),
+  );
 
   protected readonly imageEntries = layoutEntries(this.#commands.items, IMAGE_LAYOUT);
 

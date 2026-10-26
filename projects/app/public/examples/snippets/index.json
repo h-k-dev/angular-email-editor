@@ -1,0 +1,36 @@
+{
+  "snippets": [
+    {
+      "name": "Greeting",
+      "file": "snippets/greeting.html"
+    },
+    {
+      "name": "Sign-off",
+      "file": "snippets/sign-off.html"
+    },
+    {
+      "name": "Grußformel",
+      "file": "snippets/grussformel.html"
+    },
+    {
+      "name": "Order thanks",
+      "file": "snippets/order-thanks.html"
+    },
+    {
+      "name": "Parcel on its way",
+      "file": "snippets/parcel-on-its-way.html"
+    },
+    {
+      "name": "Next steps",
+      "file": "snippets/next-steps.html"
+    },
+    {
+      "name": "Never share your code",
+      "file": "snippets/never-share-your-code.html"
+    },
+    {
+      "name": "Unsubscribe line",
+      "file": "snippets/unsubscribe-line.html"
+    }
+  ]
+}

@@ -42,6 +42,7 @@ describe('Templates', () => {
       ['angularjs/3', 'angularjs'],
       ['angularjs/1', 'angularjs'],
       ['handlebars/1', 'handlebars'],
+      ['angularjs/4', 'angularjs'],
     ]);
     expect(rows[2].html).toContain('Platzhalter im Überblick');
   });

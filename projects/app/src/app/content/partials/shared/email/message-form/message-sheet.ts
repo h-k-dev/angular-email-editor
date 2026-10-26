@@ -67,6 +67,7 @@ import { Preferences } from '../../../../../core/storages/preferences';
 import { Viewport } from '../../../../../core/layout/viewport';
 import { EnvelopeRows } from './envelope-rows/envelope-rows';
 import { BLANK, Envelope, hasContent, isBlank } from '../../../../../core/email/envelope';
+import type { TemplateEnvelope } from '../../../../../core/email/templates';
 
 /** What the settings' View toggle shows in the editor's place: the editor,
     or its HTML (code view). */
@@ -389,6 +390,16 @@ export abstract class MessageSheet {
     const untouched = kept !== null && emailPlainText(message.html) === kept.text;
     this.#beforePlain = null;
     this.message.set({ ...message, format, html: untouched ? kept.html : message.html });
+  }
+
+  /** A template from the editor's `/` menu took the body's place: the
+      message takes its From, Subject and preview text too — what Write
+      with this template opens a window with. The recipients, the files
+      and anything else written stay as they are. */
+  protected templatePicked(envelope: TemplateEnvelope): void {
+    this.envelope.from().value.set([...envelope.from]);
+    this.envelope.subject().value.set(envelope.subject);
+    this.envelope.previewText().value.set(envelope.previewText);
   }
 
   /** The editor's appearance, the settings' toggle: a light or dark of its

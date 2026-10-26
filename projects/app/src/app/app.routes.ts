@@ -54,6 +54,29 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./content/pages/mailbox/templates/templates').then((m) => m.TemplateGallery),
       },
+      // The snippets: a list, and the open one beside it (its id bound to
+      // the editor's `id` input) — the inbox's two halves.
+      {
+        path: 'snippets',
+        loadComponent: () =>
+          import('./content/pages/mailbox/snippets/snippets').then((m) => m.SnippetsPage),
+        children: [
+          {
+            path: '',
+            loadComponent: () =>
+              import('./content/partials/atomic/snippets/snippet-empty/snippet-empty').then(
+                (m) => m.SnippetEmpty,
+              ),
+          },
+          {
+            path: ':id',
+            loadComponent: () =>
+              import('./content/partials/atomic/snippets/snippet-editor/snippet-editor').then(
+                (m) => m.SnippetEditor,
+              ),
+          },
+        ],
+      },
       // The references: a page each per aside link (`/api/editor`), its
       // `:page` bound to the component's `page` input. A reference on its
       // own opens at its first page; a page it does not have is nowhere.

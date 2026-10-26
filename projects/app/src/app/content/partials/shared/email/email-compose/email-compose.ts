@@ -54,6 +54,9 @@ import { I18n } from '../../../../../core/translations/i18n';
 import { createAiWriter } from './ai-writer';
 import { MERGE_TAG_SOURCE } from './merge-tag-source';
 import { TEMPLATE_SOURCE, templateGroup } from './template-group';
+import type { TemplateEnvelope } from '../../../../../core/email/templates';
+import { SNIPPET_SOURCE, snippetGroup } from './snippet-group';
+import { SNIPPET_ITEMS } from './formatting-items';
 import { injectDarkPaletteStyle } from './dark-palette-style';
 
 // Library
@@ -89,7 +92,10 @@ import {
   mergeTagTrigger,
   emailExtensions,
   plainTextExtensions,
+  snippetExtensions,
   Extension,
+  ExtensionContext,
+  SuggestionItem,
   createQuotedHistory,
   createPlaceholder,
   PlaceholderText,
@@ -119,6 +125,11 @@ export type EditorColorScheme = 'light' | 'dark';
 /** What a message is written as: HTML (the email kit, formatting and all),
     or plain text — lines, sent as `text/plain` only (`plainTextExtensions`). */
 export type BodyFormat = 'html' | 'text';
+
+/** The kit the composer mounts: a message's format, or a snippet — a piece
+    of formatted text kept to drop into messages (`snippetExtensions`):
+    words, lists and tokens, nothing a message is laid out with. */
+export type ComposeKit = BodyFormat | 'snippet';
 
 /**
  * The composer: the editing surface with the editor mounted on it, and the
@@ -184,6 +195,9 @@ export class EmailCompose implements FormValueControl<string> {
   /** The rows of the slash menu's /templates group — the template store,
       as `TEMPLATE_SOURCE` gives it. */
   readonly #templateSource = inject(TEMPLATE_SOURCE);
+  /** The rows of the slash menu's /snippets group — the snippet store, as
+      `SNIPPET_SOURCE` gives it: each drops its text in at the caret. */
+  readonly #snippetSource = inject(SNIPPET_SOURCE);
 
   /** The example documents the slash menu's /examples group lists. */
   readonly #examples = inject(Examples);
@@ -231,10 +245,10 @@ export class EmailCompose implements FormValueControl<string> {
       mounts a new editor on the other kit, in the old one's place, with
       `value` as it then stands — the host converts it as it switches
       (`plainTextHTML(emailPlainText(html))` into plain text). */
-  format = input<BodyFormat>('html');
+  format = input<ComposeKit>('html');
 
   /** The kit the editor in place was mounted with. */
-  #mountedFormat: BodyFormat | null = null;
+  #mountedFormat: ComposeKit | null = null;
 
   /** How the HTML source shows. Driven from outside — the composer's writer
       bar holds the toggles (in this surface's place, or beside it), and
@@ -352,6 +366,11 @@ export class EmailCompose implements FormValueControl<string> {
   placeholdersFilled = output<MergeTagResolutionReport>();
   /** The evaluator failed; the body is as it was. */
   placeholdersFailed = output<unknown>();
+
+  /** A template from the `/` menu took the body's place: the message round
+      it as the template keeps it, for the host's rows — the editor holds
+      the body only. Not told for a template that keeps none. */
+  templatePicked = output<TemplateEnvelope>();
 
   #capturing = false;
   #captured: SendIntent | undefined;
@@ -689,48 +708,15 @@ export class EmailCompose implements FormValueControl<string> {
         onOpen: (target) => this.columnHandle.set(target),
         label: (number) => this.i18n.t('editor.table.columnOptions', { number }),
       }),
-      // One suggestion menu, a trigger per list: `/` for the kit's commands
-      // and the Templates group, `{{` for the variable catalogue — and any
-      // further one (`@`, `||`) is another entry here, nothing else. Both
-      // sources are server-backed `pagedSource`s, which wait for the typing
-      // to settle and remember their pages; where their sessions overlap,
-      // the trigger nearest the caret opens.
-      createSuggestionMenu({
-        element: this.suggestionMenu().nativeElement,
-        onChange: (state) => this.suggestionState.set(state),
-        triggers: [
-          {
-            trigger: '/',
-            // Functions: asked whenever the menu opens, so a language
-            // switch is heard without re-creating anything.
-            label: () => this.i18n.t('editor.menu.slash.label'),
-            placeholder: () => this.i18n.t('editor.menu.slash.placeholder'),
-            // Rows by id — the kit's actions and the two groups below —
-            // in the language in use, searched in it *and* in English.
-            i18n: this.i18n.suggestionLabel,
-            items: (ctx) =>
-              bySection(
-                [
-                  ...extensionSuggestions(ctx),
-                  ...colorSuggestions(ctx, this.#palette),
-                  templateGroup(this.#templateSource),
-                  examplesGroup(this.#examples),
-                ],
-                SLASH_SECTIONS,
-              ),
-            // The sections' headings, in the language in use — the
-            // library words what the dictionary leaves out.
-            sections: (id) => this.i18n.lookup(`editor.menu.sections.${id}`),
-          },
-          // `{{` right after any character, a path as the query, and never
-          // for a caret inside a token already written: the preset's.
-          mergeTagTrigger({
-            label: () => this.i18n.t('editor.menu.tokens.label'),
-            placeholder: () => this.i18n.t('editor.menu.tokens.placeholder'),
-            source: this.#mergeTagSource,
-          }),
-        ],
-      }),
+      // The kit's commands under `/`, and the stores' groups: a template
+      // takes the body's place, a snippet joins the line at the caret.
+      this.#suggestionMenu([
+        templateGroup(this.#templateSource, ({ envelope }) => {
+          if (envelope) this.templatePicked.emit(envelope);
+        }),
+        snippetGroup(this.#snippetSource),
+        examplesGroup(this.#examples),
+      ]),
       // The dialect is the sponsor's: AngularJS expressions. Opt-in — a
       // Handlebars host installs its own dialect here instead.
       createAngularExpressions({ onDiagnostics: (d) => this.expressionDiagnostics.set(d) }),
@@ -773,6 +759,76 @@ export class EmailCompose implements FormValueControl<string> {
     ];
   }
 
+  /** The kit a snippet is written with: words and their formatting on the
+      snippet kit, and what writing them takes — the words on an empty
+      line, the bubble menu, `/` for the kit's own commands (lists,
+      colours) and `{{` for tokens, the dialect's diagnostics. No
+      template, snippet or example to drop in, nothing to send. */
+  #snippetKit(): Extension[] {
+    return [
+      ...snippetExtensions,
+      createPlaceholder({ text: this.placeholder() }),
+      createBubbleMenu({
+        updateDelay: 150,
+        onStateChange: (state) => this.bubbleMenuState.set(state),
+      }),
+      // Its `/` rows, less the layout section: a list made for a message's
+      // layout (flush, no room round it) is no snippet's.
+      this.#suggestionMenu([], (item) => item.section !== 'layout'),
+      createAngularExpressions({ onDiagnostics: (d) => this.expressionDiagnostics.set(d) }),
+      createTextMetrics({ onMetrics: (metrics) => this.bodyMetrics.set(metrics) }),
+    ];
+  }
+
+  /**
+   * One suggestion menu, a trigger per list: `/` for the kit's commands,
+   * its colours and the groups it is handed, `{{` for the variable
+   * catalogue — and any further one (`@`, `||`) is another entry here,
+   * nothing else. The groups' sources are server-backed `pagedSource`s,
+   * which wait for the typing to settle and remember their pages; where
+   * the triggers' sessions overlap, the one nearest the caret opens.
+   */
+  #suggestionMenu(
+    groups: readonly SuggestionItem[],
+    keep: (item: SuggestionItem) => boolean = () => true,
+  ): Extension {
+    return createSuggestionMenu({
+      element: this.suggestionMenu().nativeElement,
+      onChange: (state) => this.suggestionState.set(state),
+      triggers: [
+        {
+          trigger: '/',
+          // Functions: asked whenever the menu opens, so a language
+          // switch is heard without re-creating anything.
+          label: () => this.i18n.t('editor.menu.slash.label'),
+          placeholder: () => this.i18n.t('editor.menu.slash.placeholder'),
+          // Rows by id — the kit's actions and the groups — in the
+          // language in use, searched in it *and* in English.
+          i18n: this.i18n.suggestionLabel,
+          items: (ctx: ExtensionContext) =>
+            bySection(
+              [
+                ...extensionSuggestions(ctx),
+                ...colorSuggestions(ctx, this.#palette),
+                ...groups,
+              ].filter(keep),
+              SLASH_SECTIONS,
+            ),
+          // The sections' headings, in the language in use — the
+          // library words what the dictionary leaves out.
+          sections: (id) => this.i18n.lookup(`editor.menu.sections.${id}`),
+        },
+        // `{{` right after any character, a path as the query, and never
+        // for a caret inside a token already written: the preset's.
+        mergeTagTrigger({
+          label: () => this.i18n.t('editor.menu.tokens.label'),
+          placeholder: () => this.i18n.t('editor.menu.tokens.placeholder'),
+          source: this.#mergeTagSource,
+        }),
+      ],
+    });
+  }
+
   /** The quoted history, in the language in use (labels are asked as the
       widget draws). */
   #quotedHistory(): Extension {
@@ -800,11 +856,19 @@ export class EmailCompose implements FormValueControl<string> {
   #mountEditor(): void {
     const format = this.format();
     this.#mountedFormat = format;
+    // The bars show what this kit can do: a snippet's has no table.
+    this.#commands.offered.set(format === 'snippet' ? SNIPPET_ITEMS : null);
+    const kit =
+      format === 'text'
+        ? this.#plainTextKit()
+        : format === 'snippet'
+          ? this.#snippetKit()
+          : this.#htmlKit();
     const editor = createEditor({
       parent: this.editorHost().nativeElement,
       extensions: [
-        ...(format === 'text' ? this.#plainTextKit() : this.#htmlKit()),
-        // Either kit: the caret scrolls clear of the floating foot.
+        ...kit,
+        // Every kit: the caret scrolls clear of the floating foot.
         footClearance(this.#footRoom),
       ],
       attributes: { role: 'textbox', 'aria-multiline': 'true', 'aria-label': 'Message body' },

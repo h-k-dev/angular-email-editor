@@ -28,6 +28,15 @@ export const INBOX_LIST_DEFAULT = 400;
     dragged — the email renders no narrower than this. */
 export const INBOX_READER_MIN = 720;
 
+/** How narrow the snippets' list may be dragged, px: a name and a line of
+    its words beside the scrollbar's gutter. Its sanity bound and default
+    are the inbox list's. */
+export const SNIPPET_LIST_MIN = 280;
+
+/** What the open snippet keeps at least, px: the editor's column (600)
+    and its insets. */
+export const SNIPPET_EDITOR_MIN = 640;
+
 /**
  * What the user chose, as two-way signals that survive a reload and reach
  * every tab of the app. The app's own — its theme and language — are
@@ -116,5 +125,11 @@ export class Preferences {
   readonly inboxListWidth = this.#storage.pairSignal(
     `${PREFIX}inbox-list-width`,
     wholeIn(INBOX_LIST_MIN, INBOX_LIST_MAX, INBOX_LIST_DEFAULT),
+  );
+
+  /** How wide the snippets' list is, px — its divider, dragged. */
+  readonly snippetListWidth = this.#storage.pairSignal(
+    `${PREFIX}snippet-list-width`,
+    wholeIn(SNIPPET_LIST_MIN, INBOX_LIST_MAX, INBOX_LIST_DEFAULT),
   );
 }

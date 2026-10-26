@@ -1,10 +1,11 @@
 @use '@h-k-dev/angular-email-editor/styles/scroll';
 
-// The header, then the bench scrolling under it, on the sheet's surface.
+// A frame (app.scss): the header, then the bench scrolling under it, on
+// the sheet's surface.
 :host {
   display: flex;
   flex-direction: column;
-  block-size: 100%;
+  block-size: var(--app-frame);
   min-block-size: 0;
   background: var(--mat-sys-surface-bright);
   color: var(--mat-sys-on-surface);

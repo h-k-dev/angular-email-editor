@@ -44,7 +44,7 @@
       }
       @default {
         <div class="bubble-menu__tools" animate.enter="bubble-menu__tools--in">
-          <ng-container *ngTemplateOutlet="buttons; context: { $implicit: entries, lead: false }" />
+          <ng-container *ngTemplateOutlet="buttons; context: { $implicit: entries(), lead: false }" />
         </div>
       }
     }

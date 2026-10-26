@@ -1,0 +1,66 @@
+<!-- The pane's header: on a phone led by the way back to the list, in the
+     aside opener's place; then whether the snippet is saved, and taking it
+     out. -->
+<header page-header [frameLead]="!backButton()">
+  @if (backButton()) {
+    <button
+      matIconButton
+      type="button"
+      [attr.aria-label]="'snippets.back' | translate"
+      [matTooltip]="'snippets.back' | translate"
+      (click)="back()"
+    >
+      <mat-icon>arrow_back</mat-icon>
+    </button>
+  }
+  <span class="snippet-status" role="status">
+    @if (status(); as status) {
+      {{ status | translate }}
+    }
+  </span>
+  @if (snippet()) {
+    <button
+      matIconButton
+      type="button"
+      [attr.aria-label]="'snippets.delete' | translate"
+      [matTooltip]="'snippets.delete' | translate"
+      (click)="remove()"
+    >
+      <mat-icon>delete</mat-icon>
+    </button>
+  }
+</header>
+
+<!-- The snippet: its name, a document's title, over its text — the
+     composer on the snippet kit, with no toolbar, ever: a snippet is
+     formatted by its selection's bubble menu, the keys and `/`. A composer
+     of its own per snippet. -->
+@for (one of open(); track one.id) {
+  <div class="snippet-sheet" (keydown.control.s)="saveNow($event)" (keydown.meta.s)="saveNow($event)">
+    <input
+      #nameField
+      class="snippet-name"
+      type="text"
+      [value]="name()"
+      [placeholder]="'snippets.untitled' | translate"
+      [attr.aria-label]="'snippets.name' | translate"
+      (input)="rename($event)"
+      (keydown)="nameKey($event, compose)"
+    />
+    <section
+      email-compose
+      #compose
+      class="snippet-text"
+      tabindex="-1"
+      format="snippet"
+      [toolbar]="false"
+      [(value)]="html"
+      [colorScheme]="paper()"
+      [placeholder]="placeholders()"
+    ></section>
+  </div>
+} @empty {
+  @if (missing()) {
+    <p class="snippet-note">{{ 'snippets.missing' | translate }}</p>
+  }
+}

@@ -417,6 +417,12 @@
   &:has(> input:checked) {
     color: var(--mat-sys-on-surface);
   }
+
+  // A kind the page cannot go back to (rows are one way): in sight, off.
+  &:has(> input:disabled) {
+    cursor: default;
+    opacity: 0.38;
+  }
 }
 
 .designer-layout__swatch {
@@ -474,6 +480,38 @@
     border-radius: var(--mat-sys-corner-extra-small);
     background: var(--email-paper, var(--mat-sys-surface-bright));
     box-shadow: 0 0 0 1px var(--mat-sys-outline-variant);
+  }
+
+  // Rows: the same column cut across, every line in a row of its own, the
+  // first one filled — a band.
+  [data-kind='table'] > & {
+    inline-size: 56%;
+    gap: 0;
+    overflow: hidden;
+    border-radius: var(--mat-sys-corner-extra-small);
+    background: var(--email-paper, var(--mat-sys-surface-bright));
+    box-shadow: 0 0 0 1px var(--mat-sys-outline-variant);
+
+    > span {
+      flex: 1;
+      inline-size: auto;
+      block-size: auto;
+      border-radius: 0;
+      background: linear-gradient(var(--mat-sys-outline-variant), var(--mat-sys-outline-variant))
+        6px 50% / calc(100% - 12px) 4px no-repeat;
+    }
+
+    > span + span {
+      border-block-start: 1px solid var(--mat-sys-outline-variant);
+    }
+
+    > span:first-child {
+      background-color: var(--mat-sys-surface-container-highest);
+    }
+
+    > span:last-child {
+      background-size: 60% 4px;
+    }
   }
 }
 

@@ -249,6 +249,26 @@ export function formattingItems(
   ) as Record<FormattingItemId, FormattingItem>;
 }
 
+/** The buttons a snippet's kit (`snippetExtensions`) has a use for: its
+    words' formatting, links and lists — no quote, table, button or image. */
+export const SNIPPET_ITEMS: ReadonlySet<FormattingItemId> = new Set<FormattingItemId>([
+  'bold',
+  'italic',
+  'underline',
+  'strike',
+  'uppercase',
+  'color',
+  'link',
+  'bulleted-list',
+  'numbered-list',
+  'outdent',
+  'indent',
+  'align-left',
+  'align-center',
+  'align-right',
+  'clear-formatting',
+]);
+
 /** A layout as a flat run of buttons, each knowing whether a new group
     starts with it (`separated`) and whether that group is wide-only
     through and through — then its divider goes with it on a phone, so two
@@ -256,8 +276,14 @@ export function formattingItems(
 export function layoutEntries(
   items: Record<FormattingItemId, FormattingItem>,
   layout: FormattingLayout,
+  offered: ReadonlySet<FormattingItemId> | null = null,
 ): { item: FormattingItem; separated: boolean; groupWide: boolean }[] {
-  return layout.flatMap((group, g) =>
+  // Only what the kit offers (`FormattingCommands.offered`): a group left
+  // with nothing goes, divider and all.
+  const groups = offered
+    ? layout.map((group) => group.filter((id) => offered.has(id))).filter((group) => group.length)
+    : layout;
+  return groups.flatMap((group, g) =>
     group.map((id, i) => ({
       item: items[id],
       separated: g > 0 && i === 0,

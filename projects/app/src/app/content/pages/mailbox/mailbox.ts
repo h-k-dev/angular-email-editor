@@ -10,7 +10,6 @@ import { TranslatePipe } from '@ngx-translate/core';
 
 import { ComposeWindows } from '../../../core/email/compose-windows';
 import { ReceivedMail } from '../../../core/email/mailbox/received-mail';
-import { PageScrollerSheet } from '../../../core/router/page-scroller';
 import { Preferences } from '../../../core/storages/preferences';
 import { MailboxAside } from '../../partials/atomic/mailbox/mailbox-aside';
 import { MailboxOpener } from '../../partials/atomic/mailbox/mailbox-opener';
@@ -91,7 +90,6 @@ const pageLinks = (base: string, pages: readonly DocPageLink[]): MailboxLink[] =
     RouterLink,
     RouterLinkActive,
     RouterOutlet,
-    PageScrollerSheet,
     LanguageMenu,
     ThemeToggle,
   ],
@@ -191,7 +189,10 @@ export class Mailbox {
       id: 'designer',
       key: 'app.nav.designer',
       open: this.#preferences.asideDesignerOpen,
-      items: [{ kind: 'link', path: '/templates', icon: 'grid_view', key: 'app.nav.templates' }],
+      items: [
+        { kind: 'link', path: '/templates', icon: 'grid_view', key: 'app.nav.templates' },
+        { kind: 'link', path: '/snippets', icon: 'short_text', key: 'app.nav.snippets' },
+      ],
     },
     {
       id: 'developers',

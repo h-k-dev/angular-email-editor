@@ -1,0 +1,203 @@
+@use '@h-k-dev/angular-email-editor/styles/scroll';
+@use '../../../../../styles/breakpoints' as bp;
+@use '../../../../../styles/split-handle';
+
+// The inbox's two panes: the list, as wide as its divider was dragged
+// (`--snippets-list-width`), and the open snippet beside it, which keeps
+// its editor's column whatever the list asks (SNIPPET_EDITOR_MIN, the
+// handle's `splitKeep`): a frame (app.scss). On a phone there is one at a
+// time: the list, scrolling the document — or, while a snippet is open
+// (`data-editing`), the snippet in its place, a frame again: its text
+// scrolls in the composer, the toolbar on the keyboard.
+:host {
+  --_list-track: max(280px, min(var(--snippets-list-width, 400px), 100% - 640px));
+
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--_list-track) minmax(0, 1fr);
+  block-size: var(--app-frame);
+  min-block-size: 0;
+  box-sizing: border-box;
+
+  @include bp.phone {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@include bp.phone {
+  :host(:not([data-editing])) {
+    block-size: auto;
+    min-block-size: 100dvh;
+  }
+}
+
+:host([data-resizing]) {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.snippets-divider {
+  @include split-handle.handle;
+  inset-inline-start: calc(var(--_list-track) - 4px);
+
+  @include bp.phone {
+    display: none;
+  }
+}
+
+.snippets-side,
+.snippets-pane {
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+  min-inline-size: 0;
+}
+
+.snippets-title {
+  flex: 1;
+  margin: 0;
+  padding-inline: 8px;
+  font: var(--mat-sys-title-medium);
+}
+
+// Linear's search: a quiet field under the header, the list's width.
+.snippets-search {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  // Lined up with the rows: the list's gutter either side, the icon where
+  // a row's words start.
+  margin: 4px var(--email-scroll-size, 8px) 8px;
+  padding-inline: 12px;
+  block-size: 32px;
+  border-radius: var(--mat-sys-corner-small);
+  background: var(--mat-sys-surface-container);
+  color: var(--mat-sys-on-surface-variant);
+
+  &:focus-within {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: -2px;
+  }
+}
+
+.snippets-search__icon {
+  --mat-icon-size: 20px;
+  flex: none;
+  inline-size: 20px;
+  block-size: 20px;
+  font-size: 20px;
+}
+
+.snippets-search__field {
+  flex: 1;
+  min-inline-size: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
+
+  &::placeholder {
+    color: var(--mat-sys-placeholder, var(--mat-sys-on-surface-variant));
+  }
+
+  // The field says nothing more than the text it holds: no browser ×.
+  &::-webkit-search-cancel-button {
+    display: none;
+  }
+}
+
+// Its start padding is the scrollbar's stable gutter mirrored, so a row's
+// wash sits balanced between the two.
+.snippets-list {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow-y: auto;
+  padding-inline-start: var(--email-scroll-size, 8px);
+  padding-block-end: 12px;
+
+  ul {
+    display: grid;
+    row-gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+}
+
+// A row: the name, and what it says under it — two lines at the most, as
+// the words read, tokens and all. Space parts the rows, no line.
+.snippets-row {
+  display: grid;
+  row-gap: 2px;
+  padding: 8px 12px;
+  border-radius: var(--mat-sys-corner-small);
+  color: var(--mat-sys-on-surface-variant);
+  text-decoration: none;
+
+  &:hover {
+    background-color: color-mix(in oklch, var(--mat-sys-on-surface) 5%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: -2px;
+  }
+}
+
+.snippets-row__name {
+  overflow: hidden;
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.snippets-row__preview {
+  display: -webkit-box;
+  overflow: hidden;
+  font: var(--mat-sys-body-small);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+// The open one: Linear's selected row — a fill, a step up from the hover.
+.snippets-row--open,
+.snippets-row--open:hover {
+  background-color: color-mix(in oklch, var(--mat-sys-on-surface) 9%, transparent);
+}
+
+.snippets-empty {
+  margin: 0;
+  padding: 12px;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+}
+
+// The snippet's half is paper, header included: the island's paper.
+.snippets-pane {
+  background: var(--email-paper, var(--mat-sys-surface-bright));
+  color: var(--mat-sys-on-surface);
+  @include scroll.scroll;
+}
+
+@include bp.phone {
+  :host(:not([data-editing])) .snippets-pane,
+  :host([data-editing]) .snippets-side {
+    display: none;
+  }
+
+  .snippets-list {
+    overflow: visible;
+  }
+
+  .snippets-side > header {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 1;
+    background: var(--mat-sys-surface-bright);
+  }
+}

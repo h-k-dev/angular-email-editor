@@ -119,6 +119,7 @@
               name="designer-layout-kind"
               [value]="kind"
               [checked]="(layout?.kind ?? 'none') === kind"
+              [disabled]="layout?.kind === 'table' && kind !== 'table'"
               (change)="setLayoutKind(kind)"
             />
             <span class="designer-layout__swatch" [attr.data-kind]="kind" aria-hidden="true">
@@ -130,6 +131,11 @@
           </label>
         }
       </div>
+      <!-- Rows are one way (the library's page of rows): the other kinds
+           stay in sight, disabled, and this says why. -->
+      @if (layout?.kind === 'table') {
+        <p class="designer-block__empty">{{ 'designer.layout.rowsHint' | translate }}</p>
+      }
 
       @if (layout) {
         <label class="designer-layout__row">
@@ -332,6 +338,7 @@
       [formField]="envelope.html"
       [(quoted)]="quoted"
       (placeholdersFilled)="placeholdersFilled($event)"
+      (templatePicked)="templatePicked($event)"
       (placeholdersFailed)="placeholdersFailed()"
       (fileDrop)="onAttachmentDrop($event)"
       [(sourceView)]="sourceView"

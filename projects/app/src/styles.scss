@@ -36,13 +36,34 @@ html {
   --email-chat-input-placeholder-color: var(--mat-sys-placeholder);
 }
 
+/* The document is the page's scroller (app.scss): a phone pulls it down to
+ * refresh. At least the viewport, as tall as the page beyond that. */
 html,
 body {
-  height: 100%;
+  min-height: 100%;
   margin: 0;
 
   background: var(--mat-sys-surface);
   color: var(--mat-sys-on-surface);
+}
+
+/* The document's scrollbar, the library's — but no stable gutter: a frame
+ * page (the landing, the inbox's panes) never scrolls the document, and a
+ * gutter kept for nothing would stand down its edge beside the paper. And
+ * sideways overscroll left to the browser: on the document it is the swipe
+ * back a page. Its canvas — the scrollbar's track, an overscroll's bounce —
+ * is the page's sheet (`.mailbox-main`); the body under the aside keeps the
+ * shell's surface. */
+html {
+  @include scroll.scroll;
+  scrollbar-gutter: auto;
+  overscroll-behavior-x: auto;
+  background: var(--mat-sys-surface-bright);
+}
+
+/* A phone's aside lying over the page holds the page still under it. */
+html:has(app-mailbox[data-over]) {
+  overflow: hidden;
 }
 
 /* The type goes on <body>, never on <html>: body-medium is 0.875rem, and a
@@ -57,11 +78,15 @@ body {
 /* The shell is the <body> (index.html), and it carries the theme class: every
  * --mat-sys-* value is a light-dark() pair, so flipping color-scheme here
  * re-resolves the whole theme — nothing else has to know. The App component
- * seeds the class from the OS preference and the toolbar toggle takes over. */
+ * seeds the class from the OS preference and the toolbar toggle takes over.
+ * The <html> follows it: its canvas and the document's scrollbar are its own
+ * light-dark() pairs. */
+html,
 body {
   color-scheme: light;
 }
 
+html:has(> body.dark-mode),
 body.dark-mode {
   color-scheme: dark;
 }
@@ -453,6 +478,20 @@ html {
 
   &:has(> .aee-section:first-child) {
     padding-block-start: 0;
+  }
+}
+
+/* A page of rows (`table`): the column is its rows and ends with the last
+ * one — below it is page, as in the email, not column to write in. So no
+ * column down the root: the page's colour over the paper's (the paper
+ * rules' own anchor, so this wins), each plain row in the column's colour,
+ * a filled one in its own (inline, over this). */
+.email-compose__editor > .aee-editor.aee-page-layout[data-page-layout='table'] {
+  background-image: none;
+  background-color: var(--aee-page-fill);
+
+  > .aee-section {
+    background-color: var(--aee-page-column-fill);
   }
 }
 

@@ -4,11 +4,11 @@ import { NavigationSkipped, NavigationSkippedCode, Router } from '@angular/route
 
 /**
  * The router's scrolling (`withInMemoryScrolling`: a URL's #fragment
- * scrolled to, the place a back press returns to remembered) on the sheet
- * the page really scrolls in. Angular's own scroller only knows the window,
- * and in the mailbox the window never scrolls — its page does, beside the
- * aside (`[pageScroller]`). With no sheet attached (the landing) it is the
- * window again, as Angular's.
+ * scrolled to, the place a back press returns to remembered) on whatever
+ * the page really scrolls in. The app's pages scroll the document (app.scss),
+ * as Angular's own scroller expects; a page that scrolls on a sheet of its
+ * own instead attaches it (`[pageScroller]`) and the scrolling happens
+ * there while it is on the page.
  *
  * Provided as the app's `ViewportScroller`, so the router needs nothing
  * else: forward navigations start at the top, a #fragment lands on its

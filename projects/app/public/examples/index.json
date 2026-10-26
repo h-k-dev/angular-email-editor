@@ -65,6 +65,15 @@
             "subject": "Your parcel from {{ shipment.merchant }} is on its way",
             "previewText": "Expected {{ shipment.eta }}, {{ shipment.window }}. Not at home? Change it for free."
           }
+        },
+        {
+          "name": "Welcome",
+          "file": "angularjs/welcome.html",
+          "envelope": {
+            "from": ["hello@example.com"],
+            "subject": "Welcome to {{ company.name }}, {{ firstName }}",
+            "previewText": "Your account is ready. Finish your profile in a minute."
+          }
         }
       ]
     },

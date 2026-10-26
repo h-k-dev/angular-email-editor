@@ -43,6 +43,7 @@ import {
   emailBackgroundPalette,
   pageLayoutOf,
   samePageLayout,
+  tablePageLayout,
 } from '@h-k-dev/angular-email-editor';
 import { editorState } from '@h-k-dev/angular-email-editor/actions';
 import { AttachmentChip, AttachmentChipIcon } from '@h-k-dev/angular-email-editor/attachment-chip';
@@ -269,7 +270,7 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
   protected readonly filesOpen = signal(true);
 
   /** The page layouts, as the Layout tab's swatches offer them. */
-  protected readonly layoutKinds = ['none', 'centered'] as const;
+  protected readonly layoutKinds = ['none', 'centered', 'table'] as const;
 
   /** The email's page layout, as its editor holds it — null for none. The
       same layout reads as no change, so a keystroke redraws nothing here. */
@@ -435,10 +436,14 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
     this.message.set(clean);
   }
 
-  /** The layout's kind: a centred column — the one it had, else the
-      newsletter's default — or none. */
+  /** The layout's kind: a centred column or rows — the page it had, else
+      the newsletter's default — or none. Rows are one way: the editor
+      refuses to take them back to a free column, and the swatches say so. */
   protected setLayoutKind(kind: string): void {
-    this.#setLayout(kind === 'centered' ? (this.pageLayout() ?? centeredPageLayout()) : null);
+    const page = this.pageLayout() ?? centeredPageLayout();
+    if (kind === 'centered') this.#setLayout({ ...page, kind: 'centered' });
+    else if (kind === 'table') this.#setLayout(tablePageLayout(page));
+    else this.#setLayout(null);
   }
 
   /** The column's width, as the field says it — snapped to its grid. */

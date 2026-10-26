@@ -1,0 +1,59 @@
+// The pane, whole: the header, and the snippet under it filling the rest —
+// its text scrolls in the composer, the toolbar stays at its foot.
+:host {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-block-size: 0;
+}
+
+.snippet-status {
+  flex: 1;
+  padding-inline: 8px;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-small);
+}
+
+// The editor's column (600–720, the document layout's), centred in the
+// pane, the name over the text.
+.snippet-sheet {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-block-size: 0;
+  box-sizing: border-box;
+  inline-size: 100%;
+  max-inline-size: var(--email-column-max, 720px);
+  margin-inline: auto;
+  padding-block-start: 24px;
+}
+
+// A document's title, Notion's: no box, the words alone.
+.snippet-name {
+  flex: none;
+  margin: 0 0 8px;
+  // The text's own inset (email-compose.scss), so the two start in line.
+  padding: 0 var(--email-compose-surface-padding-inline, var(--mat-sys-inner-spacing));
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-headline-small);
+
+  &::placeholder {
+    color: var(--mat-sys-placeholder, var(--mat-sys-on-surface-variant));
+  }
+}
+
+.snippet-text {
+  flex: 1 1 auto;
+  min-block-size: 0;
+}
+
+.snippet-note {
+  margin: 0;
+  padding: 24px;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+  text-align: center;
+}

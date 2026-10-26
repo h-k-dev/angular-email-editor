@@ -1,8 +1,9 @@
-// The page's header on top, the two boxes filling the rest.
+// A frame (app.scss): the page's header on top, the two boxes filling the
+// rest, each scrolling inside itself.
 :host {
   display: flex;
   flex-direction: column;
-  block-size: 100%;
+  block-size: var(--app-frame);
   min-block-size: 0;
 }
 

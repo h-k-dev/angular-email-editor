@@ -264,11 +264,24 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+
+  // With a detail beside it: the name at its own width, up to most of the
+  // row, and the detail in what is left (below).
+  &:has(+ .email-compose__suggestion-detail) {
+    flex: 0 1 auto;
+    max-width: 70%;
+  }
 }
 
-// A merge tag's token, beside its label.
+// A merge tag's token, beside its label — or a snippet's words, cut short
+// where the row ends; at the row's end either way.
 .email-compose__suggestion-detail {
-  flex: none;
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: end;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   padding-inline-start: 16px;
   color: var(--mat-sys-on-surface-variant, #777777);
   font: var(--mat-sys-body-small, inherit);

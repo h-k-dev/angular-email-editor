@@ -1,25 +1,37 @@
 import { EditorState, Plugin, PluginKey, TextSelection, Transaction } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { defineExtension } from '../extension';
+import { isRowsPage } from './page-layout';
 
 /** The line a click below made, while it is still unused — its position. */
 type Made = number | null;
 
 const clickBelowKey = new PluginKey<Made>('clickBelow');
 
-/** Whether the node at the document's end is an empty paragraph — a line
+/** Where a line below everything goes: the document's end — or, on a page
+    of rows, the last row's: no line stands outside a row there. */
+function lineEnd(state: EditorState): number {
+  const last = state.doc.lastChild;
+  return isRowsPage(state) && last?.type.name === 'section'
+    ? state.doc.content.size - 1
+    : state.doc.content.size;
+}
+
+/** Whether the node at the end (`lineEnd`) is an empty paragraph — a line
     already there to type in. */
 function emptyLastLine(state: EditorState): number | null {
-  const last = state.doc.lastChild;
+  const end = lineEnd(state);
+  const last = state.doc.resolve(end).nodeBefore;
   if (!last || last.type.name !== 'paragraph' || last.content.size) return null;
-  return state.doc.content.size - last.nodeSize;
+  return end - last.nodeSize;
 }
 
 /**
  * Notion's click below the last block: the caret goes onto a fresh line
  * there — the empty line already at the end, or a new one — so the next
  * thing typed goes under everything, whatever the last block is (a heading,
- * a table, an image). `clientY` is the click's; a click that is not below
+ * a table, an image) — on a page of rows, in the last row, since no line
+ * stands outside one. `clientY` is the click's; a click that is not below
  * the last block is not this one, and nothing happens (`false`). So does a
  * kit without {@link ClickBelow}.
  *
@@ -46,7 +58,7 @@ export function clickBelow(view: EditorView, clientY: number): boolean {
   } else {
     const line = state.schema.nodes['paragraph']?.createAndFill();
     if (!line) return false;
-    const end = state.doc.content.size;
+    const end = lineEnd(state);
     tr = state.tr.insert(end, line);
     tr.setSelection(TextSelection.create(tr.doc, end + 1));
     tr.setMeta(clickBelowKey, end).setMeta('addToHistory', false);

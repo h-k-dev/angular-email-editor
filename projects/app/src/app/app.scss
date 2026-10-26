@@ -1,38 +1,40 @@
-// Shell fits the viewport; <main> holds the page, which scrolls itself.
-// Minus the virtual keyboard: where the browser does not shrink the layout
-// viewport for it (iOS), the Viewport service measures the cover and the
-// shell gives it up — so anything anchored to the bottom (the composer's
-// toolbar) rides up above the keys instead of hiding behind them.
+// The shell is at least the viewport and grows with its page: the
+// document scrolls, so a phone's own pull-to-refresh, its address bar
+// sliding away and the router's scroll restore all work as on any site.
+//
+// A page you work in rather than read — the composer, a playground, the
+// inbox's panes — is a frame instead: `block-size: var(--app-frame)`, the
+// viewport minus the virtual keyboard, scrolling inside itself. Where the
+// browser does not shrink the layout viewport for the keyboard (iOS), the
+// Viewport service measures the cover and the frame gives it up — so
+// anything anchored to its bottom (the composer's toolbar) rides up above
+// the keys instead of hiding behind them.
 :host {
+  --app-frame: calc(100dvh - var(--keyboard-inset, 0px));
+
   position: relative;
   display: flex;
   flex-direction: column;
-  height: calc(100dvh - var(--keyboard-inset, 0px));
-  overflow: hidden;
+  min-block-size: 100dvh;
 }
 
-// The floating Compose: a phone's (below). Positioned in the shell, not the
-// viewport, so it rides up with the shell above the virtual keyboard — and
-// clear of the composer's toolbar, the 40px bar on the phone's foot
-// (formatting-toolbar.scss), which it must never cover.
+// The floating Compose: a phone's (below). Fixed to the viewport, however
+// far the document is scrolled, and up by the keyboard's cover, so it rides
+// above the keys — and clear of the composer's toolbar, the 40px bar on
+// the phone's foot (formatting-toolbar.scss), which it must never cover.
 .app-fab {
   display: none;
-  position: absolute;
+  position: fixed;
   inset-inline-end: 16px;
-  inset-block-end: calc(40px + 16px);
+  inset-block-end: calc(40px + 16px + var(--keyboard-inset, 0px));
   // Over the page, under an open compose window (compose-window.scss).
   z-index: 3;
 }
 
-// The whole viewport, for the page to lay out as it likes. A stretched flex
-// size is definite, so a page's `height: 100%` resolves against it. Never
-// a scroller: the pages scroll inside themselves (the mailbox its sheet, the
-// composer its text), and a scroller here would keep a stable gutter down
-// the screen's edge in the shell's colour, beside the landing's paper.
+// The page, as tall as it is. Never a scroller: the document is (a frame
+// page scrolls inside itself, above).
 .app-main {
   flex: 1 1 auto;
-  min-block-size: 0;
-  overflow: hidden;
 }
 
 // Narrow screens: Compose leaves the pages' chrome for the floating button

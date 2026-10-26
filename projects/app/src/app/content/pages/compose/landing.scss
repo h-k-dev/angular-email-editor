@@ -1,11 +1,12 @@
 @use '../../../../styles/breakpoints' as bp;
 
-// The bar, and the composer filling what it leaves: a stretched flex item's
-// size is definite, so the composer's `height: 100%` resolves against it.
+// A frame (app.scss): the bar, and the composer filling what it leaves — a
+// stretched flex item's size is definite, so the composer's `height: 100%`
+// resolves against it.
 :host {
   display: flex;
   flex-direction: column;
-  block-size: 100%;
+  block-size: var(--app-frame);
   min-block-size: 0;
 }
 

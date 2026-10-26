@@ -14,6 +14,7 @@ export function stubExampleAssets(): void {
     'Sign-in code',
     'Order confirmation',
     'Shipping confirmation',
+    'Welcome',
   ];
   // The one entry the catalogue gives an envelope (a no-reply sender).
   const envelopes: Record<string, object> = {
@@ -43,6 +44,28 @@ export function stubExampleAssets(): void {
         set('angularjs', 'angularjs', angularjs),
         set('handlebars', 'handlebars', handlebars),
       ],
+    }),
+  );
+  // A few of the snippet catalogue's entries (public/examples/snippets), as
+  // they ship.
+  const snippets: [string, string, string][] = [
+    ['Greeting', 'greeting', '<div>Hello {{ firstName }},</div>'],
+    [
+      'Sign-off',
+      'sign-off',
+      '<div>Kind regards,</div><div><strong style="font-weight: bold;">{{ company.name }}</strong></div>',
+    ],
+    [
+      'Next steps',
+      'next-steps',
+      '<div>What happens next:</div><ol style="margin: 12px 0px; padding-left: 24px;"><li><div>We confirm your request by email.</div></li></ol>',
+    ],
+  ];
+  for (const [, slug, html] of snippets) files.set(`snippets/${slug}.html`, `${html}\n`);
+  files.set(
+    'snippets/index.json',
+    JSON.stringify({
+      snippets: snippets.map(([name, slug]) => ({ name, file: `snippets/${slug}.html` })),
     }),
   );
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
