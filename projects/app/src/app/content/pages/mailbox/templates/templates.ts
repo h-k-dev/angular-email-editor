@@ -2,7 +2,7 @@ import { Component, computed, inject, resource, signal } from '@angular/core';
 
 import { TranslatePipe } from '@ngx-translate/core';
 
-import { HueOf } from '../../../partials/common/hue-of/hue-of';
+import { HueOf, tintOf } from '../../../partials/common/hue-of/hue-of';
 import { Examples, ExampleSet } from '../../../../core/email/examples';
 import { Filter, escapeLike } from '../../../../core/email/loopback-filter';
 import { DIALECT_NAMES, EmailTemplate, Templates } from '../../../../core/email/templates';
@@ -15,23 +15,15 @@ import {
 } from '../../../partials/atomic/templates/template-card/template-card';
 import { OverflowRow } from '../../../partials/common/overflow-row/overflow-row';
 import { PageHeader } from '../../../partials/common/page-header/page-header';
-import { VirtualGrid, VirtualGridItem } from '../../../partials/common/virtual-grid/virtual-grid';
+import {
+  VirtualGrid,
+  VirtualGridItem,
+  VirtualGridPlaceholder,
+} from '../../../partials/common/virtual-grid/virtual-grid';
 
 /** Templates a page of the feed asks the store for — the composer's
     Templates menu pages the same. */
 const PAGE_SIZE = 12;
-
-/** A card still on its way: the skeleton YouTube shows under the feed while
-    the next page loads. */
-interface GhostCard {
-  readonly kind: 'ghost';
-  readonly id: string;
-}
-
-const GHOSTS: readonly GhostCard[] = Array.from({ length: PAGE_SIZE }, (_, index) => ({
-  kind: 'ghost',
-  id: `ghost-${index}`,
-}));
 
 /** A shelf over the feed — every template, or one set's. */
 interface Shelf {
@@ -51,7 +43,8 @@ const mergeTagsIn = (html: string): number =>
  * (`Templates` — the composer's Templates menu reads the same store), a
  * card each with its thumbnail, in a grid that draws only the rows in view
  * (`virtual-grid`) and asks for the next page as its end comes near — a
- * page of skeletons under the feed while it loads. A thumbnail is drawn
+ * page of skeletons under the feed while it loads (the grid's placeholders,
+ * in the card's shape). Each card's wash is its template's colour. A thumbnail is drawn
  * only once its card is looked at (`*gridSeen`). The shelves over the feed
  * narrow it to one set, as YouTube's chips do. A card opens a new message
  * on its template.
@@ -65,6 +58,7 @@ const mergeTagsIn = (html: string): number =>
     OverflowRow,
     VirtualGrid,
     VirtualGridItem,
+    VirtualGridPlaceholder,
     TemplateCard,
   ],
   templateUrl: './templates.html',
@@ -111,16 +105,14 @@ export class TemplateGallery {
   /** Each template's merge tags, counted once — read from its HTML. */
   readonly #mergeTags = new Map<string, number>();
 
-  /** The feed: a card per template come, and a page of skeletons while the
-      next is on its way. */
-  protected readonly cells = computed<readonly (TemplateCardModel | GhostCard)[]>(() => {
+  /** The feed: a card per template come. */
+  protected readonly cards = computed<readonly TemplateCardModel[]>(() => {
     const sets = new Map((this.#sets.value() ?? []).map((set) => [set.key, set]));
     const cards = this.#rows().map((template): TemplateCardModel => {
       const key = template.id.split('/')[0];
       const set = sets.get(key);
       const label = set ? this.#setLabel(set) : key;
       return {
-        kind: 'template',
         id: template.id,
         template,
         set: label,
@@ -128,8 +120,17 @@ export class TemplateGallery {
         dialect: DIALECT_NAMES[template.dialect],
       };
     });
-    return this.#loading() ? [...cards, ...GHOSTS] : cards;
+    return cards;
   });
+
+  /** A page more than has come while the next is on its way: the grid draws
+      the skeletons for it. */
+  protected readonly total = computed(() =>
+    this.#loading() ? this.#rows().length + PAGE_SIZE : undefined,
+  );
+
+  /** A card's wash: its template's colour, the avatar's. */
+  protected readonly tint = (card: TemplateCardModel): string => tintOf(card.template.name);
 
   protected readonly loading = this.#loading.asReadonly();
 

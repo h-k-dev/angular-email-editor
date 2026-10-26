@@ -1,0 +1,38 @@
+<!-- The rows in view and their overscan, moved down into place. The list's
+     items are its cells; the window between carries no role. -->
+<div #drawn class="virtual-grid__window" role="none" [style.translate]="shift()">
+  @if (cell(); as cell) {
+    @for (slot of shown(); track slot.key) {
+      @if (slot.item !== undefined) {
+        <div
+          class="virtual-grid__cell virtual-grid__item"
+          role="listitem"
+          [class.virtual-grid__item--tinted]="slot.tint"
+          [style.--virtual-grid-tint]="slot.tint"
+          [attr.aria-posinset]="slot.index + 1"
+          [attr.aria-setsize]="count()"
+        >
+          <ng-container
+            [ngTemplateOutlet]="cell.template"
+            [ngTemplateOutletContext]="{ $implicit: slot.item, index: slot.index }"
+          />
+        </div>
+      } @else {
+        <!-- A place on its way: the card's shape, so a page landing moves
+             nothing. -->
+        <div class="virtual-grid__cell virtual-grid__placeholder" aria-hidden="true">
+          <ng-container [ngTemplateOutlet]="placeholder()?.template ?? bones" />
+        </div>
+      }
+    }
+  }
+</div>
+
+<!-- The grid's own skeleton: a media box over the two lines under it. -->
+<ng-template #bones>
+  <span class="virtual-grid__bone virtual-grid__bone--media"></span>
+  <span class="virtual-grid__bones">
+    <span class="virtual-grid__bone virtual-grid__bone--title"></span>
+    <span class="virtual-grid__bone virtual-grid__bone--line"></span>
+  </span>
+</ng-template>

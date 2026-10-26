@@ -1,0 +1,198 @@
+// Unscoped (the component's `ViewEncapsulation.None`): every rule is under
+// the grid's own classes, and one reaches into the cards — their press,
+// `[data-grid-press]`.
+//
+// `--grid-columns`, `--grid-column-width`, `--grid-column-max`, `--grid-gap`
+// and `--grid-row-gap` come from the host's bindings; the rest are knobs:
+// - `--virtual-grid-corner` — the card's corner, which the wash rounds out.
+// - `--virtual-grid-reach` — how far the wash reaches past the card.
+// - `--virtual-grid-hover-color`, `--virtual-grid-press-color` — the
+//   neutral wash, for an item with no `tint`.
+// - `--virtual-grid-media-aspect`, `--virtual-grid-meta-size` — the grid's
+//   own skeleton: its media box, and the band under it.
+.virtual-grid {
+  --_corner: var(--virtual-grid-corner, var(--mat-sys-corner-medium, 12px));
+  --_reach: var(--virtual-grid-reach, 12px);
+
+  display: block;
+  position: relative;
+}
+
+// Columns of one width, `--grid-column-max` at the widest: past it the row
+// is narrower than the grid, centred in it.
+.virtual-grid__window {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  display: grid;
+  grid-template-columns: repeat(var(--grid-columns), minmax(0, var(--grid-column-max, 1fr)));
+  justify-content: center;
+  column-gap: var(--grid-gap);
+  row-gap: var(--grid-row-gap);
+}
+
+// A cell holds its card stretched to the row.
+.virtual-grid__cell {
+  display: grid;
+  min-inline-size: 0;
+}
+
+/// Interaction
+// YouTube's touch feedback shape, the GRID's — drawn round the card on two
+// layers of the cell, `--_reach` past it into the gap the layout already
+// has, so it costs nothing:
+//   ::before — the hover (and the keyboard's focus): grows into place from
+//              just inside the card as it fades in
+//   ::after  — the press: a deeper fill over it
+// Only opacity and scale move, the cheapest a browser blends. `isolation`
+// keeps them behind the card, not behind the row.
+.virtual-grid__item {
+  --_hover: var(--virtual-grid-hover-color, var(--mat-sys-surface-container-low));
+  --_press: var(--virtual-grid-press-color, var(--mat-sys-surface-container));
+
+  position: relative;
+  isolation: isolate;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    inset: calc(-1 * var(--_reach));
+    z-index: -1;
+    border-radius: calc(var(--_corner) + var(--_reach));
+    pointer-events: none;
+    opacity: 0;
+  }
+
+  &::before {
+    background: var(--_hover);
+    scale: 0.94;
+    transition:
+      opacity 150ms ease-out,
+      scale 300ms cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  &::after {
+    background: var(--_press);
+    transition: opacity 100ms ease-out;
+  }
+}
+
+// An item's own colour (`tint`): YouTube's, at 17% — the press a little
+// less, over the hover it lands on.
+.virtual-grid__item--tinted {
+  --_hover: color-mix(in srgb, var(--virtual-grid-tint) 17%, transparent);
+  --_press: color-mix(in srgb, var(--virtual-grid-tint) 14%, transparent);
+}
+
+@media (hover: hover) {
+  .virtual-grid__item:hover::before {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+// The keyboard's way to the card: the wash, ringed.
+.virtual-grid__item:has([data-grid-press]:focus-visible)::before {
+  opacity: 1;
+  scale: 1;
+  outline: 2px solid var(--mat-sys-primary);
+  outline-offset: -2px;
+}
+
+.virtual-grid__item:has([data-grid-press]:active)::after {
+  opacity: 1;
+}
+
+// The card's press: its hit area spreads over the whole wash. Whatever else
+// the card holds that presses on its own (a ⋮) is positioned over it.
+.virtual-grid__item [data-grid-press] {
+  cursor: pointer;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: calc(-1 * var(--_reach));
+    border-radius: calc(var(--_corner) + var(--_reach));
+  }
+
+  &:focus-visible {
+    outline: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .virtual-grid__item::before {
+    scale: 1;
+    transition: opacity 150ms ease-out;
+  }
+}
+
+/// Placeholder
+// The grid's skeleton, for a grid that brings none of its own
+// (`virtualGridPlaceholder`): the media box, then the band under it, as a
+// card is drawn — the same two numbers, so the row keeps its height.
+.virtual-grid__placeholder {
+  grid-template-rows: auto var(--virtual-grid-meta-size, 56px);
+}
+
+.virtual-grid__bones {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-block-start: 12px;
+}
+
+.virtual-grid__bone {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: var(--mat-sys-corner-extra-small, 4px);
+  background: var(--mat-sys-surface-container-high);
+
+  // The sweep moves a layer over the bone, never the bone itself.
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent),
+      transparent
+    );
+    translate: -100% 0;
+    animation: virtual-grid-sweep 1.6s ease-in-out infinite;
+  }
+}
+
+.virtual-grid__bone--media {
+  aspect-ratio: var(--virtual-grid-media-aspect, 16 / 9);
+  border-radius: var(--_corner);
+}
+
+.virtual-grid__bone--title {
+  inline-size: 70%;
+  block-size: 14px;
+}
+
+.virtual-grid__bone--line {
+  inline-size: 40%;
+  block-size: 12px;
+}
+
+@keyframes virtual-grid-sweep {
+  0% {
+    translate: -100% 0;
+  }
+  55%,
+  100% {
+    translate: 100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .virtual-grid__bone::after {
+    animation: none;
+  }
+}

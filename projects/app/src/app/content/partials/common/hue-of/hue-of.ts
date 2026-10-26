@@ -34,3 +34,11 @@ export class HueOf {
   /** 0–359. */
   readonly hue = computed(() => hue(this.hueOf()));
 }
+
+/** A name's `--avatar-tint` (styles/_hue-of.scss — keep the two in step), as
+    a value: for a wash drawn where its container's custom properties do not
+    reach, as a grid's cell round the card (`virtual-grid`'s `tint`). */
+export function tintOf(name: string): string {
+  const of = hue(name);
+  return `light-dark(oklch(0.58 0.13 ${of}), oklch(0.74 0.11 ${of}))`;
+}

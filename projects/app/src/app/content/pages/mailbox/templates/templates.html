@@ -25,33 +25,39 @@
 </overflow-row>
 
 <!-- The feed: only the rows in view drawn, the next page asked for as its
-     end comes near. Cards 360px at the least and four at the most — a 2K
-     screen holds four, 1080p too, the aside open or the rail; a laptop
-     three, a small one two. -->
+     end comes near, its skeletons in the card's shape meanwhile. Cards 360px
+     at the least and four at the most — a 2K screen holds four, 1080p too,
+     the aside open or the rail; a laptop three, a small one two. -->
 <virtual-grid
   class="gallery-grid"
   [min]="360"
   [maxColumns]="4"
   [estimate]="340"
+  [total]="total()"
+  [tint]="tint"
+  [label]="'templates.title' | translate"
   [attr.aria-busy]="loading()"
   (endReached)="more()"
 >
-  <ng-container *virtualGridItem="let cell of cells()">
-    @if (cell.kind === 'template') {
-      <article template-card [card]="cell" [hueOf]="cell.template.name" (changed)="patch($event)"></article>
-    } @else {
-      <div class="gallery-ghost" aria-hidden="true">
-        <div class="gallery-ghost__thumb"></div>
-        <div class="gallery-ghost__meta">
-          <div class="gallery-ghost__avatar"></div>
-          <div class="gallery-ghost__lines">
-            <div class="gallery-ghost__line"></div>
-            <div class="gallery-ghost__line gallery-ghost__line--short"></div>
-          </div>
+  <article
+    template-card
+    *virtualGridItem="let card of cards()"
+    [card]="card"
+    [hueOf]="card.template.name"
+    (changed)="patch($event)"
+  ></article>
+  <ng-template virtualGridPlaceholder>
+    <div class="gallery-ghost">
+      <div class="gallery-ghost__thumb"></div>
+      <div class="gallery-ghost__meta">
+        <div class="gallery-ghost__avatar"></div>
+        <div class="gallery-ghost__lines">
+          <div class="gallery-ghost__line"></div>
+          <div class="gallery-ghost__line gallery-ghost__line--short"></div>
         </div>
       </div>
-    }
-  </ng-container>
+    </div>
+  </ng-template>
 </virtual-grid>
 
 @if (empty()) {

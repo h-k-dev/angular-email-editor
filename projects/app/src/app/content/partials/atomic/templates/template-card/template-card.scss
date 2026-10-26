@@ -1,72 +1,12 @@
-// How far the press's wash reaches past the card, all round — YouTube's
-// touch feedback shape sits at `margin: -12px`.
-$reach: 12px;
-
+// The hover and press wash round the card, and the card's hit area, are the
+// grid's (`virtual-grid`, its touch feedback shape): the card marks its press
+// (`data-grid-press`) and only draws itself.
 :host {
-  position: relative;
-  // The wash below the card's own parts, above the grid's.
-  isolation: isolate;
   display: flex;
   flex-direction: column;
   gap: 12px;
   color: var(--mat-sys-on-surface);
-  // The template's hue (`[hueOf]` on the card, its name's, _hue-of.scss):
-  // the avatar and the wash round the card are one colour family.
-  --template-card-tint: var(--avatar-tint);
   --template-card-corner: var(--mat-sys-corner-medium, 12px);
-}
-
-// The touch feedback shape, on two layers the card draws itself: `::before`
-// the hover wash, which grows into place from just inside the card;
-// `::after` the press, a deeper fill. Both in the avatar's colour.
-:host::before,
-:host::after {
-  content: '';
-  position: absolute;
-  inset: -$reach;
-  z-index: -1;
-  border-radius: calc(var(--template-card-corner) + #{$reach});
-  pointer-events: none;
-  opacity: 0;
-}
-
-:host::before {
-  background: color-mix(in srgb, var(--template-card-tint) 17%, transparent);
-  scale: 0.94;
-  transition:
-    opacity 150ms ease-out,
-    scale 300ms cubic-bezier(0.2, 0, 0, 1);
-}
-
-:host::after {
-  background: color-mix(in srgb, var(--template-card-tint) 14%, transparent);
-  transition: opacity 100ms ease-out;
-}
-
-@media (hover: hover) {
-  :host(:hover)::before {
-    opacity: 1;
-    scale: 1;
-  }
-}
-
-// The keyboard's way to the card: the wash, ringed.
-:host(:has(.template-card__open:focus-visible))::before {
-  opacity: 1;
-  scale: 1;
-  outline: 2px solid var(--mat-sys-primary);
-  outline-offset: -2px;
-}
-
-:host(:has(.template-card__open:active))::after {
-  opacity: 1;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  :host::before {
-    scale: 1;
-    transition: opacity 150ms ease-out;
-  }
 }
 
 // A skeleton until the thumbnail is drawn over it.
@@ -114,9 +54,9 @@ $reach: 12px;
   font: var(--mat-sys-title-medium);
 }
 
-// The name is the card's press; its hit area spreads over the whole card,
-// to the wash's edge. One line, the info under it the other: two lines
-// beside the avatar, YouTube's, and every row as tall.
+// The name is the card's press (`data-grid-press`: its hit area the grid's
+// whole wash). One line, the info under it the other: two lines beside the
+// avatar, YouTube's, and every row as tall.
 .template-card__open {
   display: block;
   overflow: hidden;
@@ -129,18 +69,6 @@ $reach: 12px;
   color: inherit;
   font: inherit;
   text-align: start;
-  cursor: pointer;
-
-  &::before {
-    content: '';
-    position: absolute;
-    inset: -$reach;
-    border-radius: calc(var(--template-card-corner) + #{$reach});
-  }
-
-  &:focus-visible {
-    outline: none;
-  }
 }
 
 .template-card__line {

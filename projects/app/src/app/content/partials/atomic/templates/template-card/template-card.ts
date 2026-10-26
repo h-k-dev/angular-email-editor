@@ -24,7 +24,6 @@ import {
 
 /** A template as the gallery shows it, worked out once per language. */
 export interface TemplateCardModel {
-  readonly kind: 'template';
   readonly id: string;
   readonly template: EmailTemplate;
   /** The set it is from, in words — the card's "channel". */
@@ -42,9 +41,8 @@ type TemplateAction = 'design' | 'use' | 'copy';
  * drawn once the card is looked at — `*gridSeen`), with its dialect over the
  * corner as a video's length is; under it the template's avatar, the name, the
  * set and what it holds; ⋮ at the end. The whole card is the press: the
- * template opened in the designer (the ⋮ also writes a new message on it). The wash a press lands on reaches 12px
- * past the card, in its avatar's colour, and grows into place on
- * hover — YouTube's touch feedback shape.
+ * template opened in the designer (the ⋮ also writes a new message on it). The wash a press lands on is the
+ * grid's (`virtual-grid`), in the template's colour — the gallery's `tint`.
  */
 @Component({
   selector: 'article[template-card]',

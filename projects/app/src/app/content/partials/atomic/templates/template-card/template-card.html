@@ -11,9 +11,9 @@
 <div class="template-card__meta">
   <span class="template-card__avatar" [avatar]="card().template.name"></span>
   <div class="template-card__text">
-    <!-- The card's press: its name, its hit area the whole card. -->
+    <!-- The card's press: its name, its hit area the grid's whole wash. -->
     <h3 class="template-card__title">
-      <button type="button" class="template-card__open" (click)="design()">
+      <button type="button" class="template-card__open" data-grid-press (click)="design()">
         {{ card().template.name }}
       </button>
     </h3>
