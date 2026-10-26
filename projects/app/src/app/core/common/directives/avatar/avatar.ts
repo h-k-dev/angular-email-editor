@@ -7,7 +7,7 @@ import { HueOf } from '../hue-of/hue-of';
 /**
  * Any empty element made an avatar: a round badge of a name's initials —
  * no logo, none made up. The inbox's senders wear one, the template
- * gallery's sets do.
+ * gallery's templates do.
  *
  * It writes the initials in itself. Its colour is its container's: inside
  * a `[hueOf]` it takes that hue, so the avatar and what surrounds it (a
@@ -17,7 +17,7 @@ import { HueOf } from '../hue-of/hue-of';
  * beside says the name.
  *
  *     <span [avatar]="sender.name"></span>
- *     <li [hueOf]="set.key"> <span [avatar]="set.label"></span> … </li>
+ *     <li [hueOf]="template.name"> <span [avatar]="template.name"></span> … </li>
  */
 @Directive({
   selector: '[avatar]',

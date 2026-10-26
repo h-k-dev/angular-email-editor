@@ -124,7 +124,6 @@ export class TemplateGallery {
         id: template.id,
         template,
         set: label,
-        setKey: key,
         mergeTags: this.#mergeTagsOf(template),
         dialect: DIALECT_NAMES[template.dialect],
       };

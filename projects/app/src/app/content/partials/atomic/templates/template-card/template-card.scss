@@ -10,8 +10,8 @@ $reach: 12px;
   flex-direction: column;
   gap: 12px;
   color: var(--mat-sys-on-surface);
-  // The set's hue (`[hueOf]` on the card, _hue-of.scss): the avatar and
-  // the wash round the card are one colour family.
+  // The template's hue (`[hueOf]` on the card, its name's, _hue-of.scss):
+  // the avatar and the wash round the card are one colour family.
   --template-card-tint: var(--avatar-tint);
   --template-card-corner: var(--mat-sys-corner-medium, 12px);
 }
@@ -99,7 +99,7 @@ $reach: 12px;
   align-items: start;
 }
 
-// The set's avatar (`[avatar]`, round), in the card's hue — YouTube's
+// The template's avatar (`[avatar]`, round, its name's), in the card's hue — YouTube's
 // channel avatar is 36px.
 .template-card__avatar {
   --avatar-size: 36px;

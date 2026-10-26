@@ -54,7 +54,9 @@ export function framePendingImages(html: string): string {
 /**
  * An email in small, the top of it as a client draws it (`dawnDocument`, on
  * the editor's paper unless `scheme` says otherwise): laid out at its own
- * 600px, then shrunk to the thumbnail's width — a picture, not a page: no
+ * 600px, then shrunk to the thumbnail's width — never grown past it: in a
+ * wider thumbnail it keeps its 600px, centred on its paper, as a client on a
+ * wide screen shows it. A picture, not a page: no
  * scripts, nothing to press, nothing to focus, out of assistive tech's way
  * (what it shows is the card's title's to say).
  *
@@ -74,6 +76,7 @@ export function framePendingImages(html: string): string {
       aria-hidden="true"
       [srcdoc]="document()"
       [style.block-size.px]="frameHeight()"
+      [style.inset-inline-start.px]="offset()"
       [style.scale]="scale()"
       (load)="loaded.set(true)"
     ></iframe>
@@ -136,12 +139,20 @@ export class EmailThumbnail {
 
   protected readonly paper = computed(() => this.scheme() ?? this.#editorPaper());
 
-  protected readonly scale = computed(
-    () => (this.width() ?? this.#island?.columnWidth() ?? EMAIL_WIDTH / 2) / EMAIL_WIDTH,
+  /** The width it is drawn at, px. */
+  readonly #shown = computed(() => this.width() ?? this.#island?.columnWidth() ?? EMAIL_WIDTH / 2);
+
+  /** Shrunk to fit, never grown: an email is not drawn past its 600px. */
+  protected readonly scale = computed(() => Math.min(1, this.#shown() / EMAIL_WIDTH));
+
+  /** As much of the email as the thumbnail shows, at its own width: the
+      thumbnail's height, unscaled. */
+  protected readonly frameHeight = computed(() =>
+    Math.ceil(this.#shown() / this.aspect() / this.scale()),
   );
 
-  /** As much of the email as the thumbnail shows, at its own width. */
-  protected readonly frameHeight = computed(() => Math.ceil(EMAIL_WIDTH / this.aspect()));
+  /** Its 600px centred in a thumbnail wider than that; 0 otherwise. */
+  protected readonly offset = computed(() => (this.#shown() - EMAIL_WIDTH * this.scale()) / 2);
 
   protected readonly loaded = signal(false);
 

@@ -29,9 +29,6 @@ export interface TemplateCardModel {
   readonly template: EmailTemplate;
   /** The set it is from, in words — the card's "channel". */
   readonly set: string;
-  /** The set's key: the card's hue is the key's (`[hueOf]`, bound by the
-      gallery) — its avatar and its wash one colour family. */
-  readonly setKey: string;
   /** Its distinct merge tags, counted. */
   readonly mergeTags: number;
   /** Its dialect, in words — its category tag, the badge on the thumbnail. */
@@ -43,7 +40,7 @@ type TemplateAction = 'design' | 'use' | 'copy';
 /**
  * A template in the gallery, YouTube's video card: the thumbnail (its top,
  * drawn once the card is looked at — `*gridSeen`), with its dialect over the
- * corner as a video's length is; under it the set's avatar, the name, the
+ * corner as a video's length is; under it the template's avatar, the name, the
  * set and what it holds; ⋮ at the end. The whole card is the press: the
  * template opened in the designer (the ⋮ also writes a new message on it). The wash a press lands on reaches 12px
  * past the card, in its avatar's colour, and grows into place on

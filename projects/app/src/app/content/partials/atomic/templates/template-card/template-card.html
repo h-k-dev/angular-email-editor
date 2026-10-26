@@ -6,8 +6,10 @@
   <span badge tone="overlay" class="template-card__badge">{{ card().dialect }}</span>
 </div>
 
+<!-- The template's own avatar: its name's initials, on its name's hue (the
+     card's `[hueOf]`, bound by the gallery) — not its set's. -->
 <div class="template-card__meta">
-  <span class="template-card__avatar" [avatar]="card().set"></span>
+  <span class="template-card__avatar" [avatar]="card().template.name"></span>
   <div class="template-card__text">
     <!-- The card's press: its name, its hit area the whole card. -->
     <h3 class="template-card__title">
