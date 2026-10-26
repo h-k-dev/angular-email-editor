@@ -90,12 +90,41 @@
   z-index: 2;
 }
 
-// Minimized: the title bar alone. The sheet stays mounted — hidden, not
-// removed — so the message and its editor are there as they were.
+// Minimized: the title bar alone — a dock, iusta core's footer docks' row:
+// 40px, 32px buttons with 4px round them, 12px before the title, the
+// extra-large corner drawn as a squircle. Square on a phone, on the edge,
+// as every corner here. The sheet stays mounted — hidden, not removed — so
+// the message and its editor are there as they were.
 :host([data-mode='minimized']) {
   // The title bar, in the very place its window holds.
   --compose-window-width: 280px;
+  --compose-window-radius: clamp(
+    0px,
+    (100vw - #{bp.$full-width-max}) * 100,
+    var(--mat-sys-corner-extra-large, 14px)
+  );
   min-block-size: 0;
+
+  // A squircle reads as round as a circle's corner of half its radius:
+  // drawn twice as large.
+  @supports (corner-shape: squircle) {
+    corner-shape: squircle;
+    border-radius: calc(var(--compose-window-radius) * 2);
+  }
+
+  .compose-window__bar {
+    padding-inline: 12px 4px;
+  }
+
+  .compose-window__controls {
+    @include mat.icon-button-overrides(
+      (
+        icon-size: 20px,
+        state-layer-size: 32px,
+        touch-target-size: 32px,
+      )
+    );
+  }
 }
 
 :host([data-mode='minimized']) .compose-window__sheet {
