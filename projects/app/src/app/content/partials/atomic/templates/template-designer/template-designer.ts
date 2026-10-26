@@ -13,7 +13,9 @@ import {
   viewChild,
 } from '@angular/core';
 
+
 // Angular CDK
+import { CdkOverlayOrigin, type ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
 import { DomPortal } from '@angular/cdk/portal';
 
 // Angular Signal Forms
@@ -23,6 +25,7 @@ import { FormField } from '@angular/forms/signals';
 import { MatButton, MatIconButton } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTooltip } from '@angular/material/tooltip';
 
@@ -44,18 +47,14 @@ import {
 import { editorState } from '@h-k-dev/angular-email-editor/actions';
 import { AttachmentChip, AttachmentChipIcon } from '@h-k-dev/angular-email-editor/attachment-chip';
 import { AttachmentChips } from '@h-k-dev/angular-email-editor/attachment-chips';
-import {
-  ToggleButtonGroup,
-  ToggleButtonGroupText,
-} from '@h-k-dev/angular-email-editor/toggle-button-group';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { BLANK, Envelope } from '../../../../../core/email/envelope';
 import { DIALECT_NAMES, EmailTemplate, Templates } from '../../../../../core/email/templates';
+import { Preferences } from '../../../../../core/storages/preferences';
 import { Badge } from '../../../common/badge/badge';
 import { PageHeader } from '../../../common/page-header/page-header';
 import { PhoneFrame } from '../../../common/phone-frame/phone-frame';
-import { OverflowRow } from '../../../common/overflow-row/overflow-row';
 import { MailView } from '../../../shared/email/mail-view/mail-view';
 import { ScrollOwner } from '../../../../../core/directives/scroll-owner/scroll-owner';
 import { SplitHandle } from '../../../common/split-handle/split-handle';
@@ -63,7 +62,10 @@ import { atRest } from '../../../shared/email/at-rest';
 import { EmailCompose } from '../../../shared/email/email-compose/email-compose';
 import { ColorPalette } from '../../../shared/email/email-compose/formatting-toolbar/color-palette/color-palette';
 import { HtmlEmailCompose } from '../../../shared/email/html-email-compose/html-email-compose';
-import { EnvelopeRows } from '../../../shared/email/message-form/envelope-rows/envelope-rows';
+import {
+  AddressRow,
+  EnvelopeRows,
+} from '../../../shared/email/message-form/envelope-rows/envelope-rows';
 import { MessageMenu } from '../../../shared/email/message-form/message-menu/message-menu';
 import { MessageSheet } from '../../../shared/email/message-form/message-sheet';
 import {
@@ -71,6 +73,7 @@ import {
   MarqueeStart,
   PaperIsland,
   PaperIslandDirective,
+  PaperIslandScheme,
 } from '../../../shared/email/paper-island';
 import { TemplateDesignerData } from './open-template-designer';
 
@@ -138,6 +141,7 @@ function sameMessage(a: Envelope, b: Envelope): boolean {
     MatButton,
     MatIconButton,
     MatIcon,
+    MatProgressSpinner,
     MatTooltip,
     AngularFileDrop,
     AttachmentChips,
@@ -151,13 +155,12 @@ function sameMessage(a: Envelope, b: Envelope): boolean {
     ScrollOwner,
     SplitHandle,
     PaperIslandDirective,
+    PaperIslandScheme,
+    OverlayModule,
     MailView,
     Badge,
     PageHeader,
     PhoneFrame,
-    OverflowRow,
-    ToggleButtonGroup,
-    ToggleButtonGroupText,
     ColorPalette,
   ],
   providers: [
@@ -171,6 +174,7 @@ function sameMessage(a: Envelope, b: Envelope): boolean {
   host: {
     '[attr.data-paper-scheme]': 'scheme()',
     '[attr.data-phone]': 'phoneOpen() || null',
+    '[attr.data-details]': "detailsOpen() ? null : 'folded'",
     '(keydown)': 'shortcut($event)',
   },
 })
@@ -178,6 +182,10 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
   readonly #ref = inject<MatDialogRef<TemplateDesigner>>(MatDialogRef);
   readonly #templates = inject(Templates);
   readonly #snack = inject(MatSnackBar);
+
+  /** Whether the editor's formatting toolbar shows — the bar's switch, the
+      writer bar's preference (`formattingToolbar`), shared. */
+  protected readonly formattingOpen = inject(Preferences).formattingToolbar;
 
   /** The island's element (`PaperIsland`): the whole designer — the
       editor's marquee draws across it. */
@@ -210,7 +218,14 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
     return clean !== null && !sameMessage(this.message(), clean);
   });
 
-  protected readonly saving = signal(false);
+  /** Saves on their way — the rows' own and Save's — and the chain they
+      run on, one after another: two writes of one template never race. */
+  readonly #pending = signal(0);
+  #queue: Promise<unknown> = Promise.resolve();
+  protected readonly saving = computed(() => this.#pending() > 0);
+
+  /** The details' panel on the right — folded away by the bar's toggle. */
+  protected readonly detailsOpen = signal(true);
 
   /** The phone on the left of the canvas. */
   protected readonly phoneOpen = signal(false);
@@ -223,17 +238,38 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
       to the left of it, the dark to the right — half and half to start. */
   protected readonly phoneSplit = signal(PHONE_WIDTH / 2);
 
-  /** Which of the details shows on the right, picked by its chip: the
-      envelope — the message's rows and its files — or the page layout. The
-      other stays, hidden, its state kept. */
-  protected readonly detailsPanel = signal<'envelope' | 'layout'>('envelope');
-  protected readonly detailsPanels = ['envelope', 'layout'] as const;
+  /** The layout's panel, under its button in the bar. */
+  protected readonly layoutOpen = signal(false);
+  /** Under the button, its end on the button's end; above it when the
+      screen's foot is too near. */
+  protected readonly layoutPositions: ConnectedPosition[] = [
+    { originX: 'end', originY: 'bottom', overlayX: 'end', overlayY: 'top', offsetY: 8 },
+    { originX: 'end', originY: 'top', overlayX: 'end', overlayY: 'bottom', offsetY: -8 },
+  ];
 
-  /** The details' blocks on the right — the rows, the files, the layout —
-      each open, or folded to its heading. */
+  /** A press outside the panel puts it away — but not its own button's,
+      which toggles it. */
+  protected layoutOutside(event: MouseEvent, origin: CdkOverlayOrigin): void {
+    if (origin.elementRef.nativeElement.contains(event.target as Node)) return;
+    this.layoutOpen.set(false);
+  }
+
+  /** Escape puts the panel away, the focus back on its button. */
+  protected layoutKey(event: KeyboardEvent, origin: CdkOverlayOrigin): void {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.layoutOpen.set(false);
+    (origin.elementRef.nativeElement as HTMLElement).focus();
+  }
+
+  /** The details' blocks on the right — the rows, the files — each open,
+      or folded to its heading. */
   protected readonly messageOpen = signal(true);
   protected readonly filesOpen = signal(true);
-  protected readonly layoutOpen = signal(true);
+
+  /** The page layouts, as the Layout tab's swatches offer them. */
+  protected readonly layoutKinds = ['none', 'centered'] as const;
 
   /** The email's page layout, as its editor holds it — null for none. The
       same layout reads as no change, so a keystroke redraws nothing here. */
@@ -330,27 +366,60 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
     return { ...BLANK, ...template.envelope, html: template.html };
   }
 
+  /** Runs `write` after every save before it, counted while it is on its
+      way — what the Save button's spinner shows. */
+  #enqueue(write: () => Promise<void>): Promise<void> {
+    this.#pending.update((count) => count + 1);
+    const run = this.#queue.then(write).finally(() => this.#pending.update((count) => count - 1));
+    this.#queue = run.catch(() => undefined);
+    return run;
+  }
+
   /** Stores the template as it stands. */
   protected async save(): Promise<void> {
     if (this.saving()) return;
-    this.saving.set(true);
     const message = this.message();
     const { from, to, cc, bcc, subject, previewText, attachments } = message;
-    try {
-      const stored = await this.#templates.save({
-        ...this.#template(),
-        html: message.html,
-        envelope: { from, to, cc, bcc, subject, previewText, attachments },
-      });
-      this.#template.set(stored);
-      this.#clean.set(message);
-      this.saved.emit(stored);
-      this.#snack.open(this.i18n.t('designer.saved'), undefined, { duration: 3000 });
-    } catch {
-      this.#snack.open(this.i18n.t('designer.saveFailed'), undefined, { duration: 6000 });
-    } finally {
-      this.saving.set(false);
-    }
+    await this.#enqueue(async () => {
+      try {
+        const stored = await this.#templates.save({
+          ...this.#template(),
+          html: message.html,
+          envelope: { from, to, cc, bcc, subject, previewText, attachments },
+        });
+        this.#template.set(stored);
+        this.#clean.set(message);
+        this.saved.emit(stored);
+        this.#snack.open(this.i18n.t('designer.saved'), undefined, { duration: 3000 });
+      } catch {
+        this.#snack.open(this.i18n.t('designer.saveFailed'), undefined, { duration: 6000 });
+      }
+    });
+  }
+
+  /** An address row the user is done with is stored at once — that row
+      alone, over the template as last stored: the body and the other rows
+      wait for Save. A row the form finds wrong waits too. Stored, the row
+      is clean (Revert leaves it); failed, it stays unsaved, and Save takes
+      it with the rest. */
+  protected saveRow({ row, value }: { row: AddressRow; value: string[] }): void {
+    if (this.envelope[row]().invalid()) return;
+    void this.#enqueue(async () => {
+      const template = this.#template();
+      const { from, to, cc, bcc, subject, previewText, attachments } = {
+        ...BLANK,
+        ...template.envelope,
+      };
+      const envelope = { from, to, cc, bcc, subject, previewText, attachments, [row]: value };
+      try {
+        const stored = await this.#templates.save({ ...template, envelope });
+        this.#template.set(stored);
+        this.#clean.update((clean) => clean && { ...clean, [row]: value });
+        this.saved.emit(stored);
+      } catch {
+        this.#snack.open(this.i18n.t('designer.saveFailed'), undefined, { duration: 6000 });
+      }
+    });
   }
 
   /** Back to the template as last saved — no confirmation: it is one

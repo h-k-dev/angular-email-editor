@@ -1,3 +1,5 @@
+@use '@angular/material' as mat;
+
 // The hover and press wash round the card, and the card's hit area, are the
 // grid's (`virtual-grid`, its touch feedback shape): the card marks its press
 // (`data-grid-press`) and only draws itself.
@@ -86,21 +88,36 @@
 
 // Above the card's press, so it is a press of its own. Shown with the
 // wash where there is a pointer to hover with; always on touch.
-.template-card__more {
+// The actions: 32px buttons side by side, the last one's 20px glyph on the
+// card's edge (6px of its own room out), centred on the title's first line.
+.template-card__actions {
   position: relative;
-  margin-block-start: -8px;
-  margin-inline-end: -8px;
+  display: flex;
+  align-items: center;
+  margin-block-start: -4px;
+  margin-inline-end: -6px;
+
+  // The toolbar's buttons: a 20px glyph, 32px state layer and touch target
+  // (iusta core's `toolbar-mat-icon-button`).
+  --mat-icon-size: 20px;
+  @include mat.icon-button-overrides(
+    (
+      icon-size: var(--mat-icon-size),
+      state-layer-size: 32px,
+      touch-target-size: 32px,
+    )
+  );
 }
 
 @media (hover: hover) {
-  .template-card__more {
+  .template-card__actions {
     opacity: 0;
     transition: opacity 150ms ease-out;
   }
 
-  :host(:hover) .template-card__more,
-  :host(:focus-within) .template-card__more,
-  .template-card__more[aria-expanded='true'] {
+  :host(:hover) .template-card__actions,
+  :host(:focus-within) .template-card__actions,
+  .template-card__actions:has([aria-expanded='true']) {
     opacity: 1;
   }
 }

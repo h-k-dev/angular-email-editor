@@ -1,0 +1,193 @@
+// ---------------------------------------------------------------------------
+// m-chip — THE chip box. Every public knob (`--chip-*`, listed in chip.ts) is
+// read with a fallback and NEVER declared here, so a consumer can set it on
+// the chip or on any ancestor: a declaration on :host would beat an inherited
+// value by proximity and silently shadow it. The variant only fills the
+// private `--_*` defaults those fallbacks point at.
+// ---------------------------------------------------------------------------
+
+@use 'states';
+
+$transition:
+  background-color var(--mat-sys-transition-duration, 0.15s) var(--mat-sys-transition-timing-function, ease),
+  border-color var(--mat-sys-transition-duration, 0.15s) var(--mat-sys-transition-timing-function, ease),
+  color var(--mat-sys-transition-duration, 0.15s) var(--mat-sys-transition-timing-function, ease);
+
+// FILLED — the YouTube chip cloud and the filter chip set: a tonal resting
+// fill; selection is the INVERSE surface (dark on light and vice versa).
+:host,
+:host([data-variant='filled']) {
+  --_bg: var(--mat-sys-surface-container-high, oklch(0 0 0 / 2%));
+  --_color: var(--mat-sys-on-surface, #212529);
+  --_border: transparent;
+  --_hover-bg: var(--mat-sys-surface-container-highest, oklch(0.9132 0.0035 174.48));
+  --_hover-color: var(--mat-sys-on-surface, #212529);
+  --_hover-border: transparent;
+  --_active-bg: var(--mat-sys-inverse-surface, #1e1e2d);
+  --_active-color: var(--mat-sys-inverse-on-surface, #cbd5e1);
+  --_active-border: transparent;
+  --_radius: var(--mat-sys-corner-medium, 0.5rem);
+}
+
+// QUIET — flush on whatever surface it sits on; hover lifts the ink alone,
+// and a whisper of a wash on the ACTIVE chip is the whole selection signal.
+// The global-search scopes, the case tabs, the dataset chips.
+:host([data-variant='quiet']) {
+  --_bg: transparent;
+  --_color: var(--mat-sys-on-surface-variant, oklch(55.6% 0 0));
+  --_border: transparent;
+  --_hover-bg: transparent;
+  --_hover-color: var(--mat-sys-on-surface, #212529);
+  --_hover-border: transparent;
+  --_active-bg: #{oklch(from var(--mat-sys-on-surface, #212529) l c h / 0.06)};
+  --_active-color: var(--mat-sys-on-surface, #212529);
+  --_active-border: transparent;
+  --_radius: var(--mat-sys-corner-medium, 0.5rem);
+}
+
+// OUTLINED — a hairline pill; hover previews the active look (ink on text
+// AND border), no accent fill anywhere: a filled accent chip reads as a
+// button, not a selected tab. The clickwork view switcher.
+:host([data-variant='outlined']) {
+  --_bg: transparent;
+  --_color: var(--mat-sys-on-surface-variant, oklch(55.6% 0 0));
+  --_border: var(--mat-sys-outline-variant, #c6c5d0);
+  --_hover-bg: var(--mat-sys-surface-container, #fff);
+  --_hover-color: var(--mat-sys-on-surface, #212529);
+  --_hover-border: var(--mat-sys-on-surface, #212529);
+  --_active-bg: var(--mat-sys-surface-container, #fff);
+  --_active-color: var(--mat-sys-on-surface, #212529);
+  --_active-border: var(--mat-sys-on-surface, #212529);
+  --_radius: var(--mat-sys-corner-full, 999px);
+}
+
+:host {
+  // Keeps its intrinsic width and never gets squashed by a sibling — the ROW
+  // scrolls or wraps instead. Length is bounded by the cap below, so a chip
+  // is either fully readable or cleanly ellipsised.
+  flex: 0 0 auto;
+  box-sizing: border-box;
+
+  display: inline-flex;
+  align-items: center;
+  gap: var(--chip-gap, 0.375rem);
+
+  block-size: var(--chip-height, 2rem);
+  padding-inline: var(--chip-padding-inline, 0.75rem);
+
+  /**
+   * Ceiling on one chip, so one long dynamic label cannot own the row. `cqi`,
+   * NOT `vw`: chips live in dialogs and split panes, where viewport units
+   * measure the wrong box; with no container ancestor `cqi` falls back to the
+   * small viewport, the sane default for a full-width row.
+   */
+  max-inline-size: var(--chip-max-inline-size, min(14rem, 45cqi));
+
+  // A floor, as browser tabs have one — a dismissible chip with a two-letter
+  // name is still something to aim at rather than a stub beside its ✕.
+  min-inline-size: var(--chip-min-inline-size, auto);
+
+  // Always drawn (1px by default), transparent where the variant has no
+  // hairline, so switching variants never changes a chip's size.
+  border: var(--chip-border-width, 1px) solid var(--chip-border-color, var(--_border));
+  border-radius: var(--chip-radius, var(--_radius));
+  background-color: var(--chip-bg, var(--_bg));
+  color: var(--chip-color, var(--_color));
+
+  // Resets for the `<button>` / `<a>` hosts.
+  appearance: none;
+  margin: 0;
+  font-family: inherit;
+  font-size: var(--chip-font-size, var(--mat-sys-body-medium-size, 0.875rem));
+  font-weight: var(--chip-font-weight, 500);
+  line-height: var(--chip-line-height, normal);
+  letter-spacing: var(--chip-letter-spacing, var(--mat-sys-body-medium-tracking, normal));
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+
+  transition: $transition;
+}
+
+:host(:hover) {
+  background-color: var(--chip-hover-bg, var(--_hover-bg));
+  border-color: var(--chip-hover-border-color, var(--_hover-border));
+  color: var(--chip-hover-color, var(--_hover-color));
+}
+
+// ACTIVE — read off the ARIA state the element already announces, so what a
+// screen reader hears and what the eye sees cannot drift apart. Hover keeps
+// it: an "off" tint on the selected chip reads as deselection.
+//
+// A composite chip (`<div chip>` around a tab button) carries no state of its
+// own, so it reads its DIRECT child tab's.
+@each $state in states.$active {
+  :host(#{$state}) {
+    background-color: var(--chip-active-bg, var(--_active-bg));
+    border-color: var(--chip-active-border-color, var(--_active-border));
+    color: var(--chip-active-color, var(--_active-color));
+  }
+}
+
+// Outset by default: the ring clears the hairline. A chip whose corners clip
+// (a wrapped set) passes a negative offset.
+:host(:focus-visible) {
+  outline: var(--chip-focus-width, 2px) solid var(--chip-focus-color, var(--mat-sys-primary, #5d78ff));
+  outline-offset: var(--chip-focus-offset, 1px);
+}
+
+// A composite chip hands its inset to the action, so a click anywhere near the
+// edge lands on the action (or the trail control) instead of dead padding.
+:host(:has(> [chipAction])) {
+  padding-inline: 0;
+}
+
+/**
+ * The label box. Its own element because `text-overflow` acts on a block
+ * container's own inline content — bare text in the flex chip would become an
+ * anonymous item that never ellipsises. Collapses when nothing was projected.
+ */
+.m-chip__label {
+  min-inline-size: 0;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &:empty {
+    display: none;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// DISMISSIBLE — opt-in, by projecting an `[chipDismiss]`: the browser-tab
+// chip. The ✕ floats ON TOP of the label's end (it positions itself, see
+// chip-dismiss.scss) instead of taking a slot beside it, so the chip keeps
+// one width whether or not the ✕ shows and nothing reflows as the pointer
+// sweeps the row. The label reserves that end and fades instead of
+// ellipsising (see `states.dismissible-label`).
+//
+// A composite chip's label lives in its `[chipAction]`, which does the same
+// from its own stylesheet; this chip's own label box is then empty and gone.
+// ---------------------------------------------------------------------------
+
+:host(#{states.$dismissible}) {
+  // The ✕'s containing block; the label's slot is the trailing inset.
+  position: relative;
+  padding-inline-end: 0;
+}
+
+:host(#{states.$dismissible}) .m-chip__label {
+  @include states.dismissible-label;
+}
+
+:host(#{states.$dismissible}:hover) .m-chip__label,
+:host(:has(> [chipDismiss]:focus-visible)) .m-chip__label {
+  @include states.dismissible-label-revealed;
+}
+
+@each $state in states.$active {
+  :host(#{states.$dismissible}#{$state}) .m-chip__label {
+    @include states.dismissible-label-revealed;
+  }
+}

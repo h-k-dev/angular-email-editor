@@ -1,0 +1,88 @@
+@use '@angular/material' as mat;
+
+// A section of a Figma-style editor aside (layers, access…): a compact head —
+// a fold toggle with the title and count, a trailing action — over its rows.
+// Sized in em, so the aside's own compact base sets the scale. No padding of
+// its own: each part decides its inset — the head and notes sit on the 8px
+// gutter (`--aside-padding-inline`), row lists 2px in.
+:host {
+  display: block;
+}
+
+.aside-section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5em;
+
+  min-block-size: 2.5em;
+  // 8px past the gutter, in step with the rows' icons below.
+  padding-inline-start: calc(var(--aside-padding-inline, 0.5rem) + 8px);
+
+  // The heads' button size: a 16px glyph on a 28px button, a 32px touch target. `--mat-icon-size`
+  // first (it sizes the mat-icon box), then the token.
+  --mat-icon-size: 16px;
+  @include mat.icon-button-overrides(
+    (
+      icon-size: var(--mat-icon-size),
+      state-layer-size: 28px,
+      touch-target-size: 32px,
+    )
+  );
+}
+
+.aside-section__title {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  margin: 0;
+
+  font-size: 1em;
+  font-weight: 600;
+}
+
+// The fold: the whole title is the button, the chevron turning with it.
+.aside-section__toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.75em;
+  inline-size: 100%;
+  padding: 0.25em 0;
+
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: 2px;
+    border-radius: var(--mat-sys-corner-extra-small);
+  }
+}
+
+.aside-section__chevron {
+  // An 8px glyph centred in the aside's lead slot, the axis the rows' icons
+  // share.
+  flex-shrink: 0;
+  inline-size: var(--aside-lead-size, 8px);
+  font-size: 8px;
+  text-align: center;
+  color: var(--mat-sys-on-surface-variant);
+
+  transition: rotate 150ms ease;
+
+  [aria-expanded='false'] > & {
+    rotate: -90deg;
+  }
+}
+
+.aside-section__note {
+  margin: 0;
+  padding-block: 0.25em 0.5em;
+  padding-inline-start: var(--aside-padding-inline, 0.5rem);
+
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 0.9em;
+}

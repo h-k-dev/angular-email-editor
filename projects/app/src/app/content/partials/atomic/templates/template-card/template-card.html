@@ -24,18 +24,23 @@
       <span>{{ mergeTagsKey() | translate: { count: card().mergeTags } }}</span>
     </p>
   </div>
-  <button
-    matIconButton
-    type="button"
-    class="template-card__more"
-    [attr.aria-label]="'templates.more' | translate"
-    [title]="'templates.more' | translate"
-    ngMenuTrigger
-    #trigger="ngMenuTrigger"
-    [menu]="more.menu()"
-  >
-    <mat-icon>more_vert</mat-icon>
-  </button>
+  <!-- The card's actions: the host's own first (`[card-actions]`), then the
+       ⋮ — 32px buttons, the toolbar's; shown on hover, as the ⋮ was. -->
+  <div class="template-card__actions">
+    <ng-content select="[card-actions]" />
+    <button
+      matIconButton
+      type="button"
+      class="template-card__more"
+      [attr.aria-label]="'templates.more' | translate"
+      [title]="'templates.more' | translate"
+      ngMenuTrigger
+      #trigger="ngMenuTrigger"
+      [menu]="more.menu()"
+    >
+      <mat-icon>more_vert</mat-icon>
+    </button>
+  </div>
   <div
     toolbar-menu
     #more

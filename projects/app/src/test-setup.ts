@@ -46,3 +46,11 @@ beforeEach(() => {
   // leaves `<html lang>` behind.
   document.documentElement.lang = 'en';
 });
+
+/** jsdom implements no scrolling: a chip that scrolls itself into view (the
+    chip cloud's arrow keys) finds a no-op instead of throwing. */
+if (typeof Element !== 'undefined' && typeof Element.prototype.scrollIntoView !== 'function') {
+  Element.prototype.scrollIntoView = function scrollIntoView(): void {
+    return;
+  };
+}

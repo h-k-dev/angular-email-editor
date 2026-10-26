@@ -24,6 +24,20 @@
 
   <span class="designer-bar__spacer"></span>
 
+  <!-- The details' panel, folded away or back — the right aside's toggle. -->
+  <button
+    matIconButton
+    type="button"
+    aria-controls="designer-details"
+    [attr.aria-label]="'designer.details' | translate"
+    [attr.aria-expanded]="detailsOpen()"
+    [matTooltip]="'designer.details' | translate"
+    matTooltipPosition="below"
+    (click)="detailsOpen.set(!detailsOpen())"
+  >
+    <mat-icon>{{ detailsOpen() ? 'right_panel_close' : 'right_panel_open' }}</mat-icon>
+  </button>
+
   <!-- The editor or its HTML, in the editor's place: the design's source,
        Summernote's </>. The ⋮'s View says the same. -->
   <button
@@ -39,6 +53,153 @@
   >
     <mat-icon>code</mat-icon>
   </button>
+
+  <!-- The formatting toolbar, shown or put away — the writer bar's switch,
+     its preference shared (Gmail's formatting options). -->
+  <button
+    matIconButton
+    type="button"
+    disabledInteractive
+    [disabled]="plainText()"
+    [attr.aria-label]="'designer.formatting' | translate"
+    [matTooltip]="'designer.formatting' | translate"
+    matTooltipPosition="below"
+    [attr.aria-pressed]="formattingOpen()"
+    (click)="formattingOpen.set(!formattingOpen())"
+  >
+    <mat-icon>text_format</mat-icon>
+  </button>
+
+  <!-- The page's layout — none, or a centred column — in a panel under its
+       button, over the canvas: the email stays in sight while it is picked.
+       Every pick is a step of the editor's. The kinds as swatches, a picture
+       of each; a kind's own settings under them while it is the kind. -->
+  <button
+    matIconButton
+    type="button"
+    cdkOverlayOrigin
+    #layoutOrigin="cdkOverlayOrigin"
+    disabledInteractive
+    [disabled]="plainText()"
+    aria-haspopup="dialog"
+    [attr.aria-expanded]="layoutOpen()"
+    [attr.aria-controls]="layoutOpen() ? 'designer-layout' : null"
+    [attr.aria-label]="'designer.layout.title' | translate"
+    [matTooltip]="'designer.layout.title' | translate"
+    matTooltipPosition="below"
+    (click)="layoutOpen.set(!layoutOpen())"
+  >
+    <mat-icon>view_quilt</mat-icon>
+  </button>
+  <ng-template
+    cdkConnectedOverlay
+    [cdkConnectedOverlayOrigin]="layoutOrigin"
+    [cdkConnectedOverlayOpen]="layoutOpen()"
+    [cdkConnectedOverlayPositions]="layoutPositions"
+    [cdkConnectedOverlayPush]="true"
+    [cdkConnectedOverlayViewportMargin]="8"
+    (overlayOutsideClick)="layoutOutside($event, layoutOrigin)"
+    (overlayKeydown)="layoutKey($event, layoutOrigin)"
+    (detach)="layoutOpen.set(false)"
+  >
+    @let layout = pageLayout();
+    <section
+      id="designer-layout"
+      class="designer-layout"
+      role="dialog"
+      paperIslandScheme
+      [attr.aria-label]="'designer.layout.title' | translate"
+    >
+      <p class="designer-block__empty">{{ 'designer.layout.hint' | translate }}</p>
+      <div class="designer-layout__kinds" role="radiogroup" [attr.aria-label]="'designer.layout.kind' | translate">
+        @for (kind of layoutKinds; track kind) {
+          <label class="designer-layout__kind">
+            <input
+              type="radio"
+              name="designer-layout-kind"
+              [value]="kind"
+              [checked]="(layout?.kind ?? 'none') === kind"
+              (change)="setLayoutKind(kind)"
+            />
+            <span class="designer-layout__swatch" [attr.data-kind]="kind" aria-hidden="true">
+              <span class="designer-layout__column">
+                <span></span><span></span><span></span>
+              </span>
+            </span>
+            {{ 'designer.layout.' + kind | translate }}
+          </label>
+        }
+      </div>
+
+      @if (layout) {
+        <label class="designer-layout__row">
+          <span class="designer-layout__label">{{ 'designer.layout.width' | translate }}</span>
+          <span class="designer-layout__field">
+            <input
+              #width
+              type="number"
+              inputmode="numeric"
+              step="4"
+              [min]="widthMin"
+              [max]="widthMax"
+              [value]="layout.width"
+              (change)="setLayoutWidth(width.value)"
+              (keydown.enter)="setLayoutWidth(width.value)"
+            />
+            px
+          </span>
+        </label>
+
+        <label class="designer-layout__row">
+          <span class="designer-layout__label">{{ 'designer.layout.spacing' | translate }}</span>
+          <span class="designer-layout__field">
+            <input
+              #spacing
+              type="number"
+              inputmode="numeric"
+              step="4"
+              min="0"
+              [max]="spacingMax"
+              [value]="layout.spacing"
+              (change)="setLayoutSpacing(spacing.value)"
+              (keydown.enter)="setLayoutSpacing(spacing.value)"
+            />
+            px
+          </span>
+        </label>
+
+        <div class="designer-layout__colors">
+          <span class="designer-layout__label" id="designer-layout-page">{{
+            'designer.layout.page' | translate
+          }}</span>
+          <div
+            color-palette
+            aria-labelledby="designer-layout-page"
+            [resetLabel]="'designer.layout.noColor' | translate"
+            [colors]="backgroundPalette"
+            [customLabel]="'designer.layout.custom' | translate"
+            [value]="layout.background"
+            (picked)="setPageColor($event)"
+          ></div>
+        </div>
+
+        <div class="designer-layout__colors">
+          <span class="designer-layout__label" id="designer-layout-column">{{
+            'designer.layout.column' | translate
+          }}</span>
+          <div
+            color-palette
+            aria-labelledby="designer-layout-column"
+            [resetLabel]="'designer.layout.noColor' | translate"
+            [colors]="backgroundPalette"
+            [customLabel]="'designer.layout.custom' | translate"
+            [value]="layout.columnBackground"
+            (picked)="setColumnColor($event)"
+          ></div>
+        </div>
+      }
+    </section>
+  </ng-template>
 
   <button
     matIconButton
@@ -70,11 +231,22 @@
     class="designer-bar__save"
     disabledInteractive
     [disabled]="!dirty() || saving()"
+    [attr.aria-busy]="saving() || null"
     [matTooltip]="'designer.saveHint' | translate"
     matTooltipPosition="below"
     (click)="save()"
   >
-    {{ (saving() ? 'designer.saving' : 'designer.save') | translate }}
+    <!-- Any save on its way — Save's, or a row's own as it is left. -->
+    @if (saving()) {
+      <mat-progress-spinner
+        class="designer-bar__spinner"
+        mode="indeterminate"
+        diameter="16"
+        strokeWidth="2"
+        [attr.aria-label]="'designer.saving' | translate"
+      />
+    }
+    {{ 'designer.save' | translate }}
   </button>
 </header>
 
@@ -163,7 +335,7 @@
       (placeholdersFailed)="placeholdersFailed()"
       (fileDrop)="onAttachmentDrop($event)"
       [(sourceView)]="sourceView"
-      [toolbar]="!plainText()"
+      [toolbar]="!plainText() && formattingOpen()"
       [format]="bodyFormat()"
       [colorScheme]="editorScheme()"
       [layoutInteraction]="layoutInteraction()"
@@ -189,223 +361,112 @@
   </main>
 
   <!-- The details, on the right: the envelope — the message's rows and its
-       files — or the page layout, picked by a chip on top (one line that
-       scrolls sideways rather than wrapping, `overflow-row`); each block
-       folds to its heading on its own. -->
-  <aside class="designer-details" [attr.aria-label]="'designer.details' | translate">
-    <overflow-row
-      class="designer-panels"
-      rowRole="group"
-      [rowLabel]="'designer.panels' | translate"
-    >
-      @for (panel of detailsPanels; track panel) {
-        <button
-          type="button"
-          class="designer-panel-chip"
-          [attr.aria-pressed]="detailsPanel() === panel"
-          (click)="detailsPanel.set(panel)"
-        >
-          {{ (panel === 'envelope' ? 'designer.envelope' : 'designer.layout.title') | translate }}
-        </button>
-      }
-    </overflow-row>
-
+       files; each block folds to its heading on its own. -->
+  <aside
+    id="designer-details"
+    class="designer-details"
+    [hidden]="!detailsOpen()"
+    [attr.aria-label]="'designer.details' | translate"
+  >
     <section
       class="designer-block"
       [attr.data-open]="messageOpen() || null"
-      [hidden]="detailsPanel() !== 'envelope'"
     >
-      <h2 class="designer-block__head">
-        <button
-          type="button"
-          class="designer-block__toggle"
-          aria-controls="designer-message"
-          [attr.aria-expanded]="messageOpen()"
-          (click)="messageOpen.set(!messageOpen())"
-        >
-          <mat-icon class="designer-block__chevron">expand_more</mat-icon>
-          {{ 'designer.message' | translate }}
-        </button>
-      </h2>
+      <div class="aside-section__head">
+        <h2 class="aside-section__title">
+          <button
+            type="button"
+            class="aside-section__toggle"
+            aria-controls="designer-message"
+            [attr.aria-expanded]="messageOpen()"
+            (click)="messageOpen.set(!messageOpen())"
+          >
+            {{ 'designer.message' | translate }}
+            <mat-icon class="aside-section__chevron" aria-hidden="true">expand_more</mat-icon>
+          </button>
+        </h2>
+      </div>
       <!-- Folded, the rows stay — hidden, their state kept. -->
       <div id="designer-message" class="designer-block__body" [hidden]="!messageOpen()">
-        <div envelope-rows [form]="envelope" fields="material" [plainText]="plainText()"></div>
+        <!-- Every address row is stored as soon as it is left. -->
+        <div
+          envelope-rows
+          [form]="envelope"
+          fields="material"
+          [plainText]="plainText()"
+          (rowSaved)="saveRow($event)"
+        ></div>
       </div>
     </section>
 
-    <!-- The files: a block of their own, and the place a file dropped on
-         the details attaches. -->
+    <!-- The files: a block of their own. Its body is where a file dropped
+         attaches, and its "+ Add" opens the picker. -->
     <section
       class="designer-block"
       [attr.data-open]="filesOpen() || null"
-      [hidden]="detailsPanel() !== 'envelope'"
-      dropZone
-      #zone="dropZone"
-      [clickable]="false"
-      [directory]="false"
-      [multiple]="true"
-      (fileDrop)="onAttachmentDrop($event)"
     >
-      <h2 class="designer-block__head">
-        <button
-          type="button"
-          class="designer-block__toggle"
-          aria-controls="designer-files"
-          [attr.aria-expanded]="filesOpen()"
-          (click)="filesOpen.set(!filesOpen())"
-        >
-          <mat-icon class="designer-block__chevron">expand_more</mat-icon>
-          {{ 'composer.attachments.label' | translate }}
-          @if (attachmentCount()) {
-            <span class="designer-block__count">{{ attachmentCount() }}</span>
+      <div class="aside-section__head">
+        <h2 class="aside-section__title">
+          <button
+            type="button"
+            class="aside-section__toggle"
+            aria-controls="designer-files"
+            [attr.aria-expanded]="filesOpen()"
+            (click)="filesOpen.set(!filesOpen())"
+          >
+            {{ 'composer.attachments.label' | translate }}
+            @if (attachmentCount()) {
+              <span class="designer-block__count">{{ attachmentCount() }}</span>
+            }
+            <mat-icon class="aside-section__chevron" aria-hidden="true">expand_more</mat-icon>
+          </button>
+        </h2>
+      </div>
+      <div
+        id="designer-files"
+        class="designer-block__body designer-files"
+        [hidden]="!filesOpen()"
+        dropZone
+        #zone="dropZone"
+        [clickable]="false"
+        [directory]="false"
+        [multiple]="true"
+        [attr.data-drag-over]="zone.isDragOver() || null"
+        (fileDrop)="onAttachmentDrop($event)"
+      >
+        @if (attachmentCount()) {
+          <!-- The chips, wrapping onto as many lines as they need. -->
+          <ul email-attachment-chips [formField]="envelope.attachments">
+          @for (attachment of envelope.attachments().value(); track attachment.key) {
+            <li
+              email-attachment-chip
+              [attachment]="attachment"
+              [status]="uploads.status(attachment.key)()"
+              [progress]="uploads.progress(attachment.key)()"
+              [isImage]="attachment.image"
+              [preview]="attachment.preview ?? null"
+              [failedLabel]="'composer.attachments.failed' | translate"
+              [retryLabel]="'composer.attachments.retry' | translate"
+              (removed)="attachmentRemoved(attachment)"
+              (retried)="uploads.retry(attachment.key)"
+            >
+              <mat-icon *emailAttachmentIcon="let kind = kind" inline>
+                {{ attachmentIcons[kind] }}
+              </mat-icon>
+            </li>
           }
-        </button>
+        </ul>
+        }
+        <!-- The picker: a quiet "+ Add" in the placeholder's ink. -->
         <button
-          matIconButton
           type="button"
+          class="designer-files__add"
           [attr.aria-label]="'composer.attach' | translate"
-          [matTooltip]="'composer.attach' | translate"
           (click)="zone.openFilePicker($event)"
         >
-          <mat-icon>attach_file</mat-icon>
+          <mat-icon aria-hidden="true">add</mat-icon>
+          {{ 'designer.add' | translate }}
         </button>
-      </h2>
-      <div id="designer-files" class="designer-block__body" [hidden]="!filesOpen()">
-        @if (attachmentCount()) {
-          <ul email-attachment-chips [formField]="envelope.attachments">
-            @for (attachment of envelope.attachments().value(); track attachment.key) {
-              <li
-                email-attachment-chip
-                [attachment]="attachment"
-                [status]="uploads.status(attachment.key)()"
-                [progress]="uploads.progress(attachment.key)()"
-                [isImage]="attachment.image"
-                [preview]="attachment.preview ?? null"
-                [failedLabel]="'composer.attachments.failed' | translate"
-                [retryLabel]="'composer.attachments.retry' | translate"
-                (removed)="attachmentRemoved(attachment)"
-                (retried)="uploads.retry(attachment.key)"
-              >
-                <mat-icon *emailAttachmentIcon="let kind = kind" inline>
-                  {{ attachmentIcons[kind] }}
-                </mat-icon>
-              </li>
-            }
-          </ul>
-        } @else {
-          <p class="designer-block__empty">{{ 'designer.noAttachments' | translate }}</p>
-        }
-      </div>
-    </section>
-
-    <!-- The layout: the email's page — none, or a centred column. Set only
-         here; every pick is a step of the editor's. A kind's own settings
-         show under it while it is the kind. -->
-    <section
-      class="designer-block"
-      [attr.data-open]="layoutOpen() || null"
-      [hidden]="detailsPanel() !== 'layout'"
-    >
-      <h2 class="designer-block__head">
-        <button
-          type="button"
-          class="designer-block__toggle"
-          aria-controls="designer-layout"
-          [attr.aria-expanded]="layoutOpen()"
-          (click)="layoutOpen.set(!layoutOpen())"
-        >
-          <mat-icon class="designer-block__chevron">expand_more</mat-icon>
-          {{ 'designer.layout.title' | translate }}
-        </button>
-      </h2>
-      @let layout = pageLayout();
-      <div
-        id="designer-layout"
-        class="designer-block__body designer-layout"
-        [hidden]="!layoutOpen()"
-      >
-        <p class="designer-block__empty">{{ 'designer.layout.hint' | translate }}</p>
-        <div class="designer-layout__row">
-          <span class="designer-layout__label" id="designer-layout-kind">{{
-            'designer.layout.kind' | translate
-          }}</span>
-          <hk-tgb
-            aria-labelledby="designer-layout-kind"
-            [value]="layout?.kind ?? 'none'"
-            (valueChange)="setLayoutKind($event)"
-          >
-            <button hkTgbText value="none">{{ 'designer.layout.none' | translate }}</button>
-            <button hkTgbText value="centered">{{ 'designer.layout.centered' | translate }}</button>
-          </hk-tgb>
-        </div>
-
-        @if (layout) {
-          <label class="designer-layout__row">
-            <span class="designer-layout__label">{{ 'designer.layout.width' | translate }}</span>
-            <span class="designer-layout__field">
-              <input
-                #width
-                type="number"
-                inputmode="numeric"
-                step="4"
-                [min]="widthMin"
-                [max]="widthMax"
-                [value]="layout.width"
-                (change)="setLayoutWidth(width.value)"
-                (keydown.enter)="setLayoutWidth(width.value)"
-              />
-              px
-            </span>
-          </label>
-
-          <label class="designer-layout__row">
-            <span class="designer-layout__label">{{ 'designer.layout.spacing' | translate }}</span>
-            <span class="designer-layout__field">
-              <input
-                #spacing
-                type="number"
-                inputmode="numeric"
-                step="4"
-                min="0"
-                [max]="spacingMax"
-                [value]="layout.spacing"
-                (change)="setLayoutSpacing(spacing.value)"
-                (keydown.enter)="setLayoutSpacing(spacing.value)"
-              />
-              px
-            </span>
-          </label>
-
-          <div class="designer-layout__colors">
-            <span class="designer-layout__label" id="designer-layout-page">{{
-              'designer.layout.page' | translate
-            }}</span>
-            <div
-              color-palette
-              aria-labelledby="designer-layout-page"
-              [resetLabel]="'designer.layout.noColor' | translate"
-              [colors]="backgroundPalette"
-              [customLabel]="'designer.layout.custom' | translate"
-              [value]="layout.background"
-              (picked)="setPageColor($event)"
-            ></div>
-          </div>
-
-          <div class="designer-layout__colors">
-            <span class="designer-layout__label" id="designer-layout-column">{{
-              'designer.layout.column' | translate
-            }}</span>
-            <div
-              color-palette
-              aria-labelledby="designer-layout-column"
-              [resetLabel]="'designer.layout.noColor' | translate"
-              [colors]="backgroundPalette"
-              [customLabel]="'designer.layout.custom' | translate"
-              [value]="layout.columnBackground"
-              (picked)="setColumnColor($event)"
-            ></div>
-          </div>
-        }
       </div>
     </section>
   </aside>

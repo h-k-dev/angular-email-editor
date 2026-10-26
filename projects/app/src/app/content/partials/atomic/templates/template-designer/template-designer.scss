@@ -1,3 +1,4 @@
+@use 'sass:meta';
 @use '@angular/material' as mat;
 @use '@h-k-dev/angular-email-editor/styles/scroll';
 @use '../../../../../../styles/split-handle';
@@ -7,9 +8,17 @@
 // is: bar, canvas, phone and details all lie on it, with no surface of their
 // own. The whole of it is a paper island (`data-paper-scheme`).
 :host {
-  // The details' width.
-  --designer-details-width: 360px;
-
+  // The details' width: room for an address row's label and a whole
+  // address on one line, and the layout swatches side by side.
+  --designer-details-width: 420px;
+  // What the right room keeps free for them while they show, so the email
+  // never runs under them: their width and the room's 12px either side.
+  --_details-space: calc(var(--designer-details-width) + 24px);
+  // How far the files' + sits in from the section's end, so it stands over
+  // the remove button of a chip at the row's end: the chips' list keeps 16px
+  // in, a chip's × is centred 20px in from its end (the 1px border, the 7px
+  // padding, half its 24px button) — 36px; the +'s 32px state layer is
+  // centred 16px in from its own end, so 20px more.
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   block-size: 100%;
@@ -23,6 +32,16 @@
   gap: 2px;
   block-size: 48px;
   padding-inline: 4px 12px;
+
+  // The bar's icon buttons as a toolbar's: a 20px glyph on a 32px state
+  // layer and touch target (iusta core's `toolbar-mat-icon-button`).
+  @include mat.icon-button-overrides(
+    (
+      icon-size: 20px,
+      state-layer-size: 32px,
+      touch-target-size: 32px,
+    )
+  );
 }
 
 .designer-bar__title {
@@ -67,6 +86,15 @@
   margin-inline-start: 8px;
 }
 
+// The spinner sits where a button's icon does, on the label's line, in its
+// ink.
+.designer-bar__spinner {
+  display: inline-block;
+  vertical-align: middle;
+  margin-inline-end: 8px;
+  --mat-progress-spinner-active-indicator-color: currentColor;
+}
+
 // The desk, three rooms in a row: what is left of the email's column, the
 // column, what is right of it — the two sides equal, so the email stands in
 // the middle of the screen; the details float over the right room and take
@@ -83,7 +111,9 @@
   grid-template-columns:
     [left] 1fr
     [email] minmax(var(--email-column-min), var(--email-column-max))
-    [right] 1fr;
+    // The details' room — or what the email's 600px leave of it on a narrow
+    // screen (the details give way, not the email).
+    [right] minmax(max(0px, min(var(--_details-space), 100% - var(--email-column-min) - 24px)), 1fr);
   grid-template-rows: minmax(0, 1fr);
   column-gap: 12px;
   min-block-size: 0;
@@ -158,10 +188,57 @@
   display: none;
 }
 
-// The details: two blocks floating down the right edge, over the canvas —
-// as tall as they are, scrolling when the rows outgrow the screen.
+// Folded away (the bar's toggle): the right room is the left's again.
+:host([data-details='folded']) {
+  --_details-space: 0px;
+}
+
+// The details: an editor's aside (styles/_aside-section.scss, iusta core's
+// dashboard settings' — loaded under the aside, so its rules reach this
+// aside alone) floating down the right edge — as tall as it is, scrolling
+// when the rows outgrow the screen. Figma's compact 13px base its parts size
+// against in em, the 8px gutter. Every part inside starts 16px in — the
+// titles' line; a section's chevron follows its title.
 .designer-details {
   @include scroll.scroll;
+  @include meta.load-css('../../../../../../styles/aside-section');
+
+  --aside-padding-inline: calc(var(--mat-sys-spacing) * 2);
+  --aside-lead-size: 12px;
+  font-size: 0.8125rem;
+
+  // The sections' chevron: a Material Symbol in the lead slot.
+  .aside-section__chevron {
+    --mat-icon-size: var(--aside-lead-size);
+  }
+
+  // On the 4px grid: the 13px base would make a head 32.5px tall (2.5em)
+  // and its fold a fraction — a 32px head, a 24px fold centred in it.
+  .aside-section__head {
+    min-block-size: 32px;
+  }
+
+  .aside-section__toggle {
+    gap: 8px;
+    padding-block: 4px;
+    line-height: 16px;
+  }
+
+  // The chevron shows on the head's hover (or the fold's focus) alone — where
+  // a pointer can hover; a touch screen keeps it.
+  @media (hover: hover) {
+    .aside-section__chevron {
+      opacity: 0;
+      transition:
+        rotate 150ms ease,
+        opacity 150ms ease;
+    }
+
+    .aside-section__head:hover .aside-section__chevron,
+    .aside-section__toggle:focus-visible .aside-section__chevron {
+      opacity: 1;
+    }
+  }
 
   position: absolute;
   z-index: 1;
@@ -172,133 +249,232 @@
   flex-direction: column;
   gap: 12px;
   box-sizing: border-box;
-  inline-size: var(--designer-details-width);
+  // 420px where the room allows; on a narrow screen what the email's 600px
+  // and the gaps leave (its room's 12px either side), never under 300px.
+  inline-size: max(300px, min(var(--designer-details-width), 100% - var(--email-column-min) - 48px));
   overflow-y: auto;
-}
-
-// The panels' switch — words only, on the paper: one line on top, the
-// pressed one in the full ink, the rest muted.
-.designer-panels {
-  --overflow-row-surface: var(--email-paper, var(--mat-sys-surface-bright));
-  --overflow-row-gap: 16px;
-
-  flex: none;
-  // The paper's fill, as a block's: what it floats over goes under it.
+  // One aside, on the paper's own fill: what it floats over goes under it,
+  // and it reads as no surface at all.
+  padding-block-end: 12px;
   background: var(--email-paper, var(--mat-sys-surface-bright));
+
+  // Its own `display` would beat the `hidden` attribute (the bar's toggle).
+  &[hidden] {
+    display: none;
+  }
 }
 
-.designer-panel-chip {
+// A block: no edge and no fill of its own — its heading says where it
+// starts; the aside round it is the paper.
+.designer-block {
   flex: none;
-  padding: 6px 0;
-  white-space: nowrap;
-  border: 0;
-  border-radius: var(--mat-sys-corner-extra-small, 4px);
-  // Text only: no box, no fill — the muted ink is the resting one, the
-  // pressed chip is the full ink, nothing else.
-  background: transparent;
+}
+
+// The files' +, over the chips' ×.
+.designer-block__count {
+  font-weight: 400;
   color: var(--mat-sys-on-surface-variant);
+}
+
+.designer-block__body {
+  // No inline padding: every part sets its own 16px (the envelope's rows
+  // and the chips' list carry theirs).
+  padding: 0 0 0.75rem;
+
+  &[hidden] {
+    display: none;
+  }
+
+  // The chips start 16px in, where the envelope's entries do.
+  ul[email-attachment-chips] {
+    --email-attachment-chips-inset: var(--mat-sys-inner-spacing, 16px);
+  }
+}
+
+.designer-block__empty {
+  margin: 0;
+  padding-inline: var(--mat-sys-inner-spacing, 16px);
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+// Nothing there yet — said in the placeholder's ink, as the empty rows above
+// say theirs.
+.designer-block__empty--placeholder {
+  color: var(--mat-sys-placeholder);
+}
+
+// The files' body: the chips, then "+ Add"; the place a file dropped
+// attaches — washed, its edge dashed, while one hangs over it.
+.designer-files {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-radius: var(--mat-sys-corner-medium);
+  outline: 1px dashed transparent;
+  outline-offset: -1px;
+  transition:
+    background-color 150ms ease,
+    outline-color 150ms ease;
+
+  &[hidden] {
+    display: none;
+  }
+
+  &[data-drag-over] {
+    background: color-mix(in srgb, var(--mat-sys-primary) 6%, transparent);
+    outline-color: var(--mat-sys-primary);
+  }
+}
+
+// "+ Add": quiet, in the placeholder's ink, its + on the content's 16px line
+// (8px in, then 8px of its own); a wash under the pointer. On the 4px grid:
+// 32px tall, 8px to its word.
+.designer-files__add {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 8px;
+  block-size: 32px;
+  margin-inline-start: 8px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--mat-sys-corner-small);
+  background: transparent;
+  color: var(--mat-sys-placeholder);
   font: var(--mat-sys-label-large);
   cursor: pointer;
+  transition: background-color 150ms ease;
+
+  --mat-icon-size: 16px;
+
+  > mat-icon {
+    inline-size: 16px;
+    block-size: 16px;
+    font-size: 16px;
+  }
 
   &:hover {
-    color: var(--mat-sys-on-surface);
+    background: var(--mat-sys-surface-container-high);
   }
 
   &:focus-visible {
     outline: 2px solid var(--mat-sys-primary);
     outline-offset: 2px;
   }
+}
 
-  &[aria-pressed='true'] {
+// The layout's panel, under its button, over the canvas: the page's paper,
+// lifted (a menu's elevation and corner), on the details' compact 13px
+// base. 320px — two swatches side by side, the rows under them — on a 16px
+// inset; its parts 12px apart.
+.designer-layout {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  inline-size: 320px;
+  max-block-size: calc(100svh - 96px);
+  overflow-y: auto;
+  padding: 16px;
+  border-radius: var(--mat-sys-corner-large);
+  background: var(--email-paper, var(--mat-sys-surface-container-low));
+  box-shadow: var(--mat-sys-level2);
+  color: var(--mat-sys-on-surface);
+  font-size: 0.8125rem;
+
+  // Its hint is in the panel's inset already.
+  > .designer-block__empty {
+    padding-inline: 0;
+  }
+}
+
+// The kinds: swatches, two to a row — a picture of the page each makes, its
+// name under it.
+.designer-layout__kinds {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.designer-layout__kind {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font: var(--mat-sys-label-medium);
+  color: var(--mat-sys-on-surface-variant);
+  cursor: pointer;
+
+  // The radio is the swatch's: there for the keys and the reader, not seen.
+  > input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  &:has(> input:checked) {
     color: var(--mat-sys-on-surface);
   }
 }
 
-// A block: no edge of its own — its heading says where it starts; its fill
-// the paper's own, so text it floats over on a narrow screen goes under it.
-.designer-block {
-  flex: none;
-  background: var(--email-paper, var(--mat-sys-surface-bright));
-}
-
-.designer-block__head {
+.designer-layout__swatch {
+  box-sizing: border-box;
   display: flex;
-  align-items: center;
-  gap: 4px;
-  min-block-size: 40px;
-  margin: 0;
-  padding-inline-end: 4px;
-  font: var(--mat-sys-title-small);
-  --mat-icon-button-state-layer-size: 32px;
-  --mat-icon-button-touch-target-size: 32px;
-}
+  justify-content: center;
+  // A picture, not a card: 96px under the panel's 140px halves.
+  inline-size: 100%;
+  block-size: 96px;
+  padding: 12px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: var(--mat-sys-corner-medium);
+  background: var(--mat-sys-surface-container-low);
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease;
 
-// The heading is the fold: the whole row, the chevron turned to say which
-// way it goes.
-.designer-block__toggle {
-  display: flex;
-  flex: 1 1 auto;
-  align-items: center;
-  gap: 8px;
-  align-self: stretch;
-  padding: 0 12px 0 8px;
-  border: 0;
-  border-radius: inherit;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: start;
-  cursor: pointer;
+  .designer-layout__kind:hover > & {
+    background: var(--mat-sys-surface-container);
+  }
 
-  &:focus-visible {
+  input:checked + & {
+    border-color: var(--mat-sys-primary);
+    box-shadow: inset 0 0 0 1px var(--mat-sys-primary);
+  }
+
+  input:focus-visible + & {
     outline: 2px solid var(--mat-sys-primary);
-    outline-offset: -2px;
+    outline-offset: 2px;
   }
 }
 
-.designer-block__chevron {
-  flex: none;
-  color: var(--mat-sys-on-surface-variant);
-  transform: rotate(-90deg);
-  transition: transform 150ms ease;
-
-  [data-open] > .designer-block__head & {
-    transform: none;
-  }
-}
-
-.designer-block__count {
-  font: var(--mat-sys-label-medium);
-  color: var(--mat-sys-on-surface-variant);
-}
-
-.designer-block__body {
-  padding: 0 12px 12px;
-
-  &[hidden] {
-    display: none;
-  }
-
-  // The chips line up at the end — the screen's edge the details float on.
-  ul[email-attachment-chips] {
-    --email-attachment-chips-inset: 0;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-  }
-}
-
-.designer-block__empty {
-  margin: 0;
-  font: var(--mat-sys-body-small);
-  color: var(--mat-sys-on-surface-variant);
-}
-
-// The layout block: its kind, then — while it has one — the column's width
-// and the two colours, one row each.
-.designer-layout {
+// The email's text: lines edge to edge — or, centred, in a column of its
+// own fill in the middle of the page.
+.designer-layout__column {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 6px;
+  box-sizing: border-box;
+  inline-size: 100%;
+
+  > span {
+    block-size: 4px;
+    border-radius: 2px;
+    background: var(--mat-sys-outline-variant);
+  }
+
+  > span:last-child {
+    inline-size: 60%;
+  }
+
+  [data-kind='centered'] > & {
+    inline-size: 56%;
+    padding: 8px 6px;
+    border-radius: var(--mat-sys-corner-extra-small);
+    background: var(--email-paper, var(--mat-sys-surface-bright));
+    box-shadow: 0 0 0 1px var(--mat-sys-outline-variant);
+  }
 }
 
 .designer-layout__row {

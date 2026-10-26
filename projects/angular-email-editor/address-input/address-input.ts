@@ -277,6 +277,16 @@ export class AddressInput implements FormValueControl<string[]> {
   /** Focus left the input. The directive marks the field touched on it. */
   readonly touch = output<void>();
 
+  /** The user is done with the list: focus left the input and the list is
+      not what it was when focus came in, or a drag moved a chip in or out
+      while focus was elsewhere. Carries the list. Never for a value set
+      from outside, and never per chip while the user is still in the row —
+      the moment for a host that saves a row as soon as it is left. */
+  readonly savedModelChange = output<string[]>();
+
+  /** The list as it was when focus came in — what a leave compares with. */
+  #enteredWith: string[] | null = null;
+
   /** The text input's id, for a host label's `for`. */
   readonly id = `email-address-input-${nextId++}`;
 
@@ -569,6 +579,8 @@ export class AddressInput implements FormValueControl<string[]> {
     this.remove(address);
     this.touch.emit();
     target.touch.emit();
+    this.#changedAway();
+    target.#changedAway();
     target.#announceMoved(address);
     return true;
   }
@@ -604,6 +616,7 @@ export class AddressInput implements FormValueControl<string[]> {
     if (ended?.source === this && ended.moved) {
       this.remove(ended.address);
       this.touch.emit();
+      this.#changedAway();
     }
     if (document.activeElement === this.chipList().nativeElement) this.focus();
   }
@@ -723,6 +736,8 @@ export class AddressInput implements FormValueControl<string[]> {
     this.dropMarker.set(null);
     if (effect === null) return;
     event.preventDefault();
+    const before = this.value();
+    const wasFocused = this.#focused();
     const transfer = event.dataTransfer!;
     if (effect === 'none') {
       transfer.dropEffect = 'none';
@@ -763,6 +778,10 @@ export class AddressInput implements FormValueControl<string[]> {
       return;
     }
     this.touch.emit();
+    // A drop that hands words back to the typing takes focus: the leave
+    // says it then, measured from before the drop.
+    if (!wasFocused && this.#focused()) this.#enteredWith = before;
+    this.#changedAway();
   }
 
   /** Picking a chip is being done with the typing: the addresses in it
@@ -775,6 +794,7 @@ export class AddressInput implements FormValueControl<string[]> {
   }
 
   protected onFocusin(): void {
+    if (!this.#focused()) this.#enteredWith = this.value();
     this.#focused.set(true);
   }
 
@@ -992,6 +1012,17 @@ export class AddressInput implements FormValueControl<string[]> {
     if (event.target === this.chipList().nativeElement) this.#leave(this.field().nativeElement);
     this.#focused.set(false);
     this.active.set(null);
+    // What was typed is committed by now: the list as the user left it.
+    const entered = this.#enteredWith;
+    this.#enteredWith = null;
+    if (entered !== null && !sameList(entered, this.value())) this.savedModelChange.emit(this.value());
+  }
+
+  /** A change made while focus is elsewhere — a chip dragged in or out, a
+      move — is done the moment it lands: said at once. In the row, the
+      leave says it. */
+  #changedAway(): void {
+    if (!this.#focused()) this.savedModelChange.emit(this.value());
   }
 
   /** Commits the addresses in a run and leaves the rest in the input. */
@@ -1033,4 +1064,9 @@ export class AddressInput implements FormValueControl<string[]> {
     const destination = event.relatedTarget as Node | null;
     return !!destination && this.#host.nativeElement.contains(destination);
   }
+}
+
+/** The same entries, in the same order. */
+function sameList(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((entry, index) => entry === b[index]);
 }

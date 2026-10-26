@@ -1,0 +1,67 @@
+// The composite chip's action. Knobs are the chip's own (`--chip-*`), read
+// through inheritance from the `m-chip` host around it.
+@use 'states';
+
+:host {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  align-self: stretch;
+
+  display: flex;
+  align-items: center;
+  gap: var(--chip-gap, 0.375rem);
+
+  padding-block: 0;
+  padding-inline: var(--chip-padding-inline, 0.75rem);
+
+  appearance: none;
+  margin: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+/* Inset, or the shell's rounded edge clips the ring. */
+:host(:focus-visible) {
+  outline: var(--chip-focus-width, 2px) solid var(--chip-focus-color, var(--mat-sys-primary, #5d78ff));
+  outline-offset: -2px;
+}
+
+/* The action's label box — the composite chip's label, so it ellipsises the
+   same way the plain chip's does (and fades, below, when dismissible). A
+   block, so a consumer's multi-line stack sits in it too. */
+.m-chip-action__label {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* DISMISSIBLE — the chip around this action holds an `[chipDismiss]`: the
+   label reserves the ✕'s end and fades, exactly like the plain chip's (see
+   chip.scss). The chip is found as an ANCESTOR (`:host-context`), since its
+   state lives on the shell, not here. */
+:host-context(.m-chip#{states.$dismissible}) {
+  padding-inline-end: 0;
+}
+
+:host-context(.m-chip#{states.$dismissible}) .m-chip-action__label {
+  @include states.dismissible-label;
+}
+
+:host-context(.m-chip#{states.$dismissible}:hover) .m-chip-action__label,
+:host-context(.m-chip:has(> [chipDismiss]:focus-visible)) .m-chip-action__label {
+  @include states.dismissible-label-revealed;
+}
+
+@each $state in states.$active {
+  :host-context(.m-chip#{states.$dismissible}#{$state}) .m-chip-action__label {
+    @include states.dismissible-label-revealed;
+  }
+}

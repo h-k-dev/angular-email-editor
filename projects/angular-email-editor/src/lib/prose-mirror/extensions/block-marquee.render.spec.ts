@@ -274,6 +274,28 @@ describe('block marquee (render)', () => {
     header.remove();
   });
 
+  it('a click at a start point of the host’s takes the focus from a field beside the editor', () => {
+    const header = document.createElement('header');
+    header.className = 'header';
+    const field = document.createElement('input');
+    header.appendChild(field);
+    document.body.insertBefore(header, surface);
+    header.addEventListener('mousedown', (event) => {
+      if (event.target === header) beginBlockMarquee(editor.view, event);
+    });
+
+    field.focus();
+    expect(document.activeElement).toBe(field);
+
+    const x = rect(header).right - 4;
+    const y = rect(header).top + 4;
+    expect(mouse('mousedown', x, y, header).defaultPrevented).toBe(true);
+    mouse('mouseup', x, y, window);
+    expect(document.activeElement).not.toBe(field);
+    expect(editor.view.hasFocus()).toBe(false);
+    header.remove();
+  });
+
   it('let go, the blocks fade their wash out over 150ms, then drop the mark', async () => {
     const left = rect(surface).left + 10;
     mouse('mousedown', left, rect(block(1)).top + 5);

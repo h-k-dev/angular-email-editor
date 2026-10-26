@@ -89,9 +89,11 @@ export class PaperIslandDirective implements PaperIsland {
  * A start point for the editor's block marquee, anywhere on its island: a
  * press on this element's own empty room — the element itself, never a child
  * (a label, a field, a button keep their presses) — starts the box, as a
- * press in the editor's margin does (Notion's page margins). Off an island,
- * or with no marquee editor on it, it does nothing. A press released in place
- * changes nothing (`beginBlockMarquee`).
+ * press in the editor's margin does (Notion's page margins). A press released
+ * in place changes nothing (`beginBlockMarquee`). Off an island, or with no
+ * marquee editor on it, a press there is still one on empty room: it takes
+ * the focus from whatever had it and puts no caret anywhere — the browser's
+ * own landing would put one in the nearest editable (a Summernote body).
  */
 @Directive({
   selector: '[marqueeStart]',
@@ -102,8 +104,19 @@ export class MarqueeStart {
   readonly #element = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
   protected press(event: MouseEvent): void {
-    if (event.target !== this.#element) return;
-    this.#island?.marquee.begin(event);
+    if (event.target !== this.#element || event.button !== 0) return;
+    const focused = this.#element.ownerDocument.activeElement;
+    // A press here is a press beside every field: one that had the focus —
+    // a row, the subject — gives it up, whether or not a box starts (the
+    // box takes the press, so the browser would not take the focus for it).
+    // The editor's own focus is the box's to keep or drop.
+    if (focused instanceof HTMLElement && !focused.isContentEditable) focused.blur();
+    if (this.#island?.marquee.begin(event)) return;
+    // No box: an editor that had the focus gives it up too, and no caret
+    // lands anywhere (the browser's own landing would put one in the
+    // nearest editable).
+    event.preventDefault();
+    if (focused instanceof HTMLElement) focused.blur();
   }
 }
 

@@ -87,4 +87,54 @@ describe('MarqueeStart', () => {
     press('.zone');
     expect(pressed).toHaveLength(1);
   });
+
+  it('a press that starts the box takes the focus from a field too — the box keeps the press', async () => {
+    const fixture = TestBed.createComponent(StartHost);
+    await fixture.whenStable();
+    const root = fixture.nativeElement as HTMLElement;
+    document.body.append(root);
+    const island = fixture.debugElement
+      .query((el) => el.nativeElement.classList?.contains('island'))
+      .injector.get(PaperIslandDirective);
+    const release = island.marquee.register((event) => {
+      event.preventDefault();
+      return true;
+    });
+    const field = document.createElement('input');
+    root.querySelector('.child')!.append(field);
+
+    field.focus();
+    const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+    root.querySelector('.zone')!.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(document.activeElement).not.toBe(field);
+    release();
+    root.remove();
+  });
+
+  it('with no box to start, a press on its own empty room still takes the focus and puts no caret', async () => {
+    const fixture = TestBed.createComponent(StartHost);
+    await fixture.whenStable();
+    const root = fixture.nativeElement as HTMLElement;
+    document.body.append(root);
+    const field = document.createElement('input');
+    root.querySelector('.child')!.append(field);
+    const press = (selector: string) => {
+      const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+      root.querySelector(selector)!.dispatchEvent(event);
+      return event;
+    };
+
+    field.focus();
+    expect(press('.child').defaultPrevented).toBe(false);
+    expect(document.activeElement).toBe(field);
+
+    expect(press('.stray').defaultPrevented).toBe(true);
+    expect(document.activeElement).not.toBe(field);
+
+    field.focus();
+    expect(press('.zone').defaultPrevented).toBe(true);
+    expect(document.activeElement).not.toBe(field);
+    root.remove();
+  });
 });

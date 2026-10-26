@@ -8,6 +8,7 @@ import {
   computed,
   inject,
   input,
+  output,
   signal,
   viewChild,
 } from '@angular/core';
@@ -31,6 +32,9 @@ import { Envelope } from '../../../../../../core/email/envelope';
 /** Tells the rows on one page apart: Preview needs an id of its own for
     its label. */
 let nextRowsId = 0;
+
+/** The rows that hold addresses. */
+export type AddressRow = 'from' | 'to' | 'cc' | 'bcc';
 
 /**
  * The envelope rows of one message, Gmail's: From, To with Cc and Bcc,
@@ -70,6 +74,15 @@ export class EnvelopeRows {
 
   /** The message's form: every row is one of its fields. */
   readonly form = input.required<FieldTree<Envelope>>();
+
+  /** An address row the user is done with — left, or a chip dragged in or
+      out — and its list (the address input's `savedModelChange`): for a
+      host that saves a row as soon as it is left (the template designer). */
+  readonly rowSaved = output<{ row: AddressRow; value: string[] }>();
+
+  /** The subject the user is done with — left after a change, or Enter
+      (the input's `change`): for a host that saves it as soon as it is. */
+  readonly subjectSaved = output<string>();
 
   /** How the rows frame their controls: `plain` — the control alone in the
       row (the page); `material` — inside an Angular Material form field at

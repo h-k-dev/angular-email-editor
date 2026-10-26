@@ -32,6 +32,7 @@
         limit="1"
         placeholder="you@example.com"
         [formField]="form().from"
+        (savedModelChange)="rowSaved.emit({ row: 'from', value: $event })"
       >
         <ng-template emailAddressLabel><span class="writer-field__label">From</span></ng-template>
       </div>
@@ -44,6 +45,7 @@
       limit="1"
       placeholder="you@example.com"
       [formField]="form().from"
+      (savedModelChange)="rowSaved.emit({ row: 'from', value: $event })"
     ></div>
   }
 </div>
@@ -142,6 +144,7 @@
           [attr.cdkFocusInitial]="initialFocus() === 'to' ? '' : null"
           placeholder="Recipients"
           [formField]="form().to"
+          (savedModelChange)="rowSaved.emit({ row: 'to', value: $event })"
         >
           <ng-template emailAddressLabel
             ><span class="writer-field__label writer-field__label--on-focus">To</span></ng-template
@@ -161,6 +164,7 @@
         [attr.cdkFocusInitial]="initialFocus() === 'to' ? '' : null"
         placeholder="Recipients"
         [formField]="form().to"
+        (savedModelChange)="rowSaved.emit({ row: 'to', value: $event })"
       ></div>
     }
   </div>
@@ -175,7 +179,13 @@
     >
       @if (material()) {
         <mat-form-field class="writer-field__form-field" subscriptSizing="dynamic">
-          <div email-address-input emailMatFormField #ccField [formField]="form().cc">
+          <div
+            email-address-input
+            emailMatFormField
+            #ccField
+            [formField]="form().cc"
+            (savedModelChange)="rowSaved.emit({ row: 'cc', value: $event })"
+          >
             <ng-template emailAddressLabel
               ><span class="writer-field__label">Cc</span></ng-template
             >
@@ -183,7 +193,12 @@
         </mat-form-field>
       } @else {
         <label class="writer-field__label" [for]="ccField.id">Cc</label>
-        <div email-address-input #ccField [formField]="form().cc"></div>
+        <div
+          email-address-input
+          #ccField
+          [formField]="form().cc"
+          (savedModelChange)="rowSaved.emit({ row: 'cc', value: $event })"
+        ></div>
       }
     </div>
   }
@@ -198,7 +213,13 @@
     >
       @if (material()) {
         <mat-form-field class="writer-field__form-field" subscriptSizing="dynamic">
-          <div email-address-input emailMatFormField #bccField [formField]="form().bcc">
+          <div
+            email-address-input
+            emailMatFormField
+            #bccField
+            [formField]="form().bcc"
+            (savedModelChange)="rowSaved.emit({ row: 'bcc', value: $event })"
+          >
             <ng-template emailAddressLabel
               ><span class="writer-field__label">Bcc</span></ng-template
             >
@@ -206,7 +227,12 @@
         </mat-form-field>
       } @else {
         <label class="writer-field__label" [for]="bccField.id">Bcc</label>
-        <div email-address-input #bccField [formField]="form().bcc"></div>
+        <div
+          email-address-input
+          #bccField
+          [formField]="form().bcc"
+          (savedModelChange)="rowSaved.emit({ row: 'bcc', value: $event })"
+        ></div>
       }
     </div>
   }
@@ -251,6 +277,7 @@
         placeholder="Subject"
         aria-label="Subject"
         [formField]="form().subject"
+        (change)="subjectSaved.emit(form().subject().value())"
       />
       @if (!showPreview()) {
         <span matSuffix class="writer-field__actions">
@@ -267,6 +294,7 @@
       placeholder="Subject"
       aria-label="Subject"
       [formField]="form().subject"
+      (change)="subjectSaved.emit(form().subject().value())"
     />
     @if (!showPreview()) {
       <span class="writer-field__actions">
