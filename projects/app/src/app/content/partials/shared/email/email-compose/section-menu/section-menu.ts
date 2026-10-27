@@ -26,8 +26,12 @@ import { ConnectedPosition } from '@angular/cdk/overlay';
 
 // Library
 import {
+  SECTION_PADDING_MAX,
+  SECTION_PADDING_STEP,
   SectionHandleTarget,
   findBandContext,
+  sectionPaddingOf,
+  sectionPaddingStep,
   toEmailSafeColor,
 } from '@h-k-dev/angular-email-editor';
 import { injectPalette } from '@h-k-dev/angular-email-editor/palette';
@@ -54,7 +58,11 @@ type SectionAction = string;
  * focus when it opens and hands it back to the text when it closes.
  * Background image turns the panel into a field for the address — Enter
  * sets it, an address that is neither http(s) nor a `{{ … }}` token turns
- * the field red, Escape leaves. The caret stays in the band throughout:
+ * the field red, Escape leaves. Padding is a part of the menu itself: the
+ * band's room, two px fields — Block (above and below) and Inline (at the
+ * sides) — each set as it changes (its arrows, a blur), Enter sets it and
+ * leaves. Their keys are the field's, not the menu's typeahead; Tab from
+ * the rows reaches them. The caret stays in the band throughout:
  * every action is a caret-relative section command.
  */
 @Component({
@@ -124,6 +132,16 @@ export class SectionMenu {
   /** The field holds an address that is neither an http(s) URL nor a
       `{{ … }}` token. */
   protected readonly imageRefused = signal(false);
+
+  /** The band's room, px — read again for every grip pressed, and after
+      every change the fields make. */
+  protected readonly padding = linkedSignal({
+    source: () => (this.open() ? this.target() : null),
+    computation: () => this.#sectionPadding(),
+  });
+
+  protected readonly paddingMax = SECTION_PADDING_MAX;
+  protected readonly paddingStep = SECTION_PADDING_STEP;
 
   /** The menu's element (or the field's), to put the focus in once it is
       on screen. */
@@ -214,10 +232,38 @@ export class SectionMenu {
     this.#done();
   }
 
+  /** A padding field changed: the band takes it at once, the panel stays
+      up; the field shows what the band took (on the grid, in range). */
+  protected setPadding(side: 'block' | 'inline', raw: string, input: HTMLInputElement): void {
+    const px = sectionPaddingStep(raw);
+    if (px != null) this.#commands.editor()?.commands['setSectionPadding']({ [side]: px });
+    const now = this.#sectionPadding();
+    this.padding.set(now);
+    input.value = String(now[side]);
+  }
+
+  /** Enter in a padding field: set, and the menu closes. */
+  protected applyPadding(side: 'block' | 'inline', raw: string, input: HTMLInputElement): void {
+    this.setPadding(side, raw, input);
+    this.#done();
+  }
+
+  /** A key in a padding field is the field's — digits never a typeahead,
+      the arrows its own steps — but Escape still leaves. */
+  protected fieldKey(event: KeyboardEvent): void {
+    event.stopPropagation();
+    if (event.key === 'Escape') this.leave();
+  }
+
   /** Escape: the menu closes and the caret goes back to the text. */
   protected leave(): void {
     this.closed.emit();
     this.#commands.focus();
+  }
+
+  #sectionPadding(): { block: number; inline: number } {
+    const editor = this.#commands.editor();
+    return (editor && sectionPaddingOf(editor.state)) ?? { block: 0, inline: 0 };
   }
 
   #sectionImage(): string | null {

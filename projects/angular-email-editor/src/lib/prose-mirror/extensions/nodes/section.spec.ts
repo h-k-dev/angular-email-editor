@@ -2,7 +2,7 @@ import { TextSelection } from 'prosemirror-state';
 import { createEditor, Editor } from '../../editor';
 import { emailExtensions } from '../kits';
 import { parseHTML, serializeToHTML } from '../../html';
-import { SECTION_PADDING } from './section';
+import { SECTION_PADDING, sectionPaddingOf } from './section';
 
 describe('section', () => {
   let host: HTMLElement;
@@ -67,6 +67,34 @@ describe('section', () => {
     );
     editor.commands['setSectionBackground'](null);
     expect(editor.getHTML()).toContain('<td style="padding: 20px 0px;">');
+  });
+
+  it('sets its room — padding above and below, the content column’s inset at the sides — and parses it back', () => {
+    editor.commands['insertSection']('#f1f3f4');
+    editor.exec((state, dispatch) => {
+      dispatch?.(state.tr.insertText('band'));
+      return true;
+    });
+    expect(sectionPaddingOf(editor.state)).toEqual({ block: 20, inline: 16 });
+    expect(editor.commands['setSectionPadding']({ block: 40 })).toBe(true);
+    expect(editor.commands['setSectionPadding']({ inline: 31 })).toBe(true);
+    // On the 4px grid; either side alone leaves the other.
+    expect(sectionPaddingOf(editor.state)).toEqual({ block: 40, inline: 32 });
+    const out = editor.getHTML();
+    expect(out).toContain('style="padding: 40px 0px; background-color');
+    expect(out).toContain('padding-left: 32px; padding-right: 32px;');
+    // The editor draws it too.
+    const band = host.querySelector<HTMLElement>('.aee-section')!;
+    expect(band.style.padding).toBe('40px 0px');
+    expect(band.querySelector<HTMLElement>('.aee-section__inner')!.style.paddingLeft).toBe('32px');
+    // A fixpoint: the inset reads back off the centring div.
+    expect(canonical(out)).toBe(out);
+    const doc = parseHTML(out, editor.schema);
+    expect(doc.child(0).attrs['inset']).toBe(32);
+    // None at all is room too; past the most, the most.
+    editor.commands['setSectionPadding']({ block: 0, inline: 999 });
+    expect(sectionPaddingOf(editor.state)).toEqual({ block: 0, inline: 160 });
+    expect(canonical(editor.getHTML())).toBe(editor.getHTML());
   });
 
   it('removeSection lifts the content out, where it stood', () => {

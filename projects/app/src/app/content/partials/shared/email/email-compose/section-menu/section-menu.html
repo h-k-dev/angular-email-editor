@@ -3,7 +3,8 @@
      and kept off the grip (`submenuPlacement`), open on hover or the right
      arrow, hidden while not (`data-visible`), with menu-aim's grace for the
      pointer on its way (`menuSafeTriangle`). Background image turns the
-     panel into the image's field. Escape is ours: it hands the caret back. -->
+     panel into the image's field; the band's padding is a part of the menu,
+     two fields under its heading. Escape is ours: it hands the caret back. -->
 <ng-template #panel>
   @if (imageField()) {
     <div #menu class="section-menu section-menu__field" (keydown.escape)="leave()">
@@ -94,6 +95,54 @@
       <div ngMenuItem class="section-menu__item" value="image">
         <mat-icon>wallpaper</mat-icon>
         <span>Background image</span>
+      </div>
+
+      <div class="section-menu__separator" role="separator"></div>
+
+      <!-- No rows of the menu: the arrows pass them by, Tab reaches them. -->
+      <div
+        class="section-menu__padding"
+        role="group"
+        aria-labelledby="section-menu-padding"
+        (keydown)="fieldKey($event)"
+      >
+        <div class="section-menu__heading" id="section-menu-padding">Padding</div>
+        <label class="section-menu__row">
+          <span>Block</span>
+          <span class="section-menu__length">
+            <input
+              #block
+              class="section-menu__input"
+              type="number"
+              inputmode="numeric"
+              min="0"
+              [step]="paddingStep"
+              [max]="paddingMax"
+              [value]="padding().block"
+              (change)="setPadding('block', block.value, block)"
+              (keydown.enter)="applyPadding('block', block.value, block); $event.preventDefault()"
+            />
+            px
+          </span>
+        </label>
+        <label class="section-menu__row">
+          <span>Inline</span>
+          <span class="section-menu__length">
+            <input
+              #inline
+              class="section-menu__input"
+              type="number"
+              inputmode="numeric"
+              min="0"
+              [step]="paddingStep"
+              [max]="paddingMax"
+              [value]="padding().inline"
+              (change)="setPadding('inline', inline.value, inline)"
+              (keydown.enter)="applyPadding('inline', inline.value, inline); $event.preventDefault()"
+            />
+            px
+          </span>
+        </label>
       </div>
 
       <div class="section-menu__separator" role="separator"></div>

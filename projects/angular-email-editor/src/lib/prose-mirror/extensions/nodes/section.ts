@@ -5,7 +5,7 @@ import { emailBackgroundPalette, fillTextColor } from '../../dual-contrast';
 import { isSafeColor, toEmailSafeColor } from '../marks/text-style';
 import { parsePadding } from './table';
 import { holdsBlock, holdsColumn, isPadded } from '../../import-html';
-import { inlinePadding } from '../../inline-style';
+import { inlinePadding, paddingOf, paddingSides } from '../../inline-style';
 import { layoutMarker, markedAs } from '../../layout-marker';
 import { pendingImageSource } from './image';
 import { COMMENT_ATTR, COMMENT_TAG } from '../../preserve';
@@ -17,8 +17,14 @@ export const SECTION_CONTENT_MAX = 600;
 /** A band's default breathing room, above and below — MJML's own. */
 export const SECTION_PADDING = '20px 0px';
 
-/** The content column's inline inset inside the band. */
+/** The content column's inline inset inside the band — a new band's. */
 export const SECTION_INSET = 16;
+
+/** The most room a band's menu sets, above and below or at the sides. */
+export const SECTION_PADDING_MAX = 160;
+
+/** The room a band's menu sets moves on the app's grid: 4px steps. */
+export const SECTION_PADDING_STEP = 4;
 
 /**
  * A section: a full-width band of the email — a fill running edge to edge
@@ -65,6 +71,11 @@ export const SECTION_INSET = 16;
  * the fill alone and names the token (`data-pending-image`, the host's to
  * draw).
  *
+ * **Its room** is two lengths: the band's padding above and below (the
+ * cell's), and the content column's inset at the sides (`inset`, the
+ * centring div's — inside the 600px cap, so it shows in a wide window as
+ * much as on a phone). `setSectionPadding` sets either.
+ *
  * **Marked** (`aee-layout-section` on the table, layout-marker.ts): a
  * table marked so is a band whatever its fill — a bare one included — and
  * the marker goes out with it.
@@ -95,6 +106,9 @@ export const Section = defineNode({
           (MJML's section on a coloured page: the page is the band's fill,
           the card this one) — or null for the column bare on the band. */
       contentBackground: { default: null },
+      /** The content column's inline inset, px — {@link SECTION_INSET} for
+          a new band. */
+      inset: { default: SECTION_INSET },
     },
     parseDOM: [
       {
@@ -133,6 +147,9 @@ export const Section = defineNode({
     setSectionImage: (url: string | null): Command => setSectionImage(url),
     /** Take the band away, its content staying where it stood. */
     removeSection: (): Command => removeSection,
+    /** The room of the band the cursor is in, px: `block` above and
+        below, `inline` at the sides — either left out stays as it is. */
+    setSectionPadding: (padding: SectionPadding): Command => setSectionPadding(padding),
   }),
   actions: ({ schema }) => [
     {
@@ -154,6 +171,7 @@ interface SectionAttrs {
   padding: string | null;
   image: string | null;
   contentBackground: string | null;
+  inset: number;
 }
 
 /** The band's inline style: its padding, its fill with the text colour
@@ -246,11 +264,15 @@ export function isSectionImageUrl(url: string | null): url is string {
     on a phone — `box-sizing` keeps the inset inside the cap. Outlook
     ignores padding on a div and shows the content at the band's edge,
     inside the reading pane's own margins: the graceful half. */
-const innerStyle = ({ contentBackground, padding }: Partial<SectionAttrs> = {}): string => {
+const innerStyle = ({
+  contentBackground,
+  padding,
+  inset: room = SECTION_INSET,
+}: Partial<SectionAttrs> = {}): string => {
   // A card carries the section's padding itself, inside its fill — a
   // builder's card is padded within, and a page-coloured gap above a card
   // is no card. Its inset stays the same, on the same declaration.
-  const inset = `${SECTION_INSET}px`;
+  const inset = `${room}px`;
   const box =
     contentBackground && padding
       ? `padding: ${vertical(padding, 'top')} ${inset} ${vertical(padding, 'bottom')} ${inset};`
@@ -322,7 +344,23 @@ function sectionAttrs(table: HTMLTableElement): Record<string, unknown> | false 
   ) {
     return false;
   }
-  return { background, contentBackground, padding: padding ?? SECTION_PADDING, image };
+  const inset = content !== cell ? contentInset(content) : null;
+  return {
+    background,
+    contentBackground,
+    padding: padding ?? SECTION_PADDING,
+    image,
+    inset: inset ?? SECTION_INSET,
+  };
+}
+
+/** The inline inset a centring div says, px — its left side (ours writes
+    both alike) — or null where it says none, or not in px. */
+function contentInset(div: HTMLElement): number | null {
+  const left = inlinePadding(div)?.[3];
+  if (left === '0') return 0;
+  const px = left ? /^(\d+(?:\.\d+)?)px$/.exec(left) : null;
+  return px ? Number(px[1]) : null;
 }
 
 /** The vertical padding a card's centring div carries, as a section
@@ -443,7 +481,13 @@ function ownVmlContent(table: HTMLTableElement, cell: HTMLTableCellElement): Ele
   if (!image) return null;
   const fill = cell.getAttribute('bgcolor');
   const background = fill && isSafeColor(fill) ? toEmailSafeColor(fill) : null;
-  const expected = vmlOpen({ image, background, padding: null, contentBackground: null });
+  const expected = vmlOpen({
+    image,
+    background,
+    padding: null,
+    contentBackground: null,
+    inset: SECTION_INSET,
+  });
   return open.getAttribute(COMMENT_ATTR) === expected &&
     close.getAttribute(COMMENT_ATTR) === VML_CLOSE
     ? content
@@ -546,6 +590,73 @@ export function setSectionImage(url: string | null): Command {
     }
     return true;
   };
+}
+
+/** A band's room, px: above and below, and at the sides. */
+export interface SectionPadding {
+  readonly block?: number | null;
+  readonly inline?: number | null;
+}
+
+/** A length the band's menu may set: on the 4px grid, 0 to
+    {@link SECTION_PADDING_MAX} — null for anything that is no number. */
+export function sectionPaddingStep(value: unknown): number | null {
+  const raw = typeof value === 'string' && !value.trim() ? NaN : Number(value);
+  if (!Number.isFinite(raw)) return null;
+  const snapped = Math.round(raw / SECTION_PADDING_STEP) * SECTION_PADDING_STEP;
+  return Math.min(SECTION_PADDING_MAX, Math.max(0, snapped));
+}
+
+/** The room of the band the cursor is in, px — above (the top side; the
+    menu sets the bottom alike) and at the sides: a section's padding and
+    inset; a band row's own padding, else the page's (`rowPadding`). Null
+    where the cursor is in no band. */
+export function sectionPaddingOf(state: EditorState): { block: number; inline: number } | null {
+  const ctx = findBandContext(state);
+  if (!ctx) return null;
+  const px = (side: string) => Number.parseFloat(side) || 0;
+  if (ctx.node.type.name === 'section') {
+    const [top] = paddingSides(ctx.node.attrs['padding'] ?? '0px');
+    return { block: px(top), inline: Number(ctx.node.attrs['inset']) || 0 };
+  }
+  const [top, , , left] = paddingSides(ctx.node.attrs['padding'] ?? rowPagePadding(state));
+  return { block: px(top), inline: px(left) };
+}
+
+/** Sets the room of the band the cursor is in: a section's padding above
+    and below and its inset; a band row's four sides (its own from then on,
+    the page's `rowPadding` where it said none). A side left out keeps
+    what it was; a length off the grid snaps to it. */
+export function setSectionPadding({ block, inline }: SectionPadding): Command {
+  return (state, dispatch) => {
+    const ctx = findBandContext(state);
+    if (!ctx) return false;
+    const blockPx = block == null ? null : sectionPaddingStep(block);
+    const inlinePx = inline == null ? null : sectionPaddingStep(inline);
+    const attrs = { ...ctx.node.attrs };
+    const isSection = ctx.node.type.name === 'section';
+    const [top, right, bottom, left] = paddingSides(
+      attrs['padding'] ?? (isSection ? '0px' : rowPagePadding(state)),
+    );
+    const above = blockPx == null ? top : `${blockPx}px`;
+    const below = blockPx == null ? bottom : `${blockPx}px`;
+    if (isSection) {
+      attrs['padding'] = paddingOf(above, right, below, left);
+      if (inlinePx != null) attrs['inset'] = inlinePx;
+    } else {
+      const side = (was: string) => (inlinePx == null ? was : `${inlinePx}px`);
+      attrs['padding'] = paddingOf(above, side(right), below, side(left));
+    }
+    if (Object.keys(attrs).every((key) => attrs[key] === ctx.node.attrs[key])) return true;
+    dispatch?.(state.tr.setNodeMarkup(ctx.pos, undefined, attrs));
+    return true;
+  };
+}
+
+/** The page's padding round a row that says none (`rowPadding`). */
+function rowPagePadding(state: EditorState): string {
+  const layout = state.doc.attrs['pageLayout'] as { rowPadding?: unknown } | null | undefined;
+  return `${Number(layout?.rowPadding) || 0}px`;
 }
 
 /** Lifts the section's content out, in its place. A page's band row stays

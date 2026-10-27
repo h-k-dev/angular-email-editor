@@ -103,6 +103,21 @@ function boxOf(declarations: Declaration[], property: 'padding' | 'margin'): Box
 /** The padding an element declares inline — see {@link inlineBox}. */
 export const inlinePadding = (el: Element): BoxSides | null => inlineBox(el, 'padding');
 
+/** A padding's four sides, as the CSSOM spells them. */
+export function paddingSides(padding: string): string[] {
+  const probe = document.createElement('div');
+  probe.style.padding = padding;
+  const { paddingTop, paddingRight, paddingBottom, paddingLeft } = probe.style;
+  return [paddingTop, paddingRight, paddingBottom, paddingLeft].map((side) => side || '0px');
+}
+
+/** Four sides as one padding, as `parsePadding` normalises it. */
+export function paddingOf(...sides: string[]): string {
+  const probe = document.createElement('div');
+  probe.style.padding = sides.join(' ');
+  return probe.style.padding;
+}
+
 /** Whether a declared side is a zero (`0`, `0px`, `0em`, `0%`). */
 export function isZeroSide(side: string): boolean {
   return /^0(?:px|em|rem|%)?$/i.test(side.trim());

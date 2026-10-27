@@ -3,6 +3,7 @@ import { Command, EditorState, Plugin, PluginKey, Transaction } from 'prosemirro
 import { FunctionalExtension, defineExtension } from '../extension';
 import { PaletteColor, emailBackgroundPalette, fillTextColor } from '../dual-contrast';
 import { PAGE_ROW_PADDING_VAR, PageRowAttrs } from './nodes/page-row';
+import { paddingOf, paddingSides } from '../inline-style';
 import { PAGE_COLUMN_INSET, PageLayout, normalizePageLayout, samePageLayout } from '../page-layout';
 
 /** Editor root class while the document has a page layout. */
@@ -110,7 +111,7 @@ function wrapRuns(tr: Transaction, row: NodeType): void {
     below, the band's inset at the sides. */
 function rowOfBand(attrs: Record<string, any>): PageRowAttrs {
   const [top, , bottom] = paddingSides(attrs['padding'] ?? '0px');
-  const inset = `${PAGE_COLUMN_INSET}px`;
+  const inset = `${attrs['inset'] ?? PAGE_COLUMN_INSET}px`;
   return {
     background: attrs['background'] ?? null,
     color: null,
@@ -120,29 +121,16 @@ function rowOfBand(attrs: Record<string, any>): PageRowAttrs {
 }
 
 /** A row's look as a band's: its fill and image, its padding above and
-    below — its own, else the page's (`page`) — the band's inset its own. */
+    below — its own, else the page's (`page`) — and its sides as the
+    band's inset. */
 function bandOfRow(attrs: PageRowAttrs, page: string): Record<string, unknown> {
-  const [top, , bottom] = paddingSides(attrs.padding ?? page);
+  const [top, , bottom, left] = paddingSides(attrs.padding ?? page);
   return {
     background: attrs.background,
     image: attrs.image ?? null,
     padding: paddingOf(top, '0px', bottom, '0px'),
+    inset: Number.parseFloat(left) || 0,
   };
-}
-
-/** A padding's four sides, as the CSSOM spells them. */
-function paddingSides(padding: string): string[] {
-  const probe = document.createElement('div');
-  probe.style.padding = padding;
-  const { paddingTop, paddingRight, paddingBottom, paddingLeft } = probe.style;
-  return [paddingTop, paddingRight, paddingBottom, paddingLeft].map((side) => side || '0px');
-}
-
-/** Four sides as one padding, as `parsePadding` normalises it. */
-function paddingOf(...sides: string[]): string {
-  const probe = document.createElement('div');
-  probe.style.padding = sides.join(' ');
-  return probe.style.padding;
 }
 
 export interface PageLayoutOptions {

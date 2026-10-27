@@ -6,6 +6,7 @@ import { clickBelow } from './extensions/click-below';
 import { pageLayoutOf } from './extensions/page-layout';
 import { parseHTML, serializeToHTML } from './html';
 import { centeredPageLayout, normalizePageLayout, tablePageLayout } from './page-layout';
+import { sectionPaddingOf } from './extensions/nodes/section';
 
 /** The page of rows (page-layout.ts, the `table` kind): every line in a
     row, the column a table, the hand-coded form recognised and marked. */
@@ -311,6 +312,22 @@ describe('page of rows', () => {
       editor.commands['setPageLayout'](tablePageLayout());
       expect(editor.state.doc.child(0).type.name).toBe('pageRow');
       expect(editor.state.doc.child(0).attrs['image']).toBe('https://example.com/hero.jpg');
+    });
+
+    it("sets a band row's room on its own four sides, from the page's, and keeps it going to a free column and back", () => {
+      toRows();
+      toStart();
+      editor.commands['insertSection']('#fce8e6');
+      expect(sectionPaddingOf(editor.state)).toEqual({ block: 16, inline: 16 });
+      editor.commands['setSectionPadding']({ block: 32, inline: 8 });
+      expect(editor.state.doc.child(0).attrs['padding']).toBe('32px 8px');
+      expect(sectionPaddingOf(editor.state)).toEqual({ block: 32, inline: 8 });
+      // A band: its padding above and below, its sides the inset.
+      editor.commands['setPageLayout'](centeredPageLayout());
+      expect(editor.state.doc.child(0).attrs['padding']).toBe('32px 0px');
+      expect(editor.state.doc.child(0).attrs['inset']).toBe(8);
+      editor.commands['setPageLayout'](tablePageLayout());
+      expect(editor.state.doc.child(0).attrs['padding']).toBe('32px 8px');
     });
 
     it('draws a row as a plain block — no band, no table', () => {

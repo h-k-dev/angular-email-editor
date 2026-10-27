@@ -106,6 +106,36 @@
   }
 }
 
+// The padding part: under its heading, a row per length — its name where
+// a row's label stands, its px box at the end.
+.section-menu__padding {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.section-menu__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-block-size: 32px;
+  padding-inline: 12px;
+  font: var(--mat-sys-body-medium);
+}
+
+.section-menu__length {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--mat-sys-on-surface-variant, #555555);
+
+  .section-menu__input {
+    inline-size: 72px;
+    padding-block: 4px;
+  }
+}
+
 .section-menu__actions {
   display: flex;
   justify-content: flex-end;
