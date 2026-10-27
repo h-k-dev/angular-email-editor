@@ -175,6 +175,14 @@ class ColumnsView {
       cumulative += caps[boundary];
       (this.#lines.children[boundary] as HTMLElement).style.left = `${cumulative}px`;
     }
+    // The `+` sticks to the last column, not to the box: the caps sum to the
+    // budget (the box less the client padding), so the row ends short of the
+    // box's edge. Side by side it ends at the caps' sum; stacked, at the
+    // widest column (a held one fills the box). The CSS picks between them.
+    const zone = this.#append.parentElement!;
+    zone.style.setProperty('--aee-columns-span', `${caps.reduce((sum, cap) => sum + cap, 0)}px`);
+    const held = node.childCount > 0 && node.content.content.every((column) => column.attrs['hold']);
+    zone.style.setProperty('--aee-columns-stacked-span', held ? '100%' : `${Math.max(0, ...caps)}px`);
   }
 
   /** Whether columns take their drags and pills (`setLayoutInteraction`). */

@@ -25,6 +25,9 @@ import { SubmenuPlacement } from './submenu-placement';
     .row {
       block-size: 32px;
     }
+    .heading {
+      block-size: 24px;
+    }
     .list {
       position: absolute;
       inline-size: 150px;
@@ -55,6 +58,9 @@ import { SubmenuPlacement } from './submenu-placement';
       submenuPlacement
       [submenuPlacementAvoid]="avoid()"
     >
+      @if (heading()) {
+        <div class="heading">Background</div>
+      }
       <div ngMenuItem class="row" value="red">Red</div>
     </div>
   </div>`,
@@ -63,6 +69,7 @@ class Host {
   readonly x = signal(20);
   readonly y = signal(20);
   readonly avoid = signal<DOMRect | null>(null);
+  readonly heading = signal(false);
 }
 
 describe('SubmenuPlacement (render)', () => {
@@ -105,6 +112,13 @@ describe('SubmenuPlacement (render)', () => {
     expect(el('.list').dataset['side']).toBe('right');
     expect(box('.list').left).toBeCloseTo(box('.menu').right - 6, 0);
     expect(box('.list .row').top).toBeCloseTo(box('.opener').top, 0);
+  });
+
+  it('levels its first row, not its heading, with its row — the heading rises above', async () => {
+    fixture.componentInstance.heading.set(true);
+    await open(20, 100);
+    expect(box('.list .row').top).toBeCloseTo(box('.opener').top, 0);
+    expect(box('.list .heading').bottom).toBeCloseTo(box('.opener').top, 0);
   });
 
   it('goes left where the right has no room', async () => {

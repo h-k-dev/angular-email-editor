@@ -12,7 +12,8 @@ export interface SubmenuGeometry {
   /** The menu the list stands in, in the viewport. */
   menu: { left: number; top: number; width: number };
   /** Where the list's top goes for its first row to be level with its row:
-      the row's offset in the menu less the list's own top padding. */
+      the row's offset in the menu less the first row's offset in the list —
+      so a heading over the rows stands above the row, not level with it. */
   rowTop: number;
   list: { width: number; height: number };
   viewport: { width: number; height: number };
@@ -34,7 +35,8 @@ export interface SubmenuPlace {
 
 /**
  * A cascading list's place, the way a desktop menu finds it: beside its
- * menu, over the edge by `overlap`, its first row level with its row.
+ * menu, over the edge by `overlap`, its first row level with its row (a
+ * heading above it rises over the row).
  *
  * - **Side:** to the right — or to the left when what the menu is about
  *   (`avoid`) lies to the right, the way the menu itself went. The other
@@ -134,11 +136,14 @@ export class SubmenuPlacement {
     const row = this.#menu.parent()?.element as HTMLElement | undefined;
     if (!menu || !row) return null;
     const box = menu.getBoundingClientRect();
-    const style = getComputedStyle(list);
+    const first = list.querySelector<HTMLElement>(':scope > [role^="menuitem"]');
+    const firstTop = first
+      ? list.clientTop + first.offsetTop
+      : parseFloat(getComputedStyle(list).paddingTop) || 0;
     const root = document.documentElement;
     const place = placeSubmenu({
       menu: { left: box.left, top: box.top, width: menu.offsetWidth },
-      rowTop: row.offsetTop - (parseFloat(style.paddingTop) || 0),
+      rowTop: row.offsetTop - firstTop,
       list: { width: list.offsetWidth, height: list.offsetHeight },
       viewport: { width: root.clientWidth, height: root.clientHeight },
       overlap: this.overlap(),

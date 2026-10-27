@@ -1853,8 +1853,17 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
   width: var(--aee-block-gutter-x);
 }
 
+/* `+` hugs the last column — the NodeView hands over where the row ends
+ * (the caps' sum side by side, the widest column stacked), never past the
+ * box. */
 .aee-editor .aee-columns-box > .aee-add-zone--end {
-  left: 100%;
+  left: min(100%, var(--aee-columns-span, 100%));
+}
+
+@container aee-columns (width < 560px) {
+  .aee-editor .aee-columns-box > .aee-add-zone--end {
+    left: min(100%, var(--aee-columns-stacked-span, 100%));
+  }
 }
 
 .aee-editor .aee-columns-box > .aee-add-zone--start {
