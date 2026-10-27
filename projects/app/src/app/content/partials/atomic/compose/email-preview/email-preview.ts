@@ -21,9 +21,9 @@ import {
   emailPlainText,
   renderForClient,
 } from '@h-k-dev/angular-email-editor';
+import { atRest } from '@h-k-dev/angular-email-editor/actions';
 import { injectPalette } from '@h-k-dev/angular-email-editor/palette';
 
-import { atRest } from '../../../shared/email/at-rest';
 
 /** Approximates a mail client's rendering surface: default typography on
     white — the email itself carries no such defaults, the client does. */

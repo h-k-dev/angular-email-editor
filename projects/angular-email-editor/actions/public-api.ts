@@ -5,3 +5,4 @@
 export * from './actions';
 export * from './action-trigger';
 export * from './editor-model';
+export * from './at-rest';

@@ -67,7 +67,9 @@
           [attr.aria-label]="'editor.toolbar.customSize' | translate"
           [value]="customSize()"
           (input)="customSize.set(customSizeField.value)"
-          (keydown)="customSizeKey($event, sizeTrigger)"
+          emailFieldKeys
+          (emailFieldKeysCommitted)="applyCustomSize(sizeTrigger)"
+          (emailFieldKeysDismissed)="dismissCustomSize(sizeTrigger)"
         />
         <span class="formatting-toolbar__custom-size-unit" aria-hidden="true">px</span>
         <button

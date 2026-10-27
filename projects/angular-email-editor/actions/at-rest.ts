@@ -1,6 +1,5 @@
 import { Resource, debounced } from '@angular/core';
 
-// Library
 import { TYPING_REST } from '@h-k-dev/angular-email-editor';
 
 export interface AtRestOptions<T> {
@@ -21,6 +20,9 @@ export interface AtRestOptions<T> {
  * holds the last settled value while a burst runs, so the graph stays
  * whole. For work that costs more than a keystroke gap on a large email and
  * must still answer a single write at once. Call in an injection context.
+ *
+ *     readonly preview = atRest(() => this.html());
+ *     // {{ preview.value() }} — the body, redrawn as typing settles
  */
 export function atRest<T>(source: () => T, options: AtRestOptions<T> = {}): Resource<T> {
   const rest = options.rest ?? TYPING_REST;

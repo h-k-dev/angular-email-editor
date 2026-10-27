@@ -41,7 +41,7 @@ import {
   PAGE_WIDTH_MIN,
   emailBackgroundPalette,
 } from '@h-k-dev/angular-email-editor';
-import { pageLayoutModel } from '@h-k-dev/angular-email-editor/actions';
+import { atRest, pageLayoutModel } from '@h-k-dev/angular-email-editor/actions';
 import { FieldKeys } from '@h-k-dev/angular-email-editor/keyboard';
 import { AttachmentChip, AttachmentChipIcon } from '@h-k-dev/angular-email-editor/attachment-chip';
 import { AttachmentChips } from '@h-k-dev/angular-email-editor/attachment-chips';
@@ -56,7 +56,6 @@ import { PhoneFrame } from '../../../common/phone-frame/phone-frame';
 import { MailView } from '../../../shared/email/mail-view/mail-view';
 import { ScrollOwner } from '../../../../../core/directives/scroll-owner/scroll-owner';
 import { SplitHandle } from '../../../common/split-handle/split-handle';
-import { atRest } from '../../../shared/email/at-rest';
 import { EmailCompose } from '../../../shared/email/email-compose/email-compose';
 import { ColorPalette } from '../../../shared/email/email-compose/formatting-toolbar/color-palette/color-palette';
 import { HtmlEmailCompose } from '../../../shared/email/html-email-compose/html-email-compose';

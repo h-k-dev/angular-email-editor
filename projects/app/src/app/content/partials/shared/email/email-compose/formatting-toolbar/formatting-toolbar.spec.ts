@@ -223,4 +223,25 @@ describe('FormattingToolbar', () => {
     field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
     expect(apply).toHaveBeenLastCalledWith(13.5);
   });
+
+  it('Escape in the custom size drops what was typed, closes the menu and focuses its button', async () => {
+    const commands = fixture.debugElement.injector.get(FormattingCommands);
+    const apply = vi.spyOn(commands, 'applyFontSize').mockImplementation(() => {});
+    const trigger = root.querySelector('.formatting-toolbar__select--size') as HTMLElement;
+    trigger.click();
+    await fixture.whenStable();
+    const field = document.querySelector<HTMLInputElement>('.formatting-toolbar__custom-size-input')!;
+    field.value = '22';
+    field.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    await fixture.whenStable();
+    expect(apply).not.toHaveBeenCalled();
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(trigger);
+    // Opened again, the field has let go of the 22.
+    trigger.click();
+    await fixture.whenStable();
+    expect(document.querySelector<HTMLInputElement>('.formatting-toolbar__custom-size-input')!.value).toBe('');
+  });
 });

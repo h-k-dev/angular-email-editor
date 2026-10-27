@@ -31,7 +31,6 @@ import type { FormValueControl } from '@angular/forms/signals';
 
 import { DropHint, DropHintArt } from '../../../common/drop-hint/drop-hint';
 import { isTyping, releaseEditingSurface } from '../is-typing';
-import { atRest } from '../at-rest';
 import { PaperIsland } from '../paper-island';
 import { TableMenu } from './table-menu/table-menu';
 import { CellMenu } from './cell-menu/cell-menu';
@@ -102,6 +101,7 @@ import {
   LAYOUT_INTERACTIVE,
   LayoutInteractivity,
 } from '@h-k-dev/angular-email-editor';
+import { atRest } from '@h-k-dev/angular-email-editor/actions';
 import {
   SuggestionMenu,
   SuggestionMenuItem,

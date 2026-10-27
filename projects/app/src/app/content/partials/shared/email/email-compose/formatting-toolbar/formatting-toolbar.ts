@@ -43,6 +43,7 @@ import { ToolbarMenu, ToolbarMenuItem, ToolbarMenuRow } from './toolbar-menu/too
 import { PaperIslandScheme } from '../../paper-island';
 import { ToolbarOverflow, ToolbarOverflowItem } from './toolbar-overflow';
 import { KeepFocus } from '@h-k-dev/angular-email-editor/focus';
+import { FieldKeys } from '@h-k-dev/angular-email-editor/keyboard';
 import { TableKind } from '@h-k-dev/angular-email-editor';
 
 /** The buttons in the order people reach for them — marks, colour, then link,
@@ -92,6 +93,7 @@ const LAYOUT: FormattingLayout = [
     OverlayModule,
 
     ColorPicker,
+    FieldKeys,
     TablePicker,
     ToolbarMenu,
     ToolbarMenuRow,
@@ -157,15 +159,14 @@ export class FormattingToolbar {
     this.commands.applyFontSize(size);
   }
 
-  /** The field's keys are its own — the menu would read a digit as a jump
-      to an item — except Escape (the menu's to close) and Tab; Enter
-      applies. */
-  protected customSizeKey(event: KeyboardEvent, trigger: MenuTrigger<unknown>): void {
-    if (event.key === 'Escape' || event.key === 'Tab') return;
-    event.stopPropagation();
-    if (event.key !== 'Enter') return;
-    event.preventDefault();
-    this.applyCustomSize(trigger);
+  /** Escape in the field (its keys are its own, `emailFieldKeys` — the
+      menu would read a digit as a jump to an item): what was typed is
+      dropped, the menu closes, and focus goes back to its button, as the
+      menu's own Escape does. */
+  protected dismissCustomSize(trigger: MenuTrigger<unknown>): void {
+    this.customSize.set(this.font.customSize()?.toString() ?? '');
+    trigger.close();
+    trigger.element.focus();
   }
 
   /** The picker that is open, if any, and where it is anchored: its button,
