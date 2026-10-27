@@ -20,6 +20,12 @@
   --mat-sys-prose-mirror-font-size: 13px;
 }
 
+// The editor's box: no box of its own — the editor lays out as the host's
+// child, as it did when it was mounted straight into it.
+.html-email-compose__surface {
+  display: contents;
+}
+
 // Email-safe vocabulary dropdown; visibility and top/left are driven by the
 // autocomplete extension. The app's one menu look (styles/_menu.scss) — the
 // table grip's box and rows — in the source's own type, since its rows are

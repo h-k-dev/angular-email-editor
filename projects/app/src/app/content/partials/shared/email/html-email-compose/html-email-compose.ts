@@ -1,11 +1,10 @@
 import {
   Component,
-  DestroyRef,
   ElementRef,
-  afterNextRender,
   inject,
 
   // Signals
+  computed,
   debounced,
   effect,
   input,
@@ -21,9 +20,8 @@ import { TextSelection } from 'prosemirror-state';
 // Library
 import {
   AutocompleteState,
-  Editor,
+  Extension,
   HtmlDiagnostic,
-  createEditor,
   createHtmlAutocomplete,
   createHtmlLanguage,
   createOffsetMapper,
@@ -33,22 +31,31 @@ import {
   SourceOptions,
   TYPING_REST,
 } from '@h-k-dev/angular-email-editor';
+import { EditorCodec, EmailEditor } from '@h-k-dev/angular-email-editor/editor';
 import { Preferences } from '../../../../../core/storages/preferences';
-import { isTyping } from '../is-typing';
 import { FloatingScrollbar } from '../../../common/floating-scrollbar/floating-scrollbar';
 /**
  * The HTML side of the composer: a ProseMirror editor over the source kit
  * (code lines, highlighting, linting, Shift-Alt-F formatting, email-safe
- * autocomplete), mounted directly into the host element — the template holds
- * only the autocomplete listbox.
+ * autocomplete), mounted by `[emailEditor]` on a box that lays out as the
+ * host itself (`display: contents`) — beside it, the autocomplete listbox.
  */
 /** The source is read the way the visual editor parses it — the library's
     default `email` mode: markup kept as authored, lint on what it drops. */
 const SOURCE: SourceOptions = { mode: 'email' };
 
+/** The source as text: what it is shown lands pretty-printed, and stands
+    as given — the email editor's HTML is not sent back reformatted; only
+    the user's own edits go out. */
+const SOURCE_CODEC: EditorCodec = {
+  read: (editor) => editor.getText(),
+  write: (editor, html, options) => editor.setText(formatHTML(html, undefined, undefined, SOURCE), options),
+  canonical: false,
+};
+
 @Component({
   selector: 'section[html-email-compose]',
-  imports: [FloatingScrollbar],
+  imports: [FloatingScrollbar, EmailEditor],
   templateUrl: './html-email-compose.html',
   styleUrl: './html-email-compose.scss',
   host: {
@@ -57,8 +64,6 @@ const SOURCE: SourceOptions = { mode: 'email' };
   },
 })
 export class HtmlEmailCompose {
-  #destroyRef = inject(DestroyRef);
-  #host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   /** Two-way bound by the parent composer. This editor publishes raw source
       text; the canonical form comes back once the email schema parsed it. */
@@ -83,10 +88,33 @@ export class HtmlEmailCompose {
   active = input(true);
 
   menu = viewChild.required<ElementRef<HTMLElement>>('menu');
-  editor = signal<Editor | undefined>(undefined);
   completions = signal<AutocompleteState | undefined>(undefined);
 
-  /** `html` once typing in the email editor rests — see the effect below. */
+  /** The source's editor (`[emailEditor]`): mounting, the text both ways —
+      held while it is typed in, taken as typing in the email editor rests,
+      and left alone while the pane is out of sight (`active`). */
+  // A query cannot be an ES-private field: TypeScript's `private` it is.
+  private readonly surface = viewChild.required(EmailEditor);
+  readonly editor = computed(() => this.surface().editor());
+
+  protected readonly codec = SOURCE_CODEC;
+  protected readonly editorOptions = {
+    attributes: { role: 'textbox', 'aria-label': 'Email HTML source' },
+  };
+
+  /** The kit, made as the editor mounts: the source kit, its language
+      service swapped for one that reports diagnostics upward, and the
+      autocomplete in this pane's listbox. */
+  protected readonly kit = (): Extension[] => [
+    ...htmlSourceExtensions.filter((extension) => extension.name !== 'htmlLanguage'),
+    createHtmlLanguage({ onDiagnostics: (diagnostics) => this.diagnostics.set(diagnostics) }),
+    createHtmlAutocomplete({
+      element: this.menu().nativeElement,
+      onChange: (state) => this.completions.set(state),
+    }),
+  ];
+
+  /** `html` once typing in the email editor rests — the hidden pane's lint. */
   readonly #rest = debounced(() => this.html(), TYPING_REST);
 
   /** Alt+Z, as in VS Code: word wrap on or off. */
@@ -97,70 +125,22 @@ export class HtmlEmailCompose {
   }
 
   constructor() {
-    // No phase: mounting ProseMirror writes the DOM and reads it back in
-    // one go.
-    afterNextRender(() => this.#mountEditor());
-
-    this.#destroyRef.onDestroy(() => this.editor()?.destroy());
-
-    // Incoming html (the email editor's serialization) lands pretty-printed.
-    // Skipped while this editor has focus: then it is the origin of the
-    // signal value — rewriting would yank the cursor mid-keystroke. `setText`
-    // dispatches no transaction, so applying can't echo through `onUpdate`.
-    // Hidden, the editor is left alone and only the lint follows the text.
-    //
-    // At rest, not per keystroke: the email editor publishes on every one,
-    // and each run here re-formats the whole email and re-lints it — or
-    // rewrites this editor with it, 60–140 ms at Gmail's 102 KB clip. That
-    // is longer than a fast typist's gap between two keys, so a throttle
-    // would still stall them once a window; it waits for typing to rest
-    // (`TYPING_REST`) instead. What is applied is `html` as it is *then*,
-    // and showing the pane catches up at once (`active` is read straight).
+    // Out of sight, the editor is left alone (`emailEditorPaused`) and the
+    // diagnostics are linted from the text alone, exactly as the editor
+    // would lint it (the same formatted source), so the problems strip
+    // stays live — as typing in the email editor rests: each run re-formats
+    // and re-lints the whole email. Shown again, the editor catches up and
+    // lints itself.
     effect(() => {
       const active = this.active();
       this.#rest.value();
-      const editor = this.editor();
       untracked(() => {
-        if (!editor || isTyping(editor.view)) return;
-        if (!active) {
-          this.diagnostics.set(
-            lintHTML(formatHTML(this.html(), undefined, undefined, SOURCE), undefined, SOURCE),
-          );
-          return;
-        }
-        this.#applyIncoming(editor);
+        if (active) return;
+        this.diagnostics.set(
+          lintHTML(formatHTML(this.html(), undefined, undefined, SOURCE), undefined, SOURCE),
+        );
       });
     });
-  }
-
-  /** Applies the signal's current value to the source view, pretty-printed. */
-  #applyIncoming(editor: Editor): void {
-    const incoming = this.html();
-    if (incoming === editor.getText()) return;
-    editor.setText(formatHTML(incoming, undefined, undefined, SOURCE));
-  }
-
-  #mountEditor(): void {
-    const editor = createEditor({
-      parent: this.#host.nativeElement,
-      // The kit, with its default language service swapped for one that
-      // reports diagnostics upward.
-      extensions: [
-        ...htmlSourceExtensions.filter((extension) => extension.name !== 'htmlLanguage'),
-        createHtmlLanguage({ onDiagnostics: (diagnostics) => this.diagnostics.set(diagnostics) }),
-        createHtmlAutocomplete({
-          element: this.menu().nativeElement,
-          onChange: (state) => this.completions.set(state),
-        }),
-      ],
-      attributes: { role: 'textbox', 'aria-label': 'Email HTML source' },
-      onUpdate: (editor) => this.html.set(editor.getText()),
-    });
-    // External writes must survive focus (see the email pane's twin listener):
-    // on blur, catch up with the signal's current value — last writer wins.
-    editor.view.dom.addEventListener('blur', () => this.#applyIncoming(editor));
-    editor.view.dom.addEventListener('focus', () => this.#applyIncoming(editor));
-    this.editor.set(editor);
   }
 
   /** Puts the cursor on a diagnostic and scrolls it into view. */

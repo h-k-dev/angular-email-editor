@@ -23,11 +23,18 @@
        the editor's root is ProseMirror's, so its look is the global
        stylesheet's, keyed on this.
        floatingScrollbar: the text's bar floats over the paper, never a
-       gutter beside it. -->
+       gutter beside it.
+       emailEditor: the editor, mounted here — its kit by format, the value
+       both ways (held while typed in, canonical out). -->
   <div
     class="email-compose__editor"
     floatingScrollbar
-    #editorHost
+    [emailEditor]="kit()"
+    [(value)]="value"
+    [emailEditorOptions]="editorOptions"
+    (emailEditorMounted)="onMounted($event)"
+    (emailEditorChange)="onBodyChange($event)"
+    (touch)="touch.emit()"
     [attr.data-color-scheme]="colorScheme()"
     dropZone
     #attachmentZone="dropZone"

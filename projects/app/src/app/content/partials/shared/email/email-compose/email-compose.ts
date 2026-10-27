@@ -30,7 +30,7 @@ import { AngularFileDrop, FileDropEvent, claimDragEvent } from '@h-k-dev/angular
 import type { FormValueControl } from '@angular/forms/signals';
 
 import { DropHint, DropHintArt } from '../../../common/drop-hint/drop-hint';
-import { isTyping, releaseEditingSurface } from '../is-typing';
+import { releaseEditingSurface } from '../is-typing';
 import { PaperIsland } from '../paper-island';
 import { TableMenu } from './table-menu/table-menu';
 import { CellMenu } from './cell-menu/cell-menu';
@@ -76,7 +76,6 @@ import {
   createButtonEdit,
   createContentProposal,
   createContentStream,
-  createEditor,
   createAngularExpressions,
   createImageDrag,
   createInlineImages,
@@ -101,7 +100,7 @@ import {
   LAYOUT_INTERACTIVE,
   LayoutInteractivity,
 } from '@h-k-dev/angular-email-editor';
-import { atRest } from '@h-k-dev/angular-email-editor/actions';
+import { EditorKit, EmailEditor } from '@h-k-dev/angular-email-editor/editor';
 import {
   SuggestionMenu,
   SuggestionMenuItem,
@@ -151,6 +150,7 @@ export type ComposeKit = BodyFormat | 'snippet';
     PortalModule,
 
     AngularFileDrop,
+    EmailEditor,
     TableMenu,
     CellMenu,
     SectionMenu,
@@ -228,8 +228,9 @@ export class EmailCompose implements FormValueControl<string> {
 
   /** Canonical email HTML — the form's `html` field, bound with
       `[formField]` (this pane is a `FormValueControl<string>`), or two-way
-      as `[(value)]`. This editor owns the canonical form: whatever comes in
-      is parsed through the email schema and re-published as what survived. */
+      as `[(value)]`. Handed on to the editor (`[emailEditor]`), which
+      owns the canonical form: whatever comes in is parsed through the email
+      schema and re-published as what survived. */
   value = model('');
 
   /** The quoted history a reply or forward answers — kept beside `value`,
@@ -249,6 +250,36 @@ export class EmailCompose implements FormValueControl<string> {
 
   /** The kit the editor in place was mounted with. */
   #mountedFormat: ComposeKit | null = null;
+
+  /** The editor on the surface (`[emailEditor]`): mounting, the value both
+      ways, the canonical form. */
+  // A query cannot be an ES-private field: TypeScript's `private` it is.
+  private readonly body = viewChild.required(EmailEditor);
+
+  /** The editor's kit, by format: another format is another editor (a
+      schema is an editor's for life), mounted in this one's place a render
+      later, with the value the host converted as it switched. A function,
+      so the kit is made as the editor mounts — once the menus it hands
+      elements to are on screen. */
+  protected readonly kit = computed<EditorKit>(() => {
+    const format = this.format();
+    return () => this.#kitFor(format);
+  });
+
+  /** The editable root's attributes. */
+  protected readonly editorOptions = {
+    attributes: { role: 'textbox', 'aria-multiline': 'true', 'aria-label': 'Message body' },
+  };
+
+  /** The body as the editor first published it — its canonical form — once
+      mounted; null before. "Unsaved" is `value() !== baseline()`. */
+  readonly baseline = computed(() => this.body().baseline());
+
+  /** Puts `html` in the body even while it is being typed in, as one undo
+      step — a Revert — and publishes what the editor made of it. */
+  replace(html: string): void {
+    this.body().replace(html);
+  }
 
   /** How the HTML source shows. Driven from outside — the composer's writer
       bar holds the toggles (in this surface's place, or beside it), and
@@ -393,7 +424,6 @@ export class EmailCompose implements FormValueControl<string> {
     }
   }
 
-  editorHost = viewChild.required<ElementRef<HTMLElement>>('editorHost');
   /** The suggestion menu's box, handed to its extension — one for every
       trigger: they never open together. */
   suggestionMenu = viewChild.required<SuggestionMenu, ElementRef<HTMLElement>>('suggestionMenu', {
@@ -485,10 +515,6 @@ export class EmailCompose implements FormValueControl<string> {
   constructor() {
     injectDarkPaletteStyle(".email-compose__editor[data-color-scheme='dark'] > .aee-editor");
 
-    // No phase: mounting ProseMirror writes the DOM and reads it back (the
-    // selection, the caret's coordinates) in one go.
-    afterNextRender(() => this.#mountEditor());
-
     // A view that owns the scroll keeps the floating foot's room clear at
     // its end — told once the foot exists (a render in), for as long as
     // this composer lives.
@@ -508,8 +534,6 @@ export class EmailCompose implements FormValueControl<string> {
       openAltText: () => this.altTextEditor().show(this.bubbleMenuState().boundingBox),
     });
 
-    this.#destroyRef.onDestroy(() => this.editor()?.destroy());
-
     // On an island, its start points (`MarqueeStart` — a zoomed window's
     // side room) start this editor's marquee, through the island.
     const release = this.#island?.marquee.register((event) => {
@@ -517,27 +541,6 @@ export class EmailCompose implements FormValueControl<string> {
       return !!view && beginBlockMarquee(view, event);
     });
     if (release) this.#destroyRef.onDestroy(release);
-
-    // Incoming html (the source pane's edits, a draft from another tab)
-    // parses through the email schema. Skipped while this editor has focus:
-    // then it is the origin of the signal value, not a consumer. `setContent`
-    // dispatches no transaction, so applying can't echo through `onUpdate`.
-    //
-    // At rest (`atRest`): a single write — a draft, an import, an example —
-    // lands at once, but typing in the source pane is a write per key, and
-    // parsing a large email per key (~14 ms at Gmail's 102 KB clip) eats a
-    // fast typist's gap between keys; that burst lands when it stops. The
-    // form's value is never held back — only this view of it. Focus catches
-    // up at once (the listeners in #mountEditor), so nobody types over a
-    // stale document.
-    effect(() => {
-      this.#incoming.value(); // track: any external write re-runs this
-      const editor = this.editor();
-      untracked(() => {
-        if (!editor || isTyping(editor.view)) return;
-        this.#applyIncoming(editor);
-      });
-    });
 
     // A language switch: the editor's own widgets (the quoted history's
     // buttons) ask their words when the view updates — an empty
@@ -564,25 +567,6 @@ export class EmailCompose implements FormValueControl<string> {
       untracked(() => editor?.commands['setLayoutInteraction']?.(interactivity));
     });
 
-    // HTML or plain text: the other kit is another editor (a schema is an
-    // editor's for life), mounted in this one's place — after the render,
-    // as the first one is, once the value the host converted as it
-    // switched has reached this pane too. Until then the editor in place
-    // takes nothing in (`#applyIncoming`). Only once one is mounted — the
-    // first mount reads the format itself.
-    effect(() => {
-      this.format();
-      untracked(() => {
-        if (!this.#mountedFormat) return;
-        afterNextRender(
-          () => {
-            if (this.format() !== this.#mountedFormat) this.#remount();
-          },
-          { injector: this.#injector },
-        );
-      });
-    });
-
     // The quoted history from outside — a reply seeded, a draft restored.
     // One string, set rarely: applied at once, re-published as what the
     // schema kept. The editor's own changes come back equal and stop here.
@@ -597,27 +581,7 @@ export class EmailCompose implements FormValueControl<string> {
     });
   }
 
-  /** `value`, settled: see the effect above. This editor's own publishes
-      come back through it too; they pass at once and start no burst. */
-  readonly #incoming = atRest(() => this.value(), {
-    passes: (value) => value === this.#published,
-  });
-
-  /** The html this editor last published — what its document serializes
-      to: every change to the document is published (`onUpdate`, or right
-      after `setContent` below), so the two never drift. Kept so that
-      checking an incoming value is a string compare, not a second
-      serialization of the whole email on top of the one each keystroke
-      already costs. */
-  #published: string | null = null;
-
-  /** Serializes the document once and publishes it. */
-  #publish(editor: Editor): void {
-    this.#published = editor.getHTML();
-    this.value.set(this.#published);
-  }
-
-  /** The quoted history this editor last published, like `#published`: a
+  /** The quoted history this editor last published: a
       quote from outside that has not reached the editor yet (a draft
       restored before it mounted) is never overwritten by the editor's
       older one — only a change of the editor's own goes out. */
@@ -630,31 +594,23 @@ export class EmailCompose implements FormValueControl<string> {
     this.quoted.set(quoted);
   }
 
-  /** Applies the signal's current value to the editor and re-publishes the
-      canonical form (what survived the schema round-trip). */
-  #applyIncoming(editor: Editor): void {
-    // An editor on the other kit — its replacement on the way — never takes
-    // the value in: it would read it down to its own schema (HTML through
-    // the plain-text kit loses its formatting) and publish that over it.
-    if (this.format() !== this.#mountedFormat) return;
-    const incoming = this.value();
-    if (incoming === (this.#published ??= editor.getHTML())) return;
-    editor.setContent(incoming);
-    this.#publish(editor);
-  }
-
-  /** Puts an editor on the format's kit in place of the one there: the old
-      one goes with everything it drew (its menus close with it), and the
-      new one takes the value and the quoted history as they stand — the
-      quote is already published, so it is set, never published back over. */
-  #remount(): void {
-    this.editor()?.destroy();
+  /** An editor was mounted — the first, or one on another kit: the bars
+      and menus are bound to it, what floated over the old one is gone, and
+      the quoted history as it stands is already published (set into the new
+      one, never published back over). */
+  protected onMounted(editor: Editor): void {
+    // The bars show what this kit can do: a snippet's has no table.
+    this.#commands.offered.set(this.#mountedFormat === 'snippet' ? SNIPPET_ITEMS : null);
     this.bubbleMenuState.set({ isOpen: false, boundingBox: null });
     this.closeHandles();
     this.suggestionState.set(undefined);
-    this.#published = null;
     this.#publishedQuoted = this.quoted();
-    this.#mountEditor();
+    this.#commands.mount(editor);
+  }
+
+  /** The document changed: its quoted history may have (the trash, Edit). */
+  protected onBodyChange(editor: Editor): void {
+    this.#publishQuoted(editor);
   }
 
   /** The kit an HTML message is written with: the email kit and everything
@@ -850,64 +806,20 @@ export class EmailCompose implements FormValueControl<string> {
     });
   }
 
-  #mountEditor(): void {
-    const format = this.format();
+  /** The kit of a format, as the editor mounts: the format's own, and what
+      every kit takes — the caret scrolls clear of the floating foot. */
+  #kitFor(format: ComposeKit): Extension[] {
     this.#mountedFormat = format;
-    // The bars show what this kit can do: a snippet's has no table.
-    this.#commands.offered.set(format === 'snippet' ? SNIPPET_ITEMS : null);
     const kit =
       format === 'text'
         ? this.#plainTextKit()
         : format === 'snippet'
           ? this.#snippetKit()
           : this.#htmlKit();
-    const editor = createEditor({
-      parent: this.editorHost().nativeElement,
-      extensions: [
-        ...kit,
-        // Every kit: the caret scrolls clear of the floating foot.
-        footClearance(this.#footRoom),
-      ],
-      attributes: { role: 'textbox', 'aria-multiline': 'true', 'aria-label': 'Message body' },
-      onUpdate: (editor) => {
-        this.#publish(editor);
-        this.#publishQuoted(editor);
-      },
-    });
-    // External writes must survive focus: the sync effect skips while this
-    // editor is focused — so on blur, catch up with whatever the signal says
-    // *now*. Last writer wins: if our own typing published after the external
-    // write, the values already agree and this is a no-op. Without this, an
-    // async draft restore or import landing mid-edit would be dropped forever.
-    editor.view.dom.addEventListener('blur', () => {
-      this.#applyIncoming(editor);
-      this.touch.emit();
-    });
-    // …and on the way back in: a window switch keeps the editor the active
-    // element, so a write that landed while the tab was in the background
-    // (`isTyping` let it through, but a blur can have come first) is taken
-    // before the first keystroke rather than typed over.
-    editor.view.dom.addEventListener('focus', () => this.#applyIncoming(editor));
-    this.#commands.mount(editor);
-    // Whatever the value already is — a restored draft is there before the
-    // editor is — goes in first; only then does the editor publish its
-    // canonical form. Publishing the empty document it mounted with would
-    // write over the value it was given.
-    this.#applyIncoming(editor);
-    this.#publish(editor);
-    // No focus of its own: where the caret starts is the page's decision
-    // (the composer puts it in To), and the form's way in is `focus()`.
-    // Mounting runs in the mixed render phase, after the page's focus write
-    // — taking focus here would take it back. Except the one the page
-    // already gave: the pane itself took focus before there was text to
-    // hold it (`onHostFocus`) and still has it — the caret goes on in, into
-    // the content just put there.
-    if (this.#focusOnMount && document.activeElement === this.#host) editor.view.focus();
-    this.#focusOnMount = false;
+    return [...kit, footClearance(this.#footRoom)];
   }
 
   readonly #host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
-  #focusOnMount = false;
 
   /** The strip and the dock, floating over the foot of the text. */
   protected readonly foot = viewChild.required(FloatingFoot);
@@ -937,12 +849,7 @@ export class EmailCompose implements FormValueControl<string> {
    * source pane standing in the editor's place.
    */
   protected onHostFocus(): void {
-    const editor = this.editor();
-    if (!editor) {
-      this.#focusOnMount = true;
-      return;
-    }
-    if (!this.codeView()) editor.focus();
+    if (!this.codeView()) this.body().focus();
   }
 
   /** Takes the caret the way a focus trap's initial focus does: the host
@@ -961,12 +868,12 @@ export class EmailCompose implements FormValueControl<string> {
       standing in its place, since a hidden editor cannot take focus. */
   focus(): void {
     if (!this.codeView()) {
-      this.editor()?.focus();
+      this.body().focus();
       return;
     }
     releaseEditingSurface();
     this.sourceView.set('hidden');
-    afterNextRender({ write: () => this.editor()?.focus() }, { injector: this.#injector });
+    afterNextRender({ write: () => this.body().focus() }, { injector: this.#injector });
   }
 }
 

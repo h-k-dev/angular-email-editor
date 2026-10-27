@@ -104,6 +104,7 @@ Every UI piece is its own secondary entry point, so you only bundle what you imp
 | `…/chat-input` | A chat-style prompt input on the same engine |
 | `…/image` | `[emailImageAlt]` — your text field as the selected image's alt text |
 | `…/anchor` | `[emailAnchor]` — position an overlay at a rect |
+| `…/editor` | `[emailEditor]` — mounts the engine on your element and binds its value: a `FormValueControl`, outside writes held while typed in, canonical out, `baseline()`, undoable `replace()`, `EMAIL_EDITOR` / `injectEditor()` |
 | `…/focus` | `[emailKeepFocus]` — controls that keep the caret in the editor |
 | `…/keyboard` | `[emailFieldKeys]` — a field inside a menu: keys stay in it, Enter commits, Escape reverts; shows what its model took |
 | `…/material` | `[emailMatFormField]` — an address input inside `mat-form-field` |

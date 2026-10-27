@@ -3,10 +3,10 @@ import {
   ElementRef,
 
   // Signals
-  afterRenderEffect,
   computed,
   effect,
   inject,
+  linkedSignal,
   output,
   signal,
   untracked,
@@ -204,11 +204,16 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
   /** A template was stored — the gallery redraws its card. */
   readonly saved = output<EmailTemplate>();
 
-  /** The message as it was last saved, read once the editor has its
-      reading of the body (the schema's canonical form — the template's HTML
-      as stored may be spelled otherwise): null until then, so nothing reads
-      as a change before the editor has said what the body is. */
-  readonly #clean = signal<Envelope | null>(null);
+  /** The message as it was last saved: first, the template as it opened,
+      round the body as the editor first published it (its `baseline` — the
+      schema's canonical form; the template's HTML as stored may be spelled
+      otherwise); then each save. Null until the editor has said what the
+      body is, so nothing reads as a change before. */
+  readonly #clean = linkedSignal<string | null, Envelope | null>({
+    source: () => this.emailPane().baseline(),
+    computation: (baseline, previous) =>
+      previous?.value ?? (baseline === null ? null : { ...untracked(this.message), html: baseline }),
+  });
 
   /** Anything changed since the last save. */
   readonly dirty = computed(() => {
@@ -324,14 +329,6 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
     // A design desk: the layout blocks take their gestures.
     this.layoutInteractive.set(true);
 
-    // The clean state is the editor's first reading of the template: once
-    // it has mounted (and published its canonical body), the message as it
-    // stands then.
-    afterRenderEffect(() => {
-      if (!this.emailPane().editor() || untracked(this.#clean)) return;
-      this.#clean.set(untracked(this.message));
-    });
-
     // Nothing unsaved is lost to a stray Escape (the dialog fills the
     // screen: there is no backdrop to press beside it).
     effect(() => (this.#ref.disableClose = this.dirty()));
@@ -434,8 +431,9 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
   protected revert(): void {
     const clean = this.#clean();
     if (!clean) return;
-    // A focused editor holds an outside write until it is left.
-    (document.activeElement as HTMLElement | null)?.blur?.();
+    // Into the editor even while it is typed in, as a step its undo takes
+    // back; the rest of the message follows through the form.
+    this.emailPane().replace(clean.html);
     for (const file of this.message().attachments) {
       if (!clean.attachments.some((kept) => kept.key === file.key)) this.uploads.cancel(file.key);
     }

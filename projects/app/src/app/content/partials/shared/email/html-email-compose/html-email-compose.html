@@ -1,5 +1,16 @@
-<!-- ProseMirror mounts directly into the host element; this listbox is the
-     autocomplete dropdown, positioned by the extension. -->
+<!-- The source's editor, on a box that lays out as the host itself
+     (display: contents): the host scrolls it, the styles keyed on the host
+     reach it. Its HTML both ways, pretty-printed in, the user's edits out. -->
+<div
+  class="html-email-compose__surface"
+  [emailEditor]="kit"
+  [emailEditorCodec]="codec"
+  [emailEditorOptions]="editorOptions"
+  [emailEditorPaused]="!active()"
+  [(value)]="html"
+></div>
+
+<!-- The autocomplete dropdown, positioned by the extension. -->
 <div
   class="html-email-compose__autocomplete"
   #menu

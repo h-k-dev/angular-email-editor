@@ -43,6 +43,12 @@ export interface EditorOptions {
   onUpdate?: (editor: Editor) => void;
 }
 
+/** How {@link Editor.setContent} and {@link Editor.setText} write. */
+export interface ContentOptions {
+  /** A step of the undo history (default: not — an outside sync). */
+  history?: boolean;
+}
+
 export interface Editor {
   view: EditorView;
   schema: Schema;
@@ -71,8 +77,9 @@ export interface Editor {
       unchanged content keeps its positions, so selection, scroll and plugin
       state survive. The change counts as an external sync — it never enters
       the undo history and never fires `onUpdate`, so editors mirroring each
-      other cannot echo. */
-  setContent(html: string): void;
+      other cannot echo. With `history: true` it is a step of the undo
+      history — a Revert the user can take back. */
+  setContent(html: string, options?: ContentOptions): void;
   /** The quoted history, as canonical HTML, or null — the part of the
       message {@link getHTML} leaves out and the send intent puts back. */
   getQuoted(): string | null;
@@ -82,8 +89,8 @@ export interface Editor {
   /** The document as plain text: top-level blocks joined with newlines. */
   getText(): string;
   /** Replaces the document with plain text, one default block per line.
-      Same external-sync semantics as {@link setContent}. */
-  setText(text: string): void;
+      Same external-sync semantics as {@link setContent}, `history` too. */
+  setText(text: string, options?: ContentOptions): void;
   focus(): void;
   destroy(): void;
 }
@@ -176,8 +183,8 @@ export function createEditor(options: EditorOptions): Editor {
       return false;
     },
     getHTML: () => serializeToHTML(view.state.doc, schema),
-    setContent(html) {
-      syncDoc(view, parse(html));
+    setContent(html, options) {
+      syncDoc(view, parse(html), options);
     },
     getQuoted: () => quotedHistory(view.state),
     setQuoted,
@@ -186,13 +193,13 @@ export function createEditor(options: EditorOptions): Editor {
       view.state.doc.forEach((node) => lines.push(node.textContent));
       return lines.join('\n');
     },
-    setText(text) {
+    setText(text, options) {
       const lineType = schema.topNodeType.contentMatch.defaultType;
       if (!lineType) throw new Error('setText: schema has no default block type');
       const lines = text
         .split('\n')
         .map((line) => lineType.create(null, line ? schema.text(line) : null));
-      syncDoc(view, schema.topNodeType.create(null, lines));
+      syncDoc(view, schema.topNodeType.create(null, lines), options);
     },
     focus: () => view.focus(),
     destroy: () => {
@@ -213,7 +220,7 @@ export function createEditor(options: EditorOptions): Editor {
  * to undo) and `externalSync` (so `dispatchTransaction` skips `onUpdate`,
  * keeping mirrored editors echo-free).
  */
-function syncDoc(view: EditorView, doc: Node): void {
+function syncDoc(view: EditorView, doc: Node, options: ContentOptions = {}): void {
   const previous = view.state.doc;
   if (previous.eq(doc)) return;
 
@@ -256,7 +263,8 @@ function syncDoc(view: EditorView, doc: Node): void {
     }
   }
   if (!tr.steps.length) return;
-  view.dispatch(tr.setMeta('addToHistory', false).setMeta('externalSync', true));
+  if (!options.history) tr.setMeta('addToHistory', false);
+  view.dispatch(tr.setMeta('externalSync', true));
 }
 
 /**
