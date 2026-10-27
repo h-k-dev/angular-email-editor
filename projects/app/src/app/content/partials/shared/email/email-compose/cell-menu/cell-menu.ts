@@ -8,11 +8,13 @@ import {
   effect,
   inject,
   input,
-  linkedSignal,
   output,
   untracked,
   viewChild,
 } from '@angular/core';
+
+// Angular Signal Forms
+import { FormField, debounce, form, max, min } from '@angular/forms/signals';
 
 // Material
 import { MatIconModule } from '@angular/material/icon';
@@ -31,12 +33,11 @@ import {
   ColumnHandleTarget,
   TableHandleTarget,
   caretCellPos,
-  columnPaddingOf,
-  columnSpacingStep,
-  columnsGapOf,
   findColumnContext,
   toEmailSafeColor,
 } from '@h-k-dev/angular-email-editor';
+import { columnSpacingModel } from '@h-k-dev/angular-email-editor/actions';
+import { FieldKeys } from '@h-k-dev/angular-email-editor/keyboard';
 import { injectPalette } from '@h-k-dev/angular-email-editor/palette';
 import { TextSelection } from 'prosemirror-state';
 
@@ -76,6 +77,10 @@ type CellAction = string;
   imports: [
     // Material
     MatIconModule,
+
+    // Signal Forms
+    FormField,
+    FieldKeys,
 
     // Angular Aria
     Menu,
@@ -146,15 +151,20 @@ export class CellMenu {
     }));
   });
 
-  /** A column's room and its block's gap, px — read again for every grip
-      pressed, and after every change the fields make. */
-  protected readonly spacing = linkedSignal({
-    source: () => (this.column() ? this.target() : null),
-    computation: () => this.#spacing(),
+  /** The room of the column the caret is in and its block's gap, px — the
+      three fields: each written once it is done with (left, Enter, a step
+      of its arrows), one step of the editor's, and shown as the column
+      took it (on the grid, in range). */
+  protected readonly spacing = form(columnSpacingModel(() => this.#commands.editor()), (room) => {
+    for (const side of [room.block, room.inline, room.gap]) {
+      min(side, 0);
+      debounce(side, 'blur');
+    }
+    max(room.block, COLUMN_PADDING_MAX);
+    max(room.inline, COLUMN_PADDING_MAX);
+    max(room.gap, COLUMNS_GAP_MAX);
   });
 
-  protected readonly paddingMax = COLUMN_PADDING_MAX;
-  protected readonly gapMax = COLUMNS_GAP_MAX;
   protected readonly spacingStep = COLUMN_SPACING_STEP;
 
   /** The root menu's element, to put the focus in once it is on screen. */
@@ -233,46 +243,9 @@ export class CellMenu {
     this.#commands.focus();
   }
 
-  /** A spacing field changed: the column (or, for the gap, its block)
-      takes it at once, the panel stays up; the field shows what was taken
-      (on the grid, in range). */
-  protected setSpacing(
-    side: 'block' | 'inline' | 'gap',
-    raw: string,
-    input: HTMLInputElement,
-  ): void {
-    const editor = this.#commands.editor();
-    if (side === 'gap') {
-      if (columnSpacingStep(raw, COLUMNS_GAP_MAX) != null) editor?.commands['setColumnsGap'](raw);
-    } else if (columnSpacingStep(raw, COLUMN_PADDING_MAX) != null) {
-      editor?.commands['setColumnPadding']({ [side]: raw });
-    }
-    const now = this.#spacing();
-    this.spacing.set(now);
-    input.value = String(now[side]);
-  }
-
   /** Enter in a spacing field: set, and the menu closes. */
-  protected applySpacing(
-    side: 'block' | 'inline' | 'gap',
-    raw: string,
-    input: HTMLInputElement,
-  ): void {
-    this.setSpacing(side, raw, input);
+  protected applied(): void {
     this.#done();
-  }
-
-  /** A key in a spacing field is the field's — digits never a typeahead,
-      the arrows its own steps — but Escape still leaves. */
-  protected fieldKey(event: KeyboardEvent): void {
-    event.stopPropagation();
-    if (event.key === 'Escape') this.leave();
-  }
-
-  #spacing(): { block: number; inline: number; gap: number } {
-    const editor = this.#commands.editor();
-    const padding = (editor && columnPaddingOf(editor.state)) ?? { block: 0, inline: 0 };
-    return { ...padding, gap: (editor && columnsGapOf(editor.state)) ?? 0 };
   }
 
   /** The cell's text colour — or the column's: on all of its words. The

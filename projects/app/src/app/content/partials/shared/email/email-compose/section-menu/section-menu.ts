@@ -15,6 +15,9 @@ import {
   viewChild,
 } from '@angular/core';
 
+// Angular Signal Forms
+import { FormField, debounce, form, max, min } from '@angular/forms/signals';
+
 // Material
 import { MatIconModule } from '@angular/material/icon';
 
@@ -30,10 +33,12 @@ import {
   SECTION_PADDING_STEP,
   SectionHandleTarget,
   findBandContext,
-  sectionPaddingOf,
-  sectionPaddingStep,
-  toEmailSafeColor,
 } from '@h-k-dev/angular-email-editor';
+import {
+  sectionBackgroundModel,
+  sectionPaddingModel,
+} from '@h-k-dev/angular-email-editor/actions';
+import { FieldKeys } from '@h-k-dev/angular-email-editor/keyboard';
 import { injectPalette } from '@h-k-dev/angular-email-editor/palette';
 
 import { FormattingCommands } from '../formatting-commands';
@@ -71,6 +76,10 @@ type SectionAction = string;
     // Material
     MatIconModule,
 
+    // Signal Forms
+    FormField,
+    FieldKeys,
+
     // Angular Aria
     Menu,
     MenuItem,
@@ -96,15 +105,10 @@ export class SectionMenu {
 
   protected readonly open = computed(() => this.target()?.kind === 'section');
 
-  /** The band's fill as the menu opened on it, as lower-case hex — null
-      for none: the colour list ticks it. */
-  protected readonly currentFill = computed(() => {
-    // Read again for every grip pressed — another band's, with the menu up.
-    if (!this.target() || !this.open()) return null;
-    const editor = this.#commands.editor();
-    const fill = editor ? findBandContext(editor.state)?.node.attrs['background'] : null;
-    return typeof fill === 'string' ? (toEmailSafeColor(fill)?.toLowerCase() ?? null) : null;
-  });
+  /** The fill of the band the caret is in, as lower-case hex — null for
+      none: the colour list ticks it, a row of it sets it. */
+  readonly #fill = sectionBackgroundModel(() => this.#commands.editor());
+  protected readonly currentFill = computed(() => (this.open() ? this.#fill() : null));
 
   /** The colour list's rows: each fill, and whether it is the band's. */
   protected readonly fills = computed(() => {
@@ -133,14 +137,18 @@ export class SectionMenu {
       `{{ … }}` token. */
   protected readonly imageRefused = signal(false);
 
-  /** The band's room, px — read again for every grip pressed, and after
-      every change the fields make. */
-  protected readonly padding = linkedSignal({
-    source: () => (this.open() ? this.target() : null),
-    computation: () => this.#sectionPadding(),
+  /** The room of the band the caret is in, px — its two fields: each
+      written once it is done with (left, Enter, a step of its arrows), one
+      step of the editor's, and shown as the band took it (on the grid, in
+      range). */
+  protected readonly padding = form(sectionPaddingModel(() => this.#commands.editor()), (room) => {
+    for (const side of [room.block, room.inline]) {
+      min(side, 0);
+      max(side, SECTION_PADDING_MAX);
+      debounce(side, 'blur');
+    }
   });
 
-  protected readonly paddingMax = SECTION_PADDING_MAX;
   protected readonly paddingStep = SECTION_PADDING_STEP;
 
   /** The menu's element (or the field's), to put the focus in once it is
@@ -198,7 +206,8 @@ export class SectionMenu {
     const [kind, value = ''] = action.split(':') as [string, string?];
     switch (kind) {
       case 'fill':
-        this.#run('setSectionBackground', value || null);
+        this.#fill.set(value || null);
+        this.#done();
         break;
       case 'image':
         this.imageValue.set(this.#sectionImage() ?? '');
@@ -232,38 +241,15 @@ export class SectionMenu {
     this.#done();
   }
 
-  /** A padding field changed: the band takes it at once, the panel stays
-      up; the field shows what the band took (on the grid, in range). */
-  protected setPadding(side: 'block' | 'inline', raw: string, input: HTMLInputElement): void {
-    const px = sectionPaddingStep(raw);
-    if (px != null) this.#commands.editor()?.commands['setSectionPadding']({ [side]: px });
-    const now = this.#sectionPadding();
-    this.padding.set(now);
-    input.value = String(now[side]);
-  }
-
   /** Enter in a padding field: set, and the menu closes. */
-  protected applyPadding(side: 'block' | 'inline', raw: string, input: HTMLInputElement): void {
-    this.setPadding(side, raw, input);
+  protected applied(): void {
     this.#done();
-  }
-
-  /** A key in a padding field is the field's — digits never a typeahead,
-      the arrows its own steps — but Escape still leaves. */
-  protected fieldKey(event: KeyboardEvent): void {
-    event.stopPropagation();
-    if (event.key === 'Escape') this.leave();
   }
 
   /** Escape: the menu closes and the caret goes back to the text. */
   protected leave(): void {
     this.closed.emit();
     this.#commands.focus();
-  }
-
-  #sectionPadding(): { block: number; inline: number } {
-    const editor = this.#commands.editor();
-    return (editor && sectionPaddingOf(editor.state)) ?? { block: 0, inline: 0 };
   }
 
   #sectionImage(): string | null {

@@ -90,7 +90,7 @@ Every UI piece is its own secondary entry point, so you only bundle what you imp
 | Import | What it is |
 | --- | --- |
 | `@h-k-dev/angular-email-editor` | The engine: `createEditor`, kits, schema, HTML parse/serialize, extensions |
-| `…/actions` | Editor actions as signals — `injectActions`, `[emailAction]` for your own buttons |
+| `…/actions` | Editor actions as signals — `injectActions`, `[emailAction]` for your own buttons; `editorModel` and the typed `sectionPaddingModel` · `columnSpacingModel` · `pageLayoutModel` · `sectionBackgroundModel` — what the document says as a writable signal, a model for signal forms |
 | `…/address` | The address rule (RFC 5322/5321/6531): parse, format, split, join, `ADDRESS_RULES` |
 | `…/address-input` | The address field: chips, `FormValueControl<string[]>`, `addressList` validator |
 | `…/address-chip` | One address chip |
@@ -105,6 +105,7 @@ Every UI piece is its own secondary entry point, so you only bundle what you imp
 | `…/image` | `[emailImageAlt]` — your text field as the selected image's alt text |
 | `…/anchor` | `[emailAnchor]` — position an overlay at a rect |
 | `…/focus` | `[emailKeepFocus]` — controls that keep the caret in the editor |
+| `…/keyboard` | `[emailFieldKeys]` — a field inside a menu: keys stay in it, Enter commits, Escape reverts; shows what its model took |
 | `…/material` | `[emailMatFormField]` — an address input inside `mat-form-field` |
 | `…/metrics` | Live text metrics (`createTextMetrics`), measured without DOM reads |
 

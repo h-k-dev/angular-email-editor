@@ -19,7 +19,7 @@ import { CdkOverlayOrigin, type ConnectedPosition, OverlayModule } from '@angula
 import { DomPortal } from '@angular/cdk/portal';
 
 // Angular Signal Forms
-import { FormField } from '@angular/forms/signals';
+import { FormField, debounce, form, max, min } from '@angular/forms/signals';
 
 // Angular Material
 import { MatButton, MatIconButton } from '@angular/material/button';
@@ -39,14 +39,10 @@ import {
   PAGE_SPACING_MAX,
   PAGE_WIDTH_MAX,
   PAGE_WIDTH_MIN,
-  PageLayout,
-  centeredPageLayout,
   emailBackgroundPalette,
-  pageLayoutOf,
-  samePageLayout,
-  tablePageLayout,
 } from '@h-k-dev/angular-email-editor';
-import { editorState } from '@h-k-dev/angular-email-editor/actions';
+import { pageLayoutModel } from '@h-k-dev/angular-email-editor/actions';
+import { FieldKeys } from '@h-k-dev/angular-email-editor/keyboard';
 import { AttachmentChip, AttachmentChipIcon } from '@h-k-dev/angular-email-editor/attachment-chip';
 import { AttachmentChips } from '@h-k-dev/angular-email-editor/attachment-chips';
 import { TranslatePipe } from '@ngx-translate/core';
@@ -140,6 +136,7 @@ function sameMessage(a: Envelope, b: Envelope): boolean {
   imports: [
     TranslatePipe,
     FormField,
+    FieldKeys,
     MatButton,
     MatIconButton,
     MatIcon,
@@ -261,6 +258,12 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
     if (event.key !== 'Escape') return;
     event.preventDefault();
     event.stopPropagation();
+    this.closeLayout(origin);
+  }
+
+  /** The panel put away, the focus back on its button — Escape, on the
+      panel or in one of its fields. */
+  protected closeLayout(origin: CdkOverlayOrigin): void {
     this.layoutOpen.set(false);
     (origin.elementRef.nativeElement as HTMLElement).focus();
   }
@@ -273,21 +276,23 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
   /** The page layouts, as the Layout tab's swatches offer them. */
   protected readonly layoutKinds = ['none', 'centered', 'table'] as const;
 
-  /** The email's page layout, as its editor holds it — null for none. The
-      same layout reads as no change, so a keystroke redraws nothing here. */
-  readonly #editorState = editorState(() => this.emailPane().editor());
-  protected readonly pageLayout = computed(
-    () => {
-      const state = this.#editorState();
-      return state ? pageLayoutOf(state) : null;
+  /** The email's page layout, as its editor holds it (`pageLayoutModel`):
+      every field a step of the editor's, so undo takes it back — the
+      kinds at once, a number once its field is done with (left, or Enter,
+      or a step of its arrows), snapped to its grid by the editor. */
+  protected readonly pageLayout = form(
+    pageLayoutModel(() => this.emailPane().editor()),
+    (page) => {
+      min(page.width, PAGE_WIDTH_MIN);
+      max(page.width, PAGE_WIDTH_MAX);
+      min(page.spacing, 0);
+      max(page.spacing, PAGE_SPACING_MAX);
+      min(page.rowPadding, 0);
+      max(page.rowPadding, PAGE_ROW_PADDING_MAX);
+      for (const field of [page.width, page.spacing, page.rowPadding]) debounce(field, 'blur');
     },
-    { equal: samePageLayout },
   );
   protected readonly backgroundPalette = emailBackgroundPalette;
-  protected readonly widthMin = PAGE_WIDTH_MIN;
-  protected readonly widthMax = PAGE_WIDTH_MAX;
-  protected readonly spacingMax = PAGE_SPACING_MAX;
-  protected readonly rowPaddingMax = PAGE_ROW_PADDING_MAX;
 
   /** The phone's email: the body as typing settles — a frame redrawn on
       every key would flicker. */
@@ -438,49 +443,13 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
     this.message.set(clean);
   }
 
-  /** The layout's kind: a centred column or rows — the page it had, else
-      the newsletter's default — or none. The editor turns the blocks into
-      rows and back in the same step (bands ↔ coloured rows). */
-  protected setLayoutKind(kind: string): void {
-    const page = this.pageLayout() ?? centeredPageLayout();
-    if (kind === 'centered') this.#setLayout({ ...page, kind: 'centered' });
-    else if (kind === 'table') this.#setLayout(tablePageLayout(page));
-    else this.#setLayout(null);
-  }
-
-  /** The column's width, as the field says it — snapped to its grid. */
-  protected setLayoutWidth(value: string): void {
-    const layout = this.pageLayout();
-    if (layout && value.trim()) this.#setLayout({ ...layout, width: Number(value) });
-  }
-
-  /** The page's room above and below the column, as the field says it —
-      snapped to its grid; an empty field is none. */
-  protected setLayoutSpacing(value: string): void {
-    const layout = this.pageLayout();
-    if (layout) this.#setLayout({ ...layout, spacing: Number(value) || 0 });
-  }
-
-  /** A page of rows' room round every row's blocks that says none of its
-      own, as the field says it — snapped to its grid; empty is none. */
-  protected setLayoutRowPadding(value: string): void {
-    const layout = this.pageLayout();
-    if (layout?.kind === 'table') this.#setLayout({ ...layout, rowPadding: Number(value) || 0 });
-  }
-
+  /** A colour picked for the page, or for its column. */
   protected setPageColor(background: string | null): void {
-    const layout = this.pageLayout();
-    if (layout) this.#setLayout({ ...layout, background });
+    this.pageLayout.background().value.set(background);
   }
 
   protected setColumnColor(columnBackground: string | null): void {
-    const layout = this.pageLayout();
-    if (layout) this.#setLayout({ ...layout, columnBackground });
-  }
-
-  /** A step of the editor's: the body publishes it, and undo takes it back. */
-  #setLayout(layout: PageLayout | null): void {
-    this.emailPane().editor()?.commands['setPageLayout'](layout);
+    this.pageLayout.columnBackground().value.set(columnBackground);
   }
 
   /** Closes the designer — the close button's, unsaved changes and all:

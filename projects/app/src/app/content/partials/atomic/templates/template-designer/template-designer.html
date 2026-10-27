@@ -102,7 +102,7 @@
     (overlayKeydown)="layoutKey($event, layoutOrigin)"
     (detach)="layoutOpen.set(false)"
   >
-    @let layout = pageLayout();
+    @let page = pageLayout;
     <section
       id="designer-layout"
       class="designer-layout"
@@ -114,13 +114,7 @@
       <div class="designer-layout__kinds" role="radiogroup" [attr.aria-label]="'designer.layout.kind' | translate">
         @for (kind of layoutKinds; track kind) {
           <label class="designer-layout__kind">
-            <input
-              type="radio"
-              name="designer-layout-kind"
-              [value]="kind"
-              [checked]="(layout?.kind ?? 'none') === kind"
-              (change)="setLayoutKind(kind)"
-            />
+            <input type="radio" [value]="kind" [formField]="page.kind" />
             <span class="designer-layout__swatch" [attr.data-kind]="kind" aria-hidden="true">
               <span class="designer-layout__column">
                 <span></span><span></span><span></span>
@@ -131,20 +125,21 @@
         }
       </div>
 
-      @if (layout) {
+      <!-- The numbers: each one written once its field is done with —
+           left, Enter, or a step of its arrows — and shown as the editor
+           took it (on the grid, in range). Escape in one puts the panel
+           away, as anywhere on it. -->
+      @if (page.kind().value() !== 'none') {
         <label class="designer-layout__row">
           <span class="designer-layout__label">{{ 'designer.layout.width' | translate }}</span>
           <span class="designer-layout__field">
             <input
-              #width
               type="number"
               inputmode="numeric"
               step="4"
-              [min]="widthMin"
-              [max]="widthMax"
-              [value]="layout.width"
-              (change)="setLayoutWidth(width.value)"
-              (keydown.enter)="setLayoutWidth(width.value)"
+              [formField]="page.width"
+              emailFieldKeys
+              (emailFieldKeysDismissed)="closeLayout(layoutOrigin)"
             />
             px
           </span>
@@ -154,15 +149,12 @@
           <span class="designer-layout__label">{{ 'designer.layout.spacing' | translate }}</span>
           <span class="designer-layout__field">
             <input
-              #spacing
               type="number"
               inputmode="numeric"
               step="4"
-              min="0"
-              [max]="spacingMax"
-              [value]="layout.spacing"
-              (change)="setLayoutSpacing(spacing.value)"
-              (keydown.enter)="setLayoutSpacing(spacing.value)"
+              [formField]="page.spacing"
+              emailFieldKeys
+              (emailFieldKeysDismissed)="closeLayout(layoutOrigin)"
             />
             px
           </span>
@@ -170,20 +162,17 @@
 
         <!-- Rows only: the room round every row's blocks that says none of
              its own (the column's cellpadding in the email). -->
-        @if (layout.kind === 'table') {
+        @if (page.kind().value() === 'table') {
           <label class="designer-layout__row">
             <span class="designer-layout__label">{{ 'designer.layout.rowPadding' | translate }}</span>
             <span class="designer-layout__field">
               <input
-                #rowPadding
                 type="number"
                 inputmode="numeric"
                 step="4"
-                min="0"
-                [max]="rowPaddingMax"
-                [value]="layout.rowPadding"
-                (change)="setLayoutRowPadding(rowPadding.value)"
-                (keydown.enter)="setLayoutRowPadding(rowPadding.value)"
+                [formField]="page.rowPadding"
+                emailFieldKeys
+                (emailFieldKeysDismissed)="closeLayout(layoutOrigin)"
               />
               px
             </span>
@@ -200,7 +189,7 @@
             [resetLabel]="'designer.layout.noColor' | translate"
             [colors]="backgroundPalette"
             [customLabel]="'designer.layout.custom' | translate"
-            [value]="layout.background"
+            [value]="page.background().value()"
             (picked)="setPageColor($event)"
           ></div>
         </div>
@@ -215,7 +204,7 @@
             [resetLabel]="'designer.layout.noColor' | translate"
             [colors]="backgroundPalette"
             [customLabel]="'designer.layout.custom' | translate"
-            [value]="layout.columnBackground"
+            [value]="page.columnBackground().value()"
             (picked)="setColumnColor($event)"
           ></div>
         </div>

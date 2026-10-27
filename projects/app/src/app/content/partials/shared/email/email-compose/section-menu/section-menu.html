@@ -104,23 +104,20 @@
         class="section-menu__padding"
         role="group"
         aria-labelledby="section-menu-padding"
-        (keydown)="fieldKey($event)"
       >
         <div class="section-menu__heading" id="section-menu-padding">Padding</div>
         <label class="section-menu__row">
           <span>Block</span>
           <span class="section-menu__length">
             <input
-              #block
               class="section-menu__input"
               type="number"
               inputmode="numeric"
-              min="0"
               [step]="paddingStep"
-              [max]="paddingMax"
-              [value]="padding().block"
-              (change)="setPadding('block', block.value, block)"
-              (keydown.enter)="applyPadding('block', block.value, block); $event.preventDefault()"
+              [formField]="padding.block"
+              emailFieldKeys
+              (emailFieldKeysCommitted)="applied()"
+              (emailFieldKeysDismissed)="leave()"
             />
             px
           </span>
@@ -129,16 +126,14 @@
           <span>Inline</span>
           <span class="section-menu__length">
             <input
-              #inline
               class="section-menu__input"
               type="number"
               inputmode="numeric"
-              min="0"
               [step]="paddingStep"
-              [max]="paddingMax"
-              [value]="padding().inline"
-              (change)="setPadding('inline', inline.value, inline)"
-              (keydown.enter)="applyPadding('inline', inline.value, inline); $event.preventDefault()"
+              [formField]="padding.inline"
+              emailFieldKeys
+              (emailFieldKeysCommitted)="applied()"
+              (emailFieldKeysDismissed)="leave()"
             />
             px
           </span>

@@ -130,23 +130,20 @@
         class="cell-menu__spacing"
         role="group"
         aria-labelledby="cell-menu-padding"
-        (keydown)="fieldKey($event)"
       >
         <div class="cell-menu__heading" id="cell-menu-padding">Padding</div>
         <label class="cell-menu__row">
           <span>Block</span>
           <span class="cell-menu__length">
             <input
-              #block
               class="cell-menu__input"
               type="number"
               inputmode="numeric"
-              min="0"
               [step]="spacingStep"
-              [max]="paddingMax"
-              [value]="spacing().block"
-              (change)="setSpacing('block', block.value, block)"
-              (keydown.enter)="applySpacing('block', block.value, block); $event.preventDefault()"
+              [formField]="spacing.block"
+              emailFieldKeys
+              (emailFieldKeysCommitted)="applied()"
+              (emailFieldKeysDismissed)="leave()"
             />
             px
           </span>
@@ -155,18 +152,14 @@
           <span>Inline</span>
           <span class="cell-menu__length">
             <input
-              #inline
               class="cell-menu__input"
               type="number"
               inputmode="numeric"
-              min="0"
               [step]="spacingStep"
-              [max]="paddingMax"
-              [value]="spacing().inline"
-              (change)="setSpacing('inline', inline.value, inline)"
-              (keydown.enter)="
-                applySpacing('inline', inline.value, inline); $event.preventDefault()
-              "
+              [formField]="spacing.inline"
+              emailFieldKeys
+              (emailFieldKeysCommitted)="applied()"
+              (emailFieldKeysDismissed)="leave()"
             />
             px
           </span>
@@ -175,16 +168,14 @@
           <span>Gap</span>
           <span class="cell-menu__length">
             <input
-              #gap
               class="cell-menu__input"
               type="number"
               inputmode="numeric"
-              min="0"
               [step]="spacingStep"
-              [max]="gapMax"
-              [value]="spacing().gap"
-              (change)="setSpacing('gap', gap.value, gap)"
-              (keydown.enter)="applySpacing('gap', gap.value, gap); $event.preventDefault()"
+              [formField]="spacing.gap"
+              emailFieldKeys
+              (emailFieldKeysCommitted)="applied()"
+              (emailFieldKeysDismissed)="leave()"
             />
             px
           </span>
