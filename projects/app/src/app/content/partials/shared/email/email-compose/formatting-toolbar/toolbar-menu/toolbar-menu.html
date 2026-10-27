@@ -1,5 +1,9 @@
 <!-- (detach): the CDK detaches an overlay by itself on Escape; closing the
-     trigger keeps `expanded()` — the overlay's open binding — in step. -->
+     trigger keeps `expanded()` — the overlay's open binding — in step.
+     (overlayOutsideClick): the menu closes itself when focus leaves it, but
+     toolbar buttons keep focus where it is on a press (the editor keeps its
+     caret), so a click on one would leave it open. The CDK leaves the
+     trigger itself out of it: the trigger toggles. -->
 <ng-template
   cdkConnectedOverlay
   [cdkConnectedOverlayOrigin]="trigger().element"
@@ -7,7 +11,7 @@
   [cdkConnectedOverlayPositions]="positions()"
   [cdkConnectedOverlayPush]="true"
   [cdkConnectedOverlayViewportMargin]="8"
-  (overlayOutsideClick)="dismiss($event)"
+  (overlayOutsideClick)="trigger().close()"
   (attach)="onAttach()"
   (detach)="trigger().close()"
 >

@@ -152,7 +152,7 @@
   [cdkConnectedOverlayOrigin]="colorOrigin()"
   [cdkConnectedOverlayPositions]="colorPositions()"
   [cdkConnectedOverlayOpen]="colorOpen()"
-  (overlayOutsideClick)="onColorOutsideClick($event)"
+  (overlayOutsideClick)="colorOpen.set(false)"
   (detach)="colorOpen.set(false)"
   [cdkConnectedOverlayPush]="true"
   [cdkConnectedOverlayViewportMargin]="8"

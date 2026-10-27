@@ -240,11 +240,6 @@ export class BubbleMenu {
 
   /** A press outside the pane closes it — but not the colour button's own,
       which toggles it by itself. */
-  protected onColorOutsideClick(event: MouseEvent): void {
-    if (this.colorOrigin().contains(event.target as Node)) return;
-    this.colorOpen.set(false);
-  }
-
   protected applyColor(color: string | null): void {
     this.colorOpen.set(false);
     this.#commands.applyColor(color);

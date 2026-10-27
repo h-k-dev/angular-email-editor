@@ -79,7 +79,7 @@ export const API_SECTIONS: readonly ApiSection[] = [
         summary: 'The mounted editor.',
         details: [
           "`commands` are the extensions’ named commands bound to the live view: `editor.commands['toggleBold']()` (the index form, which compiles under `noPropertyAccessFromIndexSignature`).",
-          '`setContent` / `setText` apply a minimal diff as an external sync: selection, scroll and plugin state survive, nothing enters the undo history, and `onUpdate` does not fire — two editors mirroring each other cannot echo.',
+          '`setContent` / `setText` apply a minimal diff as an external sync: selection, scroll and plugin state survive, nothing enters the undo history, and `onUpdate` does not fire — two editors mirroring each other cannot echo. `{ history: true }` makes the write a step the user can undo (a Revert).',
           '`getHTML` returns the body alone. `getQuoted` / `setQuoted` read and replace the quoted history, which `setContent` never touches.',
         ],
       },
@@ -867,6 +867,50 @@ export const API_SECTIONS: readonly ApiSection[] = [
     intro:
       'Behaviour only — no template, no styles, no UI kit — so they go onto a host’s own elements (a Material button, an Aria toolbar, a CDK overlay) or into its components through `hostDirectives`. Each is an entry point of its own.',
     entries: [
+      {
+        id: 'email-editor',
+        name: 'emailEditor',
+        from: `${LIB}/editor`,
+        signature:
+          '[emailEditor]="kit" [(value)] · [emailEditorCodec] [emailEditorOptions] [emailEditorPaused] · exportAs emailEditor',
+        summary:
+          'Mounts an editor on the host’s own element and binds its value — the part of every composer that is the same everywhere and easy to get subtly wrong.',
+        details: [
+          'Import the directive as `EmailEditor`. The kit is an array, or a function called as the editor mounts (it may read the host’s view queries); another kit is another editor, a render later, and the old one takes nothing in meanwhile.',
+          'A `FormValueControl<string>` (or `[(value)]`): every change goes out; a value from outside goes in as typing settles, never into an editor being typed in — it waits for the user to leave the text. `disabled` and `readonly` make it read-only; leaving it is `touch`.',
+          '`baseline()` is the canonical form it published as it mounted, so “unsaved” is `value() !== baseline()`. `replace(value)` writes even into a focused editor, as one undo step (`{ history: false }` for none).',
+          'A codec says how value and editor meet: HTML by default (`HTML_CODEC`, canonical out); a source pane reads and writes text (`canonical: false` — what it is shown stands as given).',
+          'It provides itself as `EMAIL_EDITOR` (`injectEditor()` from inside it). A component wearing it through `hostDirectives` sets it up with `configure({ kit, codec, options })`.',
+        ],
+      },
+      {
+        id: 'editor-model',
+        name: 'editorModel · atRest',
+        from: `${LIB}/actions`,
+        signature:
+          '(editor, { read, write, initial, equal? }) => WritableSignal<T> · sectionPaddingModel · sectionBackgroundModel · columnSpacingModel · pageLayoutModel · atRest(source, { rest?, passes? })',
+        summary:
+          'Something the document says — a band’s padding, the page layout — as a writable signal: reading follows the editor, writing runs the command as one undo step.',
+        details: [
+          'The signal never holds what the document does not: a write snaps to the grid, clamps to the range, or does nothing where the command refuses — and the signal says what was taken. A write of what the document already says runs nothing.',
+          'A model signal forms can stand on: `form(model, p => debounce(p, \'blur\'))` writes once a field is done with — one undo step, no snapping mid-number.',
+          'The typed models cover the caret’s band (padding, fill), its layout column (padding and gap) and the page layout as flat settings (`kind: \'none\' | \'centered\' | \'table\'`).',
+          '`atRest` is a value as typing settles: a single write passes at once, a burst lands when it stops — for views too costly to redraw on every key.',
+        ],
+      },
+      {
+        id: 'email-field-keys',
+        name: 'emailFieldKeys',
+        from: `${LIB}/keyboard`,
+        signature: '[emailFieldKeys] (emailFieldKeysCommitted) (emailFieldKeysDismissed)',
+        summary:
+          'The keys of a field inside something with keys of its own — a number field in a menu, a panel, a toolbar.',
+        details: [
+          'Import the directive as `FieldKeys`. Typed keys stay in the field — a digit is never the menu’s typeahead — except shortcuts with Ctrl or ⌘.',
+          'Enter commits (`emailFieldKeysCommitted`, a menu closes on it); Escape puts the field back as its model says (`emailFieldKeysDismissed`).',
+          'With `[formField]` on the same element it is the field’s other half: a field debounced to its blur commits on Enter and on `change` (an arrow’s step) too, and shows what its model took — even a snap back onto the value already there.',
+        ],
+      },
       {
         id: 'email-keep-focus',
         name: 'emailKeepFocus',

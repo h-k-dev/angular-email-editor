@@ -148,17 +148,6 @@ export class ToolbarMenu<V> {
     return this.side() === 'above' ? [above, below] : [below, above];
   });
 
-  /** Closes the menu on a click outside it. The menu closes itself when
-      focus leaves it — but toolbar buttons keep focus where it is on
-      mousedown (so the editor keeps its caret), so a click on one would
-      leave the menu open beside whatever it opened. Its own trigger is left
-      to toggle it. */
-  protected dismiss(event: MouseEvent): void {
-    const trigger = this.trigger();
-    if (trigger.element.contains(event.target as Node)) return;
-    trigger.close();
-  }
-
   /** The menu opened. The trigger puts focus on the first item — a menu of
       rows alone has none, so focus goes to the first row's tab stop
       instead, or it would stay on the trigger and Tab would walk out of the

@@ -250,14 +250,9 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
     { originX: 'end', originY: 'top', overlayX: 'end', overlayY: 'bottom', offsetY: -8 },
   ];
 
-  /** A press outside the panel puts it away — but not its own button's,
-      which toggles it. */
-  protected layoutOutside(event: MouseEvent, origin: CdkOverlayOrigin): void {
-    if (origin.elementRef.nativeElement.contains(event.target as Node)) return;
-    this.layoutOpen.set(false);
-  }
-
-  /** Escape puts the panel away, the focus back on its button. */
+  /** Escape puts the panel away, the focus back on its button. (A press
+      outside closes it too — never one on its button, which toggles it: the
+      CDK leaves the origin out of `overlayOutsideClick`.) */
   protected layoutKey(event: KeyboardEvent, origin: CdkOverlayOrigin): void {
     if (event.key !== 'Escape') return;
     event.preventDefault();

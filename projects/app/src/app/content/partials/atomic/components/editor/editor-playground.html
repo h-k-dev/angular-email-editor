@@ -1,0 +1,13 @@
+<playground-frame [knobs]="knobs" [actions]="actions" [value]="state()">
+  <div
+    class="stage-editor"
+    playgroundSubject="Editor"
+    [emailEditor]="kit"
+    [(value)]="value"
+    [disabled]="disabled()"
+    [readonly]="readonly()"
+    [emailEditorPaused]="paused()"
+    (emailEditorMounted)="playground.log('emailEditorMounted')"
+    (touch)="playground.log('touch')"
+  ></div>
+</playground-frame>

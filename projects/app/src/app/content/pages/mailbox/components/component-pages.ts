@@ -29,7 +29,9 @@ export const COMPONENT_PAGES: readonly DocPageLink[] = [
  * aside group: what they do is shown on a bench of the same kind.
  */
 export const UTILITY_PAGES: readonly DocPageLink[] = [
+  { id: 'editor', key: 'app.nav.utilityPages.editor', icon: 'edit_note' },
   { id: 'actions', key: 'app.nav.utilityPages.actions', icon: 'bolt' },
+  { id: 'keyboard', key: 'app.nav.utilityPages.keyboard', icon: 'keyboard' },
   { id: 'focus', key: 'app.nav.utilityPages.focus', icon: 'center_focus_strong' },
   { id: 'anchor', key: 'app.nav.utilityPages.anchor', icon: 'anchor' },
   { id: 'image', key: 'app.nav.utilityPages.image', icon: 'image' },

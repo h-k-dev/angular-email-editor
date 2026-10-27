@@ -55,7 +55,9 @@ export default {
         material: 'Material form field',
       },
       utilityPages: {
+        editor: 'Editor',
         actions: 'Actions',
+        keyboard: 'Field keys',
         focus: 'Keep focus',
         anchor: 'Anchor',
         image: 'Image alt',

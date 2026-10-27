@@ -1,0 +1,42 @@
+<playground-frame [knobs]="knobs" [actions]="actions" [value]="state()">
+  <div class="kp">
+    <div class="stage-editor kp-editor" [emailEditor]="kit" [value]="content"></div>
+
+    <!-- A menu with keys of its own: every key that reaches it is logged.
+         The fields keep theirs. -->
+    <div class="kp-menu" role="group" aria-label="Band padding" (keydown)="heard($event)">
+      <label class="kp-row">
+        <span class="stage-label">Block</span>
+        <span class="kp-length">
+          <input
+            class="kp-input"
+            type="number"
+            inputmode="numeric"
+            step="4"
+            [formField]="padding.block"
+            emailFieldKeys
+            (emailFieldKeysCommitted)="playground.log('emailFieldKeysCommitted', 'block')"
+            (emailFieldKeysDismissed)="playground.log('emailFieldKeysDismissed', 'block')"
+          />
+          px
+        </span>
+      </label>
+      <label class="kp-row">
+        <span class="stage-label">Inline</span>
+        <span class="kp-length">
+          <input
+            class="kp-input"
+            type="number"
+            inputmode="numeric"
+            step="4"
+            [formField]="padding.inline"
+            emailFieldKeys
+            (emailFieldKeysCommitted)="playground.log('emailFieldKeysCommitted', 'inline')"
+            (emailFieldKeysDismissed)="playground.log('emailFieldKeysDismissed', 'inline')"
+          />
+          px
+        </span>
+      </label>
+    </div>
+  </div>
+</playground-frame>

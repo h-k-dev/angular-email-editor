@@ -408,7 +408,88 @@ export class FormatBar {
   openLinkDialog() {}
 }`,
 
-  'email-anchor': `import { Component, signal } from '@angular/core';
+  'email-editor': `import { Component, computed, signal, viewChild } from '@angular/core';
+import { FormField, form } from '@angular/forms/signals';
+import { emailExtensions } from '@h-k-dev/angular-email-editor';
+import { EmailEditor } from '@h-k-dev/angular-email-editor/editor';
+
+@Component({
+  selector: 'app-template-editor',
+  imports: [EmailEditor, FormField],
+  template: \`
+    <div [emailEditor]="kit" [formField]="fields.body" #body="emailEditor"></div>
+    <button [disabled]="!dirty()" (click)="body.replace(body.baseline()!)">Revert</button>
+  \`,
+})
+export class TemplateEditor {
+  protected readonly kit = emailExtensions;
+  protected readonly fields = form(signal({ body: '<p>Hello {{ contact.firstName }},</p>' }));
+
+  private readonly body = viewChild.required(EmailEditor);
+  /** Changed since it opened — never a false alarm: the baseline is the
+      canonical form the editor published, not the HTML as stored. */
+  protected readonly dirty = computed(() => {
+    const baseline = this.body().baseline();
+    return baseline !== null && this.fields.body().value() !== baseline;
+  });
+}`,
+
+  'editor-model': `import { Component, input } from '@angular/core';
+import { FormField, debounce, form, max, min } from '@angular/forms/signals';
+import { Editor, SECTION_PADDING_MAX } from '@h-k-dev/angular-email-editor';
+import { sectionPaddingModel } from '@h-k-dev/angular-email-editor/actions';
+import { FieldKeys } from '@h-k-dev/angular-email-editor/keyboard';
+
+@Component({
+  selector: 'app-band-padding',
+  imports: [FormField, FieldKeys],
+  template: \`
+    <input type="number" step="4" [formField]="padding.block" emailFieldKeys />
+    <input type="number" step="4" [formField]="padding.inline" emailFieldKeys />
+  \`,
+})
+export class BandPadding {
+  readonly editor = input<Editor>();
+  /** The caret's band, its room — each field written once it is done with,
+      one undo step, shown as the band took it (on the 4px grid). */
+  protected readonly padding = form(sectionPaddingModel(() => this.editor()), (room) => {
+    for (const side of [room.block, room.inline]) {
+      min(side, 0);
+      max(side, SECTION_PADDING_MAX);
+      debounce(side, 'blur');
+    }
+  });
+}`,
+
+  'email-field-keys': `import { Component, output, signal } from '@angular/core';
+import { Menu, MenuItem } from '@angular/aria/menu';
+import { FormField, debounce, form } from '@angular/forms/signals';
+import { FieldKeys } from '@h-k-dev/angular-email-editor/keyboard';
+
+@Component({
+  selector: 'app-size-menu',
+  imports: [Menu, MenuItem, FormField, FieldKeys],
+  template: \`
+    <div ngMenu>
+      <div ngMenuItem value="reset">Reset</div>
+      <!-- Digits stay in the field, never the menu's typeahead; Enter
+           commits and closes, Escape puts it back and closes. -->
+      <input
+        type="number"
+        [formField]="size.px"
+        emailFieldKeys
+        (emailFieldKeysCommitted)="closed.emit()"
+        (emailFieldKeysDismissed)="closed.emit()"
+      />
+    </div>
+  \`,
+})
+export class SizeMenu {
+  readonly closed = output<void>();
+  protected readonly size = form(signal({ px: 14 }), (size) => debounce(size.px, 'blur'));
+}`,
+
+  'email-anchor':`import { Component, signal } from '@angular/core';
 import { OverlayModule } from '@angular/cdk/overlay';
 import { BubbleMenuState } from '@h-k-dev/angular-email-editor';
 import { Anchor } from '@h-k-dev/angular-email-editor/anchor';

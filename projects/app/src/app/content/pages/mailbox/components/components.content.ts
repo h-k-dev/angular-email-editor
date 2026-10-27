@@ -192,15 +192,59 @@ export const COMPONENT_CONTENT: Readonly<Record<string, ComponentPage>> = {
   },
 
   // ── Utilities: directives, functions and data ─────────────────────────
+  editor: {
+    title: 'Editor',
+    lede: 'An editor mounted on an element of the host’s own, its value bound: a signal-forms control that never writes into the text being typed and always hands back the canonical form.',
+    exports: ['EmailEditor', 'injectEditor', 'EMAIL_EDITOR', 'HTML_CODEC', 'EditorCodec'],
+    points: [
+      'The kit is an array, or a function called as the editor mounts; another kit is another editor, mounted in the old one’s place a render later.',
+      'A value from outside waits while the text is typed in — a draft saved in another tab lands when the writer leaves the text, not under their cursor.',
+      '`baseline()` is the body as the editor first published it, so “unsaved” is `value() !== baseline()` — never on open. `replace()` writes into a focused editor as one undo step: a Revert the user can take back.',
+      'A codec says how value and editor meet — HTML by default; a source pane reads and writes text. `emailEditorPaused` holds outside values for a pane out of sight.',
+    ],
+    usage: `<div [emailEditor]="kit" [formField]="form.body" #body="emailEditor"></div>
+<button [disabled]="form.body().value() === body.baseline()"
+        (click)="body.replace(body.baseline()!)">Revert</button>`,
+  },
+  keyboard: {
+    title: 'Field keys',
+    lede: 'A field that sits inside something with keys of its own — a number in a menu, a panel, a toolbar — keeps its keys, commits on Enter and goes back on Escape.',
+    exports: ['FieldKeys'],
+    points: [
+      'Typed keys stay in the field: a digit is never the menu’s typeahead, an arrow steps the number, not the rows. Shortcuts with Ctrl or ⌘ still go up.',
+      'Enter commits and says so (`emailFieldKeysCommitted`); Escape puts the field back as its model says (`emailFieldKeysDismissed`). A menu closes on either.',
+      'With `[formField]` debounced to its blur, a field writes once it is done with — and shows what its model took, even when that is the value already there (9 typed on a 4px grid that says 8).',
+      'Its natural model is an `editorModel` (`/actions`): the document’s value, written as one undo step.',
+    ],
+    usage: `<div ngMenu>
+  <input
+    type="number"
+    step="4"
+    [formField]="padding.block"
+    emailFieldKeys
+    (emailFieldKeysCommitted)="close()"
+    (emailFieldKeysDismissed)="close()"
+  />
+</div>`,
+  },
   actions: {
     title: 'Actions',
     lede: 'The editor’s actions, bound and live, for the host’s own buttons: `injectActions` lists what the kit declares, and `[emailAction]` makes any control the trigger of one.',
-    exports: ['injectActions', 'ActionTrigger', 'editorState', 'HostAction'],
+    exports: [
+      'injectActions',
+      'ActionTrigger',
+      'editorState',
+      'HostAction',
+      'editorModel',
+      'sectionPaddingModel',
+      'atRest',
+    ],
     points: [
       'A trigger says its state as ARIA — `aria-pressed` for a toggle, `aria-disabled` when it cannot run — and never a class or a style: how that looks is the host’s, bound from `pressed()` and `disabled()`.',
       'The list follows the editor it is given, so one toolbar serves a composer and its code view; an action the kit lacks is simply disabled.',
       '`host` adds actions of the host’s own (a link dialog); `override` replaces the kit’s `run` by id and keeps its state.',
       'After a run the caret goes back to the editor, unless `[emailActionFocus]="false"`.',
+      'The same entry holds the document’s values as writable signals — `editorModel` and the typed models (a band’s padding and fill, a column’s spacing, the page layout) — and `atRest`, a value as typing settles.',
     ],
     usage: `<div role="toolbar" emailKeepFocus>
   @for (action of actions.all(); track action.id) {

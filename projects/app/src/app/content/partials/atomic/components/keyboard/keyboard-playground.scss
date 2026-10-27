@@ -1,0 +1,48 @@
+.kp {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.kp-editor {
+  block-size: 200px;
+}
+
+// The menu: a quiet box round the fields, as a menu's part would be.
+.kp-menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  padding: 12px;
+  border-radius: var(--mat-sys-corner-medium, 12px);
+  background: var(--mat-sys-surface-container);
+}
+
+.kp-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kp-length {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.kp-input {
+  inline-size: 72px;
+  block-size: 32px;
+  padding-inline: 8px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: var(--mat-sys-corner-small, 8px);
+  background: transparent;
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: -1px;
+  }
+}

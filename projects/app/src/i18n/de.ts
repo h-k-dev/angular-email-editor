@@ -52,7 +52,9 @@ export default {
         material: 'Material-Formularfeld',
       },
       utilityPages: {
+        editor: 'Editor',
         actions: 'Aktionen',
+        keyboard: 'Feldtasten',
         focus: 'Fokus halten',
         anchor: 'Anker',
         image: 'Bild-Alternativtext',

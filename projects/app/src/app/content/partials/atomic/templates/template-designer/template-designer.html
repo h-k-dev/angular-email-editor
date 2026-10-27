@@ -98,7 +98,7 @@
     [cdkConnectedOverlayPositions]="layoutPositions"
     [cdkConnectedOverlayPush]="true"
     [cdkConnectedOverlayViewportMargin]="8"
-    (overlayOutsideClick)="layoutOutside($event, layoutOrigin)"
+    (overlayOutsideClick)="layoutOpen.set(false)"
     (overlayKeydown)="layoutKey($event, layoutOrigin)"
     (detach)="layoutOpen.set(false)"
   >

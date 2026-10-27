@@ -51,7 +51,9 @@ export default {
         material: 'Material フォームフィールド',
       },
       utilityPages: {
+        editor: 'エディター',
         actions: 'アクション',
+        keyboard: 'フィールドキー',
         focus: 'フォーカス維持',
         anchor: 'アンカー',
         image: '画像の代替テキスト',
