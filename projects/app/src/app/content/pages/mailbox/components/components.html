@@ -18,10 +18,11 @@
       its elements shows as it changes. Drag the stage’s corner to narrow it.
     </p>
     <!-- Its own chunk: a page's playground loads with the page. Recreated
-         per page, so nothing of one component's bench outlives it. -->
-    @if (playground.value(); as type) {
-      <ng-container *ngComponentOutlet="type; injector: placeInjector()" />
-    } @else if (playground.error()) {
+         per page, so nothing of one component's bench outlives it — the last
+         page's held only while the next one's chunk is on its way. -->
+    @if (bench(); as bench) {
+      <ng-container *ngComponentOutlet="bench.type; injector: placeInjector()" />
+    } @else if (failed()) {
       <p class="doc-text">The playground did not load.</p>
     } @else {
       <div class="components-loading" aria-hidden="true"></div>

@@ -1,5 +1,15 @@
 import { NgComponentOutlet } from '@angular/common';
-import { Component, Injector, computed, inject, input, resource } from '@angular/core';
+import {
+  Component,
+  Injector,
+  ResourceSnapshot,
+  Type,
+  computed,
+  inject,
+  input,
+  linkedSignal,
+  resource,
+} from '@angular/core';
 import { MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
@@ -9,6 +19,12 @@ import { PLAYGROUNDS } from '../../partials/atomic/components/playgrounds';
 import { PLAYGROUND_PLACE } from '../../partials/atomic/components/playground/playground-frame';
 import { PageHeader } from '../../partials/common/page-header/page-header';
 import { ENTRY_PAGES } from '../mailbox/components/component-pages';
+
+/** An entry's playground, as its chunk gives it. */
+interface Bench {
+  readonly id: string;
+  readonly type: Type<unknown>;
+}
 
 /**
  * A component's playground alone (`/playground/:entry`): the bench on the
@@ -32,16 +48,34 @@ export class PlaygroundAlone {
   );
   protected readonly back = computed(() => `/components/${this.link().id}`);
 
-  protected readonly playground = resource({
+  readonly #playground = resource({
     params: () => this.link().id,
-    loader: ({ params }) => PLAYGROUNDS[params](),
+    loader: async ({ params }) => ({ id: params, type: await PLAYGROUNDS[params]() }),
+  });
+
+  /** The bench on screen — held while the next entry's chunk is on its way,
+      so the section keeps its height instead of collapsing and growing
+      back. On the status: a chunk that failed clears it. */
+  protected readonly bench = linkedSignal<ResourceSnapshot<Bench | undefined>, Bench | undefined>({
+    source: this.#playground.snapshot,
+    computation: (snapshot, previous) => {
+      if (snapshot.status === 'loading' || snapshot.status === 'reloading') return previous?.value;
+      return snapshot.status === 'error' ? undefined : snapshot.value;
+    },
   });
 
   readonly #injector = inject(Injector);
+  /** The bench shown's place, so a held bench is not made anew for the
+      next entry's. */
   protected readonly placeInjector = computed(() =>
     Injector.create({
       parent: this.#injector,
-      providers: [{ provide: PLAYGROUND_PLACE, useValue: { alone: true, link: this.back() } }],
+      providers: [
+        {
+          provide: PLAYGROUND_PLACE,
+          useValue: { alone: true, link: `/components/${this.bench()?.id}` },
+        },
+      ],
     }),
   );
 }

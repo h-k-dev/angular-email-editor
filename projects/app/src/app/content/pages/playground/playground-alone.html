@@ -13,7 +13,7 @@
 </header>
 
 <div class="alone-body">
-  @if (playground.value(); as type) {
-    <ng-container *ngComponentOutlet="type; injector: placeInjector()" />
+  @if (bench(); as bench) {
+    <ng-container *ngComponentOutlet="bench.type; injector: placeInjector()" />
   }
 </div>

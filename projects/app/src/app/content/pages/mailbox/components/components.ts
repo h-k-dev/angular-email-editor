@@ -1,5 +1,15 @@
 import { NgComponentOutlet } from '@angular/common';
-import { Component, Injector, computed, inject, input, resource } from '@angular/core';
+import {
+  Component,
+  Injector,
+  ResourceSnapshot,
+  Type,
+  computed,
+  inject,
+  input,
+  linkedSignal,
+  resource,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { PLAYGROUNDS } from '../../../partials/atomic/components/playgrounds';
@@ -12,6 +22,12 @@ import { COMPONENT_PAGES, ENTRY_PAGES } from './component-pages';
 import { COMPONENT_CONTENT } from './components.content';
 
 const LIB = '@h-k-dev/angular-email-editor';
+
+/** An entry's playground, as its chunk gives it. */
+interface Bench {
+  readonly id: string;
+  readonly type: Type<unknown>;
+}
 
 /** The page's sections, the same on every component's page. */
 const TOC: readonly DocSection[] = [
@@ -55,20 +71,35 @@ export class Components {
     () => `import { ${this.content().exports.join(', ')} } from '${LIB}/${this.link().id}';`,
   );
 
-  protected readonly playground = resource({
+  readonly #playground = resource({
     params: () => this.link().id,
-    loader: ({ params }) => PLAYGROUNDS[params](),
+    loader: async ({ params }) => ({ id: params, type: await PLAYGROUNDS[params]() }),
   });
 
+  /** The bench on screen — held while the next entry's chunk is on its way,
+      so the section keeps its height instead of collapsing and growing
+      back. On the status: a chunk that failed clears it. */
+  protected readonly bench = linkedSignal<ResourceSnapshot<Bench | undefined>, Bench | undefined>({
+    source: this.#playground.snapshot,
+    computation: (snapshot, previous) => {
+      if (snapshot.status === 'loading' || snapshot.status === 'reloading') return previous?.value;
+      return snapshot.status === 'error' ? undefined : snapshot.value;
+    },
+  });
+
+  /** Its chunk did not load. */
+  protected readonly failed = computed(() => this.#playground.snapshot().status === 'error');
+
   readonly #injector = inject(Injector);
-  /** Tells the playground where it is, and the way to it alone. */
+  /** Tells the playground where it is, and the way to it alone — the bench
+      shown's, so a held bench is not made anew for the next entry's. */
   protected readonly placeInjector = computed(() =>
     Injector.create({
       parent: this.#injector,
       providers: [
         {
           provide: PLAYGROUND_PLACE,
-          useValue: { alone: false, link: `/playground/${this.link().id}` },
+          useValue: { alone: false, link: `/playground/${this.bench()?.id}` },
         },
       ],
     }),

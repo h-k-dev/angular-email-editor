@@ -1,4 +1,13 @@
-import { Service, computed, debounced, inject, linkedSignal, resource, signal } from '@angular/core';
+import {
+  ResourceSnapshot,
+  Service,
+  computed,
+  debounced,
+  inject,
+  linkedSignal,
+  resource,
+  signal,
+} from '@angular/core';
 
 // Library
 import { emailPlainText } from '@h-k-dev/angular-email-editor';
@@ -54,11 +63,15 @@ export class SnippetShelf {
     loader: ({ params, abortSignal }) => this.#store.find(params, abortSignal),
   });
 
-  /** The snippets found — the last answer while the next is on its way;
-      changed in place by what the editor tells. */
-  readonly #rows = linkedSignal<Snippet[] | undefined, Snippet[]>({
-    source: () => (this.#found.hasValue() ? this.#found.value() : undefined),
-    computation: (found, previous) => found ?? previous?.value ?? [],
+  /** The snippets found — the rows shown, held while the next answer is on
+      its way (or failed); changed in place by what the editor tells, which
+      holding keeps until that answer lands. */
+  readonly #rows = linkedSignal<ResourceSnapshot<Snippet[] | undefined>, Snippet[]>({
+    source: this.#found.snapshot,
+    computation: (found, previous) =>
+      found.status === 'resolved' || found.status === 'local'
+        ? (found.value ?? [])
+        : (previous?.value ?? []),
   });
 
   /** Each snippet's words, read once per text. */

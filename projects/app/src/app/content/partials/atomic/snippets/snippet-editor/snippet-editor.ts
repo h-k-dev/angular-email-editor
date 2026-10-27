@@ -2,6 +2,7 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  ResourceSnapshot,
   afterRenderEffect,
   computed,
   effect,
@@ -78,11 +79,21 @@ export class SnippetEditor {
     loader: ({ params, abortSignal }) => this.#store.findById(params, abortSignal),
   });
 
-  /** The snippet as the store gave it — nothing while it is on its way
-      (the last one's never stands in for it). */
-  protected readonly snippet = computed<Snippet | null>(() => {
-    const snippet = this.#loaded.hasValue() ? this.#loaded.value() : null;
-    return snippet?.id === this.id() ? snippet : null;
+  /** The snippet on screen — held while a load is open: opening another
+      keeps the last one's sheet until the next one lands, so the pane swaps
+      in place instead of blanking and growing back. On the status, not
+      `value ?? previous`: an id the store has no snippet by, or a failed
+      load, clears it (→ `missing`). */
+  protected readonly snippet = linkedSignal<
+    ResourceSnapshot<Snippet | null | undefined>,
+    Snippet | null
+  >({
+    source: this.#loaded.snapshot,
+    computation: (snapshot, previous) => {
+      if (snapshot.status === 'loading' || snapshot.status === 'reloading')
+        return previous?.value ?? null;
+      return snapshot.status === 'error' ? null : (snapshot.value ?? null);
+    },
   });
 
   /** The snippet, as a list of one: its composer is its own, made anew for
