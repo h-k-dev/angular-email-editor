@@ -1,19 +1,4 @@
-import {
-  Component,
-  DestroyRef,
-  Directive,
-  ElementRef,
-  afterNextRender,
-  booleanAttribute,
-  effect,
-  inject,
-  input,
-  model,
-  output,
-  signal,
-  untracked,
-} from '@angular/core';
-import type { FormValueControl } from '@angular/forms/signals';
+import { Component, Directive, inject, input, output } from '@angular/core';
 import { Command, Plugin, PluginKey } from 'prosemirror-state';
 import { Node as ProseMirrorNode } from 'prosemirror-model';
 import { Decoration, DecorationSet } from 'prosemirror-view';
@@ -21,7 +6,6 @@ import {
   BaseKeymap,
   BulletList,
   Document,
-  Editor,
   Extension,
   HardBreak,
   History,
@@ -30,9 +14,9 @@ import {
   OrderedList,
   Paragraph,
   Text,
-  createEditor,
   defineExtension,
 } from '@h-k-dev/angular-email-editor';
+import { EditorCodec, EmailEditor } from '@h-k-dev/angular-email-editor/editor';
 import { followTextHeight } from './chat-input.animation';
 
 /** The text as it is sent: a line per block, a list item as a dash line —
@@ -47,6 +31,34 @@ export function chatInputText(doc: ProseMirrorNode): string {
   });
   return lines.join('\n');
 }
+
+/** The chat text as the field's HTML: dash lines become list items again. */
+function chatInputHTML(text: string): string {
+  let html = '';
+  let inList = false;
+  for (const line of text.split('\n')) {
+    const item = /^\s*[-*]\s+(.*)$/.exec(line);
+    if (item) {
+      if (!inList) html += '<ul>';
+      html += `<li>${escapeHtml(item[1])}</li>`;
+      inList = true;
+    } else {
+      if (inList) html += '</ul>';
+      inList = false;
+      html += `<p>${escapeHtml(line)}</p>`;
+    }
+  }
+  if (inList) html += '</ul>';
+  return html;
+}
+
+/** The value is the text as sent (`chatInputText`); what is shown of a
+    value stands as given — no text written in is sent back reworded. */
+const CHAT_CODEC: EditorCodec = {
+  read: (editor) => chatInputText(editor.state.doc),
+  write: (editor, text, options) => editor.setContent(chatInputHTML(text), options),
+  canonical: false,
+};
 
 /** Says what the field is for while it is empty: a class and the words on
     its one paragraph, for the stylesheet (`data-placeholder`). */
@@ -93,7 +105,9 @@ const placeholder = (text: () => string): Extension =>
  * (a dash line becomes an item again). `sent` carries the same text;
  * `clear()` empties the field, `focus()` puts the caret in it. A
  * ProseMirror editor is mounted inside the element (the library's own,
- * `.aee-editor`), so a host's editor styles reach it.
+ * `.aee-editor`), so a host's editor styles reach it — by `EmailEditor`
+ * (`/editor`), worn as a host directive: a value written from outside
+ * waits while the field is typed in, as in every editor of the library.
  *
  * **A signal-forms control, optionally.** It is a `FormValueControl` for
  * `string`: bind a field with `[formField]="chat.message"` and the
@@ -102,22 +116,36 @@ const placeholder = (text: () => string): Extension =>
  * it. The form holds the *message*; the ask is still `sent` — an action
  * with a stream behind it is the host's, not the form's submit.
  */
-@Directive({ selector: '[emailChatInput]', exportAs: 'emailChatInput' })
-export class ChatInputField implements FormValueControl<string> {
+@Directive({
+  selector: '[emailChatInput]',
+  exportAs: 'emailChatInput',
+  hostDirectives: [
+    {
+      directive: EmailEditor,
+      inputs: ['value', 'disabled', 'readonly'],
+      outputs: ['valueChange', 'touch'],
+    },
+  ],
+})
+export class ChatInputField {
   /** What the field is for, while it is empty. */
   readonly placeholder = input('');
 
   /** The field's name for assistive technology. */
   readonly label = input('Message');
 
+  /** The editor underneath (`/editor`): mounting, the value both ways,
+      `disabled`, `readonly` and `touch` — the signal-forms control. */
+  readonly #field = inject(EmailEditor);
+
   /** Whether typing is refused. */
-  readonly disabled = input(false, { transform: booleanAttribute });
+  readonly disabled = this.#field.disabled;
 
   /** Whether the text is shown but not edited. */
-  readonly readonly = input(false, { transform: booleanAttribute });
+  readonly readonly = this.#field.readonly;
 
   /** The text, as it is sent: lines, and `- ` dash lines for list items. */
-  readonly value = model('');
+  readonly value = this.#field.value;
 
   /** Enter (outside a list) or Ctrl-Enter: the text, as `value` has it.
       Nothing is sent empty. The field keeps its text — the host clears it
@@ -127,36 +155,30 @@ export class ChatInputField implements FormValueControl<string> {
   /** Escape, in the field. */
   readonly escaped = output<void>();
 
-  /** Focus left the field — a form marks it touched on this. */
-  readonly touch = output<void>();
-
-  readonly #host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
-
-  readonly #editor = signal<Editor | null>(null);
-
   /** The editor inside, once mounted — for a host that wants more of it
       than the text: its selection, a command, its `view`. */
-  readonly editor = this.#editor.asReadonly();
+  readonly editor = this.#field.editor;
 
   constructor() {
-    afterNextRender({ write: () => this.#mount() });
-    inject(DestroyRef).onDestroy(() => this.#editor()?.destroy());
-    // A value written from outside shows in the field — unless it is what
-    // the field just said itself, or the field is being typed in.
-    effect(() => {
-      const value = this.value();
-      const editor = this.#editor();
-      if (!editor || editor.view.hasFocus()) return;
-      untracked(() => {
-        if (chatInputText(editor.state.doc) !== value) this.#show(value);
-      });
+    this.#field.configure({
+      kit: () => this.#kit(),
+      codec: CHAT_CODEC,
+      options: () => ({
+        attributes: {
+          class: 'email-chat-input__editor',
+          role: 'textbox',
+          'aria-multiline': 'true',
+          'aria-label': this.label(),
+        },
+      }),
     });
   }
 
   /** Empties the field. */
   clear(): void {
-    this.#editor()?.setText('');
-    this.value.set('');
+    // Even while it is typed in — it is, as Enter sends — and no step to
+    // undo back into a message already sent.
+    this.#field.replace('', { history: false });
   }
 
   /** A form's reset: the field, empty. */
@@ -165,10 +187,10 @@ export class ChatInputField implements FormValueControl<string> {
   }
 
   focus(): void {
-    this.#editor()?.focus();
+    this.#field.focus();
   }
 
-  #mount(): void {
+  #kit(): Extension[] {
     const send: Command = (state, dispatch) => {
       if (!dispatch) return true;
       this.#send();
@@ -185,82 +207,38 @@ export class ChatInputField implements FormValueControl<string> {
       if (dispatch) this.escaped.emit();
       return true;
     };
-    const editor = createEditor({
-      parent: this.#host,
-      extensions: [
-        Document,
-        Paragraph,
-        Text,
-        HardBreak,
-        // The lists carry their own keys (Enter goes on to the next item,
-        // Tab nests) and their own `- ` / `1. ` input rules.
-        BulletList,
-        OrderedList,
-        ListItem,
-        History,
-        NoTextDrag,
-        defineExtension({
-          name: 'chatInputKeys',
-          keymap: () => ({
-            Enter: sendOutsideLists,
-            'Mod-Enter': send,
-            'Shift-Enter': (state, dispatch) => {
-              const hardBreak = state.schema.nodes['hardBreak'];
-              dispatch?.(state.tr.replaceSelectionWith(hardBreak.create()).scrollIntoView());
-              return true;
-            },
-            Escape: escape,
-          }),
-        }),
-        BaseKeymap,
-        placeholder(() => this.placeholder()),
-      ],
-      attributes: {
-        class: 'email-chat-input__editor',
-        role: 'textbox',
-        'aria-multiline': 'true',
-        'aria-label': this.label(),
-      },
-      onUpdate: (current) => this.value.set(chatInputText(current.state.doc)),
-    });
-    editor.view.setProps({
-      editable: () => !this.disabled() && !this.readonly(),
-      handleDOMEvents: {
-        blur: () => {
-          this.touch.emit();
-          return false;
+    return [
+    Document,
+    Paragraph,
+    Text,
+    HardBreak,
+    // The lists carry their own keys (Enter goes on to the next item,
+    // Tab nests) and their own `- ` / `1. ` input rules.
+    BulletList,
+    OrderedList,
+    ListItem,
+    History,
+    NoTextDrag,
+    defineExtension({
+      name: 'chatInputKeys',
+      keymap: () => ({
+        Enter: sendOutsideLists,
+        'Mod-Enter': send,
+        'Shift-Enter': (state, dispatch) => {
+          const hardBreak = state.schema.nodes['hardBreak'];
+          dispatch?.(state.tr.replaceSelectionWith(hardBreak.create()).scrollIntoView());
+          return true;
         },
-      },
-    });
-    this.#editor.set(editor);
-    if (this.value()) this.#show(this.value());
-  }
-
-  /** Puts a text in the field: dash lines become list items again. */
-  #show(text: string): void {
-    const editor = this.#editor();
-    if (!editor) return;
-    const lines = text.split('\n');
-    let html = '';
-    let inList = false;
-    for (const line of lines) {
-      const item = /^\s*[-*]\s+(.*)$/.exec(line);
-      if (item) {
-        if (!inList) html += '<ul>';
-        html += `<li>${escapeHtml(item[1])}</li>`;
-        inList = true;
-      } else {
-        if (inList) html += '</ul>';
-        inList = false;
-        html += `<p>${escapeHtml(line)}</p>`;
-      }
-    }
-    if (inList) html += '</ul>';
-    editor.setContent(html);
+        Escape: escape,
+      }),
+    }),
+    BaseKeymap,
+    placeholder(() => this.placeholder()),
+    ];
   }
 
   #send(): void {
-    const editor = this.#editor();
+    const editor = this.editor();
     if (!editor) return;
     const text = chatInputText(editor.state.doc);
     if (!text.trim()) return;
@@ -294,8 +272,10 @@ export class ChatInputField implements FormValueControl<string> {
   hostDirectives: [
     {
       directive: ChatInputField,
-      inputs: ['placeholder', 'label', 'disabled', 'readonly', 'value'],
-      outputs: ['valueChange', 'sent', 'escaped', 'touch'],
+      // value, disabled, readonly, valueChange and touch are the field's
+      // own editor's (EmailEditor), exposed by the field itself.
+      inputs: ['placeholder', 'label'],
+      outputs: ['sent', 'escaped'],
     },
   ],
   host: { '[class.email-chat-input--disabled]': 'field.disabled()' },

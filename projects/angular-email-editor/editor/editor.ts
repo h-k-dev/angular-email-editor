@@ -7,6 +7,7 @@ import {
   Signal,
   afterNextRender,
   booleanAttribute,
+  computed,
   effect,
   inject,
   input,
@@ -56,6 +57,20 @@ export const HTML_CODEC: EditorCodec = {
   write: (editor, value, options) => editor.setContent(value, options),
   canonical: true,
 };
+
+/** What a host that wears `EmailEditor` through `hostDirectives` — where
+    no template binds its inputs — sets up from code ({@link EmailEditor.configure}).
+    What it gives wins over the bound inputs. */
+export interface EditorSetup {
+  kit?: EditorKit;
+  codec?: EditorCodec;
+  /** Read as the editor mounts — a function, to read the host's inputs
+      then (its label, say), not as the constructor runs. */
+  options?: EditorSetupOptions | (() => EditorSetupOptions);
+}
+
+/** The rest of `createEditor`'s options a host may give. */
+export type EditorSetupOptions = Pick<EditorOptions, 'attributes' | 'parseMode'>;
 
 /** An editor someone holds — what a toolbar, a menu or a model next to it
     needs (`injectEditor`). */
@@ -114,7 +129,11 @@ export function isTyping(view: EditorView): boolean {
  *   text is `touch`.
  * - It provides itself as {@link EMAIL_EDITOR}.
  *
- * Behaviour only: no template, no styles; the element is the host's.
+ * Behaviour only: no template, no styles; the element is the host's. A
+ * component or directive of the host's own can wear it too
+ * (`hostDirectives`, exposing `value` and the rest as it likes) and set
+ * its kit up from code — {@link configure} — since no template binds a host
+ * directive's inputs.
  */
 @Directive({
   selector: '[emailEditor]',
@@ -122,8 +141,13 @@ export function isTyping(view: EditorView): boolean {
   providers: [{ provide: EMAIL_EDITOR, useExisting: EmailEditor }],
 })
 export class EmailEditor implements FormValueControl<string>, EditorRef {
-  /** The kit — see {@link EditorKit}. */
-  readonly kit = input.required<EditorKit>({ alias: 'emailEditor' });
+  /** The kit — see {@link EditorKit}. Bound, or given to {@link configure}. */
+  readonly kit = input<EditorKit | undefined>(undefined, { alias: 'emailEditor' });
+
+  /** What was set up from code — see {@link configure}. */
+  readonly #setup = signal<EditorSetup>({});
+  /** The kit in use: set up from code, else bound. */
+  readonly #kit = computed(() => this.#setup().kit ?? this.kit());
 
   /** The value, as the codec reads it — canonical HTML by default. */
   readonly value = model('');
@@ -196,12 +220,12 @@ export class EmailEditor implements FormValueControl<string>, EditorRef {
     // new one stands in its place after the render that brought the value
     // converted for it.
     effect(() => {
-      const kit = this.kit();
+      const kit = this.#kit();
       untracked(() => {
         if (!this.#mountedKit || kit === this.#mountedKit) return;
         afterNextRender(
           () => {
-            if (this.kit() !== this.#mountedKit) this.#remount();
+            if (this.#kit() !== this.#mountedKit) this.#remount();
           },
           { injector: this.#injector },
         );
@@ -225,16 +249,25 @@ export class EmailEditor implements FormValueControl<string>, EditorRef {
     });
   }
 
-  /** Puts `value` in, even while the user is typing, as one undo step —
-      and publishes what the editor made of it. Without an editor yet, it
-      is the value it mounts with. */
-  replace(value: string): void {
+  /** Sets the editor up from code — for a host that wears this directive
+      through `hostDirectives`. Call it before the editor mounts (in the
+      constructor); a new kit later is a new editor, as a bound one is. */
+  configure(setup: EditorSetup): void {
+    this.#setup.update((current) => ({ ...current, ...setup }));
+  }
+
+  /** Puts `value` in, even while the user is typing — as one undo step,
+      unless `history: false` (a chat box emptied as its text is sent) —
+      and publishes what the editor made of it. Without an editor yet, it is
+      the value it mounts with. */
+  replace(value: string, options: ContentOptions = { history: true }): void {
     const editor = this.#editor();
     if (!editor || this.#stale()) {
       this.value.set(value);
       return;
     }
-    this.#write(editor, value, { history: true });
+    this.#write(editor, value, options);
+    if (!this.#codec.canonical) this.value.set(value);
   }
 
   /** Puts the caret in the text — now, or as the editor mounts if focus is
@@ -250,7 +283,7 @@ export class EmailEditor implements FormValueControl<string>, EditorRef {
 
   /** The editor in place was made from another kit than the one asked for. */
   #stale(): boolean {
-    return this.#mountedKit !== null && this.kit() !== this.#mountedKit;
+    return this.#mountedKit !== null && this.#kit() !== this.#mountedKit;
   }
 
   /** Takes the value in, when it is not what the editor already says. */
@@ -274,14 +307,16 @@ export class EmailEditor implements FormValueControl<string>, EditorRef {
   }
 
   #mount(): void {
-    const kit = this.kit();
-    const codec = this.codec();
+    const kit = this.#kit();
+    if (!kit) throw new Error('[emailEditor]: no kit — bind [emailEditor]="kit" or call configure({ kit }).');
+    const setup = this.#setup();
+    const codec = setup.codec ?? this.codec();
     this.#mountedKit = kit;
     this.#codec = codec;
     this.#published = null;
     const extensions = typeof kit === 'function' ? kit() : kit;
     const editor = createEditor({
-      ...this.options(),
+      ...(typeof setup.options === 'function' ? setup.options() : (setup.options ?? this.options())),
       parent: this.#host,
       extensions: [...extensions],
       onUpdate: (current) => {

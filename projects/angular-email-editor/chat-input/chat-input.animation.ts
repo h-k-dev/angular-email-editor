@@ -24,7 +24,7 @@ import type { Editor } from '@h-k-dev/angular-email-editor';
  *
  * Call in an injection context, on the chat input's host.
  */
-export function followTextHeight(editor: Signal<Editor | null>): void {
+export function followTextHeight(editor: Signal<Editor | null | undefined>): void {
   const host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   effect((onCleanup) => {
     const current = editor();

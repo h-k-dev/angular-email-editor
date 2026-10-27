@@ -1,8 +1,9 @@
-import { Component, ElementRef, inject, signal, viewChild } from '@angular/core';
+import { Component, computed, inject, signal, viewChild } from '@angular/core';
 import { richTextExtensions } from '@h-k-dev/angular-email-editor';
+import { EmailEditor } from '@h-k-dev/angular-email-editor/editor';
 import { TextMetrics, createTextMetrics } from '@h-k-dev/angular-email-editor/metrics';
 
-import { Playground, PlaygroundAction, playgroundEditor } from '../playground/playground';
+import { Playground, PlaygroundAction } from '../playground/playground';
 import { PlaygroundFrame } from '../playground/playground-frame';
 
 const PARAGRAPH =
@@ -17,7 +18,7 @@ const PARAGRAPH =
  */
 @Component({
   selector: 'metrics-playground',
-  imports: [PlaygroundFrame],
+  imports: [EmailEditor, PlaygroundFrame],
   templateUrl: './metrics-playground.html',
   styleUrls: ['../playground/playground-stage.scss', './metrics-playground.scss'],
   providers: [Playground],
@@ -28,27 +29,29 @@ export class MetricsPlayground {
   protected readonly metrics = signal<TextMetrics | null>(null);
   protected readonly measured = signal<number | null>(null);
 
-  protected readonly host = viewChild.required<ElementRef<HTMLElement>>('host');
-  protected readonly editor = playgroundEditor(this.host, {
-    extensions: [
-      ...richTextExtensions,
-      createTextMetrics({
-        onMetrics: (metrics) => {
-          this.metrics.set(metrics);
-          // The real height, read here for the comparison only — the
-          // metrics themselves read no layout.
-          // The editor fills its box, so the text's own height: from the
-          // first block's top to the last one's bottom.
-          const dom = this.editor()?.view.dom;
-          const first = dom?.firstElementChild?.getBoundingClientRect();
-          const last = dom?.lastElementChild?.getBoundingClientRect();
-          this.measured.set(first && last ? Math.round(last.bottom - first.top) : null);
-        },
-        onError: (error) => this.playground.log('onError', String(error)),
-      }),
-    ],
-    content: `<p>${PARAGRAPH}</p><p>${PARAGRAPH}</p>`,
-  });
+  /** The stage's editor — `[emailEditor]` on the stage, its kit and the
+      text it starts with. */
+  protected readonly kit = [
+    ...richTextExtensions,
+    createTextMetrics({
+      onMetrics: (metrics) => {
+        this.metrics.set(metrics);
+        // The real height, read here for the comparison only — the
+        // metrics themselves read no layout.
+        // The editor fills its box, so the text's own height: from the
+        // first block's top to the last one's bottom.
+        const dom = this.editor()?.view.dom;
+        const first = dom?.firstElementChild?.getBoundingClientRect();
+        const last = dom?.lastElementChild?.getBoundingClientRect();
+        this.measured.set(first && last ? Math.round(last.bottom - first.top) : null);
+      },
+      onError: (error) => this.playground.log('onError', String(error)),
+    }),
+  ];
+  protected readonly content = `<p>${PARAGRAPH}</p><p>${PARAGRAPH}</p>`;
+  // A query cannot be an ES-private field: TypeScript's `private` it is.
+  private readonly stage = viewChild(EmailEditor);
+  protected readonly editor = computed(() => this.stage()?.editor());
 
   protected readonly actions: readonly PlaygroundAction[] = [
     {

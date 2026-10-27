@@ -1,10 +1,11 @@
-import { Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
+import { Component, computed, inject, signal, viewChild } from '@angular/core';
 import { MatButton } from '@angular/material/button';
 import {
   createContentProposal,
   createContentStream,
   richTextExtensions,
 } from '@h-k-dev/angular-email-editor';
+import { EmailEditor } from '@h-k-dev/angular-email-editor/editor';
 import {
   ProposalAccept,
   ProposalDiscard,
@@ -12,7 +13,7 @@ import {
   injectProposal,
 } from '@h-k-dev/angular-email-editor/proposal';
 
-import { Playground, PlaygroundAction, knob, playgroundEditor } from '../playground/playground';
+import { Playground, PlaygroundAction, knob } from '../playground/playground';
 import { PlaygroundFrame } from '../playground/playground-frame';
 
 const CONTENT =
@@ -35,7 +36,7 @@ const WRITING = {
  */
 @Component({
   selector: 'proposal-playground',
-  imports: [PlaygroundFrame, ProposalAccept, ProposalDiscard, ProposalKeys, MatButton],
+  imports: [EmailEditor, PlaygroundFrame, ProposalAccept, ProposalDiscard, ProposalKeys, MatButton],
   templateUrl: './proposal-playground.html',
   styleUrl: '../playground/playground-stage.scss',
   providers: [Playground],
@@ -47,11 +48,13 @@ export class ProposalPlayground {
   readonly think = signal(600);
   readonly pace = signal(80);
 
-  protected readonly host = viewChild.required<ElementRef<HTMLElement>>('host');
-  protected readonly editor = playgroundEditor(this.host, {
-    extensions: [...richTextExtensions, createContentStream(), createContentProposal()],
-    content: CONTENT,
-  });
+  /** The stage's editor — `[emailEditor]` on the stage, its kit and the
+      text it starts with. */
+  protected readonly kit = [...richTextExtensions, createContentStream(), createContentProposal()];
+  protected readonly content = CONTENT;
+  // A query cannot be an ES-private field: TypeScript's `private` it is.
+  private readonly stage = viewChild(EmailEditor);
+  protected readonly editor = computed(() => this.stage()?.editor());
 
   protected readonly proposal = injectProposal(() => this.editor());
 

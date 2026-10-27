@@ -3,30 +3,11 @@ import {
   Directive,
   ElementRef,
   Injectable,
-  Signal,
   WritableSignal,
-  afterNextRender,
   inject,
   input,
   signal,
 } from '@angular/core';
-import { Editor, EditorOptions, createEditor } from '@h-k-dev/angular-email-editor';
-
-/**
- * An editor for a stage — mounted into `parent` once it has rendered,
- * destroyed with the playground. `undefined` until then, which is what the
- * entries that follow an editor (`injectActions`, `[emailImageAlt]`,
- * `injectProposal`) take for "none yet". Call in an injection context.
- */
-export function playgroundEditor(
-  parent: Signal<ElementRef<HTMLElement>>,
-  options: Omit<EditorOptions, 'parent'>,
-): Signal<Editor | undefined> {
-  const editor = signal<Editor | undefined>(undefined);
-  afterNextRender(() => editor.set(createEditor({ ...options, parent: parent().nativeElement })));
-  inject(DestroyRef).onDestroy(() => editor()?.destroy());
-  return editor.asReadonly();
-}
 
 /** A knob: one input of the component on the stage, and the control that
     sets it. The knob holds the playground's own signal, so the stage binds

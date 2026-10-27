@@ -1,11 +1,12 @@
-import { Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
+import { Component, computed, inject, signal, viewChild } from '@angular/core';
 import { MatButton } from '@angular/material/button';
 import { richTextExtensions, selectedImage, selectedImageAlt } from '@h-k-dev/angular-email-editor';
+import { EmailEditor } from '@h-k-dev/angular-email-editor/editor';
 import { editorState } from '@h-k-dev/angular-email-editor/actions';
 import { ImageAlt } from '@h-k-dev/angular-email-editor/image';
 import { NodeSelection } from 'prosemirror-state';
 
-import { Playground, PlaygroundAction, knob, playgroundEditor } from '../playground/playground';
+import { Playground, PlaygroundAction, knob } from '../playground/playground';
 import { PlaygroundFrame } from '../playground/playground-frame';
 
 /** A picture with no file behind it: a gradient, drawn here. */
@@ -31,7 +32,7 @@ const CONTENT =
  */
 @Component({
   selector: 'image-playground',
-  imports: [PlaygroundFrame, ImageAlt, MatButton],
+  imports: [EmailEditor, PlaygroundFrame, ImageAlt, MatButton],
   templateUrl: './image-playground.html',
   styleUrls: ['../playground/playground-stage.scss', './image-playground.scss'],
   providers: [Playground],
@@ -42,11 +43,13 @@ export class ImagePlayground {
   readonly mode = signal<'popover' | 'panel'>('popover');
   readonly returnFocus = signal(true);
 
-  protected readonly host = viewChild.required<ElementRef<HTMLElement>>('host');
-  protected readonly editor = playgroundEditor(this.host, {
-    extensions: richTextExtensions,
-    content: CONTENT,
-  });
+  /** The stage's editor — `[emailEditor]` on the stage, its kit and the
+      text it starts with. */
+  protected readonly kit = richTextExtensions;
+  protected readonly content = CONTENT;
+  // A query cannot be an ES-private field: TypeScript's `private` it is.
+  private readonly stage = viewChild(EmailEditor);
+  protected readonly editor = computed(() => this.stage()?.editor());
   readonly #state = editorState(() => this.editor());
 
   /** Whether an image is selected — the popover's cue. */

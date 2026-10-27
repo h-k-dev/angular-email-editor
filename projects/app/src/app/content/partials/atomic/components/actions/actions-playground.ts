@@ -1,6 +1,7 @@
-import { Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
+import { Component, computed, inject, signal, viewChild } from '@angular/core';
 import { MatIcon } from '@angular/material/icon';
 import { richTextExtensions } from '@h-k-dev/angular-email-editor';
+import { EmailEditor } from '@h-k-dev/angular-email-editor/editor';
 import { ActionTrigger, injectActions } from '@h-k-dev/angular-email-editor/actions';
 import { KeepFocus } from '@h-k-dev/angular-email-editor/focus';
 
@@ -9,7 +10,6 @@ import {
   PlaygroundAction,
   PlaygroundSubject,
   knob,
-  playgroundEditor,
 } from '../playground/playground';
 import { PlaygroundFrame } from '../playground/playground-frame';
 
@@ -28,7 +28,7 @@ const CONTENT =
  */
 @Component({
   selector: 'actions-playground',
-  imports: [PlaygroundFrame, PlaygroundSubject, ActionTrigger, KeepFocus, MatIcon],
+  imports: [EmailEditor, PlaygroundFrame, PlaygroundSubject, ActionTrigger, KeepFocus, MatIcon],
   templateUrl: './actions-playground.html',
   styleUrls: ['../playground/playground-stage.scss', './actions-playground.scss'],
   providers: [Playground],
@@ -40,11 +40,13 @@ export class ActionsPlayground {
   readonly aria = signal(true);
   readonly keepFocus = signal(true);
 
-  protected readonly host = viewChild.required<ElementRef<HTMLElement>>('host');
-  protected readonly editor = playgroundEditor(this.host, {
-    extensions: richTextExtensions,
-    content: CONTENT,
-  });
+  /** The stage's editor — `[emailEditor]` on the stage, its kit and the
+      text it starts with. */
+  protected readonly kit = richTextExtensions;
+  protected readonly content = CONTENT;
+  // A query cannot be an ES-private field: TypeScript's `private` it is.
+  private readonly stage = viewChild(EmailEditor);
+  protected readonly editor = computed(() => this.stage()?.editor());
 
   protected readonly actions = injectActions(() => this.editor(), {
     host: [

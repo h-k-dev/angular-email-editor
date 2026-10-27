@@ -104,6 +104,31 @@ describe('ChatInput', () => {
     expect(editor().querySelectorAll('li').length).toBe(1);
     expect(editor().textContent).toContain('short');
   });
+
+  it('clear() empties the field while it is typed in, and leaves nothing to undo back into', async () => {
+    const view = host.input().editor()!.view;
+    view.focus();
+    type('Make it short');
+    key('Enter');
+    host.input().clear();
+    await settle();
+    expect(view.hasFocus()).toBe(true);
+    expect(view.state.doc.textContent).toBe('');
+    expect(host.value()).toBe('');
+    key('z', { ctrlKey: true });
+    expect(view.state.doc.textContent).toBe('');
+  });
+
+  it('a value written from outside waits while the field is typed in', async () => {
+    const view = host.input().editor()!.view;
+    view.focus();
+    type('mine');
+    host.value.set('theirs');
+    await settle();
+    expect(view.state.doc.textContent).toBe('mine');
+    view.dom.blur();
+    expect(view.state.doc.textContent).toBe('theirs');
+  });
 });
 
 // The behaviour alone, on an element of the host's own.
