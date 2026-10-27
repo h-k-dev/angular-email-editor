@@ -1,18 +1,17 @@
 @if (missing()) {
   <p class="inbox-reader__missing">{{ 'inbox.missing' | translate }}</p>
-} @else if (header(); as head) {
+} @else if (mail(); as mail) {
   <!-- One sheet of paper (`mail-view`): the header and the body on the
-       reading paper — the inbox's pane is the island it lies on. The header
-       is the listing's, there at once; the body comes when fetched. -->
+       reading paper — the inbox's pane is the island it lies on. -->
   <article
     mail-view
-    [subject]="head.subject"
-    [name]="head.name"
+    [subject]="mail.subject"
+    [name]="mail.name"
     [address]="address()"
-    [to]="head.to"
-    [cc]="head.cc ?? null"
+    [to]="mail.to"
+    [cc]="mail.cc ?? null"
     [date]="date()"
-    [html]="mail()?.html ?? null"
+    [html]="mail.html"
     [scheme]="paper()"
     [bodyLabel]="'inbox.body' | translate"
     (answer)="answer($event)"

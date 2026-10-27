@@ -95,6 +95,17 @@ describe('InboxReader', () => {
     expect(frame().getAttribute('srcdoc')).not.toContain('padding-inline');
   });
 
+  it('keeps the last message on screen while the next one is on its way, then swaps it in place', async () => {
+    const viewer = root.querySelector('email-viewer');
+    fixture.componentRef.setInput('id', 'mjml-austin');
+    fixture.detectChanges();
+    expect(root.querySelector('.mail-view__subject')?.textContent).toBe('Plain note');
+    expect(root.querySelector('.mail-view__loading')).toBeNull();
+    await fixture.whenStable();
+    expect(root.querySelector('.mail-view__subject')?.textContent).toBe('Discount Light');
+    expect(root.querySelector('email-viewer')).toBe(viewer);
+  });
+
   it('lines a simple email’s text up under its header: the header’s 32px inset', () => {
     expect(frame().getAttribute('srcdoc')).toContain('padding-inline: 32px');
   });
