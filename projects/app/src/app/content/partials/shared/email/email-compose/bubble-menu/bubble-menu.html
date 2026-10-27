@@ -1,53 +1,101 @@
 <!-- The menu, for the composer's one popover: one toolbar, its tools by
      what is selected. The `@switch` swaps the row of tools inside it — the
      toolbar element, and the popover around it, stay; the row that comes
-     in fades in (`animate.enter`, see the stylesheet). -->
+     in fades in (`animate.enter`, see the stylesheet). Over it, while the
+     text's ⋮ is hovered or pressed, a second toolbar: where the lines stand
+     (Tiptap's second level), a pill of its own over the first's edge —
+     opened as a cascading menu's list is, and with its menu-aim: on the
+     way up to it, the pointer may cross the other tools without folding it
+     (`menuSafeTriangle`, on the block axis); resting on one, it folds. -->
 <ng-template #panel>
   <div
-    class="bubble-menu"
-    role="toolbar"
-    appToolbarKeys
-    [attr.aria-label]="menuLabel()"
-    emailKeepFocus
+    class="bubble-menu__stack"
+    menuSafeTriangle
+    menuSafeTriangleList="#bubble-menu-more"
+    menuSafeTriangleAxis="block"
   >
-    @switch (state().kind) {
-      @case ('image') {
-        <div class="bubble-menu__tools" animate.enter="bubble-menu__tools--in">
-          <!-- The alt leads, as words: what it says, or that it is missing. -->
-          <button
-            mat-button
-            type="button"
-            class="bubble-menu__alt"
-            [class.bubble-menu__alt--missing]="!alt()"
-            aria-haspopup="dialog"
-            [attr.aria-label]="altLabel()"
-            [emailAction]="altItem.id"
-            [emailActionFrom]="actions"
-            #altTrigger="emailAction"
-            [disabled]="altTrigger.disabled()"
-          >
-            <span class="bubble-menu__alt-text" dir="auto">{{
-              alt() || ('editor.image.addAlt' | translate)
-            }}</span>
-          </button>
-          <ng-container
-            *ngTemplateOutlet="buttons; context: { $implicit: imageEntries, lead: true }"
-          />
-        </div>
-      }
-      @case ('button') {
+    @if (moreOpen()) {
+      <div
+        id="bubble-menu-more"
+        class="bubble-menu bubble-menu--more"
+        role="toolbar"
+        appToolbarKeys
+        [attr.aria-label]="'editor.toolbar.more' | translate"
+        emailKeepFocus
+      >
         <div class="bubble-menu__tools" animate.enter="bubble-menu__tools--in">
           <ng-container
-            *ngTemplateOutlet="buttons; context: { $implicit: buttonEntries, lead: false }"
+            *ngTemplateOutlet="buttons; context: { $implicit: moreEntries(), lead: false }"
           />
         </div>
-      }
-      @default {
-        <div class="bubble-menu__tools" animate.enter="bubble-menu__tools--in">
-          <ng-container *ngTemplateOutlet="buttons; context: { $implicit: entries(), lead: false }" />
-        </div>
-      }
+      </div>
     }
+    <div
+      class="bubble-menu"
+      role="toolbar"
+      appToolbarKeys
+      [attr.aria-label]="menuLabel()"
+      emailKeepFocus
+      (mouseover)="hoverTool($event)"
+    >
+      @switch (state().kind) {
+        @case ('image') {
+          <div class="bubble-menu__tools" animate.enter="bubble-menu__tools--in">
+            <!-- The alt leads, as words: what it says, or that it is missing. -->
+            <button
+              mat-button
+              type="button"
+              class="bubble-menu__alt"
+              [class.bubble-menu__alt--missing]="!alt()"
+              aria-haspopup="dialog"
+              [attr.aria-label]="altLabel()"
+              [emailAction]="altItem.id"
+              [emailActionFrom]="actions"
+              #altTrigger="emailAction"
+              [disabled]="altTrigger.disabled()"
+            >
+              <span class="bubble-menu__alt-text" dir="auto">{{
+                alt() || ('editor.image.addAlt' | translate)
+              }}</span>
+            </button>
+            <ng-container
+              *ngTemplateOutlet="buttons; context: { $implicit: imageEntries, lead: true }"
+            />
+          </div>
+        }
+        @case ('button') {
+          <div class="bubble-menu__tools" animate.enter="bubble-menu__tools--in">
+            <ng-container
+              *ngTemplateOutlet="buttons; context: { $implicit: buttonEntries, lead: false }"
+            />
+          </div>
+        }
+        @default {
+          <div class="bubble-menu__tools" animate.enter="bubble-menu__tools--in">
+            <ng-container
+              *ngTemplateOutlet="buttons; context: { $implicit: entries(), lead: false }"
+            />
+            <!-- More: the second toolbar over this one, as a disclosure — its
+               state is aria-expanded, which also lights it. -->
+            @if (moreEntries().length) {
+              <mat-divider [vertical]="true" />
+              <button
+                mat-icon-button
+                type="button"
+                class="bubble-menu__more"
+                aria-controls="bubble-menu-more"
+                [attr.aria-label]="'editor.toolbar.more' | translate"
+                [attr.aria-expanded]="moreOpen()"
+                (mouseenter)="enterMore()"
+                (click)="pressMore()"
+              >
+                <mat-icon>more_vert</mat-icon>
+              </button>
+            }
+          </div>
+        }
+      }
+    </div>
   </div>
 </ng-template>
 

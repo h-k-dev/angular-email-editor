@@ -28,9 +28,27 @@ export interface DawnOptions {
   /** Light or dark paper — the editor's own, or the reader's choice. */
   readonly scheme: PaperScheme;
   /** The side inset a simple email's text keeps, px — the frame round it
-      lines it up with its header. A whole document (a newsletter) lays
-      itself out, edge to edge, whatever this says. None by default. */
+      lines it up with its header. An email that lays itself out
+      (`laysItselfOut`: a newsletter, a page) runs edge to edge, whatever
+      this says. None by default. */
   readonly inset?: number;
+}
+
+/**
+ * Whether an email lays itself out, edge to edge, rather than being a simple
+ * email's text: a whole document (its own `<html>` / `<body>`), or a body
+ * wrapped whole in one full-width table — a page, the editor's
+ * (`aee-layout-page`) or written by hand round a fixed 600px card. Such an
+ * email centres its own column on its own fill; an inset round it only
+ * squeezes the column off centre.
+ */
+export function laysItselfOut(html: string): boolean {
+  if (hasDocumentEnvelope(html)) return true;
+  const body = new DOMParser().parseFromString(`<body>${html}`, 'text/html').body;
+  const [page, ...rest] = Array.from(body.children);
+  if (!(page instanceof HTMLTableElement) || rest.length) return false;
+  if ((body.textContent ?? '').trim() !== (page.textContent ?? '').trim()) return false;
+  return page.getAttribute('width')?.trim() === '100%' || page.style.width === '100%';
 }
 
 /**
@@ -38,9 +56,9 @@ export interface DawnOptions {
  * its own dark rules where it declares dark, dawn dark's invert-lightness
  * turn on its colours where it does not — as it came: none of the editor's
  * palette variants added, it is not ours. The surfaces are the paper's
- * colours, so it is the paper it lies on, the frame edge to edge: a whole
- * document (its own `<html>` / `<body>` — a newsletter) runs to the frame's
- * edges, a fragment (a simple email's body) keeps `inset` at its sides.
+ * colours, so it is the paper it lies on, the frame edge to edge: an email
+ * that lays itself out (a newsletter, a page) runs to the frame's edges, a
+ * simple email's body keeps `inset` at its sides.
  * Links leave for a tab of their own: a reading frame is never navigated
  * away from its email.
  *
@@ -48,7 +66,7 @@ export interface DawnOptions {
  */
 export function dawnDocument(html: string, { scheme, inset = 0 }: DawnOptions): string {
   const document = renderDawnDark(html, { dark: scheme === 'dark', darkMode: false });
-  const sides = !hasDocumentEnvelope(html) && inset > 0 ? ` padding-inline: ${inset}px;` : '';
+  const sides = inset > 0 && !laysItselfOut(html) ? ` padding-inline: ${inset}px;` : '';
   const reading = `<base target="_blank"><style>body { margin: 0;${sides} }</style>`;
   return document.replace('</head>', `${reading}</head>`);
 }

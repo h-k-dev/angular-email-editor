@@ -1,4 +1,4 @@
-import { PAPER, messageHtml, dawnDocument } from './dawn.render';
+import { PAPER, messageHtml, dawnDocument, laysItselfOut } from './dawn.render';
 import { DAWN_DARK_SURFACE, dawnDarkColor } from './dawn-dark.render';
 
 describe('dawnDocument', () => {
@@ -23,6 +23,24 @@ describe('dawnDocument', () => {
     expect(dawnDocument(newsletter, { scheme: 'light', inset: 32 })).toContain(
       '<style>body { margin: 0; }</style>',
     );
+  });
+
+  it('never insets a page: a body wrapped whole in a full-width table centres its own card', () => {
+    // As examples/angularjs/welcome.html is written: inset, its 600px card
+    // was pushed off centre and cut at the frame's edge.
+    const page =
+      '<table width="100%" bgcolor="#eef2f7"><tbody><tr><td align="center" style="padding: 32px 12px;">' +
+      '<table width="600" style="width: 600px;"><tbody><tr><td>Welcome</td></tr></tbody></table>' +
+      '</td></tr></tbody></table>\n';
+    expect(laysItselfOut(page)).toBe(true);
+    expect(laysItselfOut('<table style="width: 100%;"><tr><td>Hi</td></tr></table>')).toBe(true);
+    expect(dawnDocument(page, { scheme: 'light', inset: 32 })).toContain(
+      '<style>body { margin: 0; }</style>',
+    );
+    // A letter that holds a full-width table is still a letter.
+    expect(laysItselfOut('<p>Hi</p><table width="100%"><tr><td>x</td></tr></table>')).toBe(false);
+    expect(laysItselfOut('Hi<table width="100%"><tr><td>x</td></tr></table>')).toBe(false);
+    expect(laysItselfOut('<table width="600"><tr><td>x</td></tr></table>')).toBe(false);
   });
 
   it('is a whole document whose links leave for a tab of their own', () => {

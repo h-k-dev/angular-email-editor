@@ -7,15 +7,36 @@ export type Point = { x: number; y: number };
     diagonal) cannot turn the pointer's heading. menu-aim's number. */
 export const SAFE_TRIANGLE_TRACKED = 3;
 
+/** Where a list stands from what opened it: beside it (`inline`, a
+    cascading menu's) or over or under it (`block`, a toolbar's second row). */
+export type SafeTriangleAxis = 'inline' | 'block';
+
 /**
  * Whether the pointer, gone from `from` to `to`, is heading for `list`: `to`
  * lies in the triangle from `from` to the list's near edge, that edge
- * stretched by `tolerance` above and below — the list's first and last rows
- * are aimed at as easily as its middle. A pointer that has not moved heads
- * nowhere.
+ * stretched by `tolerance` past both its ends — the list's first and last
+ * rows are aimed at as easily as its middle. A pointer that has not moved
+ * heads nowhere.
  */
-export function aimsAt(from: Point, to: Point, list: DOMRect, tolerance: number): boolean {
+export function aimsAt(
+  from: Point,
+  to: Point,
+  list: DOMRect,
+  tolerance: number,
+  axis: SafeTriangleAxis = 'inline',
+): boolean {
   if (from.x === to.x && from.y === to.y) return false;
+  if (axis === 'block') {
+    // The list stands above, or below: its near edge is the one facing
+    // where the pointer came from.
+    const edge = from.y < list.top + list.height / 2 ? list.top : list.bottom;
+    return inTriangle(
+      to,
+      from,
+      { x: list.left - tolerance, y: edge },
+      { x: list.right + tolerance, y: edge },
+    );
+  }
   // The list stands to the right of the menu, or to the left: its near edge
   // is the one facing where the pointer came from.
   const edge = from.x < list.left + list.width / 2 ? list.left : list.right;
@@ -57,9 +78,14 @@ export class MenuSafeTriangle {
       before the hover under it counts. menu-aim's 300ms. */
   readonly rest = input(300, { alias: 'menuSafeTriangleRest' });
 
-  /** How far past the list's top and bottom the pointer may aim and still
-      be heading for it. menu-aim's 75px. */
+  /** How far past the list's ends the pointer may aim and still be heading
+      for it. menu-aim's 75px. */
   readonly tolerance = input(75, { alias: 'menuSafeTriangleTolerance' });
+
+  /** Where the list stands from what opened it: beside it (a cascading
+      menu's, the default) or over or under it (`block`: a toolbar's second
+      row, the bubble menu's). */
+  readonly axis = input<SafeTriangleAxis>('inline', { alias: 'menuSafeTriangleAxis' });
 
   readonly #host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
@@ -98,7 +124,7 @@ export class MenuSafeTriangle {
         !from ||
         list.contains(target) ||
         target.closest('[aria-expanded="true"]') ||
-        !aimsAt(from, to, list.getBoundingClientRect(), this.tolerance())
+        !aimsAt(from, to, list.getBoundingClientRect(), this.tolerance(), this.axis())
       ) {
         this.#end();
         return;
@@ -143,7 +169,11 @@ export class MenuSafeTriangle {
     const now = this.#trail[this.#trail.length - 1];
     const from = this.#trail[0];
     const moved = !!now && (now.x !== this.#checked?.x || now.y !== this.#checked?.y);
-    if (list && now && moved && aimsAt(from, now, list.getBoundingClientRect(), this.tolerance())) {
+    const aims =
+      !!list &&
+      !!now &&
+      aimsAt(from, now, list.getBoundingClientRect(), this.tolerance(), this.axis());
+    if (moved && aims) {
       this.#checked = now;
       this.#schedule();
       return;

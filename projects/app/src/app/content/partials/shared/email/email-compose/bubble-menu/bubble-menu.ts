@@ -34,6 +34,7 @@ import { FormattingLayout, layoutEntries } from '../formatting-items';
 import { ColorPicker } from '../formatting-toolbar/color-picker/color-picker';
 import { ToolbarKeys } from '../formatting-toolbar/toolbar-keys';
 import { PaperIslandScheme } from '../../paper-island';
+import { MenuSafeTriangle } from '../../../../../../core/utils/cascade-menu/safe-triangle';
 import { POPOVER_ABOVE, Popover } from '../popover/popover';
 
 /** The bubble menu's groups: the marks and their colour, then what wraps
@@ -41,6 +42,13 @@ import { POPOVER_ABOVE, Popover } from '../popover/popover';
 const LAYOUT: FormattingLayout = [
   ['bold', 'italic', 'underline', 'strike', 'color'],
   ['link', 'button-link', 'quote'],
+];
+
+/** The text's second level, behind its ⋮ (Tiptap's): where the selected
+    lines stand — their alignment, then their indent. */
+const MORE_LAYOUT: FormattingLayout = [
+  ['align-left', 'align-center', 'align-right'],
+  ['outdent', 'indent'],
 ];
 
 /** A selected button: its label's weight and slant (the kit's own toggles,
@@ -107,6 +115,7 @@ const COLOR_BELOW: ConnectedPosition[] = [COLOR_ABOVE[1], COLOR_ABOVE[0]];
     KeepFocus,
 
     ColorPicker,
+    MenuSafeTriangle,
     PaperIslandScheme,
     ToolbarKeys,
   ],
@@ -123,6 +132,56 @@ export class BubbleMenu {
   protected readonly entries = computed(() =>
     layoutEntries(this.#commands.items, LAYOUT, this.#commands.offered()),
   );
+
+  /** The second toolbar's tools — what the kit offers of them. */
+  protected readonly moreEntries = computed(() =>
+    layoutEntries(this.#commands.items, MORE_LAYOUT, this.#commands.offered()),
+  );
+
+  /** The second toolbar is up — its ⋮ pressed; folded again for another
+      selection, or another kind's tools, which have no ⋮. Keyed on the
+      selection, not on the menu being up: the extension takes the menu down
+      for a moment while the document changes under it (its update delay),
+      and an alignment picked from this toolbar is such a change — the
+      toolbar stays for the next one. */
+  protected readonly moreOpen = linkedSignal({
+    source: () => {
+      const selection = this.#commands.state()?.selection;
+      return `${this.state().kind ?? 'text'}:${selection?.from}:${selection?.to}`;
+    },
+    computation: () => false,
+  });
+
+  /** The pointer opened the second toolbar on its way in — the press that
+      follows is the same gesture, and leaves it open. */
+  #openedByHover = false;
+
+  /** The pointer on the ⋮: the second toolbar comes up, as a cascading
+      menu's list does under its row. */
+  protected enterMore(): void {
+    if (this.moreOpen()) return;
+    this.moreOpen.set(true);
+    this.#openedByHover = true;
+  }
+
+  /** A press on the ⋮: the toolbar the hover just opened stays; otherwise
+      (touch, keys, a second press) the press toggles it. */
+  protected pressMore(): void {
+    const hovered = this.#openedByHover && this.moreOpen();
+    this.#openedByHover = false;
+    if (!hovered) this.moreOpen.set(!this.moreOpen());
+  }
+
+  /** The pointer on another of the first toolbar's tools: the second folds,
+      as a cascading menu's list does for another row. On its way up to the
+      second toolbar it is not one — the stack's menu-aim holds that hover
+      back until the pointer rests (`menuSafeTriangle`). */
+  protected hoverTool(event: MouseEvent): void {
+    const tool = (event.target as Element | null)?.closest('button');
+    if (!this.moreOpen() || !tool || tool.classList.contains('bubble-menu__more')) return;
+    this.#openedByHover = false;
+    this.moreOpen.set(false);
+  }
 
   protected readonly imageEntries = layoutEntries(this.#commands.items, IMAGE_LAYOUT);
 

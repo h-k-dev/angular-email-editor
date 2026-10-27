@@ -16,6 +16,17 @@ describe('aimsAt', () => {
     expect(aimsAt({ x: 100, y: 20 }, { x: 100, y: 30 }, LIST, 0)).toBe(false);
   });
 
+  it('aims up at a list over its trigger on the block axis — a toolbar’s second row', () => {
+    // A row above: x 100–300, y 0–40; the pointer leaves its ⋮ at (290, 80).
+    const row = new DOMRect(100, 0, 200, 40);
+    const from = { x: 290, y: 80 };
+    // Up and to the left, towards the row's far end: held.
+    expect(aimsAt(from, { x: 270, y: 70 }, row, 0, 'block')).toBe(true);
+    // Along the main row, or down: let go.
+    expect(aimsAt(from, { x: 260, y: 80 }, row, 0, 'block')).toBe(false);
+    expect(aimsAt(from, { x: 280, y: 90 }, row, 0, 'block')).toBe(false);
+  });
+
   it('heads nowhere without moving', () => {
     expect(aimsAt({ x: 100, y: 20 }, { x: 100, y: 20 }, LIST, 75)).toBe(false);
   });

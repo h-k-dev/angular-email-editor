@@ -1,4 +1,5 @@
 @use '../formatting-toolbar' as toolbar;
+@use '../../../../../../../styles/menu' as menu;
 
 // Only where the panel is declared: no box in the composer's column. The
 // menu itself renders in the composer's popover (popover-outlet), which
@@ -16,6 +17,43 @@
   --mat-icon-button-touch-target-size: 32px;
   --mat-button-text-container-height: 32px;
   --mat-button-text-touch-target-size: 32px;
+}
+
+// The two toolbars, the second (the ⋮'s) over the first, each a pill of
+// its own, lined up at their end — the ⋮'s side. The second stands a little
+// over the first's edge, as a cascading menu's list over its menu: no gap
+// for the pointer to fall through on its way up.
+.bubble-menu__stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+// Over the first: one above the floating toolbar's own 2 — the second
+// level is the card on top, as a cascading list over its menu. Set in a
+// little from the first's end (towards the inline start), so the two read
+// as one card laid over another; the ⋮ stays under it, so the way straight
+// up from it lands on the row (and the menu-aim aims at its real box). The
+// overlap is half a spacing unit: the first's buttons' state layers start a
+// whole unit in from its edge, so the second never touches them.
+.bubble-menu--more {
+  position: relative;
+  z-index: 3;
+  margin-block-end: calc(var(--mat-sys-spacing, 4px) * -0.5);
+  margin-inline-end: calc(var(--mat-sys-spacing, 4px) * 2);
+}
+
+// On the pointer's way up to the second toolbar (the menu-aim's grace), the
+// tool it crosses is not hovered.
+.bubble-menu__stack[data-grace] .bubble-menu:not(.bubble-menu--more) button:hover {
+  background-color: transparent;
+}
+
+// The ⋮ while its toolbar is up: lit as a pressed button is (styles.scss),
+// off its own state — a disclosure's, `aria-expanded`.
+.bubble-menu__more[aria-expanded='true'] {
+  color: var(--mat-sys-primary);
+  background-color: menu.$active-wash;
 }
 
 // The row of tools for what is selected. It lays out as the toolbar does
