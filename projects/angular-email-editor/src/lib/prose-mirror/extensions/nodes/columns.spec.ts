@@ -4,7 +4,14 @@ import { createSchema } from '../../schema';
 import { parseHTML, serializeToHTML } from '../../html';
 import { lintHTML } from '../../html-source';
 import { emailExtensions } from '../kits';
-import { appendColumn, findColumnsContext, removeLastColumn } from './columns';
+import {
+  COLUMN_PADDING_MAX,
+  appendColumn,
+  columnPaddingOf,
+  columnsGapOf,
+  findColumnsContext,
+  removeLastColumn,
+} from './columns';
 
 const schema = createSchema(emailExtensions);
 const canonical = (html: string) => serializeToHTML(parseHTML(html, schema), schema);
@@ -300,6 +307,60 @@ describe('columns editing', () => {
     expect(lintHTML(html)).toEqual([]);
     editor.commands['setColumnVerticalAlign']('top');
     expect(editor.getHTML()).not.toContain('middle');
+  });
+
+  it('setColumnPadding puts room inside the column, on the 4px grid — none at all writes none', () => {
+    editor.commands['insertColumns'](2);
+    editor.commands['setColumnBackground']('#f1f3f4');
+    expect(editor.commands['setColumnPadding']({ block: 15, inline: 16 })).toBe(true);
+    const html = editor.getHTML();
+    expect(html).toContain(
+      'max-width: 280px; vertical-align: top; box-sizing: border-box; padding: 16px; background-color: rgb(241, 243, 244);',
+    );
+    expect(columnPaddingOf(editor.state)).toEqual({ block: 16, inline: 16 });
+    expect(canonical(html)).toBe(html);
+    editor.commands['setColumnPadding']({ inline: 400 });
+    expect(columnPaddingOf(editor.state)).toEqual({ block: 16, inline: COLUMN_PADDING_MAX });
+    editor.commands['setColumnPadding']({ block: 0, inline: 0 });
+    expect(editor.getHTML()).not.toContain('padding:');
+  });
+
+  it('setColumnsGap sets the gap of the whole block: half of it round each column, the fill and padding on a card inside — in Outlook’s cells too', () => {
+    editor.commands['insertColumns'](2);
+    editor.commands['setColumnBackground']('#f1f3f4');
+    editor.commands['setColumnPadding']({ block: 16, inline: 16 });
+    expect(editor.commands['setColumnsGap'](16)).toBe(true);
+    expect(columnsGapOf(editor.state)).toBe(16);
+    const html = editor.getHTML();
+    expect(html).toContain(
+      '<div class="aee-layout-column" style="display: inline-block; width: 100%; max-width: 280px; vertical-align: top; box-sizing: border-box; padding: 8px;">' +
+        '<div class="aee-layout-card" style="box-sizing: border-box; padding: 16px; background-color: rgb(241, 243, 244); color: rgb(32, 33, 36);">',
+    );
+    // The other column: a bare card — the gap is the block's, the fill not.
+    expect(html).toContain(
+      'padding: 8px;"><div class="aee-layout-card" style="box-sizing: border-box;">',
+    );
+    expect(html).toContain('<td width="280" valign="top" style="padding: 8px;">');
+    // A fixpoint, in the composer's parse and the builder import alike.
+    expect(canonical(html)).toBe(html);
+    const kept = createEditor({
+      parent: document.body,
+      extensions: emailExtensions,
+      content: html,
+      parseMode: 'preserve',
+    });
+    expect(kept.getHTML()).toBe(html);
+    kept.state.doc.descendants((node) => {
+      if (node.type.name === 'column') expect(node.attrs['gutter']).toBe(16);
+    });
+    kept.destroy();
+
+    // A column added later takes the gap; none takes the card away.
+    editor.commands['addColumn']();
+    expect(editor.getHTML().match(/aee-layout-card/g)).toHaveLength(3);
+    editor.commands['setColumnsGap'](0);
+    expect(editor.getHTML()).not.toContain('aee-layout-card');
+    expect(editor.getHTML()).toContain('padding: 16px; background-color: rgb(241, 243, 244);');
   });
 
   it('addColumn inserts after the cursor, re-splits the caps, and lands in the new column', () => {

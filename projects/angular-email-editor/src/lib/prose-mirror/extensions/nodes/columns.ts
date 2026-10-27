@@ -1,11 +1,12 @@
 import { Command, EditorState, NodeSelection, Selection, TextSelection } from 'prosemirror-state';
-import { Node, Schema } from 'prosemirror-model';
+import { DOMOutputSpec, Node, Schema } from 'prosemirror-model';
 import { keymap } from 'prosemirror-keymap';
 import { defineNode } from '../../extension';
 import { fillTextColor } from '../../dual-contrast';
 import { isSafeColor, toEmailSafeColor } from '../marks/text-style';
 import { CellVerticalAlignment, parsePadding } from './table';
-import { layoutMarker, markedAs, markerAttrs } from '../../layout-marker';
+import { isMarked, layoutMarker, markedAs, markerAttrs } from '../../layout-marker';
+import { paddingOf, paddingSides } from '../../inline-style';
 
 /**
  * Responsive layout columns — the fluid, no-media-query answer to MJML. Each
@@ -64,10 +65,8 @@ function parseAlignment(dom: HTMLElement): ColumnsAlignment {
 
 // A filled panel always pairs its background with its text (fillTextColor) —
 // explicit text survives the dark modes that flip default text but keep the fill.
-// Padding is *authored only* (the attr, from user markup) — the gutters seen
-// while composing are editorial `.aee-editor` CSS, which also reserves the
-// room the boundary/add affordances live in; the email carries none of it
-// unless the author asked.
+// Padding is the room inside the fill — authored, or set from the column's
+// menu (`setColumnPadding`); the email carries none unless asked.
 const columnStyle = (
   maxWidth: number,
   background: string | null,
@@ -79,6 +78,50 @@ const columnStyle = (
   `vertical-align: ${valign}; box-sizing: border-box;` +
   (padding ? ` padding: ${padding};` : '') +
   (background ? ` background-color: ${background}; color: ${fillTextColor(background)};` : '');
+
+/** The card inside a column of a block with a gap: the column's fill and
+    its padding, on a div of their own. */
+const cardStyle = (background: string | null, padding: string | null): string =>
+  'box-sizing: border-box;' +
+  (padding ? ` padding: ${padding};` : '') +
+  (background ? ` background-color: ${background}; color: ${fillTextColor(background)};` : '');
+
+/**
+ * A column as the editor draws it (`editor`: its hooks, `aee-column` and
+ * `aee-column__card`, beside the markers) and the email carries it (the
+ * markers alone). Without a gap, one
+ * div — its fill and padding its own. With one (`gutter`, the block's gap,
+ * px), MJML's way to a gutter: the column carries half the gap all round as
+ * a padding no fill reaches, and a card inside it (`aee-layout-card`) the
+ * fill and the padding. Side by side the cards stand a gap apart, stacked
+ * on a phone too — padding, never margins, so a column `width: 100%` wide
+ * never runs past the screen where the head's phone rule is dropped. The
+ * gap is inside each cap (`box-sizing`), so the row still fits.
+ */
+function columnSpec(attrs: Record<string, any>, editor: boolean): DOMOutputSpec {
+  const gutter = Number(attrs['gutter']) || 0;
+  const style = (background: string | null, padding: string | null) =>
+    columnStyle(attrs['maxWidth'], background, padding, attrs['hold'], attrs['valign']);
+  const column = editor ? { class: `aee-column ${layoutMarker('column')}` } : markerAttrs('column');
+  if (!gutter) {
+    return ['div', { ...column, style: style(attrs['background'], attrs['padding']) }, 0];
+  }
+  const card = editor ? { class: `aee-column__card ${layoutMarker('card')}` } : markerAttrs('card');
+  return [
+    'div',
+    { ...column, style: style(null, `${gutter / 2}px`) },
+    ['div', { ...card, style: cardStyle(attrs['background'], attrs['padding']) }, 0],
+  ];
+}
+
+/** The card a column of a block with a gap holds — its one child, marked
+    so — or null. */
+function cardOf(column: HTMLElement): HTMLElement | null {
+  const only = column.children.length === 1 ? column.children[0] : null;
+  return only instanceof HTMLElement && only.tagName === 'DIV' && isMarked(only, 'card')
+    ? only
+    : null;
+}
 
 /** A column's share of the row, in whole percent — what a held column is
     wide on a phone (its cap still holds on a desktop). */
@@ -215,6 +258,11 @@ export const Column = defineNode({
           percent `width` of their own rather than the stacking pattern's
           `width: 100%`. Emitted as that percent. */
       hold: { default: false },
+      /** The block's gap, px — the same on every column of it, set for all
+          at once (`setColumnsGap`): 0, the columns side by side with
+          nothing between; more, each a card half of it in from its edges
+          (`columnSpec`). */
+      gutter: { default: 0 },
       /** Where the column's content sits beside a taller neighbour — top
           (the default), middle or bottom: `vertical-align` on the
           inline-block, and `valign` on its cell in Outlook's table
@@ -234,7 +282,11 @@ export const Column = defineNode({
           const kind = markedAs(el);
           if (kind && kind !== 'column') return false;
           if (!kind && !/display:\s*inline-block/i.test(style)) return false;
-          const bg = el.style?.backgroundColor;
+          // A card inside (a block with a gap, `columnSpec`): the fill and
+          // the padding are the card's, the column's padding half the gap.
+          const card = cardOf(el);
+          const fillOf = card ?? el;
+          const bg = fillOf.style?.backgroundColor;
           // The width the author wrote, before an import folded a sheet's
           // `!important` over it (`noteOwnWidths`), else the inline one.
           const own = el.getAttribute('data-aee-own-width') ?? el.style?.width ?? '';
@@ -242,46 +294,32 @@ export const Column = defineNode({
           return {
             maxWidth: parseColumnMaxWidth(style),
             background: isSafeColor(bg) ? bg : null,
-            padding: parsePadding(el),
+            padding: parsePadding(fillOf),
+            gutter: card ? gutterOf(el) : 0,
             hold: !!share && +share[1] < 100,
             valign: parseColumnVerticalAlign(el),
           };
         },
+        contentElement: (dom) => cardOf(dom as HTMLElement) ?? (dom as HTMLElement),
       },
     ],
-    // `aee-column` is an editor-only CSS hook for the layout guides;
-    // `emitDOM` (serialization) drops it and keeps the marker
-    // (layout-marker.ts), which the clipboard's copy carries too.
-    toDOM: (node) => [
-      'div',
-      {
-        class: `aee-column ${layoutMarker('column')}`,
-        style: columnStyle(
-          node.attrs['maxWidth'],
-          node.attrs['background'],
-          node.attrs['padding'],
-          node.attrs['hold'],
-          node.attrs['valign'],
-        ),
-      },
-      0,
-    ],
-    emitDOM: (node: { attrs: Record<string, any> }) => [
-      'div',
-      {
-        ...markerAttrs('column'),
-        style: columnStyle(
-          node.attrs['maxWidth'],
-          node.attrs['background'],
-          node.attrs['padding'],
-          node.attrs['hold'],
-          node.attrs['valign'],
-        ),
-      },
-      0,
-    ],
+    // `aee-column` (and `aee-column__card`) are editor-only CSS hooks for
+    // the layout guides; `emitDOM` (serialization) drops them and keeps the
+    // markers (layout-marker.ts), which the clipboard's copy carries too.
+    toDOM: (node) => columnSpec(node.attrs, true),
+    emitDOM: (node: { attrs: Record<string, any> }) => columnSpec(node.attrs, false),
   },
 });
+
+/** A gap off the half of it a column carries all round, px — 0 for a
+    padding that is not one even half (not ours). */
+function gutterOf(column: HTMLElement): number {
+  const sides = parsePadding(column);
+  if (!sides) return 0;
+  const [top, right, bottom, left] = paddingSides(sides);
+  if (!(top === right && right === bottom && bottom === left)) return 0;
+  return Math.round((Number.parseFloat(top) || 0) * 2);
+}
 
 /** The column container: a plain `<div>` whose direct children are column
     divs. The child check discriminates it from an ordinary paragraph div. */
@@ -331,6 +369,11 @@ export const Columns = defineNode({
         bottom. */
     setColumnVerticalAlign: (valign: CellVerticalAlignment): Command =>
       setColumnVerticalAlign(valign),
+    /** The room inside the column the cursor is in, px — above and below
+        (`block`), at its sides (`inline`). */
+    setColumnPadding: (padding: ColumnPadding): Command => setColumnPadding(padding),
+    /** The gap between the columns of the block the cursor is in, px. */
+    setColumnsGap: (gap: number | string): Command => setColumnsGap(gap),
     // Caret-relative structural edits, for a host's own controls (the
     // block's pills use the position-addressed `appendColumn` /
     // `removeLastColumn`). Named apart from the table's
@@ -534,7 +577,10 @@ export const addColumn: Command = (state, dispatch) => {
   const existing: Node[] = [];
   ctx.node.forEach((col) => existing.push(col));
   const columns = resplitColumns(existing, count);
-  const fresh = freshColumn(state.schema, { maxWidth: columnMaxWidth(count) });
+  const fresh = freshColumn(state.schema, {
+    maxWidth: columnMaxWidth(count),
+    gutter: ctx.node.firstChild?.attrs['gutter'] ?? 0,
+  });
   columns.splice(ctx.index + 1, 0, fresh);
 
   const tr = state.tr.replaceWith(
@@ -609,7 +655,8 @@ function restructureColumns(
   }
   if (append) {
     const end = tr.mapping.map(pos + block.nodeSize - 1, -1);
-    tr.insert(end, freshColumn(state.schema));
+    // The block's gap is every column's: the new one takes it too.
+    tr.insert(end, freshColumn(state.schema, { gutter: block.firstChild?.attrs['gutter'] ?? 0 }));
   }
   const rebuilt = tr.doc.nodeAt(pos)!;
   const maxWidth = columnMaxWidth(rebuilt.childCount);
@@ -825,6 +872,94 @@ export function setColumnVerticalAlign(valign: CellVerticalAlignment): Command {
   };
 }
 
+/** The room a column's menu sets moves on the app's grid: 4px steps. */
+export const COLUMN_SPACING_STEP = 4;
+
+/** The most room inside a column — a third of the narrowest column's cap,
+    the rest still its content's. */
+export const COLUMN_PADDING_MAX = 40;
+
+/** The widest gap between columns. */
+export const COLUMNS_GAP_MAX = 40;
+
+/** The room inside a column, px: above and below, and at its sides. */
+export interface ColumnPadding {
+  block?: number | string;
+  inline?: number | string;
+}
+
+/** A length typed into a column's menu, on the grid and in range — null
+    for one that is no number. */
+export function columnSpacingStep(value: unknown, max: number): number | null {
+  const raw = typeof value === 'string' && !value.trim() ? NaN : Number(value);
+  if (!Number.isFinite(raw)) return null;
+  const snapped = Math.round(raw / COLUMN_SPACING_STEP) * COLUMN_SPACING_STEP;
+  return Math.min(max, Math.max(0, snapped));
+}
+
+/** The room inside the column the cursor is in, px — its top side (the
+    menu sets the bottom alike) and its left (the right alike). Null where
+    the cursor is in no column. */
+export function columnPaddingOf(state: EditorState): { block: number; inline: number } | null {
+  const ctx = findColumnContext(state);
+  if (!ctx) return null;
+  const [top, , , left] = paddingSides(ctx.node.attrs['padding'] ?? '0px');
+  return { block: Number.parseFloat(top) || 0, inline: Number.parseFloat(left) || 0 };
+}
+
+/** Sets the room inside the column the cursor is in — inside its fill, on
+    every client but Outlook's Word engine, which reads no padding on a div
+    and shows the content at the fill's edge. A side left out keeps what it
+    was; a length off the grid snaps to it; no room at all writes none. */
+export function setColumnPadding({ block, inline }: ColumnPadding): Command {
+  return (state, dispatch) => {
+    const ctx = findColumnContext(state);
+    if (!ctx) return false;
+    const [top, right, bottom, left] = paddingSides(ctx.node.attrs['padding'] ?? '0px');
+    const blockPx = block == null ? null : columnSpacingStep(block, COLUMN_PADDING_MAX);
+    const inlinePx = inline == null ? null : columnSpacingStep(inline, COLUMN_PADDING_MAX);
+    const side = (was: string, px: number | null) => (px == null ? was : `${px}px`);
+    const sides = [
+      side(top, blockPx),
+      side(right, inlinePx),
+      side(bottom, blockPx),
+      side(left, inlinePx),
+    ];
+    const padding = sides.every((value) => !Number.parseFloat(value)) ? null : paddingOf(...sides);
+    if (padding === ctx.node.attrs['padding']) return true;
+    dispatch?.(state.tr.setNodeMarkup(ctx.pos, undefined, { ...ctx.node.attrs, padding }));
+    return true;
+  };
+}
+
+/** The gap between the columns of the block the cursor is in, px — null
+    where the cursor is in none. */
+export function columnsGapOf(state: EditorState): number | null {
+  const ctx = findColumnsContext(state);
+  if (!ctx) return null;
+  return Number(ctx.node.firstChild?.attrs['gutter']) || 0;
+}
+
+/** Sets the gap between the columns of the block the cursor is in — on
+    every column of it (`gutter`), on the grid and in range. */
+export function setColumnsGap(gap: number | string): Command {
+  return (state, dispatch) => {
+    const ctx = findColumnsContext(state);
+    const px = columnSpacingStep(gap, COLUMNS_GAP_MAX);
+    if (!ctx || px == null) return false;
+    if (dispatch) {
+      const tr = state.tr;
+      ctx.node.forEach((column, offset) => {
+        if (column.attrs['gutter'] !== px) {
+          tr.setNodeMarkup(ctx.pos + 1 + offset, undefined, { ...column.attrs, gutter: px });
+        }
+      });
+      if (tr.docChanged) dispatch(tr);
+    }
+    return true;
+  };
+}
+
 /** Sets (or clears) the `background` of the `column` the cursor is in. */
 export function setColumnBackground(color: string | null): Command {
   return (state, dispatch) => {
@@ -867,9 +1002,13 @@ export function outlookColumns(root: HTMLElement): void {
     );
     if (columns.length < 2 || columns.length !== container.children.length) continue;
     const doc = container.ownerDocument;
+    // A block with a gap: the Word engine reads no padding on the column's
+    // div, but does on its cell — the half-gap goes there too.
+    const gutter = (column: HTMLElement) =>
+      cardOf(column) && gutterOf(column) ? ` style="padding: ${gutterOf(column) / 2}px;"` : '';
     const cell = (column: HTMLElement) =>
       `<td width="${parseColumnMaxWidth(column.getAttribute('style'))}" ` +
-      `valign="${parseColumnVerticalAlign(column)}">`;
+      `valign="${parseColumnVerticalAlign(column)}"${gutter(column)}>`;
     container.insertBefore(
       doc.createComment(
         '[if mso]><table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center">' +

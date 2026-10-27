@@ -8,6 +8,7 @@ import {
   effect,
   inject,
   input,
+  linkedSignal,
   output,
   untracked,
   viewChild,
@@ -24,9 +25,15 @@ import { ConnectedPosition } from '@angular/cdk/overlay';
 
 // Library
 import {
+  COLUMNS_GAP_MAX,
+  COLUMN_PADDING_MAX,
+  COLUMN_SPACING_STEP,
   ColumnHandleTarget,
   TableHandleTarget,
   caretCellPos,
+  columnPaddingOf,
+  columnSpacingStep,
+  columnsGapOf,
   findColumnContext,
   toEmailSafeColor,
 } from '@h-k-dev/angular-email-editor';
@@ -48,7 +55,9 @@ type CellAction = string;
  * The cell's menu, Notion's: the grip on the caret cell's edge opens it —
  * Color, Alignment, Clear contents — and so does a columns block's grip on
  * the caret column's edge, for the column (no clearing there: a column's
- * content is blocks, taken away the usual way). Its lists open beside their rows
+ * content is blocks, taken away the usual way — instead, its spacing: the
+ * room inside it, Block and Inline, and its block's gap between columns,
+ * fields in the menu itself as the band's padding is). Its lists open beside their rows
  * on hover, or on the right arrow, as a cascading menu does — on the side
  * with room, pushed into the screen (`SubmenuPlacement`). A panel of the
  * composer's one popover, anchored to the grip.
@@ -112,9 +121,8 @@ export class CellMenu {
     const { state } = editor;
     const pos = this.column() ? (findColumnContext(state)?.pos ?? null) : caretCellPos(state);
     const fill = pos === null ? null : state.doc.nodeAt(pos)?.attrs['background'];
-    const text = state.selection.$from
-      .marks()
-      .find((mark) => mark.type.name === 'textStyle')?.attrs['color'];
+    const text = state.selection.$from.marks().find((mark) => mark.type.name === 'textStyle')
+      ?.attrs['color'];
     const hex = (value: unknown) =>
       typeof value === 'string' ? (toEmailSafeColor(value)?.toLowerCase() ?? null) : null;
     return { fill: hex(fill), text: hex(text) };
@@ -137,6 +145,17 @@ export class CellMenu {
       checked: color.value.toLowerCase() === current,
     }));
   });
+
+  /** A column's room and its block's gap, px — read again for every grip
+      pressed, and after every change the fields make. */
+  protected readonly spacing = linkedSignal({
+    source: () => (this.column() ? this.target() : null),
+    computation: () => this.#spacing(),
+  });
+
+  protected readonly paddingMax = COLUMN_PADDING_MAX;
+  protected readonly gapMax = COLUMNS_GAP_MAX;
+  protected readonly spacingStep = COLUMN_SPACING_STEP;
 
   /** The root menu's element, to put the focus in once it is on screen. */
   readonly element = viewChild<ElementRef<HTMLElement>>('menu');
@@ -212,6 +231,48 @@ export class CellMenu {
   protected leave(): void {
     this.closed.emit();
     this.#commands.focus();
+  }
+
+  /** A spacing field changed: the column (or, for the gap, its block)
+      takes it at once, the panel stays up; the field shows what was taken
+      (on the grid, in range). */
+  protected setSpacing(
+    side: 'block' | 'inline' | 'gap',
+    raw: string,
+    input: HTMLInputElement,
+  ): void {
+    const editor = this.#commands.editor();
+    if (side === 'gap') {
+      if (columnSpacingStep(raw, COLUMNS_GAP_MAX) != null) editor?.commands['setColumnsGap'](raw);
+    } else if (columnSpacingStep(raw, COLUMN_PADDING_MAX) != null) {
+      editor?.commands['setColumnPadding']({ [side]: raw });
+    }
+    const now = this.#spacing();
+    this.spacing.set(now);
+    input.value = String(now[side]);
+  }
+
+  /** Enter in a spacing field: set, and the menu closes. */
+  protected applySpacing(
+    side: 'block' | 'inline' | 'gap',
+    raw: string,
+    input: HTMLInputElement,
+  ): void {
+    this.setSpacing(side, raw, input);
+    this.#done();
+  }
+
+  /** A key in a spacing field is the field's — digits never a typeahead,
+      the arrows its own steps — but Escape still leaves. */
+  protected fieldKey(event: KeyboardEvent): void {
+    event.stopPropagation();
+    if (event.key === 'Escape') this.leave();
+  }
+
+  #spacing(): { block: number; inline: number; gap: number } {
+    const editor = this.#commands.editor();
+    const padding = (editor && columnPaddingOf(editor.state)) ?? { block: 0, inline: 0 };
+    return { ...padding, gap: (editor && columnsGapOf(editor.state)) ?? 0 };
   }
 
   /** The cell's text colour — or the column's: on all of its words. The

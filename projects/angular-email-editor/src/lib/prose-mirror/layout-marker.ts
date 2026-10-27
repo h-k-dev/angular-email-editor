@@ -11,7 +11,8 @@
  * static for the writer, a band stops being a band.
  *
  * So every block with a layout variant carries its kind as a class:
- * `aee-layout-section`, `-columns`, `-column`, `-table`, `-heading`,
+ * `aee-layout-section`, `-columns`, `-column` (and the `-card` inside a
+ * column of a block with a gap, columns.ts), `-table`, `-heading`,
  * `-list`, `-spacer` — and the page round them all, `-page`, its `-page-column` and the column's `-page-run`s (page-layout.ts). The class goes out with the email too — the stored template and
  * the sent message are one vocabulary — and a class is what survives the
  * clients a message passes through, renamed on the way: Outlook.com writes
@@ -35,6 +36,7 @@ export type LayoutMarkerKind =
   | 'section'
   | 'columns'
   | 'column'
+  | 'card'
   | 'table'
   | 'heading'
   | 'list'
@@ -54,7 +56,7 @@ export function layoutMarker(kind: LayoutMarkerKind): string {
 /** A marker class token as it may arrive: ours, or renamed by a client —
     Outlook.com's `x_`, Gmail's `m_<digits>` (signed). */
 const MARKER_TOKEN =
-  /^(?:x_|m_-?\d+)?aee-layout-(section|columns|column|table|heading|list|spacer|page|page-column|page-run|page-row)$/;
+  /^(?:x_|m_-?\d+)?aee-layout-(section|columns|column|card|table|heading|list|spacer|page|page-column|page-run|page-row)$/;
 
 function tokens(element: Element): string[] {
   return (element.getAttribute('class') ?? '').split(/\s+/).filter(Boolean);

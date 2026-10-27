@@ -120,7 +120,77 @@
       </div>
     </div>
 
-    @if (!column()) {
+    @if (column()) {
+      <div class="cell-menu__separator" role="separator"></div>
+
+      <!-- The column's room and its block's gap, parts of the menu as the
+           band's padding is: no rows of it — the arrows pass them by, Tab
+           reaches them; set as they change, Enter sets and leaves. -->
+      <div
+        class="cell-menu__spacing"
+        role="group"
+        aria-labelledby="cell-menu-padding"
+        (keydown)="fieldKey($event)"
+      >
+        <div class="cell-menu__heading" id="cell-menu-padding">Padding</div>
+        <label class="cell-menu__row">
+          <span>Block</span>
+          <span class="cell-menu__length">
+            <input
+              #block
+              class="cell-menu__input"
+              type="number"
+              inputmode="numeric"
+              min="0"
+              [step]="spacingStep"
+              [max]="paddingMax"
+              [value]="spacing().block"
+              (change)="setSpacing('block', block.value, block)"
+              (keydown.enter)="applySpacing('block', block.value, block); $event.preventDefault()"
+            />
+            px
+          </span>
+        </label>
+        <label class="cell-menu__row">
+          <span>Inline</span>
+          <span class="cell-menu__length">
+            <input
+              #inline
+              class="cell-menu__input"
+              type="number"
+              inputmode="numeric"
+              min="0"
+              [step]="spacingStep"
+              [max]="paddingMax"
+              [value]="spacing().inline"
+              (change)="setSpacing('inline', inline.value, inline)"
+              (keydown.enter)="
+                applySpacing('inline', inline.value, inline); $event.preventDefault()
+              "
+            />
+            px
+          </span>
+        </label>
+        <label class="cell-menu__row">
+          <span>Gap</span>
+          <span class="cell-menu__length">
+            <input
+              #gap
+              class="cell-menu__input"
+              type="number"
+              inputmode="numeric"
+              min="0"
+              [step]="spacingStep"
+              [max]="gapMax"
+              [value]="spacing().gap"
+              (change)="setSpacing('gap', gap.value, gap)"
+              (keydown.enter)="applySpacing('gap', gap.value, gap); $event.preventDefault()"
+            />
+            px
+          </span>
+        </label>
+      </div>
+    } @else {
       <div ngMenuItem class="cell-menu__item" value="clear">
         <mat-icon>backspace</mat-icon>
         <span>Clear contents</span>

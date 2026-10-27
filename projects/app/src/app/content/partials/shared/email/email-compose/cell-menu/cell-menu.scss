@@ -64,6 +64,52 @@
   font: var(--mat-sys-label-small, 500 11px / 16px system-ui, sans-serif);
 }
 
+// A column's spacing part (the band menu's padding part, the same look):
+// under its heading, a row per length — its name where a row's label
+// stands, its px box at the end.
+.cell-menu__spacing {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cell-menu__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-block-size: 32px;
+  padding-inline: 12px;
+  font: var(--mat-sys-body-medium);
+}
+
+.cell-menu__length {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--mat-sys-on-surface-variant, #555555);
+}
+
+.cell-menu__input {
+  box-sizing: border-box;
+  inline-size: 72px;
+  padding: 4px 10px;
+  border: none;
+  border-radius: var(--mat-sys-corner-small, 4px);
+  outline: 1px solid var(--mat-sys-outline-variant, #cccccc);
+  background-color: var(
+    --email-compose-link-input-background,
+    var(--mat-sys-surface-bright, #ffffff)
+  );
+  color: var(--mat-sys-on-surface, inherit);
+  font: var(--mat-sys-body-medium);
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary, #0056b3);
+    outline-offset: -2px;
+  }
+}
+
 .cell-menu__swatch {
   display: inline-flex;
   flex: none;

@@ -1515,8 +1515,10 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
 }
 
 /* A layout column's grip (column-handles.ts) is the cell's pill, on the
- * caret column's right edge: the column is what it is placed against. */
-.aee-editor .aee-column:has(> .aee-grip--layout-column) {
+ * caret column's right edge: the column is what it is placed against — its
+ * card, in a block with a gap (the column's content is the card's). */
+.aee-editor .aee-column:has(> .aee-grip--layout-column),
+.aee-editor .aee-column__card:has(> .aee-grip--layout-column) {
   position: relative;
 }
 
