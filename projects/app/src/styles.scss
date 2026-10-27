@@ -194,6 +194,9 @@ html {
    * menu (styles/_menu.scss reads these too). */
   --email-suggestion-menu-padding: var(--mat-sys-menu-inset);
   --email-suggestion-menu-shadow: var(--mat-sys-float-shadow);
+  /* One width floor for every menu — the table grip's: no menu of its own
+   * says another (user, 2026-10-27). */
+  --email-suggestion-menu-min-width: 208px;
   --email-suggestion-menu-item-corner: max(
     0px,
     calc(var(--mat-sys-corner-medium) - var(--mat-sys-menu-inset))
@@ -418,8 +421,11 @@ html {
  * centred column inside carries the same inset inline (the node's own
  * style, which the email keeps), so its words line up with the text
  * around the band. A guide along its top and bottom edges, revealed like
- * the other layout blocks'. */
+ * the other layout blocks'. The band is the positioned box of its grip
+ * (createSectionHandles): a column grip's face, centred on the top edge —
+ * the band has one width, so its middle names it. */
 .aee-editor .aee-section {
+  position: relative;
   box-sizing: border-box;
   margin-inline: calc(-1 * var(--mat-sys-inner-spacing, 16px));
   border-block: 1px solid transparent;
@@ -481,16 +487,53 @@ html {
   }
 }
 
-/* A page of rows (`table`): the column is its rows and ends with the last
- * one — below it is page, as in the email, not column to write in. So no
- * column down the root: the page's colour over the paper's (the paper
- * rules' own anchor, so this wins), each plain row in the column's colour,
- * a filled one in its own (inline, over this). */
+/* Every page ends where the email does: the column with its last block (and
+ * the column's inset under text, as the email's run has it — none under a
+ * band or a row, which reach the column's edge), then the page's own room
+ * below. So the editor is as tall as the email, not as the room it stands
+ * in: a column drawn on down to the bottom of the canvas reads as an email
+ * that runs on. Below it is the paper, where a click still starts a line
+ * (ClickBelow, through the canvas's marquee). No lines of the editor's own
+ * under the page — they would read as column — only what the floating foot
+ * covers. The paper rules' own anchor, so this wins over them. */
+.email-compose__editor > .aee-editor.aee-page-layout {
+  min-height: 0;
+  padding-block-end: calc(
+    var(--email-editor-padding-block, 0px) + var(--email-compose-foot-room, 0px)
+  );
+
+  &:has(> :is(.aee-section, .aee-page-row):last-child) {
+    padding-block-end: var(--email-compose-foot-room, 0px);
+  }
+}
+
+// Where the host scrolls (the designer's canvas), the foot's room is the
+// host's.
+section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor.aee-page-layout {
+  padding-block-end: var(--email-editor-padding-block, 0px);
+
+  &:has(> :is(.aee-section, .aee-page-row):last-child) {
+    padding-block-end: 0;
+  }
+}
+
+/* A page of rows (`table`): the column is its rows. No column down the
+ * root: the page's colour over the paper's, each plain row in the column's
+ * colour, a filled one in its own (inline, over this). */
 .email-compose__editor > .aee-editor.aee-page-layout[data-page-layout='table'] {
+  padding-block-start: 0;
   background-image: none;
   background-color: var(--aee-page-fill);
 
-  > .aee-section {
+  // A row (the library's pageRow) is a hidden layout element: no outline,
+  // no menu — the column's width (out over its inset, as the email's
+  // cell is), its own padding round its blocks.
+  // A band row (a fill or an image: `/section`) wears the section grip on
+  // its top edge, centred — the row is the grip's positioned box.
+  > .aee-page-row {
+    position: relative;
+    box-sizing: border-box;
+    margin-inline: calc(-1 * var(--mat-sys-inner-spacing, 16px));
     background-color: var(--aee-page-column-fill);
   }
 }
@@ -507,12 +550,12 @@ html {
 /* A band whose image is still a token (`{{ company.heroUrl }}`): the fill
  * alone shows, and the token stands in its top corner — a pill in the
  * band's own ink, as the image placeholder names its token. Drawn, never
- * text: nothing of it is in the document. */
+ * text: nothing of it is in the document. A page's band row the same. */
 .aee-editor .aee-section[data-pending-image] {
   position: relative;
 }
 
-.aee-editor .aee-section[data-pending-image]::before {
+.aee-editor :is(.aee-section, .aee-page-row)[data-pending-image]::before {
   content: attr(data-pending-image);
   position: absolute;
   inset-block-start: 8px;
@@ -1394,6 +1437,16 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
  * tables keep a focused cell's handles on screen. */
 .aee-editor tr:hover .aee-grip--row,
 .aee-editor .aee-grip[data-caret] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* A band's grip (createSectionHandles), the column grip's face on the band's
+ * top edge: revealed by the band under the pointer — its own grip, not one
+ * of a band inside it — as a column's is by its column, and always on the
+ * caret's band (`data-caret`, above). */
+.aee-editor .aee-section:hover > .aee-section__inner > .aee-grip--section,
+.aee-editor .aee-page-row:hover > .aee-grip--section {
   opacity: 1;
   pointer-events: auto;
 }

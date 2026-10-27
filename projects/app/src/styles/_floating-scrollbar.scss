@@ -20,11 +20,15 @@
 // The rail's ends keep clear of the scroller's block scroll padding (what
 // is stuck over its top or foot), read by the directive as `--_cover-*`.
 
+// Over whatever else styles the scroller's bar — a component's own scroll
+// mixin (the library's suggestion menu's list) outranks a global attribute
+// selector, and its gutter or thin bar would stand beside the drawn one.
 [data-floating-scrollbar='drawn'] {
-  scrollbar-width: none;
+  scrollbar-width: none !important;
+  scrollbar-gutter: auto !important;
 
   &::-webkit-scrollbar {
-    display: none;
+    display: none !important;
   }
 }
 

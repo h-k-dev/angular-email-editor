@@ -35,6 +35,7 @@ import {
 } from '@h-k-dev/angular-email-editor';
 import { Preferences } from '../../../../../core/storages/preferences';
 import { isTyping } from '../is-typing';
+import { FloatingScrollbar } from '../../../common/floating-scrollbar/floating-scrollbar';
 /**
  * The HTML side of the composer: a ProseMirror editor over the source kit
  * (code lines, highlighting, linting, Shift-Alt-F formatting, email-safe
@@ -47,6 +48,7 @@ const SOURCE: SourceOptions = { mode: 'email' };
 
 @Component({
   selector: 'section[html-email-compose]',
+  imports: [FloatingScrollbar],
   templateUrl: './html-email-compose.html',
   styleUrl: './html-email-compose.scss',
   host: {

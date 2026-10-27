@@ -1,37 +1,38 @@
-import { EditorState, Plugin, PluginKey, TextSelection, Transaction } from 'prosemirror-state';
+import { Node } from 'prosemirror-model';
+import { Plugin, PluginKey, TextSelection, Transaction } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { defineExtension } from '../extension';
-import { isRowsPage } from './page-layout';
+import { isRowsPage, plainRow } from './page-layout';
 
 /** The line a click below made, while it is still unused — its position. */
 type Made = number | null;
 
 const clickBelowKey = new PluginKey<Made>('clickBelow');
 
-/** Where a line below everything goes: the document's end — or, on a page
-    of rows, the last row's: no line stands outside a row there. */
-function lineEnd(state: EditorState): number {
-  const last = state.doc.lastChild;
-  return isRowsPage(state) && last?.type.name === 'section'
-    ? state.doc.content.size - 1
-    : state.doc.content.size;
+/** Whether a node is a blank line: an empty paragraph — or a plain row
+    (page of rows) holding nothing but one. */
+function isBlank(node: Node): boolean {
+  if (node.type.name === 'paragraph') return !node.content.size;
+  return (
+    node.type.name === 'pageRow' &&
+    !node.attrs['background'] &&
+    !node.attrs['image'] &&
+    node.childCount === 1 &&
+    isBlank(node.firstChild!)
+  );
 }
 
-/** Whether the node at the end (`lineEnd`) is an empty paragraph — a line
-    already there to type in. */
-function emptyLastLine(state: EditorState): number | null {
-  const end = lineEnd(state);
-  const last = state.doc.resolve(end).nodeBefore;
-  if (!last || last.type.name !== 'paragraph' || last.content.size) return null;
-  return end - last.nodeSize;
-}
+/** Where the caret goes in a blank line at `pos`: in its paragraph. */
+const caretIn = (node: Node, pos: number): number =>
+  node.type.name === 'pageRow' ? pos + 2 : pos + 1;
 
 /**
  * Notion's click below the last block: the caret goes onto a fresh line
  * there — the empty line already at the end, or a new one — so the next
  * thing typed goes under everything, whatever the last block is (a heading,
- * a table, an image) — on a page of rows, in the last row, since no line
- * stands outside one. `clientY` is the click's; a click that is not below
+ * a table, an image). On a page of rows the room below the rows is outside
+ * them, and the line a new row of its own (a plain one, `plainRow`): the
+ * way to add one. `clientY` is the click's; a click that is not below
  * the last block is not this one, and nothing happens (`false`). So does a
  * kit without {@link ClickBelow}.
  *
@@ -51,16 +52,18 @@ export function clickBelow(view: EditorView, clientY: number): boolean {
   const dom = view.nodeDOM(state.doc.content.size - last.nodeSize);
   if (!(dom instanceof Element) || clientY <= dom.getBoundingClientRect().bottom) return false;
 
-  const reuse = emptyLastLine(state);
+  const end = state.doc.content.size;
   let tr: Transaction;
-  if (reuse !== null) {
-    tr = state.tr.setSelection(TextSelection.create(state.doc, reuse + 1));
+  if (isBlank(last)) {
+    const at = end - last.nodeSize;
+    tr = state.tr.setSelection(TextSelection.create(state.doc, caretIn(last, at)));
   } else {
-    const line = state.schema.nodes['paragraph']?.createAndFill();
+    const line = isRowsPage(state)
+      ? plainRow(state.schema)
+      : state.schema.nodes['paragraph']?.createAndFill();
     if (!line) return false;
-    const end = lineEnd(state);
     tr = state.tr.insert(end, line);
-    tr.setSelection(TextSelection.create(tr.doc, end + 1));
+    tr.setSelection(TextSelection.create(tr.doc, caretIn(line, end)));
     tr.setMeta(clickBelowKey, end).setMeta('addToHistory', false);
   }
   view.focus();
@@ -106,7 +109,7 @@ export const ClickBelow = defineExtension({
         const made = clickBelowKey.getState(state);
         if (made === null || made === undefined) return null;
         const line = state.doc.nodeAt(made);
-        if (!line || line.type.name !== 'paragraph' || line.content.size) {
+        if (!line || !isBlank(line)) {
           return state.tr.setMeta(clickBelowKey, null);
         }
         const { from, to } = state.selection;

@@ -20,6 +20,56 @@ import { FLOATING_SCROLLBAR_LINGER, FloatingScrollbar } from './floating-scrollb
 })
 class Host {}
 
+/** A component's own scroller, named from outside (the library's suggestion
+    menu's list) — standing high, and styled with a gutter of its own. */
+@Component({
+  imports: [FloatingScrollbar],
+  template: `<div
+    class="menu"
+    floatingScrollbar=".list"
+    style="position: absolute; z-index: 10; inset: 0 auto auto 0; width: 240px"
+  >
+    <div class="list" style="position: relative; z-index: 3; height: 200px; overflow-y: auto; scrollbar-gutter: stable">
+      <div style="height: 1000px"></div>
+    </div>
+  </div>`,
+})
+class InnerHost {}
+
+describe('FloatingScrollbar on a scroller inside its host (render)', () => {
+  it('hides that scroller’s bar, gutter and all, and draws one over it, above it', async () => {
+    const styles = document.createElement('style');
+    styles.textContent = `
+      [data-floating-scrollbar='drawn'] { scrollbar-width: none !important; scrollbar-gutter: auto !important; }
+      .floating-scrollbar { position: absolute; }
+    `;
+    document.head.appendChild(styles);
+    TestBed.configureTestingModule({
+      providers: [{ provide: Viewport, useValue: { floatingScrollbars: signal(false) } }],
+    });
+    const fixture = TestBed.createComponent(InnerHost);
+    document.body.append(fixture.nativeElement);
+    await fixture.whenStable();
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    const root = fixture.nativeElement as HTMLElement;
+    const menu = root.querySelector<HTMLElement>('.menu')!;
+    const list = root.querySelector<HTMLElement>('.list')!;
+    // The attribute on the scroller it names, not on the host.
+    expect(menu.hasAttribute('data-floating-scrollbar')).toBe(false);
+    expect(list.getAttribute('data-floating-scrollbar')).toBe('drawn');
+    expect(list.offsetWidth - list.clientWidth).toBe(0);
+    const bar = list.nextElementSibling as HTMLElement;
+    expect(bar.className).toBe('floating-scrollbar');
+    list.scrollTop = 300;
+    list.dispatchEvent(new Event('scroll'));
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    expect(bar.getBoundingClientRect().toJSON()).toEqual(list.getBoundingClientRect().toJSON());
+    expect(getComputedStyle(bar).zIndex).toBe('4');
+    root.remove();
+    styles.remove();
+  });
+});
+
 describe('FloatingScrollbar (render)', () => {
   const native = signal(false);
   let fixture: ComponentFixture<Host>;

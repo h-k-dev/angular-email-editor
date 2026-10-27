@@ -1,5 +1,4 @@
 @use '../../../../../../../styles/menu' as menu;
-@use '@h-k-dev/angular-email-editor/styles/scroll';
 
 // Only where the panel is declared: no box in the composer's column — an
 // empty block there is a flex item, and the column's gap round it pushed the
@@ -15,7 +14,6 @@
   @include menu.panel;
 
   position: relative;
-  min-inline-size: 200px;
   // The panel's `overflow: clip` would cut away its own lists, which stand
   // past its edge (`.cell-menu__sub`). Its rows sit inside the padding band,
   // so nothing else paints past the rounded corner.
@@ -42,16 +40,15 @@
 // the list reads as the row's own — its first row level with its row, on
 // the side with room (`left` and `top` are written by `submenuPlacement`;
 // these are where it stands until then), away while Aria says it is not
-// visible. The colour list runs past a screen, so it scrolls.
+// visible. The colour list runs past a screen, so it scrolls, its bar
+// floating ([floatingScrollbar]).
 .cell-menu__sub {
   position: absolute;
   inset-block-start: 0;
   inset-inline-start: calc(100% - 6px);
-  min-inline-size: 208px;
   max-block-size: min(60vh, 480px);
   overflow-y: auto;
   box-shadow: var(--mat-sys-float-shadow);
-  @include scroll.scroll;
 
   &[data-visible='false'] {
     display: none;

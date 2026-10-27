@@ -22,34 +22,65 @@
       ngMenu
       #colorMenu="ngMenu"
       class="cell-menu cell-menu__sub"
+      floatingScrollbar
       aria-label="Color"
       submenuPlacement
       [submenuPlacementAvoid]="target()?.boundingBox"
       (itemSelected)="pick($event)"
     >
+      <!-- The current text colour and fill are ticked: radios, the tick in
+           the row's check slot (styles/_menu.scss), never a wash. -->
       <div class="cell-menu__heading">Text color</div>
-      <div ngMenuItem class="cell-menu__item" value="text:">
+      <div
+        ngMenuItem
+        class="cell-menu__item"
+        value="text:"
+        role="menuitemradio"
+        [attr.aria-checked]="!current().text"
+      >
         <span class="cell-menu__swatch cell-menu__swatch--text">A</span>
         <span>Default text</span>
+        <mat-icon data-slot="check">check</mat-icon>
       </div>
-      @for (color of palette.text; track color.value) {
-        <div ngMenuItem class="cell-menu__item" [value]="'text:' + color.value">
+      @for (color of texts(); track color.value) {
+        <div
+          ngMenuItem
+          class="cell-menu__item"
+          [value]="'text:' + color.value"
+          role="menuitemradio"
+          [attr.aria-checked]="color.checked"
+        >
           <span class="cell-menu__swatch cell-menu__swatch--text" [style.color]="color.value"
             >A</span
           >
           <span>{{ color.name }} text</span>
+          <mat-icon data-slot="check">check</mat-icon>
         </div>
       }
       <div class="cell-menu__separator" role="separator"></div>
       <div class="cell-menu__heading">Background</div>
-      <div ngMenuItem class="cell-menu__item" value="fill:">
+      <div
+        ngMenuItem
+        class="cell-menu__item"
+        value="fill:"
+        role="menuitemradio"
+        [attr.aria-checked]="!current().fill"
+      >
         <span class="cell-menu__swatch cell-menu__swatch--none"></span>
         <span>No background</span>
+        <mat-icon data-slot="check">check</mat-icon>
       </div>
-      @for (color of palette.background; track color.value) {
-        <div ngMenuItem class="cell-menu__item" [value]="'fill:' + color.value">
+      @for (color of fills(); track color.value) {
+        <div
+          ngMenuItem
+          class="cell-menu__item"
+          [value]="'fill:' + color.value"
+          role="menuitemradio"
+          [attr.aria-checked]="color.checked"
+        >
           <span class="cell-menu__swatch" [style.background-color]="color.value"></span>
           <span>{{ color.name }} background</span>
+          <mat-icon data-slot="check">check</mat-icon>
         </div>
       }
     </div>
@@ -62,6 +93,7 @@
       ngMenu
       #alignMenu="ngMenu"
       class="cell-menu cell-menu__sub"
+      floatingScrollbar
       aria-label="Alignment"
       submenuPlacement
       [submenuPlacementAvoid]="target()?.boundingBox"

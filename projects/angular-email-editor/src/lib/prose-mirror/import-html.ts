@@ -641,7 +641,13 @@ export function inheritTextStyles(root: ParentNode): void {
     // A builder's plain wrapper div (no column, no centring div of ours: no
     // `display`, no `max-width`) with a padding round blocks: shared out
     // among them, since the schema reads a paragraph's box, not a div's.
-    if (el.tagName === 'DIV' && !inlineValue(el, 'display') && !inlineValue(el, 'max-width')) {
+    // Never a marked one (a page's row): its padding is its own.
+    if (
+      el.tagName === 'DIV' &&
+      !markedAs(el) &&
+      !inlineValue(el, 'display') &&
+      !inlineValue(el, 'max-width')
+    ) {
       const blocks = Array.from(el.children).filter(
         (child): child is HTMLElement => child instanceof HTMLElement && isBlock(child),
       );

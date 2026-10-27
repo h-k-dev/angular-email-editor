@@ -12,8 +12,6 @@
  * toolbar's ⋯ dropdown. Only what is this menu's own lives here. */
 .table-menu {
   @include menu.panel;
-
-  min-inline-size: 208px;
 }
 
 .table-menu__item {

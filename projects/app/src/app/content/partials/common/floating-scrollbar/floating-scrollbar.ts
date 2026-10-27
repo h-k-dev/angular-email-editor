@@ -1,4 +1,4 @@
-import { Directive, ElementRef, afterRenderEffect, inject } from '@angular/core';
+import { Directive, ElementRef, afterRenderEffect, inject, input } from '@angular/core';
 
 import { Viewport } from '../../../../core/layout/viewport';
 
@@ -36,21 +36,41 @@ const MIN_THUMB = 32;
  * floating foot), the same padding that keeps a focused row and the caret
  * clear. Its look is global (styles/_floating-scrollbar.scss, in
  * styles.scss).
+ *
+ * The scroller is the host — or, the attribute's value a selector, the
+ * element inside the host it names: a component whose scroller is its own
+ * (the library's suggestion menu's list) takes the bar from outside.
+ *
+ *     <div email-suggestion-menu floatingScrollbar="[data-slot=listbox]">
  */
 @Directive({
   selector: '[floatingScrollbar]',
-  host: { '[attr.data-floating-scrollbar]': "native() ? 'native' : 'drawn'" },
+  host: {
+    '[attr.data-floating-scrollbar]': "floatingScrollbar() ? null : native() ? 'native' : 'drawn'",
+  },
 })
 export class FloatingScrollbar {
+  /** The scroller inside the host, as a selector — empty for the host. */
+  readonly floatingScrollbar = input('');
+
   protected readonly native = inject(Viewport).floatingScrollbars;
-  readonly #scroller = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+  readonly #host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
   constructor() {
     // A mouse plugged into a Mac set to follow it turns its bars classic,
     // and this draws one; unplugged, the drawn one goes.
     afterRenderEffect((onCleanup) => {
-      if (this.native()) return;
-      onCleanup(draw(this.#scroller));
+      const selector = this.floatingScrollbar();
+      const scroller = selector ? this.#host.querySelector<HTMLElement>(selector) : this.#host;
+      if (!scroller) return;
+      const native = this.native();
+      if (selector) {
+        // The host binding's attribute, on the scroller it names.
+        scroller.setAttribute('data-floating-scrollbar', native ? 'native' : 'drawn');
+        onCleanup(() => scroller.removeAttribute('data-floating-scrollbar'));
+      }
+      if (native) return;
+      onCleanup(draw(scroller));
     });
   }
 }
@@ -85,8 +105,11 @@ function draw(scroller: HTMLElement): () => void {
     bar.style.left = `${scroller.offsetLeft}px`;
     bar.style.height = `${scroller.offsetHeight}px`;
     bar.style.width = `${scroller.offsetWidth}px`;
-    // The rail keeps clear of what is stuck over the scroller's ends.
     const style = getComputedStyle(scroller);
+    // Over its scroller, however high that one stands (a menu over others).
+    const z = parseInt(style.zIndex, 10);
+    bar.style.zIndex = Number.isFinite(z) ? String(z + 1) : '';
+    // The rail keeps clear of what is stuck over the scroller's ends.
     bar.style.setProperty('--_cover-start', `${parseFloat(style.scrollPaddingTop) || 0}px`);
     bar.style.setProperty('--_cover-end', `${parseFloat(style.scrollPaddingBottom) || 0}px`);
     const { scrollHeight, clientHeight } = scroller;

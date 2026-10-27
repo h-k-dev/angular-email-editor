@@ -152,9 +152,9 @@ export default {
       none: 'None',
       centered: 'Centred column',
       table: 'Rows',
-      rowsHint: 'Every line stays in its row. Rows can’t go back to a free column.',
       width: 'Column width',
       spacing: 'Room above and below',
+      rowPadding: 'Row padding',
       page: 'Page colour',
       column: 'Column colour',
       noColor: 'None',
@@ -348,6 +348,9 @@ export default {
       altPlaceholder: 'Describe the image',
       altWithValue: 'Alt text: {{alt}}',
       applyAlt: 'Apply alt text',
+    },
+    section: {
+      options: 'Section options',
     },
     table: {
       cellOptions: 'Cell options',

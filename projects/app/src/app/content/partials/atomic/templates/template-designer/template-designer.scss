@@ -417,12 +417,6 @@
   &:has(> input:checked) {
     color: var(--mat-sys-on-surface);
   }
-
-  // A kind the page cannot go back to (rows are one way): in sight, off.
-  &:has(> input:disabled) {
-    cursor: default;
-    opacity: 0.38;
-  }
 }
 
 .designer-layout__swatch {

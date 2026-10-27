@@ -55,7 +55,7 @@ describe('page of rows', () => {
 
   describe('recognising the hand-coded page', () => {
     for (const mode of ['repair', 'email', 'preserve'] as const) {
-      it(`lifts it as a page of rows in the ${mode} parse, each row a band`, () => {
+      it(`lifts it as a page of rows in the ${mode} parse, each row a row of ours`, () => {
         const doc = parseHTML(WELCOME, editor.schema, { mode });
         expect(normalizePageLayout(doc.attrs['pageLayout'])).toEqual(
           tablePageLayout({
@@ -63,9 +63,11 @@ describe('page of rows', () => {
             background: '#eef2f7',
             columnBackground: '#ffffff',
             spacing: 32,
+            // Its column's `cellpadding="0"`: every row says its own.
+            rowPadding: 0,
           }),
         );
-        expect(top(doc)).toEqual(Array(6).fill('section'));
+        expect(top(doc)).toEqual(Array(6).fill('pageRow'));
         const fills: (string | null)[] = [];
         const paddings: string[] = [];
         doc.forEach((row) => {
@@ -73,15 +75,17 @@ describe('page of rows', () => {
           paddings.push(row.attrs['padding']);
         });
         expect(fills).toEqual(['#1f3a5f', null, null, null, null, '#f1f3f4']);
-        // The row's sides are the column's inset now: above and below kept.
+        // Each cell's own padding, all four sides.
         expect(paddings).toEqual([
-          '24px 0px',
-          '32px 0px 8px',
-          '8px 0px',
-          '8px 0px',
-          '24px 0px 32px',
-          '24px 0px',
+          '24px',
+          '32px 32px 8px',
+          '8px 32px',
+          '8px 32px',
+          '24px 32px 32px',
+          '24px 32px',
         ]);
+        // Rows of ours, as they emit — none kept as authored markup.
+        doc.forEach((row) => expect(row.attrs['html'] ?? null).toBeNull());
         expect(doc.textContent).toContain('Welcome to');
         expect(doc.child(4).firstChild!.firstChild!.type.name).toBe('button');
       });
@@ -94,7 +98,7 @@ describe('page of rows', () => {
       const { column, cells } = rows(html);
       expect(column.tagName).toBe('TABLE');
       expect(column.style.maxWidth).toBe('600px');
-      expect(cells.map((cell) => cell.className)).toEqual(Array(6).fill('aee-layout-section'));
+      expect(cells.map((cell) => cell.className)).toEqual(Array(6).fill('aee-layout-page-row'));
       expect(cells[0].getAttribute('bgcolor')).toBe('#1f3a5f');
       for (const mode of ['email', 'preserve'] as const) {
         const doc = parseHTML(html, editor.schema, { mode });
@@ -103,7 +107,7 @@ describe('page of rows', () => {
       // Repair writes the words its canonical way — and then holds still.
       const repaired = serializeToHTML(parseHTML(html, editor.schema), editor.schema);
       expect(rows(repaired).cells.map((cell) => cell.className)).toEqual(
-        Array(6).fill('aee-layout-section'),
+        Array(6).fill('aee-layout-page-row'),
       );
       expect(serializeToHTML(parseHTML(repaired, editor.schema), editor.schema)).toBe(repaired);
     });
@@ -111,28 +115,30 @@ describe('page of rows', () => {
     it("keeps the row's words and their styles in a block", () => {
       mount(WELCOME);
       const { cells } = rows(editor.getHTML());
-      const heading = cells[1].querySelector('div > div') as HTMLElement;
+      const heading = cells[1].firstElementChild as HTMLElement;
       expect(heading.textContent).toContain('Welcome to');
       expect(heading.style.fontSize).toBe('24px');
       expect(heading.style.fontWeight).toBe('bold');
       // The column's font, handed down to every row.
       expect(heading.style.fontFamily).toContain('Arial');
-      const button = cells[4].querySelector('div > div') as HTMLElement;
+      const button = cells[4].firstElementChild as HTMLElement;
       expect(button.style.textAlign).toBe('center');
       // The column's and the header's text colours are their fills' pairs —
       // not the words' to keep; the footer's grey is authored, and kept.
       expect(heading.style.color).toBe('');
-      expect((cells[0].querySelector('div > div') as HTMLElement).style.color).toBe('');
-      expect((cells[5].querySelector('div > div') as HTMLElement).style.color).toBe(
-        'rgb(95, 99, 104)',
-      );
+      expect((cells[0].firstElementChild as HTMLElement).style.color).toBe('');
+      expect((cells[5].firstElementChild as HTMLElement).style.color).toBe('rgb(95, 99, 104)');
     });
 
     const page = (column: string, attrs = 'bgcolor="#eef2f7"') =>
       `<table role="presentation" width="100%" ${attrs}><tbody><tr><td align="center">${column}</td></tr></tbody></table>`;
-    const COLUMN = '<table width="600"><tbody><tr><td>One</td></tr><tr><td>Two</td></tr></tbody></table>';
+    const COLUMN =
+      '<table width="600"><tbody><tr><td>One</td></tr><tr><td>Two</td></tr></tbody></table>';
     const cases: [string, string][] = [
-      ['a row of two cells', page('<table width="600"><tbody><tr><td>One</td><td>Two</td></tr></tbody></table>')],
+      [
+        'a row of two cells',
+        page('<table width="600"><tbody><tr><td>One</td><td>Two</td></tr></tbody></table>'),
+      ],
       ['a column as wide as its room', page(COLUMN.replace('width="600"', 'width="100%"'))],
       ['a column past the widest measure', page(COLUMN.replace('width="600"', 'width="1200"'))],
       ['no fill on page or column', page(COLUMN, '')],
@@ -146,12 +152,21 @@ describe('page of rows', () => {
       });
     }
 
+    it("takes the column's cellpadding as the page's row padding", () => {
+      const column =
+        '<table width="600" cellpadding="12"><tbody><tr><td>One</td></tr><tr><td style="padding: 4px;">Two</td></tr></tbody></table>';
+      const doc = parseHTML(page(column), editor.schema, { mode: 'preserve' });
+      expect((normalizePageLayout(doc.attrs['pageLayout']) as any).rowPadding).toBe(12);
+      expect(doc.child(0).attrs['padding']).toBeNull();
+      expect(doc.child(1).attrs['padding']).toBe('4px');
+    });
+
     it('takes the page as it is — through wrappers, round a column of the minimum width', () => {
       const html = `<div><center>${page(COLUMN.replace('width="600"', 'width="320"'))}</center></div>`;
       const doc = parseHTML(html, editor.schema, { mode: 'preserve' });
       expect(normalizePageLayout(doc.attrs['pageLayout'])?.kind).toBe('table');
       expect(normalizePageLayout(doc.attrs['pageLayout'])?.width).toBe(320);
-      expect(top(doc)).toEqual(['section', 'section']);
+      expect(top(doc)).toEqual(['pageRow', 'pageRow']);
     });
   });
 
@@ -160,15 +175,20 @@ describe('page of rows', () => {
       editor.commands['setPageLayout'](centeredPageLayout());
       return editor.commands['setPageLayout'](tablePageLayout());
     };
+    const toStart = () =>
+      editor.view.dispatch(editor.state.tr.setSelection(Selection.atStart(editor.state.doc)));
 
-    it('turns a free column into rows: each run a plain row, each band a filled one', () => {
+    it('turns a free column into rows: each run a plain row, each band a coloured one', () => {
       expect(toRows()).toBe(true);
-      expect(top()).toEqual(['section', 'section', 'section']);
+      expect(top()).toEqual(['pageRow', 'pageRow', 'pageRow']);
       const [before, band, after] = [0, 1, 2].map((i) => editor.state.doc.child(i));
       expect(before.attrs['background']).toBeNull();
-      expect(before.attrs['padding']).toBe('16px 0px');
+      // The page's padding, not one of its own.
+      expect(before.attrs['padding']).toBeNull();
       expect(before.textContent).toBe('before');
       expect(band.attrs['background']).toBe('#e8f0fe');
+      // The band's room above and below, its inset at the sides.
+      expect(band.attrs['padding']).toBe('20px 16px');
       expect(after.textContent).toBe('after');
     });
 
@@ -179,24 +199,33 @@ describe('page of rows', () => {
       expect(top()).toEqual(['paragraph', 'section', 'paragraph']);
     });
 
-    it('never goes back to a free column, nor to no page', () => {
+    it('turns rows back into a free column: a coloured row a band, a plain row its blocks', () => {
+      editor.commands['setPageLayout'](centeredPageLayout());
+      const centred = editor.getHTML();
       toRows();
-      expect(editor.commands['setPageLayout'](centeredPageLayout())).toBe(false);
-      expect(editor.commands['setPageLayout'](null)).toBe(false);
-      expect(pageLayoutOf(editor.state)?.kind).toBe('table');
-      // Its own measures still change.
-      expect(editor.commands['setPageLayout'](tablePageLayout({ width: 640 }))).toBe(true);
-      expect(pageLayoutOf(editor.state)?.width).toBe(640);
+      expect(editor.commands['setPageLayout'](centeredPageLayout())).toBe(true);
+      expect(top()).toEqual(['paragraph', 'section', 'paragraph']);
+      expect(editor.getHTML()).toBe(centred);
+    });
+
+    it('turns rows into no page at all the same way', () => {
+      toRows();
+      expect(editor.commands['setPageLayout'](null)).toBe(true);
+      expect(pageLayoutOf(editor.state)).toBeNull();
+      expect(top()).toEqual(['paragraph', 'section', 'paragraph']);
+      expect(editor.getHTML()).toBe(BODY);
     });
 
     it('keeps a new line in its row', () => {
       toRows();
       const end = editor.state.doc.content.size - 2;
-      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, end)));
+      editor.view.dispatch(
+        editor.state.tr.setSelection(TextSelection.create(editor.state.doc, end)),
+      );
       const enter = new KeyboardEvent('keydown', { key: 'Enter' });
       expect(editor.view.someProp('handleKeyDown', (f) => f(editor.view, enter))).toBe(true);
       editor.view.dispatch(editor.state.tr.insertText('more'));
-      expect(top()).toEqual(['section', 'section', 'section']);
+      expect(top()).toEqual(['pageRow', 'pageRow', 'pageRow']);
       expect(editor.state.doc.lastChild!.childCount).toBe(2);
       expect(editor.state.doc.lastChild!.textContent).toBe('aftermore');
     });
@@ -205,28 +234,131 @@ describe('page of rows', () => {
       toRows();
       const paragraph = editor.schema.nodes['paragraph'].create(null, editor.schema.text('pasted'));
       editor.view.dispatch(editor.state.tr.insert(editor.state.doc.child(0).nodeSize, paragraph));
-      expect(top()).toEqual(['section', 'section', 'section', 'section']);
+      expect(top()).toEqual(['pageRow', 'pageRow', 'pageRow', 'pageRow']);
       expect(editor.state.doc.child(1).textContent).toBe('pasted');
     });
 
-    it('starts a click-below line in the last row', () => {
+    it('starts a new plain row on a click below the rows', () => {
       toRows();
-      editor.view.dispatch(
-        editor.state.tr.setSelection(Selection.atStart(editor.state.doc)),
-      );
+      toStart();
       expect(clickBelow(editor.view, 10)).toBe(true);
-      expect(top()).toEqual(['section', 'section', 'section']);
-      const { $from } = editor.state.selection;
-      expect($from.node(1)).toBe(editor.state.doc.lastChild);
-      expect($from.parent.content.size).toBe(0);
+      expect(top()).toEqual(['pageRow', 'pageRow', 'pageRow', 'pageRow']);
+      const row = editor.state.doc.lastChild!;
+      expect(row.attrs['background']).toBeNull();
+      expect(row.attrs['padding']).toBeNull();
+      expect(editor.state.selection.$from.node(1)).toBe(row);
+      editor.view.dispatch(editor.state.tr.insertText('new row'));
+      expect(editor.state.doc.lastChild!.textContent).toBe('new row');
+      expect(rows(editor.getHTML()).cells.at(-1)!.textContent).toBe('new row');
+    });
+
+    it('takes an unused new row away again, and reuses a blank one', () => {
+      toRows();
+      toStart();
+      clickBelow(editor.view, 10);
+      expect(clickBelow(editor.view, 10)).toBe(true);
+      expect(top()).toHaveLength(4);
+      toStart();
+      expect(top()).toEqual(['pageRow', 'pageRow', 'pageRow']);
+    });
+
+    it('turns the row the cursor is in into a band on /section — nothing added', () => {
+      toRows();
+      toStart();
+      expect(editor.commands['insertSection']('#e6f4ea')).toBe(true);
+      expect(top()).toEqual(['pageRow', 'pageRow', 'pageRow']);
+      expect(editor.state.doc.child(0).attrs['background']).toBe('#e6f4ea');
+      expect(editor.state.doc.child(0).textContent).toBe('before');
+      // As a band, it stays one going back to a free column.
+      editor.commands['setPageLayout'](centeredPageLayout());
+      expect(top()).toEqual(['section', 'section', 'paragraph']);
+    });
+
+    it("takes the band commands on a band row: its colour, its image, and Remove", () => {
+      toRows();
+      toStart();
+      // A plain row is no band: nothing to colour through them yet.
+      expect(editor.commands['setSectionBackground']('#e6f4ea')).toBe(false);
+      editor.commands['insertSection']();
+      expect(editor.commands['setSectionBackground']('#fce8e6')).toBe(true);
+      expect(editor.state.doc.child(0).attrs['background']).toBe('#fce8e6');
+      expect(editor.commands['setSectionImage']('javascript:alert(1)')).toBe(false);
+      expect(editor.commands['setSectionImage']('https://example.com/hero.jpg')).toBe(true);
+      const html = editor.getHTML();
+      const cell = rows(html).cells[0];
+      expect(cell.style.backgroundImage).toContain('https://example.com/hero.jpg');
+      expect(cell.getAttribute('bgcolor')).toBe('#fce8e6');
+      // Read back as it was sent.
+      const doc = parseHTML(html, editor.schema, { mode: 'preserve' });
+      expect(doc.child(0).attrs['image']).toBe('https://example.com/hero.jpg');
+      expect(serializeToHTML(doc, editor.schema)).toBe(html);
+      // Remove: a plain row, its words kept.
+      expect(editor.commands['removeSection']()).toBe(true);
+      expect(top()).toEqual(['pageRow', 'pageRow', 'pageRow']);
+      expect(editor.state.doc.child(0).attrs['background']).toBeNull();
+      expect(editor.state.doc.child(0).attrs['image']).toBeNull();
+      expect(editor.state.doc.child(0).textContent).toBe('before');
+    });
+
+    it('keeps a band row image going to a free column and back', () => {
+      toRows();
+      toStart();
+      editor.commands['insertSection']('#fce8e6');
+      editor.commands['setSectionImage']('https://example.com/hero.jpg');
+      editor.commands['setPageLayout'](centeredPageLayout());
+      expect(editor.state.doc.child(0).type.name).toBe('section');
+      expect(editor.state.doc.child(0).attrs['image']).toBe('https://example.com/hero.jpg');
+      editor.commands['setPageLayout'](tablePageLayout());
+      expect(editor.state.doc.child(0).type.name).toBe('pageRow');
+      expect(editor.state.doc.child(0).attrs['image']).toBe('https://example.com/hero.jpg');
+    });
+
+    it('draws a row as a plain block — no band, no table', () => {
+      toRows();
+      const dom = editor.view.dom;
+      expect(dom.querySelectorAll(':scope > .aee-page-row')).toHaveLength(3);
+      expect(dom.querySelector('.aee-section, table')).toBeNull();
+    });
+
+    it("gives every row without a padding of its own the page's, as the column's cellpadding", () => {
+      toRows();
+      expect(tablePageLayout().rowPadding).toBe(16);
+      let sent = rows(editor.getHTML());
+      expect(sent.column.getAttribute('cellpadding')).toBe('16');
+      // A plain row says no padding; the band turned row keeps its own.
+      expect(sent.cells[0].style.padding).toBe('');
+      expect(sent.cells[1].style.padding).toBe('20px 16px');
+      expect(editor.commands['setPageLayout'](tablePageLayout({ rowPadding: 24 }))).toBe(true);
+      sent = rows(editor.getHTML());
+      expect(sent.column.getAttribute('cellpadding')).toBe('24');
+      // The editor draws it off the root's custom property.
+      expect(editor.view.dom.style.getPropertyValue('--aee-page-row-padding')).toBe('24px');
+      expect((editor.view.dom.firstElementChild as HTMLElement).style.padding).toContain(
+        'var(--aee-page-row-padding',
+      );
+      // And reads it back off the column.
+      const doc = parseHTML(editor.getHTML(), editor.schema, { mode: 'preserve' });
+      expect((normalizePageLayout(doc.attrs['pageLayout']) as any).rowPadding).toBe(24);
+      expect(doc.child(0).attrs['padding']).toBeNull();
+    });
+
+    it("keeps the page's padding on a row turned band, going back to a free column", () => {
+      editor.commands['setPageLayout'](centeredPageLayout());
+      editor.commands['setPageLayout'](tablePageLayout({ rowPadding: 8 }));
+      toStart();
+      editor.commands['insertSection']('#e6f4ea');
+      editor.commands['setPageLayout'](centeredPageLayout());
+      expect(editor.state.doc.child(0).type.name).toBe('section');
+      expect(editor.state.doc.child(0).attrs['padding']).toBe('8px 0px');
     });
 
     it('sends the rows and reads them back as they were', () => {
       toRows();
       const html = editor.getHTML();
       expect(rows(html).cells.map((cell) => cell.className)).toEqual(
-        Array(3).fill('aee-layout-section'),
+        Array(3).fill('aee-layout-page-row'),
       );
+      expect(rows(html).cells[1].getAttribute('bgcolor')).toBe('#e8f0fe');
       const doc = parseHTML(html, editor.schema, { mode: 'preserve' });
       expect(doc.eq(editor.state.doc)).toBe(true);
     });

@@ -149,9 +149,9 @@ export default {
       none: 'Keins',
       centered: 'Zentrierte Spalte',
       table: 'Zeilen',
-      rowsHint: 'Jede Zeile Text bleibt in ihrer Zeile. Zeilen werden nicht wieder zur freien Spalte.',
       width: 'Spaltenbreite',
       spacing: 'Abstand oben und unten',
+      rowPadding: 'Innenabstand der Zeilen',
       page: 'Seitenfarbe',
       column: 'Spaltenfarbe',
       noColor: 'Keine',
@@ -397,6 +397,9 @@ export default {
       'fixed-width': 'Festbreitenschrift',
       wide: 'Breit',
       narrow: 'Schmal',
+    },
+    section: {
+      options: 'Bereichsoptionen',
     },
     table: {
       cellOptions: 'Zellenoptionen',

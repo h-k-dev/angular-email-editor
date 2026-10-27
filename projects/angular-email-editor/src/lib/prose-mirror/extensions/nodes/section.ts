@@ -1,5 +1,5 @@
 import { Command, EditorState, TextSelection } from 'prosemirror-state';
-import { DOMOutputSpec, DOMSerializer, Node, Schema } from 'prosemirror-model';
+import { DOMOutputSpec, Node, Schema } from 'prosemirror-model';
 import { defineNode } from '../../extension';
 import { emailBackgroundPalette, fillTextColor } from '../../dual-contrast';
 import { isSafeColor, toEmailSafeColor } from '../marks/text-style';
@@ -149,7 +149,7 @@ export const Section = defineNode({
 
 const DEFAULT_FILL = emailBackgroundPalette.find((color) => color.name === 'Gray')?.value ?? null;
 
-export interface SectionAttrs {
+interface SectionAttrs {
   background: string | null;
   padding: string | null;
   image: string | null;
@@ -212,24 +212,6 @@ function emitBand(attrs: SectionAttrs): DOMOutputSpec {
   inner.style.cssText = innerStyle(attrs);
   td.append(document.createComment(vmlOpen(attrs)), inner, document.createComment(VML_CLOSE));
   return { dom: table, contentDOM: inner };
-}
-
-/** A band as the email writes it, empty: its table and the element its
-    blocks go in — for markup that is a band in all but its form (a page's
-    row, page-layout.ts) to take the band's own. */
-export function sectionShell(
-  doc: Document,
-  attrs: Partial<SectionAttrs> = {},
-): { dom: HTMLElement; contentDOM: HTMLElement } {
-  const spec = emitBand({
-    background: null,
-    padding: SECTION_PADDING,
-    image: null,
-    contentBackground: null,
-    ...attrs,
-  });
-  const { dom, contentDOM } = DOMSerializer.renderSpec(doc, spec);
-  return { dom: dom as HTMLElement, contentDOM: contentDOM as HTMLElement };
 }
 
 function setAttribute(el: HTMLElement, name: string, value: string): void {
@@ -479,9 +461,39 @@ export function findSectionContext(state: EditorState): { pos: number; node: Nod
   return null;
 }
 
-/** Inserts a band at the selection and drops the cursor into it. */
+/** The band around the cursor: the innermost section — or, on a page of
+    rows, the row the cursor is in when it is the page's band (a fill or an
+    image of its own: `isBandRow`, page-row.ts). What the section grip, its
+    menu and the band commands act on. */
+export function findBandContext(state: EditorState): { pos: number; node: Node } | null {
+  const section = findSectionContext(state);
+  if (section) return section;
+  const { $from } = state.selection;
+  const row = $from.depth > 0 ? $from.node(1) : null;
+  return row?.type.name === 'pageRow' && (row.attrs['background'] || row.attrs['image'])
+    ? { pos: $from.before(1), node: row }
+    : null;
+}
+
+/** Inserts a band at the selection and drops the cursor into it. On a page
+    of rows (page-layout.ts) the row the cursor is in is the band already:
+    it takes the fill instead (the palette's grey for none said), the cursor
+    staying where it is — a row turned band, never a band inside a row. */
 function insertSection(schema: Schema, background: string | null = null): Command {
   return (state, dispatch) => {
+    const { $from } = state.selection;
+    const row = $from.depth > 0 ? $from.node(1) : null;
+    if (row?.type.name === 'pageRow') {
+      dispatch?.(
+        state.tr
+          .setNodeMarkup($from.before(1), undefined, {
+            ...row.attrs,
+            background: background ?? DEFAULT_FILL,
+          })
+          .scrollIntoView(),
+      );
+      return true;
+    }
     if (!dispatch) return true;
     const type = schema.nodes['section'];
     const node = type.createAndFill({ background })!;
@@ -500,10 +512,11 @@ function insertSection(schema: Schema, background: string | null = null): Comman
   };
 }
 
-/** Sets (or clears) the fill of the section the cursor is in. */
+/** Sets (or clears) the fill of the band the cursor is in — a section, or
+    a page's band row (`findBandContext`). */
 export function setSectionBackground(color: string | null): Command {
   return (state, dispatch) => {
-    const ctx = findSectionContext(state);
+    const ctx = findBandContext(state);
     if (!ctx) return false;
     if (dispatch) {
       const background = color ? toEmailSafeColor(color) : null;
@@ -517,11 +530,12 @@ export function setSectionBackground(color: string | null): Command {
   };
 }
 
-/** Puts an image behind (or takes it from) the section the cursor is in.
-    A URL that is not `http(s)` is refused: the command answers false. */
+/** Puts an image behind (or takes it from) the band the cursor is in — a
+    section, or a page's band row. A URL that is not `http(s)` is refused:
+    the command answers false. */
 export function setSectionImage(url: string | null): Command {
   return (state, dispatch) => {
-    const ctx = findSectionContext(state);
+    const ctx = findBandContext(state);
     if (!ctx) return false;
     const image = url ? url.trim() : null;
     if (image && !isSectionImageUrl(image)) return false;
@@ -534,10 +548,22 @@ export function setSectionImage(url: string | null): Command {
   };
 }
 
-/** Lifts the section's content out, in its place. */
+/** Lifts the section's content out, in its place. A page's band row stays
+    a row — no line stands outside one — and turns plain again: its fill and
+    image go, its blocks stay. */
 const removeSection: Command = (state, dispatch) => {
-  const ctx = findSectionContext(state);
+  const ctx = findBandContext(state);
   if (!ctx) return false;
+  if (ctx.node.type.name === 'pageRow') {
+    dispatch?.(
+      state.tr.setNodeMarkup(ctx.pos, undefined, {
+        ...ctx.node.attrs,
+        background: null,
+        image: null,
+      }),
+    );
+    return true;
+  }
   if (dispatch) {
     const { from } = state.selection;
     const tr = state.tr.replaceWith(ctx.pos, ctx.pos + ctx.node.nodeSize, ctx.node.content);

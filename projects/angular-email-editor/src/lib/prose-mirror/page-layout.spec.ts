@@ -197,11 +197,6 @@ describe('page layout', () => {
   for (const file of examples) {
     it(`round-trips ${file} in its page`, () => {
       mount(fs.readFileSync(`${EXAMPLES}${file}`, 'utf8'));
-      // A page of rows stays one (page-rows.spec.ts round-trips those).
-      if (pageLayoutOf(editor.state)?.kind === 'table') {
-        expect(editor.commands['setPageLayout'](centeredPageLayout())).toBe(false);
-        return;
-      }
       const html = withLayout(centeredPageLayout({ width: 640 }));
       const doc = parseHTML(html, editor.schema, { mode: 'preserve' });
       expect(normalizePageLayout(doc.attrs['pageLayout'])?.width).toBe(640);

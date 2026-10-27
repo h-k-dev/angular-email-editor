@@ -28,6 +28,7 @@ import {
   TableHandleTarget,
   caretCellPos,
   findColumnContext,
+  toEmailSafeColor,
 } from '@h-k-dev/angular-email-editor';
 import { injectPalette } from '@h-k-dev/angular-email-editor/palette';
 import { TextSelection } from 'prosemirror-state';
@@ -36,6 +37,7 @@ import { FormattingCommands } from '../formatting-commands';
 import { Popover } from '../popover/popover';
 import { MenuSafeTriangle } from '../../../../../../core/utils/cascade-menu/safe-triangle';
 import { SubmenuPlacement } from '../../../../../../core/utils/cascade-menu/submenu-placement';
+import { FloatingScrollbar } from '../../../../common/floating-scrollbar/floating-scrollbar';
 
 /** What a row of the menu does, as the item's value: `text:<hex>` or
     `text:` (default), `fill:<hex>` or `fill:` (none), `align:<left|center|
@@ -71,6 +73,7 @@ type CellAction = string;
     MenuItem,
     MenuSafeTriangle,
     SubmenuPlacement,
+    FloatingScrollbar,
   ],
   templateUrl: './cell-menu.html',
   styleUrl: './cell-menu.scss',
@@ -97,6 +100,43 @@ export class CellMenu {
   /** A layout column's menu, not a table cell's: its commands are the
       column's, and it has nothing to clear. */
   protected readonly column = computed(() => this.target()?.kind === 'layout-column');
+
+  /** What the colour list ticks, as the menu opened: the cell's (or the
+      column's) fill and the text colour at the caret, as lower-case hex —
+      null for none. */
+  protected readonly current = computed(() => {
+    const none = { fill: null as string | null, text: null as string | null };
+    // Read again for every grip pressed — another cell's, with the menu up.
+    const editor = this.target() && this.open() ? this.#commands.editor() : null;
+    if (!editor) return none;
+    const { state } = editor;
+    const pos = this.column() ? (findColumnContext(state)?.pos ?? null) : caretCellPos(state);
+    const fill = pos === null ? null : state.doc.nodeAt(pos)?.attrs['background'];
+    const text = state.selection.$from
+      .marks()
+      .find((mark) => mark.type.name === 'textStyle')?.attrs['color'];
+    const hex = (value: unknown) =>
+      typeof value === 'string' ? (toEmailSafeColor(value)?.toLowerCase() ?? null) : null;
+    return { fill: hex(fill), text: hex(text) };
+  });
+
+  /** The colour list's rows — text colours, then fills — each with whether
+      it is the current one. */
+  protected readonly texts = computed(() => {
+    const current = this.current().text;
+    return this.palette.text.map((color) => ({
+      ...color,
+      checked: color.value.toLowerCase() === current,
+    }));
+  });
+
+  protected readonly fills = computed(() => {
+    const current = this.current().fill;
+    return this.palette.background.map((color) => ({
+      ...color,
+      checked: color.value.toLowerCase() === current,
+    }));
+  });
 
   /** The root menu's element, to put the focus in once it is on screen. */
   readonly element = viewChild<ElementRef<HTMLElement>>('menu');

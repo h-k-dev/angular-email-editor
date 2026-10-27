@@ -119,6 +119,9 @@ $active-wash: var(
   color: inherit;
   font: inherit;
   text-align: start;
+  // One line a row: the menu grows to its longest (past its floor), never
+  // a label broken under its icon.
+  white-space: nowrap;
   cursor: pointer;
   user-select: none;
   touch-action: manipulation;
@@ -135,9 +138,14 @@ $active-wash: var(
   }
 
   // Where the keyboard is, where the pointer is, and a submenu's open
-  // trigger: one highlight, three ways of being the row in question.
+  // trigger: one highlight, three ways of being the row in question — read
+  // off the pointer, the focus and the row's ARIA alone. The keyboard's
+  // place is this wash, never a ring (user, 2026-10-27): a menu that puts
+  // its focus in itself on opening would otherwise wear one the pointer
+  // never asked for.
   &:where(
       :hover,
+      :focus-visible,
       [aria-current='true'],
       [aria-expanded='true'],
       [aria-selected='true'],
@@ -151,14 +159,24 @@ $active-wash: var(
     transform: scale(0.99);
   }
 
-  // Focus is its own thing: it can sit on a row the pointer is not on.
-  &:focus-visible {
-    outline: 2px solid var(--mat-sys-primary);
-    outline-offset: -2px;
+  // No ring of the browser's either: the wash above is the focus.
+  &:focus {
+    outline: none;
   }
 
   // Chosen — a menuitemradio/checkbox that is on: the tick says so, and
   // nothing else does. A wash too would read as where the keyboard is.
+  // The tick is the row's own slot at its end (`data-slot="check"`), which
+  // holds its room unchecked — every row as wide as a ticked one — and
+  // shows only on the row whose `aria-checked` says it is the one.
+  > [data-slot='check'] {
+    margin-inline-start: auto;
+    visibility: hidden;
+  }
+
+  &[aria-checked='true'] > [data-slot='check'] {
+    visibility: visible;
+  }
 
   // Opened by the pointer, Aria focuses a row — the first, or the checked
   // one; a choice nobody has reached by hover or keyboard must not light up.

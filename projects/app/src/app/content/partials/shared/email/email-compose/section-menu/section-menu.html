@@ -1,0 +1,107 @@
+<!-- The menu, for the composer's one popover: Angular Aria's, its colour
+     list nested inside as a submenu — beside its row, on the side with room
+     and kept off the grip (`submenuPlacement`), open on hover or the right
+     arrow, hidden while not (`data-visible`), with menu-aim's grace for the
+     pointer on its way (`menuSafeTriangle`). Background image turns the
+     panel into the image's field. Escape is ours: it hands the caret back. -->
+<ng-template #panel>
+  @if (imageField()) {
+    <div #menu class="section-menu section-menu__field" (keydown.escape)="leave()">
+      <input
+        #image
+        class="section-menu__input"
+        type="text"
+        inputmode="url"
+        dir="ltr"
+        spellcheck="false"
+        autocomplete="off"
+        aria-label="Background image URL"
+        [placeholder]="imagePlaceholder"
+        [value]="imageValue()"
+        [attr.aria-invalid]="imageRefused() ? true : null"
+        (input)="imageRefused.set(false)"
+        (keydown.enter)="setImage(image.value); $event.preventDefault()"
+      />
+      <div class="section-menu__actions">
+        @if (hasImage()) {
+          <button type="button" class="section-menu__button" (click)="setImage('')">
+            <mat-icon>hide_image</mat-icon>
+            <span>Remove image</span>
+          </button>
+        }
+        <button
+          type="button"
+          class="section-menu__button section-menu__button--primary"
+          (click)="setImage(image.value)"
+        >
+          <span>Apply</span>
+        </button>
+      </div>
+    </div>
+  } @else {
+    <div
+      ngMenu
+      menuSafeTriangle
+      #menu
+      class="section-menu"
+      aria-label="Section options"
+      (itemSelected)="pick($event)"
+      (keydown.escape)="leave()"
+    >
+      <div ngMenuItem class="section-menu__item" value="color" [submenu]="colorMenu">
+        <mat-icon>format_color_fill</mat-icon>
+        <span>Color</span>
+      </div>
+      <div
+        ngMenu
+        #colorMenu="ngMenu"
+        class="section-menu section-menu__sub"
+        floatingScrollbar
+        aria-label="Color"
+        submenuPlacement
+        [submenuPlacementAvoid]="target()?.boundingBox"
+        (itemSelected)="pick($event)"
+      >
+        <!-- One of them is the band's: a radio, its tick in the row's check
+             slot (styles/_menu.scss) — never a wash, which is the keyboard's. -->
+        <div class="section-menu__heading">Background</div>
+        <div
+          ngMenuItem
+          class="section-menu__item"
+          value="fill:"
+          role="menuitemradio"
+          [attr.aria-checked]="!currentFill()"
+        >
+          <span class="section-menu__swatch section-menu__swatch--none"></span>
+          <span>No background</span>
+          <mat-icon data-slot="check">check</mat-icon>
+        </div>
+        @for (color of fills(); track color.value) {
+          <div
+            ngMenuItem
+            class="section-menu__item"
+            [value]="'fill:' + color.value"
+            role="menuitemradio"
+            [attr.aria-checked]="color.checked"
+          >
+            <span class="section-menu__swatch" [style.background-color]="color.value"></span>
+            <span>{{ color.name }} background</span>
+            <mat-icon data-slot="check">check</mat-icon>
+          </div>
+        }
+      </div>
+
+      <div ngMenuItem class="section-menu__item" value="image">
+        <mat-icon>wallpaper</mat-icon>
+        <span>Background image</span>
+      </div>
+
+      <div class="section-menu__separator" role="separator"></div>
+
+      <div ngMenuItem class="section-menu__item" value="remove">
+        <mat-icon>delete_outline</mat-icon>
+        <span>Remove section</span>
+      </div>
+    </div>
+  }
+</ng-template>

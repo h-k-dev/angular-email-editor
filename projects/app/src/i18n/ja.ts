@@ -148,9 +148,9 @@ export default {
       none: 'なし',
       centered: '中央の列',
       table: '行',
-      rowsHint: 'すべての行は自分の行の中に留まります。行から自由な列には戻せません。',
       width: '列の幅',
       spacing: '上下の余白',
+      rowPadding: '行の内側の余白',
       page: 'ページの色',
       column: '列の色',
       noColor: 'なし',
@@ -385,6 +385,9 @@ export default {
       'fixed-width': '固定幅',
       wide: 'ワイド',
       narrow: 'ナロー',
+    },
+    section: {
+      options: 'セクションのオプション',
     },
     table: {
       cellOptions: 'セルのオプション',

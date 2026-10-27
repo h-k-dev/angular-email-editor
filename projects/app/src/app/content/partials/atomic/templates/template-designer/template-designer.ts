@@ -35,6 +35,7 @@ import { AngularFileDrop } from '@h-k-dev/angular-file-drop';
 // Angular Email Editor
 import {
   InlineImages,
+  PAGE_ROW_PADDING_MAX,
   PAGE_SPACING_MAX,
   PAGE_WIDTH_MAX,
   PAGE_WIDTH_MIN,
@@ -286,6 +287,7 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
   protected readonly widthMin = PAGE_WIDTH_MIN;
   protected readonly widthMax = PAGE_WIDTH_MAX;
   protected readonly spacingMax = PAGE_SPACING_MAX;
+  protected readonly rowPaddingMax = PAGE_ROW_PADDING_MAX;
 
   /** The phone's email: the body as typing settles — a frame redrawn on
       every key would flicker. */
@@ -437,8 +439,8 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
   }
 
   /** The layout's kind: a centred column or rows — the page it had, else
-      the newsletter's default — or none. Rows are one way: the editor
-      refuses to take them back to a free column, and the swatches say so. */
+      the newsletter's default — or none. The editor turns the blocks into
+      rows and back in the same step (bands ↔ coloured rows). */
   protected setLayoutKind(kind: string): void {
     const page = this.pageLayout() ?? centeredPageLayout();
     if (kind === 'centered') this.#setLayout({ ...page, kind: 'centered' });
@@ -457,6 +459,13 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
   protected setLayoutSpacing(value: string): void {
     const layout = this.pageLayout();
     if (layout) this.#setLayout({ ...layout, spacing: Number(value) || 0 });
+  }
+
+  /** A page of rows' room round every row's blocks that says none of its
+      own, as the field says it — snapped to its grid; empty is none. */
+  protected setLayoutRowPadding(value: string): void {
+    const layout = this.pageLayout();
+    if (layout?.kind === 'table') this.#setLayout({ ...layout, rowPadding: Number(value) || 0 });
   }
 
   protected setPageColor(background: string | null): void {

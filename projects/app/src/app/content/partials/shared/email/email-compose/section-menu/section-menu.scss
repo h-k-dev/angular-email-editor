@@ -1,0 +1,125 @@
+@use '../../../../../../../styles/menu' as menu;
+
+// Only where the panel is declared: no box in the composer's column.
+:host {
+  display: contents;
+}
+
+/* The band's menu wears the app's one menu look (styles/_menu.scss), as the
+ * cell's does; its colour list is the same box, beside its row. */
+.section-menu {
+  @include menu.panel;
+
+  position: relative;
+  // The panel's `overflow: clip` would cut away its own list, which stands
+  // past its edge (`.section-menu__sub`).
+  overflow: visible;
+}
+
+.section-menu__item {
+  @include menu.item;
+}
+
+// On the pointer's way to an open list (the safe triangle's grace), the row
+// it crosses is not hovered: the one that opened the list keeps the
+// highlight.
+.section-menu[data-grace] > .section-menu__item:not([aria-expanded='true']):hover {
+  background-color: transparent;
+}
+
+.section-menu__separator {
+  @include menu.separator;
+}
+
+// The colour list: over the menu's edge, as the cell menu's — its first row
+// level with its row, on the side with room (written by
+// `submenuPlacement`), away while Aria says it is not visible; it scrolls.
+.section-menu__sub {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: calc(100% - 6px);
+  max-block-size: min(60vh, 480px);
+  overflow-y: auto;
+  box-shadow: var(--mat-sys-float-shadow);
+
+  &[data-visible='false'] {
+    display: none;
+  }
+}
+
+.section-menu__heading {
+  padding: 8px 12px 2px;
+  color: var(--mat-sys-on-surface-variant, #555555);
+  font: var(--mat-sys-label-small, 500 11px / 16px system-ui, sans-serif);
+}
+
+.section-menu__swatch {
+  flex: none;
+  inline-size: 20px;
+  block-size: 20px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px var(--mat-sys-outline-variant, #cccccc);
+
+  &--none {
+    background: linear-gradient(
+      135deg,
+      transparent 45%,
+      var(--mat-sys-error, #b3261e) 45%,
+      var(--mat-sys-error, #b3261e) 55%,
+      transparent 55%
+    );
+  }
+}
+
+// The image's field: the address, and under it its two acts.
+.section-menu__field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  inline-size: 300px;
+  padding: 8px;
+}
+
+.section-menu__input {
+  box-sizing: border-box;
+  inline-size: 100%;
+  padding: 6px 10px;
+  border: none;
+  border-radius: var(--mat-sys-corner-small, 4px);
+  outline: 1px solid var(--mat-sys-outline-variant, #cccccc);
+  background-color: var(
+    --email-compose-link-input-background,
+    var(--mat-sys-surface-bright, #ffffff)
+  );
+  color: var(--mat-sys-on-surface, inherit);
+  font: var(--mat-sys-body-medium);
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary, #0056b3);
+    outline-offset: -2px;
+  }
+
+  &[aria-invalid='true'],
+  &[aria-invalid='true']:focus-visible {
+    outline: 2px solid var(--mat-sys-error, #b3261e);
+    outline-offset: -2px;
+  }
+}
+
+.section-menu__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.section-menu__button {
+  @include menu.item;
+
+  border: none;
+  background: none;
+  font: inherit;
+
+  &--primary {
+    color: var(--mat-sys-primary, #0056b3);
+  }
+}

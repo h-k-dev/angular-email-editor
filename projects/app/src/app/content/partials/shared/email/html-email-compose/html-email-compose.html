@@ -1,6 +1,12 @@
 <!-- ProseMirror mounts directly into the host element; this listbox is the
      autocomplete dropdown, positioned by the extension. -->
-<div class="html-email-compose__autocomplete" #menu role="listbox" aria-label="Suggestions">
+<div
+  class="html-email-compose__autocomplete"
+  #menu
+  role="listbox"
+  aria-label="Suggestions"
+  floatingScrollbar
+>
   @if (completions(); as completion) {
     @for (item of completion.items; track item.label; let i = $index) {
       <button

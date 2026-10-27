@@ -33,9 +33,9 @@ import { DropHint, DropHintArt } from '../../../common/drop-hint/drop-hint';
 import { isTyping, releaseEditingSurface } from '../is-typing';
 import { atRest } from '../at-rest';
 import { PaperIsland } from '../paper-island';
-import { BlockMenu } from './block-menu/block-menu';
 import { TableMenu } from './table-menu/table-menu';
 import { CellMenu } from './cell-menu/cell-menu';
+import { SectionMenu } from './section-menu/section-menu';
 import { BubbleMenu } from './bubble-menu/bubble-menu';
 import { FormattingCommands } from './formatting-commands';
 import { FormattingToolbar } from './formatting-toolbar/formatting-toolbar';
@@ -61,18 +61,18 @@ import { injectDarkPaletteStyle } from './dark-palette-style';
 
 // Library
 import {
-  BlockMenuState,
   ColumnHandleTarget,
+  SectionHandleTarget,
   TableHandleTarget,
   BubbleMenuState,
   Editor,
   SendIntent,
   SuggestionMenuState,
-  createBlockMenu,
   beginBlockMarquee,
   createBlockMarquee,
   createTableHandles,
   createColumnHandles,
+  createSectionHandles,
   createBubbleMenu,
   createButtonEdit,
   createContentProposal,
@@ -151,9 +151,9 @@ export type ComposeKit = BodyFormat | 'snippet';
     PortalModule,
 
     AngularFileDrop,
-    BlockMenu,
     TableMenu,
     CellMenu,
+    SectionMenu,
     BubbleMenu,
     DropHint,
     FormattingToolbar,
@@ -399,9 +399,8 @@ export class EmailCompose implements FormValueControl<string> {
   suggestionMenu = viewChild.required<SuggestionMenu, ElementRef<HTMLElement>>('suggestionMenu', {
     read: ElementRef,
   });
-  /** The floating menus and the link editor: the extensions place the
-      first two through their state, the link items open the third. */
-  protected readonly blockMenu = viewChild.required(BlockMenu);
+  /** The table menu and the link editors: the grips place the first, the
+      link items open the others. */
   protected readonly tableMenu = viewChild.required(TableMenu);
   protected readonly linkEditor = viewChild.required(LinkEditor);
   protected readonly altTextEditor = viewChild.required(AltTextEditor);
@@ -437,14 +436,6 @@ export class EmailCompose implements FormValueControl<string> {
     this.linkEditor().holdsButton() ? { isOpen: false, boundingBox: null } : this.bubbleMenuState(),
   );
 
-  /** The block menu's state, from its extension: open on a bare cursor in
-      a layout block — never together with the bubble menu. */
-  protected readonly blockMenuState = signal<BlockMenuState>({
-    isOpen: false,
-    boundingBox: null,
-    block: null,
-  });
-
   /** Which table grip was pressed, and where it sits: the row or column
       menu opens on it, and clears when the menu closes. Its band stays
       selected either way. */
@@ -454,6 +445,10 @@ export class EmailCompose implements FormValueControl<string> {
       the column, and clears when the menu closes. */
   protected readonly columnHandle = signal<ColumnHandleTarget | null>(null);
 
+  /** Which band's grip was pressed: the section menu opens on it, and
+      clears when the menu closes. */
+  protected readonly sectionHandle = signal<SectionHandleTarget | null>(null);
+
   /** The cell menu's grip — a table cell's or a layout column's. */
   protected readonly cellHandle = computed(() => this.tableHandle() ?? this.columnHandle());
 
@@ -461,6 +456,7 @@ export class EmailCompose implements FormValueControl<string> {
   protected closeHandles(): void {
     this.tableHandle.set(null);
     this.columnHandle.set(null);
+    this.sectionHandle.set(null);
   }
 
   /** Body stats measured mathematically via pretext — no DOM reads. */
@@ -654,7 +650,6 @@ export class EmailCompose implements FormValueControl<string> {
   #remount(): void {
     this.editor()?.destroy();
     this.bubbleMenuState.set({ isOpen: false, boundingBox: null });
-    this.blockMenuState.set({ isOpen: false, boundingBox: null, block: null });
     this.closeHandles();
     this.suggestionState.set(undefined);
     this.#published = null;
@@ -682,10 +677,6 @@ export class EmailCompose implements FormValueControl<string> {
         updateDelay: 150,
         onStateChange: (state) => this.bubbleMenuState.set(state),
       }),
-      createBlockMenu({
-        onStateChange: (state) => this.blockMenuState.set(state),
-        menuElement: () => this.blockMenu().element()?.nativeElement,
-      }),
       // Notion's marquee: a drag from the paper's margin, or the room
       // between and below the blocks, selects the blocks it touches. It
       // starts only there, but on a paper island (a compose window) the
@@ -707,6 +698,12 @@ export class EmailCompose implements FormValueControl<string> {
       createColumnHandles({
         onOpen: (target) => this.columnHandle.set(target),
         label: (number) => this.i18n.t('editor.table.columnOptions', { number }),
+      }),
+      // The caret band's grip, centred on its top edge: the section menu —
+      // its colour, the image behind it, taking it away.
+      createSectionHandles({
+        onOpen: (target) => this.sectionHandle.set(target),
+        label: () => this.i18n.t('editor.section.options'),
       }),
       // The kit's commands under `/`, and the stores' groups: a template
       // takes the body's place, a snippet joins the line at the caret.

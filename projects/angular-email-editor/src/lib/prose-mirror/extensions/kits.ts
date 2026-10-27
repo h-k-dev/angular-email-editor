@@ -40,6 +40,7 @@ import { PasteHygiene } from './paste-hygiene';
 import { ClearFormatting } from './clear-formatting';
 import { QuotedHistory } from './quoted-history';
 import { Section } from './nodes/section';
+import { PageRow } from './nodes/page-row';
 import { DocumentStyles } from './document-styles';
 import { PageLayoutExtension } from './page-layout';
 import { AuthoredEnter, preserveExtensions } from '../preserve';
@@ -75,6 +76,8 @@ const withParagraph = (paragraph: NodeExtension): Extension[] => [
   Columns,
   Column,
   Section,
+  // A page of rows' rows (page-layout.ts): only such a page has them.
+  PageRow,
   // A click below the last block starts a line there (Notion's). Before
   // gap-cursor, whose click would park a cursor under a trailing table.
   ClickBelow,

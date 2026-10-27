@@ -1,9 +1,10 @@
 import { emailBackgroundPalette, fillTextColor, isFillTextColor } from './dual-contrast';
 import { isSafeColor, toEmailSafeColor } from './extensions/marks/text-style';
-import { SECTION_CONTENT_MAX, SECTION_INSET, sectionShell } from './extensions/nodes/section';
+import { pageRowStyle } from './extensions/nodes/page-row';
+import { SECTION_CONTENT_MAX, SECTION_INSET } from './extensions/nodes/section';
 import { parsePadding } from './extensions/nodes/table';
 import { inlinePadding } from './inline-style';
-import { layoutMarker, markedAs, withoutMarkers } from './layout-marker';
+import { layoutMarker, markedAs } from './layout-marker';
 
 /**
  * The page layout — how the whole email stands in the reader's window: the
@@ -62,34 +63,44 @@ export interface CenteredPageLayout extends PageFrame {
 /**
  * The second kind, `table`, is the hand-coded email's page: the same page
  * and column, but the column a table and the email its rows — every line
- * of the body in a row, each row a section (a band, with or without a fill
- * of its own), nothing between them. Where `centered` is a free column with
- * bands standing in it, here there is no column outside a row: a new line
- * stays in its row and its colour ({@link createPageLayout} keeps every
- * top-level block in one).
+ * of the body in a row (`pageRow`, a hidden layout element with a fill, a
+ * text colour and a padding of its own), nothing between them. Where
+ * `centered` is a free column with bands standing in it, here there is no
+ * column outside a row: a new line stays in its row and its colour.
  *
- * **One way in.** A free column becomes rows losslessly — each run of
- * blocks between bands a plain row, each band a filled one — but rows do
- * not become a free column again: two plain rows would run into one, their
- * own paddings gone. So a page turns into a `table` and stays one
- * (`setPageLayout` refuses the way back).
+ * **Both ways.** The kinds turn into each other ({@link createPageLayout},
+ * in the step that changes the kind): into rows, each band becomes a
+ * coloured row and each run of blocks between them a plain row; out of
+ * rows, a coloured row becomes a band and a plain row gives its blocks back
+ * to the column. All that is lost is where two plain rows met.
  *
  * **Emit:** the `centered` page, its column a table (`aee-layout-page-column`
  * on a `<table>`, capped by `max-width`, Outlook's ghost table round it as
- * for the div) — a row per section, the section's own cell as the row's
- * (marked `aee-layout-section`, the band's table dropped round it).
+ * for the div) — a `<td>` per row, marked `aee-layout-page-row`, its fill as
+ * `bgcolor` too.
  *
- * **Parse:** the marked form lifts as `centered`'s does, each row back to
- * its band. The unmarked form — a 100% table holding one fixed-width table
+ * **Parse:** the marked form lifts as `centered`'s does, each cell back to
+ * its row. The unmarked form — a 100% table holding one fixed-width table
  * of one-cell rows, a fill on either — is recognised as one
- * ({@link liftPageLayout}): each row becomes a band with the row's fill and
- * its padding above and below (the row's sides are the column's inset),
- * its text styles on a block round its words. What it sends is the marked
- * form.
+ * ({@link liftPageLayout}): each row becomes a row of ours with the cell's
+ * fill and padding, its text styles on a block round its words. What it
+ * sends is the marked form.
  */
 export interface TablePageLayout extends PageFrame {
   readonly kind: 'table';
+  /** The room round a row's blocks, px, for every row that says none of its
+      own — 0 to {@link PAGE_ROW_PADDING_MAX}, in 4px steps; the column
+      table's `cellpadding` in the email, which every client (Outlook too)
+      gives each cell without a padding of its own. */
+  readonly rowPadding: number;
 }
+
+/** A new page of rows' room round its rows' blocks: the column's inset, so
+    the text in a row stands where a free column's does. */
+export const PAGE_ROW_PADDING = 16;
+
+/** The most room round a row's blocks. */
+export const PAGE_ROW_PADDING_MAX = 64;
 
 /** What every kind of page says: the column's measure, the two colours
     and the room round the column. */
@@ -140,12 +151,18 @@ export function centeredPageLayout(
   })! as CenteredPageLayout;
 }
 
-/** A page of rows (the `table` kind) — the centred page's defaults, with
-    any of it overridden. */
+/** A page of rows (the `table` kind) — the centred page's defaults and
+    {@link PAGE_ROW_PADDING} round each row's blocks, with any of it
+    overridden. */
 export function tablePageLayout(
   layout: Partial<Omit<TablePageLayout, 'kind'>> = {},
 ): TablePageLayout {
-  return { ...centeredPageLayout(layout), kind: 'table' };
+  return normalizePageLayout({
+    ...centeredPageLayout(),
+    rowPadding: PAGE_ROW_PADDING,
+    ...layout,
+    kind: 'table',
+  })! as TablePageLayout;
 }
 
 /** A layout as the document may hold it — or null for anything that is not
@@ -160,17 +177,22 @@ export function normalizePageLayout(value: unknown): PageLayout | null {
   const width = Number.isFinite(raw)
     ? Math.min(PAGE_WIDTH_MAX, Math.max(PAGE_WIDTH_MIN, Math.round(raw / 4) * 4))
     : PAGE_WIDTH;
-  const room = Number(layout['spacing']);
-  const spacing = Number.isFinite(room)
-    ? Math.min(PAGE_SPACING_MAX, Math.max(0, Math.round(room / 4) * 4))
-    : 0;
-  return {
-    kind,
+  const spacing = step(layout['spacing'], PAGE_SPACING_MAX);
+  const frame = {
     width,
     background: color(layout['background']),
     columnBackground: color(layout['columnBackground']),
     spacing,
   };
+  return kind === 'table'
+    ? { kind, ...frame, rowPadding: step(layout['rowPadding'], PAGE_ROW_PADDING_MAX) }
+    : { kind, ...frame };
+}
+
+/** A length on the 4px grid, 0 to `max` — none said is 0. */
+function step(value: unknown, max: number): number {
+  const raw = Number(value);
+  return Number.isFinite(raw) ? Math.min(max, Math.max(0, Math.round(raw / 4) * 4)) : 0;
 }
 
 /** Whether two layouts are the same — null included. */
@@ -181,7 +203,8 @@ export function samePageLayout(a: PageLayout | null, b: PageLayout | null): bool
     a.width === b.width &&
     a.background === b.background &&
     a.columnBackground === b.columnBackground &&
-    a.spacing === b.spacing
+    a.spacing === b.spacing &&
+    (a.kind !== 'table' || a.rowPadding === (b as TablePageLayout).rowPadding)
   );
 }
 
@@ -224,7 +247,9 @@ export function wrapPageLayout(container: HTMLElement, layout: PageLayout): void
     .join(' ');
   if (style) cell.style.cssText = style;
   const column =
-    layout.kind === 'table' ? rowsColumn(doc, container, layout) : freeColumn(doc, container, layout);
+    layout.kind === 'table'
+      ? rowsColumn(doc, container, layout)
+      : freeColumn(doc, container, layout);
   cell.append(doc.createComment(ghostOpen(layout)), column, doc.createComment(GHOST_CLOSE));
   container.replaceChildren(table);
 }
@@ -256,9 +281,9 @@ function freeColumn(doc: Document, container: HTMLElement, layout: PageLayout): 
   return column;
 }
 
-/** The `table` column: a capped table, a row per section — the band's own
-    cell, marked, its table dropped — and a padded row for any blocks
-    between (a body the editor did not keep in rows). */
+/** The `table` column: a capped table, a `<td>` per row (the row's own
+    marker and style, its fill as `bgcolor` too) and a padded one for any
+    blocks between (a body the editor did not keep in rows). */
 function rowsColumn(doc: Document, container: HTMLElement, layout: PageLayout): HTMLElement {
   const column = doc.createElement('table');
   column.className = layoutMarker('page-column');
@@ -266,7 +291,9 @@ function rowsColumn(doc: Document, container: HTMLElement, layout: PageLayout): 
     role: 'presentation',
     align: 'center',
     width: '100%',
-    cellpadding: '0',
+    // The page's room round a row's blocks, for every row with none of its
+    // own (a cell's padding wins over it, in every client).
+    cellpadding: String(layout.kind === 'table' ? layout.rowPadding : 0),
     cellspacing: '0',
     border: '0',
   });
@@ -285,28 +312,24 @@ function rowsColumn(doc: Document, container: HTMLElement, layout: PageLayout): 
     run = [];
   };
   for (const child of Array.from(container.childNodes)) {
-    const band = child instanceof HTMLTableElement && markedAs(child) === 'section';
-    if (!band) {
+    if (!(child instanceof HTMLElement && markedAs(child) === 'page-row')) {
       run.push(child);
       continue;
     }
     flush();
-    setSectionWidth(child, layout.width);
-    const row = child.rows[0];
-    markFirst(row.cells[0], layoutMarker('section'));
-    rows.append(row);
+    // The marker first, then the fill for Outlook, then the row's style —
+    // the order a browser and jsdom print alike (layout-marker.ts).
+    const cell = rows.insertRow().insertCell();
+    cell.className = child.className;
+    const fill = color(child.style.backgroundColor);
+    if (fill) cell.setAttribute('bgcolor', fill);
+    // A plain row with the page's padding says nothing: no style at all.
+    const style = child.getAttribute('style');
+    if (style) cell.setAttribute('style', style);
+    cell.append(...Array.from(child.childNodes));
   }
   flush();
   return column;
-}
-
-/** Writes `marker` as the element's first attribute — the order a browser
-    and jsdom print alike (layout-marker.ts). */
-function markFirst(el: Element, marker: string): void {
-  const rest = Array.from(el.attributes, ({ name, value }) => [name, value] as const);
-  for (const [name] of rest) el.removeAttribute(name);
-  el.setAttribute('class', marker);
-  for (const [name, value] of rest) el.setAttribute(name, value);
 }
 
 /** The blocks between two sections, with the column's inset round them. */
@@ -382,10 +405,9 @@ export function liftPageLayout(root: Element): PageLayout | null {
  * The hand-coded page, unmarked: the body nothing but a 100% table whose one
  * cell holds one table of a fixed width (320–800px) — the column — every
  * row of it a single cell, and a fill on the page or on the column. Each
- * row becomes a band of ours (`sectionShell`) with the row's fill, its
- * padding above and below (its sides are the column's inset now), and its
- * words in a block carrying the text styles the column and the row gave
- * them. Anything less exact — a row of two cells, a column of no fixed
+ * row becomes a row of ours (`pageRow`) with the cell's fill and padding,
+ * and its words in a block carrying the text styles the column and the
+ * cell gave them. Anything less exact — a row of two cells, a column of no fixed
  * width, a second block beside the page — is no page, and reads as before.
  */
 function rowsPage(root: Element): PageLayout | null {
@@ -408,14 +430,21 @@ function rowsPage(root: Element): PageLayout | null {
   const spacing = inlinePadding(cell)?.[0];
   const inherited = textStyles(column);
   // The plain wrappers round the page go with it: the page is the body.
-  outer!.replaceWith(...rows.map((row) => bandOfRow(row.cells[0], inherited)));
+  outer!.replaceWith(...rows.map((row) => rowOfCell(row.cells[0], inherited)));
   return normalizePageLayout({
     kind: 'table',
     width,
     background,
     columnBackground,
     spacing: spacing ? parseFloat(spacing) || 0 : 0,
+    rowPadding: cellPadding(column),
   });
+}
+
+/** A table's `cellpadding`, px — 0 where it says none (a hand-coded email
+    writes `0`; a browser's own default, 1px, is no room anyone asked for). */
+function cellPadding(table: HTMLTableElement): number {
+  return parseFloat(table.getAttribute('cellpadding') ?? '') || 0;
 }
 
 /** An element's one child that says something — null for none or more. */
@@ -478,29 +507,33 @@ function textStyles(el: HTMLElement): Map<string, string> {
   return styles;
 }
 
-/** A hand-coded row as a band of ours: the row's fill, its padding above
-    and below, its words in a block with the text styles the column and the
-    row gave them. */
-function bandOfRow(cell: HTMLTableCellElement, inherited: Map<string, string>): HTMLElement {
+/** A hand-coded row as a row of ours (`pageRow`, as it emits): the cell's
+    fill and padding, its words in a block with the text styles the column
+    and the cell gave them. */
+function rowOfCell(cell: HTMLTableCellElement, inherited: Map<string, string>): HTMLElement {
   const doc = cell.ownerDocument;
-  const sides = inlinePadding(cell);
-  const probe = doc.createElement('div');
-  probe.style.padding = `${sides?.[0] ?? '0px'} 0px ${sides?.[2] ?? '0px'} 0px`;
-  const { dom, contentDOM } = sectionShell(doc, {
+  const row = doc.createElement('div');
+  row.className = layoutMarker('page-row');
+  // Through the CSSOM, as the row's own emit is printed — so the row reads
+  // as one of ours, not as markup to keep verbatim. A cell with no padding
+  // of its own takes the column's (`cellpadding`, the page's rowPadding).
+  const style = pageRowStyle({
     background: fillOf(cell),
-    padding: parsePadding(probe) ?? '0px',
+    color: null,
+    padding: parsePadding(cell),
   });
+  if (style) row.style.cssText = style;
   const styles = new Map([...inherited, ...textStyles(cell)]);
   const words = Array.from(cell.childNodes);
   if (!styles.size) {
-    contentDOM.append(...words);
-    return dom;
+    row.append(...words);
+    return row;
   }
   const block = doc.createElement('div');
   for (const [property, value] of styles) block.style.setProperty(property, value);
   block.append(...words);
-  contentDOM.append(block);
-  return dom;
+  row.append(block);
+  return row;
 }
 
 /** Whether a page stands at the body's own level: nothing round it but
@@ -523,6 +556,7 @@ function readPage(page: HTMLTableElement): PageLayout {
     background: cell ? fillOf(cell) : null,
     columnBackground: column ? fillOf(column) : null,
     spacing: cell ? parseFloat(cell.style.paddingTop) || 0 : 0,
+    rowPadding: column instanceof HTMLTableElement ? cellPadding(column) : 0,
   })!;
 }
 
@@ -569,25 +603,24 @@ function unwrapPage(page: HTMLTableElement): void {
   page.replaceWith(...nodes);
 }
 
-/** A column of rows' content in its place: each band's row back in a
-    band's table (its marker off the cell, its inner width a section's
-    own), each padded row's blocks as they stood. */
+/** A column of rows' content in its place: each row's cell back to the
+    row's own `div` (its marker and style; the `bgcolor` was Outlook's),
+    each padded cell's blocks as they stood. */
 function rowsOf(column: HTMLTableElement): ChildNode[] {
   const nodes: ChildNode[] = [];
-  for (const row of Array.from(column.rows)) {
-    const cell = row.cells[0];
+  for (const tr of Array.from(column.rows)) {
+    const cell = tr.cells[0];
     if (!cell) continue;
-    if (markedAs(cell) !== 'section') {
+    if (markedAs(cell) !== 'page-row') {
       nodes.push(...Array.from(cell.childNodes));
       continue;
     }
-    const rest = withoutMarkers(cell.getAttribute('class') ?? '');
-    if (rest) cell.setAttribute('class', rest);
-    else cell.removeAttribute('class');
-    const band = sectionShell(column.ownerDocument).dom as HTMLTableElement;
-    band.tBodies[0].replaceChildren(row);
-    setSectionWidth(band, SECTION_CONTENT_MAX);
-    nodes.push(band);
+    const row = column.ownerDocument.createElement('div');
+    row.setAttribute('class', cell.getAttribute('class') ?? '');
+    const style = cell.getAttribute('style');
+    if (style) row.setAttribute('style', style);
+    row.append(...Array.from(cell.childNodes));
+    nodes.push(row);
   }
   return nodes;
 }

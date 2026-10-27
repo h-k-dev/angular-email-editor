@@ -9,8 +9,6 @@
 // rows and hairline, which this dropdown and the table grips' menu both wear.
 .toolbar-menu {
   @include menu.panel;
-
-  min-inline-size: 11rem;
 }
 
 @include menu.motion;
@@ -19,12 +17,10 @@
   @include menu.item;
 }
 
-// A radio item: the label first, the tick at the item's end. The tick holds
-// its room when unchecked, so every item is as wide as a ticked one; the
-// label starts where the menu's text does, with no icon before it.
-.toolbar-menu__item[role='menuitemradio'] {
-  padding-inline-end: calc(var(--mat-sys-spacing) * 2);
-}
+// A radio item: the label first, the tick at the item's end, in the same
+// end padding as every menu's rows (styles/_menu.scss). The tick holds its
+// room when unchecked, so every item is as wide as a ticked one; the label
+// starts where the menu's text does, with no icon before it.
 
 // The letters sit at the end, before the tick: small monospace capitals in a
 // fixed grid, so the columns line up down the menu and a dimmed one reads
@@ -46,18 +42,10 @@
   opacity: 0.3;
 }
 
-.toolbar-menu__check {
-  margin-inline-start: auto;
-  visibility: hidden;
-
-  // The letters took the push to the end; the tick follows them.
-  .toolbar-menu__badges + & {
-    margin-inline-start: 0;
-  }
-
-  [aria-checked='true'] > & {
-    visibility: visible;
-  }
+// The letters took the push to the end; the tick (the rows' check slot,
+// styles/_menu.scss) follows them.
+.toolbar-menu__badges + [data-slot='check'] {
+  margin-inline-start: 0;
 }
 
 .toolbar-menu__separator {

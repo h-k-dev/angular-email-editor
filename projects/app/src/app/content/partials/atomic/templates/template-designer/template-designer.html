@@ -119,7 +119,6 @@
               name="designer-layout-kind"
               [value]="kind"
               [checked]="(layout?.kind ?? 'none') === kind"
-              [disabled]="layout?.kind === 'table' && kind !== 'table'"
               (change)="setLayoutKind(kind)"
             />
             <span class="designer-layout__swatch" [attr.data-kind]="kind" aria-hidden="true">
@@ -131,11 +130,6 @@
           </label>
         }
       </div>
-      <!-- Rows are one way (the library's page of rows): the other kinds
-           stay in sight, disabled, and this says why. -->
-      @if (layout?.kind === 'table') {
-        <p class="designer-block__empty">{{ 'designer.layout.rowsHint' | translate }}</p>
-      }
 
       @if (layout) {
         <label class="designer-layout__row">
@@ -173,6 +167,28 @@
             px
           </span>
         </label>
+
+        <!-- Rows only: the room round every row's blocks that says none of
+             its own (the column's cellpadding in the email). -->
+        @if (layout.kind === 'table') {
+          <label class="designer-layout__row">
+            <span class="designer-layout__label">{{ 'designer.layout.rowPadding' | translate }}</span>
+            <span class="designer-layout__field">
+              <input
+                #rowPadding
+                type="number"
+                inputmode="numeric"
+                step="4"
+                min="0"
+                [max]="rowPaddingMax"
+                [value]="layout.rowPadding"
+                (change)="setLayoutRowPadding(rowPadding.value)"
+                (keydown.enter)="setLayoutRowPadding(rowPadding.value)"
+              />
+              px
+            </span>
+          </label>
+        }
 
         <div class="designer-layout__colors">
           <span class="designer-layout__label" id="designer-layout-page">{{

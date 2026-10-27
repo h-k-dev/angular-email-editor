@@ -41,7 +41,8 @@ export type LayoutMarkerKind =
   | 'spacer'
   | 'page'
   | 'page-column'
-  | 'page-run';
+  | 'page-run'
+  | 'page-row';
 
 const PREFIX = 'aee-layout-';
 
@@ -53,7 +54,7 @@ export function layoutMarker(kind: LayoutMarkerKind): string {
 /** A marker class token as it may arrive: ours, or renamed by a client —
     Outlook.com's `x_`, Gmail's `m_<digits>` (signed). */
 const MARKER_TOKEN =
-  /^(?:x_|m_-?\d+)?aee-layout-(section|columns|column|table|heading|list|spacer|page|page-column|page-run)$/;
+  /^(?:x_|m_-?\d+)?aee-layout-(section|columns|column|table|heading|list|spacer|page|page-column|page-run|page-row)$/;
 
 function tokens(element: Element): string[] {
   return (element.getAttribute('class') ?? '').split(/\s+/).filter(Boolean);

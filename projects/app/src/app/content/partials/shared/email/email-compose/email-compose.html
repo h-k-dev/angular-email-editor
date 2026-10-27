@@ -1,13 +1,13 @@
 <!-- What floats over the text — the link and alt-text editors at the
      selection (opened by the link and alt items through the commands), the
-     bubble menu on a selection, the block menu on a bare cursor in a layout
-     block (placed by their extensions), a grip's row or column menu — is
+     bubble menu on a selection (placed by its extension), a grip's menu — a
+     band's, a table row's or column's, a cell's or layout column's — is
      one popover: the outlet renders it, in the CDK overlay container, and
      the menus are its panels. Here they all take no room. -->
 <div link-editor></div>
 <div alt-text-editor></div>
 <div bubble-menu [state]="bubbleShown()"></div>
-<div block-menu [state]="blockMenuState()"></div>
+<div section-menu [target]="sectionHandle()" (closed)="closeHandles()"></div>
 <div table-menu [target]="tableHandle()" (closed)="tableHandle.set(null)"></div>
 <div cell-menu [target]="cellHandle()" (closed)="closeHandles()"></div>
 <div popover-outlet></div>
@@ -133,6 +133,7 @@
        searched by what follows it). -->
   <div
     email-suggestion-menu
+    floatingScrollbar="[data-slot=listbox]"
     [placement]="suggestions()"
     #suggestionMenu
     [state]="suggestionState()"
