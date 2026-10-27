@@ -105,17 +105,9 @@ export class MarqueeStart {
 
   protected press(event: MouseEvent): void {
     if (event.target !== this.#element || event.button !== 0) return;
-    const focused = this.#element.ownerDocument.activeElement;
-    // A press here is a press beside every field: one that had the focus —
-    // a row, the subject — gives it up, whether or not a box starts (the
-    // box takes the press, so the browser would not take the focus for it).
-    // The editor's own focus is the box's to keep or drop.
-    if (focused instanceof HTMLElement && !focused.isContentEditable) focused.blur();
     if (this.#island?.marquee.begin(event)) return;
-    // No box: an editor that had the focus gives it up too, and no caret
-    // lands anywhere (the browser's own landing would put one in the
-    // nearest editable).
     event.preventDefault();
+    const focused = this.#element.ownerDocument.activeElement;
     if (focused instanceof HTMLElement) focused.blur();
   }
 }
