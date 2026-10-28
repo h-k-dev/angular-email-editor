@@ -30,8 +30,7 @@
  * (a canonical `<tr>` inside a foreign table would have nowhere to live).
  *
  * `repair` mode is unchanged: these rules do not take part, unknown markup
- * dies in the parse as before — the clipboard and the reply/import seeds keep
- * that law.
+ * dies in the parse as before — the reply/import seeds keep that law.
  *
  * Safety holds in both modes: `script`/`iframe`/… are refused outright, event
  * handler attributes drop, and script URLs drop with the attribute.

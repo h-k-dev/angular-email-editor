@@ -45,7 +45,7 @@ export const createSourceMarks = ({
   parseMode = 'email',
 }: SourceMarksOptions): FunctionalExtension => {
   const schema = createSchema(extensions);
-  const ctx: ExtensionContext = { schema, extensions };
+  const ctx: ExtensionContext = { schema, extensions, parseMode };
 
   const keymap: Record<string, Command> = {};
   const commands: Record<string, CommandFactory> = {};

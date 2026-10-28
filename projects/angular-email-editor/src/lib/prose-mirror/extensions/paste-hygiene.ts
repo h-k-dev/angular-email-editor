@@ -1,5 +1,7 @@
-import { Plugin, PluginKey } from 'prosemirror-state';
+import { Slice } from 'prosemirror-model';
+import { EditorState, Plugin, PluginKey, Selection } from 'prosemirror-state';
 import { defineExtension } from '../extension';
+import { parseHTML } from '../html';
 import { createDOMParser } from '../preserve';
 
 /** Subtrees that are pure noise in pasted markup. `<style>` is the dangerous
@@ -8,18 +10,19 @@ import { createDOMParser } from '../preserve';
 const STRIP_TAGS = new Set(['style', 'script', 'xml', 'meta', 'link', 'title', 'iframe']);
 
 /**
- * Pre-parse cleanup for pasted HTML. Deliberately minimal: the email schema
- * already discards classes, ids, unknown tags and unknown styles on parse —
- * this only removes what would otherwise *leak through* the parse:
+ * Pre-parse cleanup for pasted HTML. Deliberately minimal: the parse keeps
+ * the markup as authored and drops what no client applies — this only
+ * removes what would otherwise *leak through* it:
  *
  * - `<style>`/`<script>`/… subtrees (their text content would survive),
  * - Word's namespaced tags (`<o:p>`, `<w:sdt>`, `<v:shape>`, …),
  * - Word's fake list glyphs (`<span style="mso-list:Ignore">·&nbsp;</span>`),
  *   which would paste literal bullet characters into the text.
  *
- * Everything else — `class` soup, `mso-*` style properties, Google Docs'
- * `<b style="font-weight:normal">` wrapper — dies in the schema parse, where
- * it belongs.
+ * The clipboard's own wrapping goes with it: a browser puts every copy in an
+ * `<html>` of its own, which is no head the email asked for, and Windows'
+ * between `<!--StartFragment-->` and `<!--EndFragment-->`, which the email
+ * would keep as comments.
  */
 export function sanitizePastedHTML(html: string): string {
   const body = new DOMParser().parseFromString(html, 'text/html').body;
@@ -36,21 +39,59 @@ export function sanitizePastedHTML(html: string): string {
     }
   }
 
+  const comments = body.ownerDocument.createTreeWalker(body, NodeFilter.SHOW_COMMENT);
+  const fragmentMarks: Comment[] = [];
+  while (comments.nextNode()) {
+    const comment = comments.currentNode as Comment;
+    if (/^(?:Start|End)Fragment$/.test(comment.data.trim())) fragmentMarks.push(comment);
+  }
+  for (const mark of fragmentMarks) mark.remove();
+
   return body.innerHTML;
 }
 
-/** Cleans clipboard HTML before it reaches the schema parse — and parses it
-    in `repair` mode: the source pane may be law, the clipboard never is.
-    Pasted class soup, foreign tables and Word's markup are still repaired
-    into canonical form, exactly as before the preserving parse existed. */
+/** Whether a paste takes the whole document's place: all of it selected,
+    or nothing written yet (the caret in the one empty line). */
+function takesWholeDocument(state: EditorState): boolean {
+  const { doc, selection } = state;
+  return selection.from <= Selection.atStart(doc).from && selection.to >= Selection.atEnd(doc).to;
+}
+
+/**
+ * Pasted HTML reads as the editor's content does — `parseHTML` in the
+ * editor's own mode — so an email pasted in is the email loaded: kept as
+ * authored, our own markup recognised (a page lifted, its rows rows, its
+ * merge tags pills), and what is pasted in renders as what was copied.
+ *
+ * A page pasted over the whole document brings its layout along (as a
+ * load does); pasted into the text, its blocks come without it.
+ *
+ * The editor's own copy carries its slice's open depths (`data-pm-slice`):
+ * ProseMirror's paste reads those, through the same parser.
+ */
 export const PasteHygiene = defineExtension({
   name: 'pasteHygiene',
-  plugins: ({ schema }) => [
+  plugins: ({ schema, parseMode = 'email' }) => [
     new Plugin({
       key: new PluginKey('pasteHygiene'),
       props: {
         transformPastedHTML: sanitizePastedHTML,
-        clipboardParser: createDOMParser(schema, 'repair'),
+        clipboardParser: createDOMParser(schema, parseMode),
+        handlePaste(view, event) {
+          const html = event.clipboardData?.getData('text/html');
+          if (!html || html.includes('data-pm-slice')) return false;
+          const doc = parseHTML(sanitizePastedHTML(html), schema, { mode: parseMode });
+          const { state } = view;
+          const layout = doc.attrs['pageLayout'];
+          const tr =
+            layout && takesWholeDocument(state)
+              ? state.tr
+                  .replaceWith(0, state.doc.content.size, doc.content)
+                  .setDocAttribute('pageLayout', layout)
+              : state.tr.replaceSelection(Slice.maxOpen(doc.content));
+          view.dispatch(tr.scrollIntoView().setMeta('paste', true).setMeta('uiEvent', 'paste'));
+          return true;
+        },
       },
     }),
   ],

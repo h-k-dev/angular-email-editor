@@ -109,7 +109,7 @@ export interface ParseOptions {
 /**
  * Parses an HTML string into a document conforming to the schema.
  *
- * - `repair` (the default here; paste, seeds, templates): parsing is repair
+ * - `repair` (the default here; seeds, templates): parsing is repair
  *   (principle 2). A builder's export leans on its stylesheet, on wrapper
  *   tables and on hiding what a client cannot show; the canonical schema
  *   reads none of those, so the import pipeline (import-html.ts) folds,

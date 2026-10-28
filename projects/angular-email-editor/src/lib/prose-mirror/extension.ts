@@ -1,12 +1,17 @@
 import { MarkSpec, NodeSpec, Schema } from 'prosemirror-model';
 import { Command, EditorState, Plugin } from 'prosemirror-state';
 import { InputRule } from 'prosemirror-inputrules';
+import { ParseMode } from './parse-mode';
 
 /** Passed to every extension factory once the schema has been built. */
 export interface ExtensionContext {
   schema: Schema;
   /** All extensions of the editor, so aggregators (e.g. a suggestion menu) can introspect them. */
   extensions: readonly Extension[];
+  /** How the editor parses markup (its `parseMode`, default `email`), so
+      what else brings HTML in — a paste — reads it as the editor's content
+      does. */
+  parseMode?: ParseMode;
 }
 
 /**

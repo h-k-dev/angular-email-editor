@@ -15,8 +15,8 @@ import { ParseRule, TagParseRule } from 'prosemirror-model';
  *   dropped for being outside the vocabulary (custom elements, `data-*`,
  *   framework attributes, invented CSS). Executable content is still refused.
  * - `repair` — the schema is law: markup is rewritten into the composer's
- *   canonical form. The clipboard and the reply/forward/import seeds use it —
- *   pasted Word or Docs markup is cleaned, not kept.
+ *   canonical form. The reply/forward/import seeds use it. A paste reads in
+ *   the editor's own mode, as its content does (paste-hygiene.ts).
  */
 export type ParseMode = 'email' | 'preserve' | 'repair';
 

@@ -34,8 +34,8 @@ export interface EditorOptions {
       authored (authored.ts); a whole document keeps its head and
       conditional comments. `preserve` additionally keeps what no floor
       client applies — the opt-in for special needs. `repair` rewrites into
-      canonical blocks through the import pipeline (import-html.ts), as the
-      paste path always does. */
+      canonical blocks through the import pipeline (import-html.ts). A paste
+      reads in the same mode (paste-hygiene.ts). */
   parseMode?: ParseMode;
   /** DOM attributes for the editable element. */
   attributes?: Record<string, string>;
@@ -97,8 +97,9 @@ export interface Editor {
 
 export function createEditor(options: EditorOptions): Editor {
   const schema = createSchema(options.extensions);
-  const ctx: ExtensionContext = { schema, extensions: options.extensions };
-  const parse = (html: string) => parseHTML(html, schema, { mode: options.parseMode ?? 'email' });
+  const parseMode = options.parseMode ?? 'email';
+  const ctx: ExtensionContext = { schema, extensions: options.extensions, parseMode };
+  const parse = (html: string) => parseHTML(html, schema, { mode: parseMode });
 
   // Extension plugins run before all keymaps so interactive plugins (slash
   // menu, ...) can claim keys like Enter ahead of node bindings.

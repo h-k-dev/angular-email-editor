@@ -111,8 +111,8 @@ const withParagraph = (paragraph: NodeExtension): Extension[] => [
   PasteHygiene,
   ClearFormatting,
   // The structural family: authored layout markup kept verbatim in the
-  // `email` and `preserve` modes (the source pane, `setContent`); inert in
-  // `repair` mode (paste, seeds). Last, so the canonical nodes stay the
+  // `email` and `preserve` modes (the source pane, `setContent`, a paste);
+  // inert in `repair` mode (seeds). Last, so the canonical nodes stay the
   // defaults of every group.
   ...preserveExtensions,
 ];

@@ -85,11 +85,14 @@ describe('paste a URL onto selected text', () => {
       return true;
     });
 
+  // A URL copied as text: the clipboard holds no HTML.
   const paste = (text: string): boolean =>
     !!editor.view.someProp('handlePaste', (f) =>
       f(
         editor.view,
-        { clipboardData: { getData: () => text } } as unknown as ClipboardEvent,
+        {
+          clipboardData: { getData: (type: string) => (type === 'text/plain' ? text : '') },
+        } as unknown as ClipboardEvent,
         null as never,
       ),
     );
