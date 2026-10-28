@@ -4,6 +4,7 @@ import { EditorView } from 'prosemirror-view';
 import { defineExtension } from '../extension';
 import { DocumentEnvelope } from '../envelope';
 import { AttributePairs } from '../preserve';
+import { splitDeclarations } from '../email-vocabulary';
 
 /** Editor root class while the document carries an envelope — the host's
     hook for rendering a template like a client would (browser typography
@@ -23,7 +24,12 @@ let instances = 0;
  * nothing inside a scope and simply do not apply). `@import`s are hoisted
  * ahead of the scope block, where CSS requires them. The `<body>`'s own
  * inline style and `bgcolor` land on the editor root, the closest thing the
- * editable view has to a body.
+ * editable view has to a body — all but its box: the root's margin and
+ * padding are the host's layout (its gutters, a page layout's column, the
+ * room under the last line), and an inline `padding: 0` from a template
+ * would beat every rule of it. The body's `margin*` and `padding*` go out as
+ * custom properties instead ({@link BODY_BOX_PREFIX}: `--aee-body-padding`,
+ * `--aee-body-margin-top`, …), for a host that wants to draw them.
  *
  * Behaviour only: the style element sits beside the editor's DOM and is
  * removed with it. No pixels of its own.
@@ -58,11 +64,33 @@ function rootAttributes(scope: string, doc: Node): Record<string, string> {
   return attrs;
 }
 
-/** The body's inline style plus its legacy `bgcolor`, as one declaration list. */
+/** The prefix the body's box takes on the editor root: its `padding` is
+    `--aee-body-padding`, its `margin-top` `--aee-body-margin-top`. */
+export const BODY_BOX_PREFIX = '--aee-body-';
+
+/** A margin or padding, any side — the root's box, the host's to set. */
+const BOX_PROPERTY = /^(?:margin|padding)(?:-[a-z-]+)?$/;
+
+/** The body's inline style plus its legacy `bgcolor`, as one declaration
+    list — its box as custom properties (see {@link DocumentStyles}). */
 function bodyStyle(body: AttributePairs): string {
   const declarations: string[] = [];
   for (const [name, value] of body) {
-    if (name === 'style' && value.trim()) declarations.push(value.trim().replace(/;$/, ''));
+    if (name === 'style') {
+      for (const declaration of splitDeclarations(value)) {
+        const colon = declaration.indexOf(':');
+        if (colon < 0) continue;
+        const property = declaration.slice(0, colon).trim();
+        const rest = declaration.slice(colon + 1).trim();
+        if (!property || !rest) continue;
+        // Only the box is renamed: a template's own custom property keeps
+        // its case, which is its name.
+        const box = property.toLowerCase();
+        declarations.push(
+          BOX_PROPERTY.test(box) ? `${BODY_BOX_PREFIX}${box}: ${rest}` : `${property}: ${rest}`,
+        );
+      }
+    }
     if (name === 'bgcolor' && value.trim()) declarations.push(`background-color: ${value.trim()}`);
   }
   return declarations.join('; ');
