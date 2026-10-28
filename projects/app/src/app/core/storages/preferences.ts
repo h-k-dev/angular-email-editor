@@ -2,7 +2,7 @@ import { Service, inject } from '@angular/core';
 
 import type { EditorAppearance } from '../../content/partials/shared/email/message-form/message-sheet';
 import { LANGUAGES } from '../../../i18n/loader';
-import { CustomSwatches } from '@h-k-dev/angular-email-editor/palette';
+import type { CustomSwatches } from '@h-k-dev/angular-email-editor/swatches';
 import { LocalStorage, StorageCodec, onOff, oneOf, wholeIn } from './local-storage';
 import type { ThemeScheme } from '../theme/theme';
 

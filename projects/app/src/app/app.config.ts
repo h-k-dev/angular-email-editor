@@ -8,7 +8,7 @@ import { provideI18n } from '../i18n/loader';
 import { routes } from './app.routes';
 import { PageScroller } from './core/router/page-scroller';
 import { Preferences } from './core/storages/preferences';
-import { provideCustomSwatches } from '@h-k-dev/angular-email-editor/palette';
+import { provideCustomSwatches } from '@h-k-dev/angular-email-editor/swatches';
 
 export const appConfig: ApplicationConfig = {
   providers: [
