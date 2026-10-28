@@ -7,7 +7,7 @@ import { pageLayoutOf } from './extensions/page-layout';
 import { parseHTML, serializeToHTML } from './html';
 import { centeredPageLayout, normalizePageLayout, tablePageLayout } from './page-layout';
 import { sectionPaddingOf } from './extensions/nodes/section';
-import { authoredPageBands, convertAuthoredPage } from './authored-page';
+import { authoredPageBands, convertAuthoredPage, convertAuthoredPageToRows } from './authored-page';
 import { undo } from 'prosemirror-history';
 
 /** The page of rows (page-layout.ts, the `table` kind): every line in a
@@ -235,6 +235,36 @@ describe('page of rows', () => {
         expect(editor.getHTML()).not.toContain('[if mso]');
         undo(editor.state, editor.view.dispatch);
         expect(top()).not.toContain('section');
+      });
+
+      it('converts to the page of rows its author meant, when asked: the rows in a column on the frame’s colour', () => {
+        mount(STRAY);
+        expect(editor.exec(convertAuthoredPageToRows(pagePos()))).toBe(true);
+        expect(normalizePageLayout(editor.state.doc.attrs['pageLayout'])).toEqual(
+          tablePageLayout({
+            width: 600,
+            background: '#efe9e1',
+            columnBackground: null,
+            spacing: 32,
+            rowPadding: 0,
+          }),
+        );
+        expect(top()).toEqual(['pageRow', 'pageRow', 'pageRow']);
+        expect(editor.state.doc.child(0).attrs).toMatchObject({
+          background: '#ffffff',
+          padding: '36px 40px 18px',
+        });
+        expect(editor.state.doc.child(2).attrs['background']).toBeNull();
+        expect(editor.state.doc.textContent).toContain('Aktenzeichen');
+        // Sent as our page of rows, and read back as it was sent.
+        const html = editor.getHTML();
+        expect(rows(html).cells.map((cell) => cell.className)).toEqual(
+          Array(3).fill('aee-layout-page-row'),
+        );
+        expect(serializeToHTML(parseHTML(html, editor.schema, { mode: 'preserve' }), editor.schema)).toBe(html);
+        undo(editor.state, editor.view.dispatch);
+        expect(editor.state.doc.attrs['pageLayout']).toBeNull();
+        expect(top()).not.toContain('pageRow');
       });
 
       it('suggests nothing for a table that is not the pattern', () => {

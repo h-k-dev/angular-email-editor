@@ -21,3 +21,7 @@
 .table-menu__separator {
   @include menu.separator;
 }
+
+.table-menu__section {
+  @include menu.section;
+}

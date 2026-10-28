@@ -1,32 +1,62 @@
 <!-- The menu, for the composer's one popover. Escape is ours, as in the
      block menu: it closes the menu *and* hands the caret back. -->
 <ng-template #panel>
-  <div
-    class="table-menu"
-    #menu
-    role="menu"
-    [attr.aria-label]="isRow() ? 'Row options' : 'Column options'"
-    emailKeepFocus
-    (keydown.escape)="leave()"
-  >
-    <button class="table-menu__item" type="button" role="menuitem" (click)="insert('before')">
-      <mat-icon>{{ isRow() ? 'vertical_align_top' : 'first_page' }}</mat-icon>
-      <span>{{ isRow() ? 'Insert row above' : 'Insert column left' }}</span>
-    </button>
-    <button class="table-menu__item" type="button" role="menuitem" (click)="insert('after')">
-      <mat-icon>{{ isRow() ? 'vertical_align_bottom' : 'last_page' }}</mat-icon>
-      <span>{{ isRow() ? 'Insert row below' : 'Insert column right' }}</span>
-    </button>
+  @if (isTable()) {
+    <!-- The table's ring: its style, one table and a choice of looks. One of
+         them is the table's: a radio, its tick in the row's check slot
+         (styles/_menu.scss) — never a wash, which is the keyboard's. -->
+    <div
+      class="table-menu"
+      #menu
+      role="menu"
+      [attr.aria-label]="'editor.table.kinds.label' | translate"
+      emailKeepFocus
+      (keydown.escape)="leave()"
+    >
+      <div class="table-menu__section">{{ 'editor.table.kinds.label' | translate }}</div>
+      @for (option of styles; track option.style) {
+        <button
+          class="table-menu__item"
+          type="button"
+          role="menuitemradio"
+          [attr.aria-checked]="option.style === currentStyle()"
+          [attr.title]="'editor.table.kinds.' + option.style + 'Hint' | translate"
+          (click)="setStyle(option.style)"
+        >
+          <mat-icon>{{ option.icon }}</mat-icon>
+          <span>{{ 'editor.table.kinds.' + option.style | translate }}</span>
+          <mat-icon data-slot="check">check</mat-icon>
+        </button>
+      }
+    </div>
+  } @else {
+    <div
+      class="table-menu"
+      #menu
+      role="menu"
+      [attr.aria-label]="isRow() ? 'Row options' : 'Column options'"
+      emailKeepFocus
+      (keydown.escape)="leave()"
+    >
+      <button class="table-menu__item" type="button" role="menuitem" (click)="insert('before')">
+        <mat-icon>{{ isRow() ? 'vertical_align_top' : 'first_page' }}</mat-icon>
+        <span>{{ isRow() ? 'Insert row above' : 'Insert column left' }}</span>
+      </button>
+      <button class="table-menu__item" type="button" role="menuitem" (click)="insert('after')">
+        <mat-icon>{{ isRow() ? 'vertical_align_bottom' : 'last_page' }}</mat-icon>
+        <span>{{ isRow() ? 'Insert row below' : 'Insert column right' }}</span>
+      </button>
 
-    <div class="table-menu__separator" role="separator"></div>
+      <div class="table-menu__separator" role="separator"></div>
 
-    <button class="table-menu__item" type="button" role="menuitem" (click)="duplicate()">
-      <mat-icon>content_copy</mat-icon>
-      <span>{{ isRow() ? 'Duplicate row' : 'Duplicate column' }}</span>
-    </button>
-    <button class="table-menu__item" type="button" role="menuitem" (click)="remove()">
-      <mat-icon>delete_outline</mat-icon>
-      <span>{{ isRow() ? 'Delete row' : 'Delete column' }}</span>
-    </button>
-  </div>
+      <button class="table-menu__item" type="button" role="menuitem" (click)="duplicate()">
+        <mat-icon>content_copy</mat-icon>
+        <span>{{ isRow() ? 'Duplicate row' : 'Duplicate column' }}</span>
+      </button>
+      <button class="table-menu__item" type="button" role="menuitem" (click)="remove()">
+        <mat-icon>delete_outline</mat-icon>
+        <span>{{ isRow() ? 'Delete row' : 'Delete column' }}</span>
+      </button>
+    </div>
+  }
 </ng-template>

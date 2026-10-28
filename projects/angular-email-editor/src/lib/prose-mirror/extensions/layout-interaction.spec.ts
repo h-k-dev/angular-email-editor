@@ -121,8 +121,8 @@ describe('layout interaction', () => {
       expect(host.querySelector('.aee-table-wrap')!.classList).not.toContain(
         'aee-table-wrap--layout',
       );
-      // Row and column grips, and the caret cell's.
-      expect(host.querySelectorAll('.aee-grip').length).toBe(5);
+      // Row and column grips, the caret cell's, and the table's ring.
+      expect(host.querySelectorAll('.aee-grip').length).toBe(6);
       const before = host.querySelectorAll('tr').length;
       tap(host.querySelector<HTMLElement>('.aee-add-pill--row')!);
       expect(host.querySelectorAll('tr').length).toBe(before + 1);

@@ -183,6 +183,15 @@
   }
 }
 
+// More than one act: stacked at the card's inline end, 2px apart (the menu
+// rows' gap).
+.section-menu__suggestion-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
 .section-menu__actions {
   display: flex;
   justify-content: flex-end;

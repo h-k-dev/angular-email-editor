@@ -2,12 +2,14 @@ import { Node, Schema } from 'prosemirror-model';
 import { Command } from 'prosemirror-state';
 import { isFillTextColor } from './dual-contrast';
 import { isSafeColor, toEmailSafeColor } from './extensions/marks/text-style';
+import { pageRowStyle } from './extensions/nodes/page-row';
 import { bandTable } from './extensions/nodes/section';
 import { spacerStyle } from './extensions/nodes/spacer';
 import { parsePadding } from './extensions/nodes/table';
 import { parseHTML, serializeToHTML } from './html';
 import { paddingOf, paddingSides } from './inline-style';
 import { layoutMarker } from './layout-marker';
+import { PAGE_WIDTH, PageLayout, tablePageLayout } from './page-layout';
 
 /**
  * A page edited by hand, recognised — never repaired. The pattern: a page
@@ -37,6 +39,12 @@ export interface AuthoredPageConversion {
   spacers: number;
   /** Bands (sections) it makes. */
   sections: number;
+  /** The page as its author meant it — a page of rows: each row a row of
+      ours (its fill and room) in a column of the frame's width on the
+      frame's colour, the frame's room above and below. Not the same pixels
+      (the rows were full width; here they stand in the column), which is
+      why it is the author's choice ({@link convertAuthoredPageToRows}). */
+  rows: { html: string; layout: PageLayout };
 }
 
 /** Recognised tables, by node: a decoration asks on every state. */
@@ -69,6 +77,28 @@ export function convertAuthoredPage(pos: number): Command {
   };
 }
 
+/** Turns the authored page at `pos` into the page of rows its author meant
+    (`rows` of {@link authoredPageBands}) — the rows in its place, the
+    document's page layout set — one step, undone as one. False where the
+    node is not the pattern, or the document has a page layout already. */
+export function convertAuthoredPageToRows(pos: number): Command {
+  return (state, dispatch) => {
+    const node = state.doc.nodeAt(pos);
+    const conversion = node ? authoredPageBands(node, state.schema) : null;
+    if (!node || !conversion || state.doc.attrs['pageLayout']) return false;
+    if (dispatch) {
+      const rows = parseHTML(conversion.rows.html, state.schema, { mode: 'preserve' }).content;
+      dispatch(
+        state.tr
+          .replaceWith(pos, pos + node.nodeSize, rows)
+          .setDocAttribute('pageLayout', conversion.rows.layout)
+          .scrollIntoView(),
+      );
+    }
+    return true;
+  };
+}
+
 function recognise(node: Node, schema: Schema): AuthoredPageConversion | null {
   if (node.type.name !== 'htmlElement' || node.attrs['tag'] !== 'table') return null;
   const html = serializeToHTML(schema.topNodeType.create(null, node), schema);
@@ -77,19 +107,52 @@ function recognise(node: Node, schema: Schema): AuthoredPageConversion | null {
   if (!table || table.getAttribute('width') !== '100%') return null;
   const rows = Array.from(table.rows);
   if (rows.length < 2 || rows.some((row) => row.cells.length !== 1)) return null;
-  const strip = frameStrip(doc, rows[0].cells[0]);
+  const frame = rows[0].cells[0];
+  const strip = frameStrip(doc, frame);
   if (!strip) return null;
+  // The rows first: the bands below take the cells' words away.
+  const pageRows = rows.slice(1).map((row) => rowOfPage(doc, row.cells[0]).outerHTML);
   const blocks: HTMLElement[] = [strip];
   for (const row of rows.slice(1)) {
     const band = rowBand(doc, row.cells[0]);
     if (!band) return null;
     blocks.push(band);
   }
+  const column = frame.firstElementChild as HTMLElement;
   return {
     html: blocks.map((block) => block.outerHTML).join(''),
     spacers: 1,
     sections: blocks.length - 1,
+    rows: {
+      html: pageRows.join(''),
+      layout: tablePageLayout({
+        width: parseFloat(column.style.maxWidth) || PAGE_WIDTH,
+        background: fillOf(frame),
+        columnBackground: null,
+        spacing: sides(frame)[0],
+        // Every row says its own room.
+        rowPadding: 0,
+      }),
+    },
   };
+}
+
+/** A row of the page, as a row of ours: the cell's fill and its room on
+    all four sides, its words as they stood (a copy: the band takes the
+    originals). */
+function rowOfPage(doc: Document, cell: HTMLTableCellElement): HTMLElement {
+  const row = doc.createElement('div');
+  row.className = layoutMarker('page-row');
+  const style = pageRowStyle({
+    background: fillOf(cell),
+    color: null,
+    padding: parsePadding(cell),
+  });
+  if (style) row.setAttribute('style', style);
+  for (const child of Array.from(cell.childNodes)) {
+    if (child.nodeType !== 8) row.append(child.cloneNode(true));
+  }
+  return row;
 }
 
 /** The first row: the page's own cell round a centred column holding

@@ -104,7 +104,6 @@ describe('createSuggestionMenu — the / menu', () => {
       'Spacer',
       'Button',
       'Table',
-      'Borderless table',
       'Layout table',
       'Columns',
       '3 columns',

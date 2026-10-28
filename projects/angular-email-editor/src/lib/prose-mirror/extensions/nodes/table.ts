@@ -224,6 +224,61 @@ export function tableKind(table: Node): TableKind {
   return 'borderless';
 }
 
+/**
+ * How a table looks — one table, its style a choice, never a kind of its
+ * own (the user, 2026-10-28): `bordered` (the default: a grid line on every
+ * cell), `borderless` (no lines), `ruled` (a line above and below every row,
+ * the sides bare — collapsed, a rule between rows and one above and below:
+ * the receipt's, the key–value block's) — each with real padding and room
+ * above and below — or `layout` (none of it: flush, for arranging).
+ */
+export type TableStyle = 'bordered' | 'borderless' | 'ruled' | 'layout';
+
+/** The {@link TableStyle} a table wears: its kind, and of a bordered one
+    whether its lines are rules. */
+export function tableStyleOf(table: Node): TableStyle {
+  const kind = tableKind(table);
+  if (kind !== 'bordered') return kind;
+  let ruled = true;
+  table.forEach((row) =>
+    row.forEach((cell) => {
+      if (cell.attrs['border'] && cell.attrs['borderSides'] !== 'block') ruled = false;
+    }),
+  );
+  return ruled ? 'ruled' : 'bordered';
+}
+
+/** Gives the table at `pos` a {@link TableStyle}, every cell alike, in one
+    step: its lines (`border`, `borderSides`), its padding — a content
+    style keeps a cell's own and gives one without the preset; layout takes
+    it away — and the table's room and `layout`. False where no table is. */
+export function setTableStyle(pos: number, style: TableStyle): Command {
+  return (state, dispatch) => {
+    const table = state.doc.nodeAt(pos);
+    if (table?.type.name !== 'table') return false;
+    if (!dispatch) return true;
+    const layout = style === 'layout';
+    const tr = state.tr.setNodeMarkup(pos, undefined, {
+      ...table.attrs,
+      layout,
+      spacing: layout ? null : (table.attrs['spacing'] ?? TABLE_BLOCK_SPACING),
+    });
+    table.descendants((cell, rel) => {
+      if (cell.type.name !== 'tableCell') return true;
+      const lined = style === 'bordered' || style === 'ruled';
+      tr.setNodeMarkup(pos + 1 + rel, undefined, {
+        ...cell.attrs,
+        border: lined ? (cell.attrs['border'] ?? TABLE_BORDER_COLOR) : null,
+        borderSides: style === 'ruled' ? 'block' : null,
+        padding: layout ? null : (cell.attrs['padding'] ?? TABLE_CELL_PADDING),
+      });
+      return false;
+    });
+    dispatch(tr);
+    return true;
+  };
+}
+
 /** Canonical percentage: one decimal at most, no trailing zero (25%, 33.3%). */
 export const formatPct = (n: number): string => `${Math.round(n * 10) / 10}%`;
 
@@ -260,24 +315,24 @@ function parseTableBox(dom: HTMLElement): {
   );
   const offset = Math.min(Math.max(pctOf(dom.style?.marginLeft || '') ?? 0, 0), 100 - width);
   const spacing = parseBlockSpacing(dom);
-  return { width, offset, spacing, layout: parseTableLayout(dom, spacing) };
+  return { width, offset, spacing, layout: parseTableLayout(dom) };
 }
 
 /**
- * Whether parsed markup is a layout table. Marked (layout-marker.ts): what
- * the marker says — a band's marker included, on a table the band's shape
- * did not fit. Unmarked, the shape our own markup had before the markers: a
- * presentation table with no line on any cell and no room round it. A table
- * without the role — what other editors write (Summernote's
- * `table table-bordered`, its lines a stylesheet's, none inline) — is
- * content, and keeps its rows and columns for the writer.
+ * Whether parsed markup is a layout table — the author's word, never a
+ * reading of its look (the user, 2026-10-28: "role and mark"). Marked
+ * (layout-marker.ts): what the marker says — a band's marker included, on a
+ * table the band's shape did not fit. Unmarked: `role="presentation"`, the
+ * author saying "not a data table" — whatever lines its cells carry (a
+ * hand-coded label/value block's rules) or room round it; those stay as
+ * written. A table without the role — what other editors write
+ * (Summernote's `table table-bordered`, its lines a stylesheet's, none
+ * inline) — is content, and keeps its rows and columns for the writer.
  */
-function parseTableLayout(dom: HTMLElement, spacing: number | null): boolean {
+function parseTableLayout(dom: HTMLElement): boolean {
   const kind = markedAs(dom);
   if (kind) return kind === 'table' || kind === 'section';
-  if (dom.getAttribute('role') !== 'presentation' || spacing != null) return false;
-  const rows = dom instanceof HTMLTableElement ? Array.from(dom.rows) : [];
-  return !rows.some((row) => Array.from(row.cells).some((cell) => parseCellBorder(cell)));
+  return dom.getAttribute('role') === 'presentation';
 }
 
 /** The room above and below a table off parsed markup: px, the same above as
@@ -327,6 +382,18 @@ function parseCellBorder(dom: HTMLElement): string | null {
   return isSafeColor(color) ? color : null;
 }
 
+/** Which sides a cell's line is on: `block` where it is drawn above and below
+    only (a ruled table's), the sides bare — null for all four (or none). */
+function parseCellBorderSides(dom: HTMLElement): 'block' | null {
+  const style = dom.style;
+  if (!style) return null;
+  const drawn = (side: 'Top' | 'Right' | 'Bottom' | 'Left') => {
+    const kind = style.getPropertyValue(`border-${side.toLowerCase()}-style`);
+    return !!kind && kind !== 'none' && kind !== 'hidden';
+  };
+  return drawn('Top') && drawn('Bottom') && !drawn('Left') && !drawn('Right') ? 'block' : null;
+}
+
 function cellAttrs(dom: HTMLElement): Record<string, unknown> {
   const raw = dom.style?.backgroundColor || dom.getAttribute('bgcolor');
   const colspan = span(dom.getAttribute('colspan'));
@@ -336,6 +403,7 @@ function cellAttrs(dom: HTMLElement): Record<string, unknown> {
     colwidth: parseCellWidth(dom, colspan),
     padding: parsePadding(dom),
     border: parseCellBorder(dom),
+    borderSides: parseCellBorderSides(dom),
     background: isSafeColor(raw) ? raw : null,
     align: parseCellAlign(dom),
     valign: parseCellVerticalAlign(dom),
@@ -346,7 +414,8 @@ function cellAttrs(dom: HTMLElement): Record<string, unknown> {
     so there is nothing to hide from either side. Attribute order is fixed
     (spans, then style) to keep serialize → parse → serialize a fixpoint. */
 function cellDOM(node: { attrs: Record<string, any> }): [string, Record<string, string>, 0] {
-  const { colspan, rowspan, colwidth, padding, border, background, align, valign } = node.attrs;
+  const { colspan, rowspan, colwidth, padding, border, borderSides, background, align, valign } =
+    node.attrs;
   const attrs: Record<string, string> = {};
   if (colspan > 1) attrs['colspan'] = String(colspan);
   if (rowspan > 1) attrs['rowspan'] = String(rowspan);
@@ -368,7 +437,11 @@ function cellDOM(node: { attrs: Record<string, any> }): [string, Record<string, 
   // The real grid line, per cell (the editor's faint editing grid is a class
   // style; this inline border wins over it, so a bordered table shows its
   // actual borders while composing).
-  if (border) style += ` border: 1px solid ${border};`;
+  // A ruled table's line above and below only: collapsed, the rows share
+  // one, so it reads as a rule between rows and one above and below.
+  if (border && borderSides === 'block') {
+    style += ` border-top: 1px solid ${border}; border-bottom: 1px solid ${border};`;
+  } else if (border) style += ` border: 1px solid ${border};`;
   // The fill always carries its paired text colour (fillTextColor): the cell
   // must not depend on the client's default text, which flips to near-white in
   // non-transforming dark modes while the fill keeps its colour.
@@ -406,6 +479,10 @@ export const TableCell = defineNode({
       // for no line. Set for every cell of a bordered insert (`/table`); kept
       // uniform by the repair plugin (see `unifyCellPresets`).
       border: { default: null },
+      // Which sides the line is on: null for all four, `block` for above
+      // and below only — a ruled table's (`setTableStyle`). Kept uniform
+      // like the border (see `unifyCellPresets`).
+      borderSides: { default: null },
       // A fill colour on the cell (the most bulletproof background in email —
       // `background-color` on `<td>` renders even in Outlook). From the curated
       // dual-safe palette via `setCellBackground`; longhand rgb() keeps it a
@@ -494,6 +571,9 @@ export const Table = defineNode({
     ],
   },
   commands: ({ schema }) => ({
+    /** The style of the table at `pos` — its lines, its room (see
+        {@link TableStyle}). */
+    setTableStyle: (pos: number, style: TableStyle): Command => setTableStyle(pos, style),
     /** The default shape and kind are the ones /table inserts — three rows
         by three, bordered (see `TableKind`). */
     insertTable: (
@@ -661,8 +741,10 @@ export const Table = defineNode({
   // Three rows by two: a table asked for by name starts with somewhere to
   // write a heading line and two entries under it, which is what an email
   // table almost always turns out to be. A picker (the app's grid) says its
-  // own size; this is only what `/table` means on its own. One item per
-  // `TableKind`, the bordered default first.
+  // own size; this is only what `/table` means on its own. Two items: the
+  // bordered default — its style (borderless, ruled) is the table's ring's
+  // (`setTableStyle`), never a table of its own — and the layout table, the
+  // quick way to one for arranging.
   actions: ({ schema }) => [
     {
       id: 'table',
@@ -671,14 +753,6 @@ export const Table = defineNode({
       keywords: ['table', 'bordered', 'grid', 'rows', 'columns', 'excel', 'lines'],
       icon: 'grid_on',
       command: insertTableFocused(schema, TABLE_ROWS, TABLE_COLUMNS, 'bordered'),
-    },
-    {
-      id: 'borderless-table',
-      section: 'layout',
-      title: 'Borderless table',
-      keywords: ['borderless-table', 'table', 'borderless', 'no lines', 'padding'],
-      icon: 'border_clear',
-      command: insertTableFocused(schema, TABLE_ROWS, TABLE_COLUMNS, 'borderless'),
     },
     {
       id: 'layout-table',
@@ -1320,19 +1394,25 @@ function unifyCellPresets(tr: Transaction, inserted: [number, number][]): void {
     if (node.type.name !== 'table') return true;
 
     const borders = new Set<string>();
+    const sides = new Set<string | null>();
     const paddings = new Set<string>();
     let unbordered = 0;
     node.descendants((cell) => {
       if (cell.type.name !== 'tableCell') return true;
       const border = cell.attrs['border'] as string | null;
       const padding = cell.attrs['padding'] as string | null;
-      if (border) borders.add(border);
-      else unbordered++;
+      if (border) {
+        borders.add(border);
+        sides.add(cell.attrs['borderSides'] as string | null);
+      } else unbordered++;
       if (padding) paddings.add(padding);
       return false;
     });
 
     const border = borders.size === 1 && unbordered > 0 ? [...borders][0] : null;
+    // A bare cell takes the sides with the colour — a ruled table's new row
+    // is ruled.
+    const borderSides = sides.size === 1 ? [...sides][0] : null;
     const padding =
       paddings.size === 1 && !isNew(pos, pos + node.nodeSize) ? [...paddings][0] : null;
     if (border || padding) {
@@ -1340,11 +1420,18 @@ function unifyCellPresets(tr: Transaction, inserted: [number, number][]): void {
         if (cell.type.name !== 'tableCell') return true;
         const at = pos + 1 + rel;
         const attrs = { ...cell.attrs };
-        if (border && !attrs['border']) attrs['border'] = border;
+        if (border && !attrs['border']) {
+          attrs['border'] = border;
+          attrs['borderSides'] = borderSides;
+        }
         if (padding && !attrs['padding'] && isNew(at, at + cell.nodeSize)) {
           attrs['padding'] = padding;
         }
-        if (attrs['border'] !== cell.attrs['border'] || attrs['padding'] !== cell.attrs['padding']) {
+        if (
+          attrs['border'] !== cell.attrs['border'] ||
+          attrs['borderSides'] !== cell.attrs['borderSides'] ||
+          attrs['padding'] !== cell.attrs['padding']
+        ) {
           jobs.push({ pos: at, attrs });
         }
         return false;

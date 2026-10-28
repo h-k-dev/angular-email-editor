@@ -44,7 +44,6 @@ import { PaperIslandScheme } from '../../paper-island';
 import { ToolbarOverflow, ToolbarOverflowItem } from './toolbar-overflow';
 import { KeepFocus } from '@h-k-dev/angular-email-editor/focus';
 import { FieldKeys } from '@h-k-dev/angular-email-editor/keyboard';
-import { TableKind } from '@h-k-dev/angular-email-editor';
 
 /** The buttons in the order people reach for them — marks, colour, then link,
     lists and their indent, the paragraph's shape, the rarer marks, the table — and so the
@@ -225,12 +224,10 @@ export class FormattingToolbar {
     this.commands.applyBackground(color);
   }
 
-  /** The table kind the picker inserts — kept here, so the picker opens on
-      the one last used. */
-  protected readonly tableKind = signal<TableKind>('bordered');
-
+  /** One table, bordered by default: its style is the table's ring's to
+      change. */
   protected insertTable(size: { cols: number; rows: number }): void {
     this.picker.set(null);
-    this.commands.insertTable({ ...size, kind: this.tableKind() });
+    this.commands.insertTable(size);
   }
 }

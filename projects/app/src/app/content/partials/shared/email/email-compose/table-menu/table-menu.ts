@@ -18,8 +18,18 @@ import { MatIconModule } from '@angular/material/icon';
 import { ConnectedPosition } from '@angular/cdk/overlay';
 
 // Library
-import { TableHandleTarget, duplicateColumn, duplicateRow } from '@h-k-dev/angular-email-editor';
+import {
+  TableHandleTarget,
+  TableStyle,
+  duplicateColumn,
+  duplicateRow,
+  tableStyleOf,
+} from '@h-k-dev/angular-email-editor';
+import { editorState } from '@h-k-dev/angular-email-editor/actions';
 import { KeepFocus } from '@h-k-dev/angular-email-editor/focus';
+
+// ngx-translate
+import { TranslatePipe } from '@ngx-translate/core';
 
 import { FormattingCommands } from '../formatting-commands';
 import { Popover } from '../popover/popover';
@@ -42,6 +52,10 @@ import { Popover } from '../popover/popover';
  * there, and the menu does not grow a second copy of the toolbar. Header
  * rows are not offered at all: an email table is presentational, and this
  * schema has no `<th>` (see the table node).
+ *
+ * The table's ring (its top-left corner) opens it as the table's style: one
+ * table, bordered by default, its look a choice — borderless, ruled, layout
+ * (`setTableStyle`) — never a table of another kind.
  */
 @Component({
   selector: 'div[table-menu]',
@@ -51,6 +65,9 @@ import { Popover } from '../popover/popover';
 
     // Library
     KeepFocus,
+
+    // ngx-translate
+    TranslatePipe,
   ],
   templateUrl: './table-menu.html',
   styleUrl: './table-menu.scss',
@@ -69,12 +86,32 @@ export class TableMenu {
       lost, and for Escape to hand the caret back. */
   readonly element = viewChild<ElementRef<HTMLElement>>('menu');
 
-  /** Row or column — the two menus differ only in their words and icons. */
+  /** Row or column — the two menus differ only in their words and icons — or
+      the table's ring, whose menu is the table's style. */
   protected readonly kind = computed(() => this.target()?.kind ?? 'row');
   protected readonly isRow = computed(() => this.kind() === 'row');
+  protected readonly isTable = computed(() => this.kind() === 'table');
+
+  /** The looks one table takes — bordered the default, then the others. */
+  protected readonly styles: { style: TableStyle; icon: string }[] = [
+    { style: 'bordered', icon: 'grid_on' },
+    { style: 'borderless', icon: 'border_clear' },
+    { style: 'ruled', icon: 'table_rows' },
+    { style: 'layout', icon: 'view_quilt' },
+  ];
+
+  readonly #state = editorState(() => this.#commands.editor());
+
+  /** The style the ring's table wears now — the radio that is ticked. */
+  protected readonly currentStyle = computed(() => {
+    const target = this.target();
+    const table = target?.kind === 'table' ? this.#state()?.doc.nodeAt(target.tablePos) : null;
+    return table?.type.name === 'table' ? tableStyleOf(table) : null;
+  });
 
   /** Beside the grip it belongs to: a row's menu opens to its right, a
-      column's below it, so neither covers the band it is about to change. */
+      column's (and the ring's) below it, so neither covers the band it is
+      about to change. */
   protected readonly positions = computed<ConnectedPosition[]>(() =>
     this.isRow()
       ? [
@@ -127,6 +164,12 @@ export class TableMenu {
 
   protected remove(): void {
     this.#run(this.isRow() ? 'deleteRow' : 'deleteColumn');
+  }
+
+  /** A look picked from the ring's menu: the whole table takes it, one step. */
+  protected setStyle(style: TableStyle): void {
+    const target = this.target();
+    if (target?.kind === 'table') this.#run('setTableStyle', target.tablePos, style);
   }
 
   /** Escape: the menu closes and the caret goes back to the text. */

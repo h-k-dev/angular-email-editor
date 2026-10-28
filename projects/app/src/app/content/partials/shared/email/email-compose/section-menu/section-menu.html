@@ -202,17 +202,24 @@
         <aside class="section-menu__suggestion" aria-labelledby="section-menu-suggestion">
           <strong id="section-menu-suggestion">Rows outside the page's column</strong>
           <p>
-            This table is a page whose rows were pasted beside its column. Its empty top row becomes
-            a spacer with its colour, every other row a section — each with its own menu, and dark
-            mode adapts the colours.
+            This table is a page whose rows were pasted beside its column. Keep its look: the empty
+            top row becomes a spacer with its colour, every other row a section. Or make it the page
+            it was meant to be: its rows in a {{ pageWidth() }}px column on its colour.
           </p>
-          <button
-            type="button"
-            class="section-menu__button section-menu__button--primary"
-            (click)="convertPage()"
-          >
-            <span>{{ pageConvertLabel() }}</span>
-          </button>
+          <div class="section-menu__suggestion-actions">
+            <button
+              type="button"
+              class="section-menu__button section-menu__button--primary"
+              (click)="convertPage()"
+            >
+              <span>{{ pageConvertLabel() }}</span>
+            </button>
+            @if (rowsAvailable()) {
+              <button type="button" class="section-menu__button" (click)="convertPageToRows()">
+                <span>Convert to page of rows</span>
+              </button>
+            }
+          </div>
         </aside>
       }
       <!-- A band that holds nothing but room is drawn by one spacer of its

@@ -39,6 +39,7 @@ import {
   findSectionContext,
   authoredPageBands,
   convertAuthoredPage,
+  convertAuthoredPageToRows,
   selectedSpacer,
   spacerOfBand,
 } from '@h-k-dev/angular-email-editor';
@@ -163,6 +164,13 @@ export class SectionMenu {
     return conversion ? convertLabel(conversion) : '';
   });
   protected readonly spacerConvertLabel = convertLabel({ spacers: 1, sections: 0 });
+
+  /** The page of rows the author meant: offered while the document has no
+      page layout of its own; its column's width, for the card to say. */
+  protected readonly rowsAvailable = computed(
+    () => !!this.pageSuggested() && !this.#state()?.doc.attrs['pageLayout'],
+  );
+  protected readonly pageWidth = computed(() => this.pageSuggested()?.rows.layout.width ?? 0);
 
   /** The fill of the band the caret is in (or of the selected spacer), as
       lower-case hex — null for none: the colour list ticks it, a row of it
@@ -368,6 +376,14 @@ export class SectionMenu {
   protected convertPage(): void {
     const pos = this.target()?.sectionPos;
     if (pos !== undefined) this.#commands.editor()?.exec(convertAuthoredPage(pos));
+    this.#done();
+  }
+
+  /** The page card's Convert to page of rows: the rows in a column on the
+      page's colour, the document's layout set — one undo step. */
+  protected convertPageToRows(): void {
+    const pos = this.target()?.sectionPos;
+    if (pos !== undefined) this.#commands.editor()?.exec(convertAuthoredPageToRows(pos));
     this.#done();
   }
 

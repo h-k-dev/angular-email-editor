@@ -17,6 +17,7 @@ import {
   selectColumn,
   selectRow,
   tableKind,
+  tableStyleOf,
 } from './table';
 
 const schema = createSchema(emailExtensions);
@@ -287,11 +288,21 @@ describe('table editing', () => {
     expect(count(html, PADDING)).toBe(9);
   });
 
-  it('bordered and borderless tables keep real room above and below — block only', () => {
+  const tablePos = () => {
+    let at = -1;
+    editor.state.doc.descendants((node, pos) => {
+      if (at < 0 && node.type.name === 'table') at = pos;
+      return at < 0;
+    });
+    return at;
+  };
+
+  it('bordered, borderless and ruled tables keep real room above and below — block only', () => {
     const spacing = 'margin-top: 16px; margin-bottom: 16px;';
-    for (const id of ['table', 'borderless-table']) {
+    for (const style of ['bordered', 'borderless', 'ruled'] as const) {
       editor.setContent('<div>start</div>');
-      editor.exec(action(id).command!);
+      editor.exec(action('table').command!);
+      editor.commands['setTableStyle'](tablePos(), style);
       const html = editor.getHTML();
       // Content, not layout: no marker, no presentation role.
       expect(html).toContain(
@@ -302,7 +313,8 @@ describe('table editing', () => {
       expect(canonical(html)).toBe(html);
     }
     editor.setContent('<div>start</div>');
-    editor.exec(action('layout-table').command!);
+    editor.exec(action('table').command!);
+    editor.commands['setTableStyle'](tablePos(), 'layout');
     expect(editor.getHTML()).not.toContain('margin');
   });
 
@@ -319,8 +331,10 @@ describe('table editing', () => {
     expect(table('margin: 0 auto;')).not.toContain('margin');
   });
 
-  it('/borderless-table ships real padding and no lines, kept on new cells', () => {
-    editor.exec(action('borderless-table').command!);
+  it('a borderless table has real padding and no lines, kept on new cells', () => {
+    editor.exec(action('table').command!);
+    editor.commands['setTableStyle'](tablePos(), 'borderless');
+    expect(tableStyleOf(editor.state.doc.nodeAt(tablePos())!)).toBe('borderless');
     let html = editor.getHTML();
     expect(count(html, BORDER)).toBe(0);
     expect(count(html, PADDING)).toBe(9);
@@ -334,8 +348,45 @@ describe('table editing', () => {
     expect(count(html, PADDING)).toBe(16);
   });
 
-  it('/layout-table ships neither — its spacing is the editor’s alone', () => {
-    editor.exec(action('layout-table').command!);
+  it('a ruled table draws a line above and below each row, the sides bare — kept on new rows', () => {
+    const RULE =
+      /border-top: 1px solid rgb\(230, 229, 227\); border-bottom: 1px solid rgb\(230, 229, 227\);/g;
+    editor.exec(action('table').command!);
+    expect(editor.commands['setTableStyle'](tablePos(), 'ruled')).toBe(true);
+    expect(tableStyleOf(editor.state.doc.nodeAt(tablePos())!)).toBe('ruled');
+    let html = editor.getHTML();
+    expect(count(html, RULE)).toBe(9);
+    expect(count(html, BORDER)).toBe(0);
+    expect(count(html, PADDING)).toBe(9);
+    // Ours, and read back as ruled in every parse.
+    expect(canonical(html)).toBe(html);
+    let parsed: Node | null = null;
+    parseHTML(html, schema).descendants((node) => {
+      if (!parsed && node.type.name === 'table') parsed = node;
+      return !parsed;
+    });
+    expect(tableStyleOf(parsed!)).toBe('ruled');
+    editor.commands['addRowAfter']();
+    html = editor.getHTML();
+    expect(count(html, RULE)).toBe(12);
+    // And back: the grid on every side again.
+    editor.commands['setTableStyle'](tablePos(), 'bordered');
+    expect(count(editor.getHTML(), BORDER)).toBe(12);
+    expect(count(editor.getHTML(), RULE)).toBe(0);
+  });
+
+  it('/table is the one content table, its style the table’s to change — /layout-table the quick layout one', () => {
+    const ids = Table.actions!({ schema: editor.schema, extensions: [] }).map((entry) => entry.id);
+    expect(ids).toContain('table');
+    expect(ids).not.toContain('borderless-table');
+    // The layout table keeps its quick way in.
+    expect(ids).toContain('layout-table');
+  });
+
+  it('a layout table has neither — its spacing is the editor’s alone', () => {
+    editor.exec(action('table').command!);
+    editor.commands['setTableStyle'](tablePos(), 'layout');
+    expect(tableStyleOf(editor.state.doc.nodeAt(tablePos())!)).toBe('layout');
     editor.commands['addRowAfter']();
     const html = editor.getHTML();
     expect(dims()).toEqual({ rows: 4, cols: 3 });
@@ -886,6 +937,19 @@ describe('tableKind', () => {
     });
     return tables[0];
   };
+
+  it('reads role and mark, never the look: a presentation table is layout, lines and room and all', () => {
+    // A hand-coded label/value block: presentation, a rule on every cell.
+    const ruled =
+      '<table role="presentation" width="100%" style="margin-top: 16px; margin-bottom: 16px;"><tbody>' +
+      '<tr><td style="padding:8px 0;border-top:1px solid #e4dccf">Aktenzeichen</td><td style="padding:8px 0;border-top:1px solid #e4dccf">{{ x }}</td></tr>' +
+      '</tbody></table>';
+    expect(tableKind(firstTable(ruled))).toBe('layout');
+    // Its lines stay as written: layout says what it is, not how it looks.
+    expect(canonical(ruled)).toContain('border: 1px solid rgb(228, 220, 207);');
+    // No role, no mark: content, whatever it looks like.
+    expect(tableKind(firstTable(ruled.replace(' role="presentation"', '')))).toBe('bordered');
+  });
 
   for (const kind of ['bordered', 'borderless', 'layout'] as TableKind[]) {
     it(`reads a ${kind} insert back as ${kind}, through the email`, () => {

@@ -1,18 +1,3 @@
-<div class="table-picker__kinds" role="group" [attr.aria-label]="'editor.table.kinds.label' | translate">
-  @for (option of kinds; track option.kind) {
-    <button
-      type="button"
-      class="table-picker__kind"
-      [class.table-picker__kind--selected]="kind() === option.kind"
-      [attr.aria-pressed]="kind() === option.kind"
-      [attr.title]="'editor.table.kinds.' + option.kind + 'Hint' | translate"
-      (click)="kind.set(option.kind)"
-    >
-      <mat-icon>{{ option.icon }}</mat-icon>
-      <span>{{ 'editor.table.kinds.' + option.kind | translate }}</span>
-    </button>
-  }
-</div>
 <div class="table-picker__grid" role="group" aria-label="Table size">
   @for (row of steps; track row) {
     @for (col of steps; track col) {

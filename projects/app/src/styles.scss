@@ -1367,6 +1367,40 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
   inset-block-start: -5px;
 }
 
+/* The table's ring (createTableHandles), on the table's top-left corner —
+ * its first cell's: a dot, the grips' colour in their paper halo, that
+ * opens to a ring — a circle, nothing inside — under the pointer, and wears
+ * the selection's colour while its menu (the table's style) is up.
+ * Revealed with the table under the pointer. */
+.aee-editor .aee-grip--table {
+  inset-inline-start: -0.5px;
+  inset-block-start: -0.5px;
+  translate: -50% -50%;
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.aee-editor .aee-table-wrap:hover .aee-grip--table,
+.aee-editor .aee-grip--table[aria-expanded='true'] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.aee-editor .aee-grip--table:hover,
+.aee-editor .aee-grip--table[aria-expanded='true'] {
+  inline-size: 16px;
+  block-size: 16px;
+  border: 2px solid var(--mat-sys-outline, #74777f);
+  background-color: var(--email-grip-halo, #ffffff);
+  box-shadow: 0 0 0 2px var(--email-grip-halo, #ffffff);
+}
+
+.aee-editor .aee-grip--table[aria-expanded='true'] {
+  border-color: var(--email-cell-selection-border, var(--mat-sys-primary, #4c6ef5));
+}
+
 .aee-editor .aee-grip--row > i::after {
   inset-block-start: 5px;
 }

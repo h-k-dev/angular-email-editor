@@ -11,7 +11,8 @@ import { holdDragCursor } from './drag-cursor';
 /** Which band — or which cell — of which table a grip stands for, and
     where it is on screen. */
 export interface TableHandleTarget {
-  kind: 'row' | 'column' | 'cell';
+  /** A band's grip, the caret cell's, or the table's own ring — its style. */
+  kind: 'row' | 'column' | 'cell' | 'table';
   /** The band's index in the grid, counted from the top / the start; a
       cell's column. */
   index: number;
@@ -30,7 +31,7 @@ export interface TableHandlesOptions {
   /** What a grip says to assistive tech, translated by the host. Called with
       the band's 1-based number, as a person counts rows; for the caret
       cell's grip, the cell's column. */
-  label?: (kind: 'row' | 'column' | 'cell', number: number) => string;
+  label?: (kind: 'row' | 'column' | 'cell' | 'table', number: number) => string;
 }
 
 interface TableHandlesState {
@@ -112,8 +113,12 @@ const MOVE_THRESHOLD = 4;
 export const createTableHandles = (options: TableHandlesOptions): FunctionalExtension => {
   const label =
     options.label ??
-    ((kind: 'row' | 'column' | 'cell', number: number) =>
-      kind === 'cell' ? 'Cell options' : `${kind} ${number} options`);
+    ((kind: 'row' | 'column' | 'cell' | 'table', number: number) =>
+      kind === 'cell'
+        ? 'Cell options'
+        : kind === 'table'
+          ? 'Table style'
+          : `${kind} ${number} options`);
 
   /** The caret cell's own grip: Notion's — a pill on the cell's right edge
       that opens the cell's menu — fill, alignment, clearing — the caret
@@ -192,7 +197,36 @@ export const createTableHandles = (options: TableHandlesOptions): FunctionalExte
     return el;
   };
 
-  const grip = (view: EditorView, kind: 'row' | 'column', index: number): HTMLElement => {
+  /** The table's own ring, on its top-left corner: a dot that opens to a
+      ring (the host's `.aee-grip--table`) and opens the host's menu for the
+      table's style. A press leaves the caret and the selection as they are:
+      the style command takes the table's position. */
+  const ring = (view: EditorView): HTMLElement => {
+    const el = document.createElement('span');
+    el.className = 'aee-grip aee-grip--table';
+    el.setAttribute('role', 'button');
+    el.setAttribute('aria-label', label('table', 1));
+    el.setAttribute('title', label('table', 1));
+    el.setAttribute('aria-haspopup', 'menu');
+    el.setAttribute('aria-expanded', 'false');
+    el.contentEditable = 'false';
+    el.addEventListener('mousedown', (event) => event.preventDefault());
+    el.addEventListener('click', (event) => {
+      event.preventDefault();
+      const tablePos = tablePosOf(view, el);
+      if (tablePos < 0) return;
+      el.setAttribute('aria-expanded', 'true');
+      // The menu hands the focus back to the text when it is done.
+      view.dom.addEventListener('focus', () => el.setAttribute('aria-expanded', 'false'), {
+        once: true,
+      });
+      options.onOpen({ kind: 'table', index: 0, tablePos, boundingBox: el.getBoundingClientRect() });
+    });
+    return el;
+  };
+
+  const grip = (view: EditorView, kind: 'row' | 'column' | 'table', index: number): HTMLElement => {
+    if (kind === 'table') return ring(view);
     const el = document.createElement('span');
     el.className = `aee-grip aee-grip--${kind}`;
     el.dataset['index'] = String(index);
@@ -644,7 +678,7 @@ function applyHandles(
   tr: Transaction,
   prev: TableHandlesState,
   state: EditorState,
-  grip: (view: EditorView, kind: 'row' | 'column', index: number) => HTMLElement,
+  grip: (view: EditorView, kind: 'row' | 'column' | 'table', index: number) => HTMLElement,
 ): TableHandlesState {
   if (!tr.docChanged) return prev;
 
@@ -678,7 +712,7 @@ function applyHandles(
 
 function buildState(
   state: EditorState,
-  grip: (view: EditorView, kind: 'row' | 'column', index: number) => HTMLElement,
+  grip: (view: EditorView, kind: 'row' | 'column' | 'table', index: number) => HTMLElement,
   generation: number,
 ): TableHandlesState {
   const decorations: Decoration[] = [];
@@ -688,6 +722,16 @@ function buildState(
     tables.push({ pos: tablePos, node });
     const map = TableMap.get(node);
     const start = tablePos + 1;
+
+    // The table's ring, in its first cell, on that cell's top-left corner —
+    // the table's.
+    decorations.push(
+      Decoration.widget(start + map.map[0] + 1, (view) => grip(view, 'table', 0), {
+        key: `table-ring-${tablePos}`,
+        side: -1,
+        ignoreSelection: true,
+      }),
+    );
 
     for (let row = 0; row < map.height; row++) {
       const cell = bandCell(map, 'row', row);
