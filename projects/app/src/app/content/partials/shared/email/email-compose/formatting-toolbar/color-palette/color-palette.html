@@ -9,7 +9,7 @@
 >
   <mat-icon>format_color_reset</mat-icon>
 </button>
-@for (color of colors(); track color.value) {
+@for (color of swatches(); track color.value) {
   <button
     type="button"
     class="color-palette__swatch"
@@ -17,38 +17,41 @@
     [attr.aria-selected]="selected() === color.value"
     [title]="color.name"
     [attr.aria-label]="color.name"
-    [style.--email-swatch]="color.value"
+    [style.--email-swatch]="color.shown"
     (click)="picked.emit(color.value)"
   ></button>
 }
-<!-- The custom colour, where the host offers one: a swatch opening the
-     platform's picker — the picker's input under it, unseen, so the picker
-     opens on the swatch. -->
+<!-- The custom colour, where the host offers one: the last row, in words —
+     "Custom text color…" — opening our own picker in its place (a shade
+     square, a hue slider, the hex). A colour applied there lands as a
+     swatch of its own (the host's custom swatches). -->
 @if (customLabel(); as label) {
-  <span class="color-palette__custom">
+  @if (editing()) {
+    <div
+      custom-color
+      class="color-palette__custom"
+      [label]="label"
+      [value]="value()"
+      (picked)="pickCustom($event)"
+    ></div>
+  } @else {
     <button
       type="button"
-      class="color-palette__swatch color-palette__swatch--custom"
+      class="color-palette__custom color-palette__custom-row"
       role="option"
       [attr.aria-selected]="custom() !== null"
-      [title]="label"
-      [attr.aria-label]="label"
-      [attr.data-filled]="custom() !== null || null"
-      [style.--email-swatch]="custom()"
-      (click)="openPicker(picker)"
+      (click)="editing.set(true)"
     >
-      @if (custom() === null) {
-        <mat-icon>colorize</mat-icon>
-      }
+      <span
+        class="color-palette__custom-swatch"
+        [attr.data-filled]="custom() !== null || null"
+        [style.--email-swatch]="customShown()"
+      >
+        @if (custom() === null) {
+          <mat-icon>colorize</mat-icon>
+        }
+      </span>
+      <span>{{ label }}</span>
     </button>
-    <input
-      #picker
-      type="color"
-      class="color-palette__picker"
-      tabindex="-1"
-      aria-hidden="true"
-      [value]="custom() ?? '#ffffff'"
-      (input)="pickCustom(picker)"
-    />
-  </span>
+  }
 }

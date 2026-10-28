@@ -184,15 +184,11 @@ const doc = parseHTML(rawHtml, schema, { mode: 'email' }); // 'repair' (default)
 const canonical = serializeToHTML(doc, schema);`,
 
   'email-document': `import { emailDocument } from '@h-k-dev/angular-email-editor';
-import { injectPalette } from '@h-k-dev/angular-email-editor/palette';
-
-const palette = injectPalette(); // in an injection context
 
 const document = emailDocument(intent.html, {
   title: subject,
   previewText: 'Your order has shipped',
   lang: 'en',
-  darkMode: palette, // the library's palette by default; false turns dark mode off
 });`,
 
   'render-for-client': `import { RenderingClient, renderForClient } from '@h-k-dev/angular-email-editor';

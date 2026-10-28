@@ -5,6 +5,7 @@ import { parseHTML, serializeToHTML } from './html';
 import { emailDocument } from './email-document';
 import { emailPlainText } from './plain-text';
 import { PageLayout, centeredPageLayout, normalizePageLayout } from './page-layout';
+import { dawnDarkColor } from '@h-k-dev/dawn';
 
 describe('page layout', () => {
   let host: HTMLElement;
@@ -134,7 +135,8 @@ describe('page layout', () => {
     expect(root.dataset['pageLayout']).toBe('centered');
     expect(root.style.getPropertyValue('--aee-page-width')).toBe('600px');
     expect(root.style.getPropertyValue('--aee-page-background')).toBe('#f1f3f4');
-    expect(root.style.getPropertyValue('--aee-page-background-dark')).toBe('#2f3031');
+    // Dark is drawn: the light fill as Dawn draws it.
+    expect(root.style.getPropertyValue('--aee-page-background-dark')).toBe(dawnDarkColor('#f1f3f4'));
     expect(root.style.getPropertyValue('--aee-page-column')).toBe('#ffffff');
     withLayout(null);
     expect(root.classList).not.toContain(PAGE_LAYOUT_CLASS);
@@ -176,10 +178,10 @@ describe('page layout', () => {
     expect(withLayout({ ...LAYOUT, spacing: 0 })).not.toContain('padding: 0px');
   });
 
-  it('paints the body with the page colour in the email document, dark class and all', () => {
+  it('paints the body with the page colour in the email document', () => {
     const html = emailDocument(withLayout(LAYOUT));
     expect(html).toMatch(
-      /<body class="aee-db-f1f3f4" style="[^"]*background-color: #f1f3f4;[^"]*" bgcolor="#f1f3f4">/,
+      /<body style="[^"]*background-color: #f1f3f4;[^"]*" bgcolor="#f1f3f4">/,
     );
     expect(emailDocument(BODY)).toContain('<body style="margin: 0;');
   });

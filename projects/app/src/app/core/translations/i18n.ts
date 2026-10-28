@@ -88,6 +88,14 @@ export class I18n {
     // A palette row — `color-red`, `background-red` — is worded from the
     // colour's name and the side's pattern ("{{name}} text"), so a palette
     // of any length is translated by its names alone.
+    // A custom swatch's row — `color-custom-4a1d4f` — says what it is, the
+    // swatch showing which.
+    const custom = /^(color|background)-custom-[0-9a-f]{6}$/.exec(id);
+    if (custom) {
+      const key = custom[1] === 'color' ? 'customText' : 'customBackground';
+      const title = this.#lookup(`editor.color.${key}`)?.replace(/\s*…$/, '');
+      return title ? { title } : undefined;
+    }
     const colour = /^(color|background)-(.+)$/.exec(id);
     if (colour) {
       const name = this.#lookup(`editor.color.names.${colour[2]}`);

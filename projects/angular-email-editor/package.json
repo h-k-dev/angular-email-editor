@@ -55,6 +55,7 @@
     }
   },
   "dependencies": {
+    "@h-k-dev/dawn": "^1.0.0",
     "tslib": "^2.3.0"
   },
   "exports": {

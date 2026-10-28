@@ -110,6 +110,12 @@
   }
 }
 
+// The menu turned into our colour picker.
+.cell-menu__field {
+  inline-size: 248px;
+  padding: 8px;
+}
+
 .cell-menu__swatch {
   display: inline-flex;
   flex: none;

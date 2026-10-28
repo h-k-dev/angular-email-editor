@@ -2,7 +2,7 @@ import { Node } from 'prosemirror-model';
 import { createEditor } from './editor';
 import { emailExtensions } from './extensions/kits';
 import { layoutBlockInteractive } from './extensions/layout-interaction';
-import { markStackingColumns } from './extensions/nodes/columns';
+import { markStackingColumns } from '@h-k-dev/dawn';
 import { tableKind } from './extensions/nodes/table';
 import { parseHTML, serializeToHTML } from './html';
 import { isMarked, layoutMarker, markedAs, withoutMarkers } from './layout-marker';

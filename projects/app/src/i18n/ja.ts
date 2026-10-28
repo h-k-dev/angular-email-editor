@@ -69,6 +69,7 @@ export default {
     language: '言語',
     compose: '作成',
     theme: { light: 'ライトモードに切り替え', dark: 'ダークモードに切り替え' },
+    paper: { light: 'メールをライトで表示', dark: 'メールをダークで表示' },
   },
   docs: { onThisPage: 'このページの内容', trail: '現在地' },
   components: {
@@ -438,6 +439,12 @@ export default {
         pink: 'ピンク',
         yellow: '黄',
       },
+      customText: 'カスタムの文字色…',
+      customBackground: 'カスタムの背景色…',
+      shade: '色合い',
+      hue: '色相',
+      hex: '16進カラー',
+      apply: '適用',
     },
     link: {
       dialog: 'リンクを編集',

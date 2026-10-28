@@ -88,21 +88,18 @@ HTML is allowed to be.
    gracefully by construction_: colorless by default (uncolored email is
    every inverter's happy path), and every color _we offer_ reads at AA
    on white, on every pale fill, and once inverted. That alone cannot
-   hold on a client that keeps the email's colors on its own dark page
-   (Apple Mail, Outlook.com): AA on white needs a luminance at most 0.18,
-   AA on #1e1e1e at least 0.23 — no single value does both. So since
-   2026-10-17 each palette color carries a **dark variant**, and the sent
-   document (`emailDocument`, never the canonical HTML) says it is drawn
-   for both schemes and gives the palette's colors their variants —
-   `prefers-color-scheme` for Apple, `[data-ogsc]`/`[data-ogsb]` for
-   Outlook.com, in a `<style>` of its own that a stripping client loses
-   alone (dark-mode.ts). No anti-inversion hacks. Body text is AAA (7:1)
-   in both modes, colors AA (4.5:1). The editor's dark paper is that
-   rendering — Apple Mail's — not a filter. Enforcement lives at the
-   affordance: the color picker is a curated palette, not an arbitrary hex
-   input. The source pane stays free — a hand-typed hex is the author's
-   own responsibility; we never rewrite, block, or police colors from the
-   code side, and a fill holding one stays light.
+   hold on a client that keeps the email's colors on its own dark page.
+   Since 2026-10-28 **dark mode is rendering, never declaring**: an author
+   applies the light colour, always, and the sent document declares no
+   dark (no `color-scheme`, no dark rules) — each client draws it dark as
+   it draws any email. What anyone sees in dark in the app (the editor's
+   paper, a swatch, the reader, a thumbnail) is one engine's drawing:
+   Dawn (`renderDawn`, `createDarkRendering`, `dawnDarkColor`), a WebKit
+   client's invert-lightness. No anti-inversion hacks. Enforcement lives at
+   the affordance: the color picker is a curated palette first, a custom
+   colour by choice. The source pane stays free — a hand-typed hex is the
+   author's own responsibility; we never rewrite, block, or police colors
+   from the code side.
 
 ## UI/UX & platform stance
 

@@ -56,7 +56,6 @@ import { TEMPLATE_SOURCE, templateGroup } from './template-group';
 import type { TemplateEnvelope } from '../../../../../core/email/templates';
 import { SNIPPET_SOURCE, snippetGroup } from './snippet-group';
 import { SNIPPET_ITEMS } from './formatting-items';
-import { injectDarkPaletteStyle } from './dark-palette-style';
 
 // Library
 import {
@@ -73,6 +72,8 @@ import {
   createColumnHandles,
   createSectionHandles,
   createBubbleMenu,
+  createDarkRendering,
+  dawnDarkColor,
   createButtonEdit,
   createContentProposal,
   createContentStream,
@@ -106,7 +107,11 @@ import {
   SuggestionMenuItem,
   SuggestionMenuSection,
 } from '@h-k-dev/angular-email-editor/suggestion-menu';
-import { colorSuggestions, injectPalette } from '@h-k-dev/angular-email-editor/palette';
+import {
+  EMAIL_CUSTOM_SWATCHES,
+  colorSuggestions,
+  injectPalette,
+} from '@h-k-dev/angular-email-editor/palette';
 import { emailDefaultFont } from '@h-k-dev/angular-email-editor/fonts';
 import { TextMetrics, createTextMetrics } from '@h-k-dev/angular-email-editor/metrics';
 import { TranslatePipe } from '@ngx-translate/core';
@@ -120,6 +125,10 @@ export type SourceView = 'hidden' | 'code' | 'detached';
 /** How the editing surface draws the message: on pure white, as it is sent,
     or the way a dark-mode client shows that same message (`colorScheme`). */
 export type EditorColorScheme = 'light' | 'dark';
+
+/** The editor root while its paper is dark (`colorScheme`) — where Dawn
+    draws it dark. */
+const DARK_PAPER = ".email-compose__editor[data-color-scheme='dark'] > .aee-editor";
 
 /** What a message is written as: HTML (the email kit, formatting and all),
     or plain text — lines, sent as `text/plain` only (`plainTextExtensions`). */
@@ -205,6 +214,8 @@ export class EmailCompose implements FormValueControl<string> {
   /** The palette in use — the pickers' swatches, and the slash menu's colour
       rows (`EMAIL_PALETTE`; the library's unless the app provides one). */
   readonly #palette = injectPalette();
+  /** The user's custom swatches — offered as `/` colour rows too. */
+  readonly #customSwatches = inject(EMAIL_CUSTOM_SWATCHES);
   /** The variable catalogue: the `{{` menu's rows as the surface provides
       them (`MERGE_TAG_SOURCE`), and the values Parse fills in. */
   readonly #mergeTagSource = inject(MERGE_TAG_SOURCE);
@@ -343,8 +354,9 @@ export class EmailCompose implements FormValueControl<string> {
       its own to follow. `light` is the message on pure white, as it is
       written; `dark` is the message as Apple Mail shows it in dark mode —
       its surface and text, and the palette's colours in their dark
-      variants, the ones `emailDocument` sends (see `[data-color-scheme]`
-      in styles.scss, and `injectDarkPaletteStyle`). Light unless the host
+      as Dawn draws them (`createDarkRendering`: the engine of the
+      reading pane and the thumbnails; see `[data-color-scheme]` in
+      styles.scss). Light unless the host
       switches it; two-way, for a host whose switch lives outside. */
   colorScheme = model<EditorColorScheme>('light');
 
@@ -513,8 +525,6 @@ export class EmailCompose implements FormValueControl<string> {
   }
 
   constructor() {
-    injectDarkPaletteStyle(".email-compose__editor[data-color-scheme='dark'] > .aee-editor");
-
     // A view that owns the scroll keeps the floating foot's room clear at
     // its end — told once the foot exists (a render in), for as long as
     // this composer lives.
@@ -629,9 +639,13 @@ export class EmailCompose implements FormValueControl<string> {
       ...emailExtensions.filter((extension) => extension.name !== 'quotedHistory'),
       this.#quotedHistory(),
       createPlaceholder({ text: this.placeholder() }),
+      // The dark paper, drawn by Dawn — as the reading pane draws the mail.
+      createDarkRendering({ scope: DARK_PAPER }),
       createBubbleMenu({
         updateDelay: 150,
         onStateChange: (state) => this.bubbleMenuState.set(state),
+        // Its colour pane is its own: typing a hex there keeps it open.
+        holdsFocus: '[color-picker]',
       }),
       // Notion's marquee: a drag from the paper's margin, or the room
       // between and below the blocks, selects the blocks it touches. It
@@ -710,6 +724,8 @@ export class EmailCompose implements FormValueControl<string> {
       ...plainTextExtensions.filter((extension) => extension.name !== 'quotedHistory'),
       this.#quotedHistory(),
       createPlaceholder({ text: this.placeholder() }),
+      // The dark paper, drawn by Dawn — as the reading pane draws the mail.
+      createDarkRendering({ scope: DARK_PAPER }),
       createTextMetrics({ onMetrics: (metrics) => this.bodyMetrics.set(metrics) }),
       this.#sendIntent(),
     ];
@@ -724,9 +740,13 @@ export class EmailCompose implements FormValueControl<string> {
     return [
       ...snippetExtensions,
       createPlaceholder({ text: this.placeholder() }),
+      // The dark paper, drawn by Dawn — as the reading pane draws the mail.
+      createDarkRendering({ scope: DARK_PAPER }),
       createBubbleMenu({
         updateDelay: 150,
         onStateChange: (state) => this.bubbleMenuState.set(state),
+        // Its colour pane is its own: typing a hex there keeps it open.
+        holdsFocus: '[color-picker]',
       }),
       // Its `/` rows, less the layout section: a list made for a message's
       // layout (flush, no room round it) is no snippet's.
@@ -734,6 +754,15 @@ export class EmailCompose implements FormValueControl<string> {
       createAngularExpressions({ onDiagnostics: (d) => this.expressionDiagnostics.set(d) }),
       createTextMetrics({ onMetrics: (metrics) => this.bodyMetrics.set(metrics) }),
     ];
+  }
+
+  /** The `/` menu's colour rows — the palette's, then the user's custom
+      swatches — each swatch as it looks on the paper: drawn by Dawn on a
+      dark one. A pick still applies the colour as written, the light one. */
+  #colorRows(ctx: ExtensionContext): SuggestionItem[] {
+    const rows = colorSuggestions(ctx, this.#palette, this.#customSwatches());
+    if (this.colorScheme() !== 'dark') return rows;
+    return rows.map((row) => (row.swatch ? { ...row, swatch: dawnDarkColor(row.swatch) } : row));
   }
 
   /**
@@ -765,7 +794,7 @@ export class EmailCompose implements FormValueControl<string> {
             bySection(
               [
                 ...extensionSuggestions(ctx),
-                ...colorSuggestions(ctx, this.#palette),
+                ...this.#colorRows(ctx),
                 ...groups,
               ].filter(keep),
               SLASH_SECTIONS,

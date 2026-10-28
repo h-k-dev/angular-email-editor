@@ -25,8 +25,8 @@ import { PAGE_WIDTH, PageLayout, tablePageLayout } from './page-layout';
  * - every other row — a `full` band of its fill and its room above and
  *   below, its side room the band's inset, its words as they stood.
  *
- * The same pixels in a light reader; in a dark one our fills take their
- * dark variants, as every band and strip of ours does. The author decides
+ * The same pixels in a light reader; in a dark one they are drawn dark as
+ * any colour is (Dawn). The author decides
  * ({@link convertAuthoredPage}); nothing here runs on its own.
  */
 

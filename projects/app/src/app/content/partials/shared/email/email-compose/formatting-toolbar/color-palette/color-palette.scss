@@ -50,36 +50,55 @@
   }
 }
 
-// The custom swatch: the auto swatch's look with a picker's icon, until it
-// wears the colour in effect. Its input lies under it, the size of a pixel —
-// there to anchor the platform's picker, never seen or tabbed to.
+// The custom colour: the grid's last row, in words, the picker's icon in a
+// swatch's place until it wears the colour in effect; opened, our picker
+// (CustomColor) takes the row's place, across the grid.
 .color-palette__custom {
-  position: relative;
-  display: flex;
+  grid-column: 1 / -1;
 }
 
-.color-palette__swatch--custom:not([data-filled]) {
+.color-palette__custom-row {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
+  min-block-size: 32px;
+  padding: 2px 8px 2px 2px;
+  border: none;
+  border-radius: var(--mat-sys-corner-small, 4px);
   background: none;
-  color: var(--mat-sys-on-surface-variant);
+  color: var(--mat-sys-on-surface, inherit);
+  font: var(--mat-sys-body-medium);
+  cursor: pointer;
 
-  mat-icon {
-    font-size: 20px;
-    width: 20px;
-    height: 20px;
+  &:hover,
+  &:focus-visible {
+    background-color: oklch(from var(--mat-sys-on-surface, #1b1b1f) l c h / 0.08);
   }
 }
 
-.color-palette__picker {
-  position: absolute;
-  inset-block-end: 0;
-  inset-inline-start: 0;
-  inline-size: 1px;
-  block-size: 1px;
-  padding: 0;
-  border: 0;
-  opacity: 0;
-  pointer-events: none;
+.color-palette__custom-swatch {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  inline-size: 28px;
+  block-size: 28px;
+  border: 2px solid
+    var(
+      --email-compose-palette-swatch-outline,
+      oklch(from var(--mat-sys-on-surface, #1b1b1f) l c h / 0.16)
+    );
+  border-radius: 50%;
+  color: var(--mat-sys-on-surface-variant);
+
+  &[data-filled] {
+    background-color: var(--email-swatch);
+  }
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
 }

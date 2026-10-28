@@ -1,0 +1,138 @@
+// Token cascade: --email-* → --mat-sys-* → fallback (see ROADMAP, UI/UX
+// stance).
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-sizing: border-box;
+  inline-size: 100%;
+  min-inline-size: 216px;
+  padding: 4px;
+}
+
+.custom-color__shade {
+  position: relative;
+  block-size: 136px;
+  border-radius: var(--mat-sys-corner-small, 4px);
+  background:
+    linear-gradient(to top, #000000, transparent),
+    linear-gradient(to right, #ffffff, hsl(calc(var(--custom-color-hue) * 1deg) 100% 50%));
+  cursor: crosshair;
+  touch-action: none;
+  outline: none;
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary, #0056b3);
+    outline-offset: 2px;
+  }
+}
+
+// The thumb: a ring wearing the colour, white with a dark edge so it shows
+// on any shade.
+.custom-color__thumb {
+  position: absolute;
+  inline-size: 16px;
+  block-size: 16px;
+  box-sizing: border-box;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.4);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.custom-color__hue {
+  appearance: none;
+  inline-size: 100%;
+  block-size: 12px;
+  margin: 0;
+  border-radius: 6px;
+  background: linear-gradient(
+    to right,
+    #ff0000,
+    #ffff00,
+    #00ff00,
+    #00ffff,
+    #0000ff,
+    #ff00ff,
+    #ff0000
+  );
+  cursor: pointer;
+
+  &::-webkit-slider-thumb {
+    appearance: none;
+    inline-size: 16px;
+    block-size: 16px;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    background-color: hsl(calc(var(--custom-color-hue) * 1deg) 100% 50%);
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 0.4);
+  }
+
+  &::-moz-range-thumb {
+    inline-size: 12px;
+    block-size: 12px;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    background-color: hsl(calc(var(--custom-color-hue) * 1deg) 100% 50%);
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 0.4);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary, #0056b3);
+    outline-offset: 2px;
+  }
+}
+
+.custom-color__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.custom-color__swatch {
+  flex: none;
+  inline-size: 28px;
+  block-size: 28px;
+  box-sizing: border-box;
+  border: 2px solid oklch(from var(--mat-sys-on-surface, #1b1b1f) l c h / 0.16);
+  border-radius: 50%;
+}
+
+// The field: `#` and six digits, on the overlay's brighter surface.
+.custom-color__field {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-inline-size: 0;
+  padding-inline-start: 8px;
+  border-radius: var(--mat-sys-corner-small, 4px);
+  background-color: var(--mat-sys-surface-bright, #ffffff);
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+
+  &:focus-within {
+    outline: 2px solid var(--mat-sys-primary, #0056b3);
+  }
+
+  &:has([aria-invalid='true']) {
+    outline: 2px solid var(--mat-sys-error, #b3261e);
+  }
+}
+
+.custom-color__input {
+  inline-size: 100%;
+  min-inline-size: 0;
+  padding: 6px 8px 6px 2px;
+  border: none;
+  outline: none;
+  background: none;
+  color: var(--mat-sys-on-surface, inherit);
+  font: var(--mat-sys-body-medium);
+  font-variant-numeric: tabular-nums;
+}
+
+.custom-color__apply {
+  flex: none;
+}

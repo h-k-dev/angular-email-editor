@@ -11,6 +11,7 @@
  * the canonical document — the formatter prints exactly these lines and the
  * next parse normalizes them straight back.
  */
+import { hasDocumentEnvelope } from '@h-k-dev/dawn';
 import { REFUSED_TAGS, VOID_TAGS } from './html-tags';
 import {
   AttributePairs,
@@ -31,10 +32,8 @@ export interface DocumentEnvelope {
 }
 
 /** Whether HTML carries a document envelope rather than being a bare body
-    fragment — a doctype or an explicit `html`/`head`/`body` tag. */
-export function hasDocumentEnvelope(html: string): boolean {
-  return /<(?:!doctype|html|head|body)(?=[\s>/])/i.test(html);
-}
+    fragment — Dawn's (envelope.ts there), which draws either. */
+export { hasDocumentEnvelope };
 
 /** Parses HTML into a throwaway document. A bare fragment is parsed inside
     an explicit `<body>`: otherwise the HTML parser files a leading comment

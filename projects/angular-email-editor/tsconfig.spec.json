@@ -4,8 +4,10 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "../../out-tsc/spec",
+    "rootDir": "..",
     "types": ["vitest/globals"],
     "paths": {
+      "@h-k-dev/dawn": ["../dawn/src/public-api.ts"],
       "@h-k-dev/angular-email-editor": ["./src/public-api.ts"],
       "@h-k-dev/angular-email-editor/*": ["./*/public-api.ts"]
     }

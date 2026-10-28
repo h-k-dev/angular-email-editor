@@ -39,10 +39,16 @@ import {
   PAGE_SPACING_MAX,
   PAGE_WIDTH_MAX,
   PAGE_WIDTH_MIN,
-  emailBackgroundPalette,
 } from '@h-k-dev/angular-email-editor';
 import { atRest, pageLayoutModel } from '@h-k-dev/angular-email-editor/actions';
 import { FieldKeys } from '@h-k-dev/angular-email-editor/keyboard';
+import {
+  EMAIL_CUSTOM_SWATCHES,
+  injectPalette,
+  injectSwatches,
+  isPaletteColor,
+  rememberSwatch,
+} from '@h-k-dev/angular-email-editor/palette';
 import { AttachmentChip, AttachmentChipIcon } from '@h-k-dev/angular-email-editor/attachment-chip';
 import { AttachmentChips } from '@h-k-dev/angular-email-editor/attachment-chips';
 import { TranslatePipe } from '@ngx-translate/core';
@@ -52,6 +58,7 @@ import { DIALECT_NAMES, EmailTemplate, Templates } from '../../../../../core/ema
 import { Preferences } from '../../../../../core/storages/preferences';
 import { Badge } from '../../../common/badge/badge';
 import { PageHeader } from '../../../common/page-header/page-header';
+import { PaperToggle } from '../../../common/paper-toggle/paper-toggle';
 import { PhoneFrame } from '../../../common/phone-frame/phone-frame';
 import { MailView } from '../../../shared/email/mail-view/mail-view';
 import { ScrollOwner } from '../../../../../core/directives/scroll-owner/scroll-owner';
@@ -141,6 +148,7 @@ function sameMessage(a: Envelope, b: Envelope): boolean {
     MatIcon,
     MatProgressSpinner,
     MatTooltip,
+    PaperToggle,
     AngularFileDrop,
     AttachmentChips,
     AttachmentChip,
@@ -291,7 +299,11 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
       for (const field of [page.width, page.spacing, page.rowPadding]) debounce(field, 'blur');
     },
   );
-  protected readonly backgroundPalette = emailBackgroundPalette;
+  /** The page's fills: the palette's, then the user's custom swatches. */
+  readonly #swatches = injectSwatches();
+  protected readonly backgroundPalette = computed(() => this.#swatches().background);
+  readonly #palette = injectPalette();
+  readonly #customSwatches = inject(EMAIL_CUSTOM_SWATCHES);
 
   /** The phone's email: the body as typing settles — a frame redrawn on
       every key would flicker. */
@@ -438,10 +450,18 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
   /** A colour picked for the page, or for its column. */
   protected setPageColor(background: string | null): void {
     this.pageLayout.background().value.set(background);
+    if (background) this.#noteCustom(background);
   }
 
   protected setColumnColor(columnBackground: string | null): void {
     this.pageLayout.columnBackground().value.set(columnBackground);
+    if (columnBackground) this.#noteCustom(columnBackground);
+  }
+
+  /** A page colour none of the palette's: the user keeps it as a swatch. */
+  #noteCustom(color: string): void {
+    if (isPaletteColor(this.#palette, color, 'background')) return;
+    rememberSwatch(this.#customSwatches, color, 'background');
   }
 
   /** Closes the designer — the close button's, unsaved changes and all:

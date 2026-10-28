@@ -75,18 +75,13 @@ describe('renderForClient', () => {
     );
   });
 
-  it('draws a fragment as it is sent: Apple’s dark mode reads the variants, Gmail never', () => {
+  it('draws a fragment as it is sent: its light colours, no dark of its own', () => {
     const red = '<p><span style="color: #c5221f">x</span></p>';
     const appleDark = renderForClient(red, 'apple-mail', { dark: true });
-    expect(appleDark).toContain('class="aee-dt-c5221f"');
-    expect(appleDark).toContain('@media (min-width: 0px) {.aee-dt-c5221f');
+    expect(appleDark).toContain('<span style="color: #c5221f">');
+    expect(appleDark).not.toMatch(/aee-d[btl]-|color-scheme: light dark/);
     // No client drawn here sets Outlook.com’s marker.
     expect(appleDark).not.toContain('data-ogsc');
-    expect(renderForClient(red, 'apple-mail')).toContain('@media (max-width: -1px)');
-    expect(renderForClient(red, 'gmail', { dark: true })).toContain('@media (max-width: -1px)');
-    expect(renderForClient(red, 'apple-mail', { dark: true, darkMode: false })).not.toContain(
-      'aee-dt-',
-    );
   });
 
   it('draws a fragment’s body as it is sent: stacking columns marked under the phone rule, images fitted', () => {

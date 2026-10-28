@@ -19,10 +19,10 @@ import {
   RENDERING_CLIENTS,
   RenderingClient,
   emailPlainText,
+  renderDawn,
   renderForClient,
 } from '@h-k-dev/angular-email-editor';
 import { atRest } from '@h-k-dev/angular-email-editor/actions';
-import { injectPalette } from '@h-k-dev/angular-email-editor/palette';
 
 
 /** Approximates a mail client's rendering surface: default typography on
@@ -166,8 +166,6 @@ export class EmailPreview {
   }
 
   readonly #destroy = inject(DestroyRef);
-  /** The palette whose dark variants the email is sent with. */
-  readonly #palette = injectPalette();
 
   /** The HTML the frame draws for its client — the editor's, or the
       original — inside a fully sandboxed frame (no scripts, no
@@ -176,12 +174,14 @@ export class EmailPreview {
     const original = this.original();
     const html =
       this.source() === 'original' && original ? original : this.#images.previewHtml(this.#shown());
+    // The Apple client is Dawn: the email declares no dark, so that client
+    // draws it dark as Dawn does (`renderDawn`) — as the editor's dark
+    // paper shows it.
+    const dark = this.mode() === 'dark';
     return this.#sanitizer.bypassSecurityTrustHtml(
-      renderForClient(html, this.client(), {
-        dark: this.mode() === 'dark',
-        pane: this.device(),
-        darkMode: this.#palette,
-      }),
+      this.client() === 'apple-mail'
+        ? renderDawn(html, { scheme: dark ? 'dark' : 'light', pane: this.device() })
+        : renderForClient(html, this.client(), { dark, pane: this.device() }),
     );
   });
 

@@ -8,6 +8,7 @@ import {
   effect,
   inject,
   input,
+  linkedSignal,
   output,
   untracked,
   viewChild,
@@ -38,11 +39,16 @@ import {
 } from '@h-k-dev/angular-email-editor';
 import { columnSpacingModel } from '@h-k-dev/angular-email-editor/actions';
 import { FieldKeys } from '@h-k-dev/angular-email-editor/keyboard';
-import { injectPalette } from '@h-k-dev/angular-email-editor/palette';
+import { injectSwatches } from '@h-k-dev/angular-email-editor/palette';
+
+// ngx-translate
+import { TranslatePipe } from '@ngx-translate/core';
 import { TextSelection } from 'prosemirror-state';
 
 import { FormattingCommands } from '../formatting-commands';
+import { CustomColor } from '../custom-color/custom-color';
 import { Popover } from '../popover/popover';
+import { injectSwatchPaint } from '../../swatch-paint';
 import { MenuSafeTriangle } from '../../../../../../core/utils/cascade-menu/safe-triangle';
 import { SubmenuPlacement } from '../../../../../../core/utils/cascade-menu/submenu-placement';
 import { FloatingScrollbar } from '../../../../common/floating-scrollbar/floating-scrollbar';
@@ -75,8 +81,13 @@ type CellAction = string;
 @Component({
   selector: 'div[cell-menu]',
   imports: [
+    CustomColor,
+
     // Material
     MatIconModule,
+
+    // ngx-translate
+    TranslatePipe,
 
     // Signal Forms
     FormField,
@@ -103,8 +114,11 @@ export class CellMenu {
       outside. The composer clears the target it passed in. */
   readonly closed = output<void>();
 
-  /** The palette in use — text colours and fills, as the colour list's rows. */
-  protected readonly palette = injectPalette();
+  /** The colours offered — the palette's, then the user's custom swatches —
+      text colours and fills, as the colour list's rows. */
+  readonly #swatches = injectSwatches();
+  /** Each swatch as it looks on the paper — drawn by Dawn on a dark one. */
+  readonly #paint = injectSwatchPaint();
 
   protected readonly open = computed(() => {
     const kind = this.target()?.kind;
@@ -137,16 +151,20 @@ export class CellMenu {
       it is the current one. */
   protected readonly texts = computed(() => {
     const current = this.current().text;
-    return this.palette.text.map((color) => ({
+    const paint = this.#paint();
+    return this.#swatches().text.map((color) => ({
       ...color,
+      shown: paint(color.value),
       checked: color.value.toLowerCase() === current,
     }));
   });
 
   protected readonly fills = computed(() => {
     const current = this.current().fill;
-    return this.palette.background.map((color) => ({
+    const paint = this.#paint();
+    return this.#swatches().background.map((color) => ({
       ...color,
+      shown: paint(color.value),
       checked: color.value.toLowerCase() === current,
     }));
   });
@@ -166,6 +184,17 @@ export class CellMenu {
   });
 
   protected readonly spacingStep = COLUMN_SPACING_STEP;
+
+  /** The panel shows our colour picker instead of the menu — for the text
+      or the fill, a custom row picked; back to the menu whenever another
+      grip opens it. */
+  protected readonly customField = linkedSignal<
+    TableHandleTarget | ColumnHandleTarget | null,
+    'text' | 'fill' | null
+  >({
+    source: () => this.target(),
+    computation: () => null,
+  });
 
   /** The root menu's element, to put the focus in once it is on screen. */
   readonly element = viewChild<ElementRef<HTMLElement>>('menu');
@@ -197,12 +226,17 @@ export class CellMenu {
     // popover has rendered the menu.
     const injector = inject(Injector);
     effect(() => {
+      const picker = this.customField();
       const menu = this.open() ? this.element()?.nativeElement : undefined;
       if (!menu) return;
       untracked(() =>
         afterNextRender(
           {
             write: () => {
+              if (picker) {
+                menu.querySelector<HTMLElement>('[data-slot="shade"]')?.focus();
+                return;
+              }
               const row = menu.querySelector<HTMLElement>('[tabindex="0"], [ngMenuItem]');
               (row ?? menu).focus();
             },
@@ -218,9 +252,15 @@ export class CellMenu {
     switch (kind) {
       case 'text':
         this.colorText(value || null);
+        if (value) this.#commands.noteCustomColor(value, 'text');
         break;
       case 'fill':
-        this.#run(this.column() ? 'setColumnBackground' : 'setCellBackground', value || null);
+        this.#fill(value || null);
+        break;
+      case 'custom':
+        // Our picker, in the menu's place: what is applied there comes
+        // back through `customPicked`.
+        this.customField.set(value === 'text' ? 'text' : 'fill');
         break;
       case 'align':
         if (this.column()) this.alignColumn(value);
@@ -235,6 +275,24 @@ export class CellMenu {
       default:
         return; // a list's row: opening it is Aria's
     }
+  }
+
+  /** A custom colour, once Apply takes it. */
+  protected customPicked(role: 'text' | 'fill', value: string): void {
+    const color = value.toLowerCase();
+    if (role === 'text') {
+      this.colorText(color);
+      this.#commands.noteCustomColor(color, 'text');
+    } else this.#fill(color);
+  }
+
+  /** The cell's fill — or the column's — and, for a colour none of the
+      palette's, the email's and the user's memory of it. */
+  #fill(color: string | null): void {
+    const editor = this.#commands.editor();
+    editor?.commands[this.column() ? 'setColumnBackground' : 'setCellBackground'](color);
+    if (color) this.#commands.noteCustomColor(color, 'background');
+    this.#done();
   }
 
   /** Escape: the menu closes and the caret goes back to the text. */

@@ -21,6 +21,9 @@ import { FormField, debounce, disabled, form, max, min } from '@angular/forms/si
 // Material
 import { MatIconModule } from '@angular/material/icon';
 
+// ngx-translate
+import { TranslatePipe } from '@ngx-translate/core';
+
 // Angular Aria
 import { Menu, MenuItem } from '@angular/aria/menu';
 
@@ -50,10 +53,12 @@ import {
   sectionWidthModel,
 } from '@h-k-dev/angular-email-editor/actions';
 import { FieldKeys } from '@h-k-dev/angular-email-editor/keyboard';
-import { injectPalette } from '@h-k-dev/angular-email-editor/palette';
+import { injectSwatches } from '@h-k-dev/angular-email-editor/palette';
 
 import { FormattingCommands } from '../formatting-commands';
+import { CustomColor } from '../custom-color/custom-color';
 import { Popover } from '../popover/popover';
+import { injectSwatchPaint } from '../../swatch-paint';
 import { MenuSafeTriangle } from '../../../../../../core/utils/cascade-menu/safe-triangle';
 import { SubmenuPlacement } from '../../../../../../core/utils/cascade-menu/submenu-placement';
 import { FloatingScrollbar } from '../../../../common/floating-scrollbar/floating-scrollbar';
@@ -95,8 +100,13 @@ type SectionAction = string;
 @Component({
   selector: 'div[section-menu]',
   imports: [
+    CustomColor,
+
     // Material
     MatIconModule,
+
+    // ngx-translate
+    TranslatePipe,
 
     // Signal Forms
     FormField,
@@ -124,8 +134,11 @@ export class SectionMenu {
       outside. The composer clears the target it passed in. */
   readonly closed = output<void>();
 
-  /** The palette in use — its fills, as the colour list's rows. */
-  protected readonly palette = injectPalette();
+  /** The fills offered — the palette's, then the user's custom swatches —
+      as the colour list's rows. */
+  readonly #swatches = injectSwatches();
+  /** Each swatch as it looks on the paper — drawn by Dawn on a dark one. */
+  readonly #paint = injectSwatchPaint();
 
   protected readonly open = computed(() => !!this.target());
 
@@ -194,8 +207,10 @@ export class SectionMenu {
   /** The colour list's rows: each fill, and whether it is the band's. */
   protected readonly fills = computed(() => {
     const current = this.currentFill();
-    return this.palette.background.map((color) => ({
+    const paint = this.#paint();
+    return this.#swatches().background.map((color) => ({
       ...color,
+      shown: paint(color.value),
       checked: color.value.toLowerCase() === current,
     }));
   });
@@ -203,6 +218,13 @@ export class SectionMenu {
   /** The panel shows the image field instead of the menu — Background
       image picked; back to the menu whenever another grip opens it. */
   protected readonly imageField = linkedSignal<SectionHandleTarget | null, boolean>({
+    source: () => this.target(),
+    computation: () => false,
+  });
+
+  /** The panel shows our colour picker instead of the menu — the custom
+      background row picked; back to the menu as the image field does. */
+  protected readonly customField = linkedSignal<SectionHandleTarget | null, boolean>({
     source: () => this.target(),
     computation: () => false,
   });
@@ -288,6 +310,7 @@ export class SectionMenu {
     const injector = inject(Injector);
     effect(() => {
       const field = this.imageField();
+      const picker = this.customField();
       const menu = this.open() ? this.element()?.nativeElement : undefined;
       if (!menu) return;
       untracked(() =>
@@ -296,6 +319,10 @@ export class SectionMenu {
             write: () => {
               if (field) {
                 menu.querySelector<HTMLInputElement>('input')?.select();
+                return;
+              }
+              if (picker) {
+                menu.querySelector<HTMLElement>('[data-slot="shade"]')?.focus();
                 return;
               }
               const row = menu.querySelector<HTMLElement>('[tabindex="0"], [ngMenuItem]');
@@ -312,11 +339,12 @@ export class SectionMenu {
     const [kind, value = ''] = action.split(':') as [string, string?];
     switch (kind) {
       case 'fill':
-        if (this.spacer()) this.#run('setSpacerBackground', value || null);
-        else {
-          this.#fill.set(value || null);
-          this.#done();
-        }
+        this.#applyFill(value || null);
+        break;
+      case 'custom':
+        // Our picker, in the menu's place: a colour applied there comes
+        // back through `customPicked`.
+        this.customField.set(true);
         break;
       case 'image':
         this.imageValue.set(this.#sectionImage() ?? '');
@@ -344,6 +372,20 @@ export class SectionMenu {
       default:
         return; // a list's row: opening it is Aria's
     }
+  }
+
+  /** A custom background, once Apply takes it. */
+  protected customPicked(value: string): void {
+    this.#applyFill(value.toLowerCase());
+  }
+
+  /** The band's fill — or the selected spacer's — and, for a colour none
+      of the palette's, the email's and the user's memory of it. */
+  #applyFill(color: string | null): void {
+    if (this.spacer()) this.#commands.editor()?.commands['setSpacerBackground'](color);
+    else this.#fill.set(color);
+    if (color) this.#commands.noteCustomColor(color, 'background');
+    this.#done();
   }
 
   /** Whether the band under the caret has an image — the field's "remove

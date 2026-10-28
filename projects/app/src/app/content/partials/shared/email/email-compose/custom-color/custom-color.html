@@ -1,0 +1,56 @@
+<!-- The shade square: white to the hue across, to black down — one slider
+     in two directions, the arrows moving it. -->
+<div
+  class="custom-color__shade"
+  data-slot="shade"
+  role="slider"
+  tabindex="0"
+  [attr.aria-label]="'editor.color.shade' | translate"
+  [attr.aria-valuetext]="shade()"
+  (pointerdown)="press($event)"
+  (pointermove)="drag($event)"
+  (keydown)="shadeKey($event)"
+>
+  <span
+    class="custom-color__thumb"
+    data-slot="thumb"
+    [style.left.%]="thumb().x"
+    [style.top.%]="thumb().y"
+    [style.background-color]="hex()"
+  ></span>
+</div>
+<input
+  class="custom-color__hue"
+  data-slot="hue"
+  type="range"
+  min="0"
+  max="360"
+  step="1"
+  [attr.aria-label]="'editor.color.hue' | translate"
+  [value]="hsv().h"
+  (input)="setHue($any($event.target).valueAsNumber)"
+/>
+<!-- The colour, and its hex: typed or pasted, with or without the `#`;
+     Apply (or Enter) takes it. A hex reads left to right in every
+     language. -->
+<form class="custom-color__row" [formRoot]="hexForm" novalidate>
+  <span class="custom-color__swatch" data-slot="swatch" [style.background-color]="hex()"></span>
+  <label class="custom-color__field" data-slot="field">
+    <span aria-hidden="true">#</span>
+    <input
+      class="custom-color__input"
+      type="text"
+      dir="ltr"
+      spellcheck="false"
+      autocomplete="off"
+      [formField]="hexForm.hex"
+      [attr.aria-label]="'editor.color.hex' | translate"
+      [attr.aria-invalid]="refused() ? true : null"
+      (input)="follow($any($event.target).value)"
+      (keydown.enter)="onEnter($event)"
+    />
+  </label>
+  <button matButton="filled" type="submit" class="custom-color__apply">
+    {{ 'editor.color.apply' | translate }}
+  </button>
+</form>

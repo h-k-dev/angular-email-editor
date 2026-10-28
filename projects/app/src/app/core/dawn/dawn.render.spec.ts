@@ -1,5 +1,7 @@
 import { PAPER, messageHtml, dawnDocument, laysItselfOut } from './dawn.render';
-import { DAWN_DARK_SURFACE, dawnDarkColor } from './dawn-dark.render';
+import { DAWN_SURFACE, dawnDarkColor } from '@h-k-dev/angular-email-editor';
+
+const DAWN_DARK_SURFACE = DAWN_SURFACE.dark;
 
 describe('dawnDocument', () => {
   // The palette's black, written by hand: a received fragment, as it came.

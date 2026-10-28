@@ -1,5 +1,4 @@
 import {
-  DARK_MODE_SURFACES,
   DUAL_CONTRAST_DARK,
   DUAL_CONTRAST_LIGHT,
   FILL_TEXT_COLOR,
@@ -111,17 +110,17 @@ function inverted(hex: string): string {
   );
 }
 
-describe('dark-mode variants', () => {
-  const paleFills = emailBackgroundPalette.filter(({ dark }) => dark);
-  const darkFills = paleFills.map(({ dark }) => dark!);
+describe('the palettes, light and inverted', () => {
+  // Dark is drawn by Dawn, never chosen: the palettes are held to the light
+  // page and to Gmail's inversion only.
+  const paleFills = emailBackgroundPalette.filter(({ name }) => name !== 'Black');
   const coloured = emailTextPalette.filter(({ exception }) => !exception);
   const black = emailTextPalette.find(({ name }) => name === 'Black')!;
 
-  it('every colour but white has a variant, and every fill but black', () => {
-    expect(emailTextPalette.filter(({ dark }) => !dark).map(({ name }) => name)).toEqual(['White']);
-    expect(emailBackgroundPalette.filter(({ dark }) => !dark).map(({ name }) => name)).toEqual([
-      'Black',
-    ]);
+  it('carry no dark values of their own', () => {
+    for (const color of [...emailTextPalette, ...emailBackgroundPalette]) {
+      expect(Object.keys(color), color.name).not.toContain('dark');
+    }
   });
 
   it('every colour reads at AA on white and on every pale fill', () => {
@@ -144,36 +143,17 @@ describe('dark-mode variants', () => {
     }
   });
 
-  it('every variant reads at AA on each dark page and on every dark fill', () => {
-    for (const color of coloured) {
-      for (const surface of [...DARK_MODE_SURFACES, ...darkFills]) {
-        expect(
-          contrastRatio(color.dark!, surface),
-          `${color.name} variant on ${surface}`,
-        ).toBeGreaterThanOrEqual(4.5);
-      }
-    }
-  });
-
-  it('black is the body text: AAA on every light surface and, as its variant, on every dark one', () => {
+  it('black is the body text: AAA on every light surface, and inverted', () => {
     for (const fill of paleFills) {
       expect(contrastRatio(black.value, fill.value), fill.name).toBeGreaterThanOrEqual(7);
-    }
-    for (const surface of [...DARK_MODE_SURFACES, ...darkFills]) {
-      expect(contrastRatio(black.dark!, surface), surface).toBeGreaterThanOrEqual(7);
     }
     expect(contrastRatio(inverted(black.value), inverted('#ffffff'))).toBeGreaterThanOrEqual(7);
   });
 
-  it('every fill carries its paired text at AAA in both modes', () => {
+  it('every fill carries its paired text at AAA', () => {
     for (const fill of emailBackgroundPalette) {
       const text = fillTextColor(fill.value);
-      expect(contrastRatio(fill.value, text), `${fill.name} light`).toBeGreaterThanOrEqual(7);
-      const textDark = emailTextPalette.find(({ value }) => value === text)?.dark ?? text;
-      expect(
-        contrastRatio(fill.dark ?? fill.value, textDark),
-        `${fill.name} dark`,
-      ).toBeGreaterThanOrEqual(7);
+      expect(contrastRatio(fill.value, text), fill.name).toBeGreaterThanOrEqual(7);
     }
   });
 });

@@ -27,6 +27,7 @@ import { applyEmailVocabulary } from './email-vocabulary';
 import { correctStoredMistakes } from './corrections';
 import { CONTENT_ATTRS } from './extensions/nodes/document';
 import { PageLayout, liftPageLayout, normalizePageLayout, wrapPageLayout } from './page-layout';
+import { stripCustomColorStamps } from './custom-colors';
 
 const serializerCache = new WeakMap<Schema, DOMSerializer>();
 
@@ -145,6 +146,9 @@ export function parseHTML(html: string, schema: Schema, options: ParseOptions = 
 
   if (mode === 'repair') {
     const dom = new window.DOMParser().parseFromString(html, 'text/html');
+    // An older email's custom-colour stamps off first: dark is never
+    // declared any more (dark-rendering.ts).
+    stripCustomColorStamps(dom.body);
     const layout = liftPageLayout(dom.body);
     // First: what an engine's CSSOM might misread is rewritten so every
     // engine reads it alike (a `background` shorthand, a box's longhand
@@ -167,6 +171,7 @@ export function parseHTML(html: string, schema: Schema, options: ParseOptions = 
     parsed = parser.parse(dom.body, topNode ? { topNode } : undefined);
   } else {
     const dom = parseDocument(html);
+    stripCustomColorStamps(dom.body);
     const layout = liftPageLayout(dom.body);
     if (mode === 'email') {
       // Before the vocabulary: an embed becomes a link before it is refused.

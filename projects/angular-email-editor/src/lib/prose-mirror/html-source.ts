@@ -4,7 +4,7 @@
  * on the scanner, while the formatter pretty-prints through the browser's own
  * parser so its output is always well-formed.
  */
-import { clientList, findCssIssues } from './client-support';
+import { clientList, findCssIssues } from '@h-k-dev/dawn';
 import { normalizeMergeTagText } from './extensions/nodes/merge-tag';
 import { escapeAttribute, escapeText } from './utils/escape';
 import { VOID_TAGS } from './html-tags';

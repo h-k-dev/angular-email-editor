@@ -1,6 +1,13 @@
 import { TestBed } from '@angular/core/testing';
 import { TextSelection } from 'prosemirror-state';
-import { Document, Paragraph, Text, createEditor, richTextExtensions } from '@h-k-dev/angular-email-editor';
+import {
+  Document,
+  Paragraph,
+  Text,
+  createEditor,
+  emailExtensions,
+  richTextExtensions,
+} from '@h-k-dev/angular-email-editor';
 import {
   EMAIL_PALETTE,
   colorSuggestions,
@@ -65,6 +72,33 @@ describe('colorSuggestions', () => {
     expect(editor.getHTML()).toContain('color: rgb(197, 34, 31)');
     editor.exec(items[1].command);
     expect(editor.getHTML()).toContain('background-color: rgb(232, 240, 254)');
+    editor.destroy();
+    mount.remove();
+  });
+
+  it('lists the user’s custom swatches after each side’s — a pick colours as any row does', () => {
+    const mount = document.createElement('div');
+    document.body.appendChild(mount);
+    const editor = createEditor({ parent: mount, extensions: emailExtensions, content: '<div>Hello</div>' });
+    const ctx = { schema: editor.schema, extensions: emailExtensions };
+    const palette = {
+      text: [{ name: 'Red', value: '#c5221f' }],
+      background: [{ name: 'Pale blue', value: '#e8f0fe' }],
+    };
+    const items = colorSuggestions(ctx, palette, { text: ['#4a1d4f', '#c5221f'], background: [] });
+    // A custom colour the palette carries is the palette's row, not twice.
+    expect(items.map((item) => [item.id, item.title, item.swatch])).toEqual([
+      ['color-red', 'Red text', '#c5221f'],
+      ['color-custom-4a1d4f', 'Custom text color', '#4a1d4f'],
+      ['background-pale-blue', 'Pale blue background', '#e8f0fe'],
+    ]);
+    editor.view.dispatch(
+      editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 6)),
+    );
+    editor.exec(items[1].command);
+    expect(editor.getHTML()).toContain('color: rgb(74, 29, 79)');
+    // Nothing marks it: dark is drawn, never declared.
+    expect(editor.getHTML()).not.toContain('data-aee-');
     editor.destroy();
     mount.remove();
   });

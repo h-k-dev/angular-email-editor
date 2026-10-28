@@ -1,7 +1,8 @@
 import { Node, NodeRange, NodeType, Schema } from 'prosemirror-model';
 import { Command, EditorState, Plugin, PluginKey, Transaction } from 'prosemirror-state';
 import { FunctionalExtension, defineExtension } from '../extension';
-import { PaletteColor, emailBackgroundPalette, fillTextColor } from '../dual-contrast';
+import { fillTextColor } from '../dual-contrast';
+import { dawnDarkColor } from '@h-k-dev/dawn';
 import { PAGE_ROW_PADDING_VAR, PageRowAttrs } from './nodes/page-row';
 import { paddingOf, paddingSides } from '../inline-style';
 import { PAGE_COLUMN_INSET, PageLayout, normalizePageLayout, samePageLayout } from '../page-layout';
@@ -163,12 +164,6 @@ function bandOfRow(attrs: PageRowAttrs, page: string): Record<string, unknown> {
   };
 }
 
-export interface PageLayoutOptions {
-  /** The fills whose dark variants the root hands over for a dark editor —
-      the library's background palette by default (dark-mode.ts). */
-  palette?: readonly PaletteColor[];
-}
-
 /**
  * The page layout, in the editor: the document's `pageLayout` attribute
  * (page-layout.ts) told to the editable root, which is the closest thing the
@@ -183,8 +178,8 @@ export interface PageLayoutOptions {
  *   blocks where the row says none of its own (`16px`);
  * - `--aee-page-background`, `--aee-page-column` — the page's and the
  *   column's colours, each left out when there is none;
- * - `--aee-page-background-dark`, `--aee-page-column-dark` — their dark
- *   variants, where the palette has one (dark-mode.ts);
+ * - `--aee-page-background-dark`, `--aee-page-column-dark` — the same
+ *   colours as Dawn draws them dark (`dawnDarkColor`), for a dark paper;
  * - `--aee-page-ink` — the text the column's fill (else the page's) pairs.
  *
  * Pixels are the host's: the example app paints the column down the middle
@@ -197,8 +192,7 @@ export interface PageLayoutOptions {
  *
  * Commands: `setPageLayout(layout | null)`.
  */
-export function createPageLayout(options: PageLayoutOptions = {}): FunctionalExtension {
-  const palette = options.palette ?? emailBackgroundPalette;
+export function createPageLayout(): FunctionalExtension {
   return defineExtension({
     name: 'pageLayout',
     commands: () => ({
@@ -211,7 +205,9 @@ export function createPageLayout(options: PageLayoutOptions = {}): FunctionalExt
         // in one undo, its runs with it.
         appendTransaction: (trs, old, state) =>
           trs.some((tr) => tr.docChanged) ? fitToLayout(state, pageLayoutOf(old)) : null,
-        props: { attributes: (state) => rootAttributes(pageLayoutOf(state), palette) },
+        props: {
+          attributes: (state) => rootAttributes(pageLayoutOf(state)),
+        },
       }),
     ],
   });
@@ -219,13 +215,10 @@ export function createPageLayout(options: PageLayoutOptions = {}): FunctionalExt
 
 export const PageLayoutExtension = createPageLayout();
 
-function rootAttributes(
-  layout: PageLayout | null,
-  palette: readonly PaletteColor[],
-): Record<string, string> {
+function rootAttributes(layout: PageLayout | null): Record<string, string> {
   if (!layout) return {};
-  const dark = (hex: string) =>
-    palette.find((color) => color.value.toLowerCase() === hex.toLowerCase())?.dark ?? null;
+  // Dark is drawn, never chosen: the light fill as Dawn draws it.
+  const dark = (hex: string) => dawnDarkColor(hex);
   const vars: [string, string | null][] = [
     ['--aee-page-width', `${layout.width}px`],
     ['--aee-page-spacing', `${layout.spacing}px`],

@@ -1,0 +1,13 @@
+/* To learn more about Typescript configuration file: https://www.typescriptlang.org/docs/handbook/tsconfig-json.html. */
+/* Dawn has no Angular in it; ng-packagr only packages it. */
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "../../out-tsc/dawn",
+    "declaration": true,
+    "declarationMap": true,
+    "types": []
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["**/*.spec.ts"]
+}

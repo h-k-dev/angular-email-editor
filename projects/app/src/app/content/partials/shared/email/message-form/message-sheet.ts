@@ -47,7 +47,6 @@ import {
   importedDocument,
   toInboundMessage,
 } from '@h-k-dev/angular-email-editor';
-import { injectPalette } from '@h-k-dev/angular-email-editor/palette';
 import { addressList } from '@h-k-dev/angular-email-editor/address-input';
 import { Attachment, AttachmentKind } from '@h-k-dev/angular-email-editor/attachment-chip';
 import { injectActions } from '@h-k-dev/angular-email-editor/actions';
@@ -144,8 +143,6 @@ export abstract class MessageSheet {
     message: 'mail',
   };
   readonly #transport = inject(EmailSend);
-  /** The palette whose dark variants go out with the email. */
-  readonly #palette = injectPalette();
   readonly #images = inject(InlineImages);
   readonly #injector = inject(Injector);
   readonly #preferences = inject(Preferences);
@@ -850,7 +847,7 @@ export abstract class MessageSheet {
         // No `lang`: the app's language is the reader's UI, not the
         // message's — the article's `dir="auto"` still reads the text.
         document: html
-          ? emailDocument(intent.html, { title: subject, previewText, darkMode: this.#palette })
+          ? emailDocument(intent.html, { title: subject, previewText })
           : null,
         from,
         to,

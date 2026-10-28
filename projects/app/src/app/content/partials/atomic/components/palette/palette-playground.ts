@@ -1,10 +1,12 @@
 import { Component, computed, signal } from '@angular/core';
 import {
+  DAWN_SURFACE,
   DUAL_CONTRAST_DARK,
   DUAL_CONTRAST_LIGHT,
   PaletteColor,
   contrastRatio,
   cssColorToHex,
+  dawnDarkColor,
   fillTextColor,
   passesDualBackground,
   passesDualContrast,
@@ -14,8 +16,8 @@ import { resolvePalette } from '@h-k-dev/angular-email-editor/palette';
 import { Playground, PlaygroundAction, knob } from '../playground/playground';
 import { PlaygroundFrame } from '../playground/playground-frame';
 
-/** A swatch as the stage draws it: the colour, its dark variant, and how
-    it fares against the rule. */
+/** A swatch as the stage draws it: the colour, as Dawn draws it dark, and
+    how it fares against the rule. */
 interface Swatch {
   readonly name: string;
   readonly value: string;
@@ -32,8 +34,8 @@ const ratio = (a: string, b: string) => Math.round(contrastRatio(a, b) * 10) / 1
 /**
  * The palette in use — the library's, or a host's over it (`resolvePalette`,
  * what `providePalette` provides): every text colour on a light and a dark
- * page, every fill under its text, each with its dark variant, the rule it
- * passes or the exception on record. The brand colour knob adds one of the
+ * page, every fill under its text — dark as Dawn draws it, the one dark
+ * there is — the rule it passes or the exception on record. The brand colour knob adds one of the
  * host's own and says whether it would pass.
  */
 @Component({
@@ -48,7 +50,7 @@ export class PalettePlayground {
   readonly addBrand = signal(true);
 
   protected readonly light = DUAL_CONTRAST_LIGHT;
-  protected readonly darkPage = DUAL_CONTRAST_DARK;
+  protected readonly darkPage = DAWN_SURFACE.dark;
 
   /** The brand colour as `#rrggbb`, or null when it is no colour. */
   protected readonly brandHex = computed(() => cssColorToHex(this.brand().trim()));
@@ -79,7 +81,6 @@ export class PalettePlayground {
     return {
       text: this.palette().text.length,
       background: this.palette().background.length,
-      border: this.palette().border?.length ?? 0,
       brand: hex
         ? {
             hex,
@@ -103,15 +104,15 @@ export class PalettePlayground {
   ];
 
   #swatch(color: PaletteColor, passes: boolean): Swatch {
-    const dark = color.dark ?? color.value;
+    const ink = fillTextColor(color.value);
     return {
       name: color.name,
       value: color.value,
-      dark,
+      dark: dawnDarkColor(color.value),
       passes,
       exception: color.exception ?? null,
-      ink: fillTextColor(color.value),
-      darkInk: fillTextColor(dark),
+      ink,
+      darkInk: dawnDarkColor(ink),
     };
   }
 }

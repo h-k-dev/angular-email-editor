@@ -4,6 +4,7 @@
   "compileOnSave": false,
   "compilerOptions": {
     "paths": {
+      "@h-k-dev/dawn": ["./dist/dawn"],
       "@h-k-dev/angular-email-editor": ["./dist/angular-email-editor"],
       "@h-k-dev/angular-email-editor/*": ["./dist/angular-email-editor/*"]
     },
@@ -27,6 +28,12 @@
   },
   "files": [],
   "references": [
+    {
+      "path": "./projects/dawn/tsconfig.lib.json"
+    },
+    {
+      "path": "./projects/dawn/tsconfig.spec.json"
+    },
     {
       "path": "./projects/angular-email-editor/tsconfig.lib.json"
     },

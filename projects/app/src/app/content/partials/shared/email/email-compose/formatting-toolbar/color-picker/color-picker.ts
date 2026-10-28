@@ -1,8 +1,20 @@
-import { Component, input, output } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  ElementRef,
+  afterNextRender,
+  computed,
+  inject,
+  input,
+  output,
+} from '@angular/core';
+
+// Angular CDK
+import { CdkConnectedOverlay } from '@angular/cdk/overlay';
 
 // Library
 import { KeepFocus } from '@h-k-dev/angular-email-editor/focus';
-import { injectPalette } from '@h-k-dev/angular-email-editor/palette';
+import { injectSwatches } from '@h-k-dev/angular-email-editor/palette';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { ColorPalette } from '../color-palette/color-palette';
@@ -19,6 +31,10 @@ let nextId = 0;
  * Shows the colours in effect (`color`, `background`) and reports a pick
  * from either; the host applies it and closes the pane. A mousedown never
  * takes focus, so the editor's selection survives the click.
+ *
+ * In a connected overlay (the toolbar's, the bubble menu's) the pane places
+ * itself again as it grows — a custom row opened as the picker — so it
+ * keeps clear of the viewport's edge, flipping side where it must.
  */
 @Component({
   selector: 'div[color-picker]',
@@ -39,10 +55,21 @@ export class ColorPicker {
   /** A background was picked, or null for none. */
   readonly backgroundPicked = output<string | null>();
 
-  /** The palette in use (`EMAIL_PALETTE`): the library's, or the app's own. */
-  readonly #palette = injectPalette();
-  protected readonly textPalette = this.#palette.text;
-  protected readonly backgroundPalette = this.#palette.background;
+  /** The palette in use (`EMAIL_PALETTE`: the library's, or the app's own)
+      and the user's custom swatches after it — live, a colour picked shows
+      at once. */
+  readonly #swatches = injectSwatches();
+  protected readonly textPalette = computed(() => this.#swatches().text);
+  protected readonly backgroundPalette = computed(() => this.#swatches().background);
 
   protected readonly id = `color-picker-${nextId++}`;
+
+  constructor() {
+    const overlay = inject(CdkConnectedOverlay, { optional: true });
+    const host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+    if (!overlay || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => overlay.overlayRef?.updatePosition());
+    afterNextRender(() => observer.observe(host));
+    inject(DestroyRef).onDestroy(() => observer.disconnect());
+  }
 }

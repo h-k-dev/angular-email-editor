@@ -207,37 +207,6 @@ function parseColumnMaxWidth(style: string | null): number {
   return Math.max(1, Math.min(budget, Math.floor((budget * +m[1]) / 100)));
 }
 
-/**
- * The class a stacking column carries in the sent email — the hook of the
- * one rule the email document's head holds ({@link STACK_RULE}): on a phone
- * a stacked column takes the whole width instead of its desktop cap. Where
- * a client drops the head, the column keeps its cap: narrower, still whole.
- * The editor's HTML never carries it ({@link markStackingColumns} adds it
- * at send), so the canonical form stays class-free.
- */
-export const STACK_CLASS = 'aee-stack';
-
-/** The phone rule for {@link STACK_CLASS} — MJML's breakpoint. */
-export const STACK_RULE =
-  `@media only screen and (max-width: 479px) { ` +
-  `.${STACK_CLASS} { max-width: 100% !important; } }`;
-
-/** The opening of a stacking column as {@link columnStyle} writes it, its
-    layout marker first (layout-marker.ts) — a held column's `width` is a
-    percentage, and never matches. */
-const STACKING_COLUMN =
-  /<div (?:class="([^"]*)" )?style="display: inline-block; width: 100%; max-width: \d+px;/g;
-
-/** Canonical HTML with every stacking column carrying {@link STACK_CLASS}
-    beside its marker — for the email document only. */
-export function markStackingColumns(html: string): string {
-  return html.replace(STACKING_COLUMN, (open, classes: string | undefined) =>
-    classes === undefined
-      ? open.replace('<div style=', `<div class="${STACK_CLASS}" style=`)
-      : open.replace(`class="${classes}"`, `class="${classes} ${STACK_CLASS}"`),
-  );
-}
-
 /** A single column: an `inline-block` div, recognised on parse by that style
     (a `<div>`, so it never collides with the inline-block button `<a>`). */
 export const Column = defineNode({

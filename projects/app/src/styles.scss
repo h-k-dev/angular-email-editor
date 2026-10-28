@@ -593,11 +593,11 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor.
 /* 3. peek: every layout block at once */
 .aee-editor.aee-guides-peek .aee-table-wrap:not(.aee-table-wrap--authored) td,
 .aee-editor.aee-guides-peek .aee-column {
-  // Notion's divider greys, the same pair a bordered table's real line wears
-  // (TABLE_BORDER_COLOR and its dark variant), so a guide and a line agree.
+  // The grey a bordered table's real line wears (TABLE_BORDER_COLOR), light
+  // and as Dawn draws it dark, so a guide and a line agree.
   border-color: var(
     --email-layout-guide,
-    var(--email-table-grid, light-dark(rgb(230, 229, 227), #383836))
+    var(--email-table-grid, light-dark(rgb(230, 229, 227), #494847))
   );
   transition-delay: 0ms;
 }
@@ -1084,13 +1084,11 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor.
  * light-dark() pair resolved where it is used, so re-declaring the scheme on
  * the editor's root re-resolves everything in the text (guides, chips) too.
  *
- * Dark is the sent email as Apple Mail draws it in dark mode — the client
- * that reads the email's own dark-mode rules (the library's dark-mode.ts),
- * and the preview's `apple-mail` dark rule: its surface, #1e1e1e, its white
- * text, and every palette colour in the text in its dark variant, where the
- * email's rules would move it (`injectDarkPaletteStyle` puts the same rules
- * over the live text). A colour typed into the source stays as typed, as it
- * does there, and so does a picture. The scheme turns dark with it, so the
+ * Dark is the email as Dawn draws it — the engine of the reading pane, the
+ * thumbnails and the preview's Apple client: its surface, #1e1e1e, its
+ * ink, and every colour in the text drawn dark (`createDarkRendering`
+ * puts the rules over the live text; the email itself keeps its light
+ * colours). A picture stays as it is. The scheme turns dark with it, so the
  * guides and chips in the text take their dark tokens. The paper round the
  * 600px column is the same #1e1e1e: page and margin are one surface. Gmail
  * and classic Outlook invert instead — the preview draws those.
@@ -1874,7 +1872,7 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
   td {
   border-color: var(
     --email-layout-guide,
-    var(--email-table-grid, light-dark(rgb(230, 229, 227), #383836))
+    var(--email-table-grid, light-dark(rgb(230, 229, 227), #494847))
   );
   transition: none;
 }

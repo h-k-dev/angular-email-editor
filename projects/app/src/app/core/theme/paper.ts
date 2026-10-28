@@ -19,4 +19,10 @@ export class Paper {
     const appearance = this.#appearance();
     return appearance === 'auto' ? this.#theme.scheme() : appearance;
   });
+
+  /** The other paper, kept as the settings' Theme — Auto included: a
+      press means this one, not the app's any more. */
+  toggle(): void {
+    this.#appearance.set(this.scheme() === 'dark' ? 'light' : 'dark');
+  }
 }

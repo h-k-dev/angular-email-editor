@@ -9,7 +9,7 @@
 import { createSchema } from './schema';
 import { parseHTML, serializeToHTML } from './html';
 import { emailExtensions } from './extensions/kits';
-import { renderForClient } from './client-rendering';
+import { renderForClient } from '@h-k-dev/dawn';
 
 const COLUMN =
   '<div class="aee-layout-column" style="display: inline-block; width: 100%; max-width: 280px; vertical-align: top; box-sizing: border-box;"><div>words</div></div>';

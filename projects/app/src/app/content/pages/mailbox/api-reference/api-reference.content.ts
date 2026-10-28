@@ -409,24 +409,25 @@ export const API_SECTIONS: readonly ApiSection[] = [
         id: 'email-document',
         name: 'emailDocument',
         signature:
-          '(html: string, options?: { lang?, dir?, title?, previewText?, darkMode?: DarkModePalette | false }) => string',
+          '(html: string, options?: { lang?, dir?, title?, previewText? }) => string',
         summary: 'The full document a transport sends.',
         details: [
           'The Outlook DPI fix, iOS text-size and Apple reformatting guards, an `article` wrapper with `lang`/`dir`, and hidden inbox preview text.',
-          'Everything inline, except two optional enhancements in a `<style>` of their own: the phone rule for stacked columns, and dark mode (`color-scheme: light dark` plus the palette’s dark variants via `markDarkMode`).',
+          'Everything inline, except one optional enhancement in a `<style>`: the phone rule for stacked columns.',
+          'Dark mode is never declared: no `color-scheme`, no dark rules — each client draws the light colours dark as it draws any email (an Apple client as Dawn does, `renderDawn`).',
         ],
       },
       {
         id: 'render-for-client',
         name: 'renderForClient · RENDERING_CLIENTS',
         signature:
-          "(html, client: 'apple-mail' | 'gmail' | 'outlook-desktop', { dark?, pane?, darkMode? }) => string",
+          "(html, client: 'apple-mail' | 'gmail' | 'outlook-desktop', { dark?, pane? }) => string",
         summary:
           'The email as a given client would draw it — a whole document for a sandboxed frame.',
         details: [
           'Lays the client’s surface under the HTML (a fragment, or a pasted document with its head kept).',
           'Removes what the client ignores: Gmail’s dropped comments, form controls and unmatched style rules; Outlook’s opened conditional comments, lost media queries and ignored declarations; stacks inline-block columns.',
-          'Dark mode on request: Apple Mail’s surface under the email’s own `prefers-color-scheme` rules; Gmail’s and classic Outlook’s inversion.',
+          'Dark mode on request: Apple Mail’s surface under the email’s own `prefers-color-scheme` rules; Gmail’s and classic Outlook’s inversion. An email that declares no dark (every one the editor sends) is drawn dark on an Apple client by `renderDawn`.',
         ],
       },
     ],
@@ -802,20 +803,20 @@ export const API_SECTIONS: readonly ApiSection[] = [
         summary: 'The colours that pass on both sides — the swatches the composer’s pickers offer.',
         details: [
           'AA on white, on every pale fill, and inverted.',
-          'Each with its dark variant (`PaletteColor.dark`), AA on `DARK_MODE_SURFACES` and every dark fill. Black, the body’s text, is AAA in both.',
+          'No dark values of their own: in dark every colour is drawn by Dawn (`dawnDarkColor`). Black, the body’s text, is AAA on light and inverted.',
         ],
       },
       {
-        id: 'mark-dark-mode',
-        name: 'markDarkMode · darkModeEditorCss · emailDarkModePalette',
+        id: 'dawn',
+        name: 'renderDawn · createDarkRendering · dawnDarkColor',
         signature:
-          '(html, palette?) => { html, css } · (scope: string, palette?) => string · DarkModePalette',
-        summary: 'Dark mode written into the email.',
+          '(html, { scheme, pane? }) => string · ({ scope? }) => Extension · (token: string) => string',
+        summary: 'Dawn, the render engine: everything seen in dark is drawn by it.',
         details: [
-          'A palette fill goes dark (`aee-db-<hex>`) when nothing in it wears a colour outside the palette and every background around it goes dark too.',
-          'A palette text colour lights up (`aee-dt-<hex>`) under no background that stays light; a table’s grid line darkens likewise (`aee-dl-<hex>`).',
-          '`css` holds the `prefers-color-scheme` and `[data-ogsc]` / `[data-ogsb]` rules for exactly those classes.',
-          '`darkModeEditorCss` is the same rendering as a stylesheet over the live editor under `scope` — the editor’s dark paper.',
+          'An author applies the light colour, always; dark is only drawn. A message that declares dark keeps its own rules, any other has every colour drawn with WebKit’s invert-lightness, its pictures untouched, on `DAWN_SURFACE.dark`.',
+          '`renderDawn` draws a message (a fragment or a whole document) for a frame: the reading pane, the thumbnails.',
+          '`createDarkRendering` draws the live editor dark while its root matches `scope`: a rule per colour spelling, the document untouched.',
+          '`dawnDarkColor` is one colour drawn dark: what a swatch on a dark paper shows, its pick still the light colour.',
         ],
       },
       {

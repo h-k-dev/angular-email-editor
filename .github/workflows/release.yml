@@ -1,4 +1,4 @@
-# Releases the library — started by hand, never by a push.
+# Releases the editor — started by hand, never by a push.
 #
 # Pre-1.0 and deliberate: bump `version` in projects/angular-email-editor/
 # package.json in a commit, merge it to main, then run this (Actions → Release →
@@ -6,6 +6,10 @@
 # Publishing (this file's name is what npm trusts — no token in the repo);
 # a staged version is not installable until a maintainer approves it with 2FA,
 # on npmjs.com or with `npm stage approve`. Then the commit is tagged v<version>.
+#
+# Dawn (@h-k-dev/dawn), which the editor depends on, releases itself from
+# main (ci.yml, release-dawn) and is never released here: the editor only
+# checks that the Dawn it asks for is on npm.
 name: Release
 
 on:
@@ -56,14 +60,30 @@ jobs:
             echo "::error::$VERSION is already on npm — bump the version first."; exit 1
           fi
 
+      # The editor's Dawn must be installable: released (ci.yml) before the
+      # editor that asks for it.
+      - name: Check the editor's Dawn is on npm
+        run: |
+          WANTS=$(node -p "require('./projects/angular-email-editor/package.json').dependencies['@h-k-dev/dawn']")
+          if [[ -z "$(npm view "@h-k-dev/dawn@$WANTS" version 2>/dev/null)" ]]; then
+            echo "::error::No @h-k-dev/dawn on npm matches $WANTS — release Dawn first."; exit 1
+          fi
+
       - name: Install
         run: npm ci
+
+      - name: Test Dawn
+        run: npx ng test dawn --watch=false
 
       - name: Test library
         run: npx ng test angular-email-editor --watch=false
 
-      - name: Build library
-        run: npx ng build angular-email-editor
+      # Dawn first: the editor builds against it.
+      - name: Build packages
+        run: npm run build:lib
+
+      - name: Load built entries
+        run: node scripts/load-entries.mjs
 
       # A pre-release (0.1.0-beta.1) goes out under `next`, never as `latest`.
       # Verbose: npm says why a Trusted Publishing exchange failed only at

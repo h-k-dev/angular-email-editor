@@ -1,5 +1,5 @@
 import { emailDocument } from '../../email-document';
-import { fitEmailImages } from './image';
+import { fitEmailImages } from '@h-k-dev/dawn';
 
 const IMG = 'style="max-width: 100%; height: auto;"';
 
@@ -46,7 +46,7 @@ describe('fitEmailImages — the images as sent', () => {
 
   it('runs in the email document, and only there: the editor’s HTML is not touched', () => {
     const html = `<div style="text-align: center;"><img src="x.png" ${IMG}></div>`;
-    const doc = emailDocument(html, { darkMode: false });
+    const doc = emailDocument(html);
     expect(doc).toContain('display: block; margin-left: auto; margin-right: auto;');
     expect(html).not.toContain('display: block');
   });

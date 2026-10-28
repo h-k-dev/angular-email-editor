@@ -165,9 +165,8 @@ export function parsePadding(dom: HTMLElement): string | null {
 
 /** The bordered table's default grid color: Notion's light divider grey
     (#E6E5E3) — a hairline that organizes without shouting, legible on white
-    and on a dark-mode-inverted ground. Where a client reads the email's
-    dark-mode styles it turns Notion's dark divider (`emailBorderPalette`, the
-    same colour, in dark-mode.ts). Serialized per *cell* (`border` on `<td>`
+    and on a dark-mode-inverted ground; in dark it is drawn as any colour is
+    (Dawn: #494847). Serialized per *cell* (`border` on `<td>`
     is the bulletproof border in email — Outlook's Word engine renders it),
     with `border-collapse` on the table keeping the grid single-lined. */
 export const TABLE_BORDER_COLOR = 'rgb(230, 229, 227)';

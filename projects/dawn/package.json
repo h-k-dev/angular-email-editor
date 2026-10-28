@@ -1,0 +1,26 @@
+{
+  "name": "@h-k-dev/dawn",
+  "version": "1.0.0",
+  "description": "Dawn, the email render engine: an email drawn as a mail client draws it, light and dark — framework-free, for the browser and the server.",
+  "license": "MIT",
+  "author": "h-k-dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/h-k-dev/angular-email-editor.git",
+    "directory": "projects/dawn"
+  },
+  "homepage": "https://h-k-dev.github.io/angular-email-editor/",
+  "bugs": "https://github.com/h-k-dev/angular-email-editor/issues",
+  "keywords": [
+    "email",
+    "html-email",
+    "dark-mode",
+    "render",
+    "email-client",
+    "ssr"
+  ],
+  "dependencies": {
+    "tslib": "^2.3.0"
+  },
+  "sideEffects": false
+}

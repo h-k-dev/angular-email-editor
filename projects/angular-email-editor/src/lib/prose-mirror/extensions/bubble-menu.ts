@@ -39,6 +39,12 @@ export interface BubbleMenuOptions {
   /** What the menu does when the editor scrolls under it — closes, by
       default. See {@link MenuScroll}. */
   scroll?: MenuScroll;
+  /** Where the focus may go and the menu stay open: the menu's own parts
+      that are typed in — a field in it, a pane it opened (a colour's hex).
+      A selector the focused element is inside of, or a function of that
+      element. None by default: the menu shows while the editor has the
+      focus, and goes once anything else takes it. */
+  holdsFocus?: string | ((element: Element) => boolean);
 }
 
 // Inside a merge tag the menu stays away: the token is text, but formatting
@@ -77,14 +83,22 @@ export const createBubbleMenu = (options: BubbleMenuOptions): FunctionalExtensio
             options.onStateChange({ isOpen: false, boundingBox: null });
           };
 
+          // The focus in one of the menu's own parts (`holdsFocus`).
+          const held = (): boolean => {
+            const holds = options.holdsFocus;
+            const active = view.dom.ownerDocument.activeElement;
+            if (!holds || !active || active === view.dom.ownerDocument.body) return false;
+            return typeof holds === 'string' ? !!active.closest(holds) : holds(active);
+          };
+
           // Whether the menu may show: not mid-drag, the host's say-so, and
-          // the editor focused — or the menu would pop up on a click
-          // elsewhere on the page.
+          // the editor focused — or one of the menu's own parts — or the
+          // menu would pop up on a click elsewhere on the page.
           const canShow = () =>
             !destroyed &&
             !mouseSelecting &&
             (options.shouldShow || defaultBubbleShouldShow)(view.state) &&
-            view.hasFocus();
+            (view.hasFocus() || held());
 
           // The box of a range: from its start to its end, over every line it
           // takes — the virtual DOMRect the host's overlay anchors to.
@@ -204,6 +218,12 @@ export const createBubbleMenu = (options: BubbleMenuOptions): FunctionalExtensio
           const onFocus = () => refresh();
           view.dom.addEventListener('blur', onBlur);
           view.dom.addEventListener('focus', onFocus);
+          // The focus leaving one of the menu's own parts — for the page, not
+          // the editor — is a blur of the editor's too.
+          const onFocusout = (event: FocusEvent) => {
+            if (open && !view.dom.contains(event.target as Node)) onBlur();
+          };
+          if (options.holdsFocus) view.dom.ownerDocument.addEventListener('focusout', onFocusout);
 
           // 3. Scroll: the box is viewport coordinates, stale once the
           // editor scrolls under the menu — closed by default, see
@@ -233,6 +253,7 @@ export const createBubbleMenu = (options: BubbleMenuOptions): FunctionalExtensio
               window.removeEventListener('mouseup', onMouseup);
               view.dom.removeEventListener('blur', onBlur);
               view.dom.removeEventListener('focus', onFocus);
+              view.dom.ownerDocument.removeEventListener('focusout', onFocusout);
               stopScrollWatch();
 
               close();

@@ -6,7 +6,8 @@
     color-palette
     [attr.aria-labelledby]="id + '-text'"
     [resetLabel]="'editor.color.automatic' | translate"
-    [colors]="textPalette"
+    [colors]="textPalette()"
+    [customLabel]="'editor.color.customText' | translate"
     [value]="color()"
     (picked)="colorPicked.emit($event)"
   ></div>
@@ -19,7 +20,8 @@
     color-palette
     [attr.aria-labelledby]="id + '-background'"
     [resetLabel]="'editor.color.none' | translate"
-    [colors]="backgroundPalette"
+    [colors]="backgroundPalette()"
+    [customLabel]="'editor.color.customBackground' | translate"
     [value]="background()"
     (picked)="backgroundPicked.emit($event)"
   ></div>

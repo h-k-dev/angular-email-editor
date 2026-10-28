@@ -39,6 +39,17 @@
         </button>
       </div>
     </div>
+  } @else if (customField()) {
+    <!-- Custom background: our picker in the menu's place — Apply sets
+         it, Escape leaves. -->
+    <div #menu class="section-menu section-menu__field" (keydown.escape)="leave()">
+      <div
+        custom-color
+        [label]="'editor.color.customBackground' | translate"
+        [value]="currentFill()"
+        (picked)="customPicked($event)"
+      ></div>
+    </div>
   } @else {
     <div class="section-menu__frame">
       <div
@@ -87,11 +98,17 @@
                 role="menuitemradio"
                 [attr.aria-checked]="color.checked"
               >
-                <span class="section-menu__swatch" [style.background-color]="color.value"></span>
+                <span class="section-menu__swatch" [style.background-color]="color.shown"></span>
                 <span>{{ color.name }} background</span>
                 <mat-icon data-slot="check">check</mat-icon>
               </div>
             }
+            <!-- The last row: any colour, by our picker in the menu's
+                 place. -->
+            <div ngMenuItem class="section-menu__item" value="custom">
+              <mat-icon>colorize</mat-icon>
+              <span>{{ 'editor.color.customBackground' | translate }}</span>
+            </div>
           </div>
         }
 

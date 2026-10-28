@@ -1,16 +1,17 @@
 import {
+  DAWN_SURFACE,
   InboundMessage,
   hasDocumentEnvelope,
   plainTextHTML,
+  renderDawn,
 } from '@h-k-dev/angular-email-editor';
 
-import { renderDawnDark } from './dawn-dark.render';
-
 /*
- * Dawn — the app's render engine: how an email is drawn to be read, here
- * and in every view built on it (the inbox's `email-viewer`, the Render
- * bench). `dawnDocument` is its document, on the editor's paper; its dark
- * mode is dawn dark (dawn-dark.render.ts).
+ * Reading with Dawn — the library's render engine (`renderDawn`): how an
+ * email is drawn to be read, here and in every view built on it (the
+ * inbox's `email-viewer`, the thumbnails, the Render bench), and the
+ * editor's dark paper too (`createDarkRendering`). `dawnDocument` is its
+ * reading frame, on the editor's paper.
  */
 
 /**
@@ -19,7 +20,7 @@ import { renderDawnDark } from './dawn-dark.render';
  * email is read on (the client's light pane, and `DAWN_DARK_SURFACE`): what
  * is written on one is read on the same. Change one, change the other.
  */
-export const PAPER = { light: '#ffffff', dark: '#1e1e1e' } as const;
+export const PAPER = DAWN_SURFACE;
 
 /** The paper's scheme: the editor's Appearance, resolved (core/theme/paper.ts). */
 export type PaperScheme = keyof typeof PAPER;
@@ -53,9 +54,8 @@ export function laysItselfOut(html: string): boolean {
 
 /**
  * A received email as Dawn draws it, a document for a frame: on dark paper,
- * its own dark rules where it declares dark, dawn dark's invert-lightness
- * turn on its colours where it does not — as it came: none of the editor's
- * palette variants added, it is not ours. The surfaces are the paper's
+ * its own dark rules where it declares dark, Dawn's dark drawing of its
+ * colours where it does not — as it came: nothing added to it. The surfaces are the paper's
  * colours, so it is the paper it lies on, the frame edge to edge: an email
  * that lays itself out (a newsletter, a page) runs to the frame's edges, a
  * simple email's body keeps `inset` at its sides.
@@ -65,7 +65,7 @@ export function laysItselfOut(html: string): boolean {
  * Takes a fragment (a message body) or a whole document.
  */
 export function dawnDocument(html: string, { scheme, inset = 0 }: DawnOptions): string {
-  const document = renderDawnDark(html, { dark: scheme === 'dark', darkMode: false });
+  const document = renderDawn(html, { scheme });
   const sides = inset > 0 && !laysItselfOut(html) ? ` padding-inline: ${inset}px;` : '';
   const reading = `<base target="_blank"><style>body { margin: 0;${sides} }</style>`;
   return document.replace('</head>', `${reading}</head>`);

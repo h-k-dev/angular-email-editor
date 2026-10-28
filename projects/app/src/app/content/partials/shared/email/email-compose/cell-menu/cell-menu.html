@@ -5,6 +5,21 @@
      for the pointer on its way to one (`menuSafeTriangle`). Escape is
      ours: it hands the caret back. -->
 <ng-template #panel>
+  @if (customField(); as role) {
+    <!-- A custom colour: our picker in the menu's place — Apply sets it,
+         Escape leaves. -->
+    <div #menu class="cell-menu cell-menu__field" (keydown.escape)="leave()">
+      <div
+        custom-color
+        [label]="
+          (role === 'text' ? 'editor.color.customText' : 'editor.color.customBackground')
+            | translate
+        "
+        [value]="role === 'text' ? current().text : current().fill"
+        (picked)="customPicked(role, $event)"
+      ></div>
+    </div>
+  } @else {
   <div
     ngMenu
     menuSafeTriangle
@@ -57,6 +72,10 @@
           <mat-icon data-slot="check">check</mat-icon>
         </div>
       }
+      <div ngMenuItem class="cell-menu__item" value="custom:text">
+        <mat-icon>colorize</mat-icon>
+        <span>{{ 'editor.color.customText' | translate }}</span>
+      </div>
       <div class="cell-menu__separator" role="separator"></div>
       <div class="cell-menu__heading">Background</div>
       <div
@@ -78,11 +97,15 @@
           role="menuitemradio"
           [attr.aria-checked]="color.checked"
         >
-          <span class="cell-menu__swatch" [style.background-color]="color.value"></span>
+          <span class="cell-menu__swatch" [style.background-color]="color.shown"></span>
           <span>{{ color.name }} background</span>
           <mat-icon data-slot="check">check</mat-icon>
         </div>
       }
+      <div ngMenuItem class="cell-menu__item" value="custom:fill">
+        <mat-icon>colorize</mat-icon>
+        <span>{{ 'editor.color.customBackground' | translate }}</span>
+      </div>
     </div>
 
     <div ngMenuItem class="cell-menu__item" value="align" [submenu]="alignMenu">
@@ -188,4 +211,5 @@
       </div>
     }
   </div>
+  }
 </ng-template>

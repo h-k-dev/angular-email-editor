@@ -73,6 +73,7 @@ export default {
     language: 'Language',
     compose: 'Compose',
     theme: { light: 'Switch to light mode', dark: 'Switch to dark mode' },
+    paper: { light: 'Show the email light', dark: 'Show the email dark' },
   },
   docs: { onThisPage: 'On this page', trail: 'Where you are' },
   components: {
@@ -331,6 +332,12 @@ export default {
       background: 'Background color',
       automatic: 'Automatic',
       none: 'None',
+      customText: 'Custom text color…',
+      customBackground: 'Custom background color…',
+      shade: 'Shade',
+      hue: 'Hue',
+      hex: 'Hex color',
+      apply: 'Apply',
     },
     link: {
       dialog: 'Edit link',

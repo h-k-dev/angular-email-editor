@@ -24,6 +24,9 @@
 
   <span class="designer-bar__spacer"></span>
 
+  <!-- The email light or dark, at a press: its other side, at once. -->
+  <paper-toggle />
+
   <!-- The details' panel, folded away or back — the right aside's toggle. -->
   <button
     matIconButton
@@ -187,8 +190,8 @@
             color-palette
             aria-labelledby="designer-layout-page"
             [resetLabel]="'designer.layout.noColor' | translate"
-            [colors]="backgroundPalette"
-            [customLabel]="'designer.layout.custom' | translate"
+            [colors]="backgroundPalette()"
+            [customLabel]="'editor.color.customBackground' | translate"
             [value]="page.background().value()"
             (picked)="setPageColor($event)"
           ></div>
@@ -202,8 +205,8 @@
             color-palette
             aria-labelledby="designer-layout-column"
             [resetLabel]="'designer.layout.noColor' | translate"
-            [colors]="backgroundPalette"
-            [customLabel]="'designer.layout.custom' | translate"
+            [colors]="backgroundPalette()"
+            [customLabel]="'editor.color.customBackground' | translate"
             [value]="page.columnBackground().value()"
             (picked)="setColumnColor($event)"
           ></div>

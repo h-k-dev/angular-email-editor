@@ -70,6 +70,7 @@ export default {
     language: 'Sprache',
     compose: 'Verfassen',
     theme: { light: 'Zum hellen Design wechseln', dark: 'Zum dunklen Design wechseln' },
+    paper: { light: 'E-Mail hell anzeigen', dark: 'E-Mail dunkel anzeigen' },
   },
   docs: { onThisPage: 'Auf dieser Seite', trail: 'Wo Sie sind' },
   components: {
@@ -450,6 +451,12 @@ export default {
         pink: 'Rosa',
         yellow: 'Gelb',
       },
+      customText: 'Eigene Textfarbe …',
+      customBackground: 'Eigene Hintergrundfarbe …',
+      shade: 'Schattierung',
+      hue: 'Farbton',
+      hex: 'Hex-Farbe',
+      apply: 'Übernehmen',
     },
     link: {
       dialog: 'Link bearbeiten',

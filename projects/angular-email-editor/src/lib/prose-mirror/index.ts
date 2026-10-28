@@ -12,9 +12,10 @@ export * from './authored';
 export * from './fixtures/mjml-worldly';
 export * from './html-source';
 export * from './dual-contrast';
-export * from './dark-mode';
-export * from './client-support';
-export * from './client-rendering';
+export * from './custom-colors';
+// Dawn, the render engine (its own package, @h-k-dev/dawn): the editor
+// draws with it and hands all of it on.
+export * from '@h-k-dev/dawn';
 export * from './plain-text';
 export * from './email-document';
 export * from './reply';
@@ -86,3 +87,4 @@ export * from './extensions/inline-images';
 export * from './extensions/no-text-drag';
 export * from './extensions/split-keeping-marks';
 export * from './extensions/base-keymap';
+export * from './extensions/dark-rendering';

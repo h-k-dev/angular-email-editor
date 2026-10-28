@@ -6,6 +6,41 @@
   },
   "newProjectRoot": "projects",
   "projects": {
+    "dawn": {
+      "projectType": "library",
+      "root": "projects/dawn",
+      "sourceRoot": "projects/dawn/src",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:ng-packagr",
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/dawn/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/dawn/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "projects/dawn/tsconfig.spec.json",
+            "include": ["**/*.spec.ts"],
+            "exclude": ["**/*.render.spec.ts"]
+          },
+          "configurations": {
+            "render": {
+              "include": ["**/*.render.spec.ts"],
+              "exclude": [],
+              "browsers": ["ChromiumHeadless"],
+              "watch": false
+            }
+          }
+        }
+      }
+    },
     "angular-email-editor": {
       "projectType": "library",
       "root": "projects/angular-email-editor",

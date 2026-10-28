@@ -1,7 +1,6 @@
 <playground-frame [knobs]="knobs" [actions]="actions" [value]="value()">
   <!-- Text: each colour written on a light page and a dark one — its
-       value on the light, its dark variant on the dark, as a client that
-       reads the email's dark-mode styles draws it. -->
+       value on the light, as Dawn draws it on the dark. -->
   <h3 class="stage-label pp-title">Text</h3>
   <ul class="pp-grid">
     @for (swatch of text(); track swatch.name) {

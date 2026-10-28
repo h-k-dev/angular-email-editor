@@ -2,7 +2,8 @@ import { Service, inject } from '@angular/core';
 
 import type { EditorAppearance } from '../../content/partials/shared/email/message-form/message-sheet';
 import { LANGUAGES } from '../../../i18n/loader';
-import { LocalStorage, onOff, oneOf, wholeIn } from './local-storage';
+import { CustomSwatches } from '@h-k-dev/angular-email-editor/palette';
+import { LocalStorage, StorageCodec, onOff, oneOf, wholeIn } from './local-storage';
 import type { ThemeScheme } from '../theme/theme';
 
 /** The app's theme as chosen: light or dark of its own, or the system's. */
@@ -74,6 +75,11 @@ export class Preferences {
     oneOf<EditorAppearance>(['light', 'dark', 'auto'], 'auto'),
   );
 
+  /** The colours picked outside the palette — every picker's "Custom …
+      color" row — newest first, offered again as swatches. Unset reads as
+      none. */
+  readonly customSwatches = this.#storage.pairSignal(`${PREFIX}custom-swatches`, swatchLists());
+
   /** Whether a composer opens with its formatting toolbar — the writer
       bar's formatting button and the settings' Formatting toolbar. Unset
       reads as off: a message is written first, its marks have their keys. */
@@ -132,4 +138,27 @@ export class Preferences {
     `${PREFIX}snippet-list-width`,
     wholeIn(SNIPPET_LIST_MIN, INBOX_LIST_MAX, INBOX_LIST_DEFAULT),
   );
+}
+
+/** The custom swatches as storage keeps them: JSON of two lists of
+    `#rrggbb` — anything else reads as none, and none is no key. */
+function swatchLists(): StorageCodec<CustomSwatches> {
+  const NONE: CustomSwatches = { text: [], background: [] };
+  const hexes = (raw: unknown): string[] =>
+    Array.isArray(raw)
+      ? raw.filter((v): v is string => typeof v === 'string' && /^#[0-9a-f]{6}$/.test(v))
+      : [];
+  return {
+    read: (raw) => {
+      if (!raw) return NONE;
+      try {
+        const value = JSON.parse(raw) as Partial<CustomSwatches>;
+        return { text: hexes(value.text), background: hexes(value.background) };
+      } catch {
+        return NONE;
+      }
+    },
+    write: (value) =>
+      value.text.length || value.background.length ? JSON.stringify(value) : null,
+  };
 }

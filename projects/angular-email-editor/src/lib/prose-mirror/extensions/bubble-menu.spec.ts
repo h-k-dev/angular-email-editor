@@ -73,3 +73,71 @@ describe('bubble menu anchor', () => {
     unmount();
   });
 });
+
+describe('bubble menu holdsFocus', () => {
+  afterEach(() => vi.useRealTimers());
+
+  /** A focused editor with its menu open over a word, and a pane of the
+      menu's own outside the editor holding a field. */
+  function mount(holdsFocus?: BubbleMenuOptions['holdsFocus']) {
+    vi.useFakeTimers();
+    const host = document.createElement('div');
+    const pane = document.createElement('div');
+    pane.setAttribute('data-pane', '');
+    const field = document.createElement('input');
+    pane.appendChild(field);
+    const elsewhere = document.createElement('input');
+    document.body.append(host, pane, elsewhere);
+    const states: BubbleMenuState[] = [];
+    const editor = createEditor({
+      parent: host,
+      extensions: [
+        ...emailExtensions,
+        createBubbleMenu({
+          updateDelay: 0,
+          holdsFocus,
+          onStateChange: (state) => states.push(state),
+        }),
+      ],
+      content: '<div>hello world</div>',
+    });
+    editor.view.coordsAtPos = () => ({ left: 0, right: 0, top: 0, bottom: 10 });
+    editor.view.focus();
+    editor.view.dispatch(
+      editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 6)),
+    );
+    vi.runAllTimers();
+    /** The focus moving to `element`, as a press there moves it. */
+    const focus = (element: HTMLElement) => {
+      element.focus();
+      vi.runAllTimers();
+    };
+    const last = () => states[states.length - 1];
+    const unmount = () => {
+      editor.destroy();
+      host.remove();
+      pane.remove();
+      elsewhere.remove();
+    };
+    return { field, elsewhere, focus, last, unmount };
+  }
+
+  it('closes once the editor loses the focus, by default', () => {
+    const { field, focus, last, unmount } = mount();
+    expect(last().isOpen).toBe(true);
+    focus(field);
+    expect(last().isOpen).toBe(false);
+    unmount();
+  });
+
+  it('stays open while the focus is in one of its own parts — and goes once it leaves them', () => {
+    for (const holds of ['[data-pane]', (el: Element) => !!el.closest('[data-pane]')]) {
+      const { field, elsewhere, focus, last, unmount } = mount(holds);
+      focus(field);
+      expect(last().isOpen).toBe(true);
+      focus(elsewhere);
+      expect(last().isOpen).toBe(false);
+      unmount();
+    }
+  });
+});

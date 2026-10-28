@@ -8,7 +8,7 @@ import {
   completionContextAt,
   openTags,
 } from '../html-source';
-import { EMAIL_SAFE_STYLE_PROPERTIES, EMAIL_TAG_ATTRIBUTES } from '../client-support';
+import { EMAIL_SAFE_STYLE_PROPERTIES, EMAIL_TAG_ATTRIBUTES } from '@h-k-dev/dawn';
 import { docText, textOffsetAt } from './html-language';
 
 export interface AutocompleteItem {

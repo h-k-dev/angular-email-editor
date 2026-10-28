@@ -107,13 +107,13 @@ export const TOKEN_SECTIONS: readonly TokenSection[] = [
           {
             name: '--email-table-grid',
             system: null,
-            fallback: 'light-dark(rgb(230, 229, 227), #383836)',
+            fallback: 'light-dark(rgb(230, 229, 227), #494847)',
             alters: 'Grid lines a table shows while it is being worked on.',
           },
           {
             name: '--email-layout-guide',
             system: '--email-table-grid',
-            fallback: 'light-dark(rgb(230, 229, 227), #383836)',
+            fallback: 'light-dark(rgb(230, 229, 227), #494847)',
             alters: 'The guides tables and column blocks peek on hover (`.aee-guides-peek`).',
           },
           {

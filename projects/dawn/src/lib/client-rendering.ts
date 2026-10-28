@@ -1,13 +1,6 @@
 import { CSS_SUPPORT, EmailClient } from './client-support';
-import {
-  COLOR_SCHEME_RULE,
-  DarkModePalette,
-  emailDarkModePalette,
-  markDarkMode,
-} from './dark-mode';
 import { hasDocumentEnvelope } from './envelope';
-import { sentBody } from './email-document';
-import { STACK_RULE } from './extensions/nodes/columns';
+import { STACK_RULE, sentBody } from './sent';
 
 /** The clients a rendering can be drawn for: the three that matter, and
     that read HTML differently enough to look at one by one. */
@@ -28,10 +21,6 @@ export interface ClientRenderingOptions {
       the Gmail app), a desktop pane keeps a margin round it. Default
       desktop. */
   pane?: 'phone' | 'desktop';
-  /** The palette a fragment's dark variants come from — what
-      `emailDocument` sends it with (dark-mode.ts); the library's by
-      default, `false` for none. A whole document is drawn as it is. */
-  darkMode?: DarkModePalette | false;
 }
 
 /**
@@ -43,8 +32,9 @@ export interface ClientRenderingOptions {
  * is laid underneath. The result is a whole document for a sandboxed frame.
  *
  * - **Apple Mail** reads it all: the document as it is, on Apple's surface;
- *   in dark mode its `prefers-color-scheme: dark` rules apply, so a
- *   fragment's palette colours take their dark variants (dark-mode.ts).
+ *   in dark mode its `prefers-color-scheme: dark` rules apply, on the dark
+ *   surface. An email that declares no dark — every email the editor sends
+ *   — is drawn dark by Dawn instead (`renderDawn`), as the client does.
  * - **Gmail** drops the comments, the form controls (a hamburger's
  *   checkbox and label), every `<style>` rule whose selector it cannot
  *   match (pseudo-classes, attribute selectors, sibling combinators), and
@@ -68,7 +58,7 @@ export interface ClientRenderingOptions {
  * subject to the client — with the client's surface laid before it. A
  * fragment is drawn as `emailDocument` sends it: its body as sent
  * (`sentBody` — the images fitted, the stacking columns marked, under the
- * head's phone rule) and its dark-mode classes and rules put in.
+ * head's phone rule).
  * Outlook.com's markers (`[data-ogsc]`) are set by none
  * of the three, so their rules never apply here.
  */
@@ -77,21 +67,13 @@ export function renderForClient(
   client: RenderingClient,
   options: ClientRenderingOptions = {},
 ): string {
-  const palette = options.darkMode ?? emailDarkModePalette;
   const fragment = !hasDocumentEnvelope(html);
   const sent = fragment ? sentBody(html) : html;
-  const dark = palette && fragment ? markDarkMode(sent, palette) : null;
-  const marked = dark ? dark.html : sent;
-  const source = client === 'outlook-desktop' ? openOutlookConditionals(marked) : marked;
+  const source = client === 'outlook-desktop' ? openOutlookConditionals(sent) : sent;
   const doc = new DOMParser().parseFromString(source, 'text/html');
   if (fragment) {
     const sheet = doc.createElement('style');
     sheet.textContent = STACK_RULE;
-    doc.head.appendChild(sheet);
-  }
-  if (dark) {
-    const sheet = doc.createElement('style');
-    sheet.textContent = [COLOR_SCHEME_RULE, dark.css].filter(Boolean).join(' ');
     doc.head.appendChild(sheet);
   }
   for (const sheet of Array.from(doc.querySelectorAll('style'))) {

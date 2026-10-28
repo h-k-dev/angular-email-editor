@@ -17,6 +17,12 @@ import {
   TableKind,
 } from '@h-k-dev/angular-email-editor';
 import { editorState, injectActions } from '@h-k-dev/angular-email-editor/actions';
+import {
+  EMAIL_CUSTOM_SWATCHES,
+  injectPalette,
+  isPaletteColor,
+  rememberSwatch,
+} from '@h-k-dev/angular-email-editor/palette';
 
 import { I18n } from '../../../../../core/translations/i18n';
 import { FormattingItem, FormattingItemId, formattingItems } from './formatting-items';
@@ -225,10 +231,25 @@ export class FormattingCommands {
   applyColor(color: string | null): void {
     const editor = this.target();
     if (!editor) return;
-    if (color) editor.commands['setColor'](color);
-    else editor.commands['unsetColor']();
+    if (color) {
+      editor.commands['setColor'](color);
+      this.noteCustomColor(color, 'text');
+    } else editor.commands['unsetColor']();
     editor.focus();
   }
+
+  /** After a colour is applied — by any picker: a colour outside the
+      palette is a custom one, and the user keeps it as a swatch, offered
+      again in every picker (`rememberSwatch`). A palette colour is the
+      palette's: nothing to remember. The email marks neither: dark is
+      drawn, never declared. */
+  noteCustomColor(color: string, role: 'text' | 'background'): void {
+    if (isPaletteColor(this.#palette, color, role)) return;
+    rememberSwatch(this.#swatches, color, role);
+  }
+
+  readonly #palette = injectPalette();
+  readonly #swatches = inject(EMAIL_CUSTOM_SWATCHES);
 
   /** Applies a background fill to the most relevant scope: a selected button
       is filled; selected text gets an inline highlight; a bare cursor in a
@@ -257,6 +278,7 @@ export class FormattingCommands {
     } else {
       editor.commands['unsetBackgroundColor']();
     }
+    if (color) this.noteCustomColor(color, 'background');
     editor.focus();
   }
 
