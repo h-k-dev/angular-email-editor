@@ -21,6 +21,9 @@
 // - `--email-scroll-thumb` — the thumb at rest (the outline at 50%).
 // - `--email-scroll-thumb-hover` — under the pointer (at 75%).
 // - `--email-scroll-track` — the track (transparent).
+// - `--email-scroll-gutter` — the `scrollbar-gutter` (`stable`): `auto` where
+//   a scroller wants no room kept for its bar. Whatever mirrors the gutter
+//   as a padding on the other side has to drop it with it.
 // - `--email-scroll-behavior` — the smooth scroll's `scroll-behavior`
 //   (`smooth`), where `$smooth` turns it on: a host, or a directive's host
 //   binding, sets it `auto` to take it back while something needs a jump.
@@ -79,7 +82,7 @@ $_outline: var(--mat-sys-outline, light-dark(#747775, #8e918f));
   // The bar, where no floating scrollbar has it. `:where` keeps the
   // scroller's specificity what it was without the gate.
   &:where(:not([data-floating-scrollbar])) {
-    scrollbar-gutter: stable;
+    scrollbar-gutter: var(--email-scroll-gutter, stable);
 
     @supports (-moz-appearance: none) {
       scrollbar-width: thin;
