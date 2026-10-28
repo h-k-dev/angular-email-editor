@@ -254,14 +254,21 @@ html {
     (
       container-color: var(--mat-sys-surface-bright),
       container-shape: var(--dialog-radius),
-      container-elevation-shadow: (var(--mat-sys-float-shadow), var(--mat-sys-level3)),
+      container-elevation-shadow: (
+        var(--mat-sys-float-shadow),
+        var(--mat-sys-level3),
+      ),
     )
   );
 
   @media (max-width: 768px) {
     inline-size: var(--dialog-width);
     block-size: var(--dialog-height);
-    @include mat.dialog-overrides((container-elevation-shadow: none));
+    @include mat.dialog-overrides(
+      (
+        container-elevation-shadow: none,
+      )
+    );
   }
 }
 
@@ -619,7 +626,9 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor.
   display: grid;
   place-items: center;
   color: var(--aee-spacer-ink);
-  font: 500 11px / 1 system-ui, sans-serif;
+  font:
+    500 11px / 1 system-ui,
+    sans-serif;
   opacity: 0;
   pointer-events: none;
   user-select: none;
@@ -802,7 +811,10 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor.
  * room, `--aee-block-gutter-x`): the box comes back to the text column's
  * edge, so it lines up with the lines around it. */
 .aee-editor
-  .aee-table-wrap:not(.aee-table-wrap--authored):is(.aee-block--selected, .aee-block--releasing)::after,
+  .aee-table-wrap:not(.aee-table-wrap--authored):is(
+    .aee-block--selected,
+    .aee-block--releasing
+  )::after,
 .aee-editor .aee-columns-wrap:is(.aee-block--selected, .aee-block--releasing)::after {
   inset-inline: calc(var(--aee-block-gutter-x, 0px) - var(--email-block-selection-bleed, 4px));
 }
@@ -1305,7 +1317,7 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
   justify-content: center;
   box-sizing: border-box;
   border: 2px solid var(--email-grip-halo, #ffffff);
-  border-radius: var(--mat-sys-corner-extra-small, 4px);
+  border-radius: var(--mat-sys-corner-extra-medium, 4px);
   background-color: var(--mat-sys-outline, #74777f);
   cursor: pointer;
   opacity: 0;
@@ -1789,7 +1801,8 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
  * typing in the last row with the mouse parked elsewhere must not keep a
  * button permanently on screen. */
 .aee-editor .aee-table-wrap:has(tr > td:last-child:hover) .aee-add-pill--column,
-.aee-editor .aee-table-wrap:has(> .aee-table-box > .aee-col-lines > .aee-col-line--edge-right:hover)
+.aee-editor
+  .aee-table-wrap:has(> .aee-table-box > .aee-col-lines > .aee-col-line--edge-right:hover)
   .aee-add-pill--column,
 .aee-editor .aee-add-zone--column:hover .aee-add-pill--column {
   opacity: 1;
@@ -1849,7 +1862,10 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
   border-radius: var(--mat-sys-corner-extra-small, 4px);
   background-color: var(--mat-sys-inverse-surface, #2f3036);
   color: var(--mat-sys-inverse-on-surface, #f1f0f7);
-  font: 500 12px/16px var(--mat-sys-body-small-font, system-ui), system-ui, sans-serif;
+  font:
+    500 12px/16px var(--mat-sys-body-small-font, system-ui),
+    system-ui,
+    sans-serif;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   pointer-events: none;
