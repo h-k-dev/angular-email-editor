@@ -9,6 +9,10 @@ export const FLOATING_SCROLLBAR_LINGER = 1000;
     to take hold of, however long the text. */
 const MIN_THUMB = 32;
 
+/** The scroller's look the bar takes on: a sibling, it would inherit the
+    parent's instead (the scroll mixin's tokens). */
+const TOKENS = ['--email-scroll-size', '--email-scroll-thumb', '--email-scroll-thumb-hover'];
+
 /**
  * A scroller's bar, floating — over the content, never beside it: no
  * gutter, nothing until a scroll is on, then a thumb along the end edge
@@ -35,7 +39,9 @@ const MIN_THUMB = 32;
  * block scroll padding says covers them (a stuck bar, the composer's
  * floating foot), the same padding that keeps a focused row and the caret
  * clear. Its look is global (styles/_floating-scrollbar.scss, in
- * styles.scss).
+ * styles.scss), on the scroller's own `--email-scroll-*` tokens — so a
+ * scroller in the scroll mixin's skin keeps it, its bar floating (the
+ * mixin leaves the bar to `[data-floating-scrollbar]`).
  *
  * The scroller is the host — or, the attribute's value a selector, the
  * element inside the host it names: a component whose scroller is its own
@@ -112,6 +118,7 @@ function draw(scroller: HTMLElement): () => void {
     // The rail keeps clear of what is stuck over the scroller's ends.
     bar.style.setProperty('--_cover-start', `${parseFloat(style.scrollPaddingTop) || 0}px`);
     bar.style.setProperty('--_cover-end', `${parseFloat(style.scrollPaddingBottom) || 0}px`);
+    for (const token of TOKENS) bar.style.setProperty(token, style.getPropertyValue(token));
     const { scrollHeight, clientHeight } = scroller;
     range = Math.max(0, scrollHeight - clientHeight);
     const length = rail.clientHeight;
@@ -172,7 +179,9 @@ function draw(scroller: HTMLElement): () => void {
 
   const moved = (event: PointerEvent) => {
     if (!drag || event.pointerId !== drag.pointer || !travel) return;
-    scroller.scrollTop = drag.from + ((event.clientY - drag.y) * range) / travel;
+    // Instant, whatever the scroller's `scroll-behavior`: a smooth one
+    // would animate every move, the text trailing the thumb.
+    scroller.scrollTo({ top: drag.from + ((event.clientY - drag.y) * range) / travel, behavior: 'instant' });
   };
 
   const released = (event: PointerEvent) => {

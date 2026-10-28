@@ -21,10 +21,22 @@
 // - `--email-scroll-thumb` — the thumb at rest (the outline at 50%).
 // - `--email-scroll-thumb-hover` — under the pointer (at 75%).
 // - `--email-scroll-track` — the track (transparent).
+// - `--email-scroll-behavior` — the smooth scroll's `scroll-behavior`
+//   (`smooth`), where `$smooth` turns it on: a host, or a directive's host
+//   binding, sets it `auto` to take it back while something needs a jump.
 //
 // The same tokens, with the same fallbacks, colour the floating scrollbar —
 // one thumb, whichever way a scroller shows it: in a stable gutter here, or
 // floating over the content there. A host sets them once.
+//
+// **A floating scrollbar takes the bar over** (`[data-floating-scrollbar]`,
+// the app's `floatingScrollbar` directive): there the mixin draws no
+// gutter and no thumb — any `::-webkit-scrollbar` rule would turn a Mac's
+// floating bar classic, gutter and all (`native`), and the directive draws
+// its own (`drawn`) — and keeps the rest: the tokens, the overscroll, the
+// smooth scroll. So a scroller's skin and its bar's behaviour compose:
+//
+//     <div class="pane" floatingScrollbar>…</div>
 //
 // **Smooth scrolling is opt-in** (`$smooth: true`, and then only without
 // reduced motion). Most of what scrolls here is driven by a caret or by keys —
@@ -57,37 +69,43 @@ $_outline: var(--mat-sys-outline, light-dark(#747775, #8e918f));
   // one stands.
   --_email-scroll-current: transparent;
 
-  scrollbar-gutter: stable;
   overscroll-behavior-x: contain;
-
-  @supports (-moz-appearance: none) {
-    scrollbar-width: thin;
-    scrollbar-color: var(--_email-scroll-current) var(--email-scroll-track, transparent);
-  }
-
-  &::-webkit-scrollbar {
-    width: var(--_email-scroll-size);
-    height: var(--_email-scroll-size);
-  }
-
-  &::-webkit-scrollbar-track {
-    background: var(--email-scroll-track, transparent);
-  }
-
-  &::-webkit-scrollbar-corner {
-    background: transparent;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background-color: var(--_email-scroll-current);
-    border-radius: 1e3px;
-  }
 
   &:hover,
   &:focus-within {
     --_email-scroll-current: var(--_email-scroll-thumb);
+  }
 
-    &::-webkit-scrollbar-thumb:hover {
+  // The bar, where no floating scrollbar has it. `:where` keeps the
+  // scroller's specificity what it was without the gate.
+  &:where(:not([data-floating-scrollbar])) {
+    scrollbar-gutter: stable;
+
+    @supports (-moz-appearance: none) {
+      scrollbar-width: thin;
+      scrollbar-color: var(--_email-scroll-current) var(--email-scroll-track, transparent);
+    }
+
+    &::-webkit-scrollbar {
+      width: var(--_email-scroll-size);
+      height: var(--_email-scroll-size);
+    }
+
+    &::-webkit-scrollbar-track {
+      background: var(--email-scroll-track, transparent);
+    }
+
+    &::-webkit-scrollbar-corner {
+      background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background-color: var(--_email-scroll-current);
+      border-radius: 1e3px;
+    }
+
+    &:hover::-webkit-scrollbar-thumb:hover,
+    &:focus-within::-webkit-scrollbar-thumb:hover {
       background-color: var(--_email-scroll-thumb-hover);
     }
   }
@@ -99,7 +117,7 @@ $_outline: var(--mat-sys-outline, light-dark(#747775, #8e918f));
 
   @if $smooth {
     @media (prefers-reduced-motion: no-preference) {
-      scroll-behavior: smooth;
+      scroll-behavior: var(--email-scroll-behavior, smooth);
     }
   }
 }

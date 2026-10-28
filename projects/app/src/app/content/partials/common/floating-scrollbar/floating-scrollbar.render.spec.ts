@@ -173,6 +173,28 @@ describe('FloatingScrollbar (render)', () => {
     expect(bar()!.hasAttribute('data-dragging')).toBe(false);
   });
 
+  it('follows a dragged thumb at once, however smooth the scroller', async () => {
+    pane().style.scrollBehavior = 'smooth';
+    await scrollTo(0);
+    const rail = thumb().parentElement!;
+    rail.setPointerCapture = () => {};
+    thumb().dispatchEvent(
+      new PointerEvent('pointerdown', { bubbles: true, cancelable: true, pointerId: 7, button: 0, clientY: 50 }),
+    );
+    rail.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerId: 7, clientY: 50 + 78.4 }));
+    expect(pane().scrollTop).toBeCloseTo(400, -1);
+    rail.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 7 }));
+  });
+
+  it('wears the scroller’s own tokens, not its parent’s', async () => {
+    pane().parentElement!.style.setProperty('--email-scroll-thumb', 'red');
+    pane().style.setProperty('--email-scroll-thumb', 'rgb(0, 128, 0)');
+    pane().style.setProperty('--email-scroll-size', '12px');
+    await scrollTo(100);
+    expect(getComputedStyle(bar()!).getPropertyValue('--email-scroll-thumb')).toBe('rgb(0, 128, 0)');
+    expect(getComputedStyle(bar()!).getPropertyValue('--email-scroll-size')).toBe('12px');
+  });
+
   it('leaves floating platform bars alone, and takes its own away when they start to float', async () => {
     native.set(true);
     await fixture.whenStable();
