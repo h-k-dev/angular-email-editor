@@ -4,7 +4,7 @@ import { pageRowStyle } from './extensions/nodes/page-row';
 import { SECTION_CONTENT_MAX, SECTION_INSET } from './extensions/nodes/section';
 import { parsePadding } from './extensions/nodes/table';
 import { inlinePadding } from './inline-style';
-import { layoutMarker, markedAs } from './layout-marker';
+import { layoutMarker, markedAs, unmark } from './layout-marker';
 
 /**
  * The page layout — how the whole email stands in the reader's window: the
@@ -387,6 +387,13 @@ function sectionInner(section: HTMLElement): HTMLElement | null {
  *
  * A body with no marked page may still be a page of rows written by hand
  * (the `table` kind, unmarked): it is lifted as one ({@link rowsPage}).
+ *
+ * A marked page edited by hand may hold more than the one cell we send —
+ * rows of ours copied straight into the page table, beside the column
+ * ({@link strayCells}). That is no page of ours: those rows were never in
+ * the column, and a client draws them as wide as the room. It keeps its
+ * markup, as authored, and loses our markers ({@link unmarkPage}) — no
+ * layout taken, nothing dropped.
  */
 export function liftPageLayout(root: Element): PageLayout | null {
   const pages = Array.from(root.querySelectorAll('table')).filter(
@@ -395,6 +402,10 @@ export function liftPageLayout(root: Element): PageLayout | null {
   if (!pages.length) return rowsPage(root);
   let layout: PageLayout | null = null;
   for (const page of pages) {
+    if (strayCells(page).length) {
+      unmarkPage(page);
+      continue;
+    }
     if (!layout && outermost(page, root)) layout = readPage(page);
     unwrapPage(page);
   }
@@ -562,6 +573,24 @@ function readPage(page: HTMLTableElement): PageLayout {
 
 function pageCell(page: HTMLTableElement): HTMLTableCellElement | null {
   return page.rows?.[0]?.cells[0] ?? null;
+}
+
+/** The page table's cells past its own — none in what we send; a hand edit's
+    rows beside the column (a row of ours pasted into the page table). */
+function strayCells(page: HTMLTableElement): HTMLTableCellElement[] {
+  return Array.from(page.rows ?? []).flatMap((row) => Array.from(row.cells)).slice(1);
+}
+
+/** A page that is no page of ours, as authored markup: our page markers off
+    it — the page's, its column's and runs', its stray rows' — so nothing
+    reads it (or paints the body with its fill) as ours. */
+function unmarkPage(page: HTMLTableElement): void {
+  const cell = pageCell(page);
+  const column = cell ? columnOf(cell) : null;
+  const runs = column ? Array.from(column.children) : [];
+  for (const el of [page, column, ...runs, ...strayCells(page)]) {
+    if (el && markedAs(el)?.startsWith('page')) unmark(el);
+  }
 }
 
 function columnOf(cell: Element): HTMLElement | null {

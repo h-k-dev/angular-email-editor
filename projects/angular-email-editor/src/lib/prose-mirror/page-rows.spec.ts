@@ -162,6 +162,40 @@ describe('page of rows', () => {
       expect(doc.child(1).attrs['padding']).toBe('4px');
     });
 
+    // A marked page edited by hand: our rows copied straight into the page
+    // table, beside a free column left with one empty run.
+    const STRAY =
+      '<table class="aee-layout-page" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width: 100%; border-collapse: collapse;"><tbody>' +
+      '<tr><td bgcolor="#efe9e1" style="padding: 32px 0px; background-color: rgb(239, 233, 225); color: rgb(32, 33, 36);">' +
+      '<!--[if mso]><table role="presentation" align="center" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->' +
+      '<div class="aee-layout-page-column" style="max-width: 600px; margin: 0px auto;"><div class="aee-layout-page-run" style="padding: 16px;"></div></div></td></tr>' +
+      '<tr><td class="aee-layout-page-row" bgcolor="#ffffff" style="padding: 36px 40px 18px; background-color: rgb(255, 255, 255); color: rgb(32, 33, 36);"><div>Masthead</div></td></tr>' +
+      '<tr><td class="aee-layout-page-row" bgcolor="#ffffff" style="padding: 0px 40px 28px; background-color: rgb(255, 255, 255); color: rgb(32, 33, 36);">' +
+      '<table role="presentation" width="100%"><tbody><tr><td>Aktenzeichen</td><td>{{ case_number }}</td></tr></tbody></table></td></tr>' +
+      '<tr><td class="aee-layout-page-row" style="padding: 20px 40px;"><div>Footer</div></td></tr>' +
+      '<!--[if mso]></td></tr></table><![endif]-->' +
+      '</tbody></table>';
+    for (const mode of ['repair', 'email', 'preserve'] as const) {
+      it(`reads a hand-edited page as authored markup in the ${mode} parse — no layout, nothing dropped`, () => {
+        const doc = parseHTML(STRAY, editor.schema, { mode });
+        // Its rows were never in the 600px column: no page width is theirs.
+        expect(doc.attrs['pageLayout']).toBeNull();
+        expect(top(doc)).not.toContain('pageRow');
+        expect(doc.textContent).toContain('Masthead');
+        expect(doc.textContent).toContain('Aktenzeichen');
+        expect(doc.textContent).toContain('Footer');
+      });
+    }
+
+    it('sends a hand-edited page as it stands, its rows as wide as the room, none of our markers on it', () => {
+      mount(STRAY);
+      const html = editor.getHTML();
+      expect(html).not.toContain('aee-layout-page');
+      expect(html).toContain('width="100%"');
+      expect(html).toContain('padding: 36px 40px 18px');
+      expect(html).toContain('Footer');
+    });
+
     it('takes the page as it is — through wrappers, round a column of the minimum width', () => {
       const html = `<div><center>${page(COLUMN.replace('width="600"', 'width="320"'))}</center></div>`;
       const doc = parseHTML(html, editor.schema, { mode: 'preserve' });

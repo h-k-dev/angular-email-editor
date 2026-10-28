@@ -15,6 +15,7 @@ export function stubExampleAssets(): void {
     'Order confirmation',
     'Shipping confirmation',
     'Welcome',
+    'Rechteanfrage',
   ];
   // The one entry the catalogue gives an envelope (a no-reply sender).
   const envelopes: Record<string, object> = {

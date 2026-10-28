@@ -72,6 +72,14 @@ export function markedAs(element: Element): LayoutMarkerKind | null {
   return null;
 }
 
+/** Takes our marker off `element` (a client's renamed one too), its other
+    classes kept — and the attribute gone where nothing is left of it. */
+export function unmark(element: Element): void {
+  const rest = tokens(element).filter((token) => !MARKER_TOKEN.test(token));
+  if (rest.length) element.setAttribute('class', rest.join(' '));
+  else element.removeAttribute('class');
+}
+
 /** Whether `element` is marked as `kind`. */
 export function isMarked(element: Element, kind: LayoutMarkerKind): boolean {
   return markedAs(element) === kind;

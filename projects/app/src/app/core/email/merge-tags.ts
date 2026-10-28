@@ -46,6 +46,13 @@ export class MergeTags {
     { path: 'shipment.trackingUrl', label: 'Tracking URL' },
     { path: 'shipment.eta', label: 'Expected delivery day' },
     { path: 'shipment.window', label: 'Expected delivery window' },
+    { path: 'clearance.production', label: 'Rights clearance production' },
+    { path: 'clearance.photographer', label: 'Rights clearance photographer' },
+    { path: 'clearance.location', label: 'Rights clearance location' },
+    { path: 'clearance.rights', label: 'Rights clearance usage rights' },
+    { path: 'clearance.caseNumber', label: 'Rights clearance case number' },
+    { path: 'clearance.shootDate', label: 'Rights clearance shooting date' },
+    { path: 'clearance.fee', label: 'Rights clearance licence fee' },
     ...Array.from({ length: 80 }, (_, i) => ({
       path: `custom.field${i + 1}`,
       label: `Custom field ${i + 1}`,
@@ -95,6 +102,15 @@ export class MergeTags {
     ['shipment.trackingUrl', 'https://example.com/track/00340434161094042557'],
     ['shipment.eta', 'Tuesday, 27.10.2026'],
     ['shipment.window', '12:00 – 15:30'],
+    // The shoot the rights request asks about
+    // (examples/angularjs/rechteanfrage.html).
+    ['clearance.production', 'Analytical Engines – Herbst/Winter 2026'],
+    ['clearance.photographer', 'Mara Lindqvist'],
+    ['clearance.location', 'Tempelhofer Feld, Berlin'],
+    ['clearance.rights', 'Print, Online und Social Media, DACH, 12 Monate'],
+    ['clearance.caseNumber', 'RC-2026-0187'],
+    ['clearance.shootDate', '14.10.2026'],
+    ['clearance.fee', '2.400,00'],
     // The custom fields the AngularJS example's trade-mark table reads
     // (examples/angularjs/platzhalter-im-ueberblick.html): its mark and
     // infringement are choices,

@@ -74,6 +74,15 @@
             "subject": "Welcome to {{ company.name }}, {{ firstName }}",
             "previewText": "Your account is ready. Finish your profile in a minute."
           }
+        },
+        {
+          "name": "Rechteanfrage",
+          "file": "angularjs/rechteanfrage.html",
+          "envelope": {
+            "from": ["legal@example.com"],
+            "subject": "Nutzungsrechte für „{{ clearance.production }}“ – Az. {{ clearance.caseNumber }}",
+            "previewText": "Fotografie: {{ clearance.photographer }}. Angebotene Lizenzgebühr: {{ clearance.fee }} €."
+          }
         }
       ]
     },
