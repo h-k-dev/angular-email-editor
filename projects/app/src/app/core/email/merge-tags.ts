@@ -53,6 +53,7 @@ export class MergeTags {
     { path: 'clearance.caseNumber', label: 'Rights clearance case number' },
     { path: 'clearance.shootDate', label: 'Rights clearance shooting date' },
     { path: 'clearance.fee', label: 'Rights clearance licence fee' },
+    { path: 'case_number', label: 'Case number' },
     ...Array.from({ length: 80 }, (_, i) => ({
       path: `custom.field${i + 1}`,
       label: `Custom field ${i + 1}`,
@@ -111,6 +112,8 @@ export class MergeTags {
     ['clearance.caseNumber', 'RC-2026-0187'],
     ['clearance.shootDate', '14.10.2026'],
     ['clearance.fee', '2.400,00'],
+    // The case the invoice example bills (examples/angularjs/rechnung.html).
+    ['case_number', 'AZ-2026-0415'],
     // The custom fields the AngularJS example's trade-mark table reads
     // (examples/angularjs/platzhalter-im-ueberblick.html): its mark and
     // infringement are choices,

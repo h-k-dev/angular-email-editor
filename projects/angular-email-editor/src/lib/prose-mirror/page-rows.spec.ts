@@ -267,6 +267,31 @@ describe('page of rows', () => {
         expect(top()).not.toContain('pageRow');
       });
 
+      it('keeps a column of its own colour: a card’s top between the page’s room, and the rows’ ground', () => {
+        // The invoice seed: a beige page, a white column — its empty run a
+        // white cap, 600px wide, above the first row.
+        mount(fs.readFileSync(`${EXAMPLES}angularjs/rechnung.html`, 'utf8'));
+        const conversion = authoredPageBands(editor.state.doc.child(0), editor.schema)!;
+        expect(conversion).toMatchObject({ spacers: 2, sections: 4 });
+        expect(conversion.rows.layout).toMatchObject({
+          background: '#f6f3ee',
+          columnBackground: '#ffffff',
+          spacing: 32,
+        });
+        expect(editor.exec(convertAuthoredPage(pagePos()))).toBe(true);
+        expect(top()).toEqual(['spacer', 'section', 'spacer', 'section', 'section', 'section']);
+        expect(editor.state.doc.child(0).attrs).toMatchObject({ height: 32, background: '#f6f3ee' });
+        expect(editor.state.doc.child(1).attrs).toMatchObject({
+          background: '#f6f3ee',
+          contentBackground: '#ffffff',
+          width: 600,
+        });
+        expect(editor.state.doc.child(1).firstChild!.attrs['height']).toBe(32);
+        // Ours from then on: it reads back as it was sent.
+        const html = editor.getHTML();
+        expect(serializeToHTML(parseHTML(html, editor.schema, { mode: 'preserve' }), editor.schema)).toBe(html);
+      });
+
       it('suggests nothing for a table that is not the pattern', () => {
         mount(STRAY.replace('padding: 20px 40px;', 'padding: 20px 40px 20px 8px;'));
         expect(pagePos()).toBe(-1);

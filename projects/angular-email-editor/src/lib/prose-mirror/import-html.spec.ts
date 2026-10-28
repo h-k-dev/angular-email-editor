@@ -451,3 +451,78 @@ describe('unwrapLayoutTables', () => {
     editor.destroy();
   });
 });
+
+/** The invoice seed's losses in the repair parse (examples/angularjs/
+    rechnung.html): a header cell's bold, rules under the rows, a badge's room
+    and corners, a masthead's letter spacing — kept, each. */
+describe('repair keeps what a hand-coded table and its labels say', () => {
+  const repaired = (html: string) => {
+    const host = globalThis.document.createElement('div');
+    const editor = createEditor({
+      parent: host,
+      extensions: emailExtensions,
+      content: html,
+      parseMode: 'repair',
+    });
+    const out = editor.getHTML();
+    editor.destroy();
+    return out;
+  };
+
+  it('keeps a header cell bold and centred, and its own alignment where it says one', () => {
+    const out = repaired(
+      '<table><tbody><tr><th>Leistung</th><th align="right">Betrag</th></tr>' +
+        '<tr><td>Akteneinsicht</td><td>677,00 €</td></tr></tbody></table>',
+    );
+    const cells = new DOMParser().parseFromString(out, 'text/html').querySelectorAll('td');
+    expect(cells[0].querySelector('strong')?.textContent).toBe('Leistung');
+    expect(cells[0].style.textAlign).toBe('center');
+    expect(cells[1].querySelector('strong')?.textContent).toBe('Betrag');
+    expect(cells[1].style.textAlign).toBe('right');
+    // Body cells are no headers.
+    expect(cells[2].querySelector('strong')).toBeNull();
+  });
+
+  it('keeps rules under the rows: the bottom line alone, never a box', () => {
+    const out = repaired(
+      '<table><tbody><tr><td style="padding:8px 0;border-bottom:1px solid #eee">a</td></tr>' +
+        '<tr><td style="padding:8px 0;border-bottom:1px solid #eee">b</td></tr></tbody></table>',
+    );
+    expect(out.match(/border-bottom: 1px solid rgb\(238, 238, 238\);/g)).toHaveLength(2);
+    expect(out).not.toContain('border: 1px solid');
+    expect(out).not.toContain('border-top');
+  });
+
+  it('keeps a badge: a filled label with its room and corners', () => {
+    const out = repaired(
+      '<div><span style="background:#ffffff;color:#4a1d4f;font-size:10px;padding:4px 8px;border-radius:3px">RECHNUNG</span></div>',
+    );
+    const badge = new DOMParser().parseFromString(out, 'text/html').querySelector('span')!;
+    expect(badge.style.backgroundColor).toBe('rgb(255, 255, 255)');
+    expect(badge.style.padding).toBe('4px 8px');
+    expect(badge.style.borderRadius).toBe('3px');
+    // Without a fill, room round words is no badge's: not kept.
+    expect(repaired('<div><span style="color:#4a1d4f;padding:4px 8px">x</span></div>')).not.toContain(
+      'padding',
+    );
+  });
+
+  it('keeps letter spacing, on the words and handed down from a cell', () => {
+    const out = repaired(
+      '<table><tbody><tr><td style="font-size:18px;letter-spacing:.5px">ARCADIA VERLAG</td></tr></tbody></table>',
+    );
+    expect(out).toContain('letter-spacing: 0.5px');
+    expect(repaired('<div><span style="letter-spacing:-2px">VOGUE</span></div>')).toContain(
+      'letter-spacing: -2px',
+    );
+  });
+
+  it('reads the invoice seed with all four kept', () => {
+    const fs = (globalThis as any).process.getBuiltinModule('fs');
+    const out = repaired(fs.readFileSync('projects/app/public/examples/angularjs/rechnung.html', 'utf8'));
+    expect(out).toMatch(/<strong[^>]*>(<span[^>]*>)?Leistung/);
+    expect(out).toContain('border-bottom: 1px solid rgb(238, 238, 238);');
+    expect(out).toContain('padding: 4px 8px; border-radius: 3px');
+    expect(out).toContain('letter-spacing: 0.5px');
+  });
+});

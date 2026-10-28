@@ -39,6 +39,7 @@ describe('Templates', () => {
       ['handlebars/0', 'handlebars'],
       ['angularjs/2', 'angularjs'],
       ['angularjs/0', 'angularjs'],
+      ['angularjs/6', 'angularjs'],
       ['angularjs/5', 'angularjs'],
       ['angularjs/3', 'angularjs'],
       ['angularjs/1', 'angularjs'],

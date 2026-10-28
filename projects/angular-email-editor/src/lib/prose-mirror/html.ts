@@ -4,6 +4,7 @@ import { repairTables } from './extensions/nodes/table';
 import {
   dropHidden,
   dropZeroSizedWhitespace,
+  explicitHeaderCells,
   inheritTextStyles,
   inlineStyles,
   noteOwnWidths,
@@ -152,6 +153,9 @@ export function parseHTML(html: string, schema: Schema, options: ParseOptions = 
     normalizeInlineStyles(dom.body);
     noteOwnWidths(dom.body);
     inlineStyles(dom);
+    // A `<th>`'s bold and centring, said on the cell before it reads as one
+    // (after the stylesheet's say, which may already speak for it).
+    explicitHeaderCells(dom.body);
     dropHidden(dom.body);
     dropZeroSizedWhitespace(dom.body);
     unwrapLayoutTables(dom.body);

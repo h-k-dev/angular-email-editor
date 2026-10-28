@@ -83,6 +83,15 @@
             "subject": "Nutzungsrechte für „{{ clearance.production }}“ – Az. {{ clearance.caseNumber }}",
             "previewText": "Fotografie: {{ clearance.photographer }}. Angebotene Lizenzgebühr: {{ clearance.fee }} €."
           }
+        },
+        {
+          "name": "Rechnung",
+          "file": "angularjs/rechnung.html",
+          "envelope": {
+            "from": ["billing@example.com"],
+            "subject": "Rechnung Nr. 46786 zu Vorgang {{ case_number }}",
+            "previewText": "Zahlbar innerhalb von 14 Tagen."
+          }
         }
       ]
     },

@@ -946,7 +946,8 @@ describe('tableKind', () => {
       '</tbody></table>';
     expect(tableKind(firstTable(ruled))).toBe('layout');
     // Its lines stay as written: layout says what it is, not how it looks.
-    expect(canonical(ruled)).toContain('border: 1px solid rgb(228, 220, 207);');
+    expect(canonical(ruled)).toContain('border-top: 1px solid rgb(228, 220, 207);');
+    expect(canonical(ruled)).not.toContain('border: 1px solid');
     // No role, no mark: content, whatever it looks like.
     expect(tableKind(firstTable(ruled.replace(' role="presentation"', '')))).toBe('bordered');
   });

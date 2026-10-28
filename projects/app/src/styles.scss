@@ -1823,9 +1823,9 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow:
-    0 0 0 2px var(--email-grip-halo, #ffffff),
-    0 0 6px 2px var(--email-grip-halo, #ffffff);
+  // A thin ring only: the paper's colour is not always what stands behind
+  // the pill (a filled cell, a band), and a glow of it read as a smudge.
+  box-shadow: 0 0 0 2px var(--email-grip-halo, #ffffff);
 }
 
 /* Both pills reveal on *hover only* — the last column / last row, or the

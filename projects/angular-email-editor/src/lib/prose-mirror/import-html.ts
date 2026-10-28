@@ -507,10 +507,32 @@ function inlineValue(el: HTMLElement, property: string): string {
   return m?.[1]?.trim() ?? '';
 }
 
+/** A header cell's look, written out: the schema has no `<th>` (an email
+    table is presentational), so a `<th>` reads as a cell — and what every
+    client draws a `<th>` with by default, its words bold and centred, would
+    go with the tag. Said on the cell, it stays: bold where it says no
+    weight, centred where it says no alignment. */
+export function explicitHeaderCells(root: ParentNode): void {
+  for (const th of Array.from(root.querySelectorAll('th'))) {
+    const cell = th as HTMLElement;
+    if (!inlineValue(cell, 'font-weight')) cell.style.fontWeight = 'bold';
+    if (!cell.getAttribute('align') && !inlineValue(cell, 'text-align')) {
+      cell.style.textAlign = 'center';
+    }
+  }
+}
+
 /** What an ancestor's style hands down to the words: the properties CSS
     inherits that the schema reads — a colour, a size, a face off a
     `<span>`, an alignment and a line height off the block. */
-const INHERITED = ['color', 'font-size', 'font-family', 'text-transform', 'line-height'] as const;
+const INHERITED = [
+  'color',
+  'font-size',
+  'font-family',
+  'text-transform',
+  'letter-spacing',
+  'line-height',
+] as const;
 
 /** The inherited properties only a block reads — never written onto a run. */
 const BLOCK_ONLY: ReadonlySet<string> = new Set(['line-height']);

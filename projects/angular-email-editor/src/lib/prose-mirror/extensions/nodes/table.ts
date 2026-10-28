@@ -242,7 +242,8 @@ export function tableStyleOf(table: Node): TableStyle {
   let ruled = true;
   table.forEach((row) =>
     row.forEach((cell) => {
-      if (cell.attrs['border'] && cell.attrs['borderSides'] !== 'block') ruled = false;
+      // Rules over, under, or over and under the rows — never at the sides.
+      if (cell.attrs['border'] && !cell.attrs['borderSides']) ruled = false;
     }),
   );
   return ruled ? 'ruled' : 'bordered';
@@ -377,22 +378,33 @@ function parseCellWidth(dom: HTMLElement, colspan: number): number[] | null {
 function parseCellBorder(dom: HTMLElement): string | null {
   const style = dom.style;
   if (!style) return null;
-  const color = style.borderTopColor || style.borderColor;
-  if (!color || style.borderTopStyle === 'none') return null;
-  return isSafeColor(color) ? color : null;
+  // The line above, else the line below (a rule under the row): the cell's
+  // one colour.
+  const side = drawnSide(dom, 'top') ? 'top' : drawnSide(dom, 'bottom') ? 'bottom' : null;
+  if (!side) return null;
+  const color = style.getPropertyValue(`border-${side}-color`) || style.borderColor;
+  return color && isSafeColor(color) ? color : null;
 }
 
-/** Which sides a cell's line is on: `block` where it is drawn above and below
-    only (a ruled table's), the sides bare — null for all four (or none). */
-function parseCellBorderSides(dom: HTMLElement): 'block' | null {
-  const style = dom.style;
-  if (!style) return null;
-  const drawn = (side: 'Top' | 'Right' | 'Bottom' | 'Left') => {
-    const kind = style.getPropertyValue(`border-${side.toLowerCase()}-style`);
-    return !!kind && kind !== 'none' && kind !== 'hidden';
-  };
-  return drawn('Top') && drawn('Bottom') && !drawn('Left') && !drawn('Right') ? 'block' : null;
+function drawnSide(dom: HTMLElement, side: 'top' | 'right' | 'bottom' | 'left'): boolean {
+  const kind = dom.style?.getPropertyValue(`border-${side}-style`);
+  return !!kind && kind !== 'none' && kind !== 'hidden';
 }
+
+/** Which sides a cell's line is on, where not all four: `block` above and
+    below (a ruled table's), `top` or `bottom` alone (a hand-coded table's
+    rule over or under its rows) — the sides bare each time. Null for all
+    four, for none, or for a shape of lines the schema does not keep. */
+function parseCellBorderSides(dom: HTMLElement): CellBorderSides {
+  if (drawnSide(dom, 'left') || drawnSide(dom, 'right')) return null;
+  const top = drawnSide(dom, 'top');
+  const bottom = drawnSide(dom, 'bottom');
+  return top && bottom ? 'block' : top ? 'top' : bottom ? 'bottom' : null;
+}
+
+/** The sides a cell's line is on, where not all four (see the `borderSides`
+    attr). */
+export type CellBorderSides = 'block' | 'top' | 'bottom' | null;
 
 function cellAttrs(dom: HTMLElement): Record<string, unknown> {
   const raw = dom.style?.backgroundColor || dom.getAttribute('bgcolor');
@@ -441,6 +453,8 @@ function cellDOM(node: { attrs: Record<string, any> }): [string, Record<string, 
   // one, so it reads as a rule between rows and one above and below.
   if (border && borderSides === 'block') {
     style += ` border-top: 1px solid ${border}; border-bottom: 1px solid ${border};`;
+  } else if (border && (borderSides === 'top' || borderSides === 'bottom')) {
+    style += ` border-${borderSides}: 1px solid ${border};`;
   } else if (border) style += ` border: 1px solid ${border};`;
   // The fill always carries its paired text colour (fillTextColor): the cell
   // must not depend on the client's default text, which flips to near-white in
@@ -479,9 +493,11 @@ export const TableCell = defineNode({
       // for no line. Set for every cell of a bordered insert (`/table`); kept
       // uniform by the repair plugin (see `unifyCellPresets`).
       border: { default: null },
-      // Which sides the line is on: null for all four, `block` for above
-      // and below only — a ruled table's (`setTableStyle`). Kept uniform
-      // like the border (see `unifyCellPresets`).
+      // Which sides the line is on ({@link CellBorderSides}): null for all
+      // four, `block` for above and below only — a ruled table's
+      // (`setTableStyle`) — `top` or `bottom` alone, a hand-coded table's
+      // rule over or under its rows. New cells take the sides most cells
+      // have (see `unifyCellPresets`).
       borderSides: { default: null },
       // A fill colour on the cell (the most bulletproof background in email —
       // `background-color` on `<td>` renders even in Outlook). From the curated
@@ -1355,6 +1371,16 @@ function buildTable(schema: Schema, rows: number, cols: number, kind: TableKind)
   )!;
 }
 
+/** The value most cells share — null for none counted. */
+function mostCommon<T>(counts: Map<T, number>): T | null {
+  let best: T | null = null;
+  let most = 0;
+  for (const [value, count] of counts) {
+    if (count > most) [best, most] = [value, count];
+  }
+  return best;
+}
+
 /** The ranges of the final document that the steps of `trs` (applied one
     after another) inserted — what is *new* in it. Earlier ranges are mapped
     through every later step, so all of them speak the last doc's positions. */
@@ -1394,7 +1420,7 @@ function unifyCellPresets(tr: Transaction, inserted: [number, number][]): void {
     if (node.type.name !== 'table') return true;
 
     const borders = new Set<string>();
-    const sides = new Set<string | null>();
+    const sides = new Map<string | null, number>();
     const paddings = new Set<string>();
     let unbordered = 0;
     node.descendants((cell) => {
@@ -1403,7 +1429,8 @@ function unifyCellPresets(tr: Transaction, inserted: [number, number][]): void {
       const padding = cell.attrs['padding'] as string | null;
       if (border) {
         borders.add(border);
-        sides.add(cell.attrs['borderSides'] as string | null);
+        const side = cell.attrs['borderSides'] as string | null;
+        sides.set(side, (sides.get(side) ?? 0) + 1);
       } else unbordered++;
       if (padding) paddings.add(padding);
       return false;
@@ -1412,7 +1439,9 @@ function unifyCellPresets(tr: Transaction, inserted: [number, number][]): void {
     const border = borders.size === 1 && unbordered > 0 ? [...borders][0] : null;
     // A bare cell takes the sides with the colour — a ruled table's new row
     // is ruled.
-    const borderSides = sides.size === 1 ? [...sides][0] : null;
+    // Mixed (a rule over every row and one under the last): the most
+    // common, so a new row reads as the rows round it.
+    const borderSides = mostCommon(sides);
     const padding =
       paddings.size === 1 && !isNew(pos, pos + node.nodeSize) ? [...paddings][0] : null;
     if (border || padding) {

@@ -108,27 +108,29 @@ function recognise(node: Node, schema: Schema): AuthoredPageConversion | null {
   const rows = Array.from(table.rows);
   if (rows.length < 2 || rows.some((row) => row.cells.length !== 1)) return null;
   const frame = rows[0].cells[0];
-  const strip = frameStrip(doc, frame);
-  if (!strip) return null;
+  const top = frameBlocks(doc, frame);
+  if (!top) return null;
   // The rows first: the bands below take the cells' words away.
   const pageRows = rows.slice(1).map((row) => rowOfPage(doc, row.cells[0]).outerHTML);
-  const blocks: HTMLElement[] = [strip];
+  const blocks: HTMLElement[] = [...top];
   for (const row of rows.slice(1)) {
     const band = rowBand(doc, row.cells[0]);
     if (!band) return null;
     blocks.push(band);
   }
   const column = frame.firstElementChild as HTMLElement;
+  const isSpacer = (block: HTMLElement) => block.tagName === 'DIV';
   return {
     html: blocks.map((block) => block.outerHTML).join(''),
-    spacers: 1,
-    sections: blocks.length - 1,
+    spacers: blocks.filter(isSpacer).length,
+    sections: blocks.filter((block) => !isSpacer(block)).length,
     rows: {
       html: pageRows.join(''),
       layout: tablePageLayout({
         width: parseFloat(column.style.maxWidth) || PAGE_WIDTH,
         background: fillOf(frame),
-        columnBackground: null,
+        // The column's own colour, where it says one: the rows' ground.
+        columnBackground: fillOf(column),
         spacing: sides(frame)[0],
         // Every row says its own room.
         rowPadding: 0,
@@ -156,24 +158,55 @@ function rowOfPage(doc: Document, cell: HTMLTableCellElement): HTMLElement {
 }
 
 /** The first row: the page's own cell round a centred column holding
-    nothing — one filled spacer, as tall as the cell's room and the
-    column's empty runs together. */
-function frameStrip(doc: Document, cell: HTMLTableCellElement): HTMLElement | null {
+    nothing. Of the page's colour alone, one filled spacer as tall as the
+    cell's room and the column's empty runs together. A column with a
+    colour of its own is a card's top on the page — the page's room above
+    and below, the column's height in its colour between, capped at its
+    width — so: a spacer of the page's colour, a band of it round a card of
+    the column's colour holding the runs' height, and the page's colour
+    again. The same pixels either way. */
+function frameBlocks(doc: Document, cell: HTMLTableCellElement): HTMLElement[] | null {
   const inside = Array.from(cell.children);
   const column = inside.length === 1 ? (inside[0] as HTMLElement) : null;
   if (!column || column.tagName !== 'DIV' || !column.style.maxWidth) return null;
   if (column.textContent?.trim()) return null;
   const runs = Array.from(column.children) as HTMLElement[];
   if (runs.some((run) => run.tagName !== 'DIV' || run.children.length)) return null;
-  const vertical = (el: HTMLElement) => {
-    const [top, , bottom] = sides(el);
-    return top + bottom;
-  };
-  const height = vertical(cell) + runs.reduce((sum, run) => sum + vertical(run), 0);
-  if (!height) return null;
+  const [above, , below] = sides(cell);
+  const runsHeight = runs.reduce((sum, run) => {
+    const [top, , bottom] = sides(run);
+    return sum + top + bottom;
+  }, 0);
+  const page = fillOf(cell);
+  const card = fillOf(column);
+  if (!card) {
+    const height = above + below + runsHeight;
+    return height ? [spacerOf(doc, height, page)] : null;
+  }
+  const blocks: HTMLElement[] = [];
+  if (above) blocks.push(spacerOf(doc, above, page));
+  if (runsHeight) {
+    const band = bandTable(
+      doc,
+      {
+        background: page,
+        padding: '0px',
+        inset: 0,
+        width: parseFloat(column.style.maxWidth) || PAGE_WIDTH,
+        contentBackground: card,
+      },
+      [spacerOf(doc, runsHeight, null)],
+    );
+    blocks.push(band);
+  }
+  if (below) blocks.push(spacerOf(doc, below, page));
+  return blocks.length ? blocks : null;
+}
+
+function spacerOf(doc: Document, height: number, fill: string | null): HTMLElement {
   const spacer = doc.createElement('div');
   spacer.className = layoutMarker('spacer');
-  spacer.setAttribute('style', spacerStyle(height, fillOf(cell)));
+  spacer.setAttribute('style', spacerStyle(height, fill));
   spacer.innerHTML = '&nbsp;';
   return spacer;
 }

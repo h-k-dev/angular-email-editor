@@ -261,10 +261,21 @@ function emitBand(attrs: SectionAttrs): DOMOutputSpec {
     into bands (authored-page.ts). */
 export function bandTable(
   doc: Document,
-  attrs: { background: string | null; padding: string; inset: number; width: SectionWidth },
+  attrs: {
+    background: string | null;
+    padding: string;
+    inset: number;
+    width: SectionWidth;
+    /** A card's colour on the content column, or none. */
+    contentBackground?: string | null;
+  },
   content: ChildNode[],
 ): HTMLTableElement {
-  const band: SectionAttrs = { ...attrs, image: null, contentBackground: null };
+  const band: SectionAttrs = {
+    ...attrs,
+    image: null,
+    contentBackground: attrs.contentBackground ?? null,
+  };
   const table = doc.createElement('table');
   for (const [name, value] of Object.entries(TABLE_ATTRS)) table.setAttribute(name, value);
   const td = table.createTBody().insertRow().insertCell();

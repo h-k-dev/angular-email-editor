@@ -69,6 +69,21 @@ export function parseTextTransform(raw: string | null | undefined): TextTransfor
   return value === 'uppercase' || value === 'lowercase' || value === 'capitalize' ? value : null;
 }
 
+/** A `letter-spacing` the mark keeps, as written: a length in px or em
+    (`.5px`, `-2px`, `0.1em`), `normal` and the rest none. */
+export function parseLetterSpacing(raw: string | null | undefined): string | null {
+  const value = (raw ?? '').trim().toLowerCase();
+  return /^-?(\d+(\.\d+)?|\.\d+)(px|em)$/.test(value) ? value : null;
+}
+
+/** A badge's padding or corner radius, as the CSSOM spells it: px lengths
+    only (`4px 8px`, `3px`), none of them negative; zero is none. */
+function parseBadgeLength(raw: string | null | undefined): string | null {
+  const value = (raw ?? '').trim();
+  if (!/^(\d+(\.\d+)?px|0)(\s+(\d+(\.\d+)?px|0)){0,3}$/.test(value)) return null;
+  return /[1-9]/.test(value) ? value : null;
+}
+
 /** Whether the selection (or the caret's stored marks) shows in capitals. */
 function isUppercase(state: EditorState, schema: Schema): boolean {
   const type = schema.marks['textStyle'];
@@ -154,6 +169,14 @@ export const TextStyle = defineMark({
       /** `uppercase`, `lowercase` or `capitalize` — a builder's navbar and
           headings wear one; null for the words as written. */
       textTransform: { default: null },
+      /** The room between letters, as written (`.5px`, `-2px`, `0.1em`) —
+          a masthead's, a label's; null for the font's own. */
+      letterSpacing: { default: null },
+      /** A filled span's room round its words and its corners (`4px 8px`,
+          `3px`) — a badge, a label chip. Only with a fill: without one the
+          room is invisible and not the words' to keep. */
+      padding: { default: null },
+      borderRadius: { default: null },
     },
     parseDOM: [
       {
@@ -170,10 +193,30 @@ export const TextStyle = defineMark({
           // clearing the fill later also clears its text colour.
           if (backgroundColor && isFillTextColor(color, backgroundColor)) color = null;
           const textTransform = parseTextTransform(node.style?.textTransform);
-          if (!color && !fontSize && !fontFamily && !backgroundColor && !textTransform) {
+          const letterSpacing = parseLetterSpacing(node.style?.letterSpacing);
+          // A badge's room and corners, only round a fill.
+          const padding = backgroundColor ? parseBadgeLength(node.style?.padding) : null;
+          const borderRadius = backgroundColor ? parseBadgeLength(node.style?.borderRadius) : null;
+          if (
+            !color &&
+            !fontSize &&
+            !fontFamily &&
+            !backgroundColor &&
+            !textTransform &&
+            !letterSpacing
+          ) {
             return false;
           }
-          return { color, fontSize, fontFamily, backgroundColor, textTransform };
+          return {
+            color,
+            fontSize,
+            fontFamily,
+            backgroundColor,
+            textTransform,
+            letterSpacing,
+            padding,
+            borderRadius,
+          };
         },
       },
       {
@@ -186,7 +229,16 @@ export const TextStyle = defineMark({
       },
     ],
     toDOM: (mark) => {
-      const { color, fontSize, fontFamily, backgroundColor, textTransform } = mark.attrs;
+      const {
+        color,
+        fontSize,
+        fontFamily,
+        backgroundColor,
+        textTransform,
+        letterSpacing,
+        padding,
+        borderRadius,
+      } = mark.attrs;
       // A fill never rides on the client's default text colour: without an
       // authored colour it carries its paired text (see fillTextColor).
       const textColor = color ?? (backgroundColor ? fillTextColor(backgroundColor) : null);
@@ -196,6 +248,9 @@ export const TextStyle = defineMark({
         fontFamily ? `font-family: ${fontFamily}` : null,
         backgroundColor ? `background-color: ${backgroundColor}` : null,
         textTransform ? `text-transform: ${textTransform}` : null,
+        letterSpacing ? `letter-spacing: ${letterSpacing}` : null,
+        backgroundColor && padding ? `padding: ${padding}` : null,
+        backgroundColor && borderRadius ? `border-radius: ${borderRadius}` : null,
       ]
         .filter(Boolean)
         .join('; ');
