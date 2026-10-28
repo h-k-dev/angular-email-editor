@@ -40,112 +40,199 @@
       </div>
     </div>
   } @else {
-    <div
-      ngMenu
-      menuSafeTriangle
-      #menu
-      class="section-menu"
-      aria-label="Section options"
-      (itemSelected)="pick($event)"
-      (keydown.escape)="leave()"
-    >
-      <div ngMenuItem class="section-menu__item" value="color" [submenu]="colorMenu">
-        <mat-icon>format_color_fill</mat-icon>
-        <span>Color</span>
-      </div>
+    <div class="section-menu__frame">
       <div
         ngMenu
-        #colorMenu="ngMenu"
-        class="section-menu section-menu__sub"
-        floatingScrollbar
-        aria-label="Color"
-        submenuPlacement
-        [submenuPlacementAvoid]="target()?.boundingBox"
+        menuSafeTriangle
+        #menu
+        class="section-menu"
+        [attr.aria-label]="labels[kind()]"
         (itemSelected)="pick($event)"
+        (keydown.escape)="leave()"
       >
-        <!-- One of them is the band's: a radio, its tick in the row's check
-             slot (styles/_menu.scss) — never a wash, which is the keyboard's. -->
-        <div class="section-menu__heading">Background</div>
-        <div
-          ngMenuItem
-          class="section-menu__item"
-          value="fill:"
-          role="menuitemradio"
-          [attr.aria-checked]="!currentFill()"
-        >
-          <span class="section-menu__swatch section-menu__swatch--none"></span>
-          <span>No background</span>
-          <mat-icon data-slot="check">check</mat-icon>
-        </div>
-        @for (color of fills(); track color.value) {
+        @if (!page()) {
+          <div ngMenuItem class="section-menu__item" value="color" [submenu]="colorMenu">
+            <mat-icon>format_color_fill</mat-icon>
+            <span>Color</span>
+          </div>
           <div
-            ngMenuItem
-            class="section-menu__item"
-            [value]="'fill:' + color.value"
-            role="menuitemradio"
-            [attr.aria-checked]="color.checked"
+            ngMenu
+            #colorMenu="ngMenu"
+            class="section-menu section-menu__sub"
+            floatingScrollbar
+            aria-label="Color"
+            submenuPlacement
+            [submenuPlacementAvoid]="target()?.boundingBox"
+            (itemSelected)="pick($event)"
           >
-            <span class="section-menu__swatch" [style.background-color]="color.value"></span>
-            <span>{{ color.name }} background</span>
-            <mat-icon data-slot="check">check</mat-icon>
+            <!-- One of them is the band's: a radio, its tick in the row's check
+             slot (styles/_menu.scss) — never a wash, which is the keyboard's. -->
+            <div class="section-menu__heading">Background</div>
+            <div
+              ngMenuItem
+              class="section-menu__item"
+              value="fill:"
+              role="menuitemradio"
+              [attr.aria-checked]="!currentFill()"
+            >
+              <span class="section-menu__swatch section-menu__swatch--none"></span>
+              <span>No background</span>
+              <mat-icon data-slot="check">check</mat-icon>
+            </div>
+            @for (color of fills(); track color.value) {
+              <div
+                ngMenuItem
+                class="section-menu__item"
+                [value]="'fill:' + color.value"
+                role="menuitemradio"
+                [attr.aria-checked]="color.checked"
+              >
+                <span class="section-menu__swatch" [style.background-color]="color.value"></span>
+                <span>{{ color.name }} background</span>
+                <mat-icon data-slot="check">check</mat-icon>
+              </div>
+            }
           </div>
         }
+
+        @if (kind() === 'section') {
+          <div ngMenuItem class="section-menu__item" value="image">
+            <mat-icon>wallpaper</mat-icon>
+            <span>Background image</span>
+          </div>
+
+          <div class="section-menu__separator" role="separator"></div>
+
+          <!-- No rows of the menu: the arrows pass them by, Tab reaches them. -->
+          <div class="section-menu__padding" role="group" aria-labelledby="section-menu-padding">
+            <div class="section-menu__heading" id="section-menu-padding">Padding</div>
+            <label class="section-menu__row">
+              <span>Top</span>
+              <span class="section-menu__length">
+                <input
+                  class="section-menu__input"
+                  type="number"
+                  inputmode="numeric"
+                  [step]="paddingStep"
+                  [formField]="padding.top"
+                  emailFieldKeys
+                  (emailFieldKeysCommitted)="applied()"
+                  (emailFieldKeysDismissed)="leave()"
+                />
+                px
+              </span>
+            </label>
+            <label class="section-menu__row">
+              <span>Bottom</span>
+              <span class="section-menu__length">
+                <input
+                  class="section-menu__input"
+                  type="number"
+                  inputmode="numeric"
+                  [step]="paddingStep"
+                  [formField]="padding.bottom"
+                  emailFieldKeys
+                  (emailFieldKeysCommitted)="applied()"
+                  (emailFieldKeysDismissed)="leave()"
+                />
+                px
+              </span>
+            </label>
+            <label class="section-menu__row">
+              <span>Inline</span>
+              <span class="section-menu__length">
+                <input
+                  class="section-menu__input"
+                  type="number"
+                  inputmode="numeric"
+                  [step]="paddingStep"
+                  [formField]="padding.inline"
+                  emailFieldKeys
+                  (emailFieldKeysCommitted)="applied()"
+                  (emailFieldKeysDismissed)="leave()"
+                />
+                px
+              </span>
+            </label>
+          </div>
+
+          <div class="section-menu__separator" role="separator"></div>
+
+          <!-- The content's cap: px, or Full (none). Disabled, never hidden, on a
+           page's band row — its width is the page's. -->
+          <div class="section-menu__padding" role="group" aria-labelledby="section-menu-width">
+            <div class="section-menu__heading" id="section-menu-width">Width</div>
+            <label class="section-menu__row">
+              <span>Content</span>
+              <span class="section-menu__length">
+                <input
+                  class="section-menu__input"
+                  type="number"
+                  inputmode="numeric"
+                  [step]="widthStep"
+                  [formField]="width.width"
+                  emailFieldKeys
+                  (emailFieldKeysCommitted)="applied()"
+                  (emailFieldKeysDismissed)="leave()"
+                />
+                px
+              </span>
+            </label>
+            <label class="section-menu__row">
+              <span>Full width</span>
+              <input class="section-menu__check" type="checkbox" [formField]="width.full" />
+            </label>
+          </div>
+        }
+
+        @if (!page()) {
+          <div class="section-menu__separator" role="separator"></div>
+        }
+
+        <div ngMenuItem class="section-menu__item" value="remove">
+          <mat-icon>delete_outline</mat-icon>
+          <span>{{ removeLabels[kind()] }}</span>
+        </div>
       </div>
 
-      <div ngMenuItem class="section-menu__item" value="image">
-        <mat-icon>wallpaper</mat-icon>
-        <span>Background image</span>
-      </div>
-
-      <div class="section-menu__separator" role="separator"></div>
-
-      <!-- No rows of the menu: the arrows pass them by, Tab reaches them. -->
-      <div
-        class="section-menu__padding"
-        role="group"
-        aria-labelledby="section-menu-padding"
-      >
-        <div class="section-menu__heading" id="section-menu-padding">Padding</div>
-        <label class="section-menu__row">
-          <span>Block</span>
-          <span class="section-menu__length">
-            <input
-              class="section-menu__input"
-              type="number"
-              inputmode="numeric"
-              [step]="paddingStep"
-              [formField]="padding.block"
-              emailFieldKeys
-              (emailFieldKeysCommitted)="applied()"
-              (emailFieldKeysDismissed)="leave()"
-            />
-            px
-          </span>
-        </label>
-        <label class="section-menu__row">
-          <span>Inline</span>
-          <span class="section-menu__length">
-            <input
-              class="section-menu__input"
-              type="number"
-              inputmode="numeric"
-              [step]="paddingStep"
-              [formField]="padding.inline"
-              emailFieldKeys
-              (emailFieldKeysCommitted)="applied()"
-              (emailFieldKeysDismissed)="leave()"
-            />
-            px
-          </span>
-        </label>
-      </div>
-
-      <div class="section-menu__separator" role="separator"></div>
-
-      <div ngMenuItem class="section-menu__item" value="remove">
-        <mat-icon>delete_outline</mat-icon>
-        <span>Remove section</span>
-      </div>
+      <!-- Left of the menu, never in it (no row of its: the arrows pass it
+         by, Tab reaches its button) — a suggestion, which the author takes
+         or leaves; nothing converts on its own. -->
+      @if (pageSuggested()) {
+        <aside class="section-menu__suggestion" aria-labelledby="section-menu-suggestion">
+          <strong id="section-menu-suggestion">Rows outside the page's column</strong>
+          <p>
+            This table is a page whose rows were pasted beside its column. Its empty top row becomes
+            a spacer with its colour, every other row a section — each with its own menu, and dark
+            mode adapts the colours.
+          </p>
+          <button
+            type="button"
+            class="section-menu__button section-menu__button--primary"
+            (click)="convertPage()"
+          >
+            <span>{{ pageConvertLabel() }}</span>
+          </button>
+        </aside>
+      }
+      <!-- A band that holds nothing but room is drawn by one spacer of its
+         fill — lighter, and it stands in every layout. -->
+      @if (suggestion(); as strip) {
+        <aside class="section-menu__suggestion" aria-labelledby="section-menu-suggestion">
+          <strong id="section-menu-suggestion">Only room in this section</strong>
+          <p>
+            It holds nothing but space. A spacer with a fill draws the same
+            {{ strip.height }}px strip as one line of markup, and works in every layout.
+          </p>
+          <button
+            type="button"
+            class="section-menu__button section-menu__button--primary"
+            (click)="useSpacer()"
+          >
+            <span>{{ spacerConvertLabel }}</span>
+          </button>
+        </aside>
+      }
     </div>
   }
 </ng-template>

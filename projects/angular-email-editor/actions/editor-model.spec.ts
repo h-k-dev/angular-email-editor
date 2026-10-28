@@ -26,7 +26,7 @@ import {
   imports: [FormField, FieldKeys],
   template: `
     <div #surface></div>
-    <input class="block" type="number" [formField]="paddingFields.block" emailFieldKeys />
+    <input class="block" type="number" [formField]="paddingFields.top" emailFieldKeys />
   `,
 })
 class Host {
@@ -39,12 +39,12 @@ class Host {
   readonly page = pageLayoutModel(() => this.editor());
   readonly paddingFields = form(this.padding, (p) => debounce(p, 'blur'));
 
-  readonly reads = vi.fn((state) => sectionPaddingOf(state) ?? { block: 0, inline: 0 });
+  readonly reads = vi.fn((state) => sectionPaddingOf(state) ?? { top: 0, bottom: 0, inline: 0 });
   /** Counts its readings and its writes' commands. */
   readonly counted = editorModel(() => this.editor(), {
     read: this.reads,
     write: vi.fn(() => null),
-    initial: { block: -1, inline: -1 },
+    initial: { top: -1, bottom: -1, inline: -1 },
   });
 
   constructor() {
@@ -77,14 +77,14 @@ describe('editorModel', () => {
 
   it('says its initial value until there is an editor', () => {
     const early = TestBed.createComponent(Host).componentInstance;
-    expect(early.counted()).toEqual({ block: -1, inline: -1 });
+    expect(early.counted()).toEqual({ top: -1, bottom: -1, inline: -1 });
     expect(early.page().kind).toBe('none');
   });
 
   it('follows the editor: the band the caret is in, none outside one', () => {
-    expect(host.padding()).toEqual({ block: 0, inline: 0 });
+    expect(host.padding()).toEqual({ top: 0, bottom: 0, inline: 0 });
     editor.commands['insertSection']('#f1f3f4');
-    expect(host.padding()).toEqual({ block: 20, inline: 16 });
+    expect(host.padding()).toEqual({ top: 20, bottom: 20, inline: 16 });
     expect(host.fill()).toBe('#f1f3f4');
   });
 
@@ -92,12 +92,12 @@ describe('editorModel', () => {
     editor.commands['insertSection']('#f1f3f4');
     // The insertion its own step, however soon the write comes after it.
     editor.view.dispatch(closeHistory(editor.state.tr));
-    host.padding.set({ block: 41, inline: 16 });
+    host.padding.set({ top: 41, bottom: 41, inline: 16 });
     // Snapped to the 4px grid by the command; the signal never held 41.
-    expect(host.padding()).toEqual({ block: 40, inline: 16 });
-    expect(sectionPaddingOf(editor.state)).toEqual({ block: 40, inline: 16 });
+    expect(host.padding()).toEqual({ top: 40, bottom: 40, inline: 16 });
+    expect(sectionPaddingOf(editor.state)).toEqual({ top: 40, bottom: 40, inline: 16 });
     undo(editor.state, editor.view.dispatch);
-    expect(host.padding()).toEqual({ block: 20, inline: 16 });
+    expect(host.padding()).toEqual({ top: 20, bottom: 20, inline: 16 });
 
     host.fill.set(null);
     expect(host.fill()).toBeNull();
@@ -106,7 +106,7 @@ describe('editorModel', () => {
   it('runs nothing for a value the document already says, and a refused write leaves the reading', () => {
     editor.commands['insertSection']('#f1f3f4');
     const write = vi.spyOn(editor, 'exec');
-    host.padding.set({ block: 20, inline: 16 });
+    host.padding.set({ top: 20, bottom: 20, inline: 16 });
     expect(write).not.toHaveBeenCalled();
     // Outside a band the command refuses: nothing changes.
     host.spacing.set({ block: 8, inline: 8, gap: 8 });
@@ -165,7 +165,7 @@ describe('editorModel', () => {
     field.dispatchEvent(new Event('change'));
     await fixture.whenStable();
     expect(write).toHaveBeenCalledTimes(1);
-    expect(host.padding().block).toBe(24);
+    expect(host.padding().top).toBe(24);
     expect(field.value).toBe('24');
 
     // Snapped back onto what the band already says: no change to the
@@ -174,7 +174,7 @@ describe('editorModel', () => {
     field.dispatchEvent(new Event('input'));
     field.dispatchEvent(new Event('change'));
     await fixture.whenStable();
-    expect(host.padding().block).toBe(24);
+    expect(host.padding().top).toBe(24);
     expect(field.value).toBe('24');
   });
 });

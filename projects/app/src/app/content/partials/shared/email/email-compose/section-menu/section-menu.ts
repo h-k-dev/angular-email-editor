@@ -16,7 +16,7 @@ import {
 } from '@angular/core';
 
 // Angular Signal Forms
-import { FormField, debounce, form, max, min } from '@angular/forms/signals';
+import { FormField, debounce, disabled, form, max, min } from '@angular/forms/signals';
 
 // Material
 import { MatIconModule } from '@angular/material/icon';
@@ -31,12 +31,22 @@ import { ConnectedPosition } from '@angular/cdk/overlay';
 import {
   SECTION_PADDING_MAX,
   SECTION_PADDING_STEP,
+  SECTION_WIDTH_MAX,
+  SECTION_WIDTH_MIN,
+  SECTION_WIDTH_STEP,
   SectionHandleTarget,
   findBandContext,
+  findSectionContext,
+  authoredPageBands,
+  convertAuthoredPage,
+  selectedSpacer,
+  spacerOfBand,
 } from '@h-k-dev/angular-email-editor';
 import {
+  editorState,
   sectionBackgroundModel,
   sectionPaddingModel,
+  sectionWidthModel,
 } from '@h-k-dev/angular-email-editor/actions';
 import { FieldKeys } from '@h-k-dev/angular-email-editor/keyboard';
 import { injectPalette } from '@h-k-dev/angular-email-editor/palette';
@@ -63,12 +73,23 @@ type SectionAction = string;
  * focus when it opens and hands it back to the text when it closes.
  * Background image turns the panel into a field for the address — Enter
  * sets it, an address that is neither http(s) nor a `{{ … }}` token turns
- * the field red, Escape leaves. Padding is a part of the menu itself: the
- * band's room, two px fields — Block (above and below) and Inline (at the
- * sides) — each set as it changes (its arrows, a blur), Enter sets it and
- * leaves. Their keys are the field's, not the menu's typeahead; Tab from
- * the rows reaches them. The caret stays in the band throughout:
- * every action is a caret-relative section command.
+ * the field red, Escape leaves. Padding and Width are parts of the menu
+ * itself: the band's room, three px fields — Top, Bottom and Inline (at the
+ * sides) — and its content's cap, a px field with Full beside it (no cap;
+ * the field disabled while it is on, and on a page's band row, whose width
+ * is the page's) — each set as it changes (its arrows, a blur, the box),
+ * Enter sets it and leaves. Their keys are the field's, not the menu's
+ * typeahead; Tab from the rows reaches them. The caret stays in the band
+ * throughout: every action is a caret-relative section command.
+ *
+ * A spacer's grip opens the same menu cut to Color and Remove — a filled
+ * spacer is a strip — acting on the selected spacer; an authored page's
+ * grip (a page edited by hand, recognised) opens it cut to Remove.
+ * Suggestions hang left of the menu as a card, never a row of it, and
+ * convert only when taken: beside a band that holds nothing but room, the
+ * one filled spacer it stands for (`spacerOfBand`, `bandToSpacer`); beside
+ * an authored page, the strip and bands it stands for (`authoredPageBands`,
+ * `convertAuthoredPage`).
  */
 @Component({
   selector: 'div[section-menu]',
@@ -93,8 +114,10 @@ type SectionAction = string;
 export class SectionMenu {
   readonly #commands = inject(FormattingCommands);
 
-  /** The grip that was pressed — this menu's when it is a band's. */
+  /** The grip that was pressed — a band's or a spacer's. */
   readonly target = input.required<SectionHandleTarget | null>();
+
+  readonly #state = editorState(() => this.#commands.editor());
 
   /** The menu asked to close — after an action, on Escape, on a click
       outside. The composer clears the target it passed in. */
@@ -103,12 +126,62 @@ export class SectionMenu {
   /** The palette in use — its fills, as the colour list's rows. */
   protected readonly palette = injectPalette();
 
-  protected readonly open = computed(() => this.target()?.kind === 'section');
+  protected readonly open = computed(() => !!this.target());
 
-  /** The fill of the band the caret is in, as lower-case hex — null for
-      none: the colour list ticks it, a row of it sets it. */
+  /** Whose grip opened it: a band's, a spacer's (cut to its fill and
+      Remove) or an authored page's (Remove, and the suggestion beside). */
+  protected readonly kind = computed(() => this.target()?.kind ?? 'section');
+  protected readonly spacer = computed(() => this.kind() === 'spacer');
+  protected readonly page = computed(() => this.kind() === 'page');
+
+  protected readonly labels = {
+    section: 'Section options',
+    spacer: 'Spacer options',
+    page: 'Page options',
+  } as const;
+  protected readonly removeLabels = {
+    section: 'Remove section',
+    spacer: 'Remove spacer',
+    page: 'Remove table',
+  } as const;
+
+  /** What the authored page whose grip opened the menu would be in our
+      blocks — the card beside suggests it — or null where it is no longer
+      the pattern. */
+  protected readonly pageSuggested = computed(() => {
+    const state = this.#state();
+    const pos = this.target()?.sectionPos;
+    if (!this.page() || !state || pos === undefined) return null;
+    const node = state.doc.nodeAt(pos);
+    return node ? authoredPageBands(node, state.schema) : null;
+  });
+
+  /** A conversion's button says what it makes: a spacer, sections, or
+      both — the page card's, and the band card's (one spacer, always). */
+  protected readonly pageConvertLabel = computed(() => {
+    const conversion = this.pageSuggested();
+    return conversion ? convertLabel(conversion) : '';
+  });
+  protected readonly spacerConvertLabel = convertLabel({ spacers: 1, sections: 0 });
+
+  /** The fill of the band the caret is in (or of the selected spacer), as
+      lower-case hex — null for none: the colour list ticks it, a row of it
+      sets it. */
   readonly #fill = sectionBackgroundModel(() => this.#commands.editor());
-  protected readonly currentFill = computed(() => (this.open() ? this.#fill() : null));
+  protected readonly currentFill = computed(() => {
+    if (!this.open()) return null;
+    if (!this.spacer()) return this.#fill();
+    const state = this.#state();
+    const fill = state ? selectedSpacer(state)?.node.attrs['background'] : null;
+    return typeof fill === 'string' ? fill.toLowerCase() : null;
+  });
+
+  /** The spacer a band holding nothing but room stands for — the card
+      beside the menu suggests it; null for any other band. */
+  protected readonly suggestion = computed(() => {
+    const state = this.#state();
+    return this.kind() === 'section' && this.open() && state ? spacerOfBand(state) : null;
+  });
 
   /** The colour list's rows: each fill, and whether it is the band's. */
   protected readonly fills = computed(() => {
@@ -141,15 +214,40 @@ export class SectionMenu {
       written once it is done with (left, Enter, a step of its arrows), one
       step of the editor's, and shown as the band took it (on the grid, in
       range). */
-  protected readonly padding = form(sectionPaddingModel(() => this.#commands.editor()), (room) => {
-    for (const side of [room.block, room.inline]) {
-      min(side, 0);
-      max(side, SECTION_PADDING_MAX);
-      debounce(side, 'blur');
-    }
-  });
+  protected readonly padding = form(
+    sectionPaddingModel(() => this.#commands.editor()),
+    (room) => {
+      for (const side of [room.top, room.bottom, room.inline]) {
+        min(side, 0);
+        max(side, SECTION_PADDING_MAX);
+        debounce(side, 'blur');
+      }
+    },
+  );
 
   protected readonly paddingStep = SECTION_PADDING_STEP;
+
+  /** The band is a section — a page's band row has no width of its own. */
+  protected readonly isSection = computed(() => {
+    const state = this.#state();
+    return !!state && !!findSectionContext(state);
+  });
+
+  /** The cap on the band's content — its px field and Full beside it:
+      written like the padding's; the field disabled while Full is on, and
+      both on a band row. */
+  protected readonly width = form(
+    sectionWidthModel(() => this.#commands.editor()),
+    (band) => {
+      min(band.width, SECTION_WIDTH_MIN);
+      max(band.width, SECTION_WIDTH_MAX);
+      debounce(band.width, 'blur');
+      disabled(band.width, ({ valueOf }) => valueOf(band.full) || !this.isSection());
+      disabled(band.full, () => !this.isSection());
+    },
+  );
+
+  protected readonly widthStep = SECTION_WIDTH_STEP;
 
   /** The menu's element (or the field's), to put the focus in once it is
       on screen. */
@@ -206,8 +304,11 @@ export class SectionMenu {
     const [kind, value = ''] = action.split(':') as [string, string?];
     switch (kind) {
       case 'fill':
-        this.#fill.set(value || null);
-        this.#done();
+        if (this.spacer()) this.#run('setSpacerBackground', value || null);
+        else {
+          this.#fill.set(value || null);
+          this.#done();
+        }
         break;
       case 'image':
         this.imageValue.set(this.#sectionImage() ?? '');
@@ -215,7 +316,22 @@ export class SectionMenu {
         this.imageField.set(true);
         break;
       case 'remove':
-        this.#run('removeSection');
+        if (this.spacer()) {
+          this.#commands.editor()?.exec((state, dispatch) => {
+            dispatch?.(state.tr.deleteSelection().scrollIntoView());
+            return true;
+          });
+          this.#done();
+        } else if (this.page()) {
+          const pos = this.target()?.sectionPos;
+          this.#commands.editor()?.exec((state, dispatch) => {
+            const node = pos === undefined ? null : state.doc.nodeAt(pos);
+            if (!node || pos === undefined) return false;
+            dispatch?.(state.tr.delete(pos, pos + node.nodeSize).scrollIntoView());
+            return true;
+          });
+          this.#done();
+        } else this.#run('removeSection');
         break;
       default:
         return; // a list's row: opening it is Aria's
@@ -238,6 +354,20 @@ export class SectionMenu {
       this.imageRefused.set(true);
       return;
     }
+    this.#done();
+  }
+
+  /** The card's Use a spacer: the band goes, the one spacer it stands for
+      in its place, selected. */
+  protected useSpacer(): void {
+    this.#run('bandToSpacer');
+  }
+
+  /** The page card's Convert: the authored page becomes the
+      strip and the bands it stands for — the author's call, one undo step. */
+  protected convertPage(): void {
+    const pos = this.target()?.sectionPos;
+    if (pos !== undefined) this.#commands.editor()?.exec(convertAuthoredPage(pos));
     this.#done();
   }
 
@@ -268,4 +398,10 @@ export class SectionMenu {
     this.closed.emit();
     this.#commands.editor()?.focus();
   }
+}
+
+/** What a conversion button says: what the conversion makes. */
+function convertLabel({ spacers, sections }: { spacers: number; sections: number }): string {
+  const made = [spacers ? 'spacer' : '', sections ? 'sections' : ''].filter(Boolean);
+  return `Convert to ${made.join(' and ')}`;
 }

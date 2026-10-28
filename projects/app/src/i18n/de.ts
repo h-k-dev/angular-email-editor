@@ -403,6 +403,12 @@ export default {
     section: {
       options: 'Bereichsoptionen',
     },
+    spacer: {
+      options: 'Abstandsoptionen',
+    },
+    page: {
+      options: 'Seitenoptionen',
+    },
     table: {
       cellOptions: 'Zellenoptionen',
       rowOptions: 'Optionen für Zeile {{number}}',

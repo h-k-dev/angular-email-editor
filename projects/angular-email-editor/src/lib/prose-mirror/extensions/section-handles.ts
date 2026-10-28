@@ -1,19 +1,25 @@
 import { Node } from 'prosemirror-model';
-import { EditorState, Plugin, PluginKey, Selection } from 'prosemirror-state';
+import { EditorState, NodeSelection, Plugin, Selection } from 'prosemirror-state';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import { FunctionalExtension, defineExtension } from '../extension';
+import { GripFactory, sectionHandlesKey } from './handle-grips';
+import { authoredPageBands } from '../authored-page';
 import { layoutInteractive } from './layout-interaction';
 import { isBandRow } from './nodes/page-row';
 import { findBandContext } from './nodes/section';
+import { selectedSpacer } from './nodes/spacer';
 
-/** The band whose grip was pressed, and where the grip is on screen — what
-    the host's menu anchors to. */
+/** The band (or spacer) whose grip was pressed, and where the grip is on
+    screen — what the host's menu anchors to. */
 export interface SectionHandleTarget {
-  kind: 'section';
-  /** The band's position in the document. Read it again before acting: the
-      press put the caret in the band, so the caret-relative section
-      commands (`setSectionBackground`, `setSectionImage`, `removeSection`)
-      need no position. */
+  /** A band's grip, or a spacer's — whose menu is its fill and Remove — or
+      an authored page's (a page edited by hand, recognised:
+      `authoredPageBands`), whose menu suggests our blocks for it. */
+  kind: 'section' | 'spacer' | 'page';
+  /** The band's (the spacer's) position in the document. Read it again
+      before acting: the press put the caret in the band — or selected the
+      spacer — so the caret-relative commands (`setSectionBackground`,
+      `setSpacerBackground`, …) need no position. */
   sectionPos: number;
   /** The grip's own rect. */
   boundingBox: DOMRect;
@@ -25,9 +31,11 @@ export interface SectionHandlesOptions {
   onOpen: (target: SectionHandleTarget | null) => void;
   /** What the grip says to assistive tech, translated by the host. */
   label?: () => string;
+  /** What a spacer's grip says, the same way. */
+  spacerLabel?: () => string;
+  /** What an authored page's grip says, the same way. */
+  pageLabel?: () => string;
 }
-
-const sectionHandlesKey = new PluginKey('sectionHandles');
 
 /**
  * A band's grip — a table column's (table-handles.ts), on a section: a pill
@@ -88,13 +96,10 @@ export const createSectionHandles = (options: SectionHandlesOptions): Functional
       const boundingBox = el.getBoundingClientRect();
       const { state } = view;
       if (findBandContext(state)?.pos !== sectionPos) {
-        view.dispatch(
-          state.tr.setSelection(Selection.near(state.doc.resolve(sectionPos + 1))),
-        );
+        view.dispatch(state.tr.setSelection(Selection.near(state.doc.resolve(sectionPos + 1))));
       }
       // The band's grip as it stands now — the caret's.
-      const grip =
-        view.dom.querySelector<HTMLElement>('.aee-grip--section[data-caret]') ?? el;
+      const grip = view.dom.querySelector<HTMLElement>('.aee-grip--section[data-caret]') ?? el;
       grip.setAttribute('aria-expanded', 'true');
       // The menu takes the focus and hands it back to the text when it is
       // done: that return is the grip's cue to fold.
@@ -106,11 +111,76 @@ export const createSectionHandles = (options: SectionHandlesOptions): Functional
     return el;
   };
 
+  // An authored page's grip: the same face, in a block of no height just
+  // before the page (the host's `.aee-page-anchor`). A press leaves the
+  // caret where it is: the menu's suggestion acts on the page's position.
+  const pageLabel = options.pageLabel ?? (() => 'Page options');
+  const pageGrip = (view: EditorView, pos: number): HTMLElement => {
+    const anchor = document.createElement('div');
+    anchor.className = 'aee-page-anchor';
+    anchor.contentEditable = 'false';
+    const el = document.createElement('span');
+    el.className = 'aee-grip aee-grip--column aee-grip--page';
+    el.setAttribute('role', 'button');
+    el.setAttribute('aria-label', pageLabel());
+    el.setAttribute('title', pageLabel());
+    el.setAttribute('aria-haspopup', 'menu');
+    el.appendChild(document.createElement('i'));
+    el.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+    el.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      el.setAttribute('aria-expanded', 'true');
+      // The menu hands the focus back to the text when it is done.
+      view.dom.addEventListener('focus', () => el.setAttribute('aria-expanded', 'false'), {
+        once: true,
+      });
+      options.onOpen({ kind: 'page', sectionPos: pos, boundingBox: el.getBoundingClientRect() });
+    });
+    anchor.appendChild(el);
+    return anchor;
+  };
+
+  // A spacer's grip: the same face, on the spacer's top edge (the host's
+  // `.aee-grip--spacer`); a press selects the spacer, and its menu's
+  // commands act on the selection.
+  const spacerLabel = options.spacerLabel ?? (() => 'Spacer options');
+  const gripFactory: GripFactory = {
+    spacer: (view, getPos) => {
+      const el = document.createElement('span');
+      el.className = 'aee-grip aee-grip--column aee-grip--spacer';
+      el.setAttribute('role', 'button');
+      el.setAttribute('aria-label', spacerLabel());
+      el.setAttribute('title', spacerLabel());
+      el.setAttribute('aria-haspopup', 'menu');
+      el.contentEditable = 'false';
+      el.appendChild(document.createElement('i'));
+      el.addEventListener('mousedown', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      });
+      el.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const pos = getPos();
+        if (pos === undefined || !layoutInteractive(view.state, 'spacer')) return;
+        const boundingBox = el.getBoundingClientRect();
+        view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, pos)));
+        options.onOpen({ kind: 'spacer', sectionPos: pos, boundingBox });
+      });
+      return el;
+    },
+  };
+
   return defineExtension({
     name: 'sectionHandles',
     plugins: () => [
       new Plugin({
         key: sectionHandlesKey,
+        state: { init: () => gripFactory, apply: (_tr, factory) => factory },
         props: {
           decorations: (state) => {
             if (!layoutInteractive(state, 'section')) return null;
@@ -126,18 +196,33 @@ export const createSectionHandles = (options: SectionHandlesOptions): Functional
                 },
               ),
             );
+            // An authored page, recognised: an anchor just before it (no
+            // height, so nothing moves) holding its grip, centred on the
+            // page's top edge.
+            state.doc.forEach((node, pos) => {
+              if (!authoredPageBands(node, state.schema)) return;
+              grips.push(
+                Decoration.widget(pos, (view) => pageGrip(view, pos), {
+                  key: `page-grip-${pos}`,
+                  side: -1,
+                  ignoreSelection: true,
+                }),
+              );
+            });
             return grips.length ? DecorationSet.create(state.doc, grips) : null;
           },
         },
         view: (view) => {
           let interactive = layoutInteractive(view.state, 'section');
-          let pos = findBandContext(view.state)?.pos;
+          let pos = findBandContext(view.state)?.pos ?? selectedSpacer(view.state)?.pos;
           return {
             update: () => {
               // Switched static, or the band gone, under an open menu: the
               // grip it hangs from is gone.
               const now = layoutInteractive(view.state, 'section');
-              const at = findBandContext(view.state)?.pos;
+              // The caret's band — or the selected spacer, whose grip opened
+              // the menu.
+              const at = findBandContext(view.state)?.pos ?? selectedSpacer(view.state)?.pos;
               if ((interactive && !now) || (pos !== undefined && at === undefined)) {
                 options.onOpen(null);
               }

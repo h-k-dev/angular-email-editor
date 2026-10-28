@@ -133,6 +133,53 @@
   .section-menu__input {
     inline-size: 72px;
     padding-block: 4px;
+
+    &:disabled {
+      opacity: 0.38;
+    }
+  }
+}
+
+// Full width: the platform's box, in the theme's colour.
+.section-menu__check {
+  margin: 0;
+  accent-color: var(--mat-sys-primary);
+
+  &:disabled {
+    opacity: 0.38;
+  }
+}
+
+// The menu, and left of it a suggestion card — hung off the menu's side
+// from its top, 4px apart (the spacing grid), so the menu stays where its
+// grip puts it.
+.section-menu__frame {
+  position: relative;
+}
+
+// The suggestion: the menu's own box (its panel look), a card of words and
+// one act — never a row of the menu.
+.section-menu__suggestion {
+  @include menu.panel;
+
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: calc(100% + 4px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  inline-size: 240px;
+  padding: 12px;
+  font: var(--mat-sys-body-medium);
+
+  p {
+    margin: 0;
+    color: var(--mat-sys-on-surface-variant, #555555);
+  }
+
+  .section-menu__button {
+    // A text button, at the card's inline end.
+    align-self: flex-end;
   }
 }
 

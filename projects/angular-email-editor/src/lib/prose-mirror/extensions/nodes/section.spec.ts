@@ -2,7 +2,8 @@ import { TextSelection } from 'prosemirror-state';
 import { createEditor, Editor } from '../../editor';
 import { emailExtensions } from '../kits';
 import { parseHTML, serializeToHTML } from '../../html';
-import { SECTION_PADDING, sectionPaddingOf } from './section';
+import { SECTION_PADDING, SectionWidth, sectionPaddingOf, sectionWidthOf } from './section';
+import { centeredPageLayout } from '../../page-layout';
 
 describe('section', () => {
   let host: HTMLElement;
@@ -53,7 +54,10 @@ describe('section', () => {
     const band = host.querySelector<HTMLElement>('.aee-section')!;
     expect(band.style.backgroundColor).toBe('rgb(241, 243, 244)');
     expect(band.style.padding).toBe(SECTION_PADDING);
-    expect(band.querySelector<HTMLElement>('.aee-section__inner')?.style.maxWidth).toBe('600px');
+    // The default band's cap: the page's width where there is one, else 600.
+    expect(band.querySelector<HTMLElement>('.aee-section__inner')?.style.maxWidth).toBe(
+      'var(--aee-page-width, 600px)',
+    );
     // The cursor landed inside.
     expect(editor.state.selection.$from.node(1).type.name).toBe('section');
   });
@@ -75,11 +79,11 @@ describe('section', () => {
       dispatch?.(state.tr.insertText('band'));
       return true;
     });
-    expect(sectionPaddingOf(editor.state)).toEqual({ block: 20, inline: 16 });
+    expect(sectionPaddingOf(editor.state)).toEqual({ top: 20, bottom: 20, inline: 16 });
     expect(editor.commands['setSectionPadding']({ block: 40 })).toBe(true);
     expect(editor.commands['setSectionPadding']({ inline: 31 })).toBe(true);
     // On the 4px grid; either side alone leaves the other.
-    expect(sectionPaddingOf(editor.state)).toEqual({ block: 40, inline: 32 });
+    expect(sectionPaddingOf(editor.state)).toEqual({ top: 40, bottom: 40, inline: 32 });
     const out = editor.getHTML();
     expect(out).toContain('style="padding: 40px 0px; background-color');
     expect(out).toContain('padding-left: 32px; padding-right: 32px;');
@@ -93,8 +97,96 @@ describe('section', () => {
     expect(doc.child(0).attrs['inset']).toBe(32);
     // None at all is room too; past the most, the most.
     editor.commands['setSectionPadding']({ block: 0, inline: 999 });
-    expect(sectionPaddingOf(editor.state)).toEqual({ block: 0, inline: 160 });
+    expect(sectionPaddingOf(editor.state)).toEqual({ top: 0, bottom: 0, inline: 160 });
     expect(canonical(editor.getHTML())).toBe(editor.getHTML());
+  });
+
+  it('sets the room above and below apart, and reads each back', () => {
+    editor.commands['insertSection']('#f1f3f4');
+    editor.commands['setSectionPadding']({ top: 36, bottom: 18 });
+    expect(sectionPaddingOf(editor.state)).toEqual({ top: 36, bottom: 20, inline: 16 });
+    const out = editor.getHTML();
+    expect(out).toContain('style="padding: 36px 0px 20px; background-color');
+    expect(canonical(out)).toBe(out);
+    expect(parseHTML(out, editor.schema).child(0).attrs['padding']).toBe('36px 0px 20px');
+  });
+
+  describe('its width', () => {
+    const inner = (html: string) => {
+      const template = document.createElement('template');
+      template.innerHTML = html;
+      return template.content.querySelector<HTMLElement>('.aee-layout-section td > div')!;
+    };
+
+    it('caps the content at 600px for a new band', () => {
+      editor.commands['insertSection']('#f1f3f4');
+      expect(sectionWidthOf(editor.state)).toBe(600);
+      expect(inner(editor.getHTML()).style.maxWidth).toBe('600px');
+    });
+
+    it('takes any width on the grid, in range, and reads it back', () => {
+      editor.commands['insertSection']('#f1f3f4');
+      expect(editor.commands['setSectionWidth'](481)).toBe(true);
+      expect(sectionWidthOf(editor.state)).toBe(480);
+      editor.commands['setSectionWidth'](2000);
+      expect(sectionWidthOf(editor.state)).toBe(800);
+      const out = editor.getHTML();
+      expect(inner(out).style.maxWidth).toBe('800px');
+      expect(canonical(out)).toBe(out);
+      expect(parseHTML(out, editor.schema).child(0).attrs['width']).toBe(800);
+      expect(editor.commands['setSectionWidth']('wide' as never)).toBe(false);
+    });
+
+    it('runs full: no cap, the content from inset to inset — and parses back full', () => {
+      editor.commands['insertSection']('#ffffff');
+      editor.exec((state, dispatch) => {
+        dispatch?.(state.tr.insertText('wide'));
+        return true;
+      });
+      editor.commands['setSectionPadding']({ inline: 40 });
+      expect(editor.commands['setSectionWidth']('full')).toBe(true);
+      const out = editor.getHTML();
+      const column = inner(out);
+      expect(column.style.maxWidth).toBe('');
+      expect(column.style.marginLeft).toBe('');
+      expect(column.getAttribute('style')).toBe(
+        'padding-left: 40px; padding-right: 40px; box-sizing: border-box;',
+      );
+      expect(canonical(out)).toBe(out);
+      const band = parseHTML(out, editor.schema).child(0);
+      expect(band.attrs['width']).toBe('full');
+      expect(band.attrs['inset']).toBe(40);
+      expect(band.textContent).toBe('wide');
+      // The editor draws it uncapped too.
+      expect(host.querySelector<HTMLElement>('.aee-section__inner')!.style.maxWidth).toBe('');
+    });
+
+    it("on a page: the default band takes the page's width, any other keeps its own — and each reads back", () => {
+      editor.commands['setPageLayout'](centeredPageLayout({ width: 640 }));
+      const widths: SectionWidth[] = [600, 480, 'full'];
+      for (const width of widths) {
+        editor.commands['insertSection']('#f1f3f4');
+        editor.commands['setSectionWidth'](width);
+      }
+      const out = editor.getHTML();
+      const caps = Array.from(
+        new DOMParser()
+          .parseFromString(out, 'text/html')
+          .querySelectorAll<HTMLElement>('.aee-layout-section td > div'),
+        (div) => div.style.maxWidth,
+      );
+      expect(caps.sort()).toEqual(['', '480px', '640px']);
+      const back: unknown[] = [];
+      parseHTML(out, editor.schema).descendants((node) => {
+        if (node.type.name === 'section') back.push(node.attrs['width']);
+      });
+      expect(back.sort()).toEqual([...widths].sort());
+    });
+
+    it('has none outside a section', () => {
+      expect(sectionWidthOf(editor.state)).toBeNull();
+      expect(editor.commands['setSectionWidth'](480)).toBe(false);
+    });
   });
 
   it('removeSection lifts the content out, where it stood', () => {

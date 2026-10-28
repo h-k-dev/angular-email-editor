@@ -49,7 +49,7 @@ export class KeyboardPlayground {
 
   /** The caret's band, its room — each field written once it is done with. */
   protected readonly padding = form(sectionPaddingModel(() => this.#editor()), (room) => {
-    for (const side of [room.block, room.inline]) {
+    for (const side of [room.top, room.bottom, room.inline]) {
       min(side, 0);
       max(side, SECTION_PADDING_MAX);
       debounce(side, 'blur');

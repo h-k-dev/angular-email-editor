@@ -442,7 +442,9 @@ html {
  * and its inline padding stands the text in the column with the column's
  * inset. A section stays in the column, as in the email: it pulls out over
  * the column's inset onto the column's edges (its own rule above), its
- * inner column the layout's width; a bare one shows the column.
+ * inner column the layout's width (the node's own style reads
+ * `--aee-page-width`: a default band takes it, any other is held inside
+ * it); a bare one shows the column.
  * Between a section and the text on either side, the column's own inset
  * above and below — what the email's column div carries. Lengths are the
  * surface's (a container), so the root and the sections in it agree. */
@@ -470,19 +472,16 @@ html {
     var(--aee-page-fill) calc(50% + var(--aee-page-half))
   );
 
-  > .aee-section > .aee-section__inner {
-    max-width: var(--aee-page-width) !important;
-  }
-
-  > .aee-section + :not(.aee-section) {
+  // A strip (a filled spacer) stands in the column as a band does.
+  > :is(.aee-section, .aee-spacer[data-fill]) + :not(.aee-section, .aee-spacer[data-fill]) {
     padding-block-start: var(--mat-sys-inner-spacing, 16px);
   }
 
-  > :not(.aee-section):has(+ .aee-section) {
+  > :not(.aee-section, .aee-spacer[data-fill]):has(+ :is(.aee-section, .aee-spacer[data-fill])) {
     padding-block-end: var(--mat-sys-inner-spacing, 16px);
   }
 
-  &:has(> .aee-section:first-child) {
+  &:has(> :is(.aee-section, .aee-spacer[data-fill]):first-child) {
     padding-block-start: 0;
   }
 }
@@ -502,7 +501,7 @@ html {
     var(--email-editor-padding-block, 0px) + var(--email-compose-foot-room, 0px)
   );
 
-  &:has(> :is(.aee-section, .aee-page-row):last-child) {
+  &:has(> :is(.aee-section, .aee-page-row, .aee-spacer[data-fill]):last-child) {
     padding-block-end: var(--email-compose-foot-room, 0px);
   }
 }
@@ -512,7 +511,7 @@ html {
 section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor.aee-page-layout {
   padding-block-end: var(--email-editor-padding-block, 0px);
 
-  &:has(> :is(.aee-section, .aee-page-row):last-child) {
+  &:has(> :is(.aee-section, .aee-page-row, .aee-spacer[data-fill]):last-child) {
     padding-block-end: 0;
   }
 }
@@ -624,6 +623,14 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor.
   opacity: 0;
   pointer-events: none;
   user-select: none;
+}
+
+/* A filled spacer (a strip) at the top level stands as a band does: pulled
+ * out over the surface's inset onto the edges, as the email draws it — the
+ * whole width, or a page's column. Inside a band or a cell it is as wide as
+ * that content. */
+.aee-editor > .aee-spacer[data-fill] {
+  margin-inline: calc(-1 * var(--mat-sys-inner-spacing, 16px));
 }
 
 /* Too low for words: the band and its handle say enough. */
@@ -1447,6 +1454,31 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
  * caret's band (`data-caret`, above). */
 .aee-editor .aee-section:hover > .aee-section__inner > .aee-grip--section,
 .aee-editor .aee-page-row:hover > .aee-grip--section {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* A spacer's grip, the same face on its top edge (its node view is the
+ * positioned box): revealed with the spacer itself — under the pointer, or
+ * selected. Static (writer mode): never. */
+.aee-editor:not([data-aee-static~='spacer'])
+  :is(.aee-spacer:hover, .aee-spacer.ProseMirror-selectednode)
+  > .aee-grip--spacer {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* An authored page's grip (a page edited by hand, recognised —
+ * createSectionHandles): a block of no height just before the page, the
+ * grip centred on the page's top edge — revealed by the page under the
+ * pointer, and while its menu is up. */
+.aee-editor .aee-page-anchor {
+  position: relative;
+  block-size: 0;
+}
+
+.aee-editor .aee-page-anchor:is(:hover, :has(+ :hover)) > .aee-grip--page,
+.aee-editor .aee-grip--page[aria-expanded='true'] {
   opacity: 1;
   pointer-events: auto;
 }

@@ -1,8 +1,11 @@
-import { Command, NodeSelection, Plugin, PluginKey } from 'prosemirror-state';
+import { Command, EditorState, NodeSelection, Plugin, PluginKey } from 'prosemirror-state';
 import { Node } from 'prosemirror-model';
 import { EditorView, NodeView } from 'prosemirror-view';
 import { defineNode } from '../../extension';
-import { parseDeclarations } from '../../inline-style';
+import { paddingSides, parseDeclarations } from '../../inline-style';
+import { isSafeColor, toEmailSafeColor } from '../marks/text-style';
+import { declaredBackground, findSectionContext } from './section';
+import { spacerGrip } from '../handle-grips';
 import { layoutMarker, markedAs } from '../../layout-marker';
 import { layoutInteractive } from '../layout-interaction';
 
@@ -23,8 +26,16 @@ export function snapSpacerHeight(height: number): number {
     rule Outlook's Word engine needs to honour a line height exactly: one
     line of a non-breaking space, as tall as the gap, its type too small to
     push it taller. */
-export const spacerStyle = (height: number): string =>
-  `height: ${height}px; line-height: ${height}px; font-size: 1px; mso-line-height-rule: exactly;`;
+export const spacerStyle = (height: number, background: string | null = null): string =>
+  `height: ${height}px; line-height: ${height}px; font-size: 1px; mso-line-height-rule: exactly;` +
+  (background ? ` background-color: ${background};` : '');
+
+/** The fill a parsed spacer's div declares, as email-safe hex — null for
+    none. */
+function spacerBackground(dom: HTMLElement): string | null {
+  const raw = declaredBackground(dom);
+  return raw && isSafeColor(raw) ? toEmailSafeColor(raw) : null;
+}
 
 /** Only blank text: spaces, a non-breaking one, MJML's hair space, the
     zero-width ones. */
@@ -66,6 +77,13 @@ function spacerHeight(dom: HTMLElement): number | null {
  * Outlook's Word engine, which reads only that; valid HTML, nothing in a
  * head, no table. The marker (layout-marker.ts) says what it is.
  *
+ * **A fill** (`background`) makes it a strip of colour — the same one div,
+ * its `background-color` beside the rest: every client paints a div's
+ * fill, Outlook's Word engine over the exact line. No width of its own: it
+ * fills whatever holds it — the email's width, a page's column, a band's
+ * or a cell's content. On a page of rows a filled spacer is a row of that
+ * fill with no padding round a plain spacer (page-layout's `fitToLayout`).
+ *
  * **In the editor** invisible as sent; revealed — a colour-coded band, its
  * height written in it, a handle on its lower edge — while it is selected,
  * under the pointer, or while Ctrl is held (the layout guides' peek). The
@@ -81,7 +99,11 @@ export const Spacer = defineNode({
     atom: true,
     selectable: true,
     draggable: true,
-    attrs: { height: { default: SPACER_DEFAULT } },
+    attrs: {
+      height: { default: SPACER_DEFAULT },
+      /** Its fill, as email-safe hex — null for a gap of no colour. */
+      background: { default: null },
+    },
     parseDOM: [
       {
         tag: 'div',
@@ -90,7 +112,9 @@ export const Spacer = defineNode({
         priority: 70,
         getAttrs: (dom) => {
           const height = spacerHeight(dom as HTMLElement);
-          return height === null ? false : { height };
+          return height === null
+            ? false
+            : { height, background: spacerBackground(dom as HTMLElement) };
         },
       },
     ],
@@ -100,7 +124,10 @@ export const Spacer = defineNode({
     toDOM: (node) => {
       const dom = document.createElement('div');
       dom.setAttribute('class', layoutMarker('spacer'));
-      dom.setAttribute('style', spacerStyle(node.attrs['height'] as number));
+      dom.setAttribute(
+        'style',
+        spacerStyle(node.attrs['height'] as number, node.attrs['background'] as string | null),
+      );
       dom.textContent = ' ';
       return { dom };
     },
@@ -130,6 +157,10 @@ export const Spacer = defineNode({
         );
         return true;
       },
+    /** The selected spacer's fill — null takes it away. */
+    setSpacerBackground: (color: string | null): Command => setSpacerBackground(color),
+    /** The caret's band, holding nothing but room, as one filled spacer. */
+    bandToSpacer: (): Command => bandToSpacer,
   }),
   actions: ({ schema }) => [
     {
@@ -155,6 +186,65 @@ export const Spacer = defineNode({
     }),
   ],
 });
+
+/** The selected spacer and where it is — null for any other selection. */
+export function selectedSpacer(state: EditorState): { pos: number; node: Node } | null {
+  const { selection } = state;
+  return selection instanceof NodeSelection && selection.node.type.name === 'spacer'
+    ? { pos: selection.from, node: selection.node }
+    : null;
+}
+
+/** Sets (or, null, takes away) the selected spacer's fill. */
+export function setSpacerBackground(color: string | null): Command {
+  return (state, dispatch) => {
+    const spacer = selectedSpacer(state);
+    if (!spacer) return false;
+    const background = color ? toEmailSafeColor(color) : null;
+    if (spacer.node.attrs['background'] === background) return true;
+    dispatch?.(state.tr.setNodeMarkup(spacer.pos, undefined, { ...spacer.node.attrs, background }));
+    return true;
+  };
+}
+
+/** The spacer a band the caret is in stands for — a section that holds
+    nothing but room (spacers of no fill of their own; no image, no card):
+    one spacer as tall as the band, its padding and spacers together, in the
+    band's fill. Null for a band with anything more in it. What a host
+    suggests in the band's place ({@link bandToSpacer}). */
+export function spacerOfBand(
+  state: EditorState,
+): { height: number; background: string | null } | null {
+  const band = findSectionContext(state);
+  if (!band) return null;
+  const { attrs } = band.node;
+  if (attrs['image'] || attrs['contentBackground']) return null;
+  let height = 0;
+  let room = true;
+  band.node.forEach((child) => {
+    if (child.type.name !== 'spacer' || child.attrs['background']) room = false;
+    else height += child.attrs['height'] as number;
+  });
+  if (!room) return null;
+  const [top, , bottom] = paddingSides(attrs['padding'] ?? '0px');
+  height += (parseFloat(top) || 0) + (parseFloat(bottom) || 0);
+  return { height, background: (attrs['background'] as string | null) ?? null };
+}
+
+/** The band the caret is in, holding nothing but room, as the one spacer it
+    stands for ({@link spacerOfBand}) — the same height, the same fill, the
+    spacer selected. False for a band with anything more in it. */
+export const bandToSpacer: Command = (state, dispatch) => {
+  const spacer = spacerOfBand(state);
+  const band = findSectionContext(state);
+  if (!spacer || !band) return false;
+  if (dispatch) {
+    const node = state.schema.nodes['spacer'].create(spacer);
+    const tr = state.tr.replaceWith(band.pos, band.pos + band.node.nodeSize, node);
+    dispatch(tr.setSelection(NodeSelection.create(tr.doc, band.pos)).scrollIntoView());
+  }
+  return true;
+};
 
 /** A drag on the handle, under way. */
 interface Drag {
@@ -193,7 +283,12 @@ class SpacerView implements NodeView {
     this.#handle.className = 'aee-spacer__handle';
     this.#handle.setAttribute('aria-hidden', 'true');
     this.dom.append(this.#label, this.#handle);
+    // Its grip — the band menu's way in, for its fill — where the host
+    // has the section handles.
+    const grip = spacerGrip(view, getPos);
+    if (grip) this.dom.append(grip);
     this.#show(node.attrs['height'] as number);
+    this.#fill(node.attrs['background'] as string | null);
 
     this.#handle.addEventListener('pointerdown', (event) => this.#grab(event));
     this.#handle.addEventListener('pointermove', (event) => this.#move(event));
@@ -205,12 +300,26 @@ class SpacerView implements NodeView {
     if (node.type !== this.#node.type) return false;
     this.#node = node;
     if (!this.#drag) this.#show(node.attrs['height'] as number);
+    this.#fill(node.attrs['background'] as string | null);
     return true;
   }
 
-  /** The handle's own gestures are the view's, never the editor's. */
+  /** The handle's own gestures are the view's, never the editor's; nor
+      are the grip's. */
   stopEvent(event: Event): boolean {
-    return event.target instanceof globalThis.Node && this.#handle.contains(event.target);
+    return (
+      event.target instanceof globalThis.Node &&
+      (this.#handle.contains(event.target) ||
+        !!(event.target as Element).closest?.('.aee-grip--spacer'))
+    );
+  }
+
+  /** Its fill, as the email paints it — on the element's own
+      `background-color`, so the editor's dark paper re-pairs it as it does
+      every fill — and `data-fill` for the host's rules. */
+  #fill(background: string | null): void {
+    this.dom.style.backgroundColor = background ?? '';
+    this.dom.toggleAttribute('data-fill', !!background);
   }
 
   ignoreMutation(): boolean {

@@ -444,7 +444,8 @@ import { FieldKeys } from '@h-k-dev/angular-email-editor/keyboard';
   selector: 'app-band-padding',
   imports: [FormField, FieldKeys],
   template: \`
-    <input type="number" step="4" [formField]="padding.block" emailFieldKeys />
+    <input type="number" step="4" [formField]="padding.top" emailFieldKeys />
+    <input type="number" step="4" [formField]="padding.bottom" emailFieldKeys />
     <input type="number" step="4" [formField]="padding.inline" emailFieldKeys />
   \`,
 })
@@ -453,7 +454,7 @@ export class BandPadding {
   /** The caret's band, its room — each field written once it is done with,
       one undo step, shown as the band took it (on the 4px grid). */
   protected readonly padding = form(sectionPaddingModel(() => this.editor()), (room) => {
-    for (const side of [room.block, room.inline]) {
+    for (const side of [room.top, room.bottom, room.inline]) {
       min(side, 0);
       max(side, SECTION_PADDING_MAX);
       debounce(side, 'blur');

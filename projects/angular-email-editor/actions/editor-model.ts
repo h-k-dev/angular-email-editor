@@ -7,17 +7,20 @@ import {
   PAGE_ROW_PADDING,
   PageLayout,
   PageLayoutKind,
+  SECTION_CONTENT_MAX,
   centeredPageLayout,
   columnPaddingOf,
   columnsGapOf,
   findBandContext,
   pageLayoutOf,
   sectionPaddingOf,
+  sectionWidthOf,
   setColumnPadding,
   setColumnsGap,
   setPageLayout,
   setSectionBackground,
   setSectionPadding,
+  setSectionWidth,
   tablePageLayout,
   toEmailSafeColor,
 } from '@h-k-dev/angular-email-editor';
@@ -58,9 +61,9 @@ export function shallowEqual<T>(a: T, b: T): boolean {
  * command that changes the document, as one step of the editor's.
  *
  *     readonly padding = editorModel(() => this.editor(), {
- *       read: (state) => sectionPaddingOf(state) ?? { block: 0, inline: 0 },
+ *       read: (state) => sectionPaddingOf(state) ?? { top: 0, bottom: 0, inline: 0 },
  *       write: (value) => setSectionPadding(value),
- *       initial: { block: 0, inline: 0 },
+ *       initial: { top: 0, bottom: 0, inline: 0 },
  *     });
  *
  * The signal never holds a value the document does not: a write goes to
@@ -70,7 +73,7 @@ export function shallowEqual<T>(a: T, b: T): boolean {
  *
  *     readonly fields = form(this.padding, (p) => debounce(p, 'blur'));
  *
- *     <input type="number" [formField]="fields.block" emailFieldKeys />
+ *     <input type="number" [formField]="fields.top" emailFieldKeys />
  *
  * — the `debounce`, so a field writes once it is done with (one undo step,
  * no snapping mid-number), and `emailFieldKeys` (`/keyboard`) so the field
@@ -109,13 +112,14 @@ export function editorModel<T>(
   );
 }
 
-/** A band's room, px: above and below, and at the sides. */
+/** A band's room, px: above, below, and at the sides. */
 export interface BandPadding {
-  block: number;
+  top: number;
+  bottom: number;
   inline: number;
 }
 
-const NO_PADDING: BandPadding = { block: 0, inline: 0 };
+const NO_PADDING: BandPadding = { top: 0, bottom: 0, inline: 0 };
 
 /**
  * The room of the band the caret is in (`sectionPaddingOf`) as a model:
@@ -130,6 +134,37 @@ export function sectionPaddingModel(
     read: (state) => sectionPaddingOf(state) ?? NO_PADDING,
     write: (value) => setSectionPadding(value),
     initial: NO_PADDING,
+    injector: options.injector,
+  });
+}
+
+/** A section's content width: its cap in px, or `full` (no cap; `width`
+    is then where a cap would start from). */
+export interface BandWidth {
+  width: number;
+  full: boolean;
+}
+
+const NO_WIDTH: BandWidth = { width: SECTION_CONTENT_MAX, full: false };
+
+/**
+ * The content width of the section the caret is in (`sectionWidthOf`) as a
+ * model: the default outside a section (a page's band row has none of its
+ * own — the page's column is its width). A write snaps to the 4px grid, in
+ * range (`setSectionWidth`); `full` wins over the px.
+ */
+export function sectionWidthModel(
+  editor: () => Editor | undefined,
+  options: { injector?: Injector } = {},
+): WritableSignal<BandWidth> {
+  return editorModel(editor, {
+    read: (state) => {
+      const width = sectionWidthOf(state);
+      if (width === null) return NO_WIDTH;
+      return width === 'full' ? { width: SECTION_CONTENT_MAX, full: true } : { width, full: false };
+    },
+    write: (value) => setSectionWidth(value.full ? 'full' : value.width),
+    initial: NO_WIDTH,
     injector: options.injector,
   });
 }
@@ -179,7 +214,7 @@ export function columnSpacingModel(
     read: (state) => {
       const padding = columnPaddingOf(state);
       const gap = columnsGapOf(state);
-      return padding || gap !== null ? { ...(padding ?? NO_PADDING), gap: gap ?? 0 } : NO_SPACING;
+      return padding || gap !== null ? { ...(padding ?? NO_SPACING), gap: gap ?? 0 } : NO_SPACING;
     },
     write: (value, current) =>
       value.gap !== current.gap
@@ -246,4 +281,3 @@ export function pageLayoutModel(
     injector: options.injector,
   });
 }
-

@@ -656,10 +656,13 @@ export class EmailCompose implements FormValueControl<string> {
         label: (number) => this.i18n.t('editor.table.columnOptions', { number }),
       }),
       // The caret band's grip, centred on its top edge: the section menu —
-      // its colour, the image behind it, taking it away.
+      // its colour, the image behind it, taking it away. A spacer's grip
+      // opens the same menu, cut to its fill and Remove.
       createSectionHandles({
         onOpen: (target) => this.sectionHandle.set(target),
         label: () => this.i18n.t('editor.section.options'),
+        spacerLabel: () => this.i18n.t('editor.spacer.options'),
+        pageLabel: () => this.i18n.t('editor.page.options'),
       }),
       // The kit's commands under `/`, and the stores' groups: a template
       // takes the body's place, a snippet joins the line at the caret.

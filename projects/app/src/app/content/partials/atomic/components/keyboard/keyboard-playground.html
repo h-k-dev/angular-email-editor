@@ -6,17 +6,17 @@
          The fields keep theirs. -->
     <div class="kp-menu" role="group" aria-label="Band padding" (keydown)="heard($event)">
       <label class="kp-row">
-        <span class="stage-label">Block</span>
+        <span class="stage-label">Top</span>
         <span class="kp-length">
           <input
             class="kp-input"
             type="number"
             inputmode="numeric"
             step="4"
-            [formField]="padding.block"
+            [formField]="padding.top"
             emailFieldKeys
-            (emailFieldKeysCommitted)="playground.log('emailFieldKeysCommitted', 'block')"
-            (emailFieldKeysDismissed)="playground.log('emailFieldKeysDismissed', 'block')"
+            (emailFieldKeysCommitted)="playground.log('emailFieldKeysCommitted', 'top')"
+            (emailFieldKeysDismissed)="playground.log('emailFieldKeysDismissed', 'top')"
           />
           px
         </span>

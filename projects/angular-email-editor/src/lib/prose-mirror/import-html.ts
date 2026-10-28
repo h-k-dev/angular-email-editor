@@ -641,10 +641,12 @@ export function inheritTextStyles(root: ParentNode): void {
     // A builder's plain wrapper div (no column, no centring div of ours: no
     // `display`, no `max-width`) with a padding round blocks: shared out
     // among them, since the schema reads a paragraph's box, not a div's.
-    // Never a marked one (a page's row): its padding is its own.
+    // Never a marked one (a page's row), nor a marked band's content column
+    // (a `full` band's has no cap): their padding is their own.
     if (
       el.tagName === 'DIV' &&
       !markedAs(el) &&
+      !isBandColumn(el) &&
       !inlineValue(el, 'display') &&
       !inlineValue(el, 'max-width')
     ) {
@@ -671,6 +673,14 @@ export function inheritTextStyles(root: ParentNode): void {
     descend(el);
   };
   for (const child of Array.from(root.children)) if (child instanceof HTMLElement) visit(child);
+}
+
+/** The one div of a band marked ours: its content column. */
+function isBandColumn(el: HTMLElement): boolean {
+  const cell = el.parentElement;
+  if (cell?.tagName !== 'TD' || cell.children.length !== 1) return false;
+  const table = cell.closest('table');
+  return !!table && markedAs(table) === 'section' && table.rows[0]?.cells[0] === cell;
 }
 
 /** The block an inline element stands in. */

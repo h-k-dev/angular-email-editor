@@ -391,6 +391,12 @@ export default {
     section: {
       options: 'セクションのオプション',
     },
+    spacer: {
+      options: 'スペーサーのオプション',
+    },
+    page: {
+      options: 'ページのオプション',
+    },
     table: {
       cellOptions: 'セルのオプション',
       rowOptions: '{{number}}行目のオプション',

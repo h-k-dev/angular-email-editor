@@ -354,6 +354,12 @@ export default {
     section: {
       options: 'Section options',
     },
+    spacer: {
+      options: 'Spacer options',
+    },
+    page: {
+      options: 'Page options',
+    },
     table: {
       cellOptions: 'Cell options',
       rowOptions: 'Row {{number}} options',

@@ -269,9 +269,16 @@ function freeColumn(doc: Document, container: HTMLElement, layout: PageLayout): 
     run = [];
   };
   for (const child of Array.from(container.childNodes)) {
-    if (child instanceof HTMLElement && markedAs(child) === 'section') {
+    if (child instanceof HTMLElement && isStrip(child)) {
+      // A strip (a filled spacer) stands in the column as a band does,
+      // edge to edge — never inset in a run.
       flush();
-      setSectionWidth(child, layout.width);
+      column.append(child);
+    } else if (child instanceof HTMLElement && markedAs(child) === 'section') {
+      flush();
+      // The default band takes the page's width; one with a width of its
+      // own (or none, `full`) keeps it.
+      recapSection(child, SECTION_CONTENT_MAX, layout.width);
       column.append(child);
     } else {
       run.push(child);
@@ -279,6 +286,11 @@ function freeColumn(doc: Document, container: HTMLElement, layout: PageLayout): 
   }
   flush();
   return column;
+}
+
+/** A strip: a spacer of ours with a fill. */
+function isStrip(el: HTMLElement): boolean {
+  return markedAs(el) === 'spacer' && /background-color\s*:/i.test(el.getAttribute('style') ?? '');
 }
 
 /** The `table` column: a capped table, a `<td>` per row (the row's own
@@ -359,15 +371,17 @@ function setAttributes(el: Element, attrs: Record<string, string>): void {
   for (const [name, value] of Object.entries(attrs)) el.setAttribute(name, value);
 }
 
-/** A section's inner column (its cell's one div, the VML
-    comments round it aside), capped at `width` — on the attribute's own
-    words, so the rest of the style reads back exactly as the section wrote
-    it (a CSSOM write would respell it). */
-function setSectionWidth(section: HTMLElement, width: number): void {
+/** A section's inner column (its cell's one div, the VML comments round it
+    aside) capped at `to` where it was capped at `from` — the default band's
+    width and the page's, one way or back — on the attribute's own words, so
+    the rest of the style reads back exactly as the section wrote it (a
+    CSSOM write would respell it). Any other cap, or none, is the band's own. */
+function recapSection(section: HTMLElement, from: number, to: number): void {
   const inner = sectionInner(section);
   const style = inner?.getAttribute('style');
   if (!inner || !style) return;
-  inner.setAttribute('style', style.replace(/max-width:\s*[\d.]+px/i, `max-width: ${width}px`));
+  const cap = new RegExp(`max-width:\\s*${from}px`, 'i');
+  inner.setAttribute('style', style.replace(cap, `max-width: ${to}px`));
 }
 
 function sectionInner(section: HTMLElement): HTMLElement | null {
@@ -391,9 +405,10 @@ function sectionInner(section: HTMLElement): HTMLElement | null {
  * A marked page edited by hand may hold more than the one cell we send —
  * rows of ours copied straight into the page table, beside the column
  * ({@link strayCells}). That is no page of ours: those rows were never in
- * the column, and a client draws them as wide as the room. It keeps its
- * markup, as authored, and loses our markers ({@link unmarkPage}) — no
- * layout taken, nothing dropped.
+ * the column, and a client draws them as wide as the room. No layout is
+ * taken, and nothing is repaired: it keeps its markup, as authored, and
+ * loses our markers ({@link unmarkPage}) — nothing dropped. Turning it
+ * into bands is the author's call, never the parse's.
  */
 export function liftPageLayout(root: Element): PageLayout | null {
   const pages = Array.from(root.querySelectorAll('table')).filter(
@@ -578,7 +593,9 @@ function pageCell(page: HTMLTableElement): HTMLTableCellElement | null {
 /** The page table's cells past its own — none in what we send; a hand edit's
     rows beside the column (a row of ours pasted into the page table). */
 function strayCells(page: HTMLTableElement): HTMLTableCellElement[] {
-  return Array.from(page.rows ?? []).flatMap((row) => Array.from(row.cells)).slice(1);
+  return Array.from(page.rows ?? [])
+    .flatMap((row) => Array.from(row.cells))
+    .slice(1);
 }
 
 /** A page that is no page of ours, as authored markup: our page markers off
@@ -618,13 +635,14 @@ function unwrapPage(page: HTMLTableElement): void {
     page.replaceWith(...rowsOf(column));
     return;
   }
+  const width = parseFloat(column.style.maxWidth);
   const nodes: ChildNode[] = [];
   for (const child of Array.from(column.childNodes)) {
     if (child instanceof HTMLElement && markedAs(child) === 'page-run') {
       nodes.push(...Array.from(child.childNodes));
     } else {
-      if (child instanceof HTMLElement && markedAs(child) === 'section') {
-        setSectionWidth(child, SECTION_CONTENT_MAX);
+      if (child instanceof HTMLElement && markedAs(child) === 'section' && width) {
+        recapSection(child, width, SECTION_CONTENT_MAX);
       }
       nodes.push(child);
     }

@@ -55,12 +55,32 @@ function fitToLayout(state: EditorState, before: PageLayout | null): Transaction
   const row = state.schema.nodes['pageRow'];
   if (!row) return null;
   const band = state.schema.nodes['section'];
+  const spacer = state.schema.nodes['spacer'];
   const rows = isRowsPage(state);
   const children: [Node, number][] = [];
   state.doc.forEach((node, offset) => children.push([node, offset]));
   const tr = state.tr;
   // From the end, so the positions before each child stand.
   for (const [node, pos] of children.reverse()) {
+    // A filled spacer is a strip: on a page of rows, a row of its fill with
+    // no padding round a plain spacer — its own row, never inset in one —
+    // and back.
+    if (rows && node.type === spacer && node.attrs['background']) {
+      const strip = row.create(
+        { background: node.attrs['background'], padding: '0px' },
+        spacer.create({ height: node.attrs['height'] }),
+      );
+      tr.replaceWith(pos, pos + node.nodeSize, strip);
+      continue;
+    }
+    if (!rows && node.type === row && spacer && isStripRow(node, spacer)) {
+      const filled = spacer.create({
+        height: node.firstChild!.attrs['height'],
+        background: node.attrs['background'],
+      });
+      tr.replaceWith(pos, pos + node.nodeSize, filled);
+      continue;
+    }
     if (rows && node.type === band) {
       if (node.attrs['contentBackground']) {
         const range = new NodeRange(tr.doc.resolve(pos), tr.doc.resolve(pos + node.nodeSize), 0);
@@ -84,6 +104,16 @@ function fitToLayout(state: EditorState, before: PageLayout | null): Transaction
   }
   if (rows) wrapRuns(tr, row);
   return tr.docChanged ? tr : null;
+}
+
+/** A row that is a strip: a fill, no image, no padding on any side, and
+    one plain spacer in it — a filled spacer, as a page of rows holds one. */
+function isStripRow(node: Node, spacer: NodeType): boolean {
+  const { background, image, padding } = node.attrs;
+  if (!background || image || !padding || node.childCount !== 1) return false;
+  const only = node.firstChild!;
+  if (only.type !== spacer || only.attrs['background']) return false;
+  return paddingSides(padding).every((side) => !parseFloat(side));
 }
 
 /** The blocks between rows, each run of them into a plain row. */

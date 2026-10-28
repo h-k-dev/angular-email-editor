@@ -7,6 +7,8 @@ import { pageLayoutOf } from './extensions/page-layout';
 import { parseHTML, serializeToHTML } from './html';
 import { centeredPageLayout, normalizePageLayout, tablePageLayout } from './page-layout';
 import { sectionPaddingOf } from './extensions/nodes/section';
+import { authoredPageBands, convertAuthoredPage } from './authored-page';
+import { undo } from 'prosemirror-history';
 
 /** The page of rows (page-layout.ts, the `table` kind): every line in a
     row, the column a table, the hand-coded form recognised and marked. */
@@ -176,16 +178,74 @@ describe('page of rows', () => {
       '<!--[if mso]></td></tr></table><![endif]-->' +
       '</tbody></table>';
     for (const mode of ['repair', 'email', 'preserve'] as const) {
-      it(`reads a hand-edited page as authored markup in the ${mode} parse — no layout, nothing dropped`, () => {
+      it(`reads a hand-edited page as authored markup in the ${mode} parse — no layout, nothing dropped, nothing converted`, () => {
         const doc = parseHTML(STRAY, editor.schema, { mode });
         // Its rows were never in the 600px column: no page width is theirs.
         expect(doc.attrs['pageLayout']).toBeNull();
+        // Recognised or not, never turned into bands or a strip: that is the
+        // author's call.
         expect(top(doc)).not.toContain('pageRow');
+        expect(top(doc)).not.toContain('section');
+        expect(top(doc)).not.toContain('spacer');
         expect(doc.textContent).toContain('Masthead');
         expect(doc.textContent).toContain('Aktenzeichen');
         expect(doc.textContent).toContain('Footer');
       });
     }
+
+    describe('suggested as our blocks — on request only', () => {
+      const pagePos = () => {
+        let at = -1;
+        editor.state.doc.forEach((node, pos) => {
+          if (at < 0 && authoredPageBands(node, editor.schema)) at = pos;
+        });
+        return at;
+      };
+
+      it('recognises the hand-edited page: an empty strip, then a full band a row', () => {
+        mount(STRAY);
+        expect(pagePos()).toBe(0);
+        const conversion = authoredPageBands(editor.state.doc.child(0), editor.schema)!;
+        // What it makes, for the host to say: one strip, three bands.
+        expect(conversion).toMatchObject({ spacers: 1, sections: 3 });
+        const html = conversion.html;
+        expect(html).toContain(
+          '<div class="aee-layout-spacer" style="height: 96px; line-height: 96px; font-size: 1px; mso-line-height-rule: exactly; background-color: #efe9e1;">',
+        );
+        expect(html.match(/class="aee-layout-section"/g)).toHaveLength(3);
+        // Recognising is not converting: the document is as authored.
+        expect(top()).not.toContain('section');
+      });
+
+      it('converts when asked: the strip and the bands, one undo step, every word kept', () => {
+        mount(STRAY);
+        expect(editor.exec(convertAuthoredPage(pagePos()))).toBe(true);
+        expect(top()).toEqual(['spacer', 'section', 'section', 'section']);
+        expect(editor.state.doc.child(0).attrs).toMatchObject({
+          height: 96,
+          background: '#efe9e1',
+        });
+        expect(editor.state.doc.child(1).attrs).toMatchObject({
+          background: '#ffffff',
+          padding: '36px 0px 18px',
+          inset: 40,
+          width: 'full',
+        });
+        expect(editor.state.doc.textContent).toContain('Aktenzeichen');
+        expect(editor.getHTML()).not.toContain('[if mso]');
+        undo(editor.state, editor.view.dispatch);
+        expect(top()).not.toContain('section');
+      });
+
+      it('suggests nothing for a table that is not the pattern', () => {
+        mount(STRAY.replace('padding: 20px 40px;', 'padding: 20px 40px 20px 8px;'));
+        expect(pagePos()).toBe(-1);
+        mount(
+          '<table role="presentation" width="100%"><tbody><tr><td>One</td></tr><tr><td>Two</td></tr></tbody></table>',
+        );
+        expect(pagePos()).toBe(-1);
+      });
+    });
 
     it('sends a hand-edited page as it stands, its rows as wide as the room, none of our markers on it', () => {
       mount(STRAY);
@@ -193,6 +253,7 @@ describe('page of rows', () => {
       expect(html).not.toContain('aee-layout-page');
       expect(html).toContain('width="100%"');
       expect(html).toContain('padding: 36px 40px 18px');
+      expect(html).toContain('bgcolor="#efe9e1"');
       expect(html).toContain('Footer');
     });
 
@@ -309,7 +370,7 @@ describe('page of rows', () => {
       expect(top()).toEqual(['section', 'section', 'paragraph']);
     });
 
-    it("takes the band commands on a band row: its colour, its image, and Remove", () => {
+    it('takes the band commands on a band row: its colour, its image, and Remove', () => {
       toRows();
       toStart();
       // A plain row is no band: nothing to colour through them yet.
@@ -352,10 +413,10 @@ describe('page of rows', () => {
       toRows();
       toStart();
       editor.commands['insertSection']('#fce8e6');
-      expect(sectionPaddingOf(editor.state)).toEqual({ block: 16, inline: 16 });
+      expect(sectionPaddingOf(editor.state)).toEqual({ top: 16, bottom: 16, inline: 16 });
       editor.commands['setSectionPadding']({ block: 32, inline: 8 });
       expect(editor.state.doc.child(0).attrs['padding']).toBe('32px 8px');
-      expect(sectionPaddingOf(editor.state)).toEqual({ block: 32, inline: 8 });
+      expect(sectionPaddingOf(editor.state)).toEqual({ top: 32, bottom: 32, inline: 8 });
       // A band: its padding above and below, its sides the inset.
       editor.commands['setPageLayout'](centeredPageLayout());
       expect(editor.state.doc.child(0).attrs['padding']).toBe('32px 0px');

@@ -220,7 +220,7 @@ export const COMPONENT_CONTENT: Readonly<Record<string, ComponentPage>> = {
   <input
     type="number"
     step="4"
-    [formField]="padding.block"
+    [formField]="padding.top"
     emailFieldKeys
     (emailFieldKeysCommitted)="close()"
     (emailFieldKeysDismissed)="close()"

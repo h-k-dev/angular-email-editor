@@ -3,7 +3,8 @@ import { createEditor, Editor } from '../../editor';
 import { parseHTML, serializeToHTML } from '../../html';
 import { createSchema } from '../../schema';
 import { emailExtensions } from '../kits';
-import { SPACER_MAX, SPACER_MIN, snapSpacerHeight } from './spacer';
+import { SPACER_MAX, SPACER_MIN, snapSpacerHeight, spacerOfBand } from './spacer';
+import { centeredPageLayout, tablePageLayout } from '../../page-layout';
 
 const schema = createSchema(emailExtensions);
 type Mode = 'repair' | 'email' | 'preserve';
@@ -105,6 +106,100 @@ describe('spacer', () => {
       expect(editor.view.dom.getAttribute('data-aee-static')).toContain('spacer');
       drag(40);
       expect(editor.getHTML()).toContain(SPACER(24));
+    });
+  });
+
+  describe('its fill (a strip)', () => {
+    const STRIP = (height: number, fill: string) =>
+      SPACER(height).replace('exactly;"', `exactly; background-color: ${fill};"`);
+    const select = () =>
+      editor.view.dispatch(
+        editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, spacerPos())),
+      );
+
+    it('is the same one div with its background-color — and reads back, in every parse', () => {
+      editor.commands['insertSpacer'](96);
+      select();
+      expect(editor.commands['setSpacerBackground']('#EFE9E1')).toBe(true);
+      const out = editor.getHTML();
+      expect(out).toContain(STRIP(96, '#efe9e1'));
+      for (const mode of ['repair', 'email', 'preserve'] as const) {
+        expect(canonical(out, mode)).toBe(out);
+      }
+      // The editor paints it as sent.
+      const view = host.querySelector<HTMLElement>('.aee-spacer')!;
+      expect(view.style.backgroundColor).toBe('rgb(239, 233, 225)');
+      expect(view.hasAttribute('data-fill')).toBe(true);
+      editor.commands['setSpacerBackground'](null);
+      expect(editor.getHTML()).toContain(SPACER(96));
+      expect(view.hasAttribute('data-fill')).toBe(false);
+    });
+
+    it('sets nothing without a spacer selected', () => {
+      expect(editor.commands['setSpacerBackground']('#efe9e1')).toBe(false);
+    });
+
+    it('on a page of rows is a row of its fill with no padding round a plain spacer — and back', () => {
+      editor.setContent(`<div>a</div>${STRIP(48, '#efe9e1')}<div>b</div>`);
+      editor.commands['setPageLayout'](tablePageLayout());
+      const rows: { background: unknown; padding: unknown; inner: string }[] = [];
+      editor.state.doc.forEach((row) =>
+        rows.push({
+          background: row.attrs['background'],
+          padding: row.attrs['padding'],
+          inner: `${row.firstChild!.type.name}:${row.firstChild!.attrs['background'] ?? ''}`,
+        }),
+      );
+      expect(rows[1]).toEqual({ background: '#efe9e1', padding: '0px', inner: 'spacer:' });
+      editor.commands['setPageLayout'](null);
+      const back: string[] = [];
+      editor.state.doc.forEach((node) => back.push(node.type.name));
+      expect(back).toEqual(['paragraph', 'spacer', 'paragraph']);
+      expect(editor.getHTML()).toContain(STRIP(48, '#efe9e1'));
+    });
+
+    it('in a centred page stands in the column as a band does — never inset in a run — and reads back', () => {
+      editor.setContent(`<div>a</div>${STRIP(48, '#efe9e1')}<div>b</div>`);
+      editor.commands['setPageLayout'](centeredPageLayout());
+      const out = editor.getHTML();
+      const column = new DOMParser()
+        .parseFromString(out, 'text/html')
+        .querySelector('.aee-layout-page-column')!;
+      expect(Array.from(column.children, (child) => child.className)).toEqual([
+        'aee-layout-page-run',
+        'aee-layout-spacer',
+        'aee-layout-page-run',
+      ]);
+      const doc = parseHTML(out, schema, { mode: 'preserve' });
+      const names: string[] = [];
+      doc.forEach((node) => names.push(node.type.name));
+      expect(names).toEqual(['paragraph', 'spacer', 'paragraph']);
+      expect(doc.child(1).attrs['background']).toBe('#efe9e1');
+    });
+
+    it('stands for a band that holds nothing but room — one spacer, as tall, the band’s fill', () => {
+      editor.setContent(
+        '<table class="aee-layout-section" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width: 100%; border-collapse: collapse;"><tbody><tr>' +
+          '<td bgcolor="#efe9e1" style="padding: 32px 0px; background-color: rgb(239, 233, 225); color: rgb(32, 33, 36);">' +
+          `<div style="max-width: 600px; margin-left: auto; margin-right: auto; padding-left: 16px; padding-right: 16px; box-sizing: border-box;">${SPACER(32)}</div>` +
+          '</td></tr></tbody></table><div>after</div>',
+      );
+      // The caret in the band: on its spacer.
+      editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, 1)));
+      expect(spacerOfBand(editor.state)).toEqual({ height: 96, background: '#efe9e1' });
+      expect(editor.commands['bandToSpacer']()).toBe(true);
+      expect(editor.state.doc.firstChild!.type.name).toBe('spacer');
+      expect(editor.state.doc.firstChild!.attrs).toMatchObject({
+        height: 96,
+        background: '#efe9e1',
+      });
+      expect(editor.getHTML()).toContain(STRIP(96, '#efe9e1'));
+    });
+
+    it('stands for no band with words in it', () => {
+      editor.commands['insertSection']('#efe9e1');
+      expect(spacerOfBand(editor.state)).toBeNull();
+      expect(editor.commands['bandToSpacer']()).toBe(false);
     });
   });
 });
