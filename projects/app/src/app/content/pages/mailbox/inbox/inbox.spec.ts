@@ -24,6 +24,11 @@ describe('Inbox', () => {
   const action = (id: string, name: string) =>
     item(id).querySelector<HTMLButtonElement>(`.inbox-actions button[aria-label="${name}"]`)!;
   const settle = () => harness.fixture.whenStable();
+  /** The reader fetches the message by its id: on screen once it has come. */
+  const opened = () =>
+    vi.waitFor(() =>
+      expect(root.querySelector('app-inbox-reader .mail-view__subject')).not.toBeNull(),
+    );
 
   beforeEach(async () => {
     fetched = [];
@@ -64,6 +69,7 @@ describe('Inbox', () => {
   it('opens a message as a place of its own: the row links to it, the pane reads it', async () => {
     expect(row('reply-plain-note').getAttribute('href')).toBe('/inbox/reply-plain-note');
     await harness.navigateByUrl('/inbox/reply-plain-note');
+    await opened();
     expect(root.querySelector('app-inbox-reader .mail-view__subject')?.textContent).toBe(
       'Plain note',
     );
@@ -105,6 +111,7 @@ describe('Inbox', () => {
     localStorage.clear();
     TestBed.inject(Preferences).editorAppearance.set('light');
     await harness.navigateByUrl('/inbox/reply-plain-note');
+    await opened();
     const pane = root.querySelector('.inbox-pane')!;
     // The reader's button turns the page's paper (InboxPaper).
     const button = root.querySelector<HTMLButtonElement>('.mail-view__paper')!;
@@ -205,9 +212,9 @@ describe('Inbox', () => {
     action('mjml-austin', 'Snooze').click();
     await settle();
     expect(row('mjml-austin')).toBeUndefined();
-    const undo = [...document.querySelectorAll<HTMLButtonElement>('.mat-mdc-snack-bar-container button')].find(
-      (button) => button.textContent?.trim() === 'Undo',
-    )!;
+    const undo = [
+      ...document.querySelectorAll<HTMLButtonElement>('.mat-mdc-snack-bar-container button'),
+    ].find((button) => button.textContent?.trim() === 'Undo')!;
     undo.click();
     await settle();
     expect(row('mjml-austin')).toBeDefined();
