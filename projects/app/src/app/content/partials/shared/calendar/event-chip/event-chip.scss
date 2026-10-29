@@ -1,0 +1,186 @@
+// Notion Calendar's chip: a wash of the event's colour, a solid edge on
+// its start side, the words in a deep shade of the colour (a pale one in
+// dark) — readable on any of Google's eleven. No border, no shadow at
+// rest: Linear's flat.
+:host {
+  --_wash: color-mix(in oklch, var(--event-color) 18%, var(--mat-sys-surface-bright));
+  --_ink: light-dark(
+    color-mix(in oklch, var(--event-color) 62%, #000),
+    color-mix(in oklch, var(--event-color) 45%, #fff)
+  );
+
+  position: relative;
+  display: flex;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--_ink);
+  font: var(--mat-sys-label-medium);
+  text-align: start;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  // The lift and drop: scale and shadow on the spring.
+  transition:
+    scale var(--app-motion-spring-duration, 400ms) var(--app-motion-spring, ease-out),
+    box-shadow var(--app-motion-duration, 250ms) var(--app-motion-easing, ease-out);
+
+  &:focus-visible {
+    outline: 2px solid var(--event-color);
+    outline-offset: 1px;
+    z-index: 2;
+  }
+}
+
+.event-chip__title {
+  overflow: hidden;
+  min-inline-size: 0;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.event-chip__time {
+  overflow: hidden;
+  flex: none;
+  opacity: 0.8;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+// In the hours: title over times, the edge down its start.
+:host([data-shape='block']) {
+  flex-direction: column;
+  gap: 0;
+  padding: 2px 6px 2px 8px;
+  box-sizing: border-box;
+  overflow: hidden;
+  background: var(--_wash);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset-block: 2px;
+    inset-inline-start: 2px;
+    inline-size: 3px;
+    border-radius: 2px;
+    background: var(--event-color);
+  }
+
+  .event-chip__title {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: var(--event-chip-lines, 2);
+    line-clamp: var(--event-chip-lines, 2);
+  }
+
+  &:hover {
+    --_wash: color-mix(in oklch, var(--event-color) 26%, var(--mat-sys-surface-bright));
+  }
+}
+
+// Across days: a bar, filled a step deeper than a block.
+:host([data-shape='bar']) {
+  align-items: center;
+  block-size: 22px;
+  padding-inline: 8px;
+  box-sizing: border-box;
+  background: color-mix(in oklch, var(--event-color) 26%, var(--mat-sys-surface-bright));
+
+  &:hover {
+    background: color-mix(in oklch, var(--event-color) 34%, var(--mat-sys-surface-bright));
+  }
+}
+
+:host(.event-chip--cut-before) {
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+}
+
+:host(.event-chip--cut-after) {
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+}
+
+// A month's timed event: dot, time, title — no fill until hovered.
+:host([data-shape='item']) {
+  align-items: center;
+  gap: 6px;
+  block-size: 22px;
+  padding-inline: 6px;
+  box-sizing: border-box;
+  color: var(--mat-sys-on-surface);
+
+  .event-chip__time {
+    color: var(--mat-sys-on-surface-variant);
+    opacity: 1;
+  }
+
+  &:hover {
+    background: color-mix(in oklch, var(--mat-sys-on-surface) 6%, transparent);
+  }
+}
+
+.event-chip__dot {
+  flex: none;
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: 50%;
+  background: var(--event-color);
+}
+
+// Being written: the shape it will take, dashed and lifted over the grid.
+:host(.event-chip--ghost) {
+  z-index: 3;
+  box-shadow: var(--mat-sys-level2);
+  outline: 1px dashed var(--event-color);
+  outline-offset: -1px;
+  pointer-events: none;
+}
+
+:host(.event-chip--ghost[data-shape='item']) {
+  background: color-mix(in oklch, var(--event-color) 18%, var(--mat-sys-surface-bright));
+}
+
+// Dragged: picked up off the grid — a hair bigger, a shadow under it.
+:host(.event-chip--lifted) {
+  z-index: 4;
+  scale: 1.02;
+  box-shadow: var(--mat-sys-level3);
+  cursor: grabbing;
+  pointer-events: none;
+}
+
+// Just made: it pops into place on the spring.
+:host(.event-chip--fresh) {
+  animation: event-chip-pop var(--app-motion-spring-duration, 400ms)
+    var(--app-motion-spring, ease-out) both;
+}
+
+@keyframes event-chip-pop {
+  from {
+    opacity: 0;
+    scale: 0.92;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host {
+    transition: none;
+  }
+
+  :host(.event-chip--fresh) {
+    animation-name: event-chip-fade;
+  }
+}
+
+@keyframes event-chip-fade {
+  from {
+    opacity: 0;
+  }
+}

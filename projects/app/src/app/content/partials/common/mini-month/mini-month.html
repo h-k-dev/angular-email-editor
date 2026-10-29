@@ -1,0 +1,72 @@
+<!-- The month's name and its arrows, Linear's: words left, arrows right. -->
+<header class="mini-month__head">
+  <h2 class="mini-month__title" aria-live="polite">{{ title() }}</h2>
+  <button
+    matIconButton
+    type="button"
+    class="mini-month__step"
+    [attr.aria-label]="'calendar.previousMonth' | translate"
+    [matTooltip]="'calendar.previousMonth' | translate"
+    (click)="step(-1)"
+  >
+    <mat-icon>chevron_left</mat-icon>
+  </button>
+  <button
+    matIconButton
+    type="button"
+    class="mini-month__step"
+    [attr.aria-label]="'calendar.nextMonth' | translate"
+    [matTooltip]="'calendar.nextMonth' | translate"
+    (click)="step(1)"
+  >
+    <mat-icon>chevron_right</mat-icon>
+  </button>
+</header>
+
+<!-- The days: a grid, one tab stop. A turn lays the new month over the old
+     one in the same cell and slides it in from where it comes from. -->
+<div class="mini-month__pages" [style.--motion-turn]="turn()">
+  @for (month of page(); track month) {
+    <table
+      class="mini-month__page"
+      role="grid"
+      [attr.aria-label]="title()"
+      animate.enter="motion-turn-enter"
+      animate.leave="motion-turn-leave"
+      (keydown)="keydown($event)"
+    >
+      <thead>
+        <tr>
+          @for (weekday of weekdays(); track weekday.day) {
+            <th scope="col" class="mini-month__weekday" [attr.abbr]="weekday.long">
+              {{ weekday.narrow }}
+            </th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for (week of weeks(); track week.key) {
+          <tr>
+            @for (day of week.days; track day.day) {
+              <td role="gridcell" [attr.aria-selected]="day.selected">
+                <button
+                  type="button"
+                  class="mini-month__day"
+                  [class.mini-month__day--outside]="day.outside"
+                  [class.mini-month__day--selected]="day.selected"
+                  [attr.data-day]="day.day"
+                  [attr.aria-current]="day.today ? 'date' : null"
+                  [attr.aria-label]="day.label"
+                  [tabindex]="day.stop ? 0 : -1"
+                  (click)="picked(day.day)"
+                >
+                  {{ day.number }}
+                </button>
+              </td>
+            }
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

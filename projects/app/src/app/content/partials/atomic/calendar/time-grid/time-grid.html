@@ -1,0 +1,103 @@
+<!-- The days' heads: the weekday, and the date — a filled circle today, a
+     press away from that day alone. -->
+<div class="time-grid__heads">
+  <div class="time-grid__corner"></div>
+  @for (head of heads(); track head.day) {
+    <div class="time-grid__head" [class.time-grid__head--past]="head.past">
+      <span class="time-grid__weekday">{{ head.weekday }}</span>
+      <button
+        type="button"
+        class="time-grid__date"
+        [attr.aria-current]="head.today ? 'date' : null"
+        [attr.aria-label]="head.label"
+        (click)="headPressed(head.day)"
+      >
+        {{ head.number }}
+      </button>
+    </div>
+  }
+</div>
+
+<!-- The band: the all-day and overnight events, a bar each across the days
+     it covers. A press on an empty part of it is an all-day event there. -->
+<div class="time-grid__band-row">
+  <div class="time-grid__corner time-grid__corner--band">{{ 'calendar.allDay' | translate }}</div>
+  <div class="time-grid__band" [style.--lanes]="band().lanes" (click)="pressBand($event)">
+    @for (bar of band().bars; track bar.key) {
+      <button
+        type="button"
+        class="time-grid__bar"
+        [calendarEventChip]="bar.event"
+        shape="bar"
+        [untitled]="untitled()"
+        [ghost]="bar.ghost"
+        [lifted]="bar.lifted"
+        [fresh]="bar.fresh"
+        [cutBefore]="bar.before"
+        [cutAfter]="bar.after"
+        [style.grid-column]="bar.from + 1 + ' / span ' + bar.span"
+        [style.grid-row]="bar.lane + 1"
+        (click)="clicked($event, bar.event)"
+      ></button>
+    }
+  </div>
+</div>
+
+<!-- The hours: the one scroller. Hours down the gutter; the days beside,
+     each the column its events stand in. A drag anywhere over the days is
+     the columns' (they hold the pointer while it lasts). -->
+<div #scroller class="time-grid__scroller" (scroll)="scrolled($event)">
+  <div class="time-grid__body">
+    <div class="time-grid__gutter" aria-hidden="true">
+      @for (hour of hours(); track hour.hour) {
+        <span class="time-grid__hour" [style.--at]="hour.hour">{{ hour.label }}</span>
+      }
+    </div>
+    <div
+      #dayColumns
+      class="time-grid__columns"
+      (pointermove)="move($event)"
+      (pointerup)="release($event)"
+      (pointercancel)="cancel()"
+    >
+      @for (column of columns(); track column.day) {
+        <div class="time-grid__day" (pointerdown)="pressHours($event)">
+          @for (one of column.events; track one.key) {
+            <div
+              class="time-grid__event"
+              [style.--top]="one.top"
+              [style.--length]="one.length"
+              [style.--column]="one.column"
+              [style.--columns]="one.columns"
+              [class.time-grid__event--lifted]="one.lifted"
+            >
+              <button
+                type="button"
+                class="time-grid__chip"
+                [calendarEventChip]="one.event"
+                shape="block"
+                [untitled]="untitled()"
+                [ghost]="one.ghost"
+                [lifted]="one.lifted"
+                [fresh]="one.fresh"
+                [style.--event-chip-lines]="one.lines"
+                (pointerdown)="pressEvent($event, one.event)"
+                (click)="clicked($event, one.event)"
+              ></button>
+              @if (!one.ghost && !one.cutEnd) {
+                <span
+                  class="time-grid__foot"
+                  aria-hidden="true"
+                  (pointerdown)="pressFoot($event, one.event)"
+                ></span>
+              }
+            </div>
+          }
+          @if (column.now !== null) {
+            <div class="time-grid__now" [style.--top]="column.now" aria-hidden="true"></div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</div>

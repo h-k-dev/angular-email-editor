@@ -1,0 +1,132 @@
+// The calendar is a frame (app.scss): the side, and the main column — its
+// header, and the page under it to the bottom. Only the hours scroll.
+:host {
+  display: grid;
+  grid-template-columns: 256px minmax(0, 1fr);
+  block-size: var(--app-frame);
+  min-block-size: 0;
+  box-sizing: border-box;
+}
+
+.calendar-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-block-size: 0;
+  padding-inline: 12px;
+}
+
+// The side goes where there is no room for it — the mini month is a
+// shortcut, never the only way to a day.
+@media (max-width: 1100px) {
+  :host {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .calendar-side {
+    display: none;
+  }
+}
+
+// As tall as the main header, so the mini month lines up with the heads.
+.calendar-side__head {
+  flex: none;
+  block-size: 48px;
+}
+
+.calendar-main {
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+  min-inline-size: 0;
+}
+
+.calendar-header {
+  gap: 4px;
+}
+
+.calendar-today {
+  --mat-button-outlined-container-height: 32px;
+  --mat-button-outlined-horizontal-padding: 12px;
+  flex: none;
+  margin-inline-end: 4px;
+}
+
+.calendar-steps {
+  display: flex;
+  flex: none;
+}
+
+.calendar-title {
+  flex: 1;
+  min-inline-size: 0;
+  margin: 0 0 0 8px;
+  overflow: hidden;
+  font: var(--mat-sys-title-large);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-views {
+  flex: none;
+}
+
+.calendar-new {
+  flex: none;
+}
+
+// The turning page: the old and the new in the one cell.
+.calendar-pages {
+  flex: 1 1 auto;
+  display: grid;
+  min-block-size: 0;
+  overflow: hidden;
+}
+
+.calendar-page {
+  grid-area: 1 / 1;
+  min-block-size: 0;
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+
+  > * {
+    flex: 1 1 auto;
+    min-block-size: 0;
+  }
+}
+
+// A phone: the title on its own, the views and the new event kept.
+@media (max-width: 768px) {
+  .calendar-today {
+    display: none;
+  }
+
+  .calendar-title {
+    font: var(--mat-sys-title-medium);
+  }
+}
+
+.calendar-anchor {
+  pointer-events: none;
+}
+
+// The card: Notion's floating surface, its width.
+.calendar-card {
+  inline-size: min(400px, calc(100vw - 16px));
+  max-block-size: calc(100dvh - 16px);
+  overflow-y: auto;
+  padding: 12px 16px 16px;
+  box-sizing: border-box;
+  border-radius: var(--mat-sys-corner-medium);
+  background: var(--mat-sys-surface-container-high);
+  color: var(--mat-sys-on-surface);
+  box-shadow: var(--mat-sys-level3);
+}
+
+.calendar-card__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0;
+  margin: -4px -8px -8px 0;
+}

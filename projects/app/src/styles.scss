@@ -44,6 +44,8 @@ html {
   --app-motion-leave-duration: #{theme.$motion-leave-duration};
   --app-motion-leave-easing: #{theme.$motion-leave-easing};
   --app-motion-leave-fade-easing: #{theme.$motion-leave-fade-easing};
+  --app-motion-spring: #{theme.$motion-spring};
+  --app-motion-spring-duration: #{theme.$motion-spring-duration};
 }
 
 /* The document is the page's scroller (app.scss): a phone pulls it down to

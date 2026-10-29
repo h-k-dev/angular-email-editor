@@ -1,0 +1,191 @@
+// Notion Calendar's card: words large, fields that look like text until
+// they are touched, an icon column down the start.
+:host {
+  display: block;
+}
+
+.event-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.event-editor__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-block-end: -8px;
+}
+
+.event-editor__swatch {
+  inline-size: 14px;
+  block-size: 14px;
+  margin-inline-start: 3px;
+  border-radius: 4px;
+  background: var(--event-color);
+  transition: background-color 200ms ease-out;
+}
+
+.event-editor__close {
+  --mat-icon-button-state-layer-size: 32px;
+  inline-size: 32px;
+  block-size: 32px;
+  padding: 0;
+  margin-inline-end: -8px;
+}
+
+%quiet-field {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: var(--mat-sys-corner-extra-small);
+  background: none;
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
+  outline: 0;
+  transition: background-color 120ms ease-out;
+  color-scheme: inherit;
+
+  &::placeholder {
+    color: var(--mat-sys-placeholder, var(--mat-sys-on-surface-variant));
+  }
+
+  &:hover {
+    background: color-mix(in oklch, var(--mat-sys-on-surface) 5%, transparent);
+  }
+
+  &:focus-visible {
+    background: color-mix(in oklch, var(--mat-sys-on-surface) 5%, transparent);
+    box-shadow: inset 0 0 0 1px var(--mat-sys-primary);
+  }
+
+  &[aria-invalid='true'] {
+    box-shadow: inset 0 0 0 1px var(--mat-sys-error);
+    color: var(--mat-sys-error);
+  }
+}
+
+.event-editor__title {
+  @extend %quiet-field;
+  margin-inline: -6px;
+  font: var(--mat-sys-title-large);
+}
+
+.event-editor__row {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: start;
+  column-gap: 12px;
+}
+
+.event-editor__icon {
+  --mat-icon-size: 20px;
+  inline-size: 20px;
+  block-size: 20px;
+  margin-block-start: 4px;
+  font-size: 20px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.event-editor__when {
+  display: grid;
+  row-gap: 4px;
+}
+
+.event-editor__moment {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.event-editor__label {
+  inline-size: 44px;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-medium);
+}
+
+.event-editor__field {
+  @extend %quiet-field;
+  font-variant-numeric: tabular-nums;
+}
+
+.event-editor__error {
+  margin: 0;
+  color: var(--mat-sys-error);
+  font: var(--mat-sys-label-medium);
+}
+
+.event-editor__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  inline-size: fit-content;
+  padding-block: 2px;
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
+  cursor: pointer;
+
+  input {
+    margin: 0;
+    accent-color: var(--mat-sys-primary);
+  }
+}
+
+.event-editor__swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-block: 2px;
+}
+
+// A swatch: a dot of the colour; the picked one ringed, on the spring.
+.event-editor__color {
+  inline-size: 20px;
+  block-size: 20px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--swatch);
+  cursor: pointer;
+  transition: scale var(--app-motion-spring-duration, 400ms) var(--app-motion-spring, ease-out);
+
+  &:hover {
+    scale: 1.12;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: 2px;
+  }
+
+  &[aria-pressed='true'] {
+    box-shadow:
+      0 0 0 2px var(--mat-sys-surface-container-high),
+      0 0 0 4px var(--swatch);
+  }
+}
+
+.event-editor__line {
+  @extend %quiet-field;
+  margin-inline-start: -6px;
+}
+
+.event-editor__note {
+  resize: vertical;
+  min-block-size: 2lh;
+  font: var(--mat-sys-body-medium);
+}
+
+.event-editor__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.event-editor__delete {
+  margin-inline-end: auto;
+  --mat-button-text-label-text-color: var(--mat-sys-error);
+}

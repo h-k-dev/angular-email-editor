@@ -1,0 +1,62 @@
+<!-- The weekdays over the columns. -->
+<div class="month-grid__weekdays" aria-hidden="true">
+  @for (weekday of weekdays(); track weekday.day) {
+    <span class="month-grid__weekday">{{ weekday.label }}</span>
+  }
+</div>
+
+<!-- A week a row: the days' cells under, the events over them, lane by
+     lane. A cell's empty room holds a new all-day event; its date opens
+     the day. -->
+@for (row of rows(); track row.key) {
+  <div class="month-grid__week" [style.--more-row]="row.moreRow">
+    @for (day of row.days; track day.day) {
+      <div
+        class="month-grid__cell"
+        [class.month-grid__cell--outside]="day.outside"
+        [class.month-grid__cell--first]="day.column === 1"
+        [attr.data-day]="day.day"
+        [style.--column]="day.column"
+        (click)="pressDay($event, day.day)"
+      >
+        <button
+          type="button"
+          class="month-grid__date"
+          [attr.aria-current]="day.today ? 'date' : null"
+          [attr.aria-label]="day.label"
+          (click)="dateOpen(day.day)"
+        >
+          {{ day.number }}
+        </button>
+      </div>
+      @if (day.more) {
+        <button
+          type="button"
+          class="month-grid__more"
+          [style.grid-column]="day.column"
+          (click)="dateOpen(day.day)"
+        >
+          {{ 'calendar.more' | translate: { count: day.more } }}
+        </button>
+      }
+    }
+    @for (chip of row.chips; track chip.key) {
+      <button
+        type="button"
+        class="month-grid__chip"
+        [calendarEventChip]="chip.event"
+        [shape]="chip.shape"
+        [untitled]="untitled()"
+        [ghost]="chip.ghost"
+        [lifted]="chip.lifted"
+        [fresh]="chip.fresh"
+        [cutBefore]="chip.before"
+        [cutAfter]="chip.after"
+        [style.grid-column]="chip.column"
+        [style.grid-row]="chip.row"
+        (pointerdown)="pressEvent($event, chip.event, row.key)"
+        (click)="clicked($event, chip.event)"
+      ></button>
+    }
+  </div>
+}

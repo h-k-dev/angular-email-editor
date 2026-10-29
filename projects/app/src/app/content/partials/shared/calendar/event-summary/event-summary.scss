@@ -1,0 +1,60 @@
+// Google's event card, Notion's quiet: rows of an icon column (16px wide,
+// the swatch in the first) and the words beside it.
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-inline-size: 0;
+  color: var(--mat-sys-on-surface);
+}
+
+.event-summary__row {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: start;
+  column-gap: 12px;
+}
+
+.event-summary__swatch {
+  inline-size: 14px;
+  block-size: 14px;
+  margin: 5px 3px 0;
+  border-radius: 4px;
+  background: var(--event-color);
+}
+
+.event-summary__head {
+  display: grid;
+  row-gap: 2px;
+  min-inline-size: 0;
+}
+
+.event-summary__title {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font: var(--mat-sys-title-medium);
+}
+
+.event-summary__title--none {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.event-summary__when,
+.event-summary__text {
+  margin: 0;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+  overflow-wrap: anywhere;
+}
+
+.event-summary__text--long {
+  white-space: pre-wrap;
+}
+
+.event-summary__icon {
+  --mat-icon-size: 20px;
+  inline-size: 20px;
+  block-size: 20px;
+  font-size: 20px;
+  color: var(--mat-sys-on-surface-variant);
+}

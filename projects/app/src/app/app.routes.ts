@@ -47,6 +47,13 @@ export const routes: Routes = [
           },
         ],
       },
+      // The calendar: a place per view and day (`/calendar/week/2026-10-29`)
+      // — its routes, and Luxon with them, in the calendar's own chunk.
+      {
+        path: 'calendar',
+        loadChildren: () =>
+          import('./content/pages/mailbox/calendar/calendar.routes').then((m) => m.CALENDAR_ROUTES),
+      },
       // The template gallery: every template the store holds, a feed of
       // thumbnails.
       {
@@ -84,13 +91,15 @@ export const routes: Routes = [
       {
         path: 'api/:page',
         canMatch: [knownPage(API_PAGES)],
-        loadComponent: () => import('./content/pages/mailbox/api-reference/api-reference').then((m) => m.ApiReference),
+        loadComponent: () =>
+          import('./content/pages/mailbox/api-reference/api-reference').then((m) => m.ApiReference),
       },
       { path: 'styling', pathMatch: 'full', redirectTo: `styling/${STYLING_PAGES[0].id}` },
       {
         path: 'styling/:page',
         canMatch: [knownPage(STYLING_PAGES)],
-        loadComponent: () => import('./content/pages/mailbox/styling/styling').then((m) => m.Styling),
+        loadComponent: () =>
+          import('./content/pages/mailbox/styling/styling').then((m) => m.Styling),
       },
       // The components and utilities, a page each — every one a playground.
       { path: 'components', pathMatch: 'full', redirectTo: `components/${ENTRY_PAGES[0].id}` },

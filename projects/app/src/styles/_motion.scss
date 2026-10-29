@@ -129,3 +129,53 @@
     animation-name: motion-out-fade;
   }
 }
+
+// Turning: a page that moves on — a calendar's next week, its next month
+// — rather than a card that comes and goes. Framer Motion's
+// AnimatePresence with a direction: the new page slides in from the side
+// it was asked from on the theme's spring (`--app-motion-spring`), the old
+// one fades out the other way at once, both in the same place (the host
+// stacks them in one grid cell). `--motion-turn` is the travel: 1 for
+// next (in from the end), -1 for previous (in from the start), 0 for
+// neither — a view switched, which sets `--motion-turn-scale` (0.98) to
+// settle from a hair smaller instead.
+//
+//     <div class="my-page" animate.enter="motion-turn-enter" animate.leave="motion-turn-leave">
+//
+// Less motion: it only fades.
+
+@keyframes motion-turn-in {
+  from {
+    opacity: 0;
+    translate: calc(var(--motion-turn, 1) * var(--motion-turn-distance, 32px)) 0;
+    scale: var(--motion-turn-scale, 1);
+  }
+}
+
+@keyframes motion-turn-out {
+  to {
+    opacity: 0;
+    translate: calc(var(--motion-turn, 1) * var(--motion-turn-distance, 32px) * -0.25) 0;
+  }
+}
+
+.motion-turn-enter {
+  animation: motion-turn-in var(--app-motion-spring-duration, 400ms)
+    var(--app-motion-spring, cubic-bezier(0.16, 1, 0.3, 1)) both;
+}
+
+.motion-turn-leave {
+  animation: motion-turn-out var(--app-motion-leave-duration, 100ms)
+    var(--app-motion-leave-easing, cubic-bezier(0.4, 0, 1, 1)) both;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-turn-enter {
+    animation-name: motion-fade-in;
+  }
+
+  .motion-turn-leave {
+    animation-name: motion-out-fade;
+  }
+}

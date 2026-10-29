@@ -1,0 +1,233 @@
+@use '@h-k-dev/angular-email-editor/styles/scroll';
+
+// Google's hours, Linear's quiet: no boxes, hairlines a whisper of the
+// ink, the heads and band holding still over the one scroller. Columns:
+// the gutter (56px) and the days, the same tracks in the heads, the band
+// and the hours — the scroller's stable gutter mirrored as padding over
+// it, so the three line up.
+:host {
+  --_gutter: 56px;
+  --_line: color-mix(in oklch, var(--mat-sys-on-surface) 9%, transparent);
+  --_tracks: var(--_gutter) repeat(var(--days), minmax(0, 1fr));
+
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+  block-size: 100%;
+}
+
+:host(.time-grid--dragging) {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.time-grid__heads,
+.time-grid__band-row {
+  flex: none;
+  display: grid;
+  grid-template-columns: var(--_tracks);
+  padding-inline-end: var(--email-scroll-size, 8px);
+}
+
+.time-grid__heads {
+  padding-block: 4px 8px;
+}
+
+.time-grid__head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.time-grid__weekday {
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-small);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.time-grid__date {
+  display: grid;
+  place-items: center;
+  inline-size: 36px;
+  block-size: 36px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-title-large);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background-color 120ms ease-out;
+
+  &:hover {
+    background: color-mix(in oklch, var(--mat-sys-on-surface) 8%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: 0;
+  }
+
+  &[aria-current='date'] {
+    background: var(--mat-sys-primary);
+    color: var(--mat-sys-on-primary);
+  }
+}
+
+.time-grid__head--past .time-grid__date:not([aria-current]),
+.time-grid__head--past .time-grid__weekday {
+  color: var(--mat-sys-placeholder, var(--mat-sys-on-surface-variant));
+}
+
+.time-grid__corner {
+  min-inline-size: 0;
+}
+
+.time-grid__corner--band {
+  align-self: center;
+  padding-inline-end: 8px;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-small);
+  text-align: end;
+}
+
+// The band: a lane per row, each 22px + 2px apart; one empty lane at the
+// least, to press in.
+.time-grid__band {
+  grid-column: 2 / -1;
+  display: grid;
+  grid-template-columns: repeat(var(--days), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--lanes), 22px);
+  row-gap: 2px;
+  padding-block: 2px 6px;
+  border-block-end: 1px solid var(--_line);
+  // The days' lines carry on through it.
+  background: repeating-linear-gradient(
+    to right,
+    var(--_line) 0 1px,
+    transparent 1px calc(100% / var(--days))
+  );
+  cursor: default;
+}
+
+.time-grid__bar {
+  margin-inline: 2px 4px;
+}
+
+.time-grid__scroller {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  @include scroll.scroll;
+}
+
+.time-grid__body {
+  display: grid;
+  grid-template-columns: var(--_gutter) minmax(0, 1fr);
+  block-size: calc(24 * var(--hour));
+}
+
+// The hours' labels, each centred on its line.
+.time-grid__gutter {
+  position: relative;
+}
+
+.time-grid__hour {
+  position: absolute;
+  inset-block-start: calc(var(--at) * var(--hour));
+  inset-inline-end: 8px;
+  translate: 0 -50%;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-small);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+// The days: an hour line every hour, the faintest half-hour between,
+// a line down each day's start.
+.time-grid__columns {
+  display: grid;
+  grid-template-columns: repeat(var(--days), minmax(0, 1fr));
+  background: repeating-linear-gradient(to bottom, var(--_line) 0 1px, transparent 1px var(--hour));
+  touch-action: pan-y;
+}
+
+.time-grid__day {
+  position: relative;
+  border-inline-start: 1px solid var(--_line);
+  cursor: default;
+}
+
+// An event's box: from its start, as long as it lasts, its share of the
+// day's width — a hair short at the end, so two side by side read as two.
+// It drops into a new place on the spring; while lifted it follows the
+// pointer step by step, on the same spring.
+.time-grid__event {
+  --_width: calc((100% - 8px) / var(--columns));
+
+  position: absolute;
+  inset-block-start: calc(var(--top) * var(--hour) / 60);
+  inset-inline-start: calc(var(--column) * var(--_width));
+  inline-size: calc(var(--_width) - 2px);
+  block-size: calc(var(--length) * var(--hour) / 60 - 2px);
+  display: flex;
+  transition:
+    inset-block-start var(--app-motion-spring-duration, 400ms) var(--app-motion-spring, ease-out),
+    block-size var(--app-motion-spring-duration, 400ms) var(--app-motion-spring, ease-out),
+    inset-inline-start var(--app-motion-spring-duration, 400ms) var(--app-motion-spring, ease-out),
+    inline-size var(--app-motion-spring-duration, 400ms) var(--app-motion-spring, ease-out);
+}
+
+.time-grid__event--lifted {
+  z-index: 4;
+}
+
+.time-grid__chip {
+  flex: 1;
+  min-block-size: 0;
+}
+
+// The foot: the bottom 6px, a drag stretches the event.
+.time-grid__foot {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  block-size: 6px;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+// Now: a red line across the day with a dot at its start, Google's.
+.time-grid__now {
+  position: absolute;
+  inset-inline: -1px 0;
+  inset-block-start: calc(var(--top) * var(--hour) / 60);
+  z-index: 5;
+  block-size: 2px;
+  translate: 0 -50%;
+  background: var(--mat-sys-error);
+  pointer-events: none;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset-inline-start: -5px;
+    inset-block-start: -4px;
+    inline-size: 10px;
+    block-size: 10px;
+    border-radius: 50%;
+    background: var(--mat-sys-error);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .time-grid__event {
+    transition: none;
+  }
+}

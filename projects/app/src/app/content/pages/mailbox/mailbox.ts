@@ -29,6 +29,9 @@ interface MailboxLink {
   readonly key: string;
   /** What waits there, counted — the inbox's unread — or nothing to say. */
   readonly count?: Signal<number>;
+  /** Lit for its places under it too (`/calendar` for `/calendar/week/…`);
+      only for its own path otherwise. */
+  readonly nested?: boolean;
 }
 
 /** Places one level down, behind a row of their own that folds them —
@@ -182,6 +185,13 @@ export class Mailbox {
           icon: 'inbox',
           key: 'app.nav.inbox',
           count: this.#unread,
+        },
+        {
+          kind: 'link',
+          path: '/calendar',
+          icon: 'calendar_month',
+          key: 'app.nav.calendar',
+          nested: true,
         },
       ],
     },

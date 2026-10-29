@@ -75,12 +75,14 @@ describe('Mailbox', () => {
   describe('on a desk', () => {
     beforeEach(() => start(false));
 
-    it('lays the mail down the aside, the templates under it, then the developers: each reference a group of its pages, Render beside them', () => {
+    it('lays the mail and the calendar down the aside, the templates under them, then the developers: each reference a group of its pages, Render beside them', () => {
       const labels = [...root.querySelectorAll('.mailbox-link__label')].map((el) =>
         el.textContent?.trim(),
       );
       // A one-way trip: no place leads back to the composer's front page.
-      expect(labels.slice(0, 2)).toEqual(['Inbox', 'Templates']);
+      expect(labels.slice(0, 3)).toEqual(['Inbox', 'Calendar', 'Templates']);
+      // The calendar's link opens it, on today.
+      expect(link('Calendar').getAttribute('href')).toBe('/calendar');
       expect(labels).toContain('Editor');
       expect(labels).toContain('Theming');
       expect(labels.at(-1)).toBe('Render');

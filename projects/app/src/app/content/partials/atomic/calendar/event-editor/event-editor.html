@@ -1,0 +1,126 @@
+<!-- One signal form: Save is its submit, so is Enter in the title. -->
+<form class="event-editor" [formRoot]="editor" novalidate>
+  <header class="event-editor__bar">
+    <span class="event-editor__swatch" aria-hidden="true"></span>
+    <button
+      matIconButton
+      type="button"
+      class="event-editor__close"
+      [attr.aria-label]="'calendar.close' | translate"
+      [matTooltip]="'calendar.close' | translate"
+      (click)="close.emit()"
+    >
+      <mat-icon>close</mat-icon>
+    </button>
+  </header>
+
+  <input
+    #title
+    class="event-editor__title"
+    type="text"
+    autocomplete="off"
+    [formField]="editor.title"
+    [placeholder]="'calendar.addTitle' | translate"
+    [attr.aria-label]="'calendar.title' | translate"
+  />
+
+  <!-- When: the start, the end — days and, unless all day, times. -->
+  <div class="event-editor__row">
+    <mat-icon class="event-editor__icon" aria-hidden="true">schedule</mat-icon>
+    <div class="event-editor__when">
+      <label class="event-editor__moment">
+        <span class="event-editor__label">{{ 'calendar.starts' | translate }}</span>
+        <input class="event-editor__field" type="date" [formField]="editor.startDay" />
+        @if (!allDay()) {
+          <input
+            class="event-editor__field"
+            type="time"
+            step="900"
+            [formField]="editor.startTime"
+            [attr.aria-label]="'calendar.startTime' | translate"
+          />
+        }
+      </label>
+      <label class="event-editor__moment">
+        <span class="event-editor__label">{{ 'calendar.ends' | translate }}</span>
+        <input
+          class="event-editor__field"
+          type="date"
+          [formField]="editor.endDay"
+          [attr.aria-invalid]="endRefused() ? true : null"
+        />
+        @if (!allDay()) {
+          <input
+            class="event-editor__field"
+            type="time"
+            step="900"
+            [formField]="editor.endTime"
+            [attr.aria-label]="'calendar.endTime' | translate"
+            [attr.aria-invalid]="endRefused() ? true : null"
+          />
+        }
+      </label>
+      @if (endRefused()) {
+        <p class="event-editor__error" role="alert">{{ 'calendar.endsBeforeStart' | translate }}</p>
+      }
+      <label class="event-editor__check">
+        <input type="checkbox" [formField]="editor.allDay" (change)="allDayChanged()" />
+        {{ 'calendar.allDay' | translate }}
+      </label>
+    </div>
+  </div>
+
+  <!-- Its colour: Google's eleven. -->
+  <div class="event-editor__row">
+    <mat-icon class="event-editor__icon" aria-hidden="true">palette</mat-icon>
+    <div
+      class="event-editor__swatches"
+      role="group"
+      [attr.aria-label]="'calendar.color' | translate"
+    >
+      @for (swatch of swatches(); track swatch.id) {
+        <button
+          type="button"
+          class="event-editor__color"
+          [style.--swatch]="swatch.value"
+          [attr.aria-pressed]="swatch.picked"
+          [attr.aria-label]="swatch.key | translate"
+          [matTooltip]="swatch.key | translate"
+          (click)="pickColor(swatch.id)"
+        ></button>
+      }
+    </div>
+  </div>
+
+  <label class="event-editor__row">
+    <mat-icon class="event-editor__icon" aria-hidden="true">location_on</mat-icon>
+    <input
+      class="event-editor__line"
+      type="text"
+      autocomplete="off"
+      [formField]="editor.location"
+      [placeholder]="'calendar.addLocation' | translate"
+    />
+  </label>
+
+  <label class="event-editor__row">
+    <mat-icon class="event-editor__icon" aria-hidden="true">notes</mat-icon>
+    <textarea
+      class="event-editor__line event-editor__note"
+      rows="2"
+      [formField]="editor.description"
+      [placeholder]="'calendar.addDescription' | translate"
+    ></textarea>
+  </label>
+
+  <footer class="event-editor__foot">
+    @if (stored()) {
+      <button matButton type="button" class="event-editor__delete" (click)="remove.emit()">
+        {{ 'calendar.delete' | translate }}
+      </button>
+    }
+    <button matButton="filled" type="submit" class="event-editor__save">
+      {{ 'calendar.save' | translate }}
+    </button>
+  </footer>
+</form>

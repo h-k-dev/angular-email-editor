@@ -200,3 +200,14 @@ $motion-easing: cubic-bezier(0.16, 1, 0.3, 1);
 $motion-leave-duration: 100ms;
 $motion-leave-easing: cubic-bezier(0.4, 0, 1, 1);
 $motion-leave-fade-easing: cubic-bezier(0, 0, 0.2, 1);
+
+/// What moves rather than comes and goes — a calendar's page turning, an
+/// event dropped into its slot: Framer Motion's spring (stiffness 400,
+/// damping 30, mass 1), sampled into `linear()`. It overshoots a hair
+/// (2.8%) and settles in 400ms. Set on html as `--app-motion-spring` and
+/// `--app-motion-spring-duration`.
+$motion-spring: linear(
+  0, 0.047, 0.157, 0.297, 0.443, 0.579, 0.698, 0.797, 0.874, 0.932, 0.973, 1, 1.017, 1.025, 1.028,
+  1.028, 1.025, 1.021, 1.017, 1.013, 1.009, 1.007, 1.004, 1.002, 1
+);
+$motion-spring-duration: 400ms;

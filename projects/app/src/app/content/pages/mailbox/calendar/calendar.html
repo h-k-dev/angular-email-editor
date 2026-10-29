@@ -1,0 +1,180 @@
+<!-- The side: the mini month, a press away from any day — on a desk. -->
+<aside class="calendar-side" [attr.aria-label]="'calendar.jump' | translate">
+  <div class="calendar-side__head"></div>
+  <mini-month
+    [(month)]="miniMonth"
+    [selected]="miniSelected()"
+    [today]="today()"
+    (pick)="pickDay($event)"
+  />
+</aside>
+
+<div class="calendar-main">
+  <!-- Linear's few controls: today and the two arrows, the range's name,
+       the views on a sliding thumb, a new event. -->
+  <header page-header class="calendar-header">
+    <button matButton="outlined" type="button" class="calendar-today" (click)="goToday()">
+      {{ 'calendar.today' | translate }}
+    </button>
+    <div class="calendar-steps">
+      <button
+        matIconButton
+        type="button"
+        [attr.aria-label]="'calendar.previous' | translate"
+        [matTooltip]="'calendar.previous' | translate"
+        (click)="step(-1)"
+      >
+        <mat-icon>chevron_left</mat-icon>
+      </button>
+      <button
+        matIconButton
+        type="button"
+        [attr.aria-label]="'calendar.next' | translate"
+        [matTooltip]="'calendar.next' | translate"
+        (click)="step(1)"
+      >
+        <mat-icon>chevron_right</mat-icon>
+      </button>
+    </div>
+    <h1 class="calendar-title" aria-live="polite">{{ title() }}</h1>
+    <hk-tgb
+      class="calendar-views"
+      [attr.aria-label]="'calendar.view' | translate"
+      [value]="viewName()"
+      (valueChange)="switchView($event)"
+    >
+      @for (view of views; track view.id) {
+        <button hkTgbText [value]="view.id">{{ view.key | translate }}</button>
+      }
+    </hk-tgb>
+    <button
+      matIconButton
+      type="button"
+      class="calendar-new"
+      [attr.aria-label]="'calendar.new' | translate"
+      [matTooltip]="'calendar.new' | translate"
+      (click)="createHere($event)"
+    >
+      <mat-icon>add</mat-icon>
+    </button>
+  </header>
+
+  <!-- The page: the old and the new in one cell while it turns. -->
+  <div
+    class="calendar-pages"
+    [style.--motion-turn]="turn()"
+    [style.--motion-turn-scale]="turn() === 0 ? 0.985 : 1"
+  >
+    @for (page of pages(); track page.key) {
+      <div
+        class="calendar-page"
+        animate.enter="motion-turn-enter"
+        animate.leave="motion-turn-leave"
+      >
+        @if (page.view === 'month') {
+          <calendar-month-grid
+            [weeks]="page.weeks"
+            [month]="day()"
+            [events]="events()"
+            [draft]="edit()"
+            [today]="today()"
+            [fresh]="fresh()"
+            [untitled]="untitled()"
+            (create)="created($event)"
+            (open)="opened($event)"
+            (change)="changed($event)"
+            (dayOpen)="openDay($event)"
+          />
+        } @else {
+          <calendar-time-grid
+            [days]="page.days"
+            [events]="events()"
+            [draft]="edit()"
+            [today]="today()"
+            [now]="now()"
+            [fresh]="fresh()"
+            [untitled]="untitled()"
+            [(scrollTop)]="hoursScroll"
+            (create)="created($event)"
+            (open)="opened($event)"
+            (change)="changed($event)"
+            (dayOpen)="openDay($event)"
+          />
+        }
+      </div>
+    }
+  </div>
+</div>
+
+<!-- What the card stands beside: an element over the box, outside the
+     turning page (an anchor must not sit in a transformed ancestor). -->
+<span
+  class="calendar-anchor"
+  [emailAnchor]="anchor()"
+  cdkOverlayOrigin
+  #origin="cdkOverlayOrigin"
+></span>
+
+<ng-template
+  cdkConnectedOverlay
+  [cdkConnectedOverlayOrigin]="origin"
+  [cdkConnectedOverlayOpen]="cardOpen()"
+  [cdkConnectedOverlayPositions]="cardPositions"
+  [cdkConnectedOverlayPush]="true"
+  [cdkConnectedOverlayViewportMargin]="8"
+  (overlayOutsideClick)="outside($event)"
+  (overlayKeydown)="cardKey($event)"
+  (detach)="closeCard()"
+>
+  <section
+    class="calendar-card"
+    role="dialog"
+    animate.enter="motion-enter"
+    animate.leave="motion-leave"
+    [attr.aria-label]="(edit() ? 'calendar.editing' : 'calendar.event') | translate"
+  >
+    @if (edit(); as value) {
+      <calendar-event-editor
+        [value]="value"
+        (valueChange)="edit.set($event)"
+        [stored]="editingStored()"
+        (save)="saved($event)"
+        (remove)="removed()"
+        (close)="closeCard()"
+      />
+    } @else if (shown(); as event) {
+      <calendar-event-summary [event]="event" [untitled]="untitled()">
+        <div eventSummaryActions class="calendar-card__actions">
+          <button
+            matIconButton
+            type="button"
+            [attr.aria-label]="'calendar.edit' | translate"
+            [matTooltip]="'calendar.edit' | translate"
+            (click)="editShown()"
+          >
+            <mat-icon>edit</mat-icon>
+          </button>
+          <button
+            matIconButton
+            type="button"
+            [attr.aria-label]="'calendar.delete' | translate"
+            [matTooltip]="'calendar.delete' | translate"
+            (click)="removed()"
+          >
+            <mat-icon>delete</mat-icon>
+          </button>
+          <button
+            matIconButton
+            type="button"
+            cdkFocusInitial
+            [attr.aria-label]="'calendar.close' | translate"
+            [matTooltip]="'calendar.close' | translate"
+            (click)="closeCard()"
+          >
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+      </calendar-event-summary>
+    }
+  </section>
+</ng-template>

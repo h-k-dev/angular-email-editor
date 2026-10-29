@@ -1,0 +1,114 @@
+// Google's mini month, Linear's quiet: small type, round days, no lines.
+:host {
+  display: grid;
+  gap: 4px;
+  inline-size: 100%;
+  max-inline-size: 256px;
+}
+
+.mini-month__head {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  block-size: 32px;
+  padding-inline-start: 8px;
+}
+
+.mini-month__title {
+  flex: 1;
+  margin: 0;
+  overflow: hidden;
+  font: var(--mat-sys-title-small);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mini-month__step {
+  --mat-icon-button-state-layer-size: 28px;
+  --mat-icon-button-icon-size: 18px;
+  flex: none;
+  inline-size: 28px;
+  block-size: 28px;
+  padding: 0;
+
+  .mat-icon {
+    --mat-icon-size: 18px;
+    inline-size: 18px;
+    block-size: 18px;
+    font-size: 18px;
+  }
+}
+
+// The old month and the new in one cell while they turn.
+.mini-month__pages {
+  display: grid;
+  overflow: hidden;
+}
+
+.mini-month__page {
+  grid-area: 1 / 1;
+  inline-size: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  --motion-turn-distance: 24px;
+
+  td {
+    padding: 1px 0;
+    text-align: center;
+  }
+}
+
+.mini-month__weekday {
+  block-size: 24px;
+  padding: 0;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-small);
+  font-weight: 500;
+  text-align: center;
+}
+
+.mini-month__day {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 28px;
+  block-size: 28px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-label-medium);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background-color 120ms ease-out;
+
+  &:hover {
+    background: color-mix(in oklch, var(--mat-sys-on-surface) 8%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: -2px;
+  }
+}
+
+.mini-month__day--outside {
+  color: var(--mat-sys-placeholder, var(--mat-sys-on-surface-variant));
+}
+
+.mini-month__day--selected {
+  background: color-mix(in oklch, var(--mat-sys-primary) 14%, transparent);
+  color: var(--mat-sys-primary);
+
+  &:hover {
+    background: color-mix(in oklch, var(--mat-sys-primary) 22%, transparent);
+  }
+}
+
+// Today: the one filled circle.
+.mini-month__day[aria-current='date'] {
+  background: var(--mat-sys-primary);
+  color: var(--mat-sys-on-primary);
+  font-weight: 500;
+}

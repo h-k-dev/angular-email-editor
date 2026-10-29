@@ -1,0 +1,133 @@
+// Google's month, Linear's quiet: hairlines between days, no boxes; the
+// rows share the height the page gives them.
+:host {
+  --_line: color-mix(in oklch, var(--mat-sys-on-surface) 9%, transparent);
+
+  display: grid;
+  grid-template-rows: auto repeat(var(--weeks), minmax(0, 1fr));
+  min-block-size: 0;
+  block-size: 100%;
+  padding-inline-end: var(--email-scroll-size, 8px);
+  box-sizing: border-box;
+}
+
+:host(.month-grid--dragging) {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.month-grid__weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  padding-block: 4px;
+}
+
+.month-grid__weekday {
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-small);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+// A week: the date's line, then 22px lanes 2px apart, the events laid in
+// them by the grid. Under them the days' cells, each the row's whole
+// height (out of the grid, so a row's lanes never stretch them).
+.month-grid__week {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-rows: 28px;
+  grid-auto-rows: 22px;
+  align-content: start;
+  row-gap: 2px;
+  min-block-size: 0;
+  overflow: hidden;
+  border-block-start: 1px solid var(--_line);
+}
+
+.month-grid__cell {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: calc((var(--column) - 1) * 100% / 7);
+  inline-size: calc(100% / 7);
+  display: flex;
+  justify-content: center;
+  padding-block-start: 4px;
+  box-sizing: border-box;
+  border-inline-start: 1px solid var(--_line);
+  cursor: default;
+}
+
+.month-grid__cell--first {
+  border-inline-start: 0;
+}
+
+.month-grid__cell--outside .month-grid__date {
+  color: var(--mat-sys-placeholder, var(--mat-sys-on-surface-variant));
+}
+
+.month-grid__date {
+  display: inline-grid;
+  place-items: center;
+  min-inline-size: 24px;
+  block-size: 24px;
+  margin: 0;
+  padding-inline: 6px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-label-medium);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: pointer;
+
+  &:hover {
+    background: color-mix(in oklch, var(--mat-sys-on-surface) 8%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: -2px;
+  }
+
+  &[aria-current='date'] {
+    background: var(--mat-sys-primary);
+    color: var(--mat-sys-on-primary);
+  }
+}
+
+.month-grid__chip {
+  position: relative;
+  z-index: 1;
+  margin-inline: 4px;
+}
+
+.month-grid__more {
+  position: relative;
+  z-index: 1;
+  grid-row: var(--more-row);
+  margin: 0 4px;
+  padding-inline: 6px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-medium);
+  font-weight: 500;
+  text-align: start;
+  cursor: pointer;
+
+  &:hover {
+    background: color-mix(in oklch, var(--mat-sys-on-surface) 6%, transparent);
+    color: var(--mat-sys-on-surface);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: -2px;
+  }
+}

@@ -129,7 +129,7 @@
       [routerLink]="link.path"
       routerLinkActive="mailbox-link--active"
       ariaCurrentWhenActive="page"
-      [routerLinkActiveOptions]="{ exact: true }"
+      [routerLinkActiveOptions]="{ exact: !link.nested }"
       [attr.title]="link.key | translate"
       (click)="went()"
     >
