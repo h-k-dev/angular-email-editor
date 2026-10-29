@@ -3,7 +3,6 @@ import {
   DOCUMENT,
   ElementRef,
   afterNextRender,
-  afterRenderEffect,
 
   // Signals
   computed,
@@ -396,34 +395,6 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
     effect(() => (this.#ref.disableClose = this.dirty()));
 
     afterNextRender(() => this.measureDesk());
-
-    // Once per edit, and once the editor has drawn the body: the paper held
-    // to the email's real width.
-    afterRenderEffect(() => {
-      this.html();
-      this.emailPane().baseline();
-      this.#fitPaper(this.editorView() === 'editor');
-    });
-  }
-
-  /** The editor's paper: the email's column. */
-  private readonly paper = viewChild.required('paper', { read: ElementRef<HTMLElement> });
-
-  /**
-   * The column is as wide as the email's min-content (the stylesheet) — but
-   * an email can draw wider than that: a no-wrap cell past its table's own
-   * width, which is what a table's min-content says. Then the canvas would
-   * scroll on past the paper, and the paper's sticky foot stop short of the
-   * scroll's end. So the paper is held to what it really draws: its own
-   * least taken away, read, put back where wider, in one task — nothing is
-   * drawn between.
-   */
-  #fitPaper(editing: boolean): void {
-    const paper = this.paper().nativeElement as HTMLElement;
-    paper.style.removeProperty('min-inline-size');
-    if (!editing) return;
-    const width = paper.scrollWidth;
-    if (width > paper.clientWidth) paper.style.minInlineSize = `${width}px`;
   }
 
   /** The desk's width, read as it is first drawn and as the window

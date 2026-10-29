@@ -5,6 +5,7 @@ import {
   ElementRef,
   Injector,
   afterNextRender,
+  afterRenderEffect,
   inject,
 
   // Signals
@@ -535,6 +536,14 @@ export class EmailCompose implements FormValueControl<string> {
       this.#destroyRef.onDestroy(() => release());
     }
 
+    // Handed over, once per edit and once the editor has drawn the body:
+    // the composer as wide as what the email draws.
+    afterRenderEffect(() => {
+      this.value();
+      this.baseline();
+      this.#fitWidth(this.scroll() === 'host' && !this.codeView());
+    });
+
     this.#commands.connect({
       codeView: this.codeView,
       codeEditor: this.codeEditor,
@@ -852,6 +861,25 @@ export class EmailCompose implements FormValueControl<string> {
   }
 
   readonly #host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+
+  /**
+   * Handed over (`scroll: 'host'`), the composer grows with its text — down,
+   * and across: an email wider than the column (a fixed-width table) runs
+   * on past it, and the owner scrolls it sideways. Its own box must reach
+   * as far, or its sticky foot stops short where the box does. A table's
+   * min-content is its declared width, though, and a fixed-layout one round
+   * a wider one draws past it (Poor Fix Width): so the box is held to what
+   * the email really draws — its least taken away, read, put back where
+   * wider, in one task: nothing is drawn between. Not in code view: the
+   * source wraps in its pane.
+   */
+  #fitWidth(on: boolean): void {
+    const host = this.#host;
+    host.style.removeProperty('min-inline-size');
+    if (!on) return;
+    const width = host.scrollWidth;
+    if (width > host.clientWidth) host.style.minInlineSize = `${width}px`;
+  }
 
   /** The strip and the dock, floating over the foot of the text. */
   protected readonly foot = viewChild.required(FloatingFoot);

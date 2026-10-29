@@ -22,6 +22,23 @@
   --writer-column-min: var(--email-column-min);
   --writer-radius: 0;
   --writer-shadow: none;
+  // A page whose text scrolls under its frame: the bar and the envelope hold
+  // the top (the envelope under the bar: its height, and the sheet's top
+  // room), the formatting toolbar the foot — sideways too (a fixed-width
+  // email): only the email moves. The toolbar on frosted glass, not the
+  // fade: text half seen through a gradient reads as a glitch.
+  // The bar is the dense one (`dense`, 32px) over the sheet's top room.
+  --writer-envelope-stick: calc(32px + var(--writer-padding-start, 8px));
+  // The sideways bar on the sheet's very foot: the window is raised off
+  // the page already, its edge needs no margin (the toolbar's room is
+  // the down bar's to keep).
+  --email-scroll-across-end: 0px;
+  --email-compose-foot-background: color-mix(
+    in srgb,
+    var(--email-paper, var(--mat-sys-surface-bright)) 72%,
+    transparent
+  );
+  --email-compose-foot-backdrop: blur(12px) saturate(1.4);
 }
 
 form[email-writer] {
@@ -29,6 +46,7 @@ form[email-writer] {
   min-width: 0;
   min-height: 0;
 }
+
 
 // The writer's hint covers the whole sheet, the floating bar included.
 form[email-writer] > [drop-hint] {
@@ -71,6 +89,13 @@ section[email-compose] {
   &[data-scroll='host'] {
     flex-shrink: 0;
     min-height: auto;
+    // A wider email runs the composer on past the column (it grows to what
+    // the email draws) and the sheet scrolls it sideways: its toolbar stays
+    // put meanwhile — the foot no wider than the sheet (the writer's
+    // container, email-writer.scss), its tools at the column's measure in
+    // its middle, where the bar and the envelope stand.
+    --email-compose-foot-max: 100cqi;
+    --email-compose-foot-inset-inline: max(0px, (min(100%, 100cqi) - var(--writer-column, 100cqi)) / 2);
   }
 }
 

@@ -77,18 +77,45 @@
   // The scroller and its floating bar are the owner's (`scrollOwner`, on
   // this element), clear of what the scroll padding covers.
   padding-block-start: 0;
+  // Sideways too: a page wider than the sheet (a fixed-width email) scrolls
+  // under the bar and the envelope, which stay where the column puts them
+  // — stuck at its offset, read off the sheet's own width (a container).
+  // Downwards the envelope goes up with the text, as ever.
+  container-type: inline-size;
+  --_writer-offset: max(0px, (100cqi - var(--writer-column, 100cqi)) / 2);
+  // What text scrolls under is paper from edge to edge, not the column
+  // alone: the column's own box keeps its place, its paper spread out to
+  // both sides (a shadow, clipped to its own height).
+  --_writer-band: 0 0 0 100vmax var(--email-paper, var(--mat-sys-surface-bright));
+
+  // The envelope goes up with the text (a phone's sheet: the text has the
+  // screen) — or stays under the bar (`--writer-envelope-stick`, a
+  // document's), on the paper, the text scrolling on under it.
+  > .writer-envelope {
+    position: sticky;
+    z-index: 1;
+    inset-block-start: var(--writer-envelope-stick, auto);
+    inset-inline-start: var(--_writer-offset);
+    background-color: var(--email-paper, var(--mat-sys-surface-bright));
+    box-shadow: var(--_writer-band);
+    clip-path: inset(0 -100vmax);
+  }
 
   > header.writer-bar {
     position: sticky;
     inset-block-start: 0;
+    inset-inline-start: var(--_writer-offset);
     block-size: calc(var(--writer-bar-size) + var(--writer-padding-start, 8px));
     padding-block-start: var(--writer-padding-start, 8px);
     background-color: var(--email-paper, var(--mat-sys-surface-bright));
+    box-shadow: var(--_writer-band);
+    clip-path: inset(0 -100vmax);
   }
 
   > footer.writer-bar {
     position: sticky;
     inset-block-end: 0;
+    inset-inline-start: var(--_writer-offset);
   }
 }
 

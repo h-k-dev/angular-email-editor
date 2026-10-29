@@ -16,6 +16,9 @@
 //   at rest it is 2px less.
 // - `--email-scroll-thumb` / `--email-scroll-thumb-hover` — the thumb, and
 //   the thumb under the pointer.
+// - `--email-scroll-across-end` — how far the across rail stands off the
+//   scroller's foot (what the block scroll padding says is stuck there,
+//   unset).
 //
 // The down rail's ends keep clear of the scroller's block scroll padding
 // (what is stuck over its top or foot), read by the directive as
@@ -65,9 +68,11 @@
   }
 
   // Across the foot, standing on what is stuck there — short of the down
-  // rail's corner, so the two never cross.
+  // rail's corner, so the two never cross. A scroller whose foot is an
+  // edge of its own (a raised window's) may set it there instead
+  // (`--email-scroll-across-end`).
   &[data-axis='inline'] {
-    inset-block-end: var(--_cover-end, 0px);
+    inset-block-end: var(--email-scroll-across-end, var(--_cover-end, 0px));
     inset-inline: 2px calc(var(--_size) + 6px);
     block-size: calc(var(--_size) + 4px);
   }

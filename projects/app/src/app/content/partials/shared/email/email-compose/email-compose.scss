@@ -128,11 +128,13 @@
   flex-direction: column;
   gap: 8px;
   padding-block: var(--email-compose-foot-fade) var(--email-compose-foot-inset, 0px);
-  background: linear-gradient(
-    to bottom,
-    transparent,
-    var(--_foot-paper) var(--email-compose-foot-fade)
+  // The host may lay it on other glass (`--email-compose-foot-background`,
+  // `--email-compose-foot-backdrop`: a document's frosted pane).
+  background: var(
+    --email-compose-foot-background,
+    linear-gradient(to bottom, transparent, var(--_foot-paper) var(--email-compose-foot-fade))
   );
+  backdrop-filter: var(--email-compose-foot-backdrop, none);
   pointer-events: none;
 
   // The foot's own children take the pointer back; the slot's projected

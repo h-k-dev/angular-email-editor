@@ -108,7 +108,7 @@ describe('FloatingScrollbar across (render)', () => {
       [data-floating-scrollbar='drawn'] { scrollbar-width: none; }
       .floating-scrollbar, .floating-scrollbar__rail, .floating-scrollbar__thumb { position: absolute; }
       [data-axis='block'].floating-scrollbar__rail { inset-block: 2px calc(var(--_cover-end, 0px) + 2px); inset-inline-end: 0; inline-size: 12px; }
-      [data-axis='inline'].floating-scrollbar__rail { inset-block-end: var(--_cover-end, 0px); inset-inline: 2px 14px; block-size: 12px; }
+      [data-axis='inline'].floating-scrollbar__rail { inset-block-end: var(--email-scroll-across-end, var(--_cover-end, 0px)); inset-inline: 2px 14px; block-size: 12px; }
       [data-axis='inline'] > .floating-scrollbar__thumb { inset-inline-start: 0; inset-block-end: 2px; block-size: 6px; }
     `;
     document.head.appendChild(styles);
@@ -145,6 +145,12 @@ describe('FloatingScrollbar across (render)', () => {
     await scrollAcross(100);
     const box = pane().getBoundingClientRect();
     expect(box.bottom - across().getBoundingClientRect().bottom).toBe(40);
+  });
+
+  it('stands on the scroller’s very foot where it says so (`--email-scroll-across-end`)', async () => {
+    pane().style.setProperty('--email-scroll-across-end', '0px');
+    await scrollAcross(100);
+    expect(across().getBoundingClientRect().bottom).toBe(pane().getBoundingClientRect().bottom);
   });
 
   it('shows while the pointer is over a scroller that runs on sideways', () => {

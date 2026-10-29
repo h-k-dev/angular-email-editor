@@ -15,7 +15,12 @@ const MIN_THUMB = 32;
 
 /** The scroller's look the bar takes on: a sibling, it would inherit the
     parent's instead (the scroll mixin's tokens). */
-const TOKENS = ['--email-scroll-size', '--email-scroll-thumb', '--email-scroll-thumb-hover'];
+const TOKENS = [
+  '--email-scroll-size',
+  '--email-scroll-thumb',
+  '--email-scroll-thumb-hover',
+  '--email-scroll-across-end',
+];
 
 /**
  * A scroller's bars, floating — over the content, never beside it: no
