@@ -1,5 +1,4 @@
 <playground-frame [knobs]="knobs" [actions]="actions">
-  <p class="stage-note">Hold a chip to copy it. The first is the chip under test.</p>
   <ul class="stage-list">
     @for (chip of chips(); track chip.label; let first = $first) {
       <li

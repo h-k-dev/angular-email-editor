@@ -1,7 +1,8 @@
 @use '@h-k-dev/angular-email-editor/styles/scroll';
 
-// GitHub's code block on our surfaces: a bar naming the code, the code
-// beneath on the quiet fill, one hairline round both.
+// hairline's code: a card on the page's own surface, one hairline and the
+// faintest shadow round it; a block names itself in a quiet bar, a single
+// line is a pill with its copy button at the end.
 :host {
   display: block;
 }
@@ -10,18 +11,42 @@
   margin: 0;
   overflow: hidden;
   border: 1px solid var(--mat-sys-outline-variant);
-  border-radius: var(--mat-sys-corner-small, 8px);
-  background: var(--mat-sys-surface-container-low);
+  border-radius: var(--mat-sys-corner-medium, 12px);
+  background: var(--mat-sys-surface-container-lowest);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+}
+
+// No bar: the copy button in the block's top corner.
+.doc-code--bare:not(.doc-code--pill) {
+  position: relative;
+
+  .doc-code__pre {
+    padding-inline-end: 44px;
+  }
+
+  .doc-code__copy {
+    position: absolute;
+    inset-block-start: 8px;
+    inset-inline-end: 8px;
+  }
+}
+
+.doc-code--pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-inline-end: 6px;
 }
 
 .doc-code__bar {
   display: flex;
   align-items: center;
   gap: 8px;
-  block-size: 36px;
-  padding-inline: 12px 4px;
+  block-size: 40px;
+  padding-inline: 16px 6px;
   border-block-end: 1px solid var(--mat-sys-outline-variant);
-  font: var(--mat-sys-label-medium);
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.75rem;
   color: var(--mat-sys-on-surface-variant);
 }
 
@@ -44,7 +69,7 @@
   border: 0;
   border-radius: var(--mat-sys-corner-small, 4px);
   background: none;
-  color: inherit;
+  color: var(--mat-sys-outline);
   cursor: pointer;
 
   &:hover {
@@ -65,8 +90,10 @@
 }
 
 .doc-code__pre {
+  flex: 1 1 auto;
+  min-inline-size: 0;
   margin: 0;
-  padding: 12px;
+  padding: 14px 16px;
   overflow-x: auto;
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 0.8125rem;
@@ -87,8 +114,22 @@
   }
 }
 
+// A pill is one line: a little less room round it.
+.doc-code--pill .doc-code__pre {
+  padding-block: 10px;
+}
+
+.doc-code__prompt {
+  user-select: none;
+  color: var(--mat-sys-outline);
+}
+
 // A line a block of its own: an empty one keeps its height.
 .doc-code__line {
   display: block;
   min-block-size: 1lh;
+}
+
+.doc-code--pill .doc-code__line {
+  display: inline;
 }

@@ -1,0 +1,61 @@
+// hairline's steps: a quiet "01" in the margin, a lead in the full ink,
+// its line in the quieter one — and the code under it, in the same column.
+.doc-steps {
+  counter-reset: doc-step;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+// Lines alone sit close, as a list; a step that shows something gets room
+// on both sides.
+.doc-step:has(> :not(.doc-step__line)) + .doc-step,
+.doc-step + .doc-step:has(> :not(.doc-step__line)) {
+  margin-block-start: 24px;
+}
+
+.doc-step {
+  counter-increment: doc-step;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  row-gap: 12px;
+  scroll-margin-block-start: calc(var(--doc-header, 0px) + 16px);
+
+  // On the line's first baseline, whatever the line's size.
+  &::before {
+    content: counter(doc-step, decimal-leading-zero) / '';
+    grid-row: 1;
+    align-self: baseline;
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 0.75rem;
+    line-height: inherit;
+    color: var(--mat-sys-outline);
+    font-variant-numeric: tabular-nums;
+  }
+
+  > * {
+    grid-column: 2;
+  }
+}
+
+.doc-step__line {
+  align-self: baseline;
+  margin: 0;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.doc-step__lead {
+  margin-inline-end: 4px;
+  font-weight: 600;
+  color: var(--mat-sys-on-surface);
+}
+
+// An export's name leads in code type, without the prose's chip.
+.doc-step code.doc-step__lead {
+  padding: 0;
+  background: none;
+  font-size: 0.9375em;
+}

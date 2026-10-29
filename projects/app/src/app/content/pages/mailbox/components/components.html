@@ -1,48 +1,34 @@
 <doc-page [icon]="link().icon" [trail]="trail()" [toc]="toc">
   <h1 class="doc-title">{{ content().title }}</h1>
   <p class="doc-lede" [docProse]="content().lede"></p>
-  <doc-code
-    class="components-import"
-    [code]="importLine()"
-    lang="ts"
-    label="Import"
-    [wrap]="true"
-  />
 
-  <section class="doc-section" id="playground">
-    <h2 class="doc-h2">
-      <a class="doc-anchor" routerLink="." fragment="playground">Playground</a>
-    </h2>
-    <p class="doc-intro">
-      Every input is a knob, every output lands in the log, and the state the component reflects on
-      its elements shows as it changes. Drag the stage’s corner to narrow it.
-    </p>
-    <!-- Its own chunk: a page's playground loads with the page. Recreated
-         per page, so nothing of one component's bench outlives it — the last
-         page's held only while the next one's chunk is on its way. -->
-    @if (bench(); as bench) {
-      <ng-container *ngComponentOutlet="bench.type; injector: placeInjector()" />
-    } @else if (failed()) {
-      <p class="doc-text">The playground did not load.</p>
-    } @else {
-      <div class="components-loading" aria-hidden="true"></div>
-    }
-  </section>
+  <section class="doc-section">
+    <ol docSteps>
+      <li docStep id="import" lead="Import">
+        <doc-code [code]="importLine()" label="" [wrap]="true" />
+      </li>
 
-  <section class="doc-section" id="usage">
-    <h2 class="doc-h2">
-      <a class="doc-anchor" routerLink="." fragment="usage">Usage</a>
-    </h2>
-    <ul class="doc-points">
-      @for (point of content().points; track $index) {
-        <li [docProse]="point"></li>
-      }
-    </ul>
-    <doc-code
-      class="components-usage"
-      [code]="content().usage"
-      [lang]="usageLang()"
-      [label]="usageLang() === 'ts' ? 'TypeScript' : 'Template'"
-    />
+      <li docStep id="playground" lead="Try it">
+        <!-- Its own chunk: a page's playground loads with the page. Recreated
+             per page, so nothing of one component's bench outlives it — the
+             last page's held only while the next one's chunk is on its way. -->
+        @if (bench(); as bench) {
+          <ng-container *ngComponentOutlet="bench.type; injector: placeInjector()" />
+        } @else if (failed()) {
+          <p class="doc-text">The playground did not load.</p>
+        } @else {
+          <div class="components-loading" aria-hidden="true"></div>
+        }
+      </li>
+
+      <li docStep id="usage" lead="Write it">
+        <doc-code [code]="content().usage" [lang]="usageLang()" label="" />
+        <ul class="doc-points">
+          @for (point of content().points; track $index) {
+            <li [docProse]="point"></li>
+          }
+        </ul>
+      </li>
+    </ol>
   </section>
 </doc-page>

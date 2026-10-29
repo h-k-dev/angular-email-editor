@@ -1,17 +1,30 @@
-<figure class="doc-code">
-  <figcaption class="doc-code__bar">
-    <span class="doc-code__label">{{ heading() }}</span>
-    <button
-      type="button"
-      class="doc-code__copy"
-      [attr.aria-label]="copied() ? 'Copied' : 'Copy code'"
-      [title]="copied() ? 'Copied' : 'Copy code'"
-      (click)="copy()"
-    >
-      <mat-icon>{{ copied() ? 'check' : 'content_copy' }}</mat-icon>
-    </button>
-  </figcaption>
+<ng-template #copyButton>
+  <button
+    type="button"
+    class="doc-code__copy"
+    [attr.aria-label]="copied() ? 'Copied' : 'Copy code'"
+    [title]="copied() ? 'Copied' : 'Copy code'"
+    (click)="copy()"
+  >
+    <mat-icon>{{ copied() ? 'check' : 'content_copy' }}</mat-icon>
+  </button>
+</ng-template>
+
+<figure class="doc-code" [class.doc-code--pill]="pill()" [class.doc-code--bare]="!bar()">
+  <!-- A block names what it is; a single line is a pill and needs no name. -->
+  @if (bar()) {
+    <figcaption class="doc-code__bar">
+      <span class="doc-code__label">{{ heading() }}</span>
+      <ng-container [ngTemplateOutlet]="copyButton" />
+    </figcaption>
+  }
   <!-- One line of markup: inside <pre> every character shows. Focusable,
        so a keyboard can scroll a long line. -->
-  <pre class="doc-code__pre" tabindex="0"><code>@if (lines.hasValue()) {@for (line of lines.value(); track $index) {<span class="doc-code__line">@for (token of line; track $index) {<span [style.color]="token.color">{{ token.content }}</span>}</span>}} @else {<ng-container>{{ code() }}</ng-container>}</code></pre>
+  <pre
+    class="doc-code__pre"
+    tabindex="0"
+  >@if (prompt()) {<span class="doc-code__prompt" aria-hidden="true">{{ prompt() }} </span>}<code>@if (lines.hasValue()) {@for (line of lines.value(); track $index) {<span class="doc-code__line">@for (token of line; track $index) {<span [style.color]="token.color">{{ token.content }}</span>}</span>}} @else {<ng-container>{{ code() }}</ng-container>}</code></pre>
+  @if (!bar()) {
+    <ng-container [ngTemplateOutlet]="copyButton" />
+  }
 </figure>

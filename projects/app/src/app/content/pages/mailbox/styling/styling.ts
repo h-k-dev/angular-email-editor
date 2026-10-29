@@ -9,8 +9,16 @@ import { DocCode } from '../../../partials/common/doc-code/doc-code';
 import { DocSection } from '../../../partials/common/doc-page/doc';
 import { DocPage } from '../../../partials/common/doc-page/doc-page';
 import { DocProse } from '../../../partials/common/doc-page/doc-prose';
+import { DocStep, DocSteps } from '../../../partials/common/doc-steps/doc-steps';
 import { STYLING_PAGES } from './styling-pages';
-import { HOOK_GROUPS, MATERIAL_RECIPE, OVERRIDE_EXAMPLE, TOKEN_SECTIONS } from './styling.content';
+import {
+  HOOK_GROUPS,
+  MATERIAL_IMPORT,
+  MATERIAL_RECIPE,
+  OVERRIDE_EXAMPLE,
+  TOKEN_SECTIONS,
+  overrideOf,
+} from './styling.content';
 
 /**
  * A page of the styling reference (`/styling/:page`): how theming
@@ -28,6 +36,8 @@ import { HOOK_GROUPS, MATERIAL_RECIPE, OVERRIDE_EXAMPLE, TOKEN_SECTIONS } from '
     DocPage,
     DocProse,
     DocCode,
+    DocSteps,
+    DocStep,
     AddressInput,
     AddressFormField,
     FormField,
@@ -52,6 +62,12 @@ export class Styling {
   protected readonly tokens = computed(
     () => TOKEN_SECTIONS.find((section) => section.id === this.link().id) ?? null,
   );
+
+  /** A page of tokens shows how one is set, first: its own, overridden. */
+  protected readonly override = computed(() => {
+    const tokens = this.tokens();
+    return tokens ? overrideOf(tokens) : '';
+  });
 
   protected readonly toc = computed<readonly DocSection[]>(() => {
     const tokens = this.tokens();
@@ -79,6 +95,7 @@ export class Styling {
   protected readonly recipientForm = form(this.recipient, (p) => addressList(p.to));
 
   protected readonly example = OVERRIDE_EXAMPLE;
+  protected readonly materialImport = MATERIAL_IMPORT;
   protected readonly materialRecipe = MATERIAL_RECIPE;
   protected readonly hookGroups = HOOK_GROUPS;
 }

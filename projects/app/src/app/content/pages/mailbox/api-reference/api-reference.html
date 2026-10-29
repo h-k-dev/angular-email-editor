@@ -12,34 +12,16 @@
         <p class="doc-intro" [docProse]="section.intro"></p>
       }
 
-      <!-- An export, a card: its name and entry point on the strip; what it
-           is for, its signature, what to know, and how it is used. -->
-      @for (entry of section.entries; track entry.id) {
-        <article class="doc-entry" [id]="entry.id" [attr.aria-labelledby]="entry.id + '-name'">
-          <header class="doc-entry__head">
-            <h3 class="doc-entry__name" [id]="entry.id + '-name'">
-              <a class="doc-anchor" routerLink="." [fragment]="entry.id">{{ entry.name }}</a>
-            </h3>
-            @if (entry.from) {
-              <span class="doc-entry__from">{{ entry.from }}</span>
-            }
-          </header>
-          <div class="doc-entry__body">
-            <p class="doc-text" [docProse]="entry.summary"></p>
-            <doc-code [code]="entry.signature" label="Signature" [wrap]="true" />
-            @if (entry.details) {
-              <ul class="doc-points">
-                @for (point of entry.details; track point) {
-                  <li [docProse]="point"></li>
-                }
-              </ul>
-            }
-            @if (entry.example) {
-              <doc-code [code]="entry.example" label="Example" />
-            }
-          </div>
-        </article>
-      }
+      <!-- An export, a step: its name and what it is for in a line, then
+           the code — how it is used, or its import and signature; what to
+           know is in its comments. -->
+      <ol docSteps>
+        @for (entry of section.entries; track entry.id) {
+          <li docStep [id]="entry.id" [lead]="entry.name" [code]="true" [text]="entry.summary">
+            <doc-code [code]="entry.code ?? entry.signature" label="" [wrap]="!entry.example" />
+          </li>
+        }
+      </ol>
     </section>
   }
 </doc-page>

@@ -49,6 +49,23 @@ describe('DocCode', () => {
     expect(root.querySelector('.doc-code__label')?.textContent?.trim()).toBe('Example');
   });
 
+  it('makes a single line a pill, and drops the bar for an empty label', async () => {
+    const fixture = await start();
+    const root = fixture.nativeElement as HTMLElement;
+    fixture.componentInstance.code.set("import { Editor } from '@h-k-dev/angular-email-editor';");
+    await fixture.whenStable();
+    expect(root.querySelector('.doc-code--pill')).not.toBeNull();
+    expect(root.querySelector('.doc-code__bar')).toBeNull();
+    expect(root.querySelectorAll('.doc-code__copy').length).toBe(1);
+
+    fixture.componentInstance.code.set('a;\nb;');
+    fixture.componentInstance.label.set('');
+    await fixture.whenStable();
+    expect(root.querySelector('.doc-code--pill')).toBeNull();
+    expect(root.querySelector('.doc-code--bare .doc-code__copy')).not.toBeNull();
+    expect(root.querySelector('.doc-code__bar')).toBeNull();
+  });
+
   it('copies the code exactly, and says so', async () => {
     const writeText = vi.fn(async () => {});
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });

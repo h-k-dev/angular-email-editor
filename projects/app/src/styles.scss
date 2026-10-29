@@ -2493,23 +2493,25 @@ section[html-email-compose][data-wrap='off'] .aee-editor {
 }
 
 /* ---------------------------------------------------------------------------
- * Reference pages (API + Styling): the prose inside `doc-page`, which lays
- * the page out. Global because both pages write it and neither owns it;
- * scoped to `.doc-*` so nothing here can reach the editor surface above.
+ * Reference pages (API, Styling, Components): the prose inside `doc-page`,
+ * which lays the page out. Global because every reference writes it and
+ * none owns it; scoped to `.doc-*` so nothing here can reach the editor
+ * surface above.
  *
- * Read like docs, not like a table: 16px text at 1.7 in the full ink, the
- * quieter ink only for ledes and asides; sections parted by a hairline;
- * each export a card of its own; code in `doc-code` blocks.
+ * hairline's docs: small type, few words, the code doing the showing —
+ * sections parted by room alone, a small heading and a line each, then
+ * numbered steps (`docSteps`) over `doc-code` cards.
  * ------------------------------------------------------------------------ */
 .doc-body {
-  font: var(--mat-sys-body-large);
-  line-height: 1.7;
+  font: var(--mat-sys-body-medium);
+  font-size: 0.9375rem;
+  line-height: 1.6;
   color: var(--mat-sys-on-surface);
 }
 
 .doc-title {
   margin: 0 0 8px;
-  font: var(--mat-sys-headline-medium);
+  font: var(--mat-sys-headline-small);
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--mat-sys-on-surface);
@@ -2517,16 +2519,11 @@ section[html-email-compose][data-wrap='off'] .aee-editor {
 
 .doc-lede {
   margin: 0;
-  font-size: 1.125rem;
-  line-height: 1.6;
   color: var(--mat-sys-on-surface-variant);
 }
 
-/* Code in running prose: a quiet chip, the text's own size. */
+/* Code in running prose: the mono face, no chip. */
 .doc-body :not(pre) > code {
-  padding: 2px 4px;
-  border-radius: 4px;
-  background: var(--mat-sys-surface-container);
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   font-size: 0.875em;
   color: var(--mat-sys-on-surface);
@@ -2534,31 +2531,33 @@ section[html-email-compose][data-wrap='off'] .aee-editor {
 }
 
 .doc-body a:not(.doc-anchor) {
-  color: var(--mat-sys-primary);
+  color: var(--mat-sys-on-surface);
+  text-decoration-color: var(--mat-sys-outline-variant);
   text-underline-offset: 4px;
+
+  &:hover {
+    text-decoration-color: currentColor;
+  }
 }
 
-/* A section: a hairline across the column above its heading, room on both
- * sides of it. Its #fragment lands it just under the sticky header. */
+/* A section: room above, no rule. Its #fragment lands it just under the
+ * sticky header. */
 .doc-section {
-  margin-block-start: 48px;
-  padding-block-start: 32px;
-  border-block-start: 1px solid var(--mat-sys-outline-variant);
+  margin-block-start: 56px;
   scroll-margin-block-start: calc(var(--doc-header, 0px) + 16px);
 
   /* A page of one section: the lede leads straight into it. */
   &:not(:has(> .doc-h2)) {
     margin-block-start: 32px;
-    padding-block-start: 0;
-    border-block-start: 0;
   }
 }
 
+/* Small: the code under it is what the eye goes to. */
 .doc-h2 {
-  margin: 0 0 8px;
-  font: var(--mat-sys-headline-small);
+  margin: 0 0 4px;
+  font: var(--mat-sys-title-small);
+  font-size: 0.9375rem;
   font-weight: 600;
-  letter-spacing: -0.01em;
   color: var(--mat-sys-on-surface);
 }
 
@@ -2581,114 +2580,67 @@ section[html-email-compose][data-wrap='off'] .aee-editor {
 }
 
 .doc-intro {
-  margin: 0 0 24px;
+  margin: 0 0 20px;
   color: var(--mat-sys-on-surface-variant);
 }
 
 .doc-text {
   margin: 0;
+  color: var(--mat-sys-on-surface-variant);
 }
 
+/* hairline's bullets: a small dot, the quieter ink. */
 .doc-points {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   margin: 0;
-  padding-inline-start: 24px;
+  padding-inline-start: 16px;
+  color: var(--mat-sys-on-surface-variant);
 
   li::marker {
+    content: '•  ';
+    font-size: 0.75em;
     color: var(--mat-sys-outline);
   }
 }
 
-/* One export, a card: its name and where it comes from on a strip, then
- * what it is for, its signature, what to know, and how it is used. */
-.doc-entry {
-  margin-block-start: 16px;
-  overflow: hidden;
-  border: 1px solid var(--mat-sys-outline-variant);
-  border-radius: var(--mat-sys-corner-medium, 12px);
-  scroll-margin-block-start: calc(var(--doc-header, 0px) + 16px);
-}
-
-.doc-entry__head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 12px;
-  padding: 12px;
-  border-block-end: 1px solid var(--mat-sys-outline-variant);
-  background: var(--mat-sys-surface-container-low);
-}
-
-.doc-entry__name {
-  margin: 0;
-  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 1rem;
-  font-weight: 600;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-
-.doc-entry__from {
-  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 0.8125rem;
-  color: var(--mat-sys-on-surface-variant);
-  overflow-wrap: anywhere;
-}
-
-.doc-entry__body {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 12px;
-}
-
-/* A small heading inside a card or a section: "Example", a token group. */
-.doc-h3 {
-  margin: 0;
-  font: var(--mat-sys-title-medium);
-  font-weight: 600;
-  color: var(--mat-sys-on-surface);
-}
-
-.doc-topic {
-  margin-block-start: 32px;
-  scroll-margin-block-start: calc(var(--doc-header, 0px) + 16px);
-
-  > .doc-h3 {
-    margin-block-end: 12px;
-  }
-}
-
-/* A list of names and what they do — tokens, class hooks: one bordered
- * list, a row each, rows parted by hairlines. */
+/* A list of names and what they do — tokens, class hooks: rows parted by
+ * hairlines, no box round them. */
 .doc-defs {
   margin: 0;
-  overflow: hidden;
-  border: 1px solid var(--mat-sys-outline-variant);
-  border-radius: var(--mat-sys-corner-medium, 12px);
+  border-block: 1px solid var(--mat-sys-outline-variant);
 }
 
 .doc-def {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: 2px 24px;
+  padding-block: 12px;
 
   & + & {
     border-block-start: 1px solid var(--mat-sys-outline-variant);
   }
 
   dt {
+    grid-row: span 2;
     font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-    font-size: 0.875rem;
-    font-weight: 600;
+    font-size: 0.8125rem;
+    font-weight: 500;
     overflow-wrap: anywhere;
   }
 
   dd {
     margin: 0;
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  @media (max-width: 599px) {
+    grid-template-columns: minmax(0, 1fr);
+
+    dt {
+      grid-row: auto;
+    }
   }
 }
 
@@ -2698,8 +2650,8 @@ section[html-email-compose][data-wrap='off'] .aee-editor {
   flex-wrap: wrap;
   align-items: center;
   gap: 4px 8px;
-  font: var(--mat-sys-body-medium);
-  color: var(--mat-sys-on-surface-variant);
+  font-size: 0.8125rem;
+  color: var(--mat-sys-outline);
 
   .doc-chain__then::before {
     content: '→' / 'then';
@@ -2708,17 +2660,18 @@ section[html-email-compose][data-wrap='off'] .aee-editor {
 
 /* The chain on its own, leading a section. */
 .doc-chain--lead {
-  margin: 0 0 24px;
-  font: var(--mat-sys-body-large);
+  margin: 0 0 20px;
+  font-size: inherit;
   color: var(--mat-sys-on-surface);
 }
 
-/* Code blocks in running prose get room from the text around them. */
+/* Code in running prose gets room from the text around it; a step's code
+ * has its step's gap. */
 .doc-body doc-code {
   margin-block: 16px;
 }
 
-.doc-entry__body doc-code {
+.doc-step > doc-code {
   margin-block: 0;
 }
 

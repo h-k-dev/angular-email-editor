@@ -5,6 +5,7 @@ import { DocCode } from '../../../partials/common/doc-code/doc-code';
 import { DocSection } from '../../../partials/common/doc-page/doc';
 import { DocPage } from '../../../partials/common/doc-page/doc-page';
 import { DocProse } from '../../../partials/common/doc-page/doc-prose';
+import { DocStep, DocSteps } from '../../../partials/common/doc-steps/doc-steps';
 import { API_PAGE_CONTENT } from './api-reference.content';
 import { API_PAGES } from './api-pages';
 
@@ -17,7 +18,7 @@ import { API_PAGES } from './api-pages';
  */
 @Component({
   selector: 'app-api-reference',
-  imports: [RouterLink, DocPage, DocProse, DocCode],
+  imports: [RouterLink, DocPage, DocProse, DocCode, DocSteps, DocStep],
   templateUrl: './api-reference.html',
 })
 export class ApiReference {

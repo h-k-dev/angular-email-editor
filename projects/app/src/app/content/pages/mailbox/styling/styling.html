@@ -1,9 +1,10 @@
 <doc-page [icon]="link().icon" [trail]="trail()" [toc]="toc()">
   @if (tokens(); as tokens) {
-    <!-- A page of tokens: the custom properties of one part of the UI, a
-         group each under its own heading. -->
+    <!-- A page of tokens: how to set them, then the custom properties of
+         one part of the UI, a group each under its own heading. -->
     <h1 class="doc-title">{{ tokens.title }}</h1>
     <p class="doc-lede" [docProse]="tokens.intro"></p>
+    <doc-code [code]="override()" lang="css" label="" />
 
     @for (group of tokens.groups; track group.id) {
       <section class="doc-section" [id]="group.id">
@@ -18,9 +19,9 @@
               <dt>{{ token.name }}</dt>
               <dd [docProse]="token.alters"></dd>
               <dd class="doc-chain">
-                <span>Falls back to</span>
                 @if (token.system) {
-                  <code>{{ token.system }}</code><span class="doc-chain__then"></span>
+                  <code>{{ token.system }}</code
+                  ><span class="doc-chain__then"></span>
                 }
                 <code>{{ token.fallback }}</code>
               </dd>
@@ -34,28 +35,29 @@
       @case ('theming') {
         <h1 class="doc-title">Theming</h1>
         <p class="doc-lede">
-          Every colour, corner and size in the editor is a custom property you can override. Most
-          hosts with a Material theme set none at all. The exports behind these surfaces are in the
-          <a routerLink="/api">API</a> reference.
+          Every colour, corner and size is a custom property. The exports are in the
+          <a routerLink="/api">API</a>.
         </p>
 
         <section class="doc-section" id="how-it-resolves">
           <h2 class="doc-h2">
             <a class="doc-anchor" routerLink="." fragment="how-it-resolves">How a token resolves</a>
           </h2>
-          <p class="doc-intro">Each token resolves in three steps, at the point of use:</p>
           <p class="doc-chain doc-chain--lead">
             <code>--email-*</code><span class="doc-chain__then"></span><code>--mat-sys-*</code
             ><span class="doc-chain__then"></span><span>a hardcoded fallback</span>
           </p>
-          <ul class="doc-points">
-            <li>Set a token on <code>:root</code>, on a container, or on the element itself.</li>
-            <li>
-              With a Material M3 theme present — like this app — the middle step already carries
-              light and dark, so most hosts set nothing.
+          <ol docSteps>
+            <li docStep lead="Set a token" text="On `:root`, a container, or the element itself.">
+              <doc-code [code]="example" lang="css" label="" />
             </li>
-            <li>The fallback keeps the editor usable with no theme at all.</li>
-          </ul>
+            <li
+              docStep
+              lead="Or set nothing"
+              text="A Material M3 theme already carries light and dark through `--mat-sys-*`."
+            ></li>
+            <li docStep lead="No theme at all" text="The fallback keeps the editor usable."></li>
+          </ol>
         </section>
 
         <section class="doc-section" id="where-styles-live">
@@ -64,59 +66,59 @@
               >Where the styles live</a
             >
           </h2>
-          <p class="doc-text">
-            ProseMirror creates the editable DOM at runtime, outside Angular’s view encapsulation,
-            so the editor surface is styled <em>globally</em>. Every rule scopes to
-            <code>.aee-editor</code>, the class the library stamps on its own editable roots.
-          </p>
-          <ul class="doc-points">
-            <li>
-              Never style bare <code>.ProseMirror</code>: a ProseMirror instance the host runs for
-              anything else must be left alone.
-            </li>
-            <li>
-              The composer’s own chrome — menus, pickers, preview — is component-scoped as usual.
-            </li>
-          </ul>
-          <doc-code [code]="example" lang="css" label="styles.css" />
+          <ol docSteps>
+            <li
+              docStep
+              lead="Global"
+              text="ProseMirror makes the editable at runtime, outside Angular’s encapsulation."
+            ></li>
+            <li
+              docStep
+              lead="Under `.aee-editor`"
+              text="The class on every editable root the library mounts — never bare `.ProseMirror`, which another editor on the page may be."
+            ></li>
+            <li
+              docStep
+              lead="Chrome is scoped"
+              text="Menus, pickers and preview are components, styled as usual."
+            ></li>
+          </ol>
         </section>
       }
 
       @case ('material-form-field') {
         <h1 class="doc-title">Material form field</h1>
-        <p class="doc-lede">
-          The address input is a control, never its own row — in a Material app the row is a
-          <code>mat-form-field</code>.
-        </p>
+        <p class="doc-lede">The address input as a <code>mat-form-field</code>’s control.</p>
 
         <section class="doc-section">
-          <p class="doc-text">
-            Opt in per field with <code>emailMatFormField</code> from
-            <code>&#64;h-k-dev/angular-email-editor/material</code>, the one entry point that
-            imports Material:
-          </p>
-          <ul class="doc-points">
-            <li>the label floats;</li>
-            <li><code>mat-error</code> shows once the field is touched and invalid;</li>
-            <li>hint and error are read out;</li>
-            <li>a click anywhere in the field puts the caret in.</li>
-          </ul>
-          <doc-code [code]="materialRecipe" lang="html" label="Template" />
-          <p class="doc-text">Try it:</p>
-          <mat-form-field class="doc-recipe-field">
-            <mat-label>To</mat-label>
-            <div email-address-input emailMatFormField [formField]="recipientForm.to"></div>
-            <mat-hint>Separate addresses with a comma</mat-hint>
-            <mat-error>{{ recipientForm.to().errors()[0]?.message }}</mat-error>
-          </mat-form-field>
+          <ol docSteps>
+            <li docStep lead="Import" text="The one entry point that imports Material.">
+              <doc-code [code]="materialImport" label="" [wrap]="true" />
+            </li>
+            <li
+              docStep
+              lead="Opt in per field"
+              text="The label floats, `mat-error` shows once touched and invalid, hint and error are read out."
+            >
+              <doc-code [code]="materialRecipe" lang="html" label="" />
+            </li>
+            <li docStep lead="Try it">
+              <mat-form-field class="doc-recipe-field">
+                <mat-label>To</mat-label>
+                <div email-address-input emailMatFormField [formField]="recipientForm.to"></div>
+                <mat-hint>Separate addresses with a comma</mat-hint>
+                <mat-error>{{ recipientForm.to().errors()[0]?.message }}</mat-error>
+              </mat-form-field>
+            </li>
+          </ol>
         </section>
       }
 
       @case ('class-hooks') {
         <h1 class="doc-title">Class hooks</h1>
         <p class="doc-lede">
-          The classes the library puts on its own runtime DOM, for when no token covers what you
-          want to change — and tell us, because a missing token is usually the real bug.
+          The classes on the library’s runtime DOM, for what no token covers — and tell us: a
+          missing token is usually the real bug.
         </p>
 
         @for (group of hookGroups; track group.id) {

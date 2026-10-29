@@ -28,6 +28,8 @@ editor.commands['setHeading'](2);
 const bold = editor.isActive('bold');
 
 editor.setContent('<div>Replaced</div>'); // a minimal diff: no undo step, no onUpdate
+editor.setContent(saved, { history: true }); // one undo step: a Revert
+const body = editor.getHTML();            // the body alone, never the history
 const quoted = editor.getQuoted();        // the reply / forward history, or null
 editor.setQuoted(null);                   // drop it`,
 
@@ -44,8 +46,9 @@ const editor = createEditor({
     ...emailExtensions,
     createBubbleMenu({
       onStateChange: (state) => bubble.set(state),
-      anchor: 'selection', // default 'first'
+      anchor: 'selection', // default 'first': stays where it opened
       scroll: 'follow',    // 'close' (default) | 'follow' | 'keep' | (event, menu) => void
+                           // heard in the capture phase: no cdkScrollable needed
     }),
   ],
 });`,
@@ -62,7 +65,10 @@ const editor = createEditor({
       threshold: 4,                               // px before a press becomes a box
     }),
   ],
-});`,
+});
+
+// The blocks the box touches: a BlockSelection, copied, cut and pasted as blocks,
+// painted by .aee-block--selected. Arrows walk, Shift grows, Escape returns.`,
 
   'create-suggestion-menu': `import { signal } from '@angular/core';
 import {
@@ -79,6 +85,7 @@ const editor = createEditor({
     createSuggestionMenu({
       element: menuElement, // the host renders the rows into it from the state
       onChange: (state) => suggestion.set(state),
+      // Never open together: the trigger nearest the caret wins.
       triggers: [
         { trigger: '/', label: 'Insert block', items: extensionSuggestions },
         mergeTagTrigger({ label: 'Personalization tokens', source: mergeTagSource }),
@@ -93,6 +100,7 @@ createSuggestionMenu({
   element: menuElement,
   onChange: (state) => suggestion.set(state),
   triggers: [
+    // Opens right after any character (Hi{{), never inside a written token.
     mergeTagTrigger({
       // Asked each time the menu opens, so a language switch reaches it.
       label: () => translate.instant('tokens.label'),
@@ -110,6 +118,7 @@ export function createMergeTagSource(api: MergeTagApi): SuggestionSource {
   return pagedSource({
     from: api,
     with: (query, { skip, limit }) => ({ q: query.trim(), skip, limit }),
+    // A row as a suggestion keyed by its own id; null drops it.
     map: (row) => ({
       id: row.path,
       title: row.label,
@@ -127,6 +136,7 @@ const contactFields: SuggestionGroup = {
   id: 'contact',
   title: 'Contact',
   placeholder: 'Search contact fields…',
+  // Searched as the menu searches: every word in a title or keyword, best first.
   children: listSource({
     from: customFields,
     with: () => ({ where: { groupId: 'contact' } }), // no query: the menu searches the list
@@ -149,10 +159,11 @@ const words: PlaceholderWords = {
 
 const editor = createEditor({
   parent: host,
-  extensions: [...emailExtensions, createPlaceholder({ text: words, show: 'caret' })],
+  extensions: [...emailExtensions, createPlaceholder({ text: words, show: 'caret' })], // 'all': every empty line
 });
 
-// On a language switch:
+// A decoration (.aee-placeholder): nothing reaches the HTML.
+// On a language switch — outside the undo history:
 editor.commands['setPlaceholder']({ line: "Tippe '/' für Befehle" });`,
 
   'create-content-stream': `import {
@@ -161,7 +172,7 @@ editor.commands['setPlaceholder']({ line: "Tippe '/' für Befehle" });`,
 
 const editor = createEditor({
   parent: host,
-  extensions: [...emailExtensions, createContentStream({ reveal: 'block' })],
+  extensions: [...emailExtensions, createContentStream({ reveal: 'block' })], // or 'character', 'instant'
 });
 
 const run = streamContent(
@@ -171,7 +182,7 @@ const run = streamContent(
     const response = await fetch('/api/draft', { method: 'POST', body: prompt, signal });
     await response.body!.pipeTo(getWritableStream());
   },
-  { format: 'html' },
+  { format: 'html' }, // re-read through the schema: a half-written tag never shows
 );
 const finished = await run.done; // false when stopped (Escape, or run.stop())`,
 
@@ -185,6 +196,7 @@ const canonical = serializeToHTML(doc, schema);`,
 
   'email-document': `import { emailDocument } from '@h-k-dev/angular-email-editor';
 
+// Inline throughout, Outlook and iOS guards, hidden preview text; dark never declared.
 const document = emailDocument(intent.html, {
   title: subject,
   previewText: 'Your order has shipped',
@@ -195,12 +207,14 @@ const document = emailDocument(intent.html, {
 
 const client: RenderingClient = 'gmail'; // 'apple-mail' | 'gmail' | 'outlook-desktop'
 
+// Drops what the client ignores; dark: true draws it as that client does.
 iframe.setAttribute('sandbox', '');
 iframe.srcdoc = renderForClient(editor.getHTML(), client, { dark: true, pane: 'phone' });`,
 
   'lint-html': `import { lintHTML } from '@h-k-dev/angular-email-editor';
 
 // (source, scan = scanHTML(source), options)
+// Tags outside EMAIL_SAFE_TAGS, unsupported CSS, tiny fonts, long unbroken runs.
 const diagnostics = lintHTML(source, undefined, { mode: 'email' });
 
 for (const { from, to, severity, message } of diagnostics) {
@@ -212,7 +226,7 @@ for (const { from, to, severity, message } of diagnostics) {
 async function openEml(file: File): Promise<string> {
   const { default: PostalMime } = await import('postal-mime'); // costs nothing until used
   const parsed = await PostalMime.parse(file);
-  const inbound = toInboundMessage(parsed); // optional: { addressRules }
+  const inbound = toInboundMessage(parsed); // a group as its members; optional { addressRules }
   return importedDocument(inbound);         // or replyDocument(inbound) to answer it
 }`,
 
@@ -236,6 +250,7 @@ const editor = createEditor({
 const kind: ReplyKind = 'reply-all'; // 'reply' | 'reply-all' | 'forward'
 const seed = { locale: 'en-GB', self: 'me@example.com' };
 
+// Reply-To over From, everyone but self, each once; Re: once (AW: Re: x → Re: x).
 const { to, cc, subject } = replyEnvelope(inbound, kind, seed);
 const quoted = kind === 'forward' ? forwardQuote(inbound, seed) : replyQuote(inbound, seed);`,
 
@@ -245,6 +260,7 @@ import { provideAddressRules } from '@h-k-dev/angular-email-editor/address';
 export const appConfig: ApplicationConfig = {
   providers: [
     // The parts you give replace ours; the rest stay ours.
+    // Read by the address input, the chip and addressList.
     provideAddressRules({
       isValid: (address) => myValidator(address),
       isPlaceholder: () => false, // {{…}} addresses count as invalid
@@ -265,7 +281,7 @@ export class Envelope {
   readonly model = signal({ from: [] as string[], to: [] as string[], cc: [] as string[] });
   readonly envelope = form(this.model, (p) => {
     addressList(p.from, { max: 1 });
-    addressList(p.to);
+    addressList(p.to); // every entry a mailbox by the rule in force
     addressList(p.cc, { min: 0 });
   });
 }`,
@@ -279,7 +295,7 @@ const editor = createEditor({
   extensions: [
     ...emailExtensions,
     createMergeTagResolution({
-      // Raw expressions in; values back in the same order
+      // Each distinct expression once, raw (never &amp;); values back in order
       // (a string fills, '' removes the token, null keeps it).
       resolve: (expressions) => api.evaluate(expressions, contactId),
       onResolved: ({ filled, empty, kept }) => notify(filled, empty.length, kept.length),
@@ -288,7 +304,7 @@ const editor = createEditor({
   ],
 });
 
-editor.commands['resolveMergeTags'](); // also Mod-Shift-Enter`,
+editor.commands['resolveMergeTags'](); // also Mod-Shift-Enter; a selection: only its tokens`,
 
   'create-send-intent': `import {
   SendIntent, createEditor, createSendIntent, emailExtensions,
@@ -318,7 +334,7 @@ import {
   providers: [InlineImages], // one per composer, never in root
 })
 export class Composer {
-  readonly images = inject(InlineImages);
+  readonly images = inject(InlineImages); // add(blob), dataUrl(cid), version()
   readonly body = viewChild.required<ElementRef<HTMLElement>>('body');
 
   constructor() {
@@ -343,6 +359,7 @@ import { providePalette } from '@h-k-dev/angular-email-editor/palette';
 
 export const appConfig: ApplicationConfig = {
   providers: [
+    // A side replaced, or a function of the defaults; feeds the pickers and / rows.
     providePalette((defaults) => ({
       text: [...defaults.text, { name: 'Brand', value: '#0a5c36' }],
     })),
@@ -360,6 +377,7 @@ const editor = createEditor({
   parent: host,
   extensions: [
     ...emailExtensions,
+    // onError: nothing can measure here (SSR, jsdom); the editor carries on.
     createTextMetrics({ onMetrics: (m) => metrics.set(m), onError: (e) => console.warn(e) }),
   ],
 });`,
@@ -371,6 +389,7 @@ import { KeepFocus } from '@h-k-dev/angular-email-editor/focus';
   selector: 'app-toolbar',
   imports: [KeepFocus],
   template: \`
+    <!-- The editor keeps its caret through a click; [emailKeepFocusExcept] names what may take focus. -->
     <div role="toolbar" emailKeepFocus>
       <button type="button" (click)="bold()">B</button>
       <!-- text entry still takes focus: the default exception -->
@@ -390,6 +409,7 @@ import { ActionTrigger, injectActions } from '@h-k-dev/angular-email-editor/acti
   selector: 'app-format-bar',
   imports: [ActionTrigger],
   template: \`
+    <!-- aria-pressed / aria-disabled, never native disabled; the caret returns after. -->
     <button emailAction="bold" [emailActionFrom]="actions" #bold="emailAction"
             [class.on]="bold.pressed()">B</button>
     <button emailAction="link" [emailActionFrom]="actions">Link</button>
@@ -398,7 +418,7 @@ import { ActionTrigger, injectActions } from '@h-k-dev/angular-email-editor/acti
 export class FormatBar {
   readonly editor = input<Editor>();
   protected readonly actions = injectActions(() => this.editor(), {
-    host: [{ id: 'link', run: () => this.openLinkDialog() }],
+    host: [{ id: 'link', run: () => this.openLinkDialog() }], // a run, never a command
   });
 
   openLinkDialog() {}
@@ -413,6 +433,7 @@ import { EmailEditor } from '@h-k-dev/angular-email-editor/editor';
   selector: 'app-template-editor',
   imports: [EmailEditor, FormField],
   template: \`
+    <!-- A value from outside waits until the user leaves the text; replace() writes now, one undo step. -->
     <div [emailEditor]="kit" [formField]="fields.body" #body="emailEditor"></div>
     <button [disabled]="!dirty()" (click)="body.replace(body.baseline()!)">Revert</button>
   \`,
@@ -486,7 +507,7 @@ export class SizeMenu {
   protected readonly size = form(signal({ px: 14 }), (size) => debounce(size.px, 'blur'));
 }`,
 
-  'email-anchor':`import { Component, signal } from '@angular/core';
+  'email-anchor': `import { Component, signal } from '@angular/core';
 import { OverlayModule } from '@angular/cdk/overlay';
 import { BubbleMenuState } from '@h-k-dev/angular-email-editor';
 import { Anchor } from '@h-k-dev/angular-email-editor/anchor';
@@ -495,6 +516,7 @@ import { Anchor } from '@h-k-dev/angular-email-editor/anchor';
   selector: 'app-bubble',
   imports: [Anchor, OverlayModule],
   template: \`
+    <!-- Holds its last place while the box is null, so the overlay closes in place. -->
     <span [emailAnchor]="state().boundingBox" cdkOverlayOrigin #origin="cdkOverlayOrigin"></span>
     <ng-template cdkConnectedOverlay
                  [cdkConnectedOverlayOrigin]="origin"

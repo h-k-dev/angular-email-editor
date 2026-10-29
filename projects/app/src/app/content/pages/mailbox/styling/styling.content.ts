@@ -49,6 +49,21 @@ export const MATERIAL_RECIPE = `<mat-form-field>
   <mat-error>{{ envelope.to().errors()[0]?.message }}</mat-error>
 </mat-form-field>`;
 
+export const MATERIAL_IMPORT = `import { AddressFormField } from '@h-k-dev/angular-email-editor/material';`;
+
+/** A fallback written as a CSS value, not described in words. */
+const CSS_VALUE = /^(#|\d|rgb|light-dark|transparent)/;
+
+/** How a page's tokens are set, shown on it: a token of each group (three
+    at most) on `:root`, at its fallback — the value to change. */
+export function overrideOf(section: TokenSection): string {
+  const tokens = section.groups
+    .flatMap((group) => group.tokens.filter((token) => CSS_VALUE.test(token.fallback)).slice(0, 1))
+    .slice(0, 3);
+  const lines = tokens.map((token) => `  ${token.name}: ${token.fallback};`);
+  return [':root {', ...lines, '}'].join('\n');
+}
+
 const PRIMARY_MIX = 'a mix over the primary';
 
 export const TOKEN_SECTIONS: readonly TokenSection[] = [
@@ -66,13 +81,15 @@ export const TOKEN_SECTIONS: readonly TokenSection[] = [
             name: '--email-caret',
             system: '--mat-sys-on-surface',
             fallback: '#1f1f1f',
-            alters: 'The gap cursor — the caret drawn where no text can go (beside a table, between two blocks).',
+            alters:
+              'The gap cursor — the caret drawn where no text can go (beside a table, between two blocks).',
           },
           {
             name: '--email-text-selection',
             system: '--mat-sys-primary',
             fallback: PRIMARY_MIX,
-            alters: 'The text highlight, and the tint over an image a text range covers, so both read as one.',
+            alters:
+              'The text highlight, and the tint over an image a text range covers, so both read as one.',
           },
           {
             name: '--email-drop-line',
@@ -120,7 +137,8 @@ export const TOKEN_SECTIONS: readonly TokenSection[] = [
             name: '--email-grip-halo',
             system: null,
             fallback: '#ffffff',
-            alters: 'The halo around a table grip or add pill floating over text. Set it to the paper colour.',
+            alters:
+              'The halo around a table grip or add pill floating over text. Set it to the paper colour.',
           },
         ],
       },
@@ -377,7 +395,8 @@ export const TOKEN_SECTIONS: readonly TokenSection[] = [
             name: '--email-scroll-size',
             system: null,
             fallback: '8px',
-            alters: 'Thickness of every scrollbar (the library’s scroll mixin, `.email-scroll`) and of the gutter it keeps.',
+            alters:
+              'Thickness of every scrollbar (the library’s scroll mixin, `.email-scroll`) and of the gutter it keeps.',
           },
           {
             name: '--email-scroll-thumb',
@@ -415,7 +434,8 @@ export const TOKEN_SECTIONS: readonly TokenSection[] = [
             name: '--aee-block-gutter-x',
             system: null,
             fallback: '20px, declared per block wrapper',
-            alters: 'The inline-direction gutter around a table or column block, and everything positioned against it.',
+            alters:
+              'The inline-direction gutter around a table or column block, and everything positioned against it.',
           },
           {
             name: '--aee-block-gutter-y',
@@ -476,7 +496,8 @@ export const HOOK_GROUPS: readonly HookGroup[] = [
     hooks: [
       {
         name: '.aee-image · .aee-image--placeholder · .aee-image--resizing',
-        applies: 'The inline image’s editor-only wrapper (`span.aee-image > img`), the empty placeholder, and the resize state.',
+        applies:
+          'The inline image’s editor-only wrapper (`span.aee-image > img`), the empty placeholder, and the resize state.',
       },
     ],
   },
@@ -486,7 +507,8 @@ export const HOOK_GROUPS: readonly HookGroup[] = [
     hooks: [
       {
         name: '.aee-table-wrap · .aee-columns-wrap · .aee-columns-box · .aee-column',
-        applies: 'The block wrappers that own the gutter and carry the affordances; a `--resizing` modifier marks a drag in progress.',
+        applies:
+          'The block wrappers that own the gutter and carry the affordances; a `--resizing` modifier marks a drag in progress.',
       },
       {
         name: '.aee-add-pill · .aee-add-pill--row · .aee-add-pill--column · .aee-add-zone',
@@ -502,7 +524,8 @@ export const HOOK_GROUPS: readonly HookGroup[] = [
       },
       {
         name: '.aee-guides-active · .aee-guides-peek',
-        applies: 'Layout guides: shown while the caret is inside the block, peeked while the pointer hovers it.',
+        applies:
+          'Layout guides: shown while the caret is inside the block, peeked while the pointer hovers it.',
       },
     ],
   },
@@ -512,7 +535,8 @@ export const HOOK_GROUPS: readonly HookGroup[] = [
     hooks: [
       {
         name: '.aee-merge-tag · .aee-expr-error',
-        applies: 'The personalization pill, and the underline under an expression the dialect rejects.',
+        applies:
+          'The personalization pill, and the underline under an expression the dialect rejects.',
       },
       {
         name: '.aee-quoted · .aee-quote-fold',

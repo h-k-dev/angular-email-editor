@@ -10,7 +10,6 @@ import {
   linkedSignal,
   resource,
 } from '@angular/core';
-import { RouterLink } from '@angular/router';
 
 import { PLAYGROUNDS } from '../../../partials/atomic/components/playgrounds';
 import { PLAYGROUND_PLACE } from '../../../partials/atomic/components/playground/playground-frame';
@@ -18,6 +17,7 @@ import { DocCode } from '../../../partials/common/doc-code/doc-code';
 import { DocSection } from '../../../partials/common/doc-page/doc';
 import { DocPage } from '../../../partials/common/doc-page/doc-page';
 import { DocProse } from '../../../partials/common/doc-page/doc-prose';
+import { DocStep, DocSteps } from '../../../partials/common/doc-steps/doc-steps';
 import { COMPONENT_PAGES, ENTRY_PAGES } from './component-pages';
 import { COMPONENT_CONTENT } from './components.content';
 
@@ -29,15 +29,16 @@ interface Bench {
   readonly type: Type<unknown>;
 }
 
-/** The page's sections, the same on every component's page. */
+/** The page's steps, the same on every component's page. */
 const TOC: readonly DocSection[] = [
-  { id: 'playground', title: 'Playground' },
-  { id: 'usage', title: 'Usage' },
+  { id: 'import', title: 'Import' },
+  { id: 'playground', title: 'Try it' },
+  { id: 'usage', title: 'Write it' },
 ];
 
 /**
  * A component of the library (`/components/:page`), one per secondary
- * entry point that renders something: what it is and what to import, a
+ * entry point that renders something, in three steps: what to import, a
  * playground to try it in — every input a knob, every output in a log,
  * the state it reflects live (`PlaygroundFrame`) — and the template a
  * host writes. The playground is a chunk of its own (`PLAYGROUNDS`); the
@@ -46,7 +47,7 @@ const TOC: readonly DocSection[] = [
  */
 @Component({
   selector: 'app-components',
-  imports: [NgComponentOutlet, RouterLink, DocPage, DocProse, DocCode],
+  imports: [NgComponentOutlet, DocPage, DocProse, DocCode, DocSteps, DocStep],
   templateUrl: './components.html',
   styleUrl: './components.scss',
 })
