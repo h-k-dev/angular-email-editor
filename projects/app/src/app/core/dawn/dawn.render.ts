@@ -1,7 +1,7 @@
 import {
   DAWN_SURFACE,
   InboundMessage,
-  hasDocumentEnvelope,
+  laysItselfOut,
   plainTextHTML,
   renderDawn,
 } from '@h-k-dev/angular-email-editor';
@@ -30,26 +30,9 @@ export interface DawnOptions {
   readonly scheme: PaperScheme;
   /** The side inset a simple email's text keeps, px — the frame round it
       lines it up with its header. An email that lays itself out
-      (`laysItselfOut`: a newsletter, a page) runs edge to edge, whatever
+      (Dawn's `laysItselfOut`: a newsletter, a page) runs edge to edge, whatever
       this says. None by default. */
   readonly inset?: number;
-}
-
-/**
- * Whether an email lays itself out, edge to edge, rather than being a simple
- * email's text: a whole document (its own `<html>` / `<body>`), or a body
- * wrapped whole in one full-width table — a page, the editor's
- * (`aee-layout-page`) or written by hand round a fixed 600px card. Such an
- * email centres its own column on its own fill; an inset round it only
- * squeezes the column off centre.
- */
-export function laysItselfOut(html: string): boolean {
-  if (hasDocumentEnvelope(html)) return true;
-  const body = new DOMParser().parseFromString(`<body>${html}`, 'text/html').body;
-  const [page, ...rest] = Array.from(body.children);
-  if (!(page instanceof HTMLTableElement) || rest.length) return false;
-  if ((body.textContent ?? '').trim() !== (page.textContent ?? '').trim()) return false;
-  return page.getAttribute('width')?.trim() === '100%' || page.style.width === '100%';
 }
 
 /**

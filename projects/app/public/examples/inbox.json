@@ -45,6 +45,42 @@
       "subject": "Suspicious newsletter"
     },
     {
+      "id": "reply-outlook-letter",
+      "file": "reply/outlook-letter.json",
+      "kind": "reply",
+      "name": "Thomas Berger",
+      "from": "Thomas Berger <t.berger@berger-law.example>",
+      "date": "2026-10-27T14:12:00.000Z",
+      "subject": "Engagement letter and power of attorney"
+    },
+    {
+      "id": "reply-apple-mail-letter",
+      "file": "reply/apple-mail-letter.json",
+      "kind": "reply",
+      "name": "Marco Rossi",
+      "from": "Marco Rossi <marco.rossi@example.com>",
+      "date": "2026-10-28T08:41:00.000Z",
+      "subject": "Original contract or scan?"
+    },
+    {
+      "id": "reply-thunderbird-letter",
+      "file": "reply/thunderbird-letter.json",
+      "kind": "reply",
+      "name": "Sofia Lindqvist",
+      "from": "Sofia Lindqvist <s.lindqvist@lindqvist-partner.example>",
+      "date": "2026-10-28T13:05:00.000Z",
+      "subject": "Statement of claim"
+    },
+    {
+      "id": "reply-centred-newsletter",
+      "file": "reply/centred-newsletter.json",
+      "kind": "reply",
+      "name": "The Docket",
+      "from": "The Docket <docket@newsletter.example>",
+      "date": "2026-10-29T06:00:00.000Z",
+      "subject": "The Docket, October"
+    },
+    {
       "id": "mjml-worldly",
       "file": "mjml/worldly.html",
       "kind": "html",

@@ -47,7 +47,9 @@ const FILES: Record<string, string> = {
     from: 'ops@example.com',
   }),
   'mjml/austin.html':
-    '<!doctype html><html><head><title>Discount Light</title></head><body><p>Austin</p></body></html>',
+    // As MJML writes it: a centred 600px column, a newsletter's.
+    '<!doctype html><html><head><title>Discount Light</title></head>' +
+    '<body><div style="margin: 0 auto; max-width: 600px"><p>Austin</p></div></body></html>',
 };
 
 /**

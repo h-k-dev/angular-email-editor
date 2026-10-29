@@ -20,3 +20,4 @@ export * from './lib/client-support';
 export * from './lib/sent';
 export * from './lib/style-text';
 export * from './lib/envelope';
+export * from './lib/layout';

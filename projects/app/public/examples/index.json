@@ -25,6 +25,22 @@
         {
           "name": "Suspicious newsletter",
           "file": "reply/suspicious-newsletter.json"
+        },
+        {
+          "name": "Outlook letter (whole document)",
+          "file": "reply/outlook-letter.json"
+        },
+        {
+          "name": "Apple Mail letter (whole document)",
+          "file": "reply/apple-mail-letter.json"
+        },
+        {
+          "name": "Thunderbird letter (whole document)",
+          "file": "reply/thunderbird-letter.json"
+        },
+        {
+          "name": "Centred newsletter (div wrapper)",
+          "file": "reply/centred-newsletter.json"
         }
       ]
     },

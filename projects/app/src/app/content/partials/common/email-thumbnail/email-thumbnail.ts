@@ -2,9 +2,13 @@ import { Component, computed, inject, input, signal } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 // Library
-import { hasDocumentEnvelope, pendingImageSource } from '@h-k-dev/angular-email-editor';
+import {
+  hasDocumentEnvelope,
+  laysItselfOut,
+  pendingImageSource,
+} from '@h-k-dev/angular-email-editor';
 
-import { PaperScheme, dawnDocument, laysItselfOut } from '../../../../core/dawn/dawn.render';
+import { PaperScheme, dawnDocument } from '../../../../core/dawn/dawn.render';
 import { Paper } from '../../../../core/theme/paper';
 import { GridIsland } from '../virtual-grid/virtual-grid';
 
@@ -29,10 +33,11 @@ const STILL = '<style>html, body { overflow: hidden !important; scrollbar-width:
 const MARGIN = 32;
 const LETTER = `<style>body { padding-block-start: ${MARGIN}px; }</style>`;
 
-/** A page (a body wrapped whole in one full-width table) wider than even
-    the slack — a card past 600px, or a broad gutter round it — cut evenly
-    at both sides, its card in the middle: a picture, nothing to scroll to. */
-const PAGE = '<style>body { display: flex; justify-content: center; }</style>';
+/** An email that lays itself out wider than even the slack — a card past
+    600px, or a broad gutter round it — cut evenly at both sides, its column
+    in the middle: a picture, nothing to scroll to. One grid column, so a
+    body of several blocks still stacks them as it would. */
+const PAGE = '<style>body { display: grid; justify-content: center; }</style>';
 
 /** The image placeholder's frame, as the editor draws it, in the email's own
     ink (`currentColor`), so it reads on light paper and dark alike. */
@@ -179,7 +184,9 @@ export class EmailThumbnail {
     const html = this.html();
     const frame = !laysItselfOut(html) ? LETTER : hasDocumentEnvelope(html) ? '' : PAGE;
     return this.#sanitizer.bypassSecurityTrustHtml(
-      dawnDocument(framePendingImages(html), { scheme: this.paper(), inset: MARGIN }) + STILL + frame,
+      dawnDocument(framePendingImages(html), { scheme: this.paper(), inset: MARGIN }) +
+        STILL +
+        frame,
     );
   });
 }
