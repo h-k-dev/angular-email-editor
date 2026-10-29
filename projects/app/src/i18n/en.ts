@@ -184,6 +184,7 @@ export default {
     answers: 'Answer',
     forward: 'Forward',
     starred: 'Starred',
+    unread: 'Unread',
     undo: 'Undo',
     actions: {
       label: 'Message actions',

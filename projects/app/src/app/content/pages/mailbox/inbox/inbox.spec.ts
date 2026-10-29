@@ -19,8 +19,8 @@ describe('Inbox', () => {
     [...root.querySelectorAll<HTMLAnchorElement>('.inbox-row')].find((a) =>
       a.getAttribute('href')?.endsWith(`/${id}`),
     )!;
-  /** A row's list item: the link, its avatar's checkbox, its actions. */
-  const item = (id: string) => row(id).parentElement!;
+  /** A row of the grid: its link, its avatar's checkbox, its actions. */
+  const item = (id: string) => row(id).closest<HTMLElement>('[role="row"]')!;
   const action = (id: string, name: string) =>
     item(id).querySelector<HTMLButtonElement>(`.inbox-actions button[aria-label="${name}"]`)!;
   const settle = () => harness.fixture.whenStable();
@@ -73,7 +73,7 @@ describe('Inbox', () => {
     expect(root.querySelector('app-inbox-reader .mail-view__subject')?.textContent).toBe(
       'Plain note',
     );
-    expect(row('reply-plain-note').getAttribute('aria-current')).toBe('page');
+    expect(item('reply-plain-note').getAttribute('aria-current')).toBe('page');
     // On a phone the pane then takes the list's place.
     expect(host().hasAttribute('data-reading')).toBe(true);
 
@@ -160,8 +160,8 @@ describe('Inbox', () => {
   });
 
   it('fetches a row’s body as it is pointed at or focused: open, it is there already', async () => {
-    row('reply-plain-note').dispatchEvent(new PointerEvent('pointerenter'));
-    row('mjml-austin').dispatchEvent(new FocusEvent('focus'));
+    item('reply-plain-note').dispatchEvent(new PointerEvent('pointerenter'));
+    item('mjml-austin').dispatchEvent(new FocusEvent('focus'));
     await vi.waitFor(() =>
       expect(fetched).toEqual(['inbox.json', 'reply/plain-note.json', 'mjml/austin.html']),
     );
@@ -226,6 +226,80 @@ describe('Inbox', () => {
     box.click();
     await settle();
     expect(box.checked).toBe(true);
-    expect(item('reply-plain-note').classList).toContain('inbox-item--picked');
+    expect(item('reply-plain-note').getAttribute('aria-selected')).toBe('true');
+  });
+
+  /** A key pressed where focus is. */
+  const press = async (key: string) => {
+    (document.activeElement as HTMLElement).dispatchEvent(
+      new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }),
+    );
+    await settle();
+  };
+
+  it('is a grid of rows, one of them the tab stop: the open one, else the first', async () => {
+    const grid = root.querySelector('[role="grid"]')!;
+    expect(grid.getAttribute('aria-label')).toBe('Inbox');
+    expect(grid.getAttribute('aria-multiselectable')).toBe('true');
+    const stops = () =>
+      [...root.querySelectorAll('[role="row"]')].map((r) => r.getAttribute('tabindex'));
+    expect(stops()).toEqual(['0', '-1', '-1']);
+    // Nothing else in the list is a stop.
+    expect(root.querySelector('#inbox-list a')?.getAttribute('tabindex')).toBe('-1');
+    expect(item('reply-plain-note').querySelector('input')?.tabIndex).toBe(-1);
+    expect(action('reply-plain-note', 'Star').getAttribute('tabindex')).toBe('-1');
+
+    await harness.navigateByUrl('/inbox/mjml-austin');
+    const at = [...root.querySelectorAll('[role="row"]')].indexOf(item('mjml-austin'));
+    expect(stops()[at]).toBe('0');
+    expect(stops().filter((stop) => stop === '0')).toHaveLength(1);
+  });
+
+  it('names a row by its sender, state, date and subject — never its controls', () => {
+    const named = item('reply-plain-note')
+      .getAttribute('aria-labelledby')!
+      .split(' ')
+      .map((id) => root.querySelector('#' + id)?.textContent?.trim());
+    expect(named).toEqual(['Jane Doe', 'Unread', 'Aug 18', 'Plain note']);
+  });
+
+  it('moves with the arrows, opens with Enter and ticks with Space', async () => {
+    const rows = [...root.querySelectorAll<HTMLElement>('[role="row"]')];
+    rows[0].focus();
+    await press('ArrowDown');
+    expect(document.activeElement).toBe(rows[1]);
+    expect(rows[1].getAttribute('tabindex')).toBe('0');
+    expect(rows[0].getAttribute('tabindex')).toBe('-1');
+
+    await press(' ');
+    expect(rows[1].getAttribute('aria-selected')).toBe('true');
+    expect(rows[1].querySelector('input')?.checked).toBe(true);
+
+    await press('Enter');
+    await vi.waitFor(() => expect(rows[1].getAttribute('aria-current')).toBe('page'));
+  });
+
+  it('reaches a row’s checkbox and actions with the arrows, Escape back to the row', async () => {
+    const at = item('reply-plain-note');
+    at.focus();
+    await press('ArrowRight');
+    expect(document.activeElement).toBe(at.querySelector('input'));
+    await press('ArrowRight');
+    expect(document.activeElement).toBe(action('reply-plain-note', 'Mark as read'));
+    await press('End');
+    expect(document.activeElement).toBe(action('reply-plain-note', 'Star'));
+    await press('Escape');
+    expect(document.activeElement).toBe(at);
+  });
+
+  it('hands focus to the next row when the focused one moves out', async () => {
+    const trash = action('reply-plain-note', 'Move to trash');
+    trash.focus();
+    const next = [...root.querySelectorAll<HTMLElement>('[role="row"]')][1];
+    trash.click();
+    await settle();
+    expect(row('reply-plain-note')).toBeUndefined();
+    expect(document.activeElement).toBe(next);
+    expect(next.getAttribute('tabindex')).toBe('0');
   });
 });

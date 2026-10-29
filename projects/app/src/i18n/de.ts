@@ -181,6 +181,7 @@ export default {
     answers: 'Antworten',
     forward: 'Weiterleiten',
     starred: 'Markiert',
+    unread: 'Ungelesen',
     undo: 'Rückgängig',
     actions: {
       label: 'Nachrichtenaktionen',

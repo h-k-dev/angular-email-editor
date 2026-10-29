@@ -179,6 +179,7 @@ export default {
     answers: '返信',
     forward: '転送',
     starred: 'スター付き',
+    unread: '未読',
     undo: '元に戻す',
     actions: {
       label: 'メッセージの操作',

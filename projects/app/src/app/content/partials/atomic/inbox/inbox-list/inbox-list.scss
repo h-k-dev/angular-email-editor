@@ -1,0 +1,259 @@
+@use '../../../../../../styles/breakpoints' as bp;
+
+// The list — the grid itself — scrolls on its own, under its half's
+// header. Its start padding is the scrollbar's stable gutter mirrored, so a
+// row — its wash, the open one's frame — sits balanced between the two. No
+// line between the messages: space alone parts them, the rows at the top
+// however few. On a phone it is the document that scrolls.
+:host {
+  display: grid;
+  align-content: start;
+  row-gap: 2px;
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow-y: auto;
+  padding-inline-start: var(--email-scroll-size, 8px);
+
+  @include bp.phone {
+    overflow: visible;
+  }
+}
+
+// A row of the grid: the link, and beside it — laid over it — the avatar's
+// checkbox and the quick actions. It is the keyboard's focus; its ring is
+// drawn on the link's shape (below).
+//
+// The row is in the sender's colour family (`[hueOf]`, _hue-of.scss): its
+// hover wash and the open row's glass are `--avatar-tint`, the avatar's
+// own hue — the template cards' way.
+.inbox-item {
+  // The quick actions' width: five 28px buttons, 4px apart.
+  --_actions: calc(5 * 28px + 4 * 4px);
+  --_wash: color-mix(in oklch, var(--avatar-tint) 10%, transparent);
+
+  position: relative;
+  outline: none;
+}
+
+// A row, Proton's, mobile first: the whole width, a thumb's height (72px),
+// no line under it. The avatar's room leads (`.inbox-pick` lies in it);
+// beside it the sender and the date on one line, the subject under them.
+.inbox-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-content: center;
+  column-gap: 12px;
+  row-gap: 2px;
+  min-block-size: 72px;
+  padding: 12px 16px;
+  box-sizing: border-box;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+  text-decoration: none;
+  outline: none;
+
+  &:hover {
+    background-color: var(--_wash);
+  }
+}
+
+// The avatar's place, over the row's first column, centred in it: the
+// avatar, and the checkbox in the same 40px (mat-checkbox's own state
+// layer), unseen until the pointer is on it, focus is in it or it is
+// ticked — then the avatar gives way. Pressing the avatar presses the box.
+// Over the link, the open one's glass included.
+.inbox-pick {
+  position: absolute;
+  z-index: 1;
+  inset-block: 0;
+  inset-inline-start: 16px;
+  inline-size: 40px;
+  block-size: 40px;
+  margin-block: auto;
+}
+
+.inbox-pick__box {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+.inbox-pick:hover,
+.inbox-pick:has(:focus-visible),
+.inbox-item[aria-selected='true'] .inbox-pick {
+  .inbox-pick__box {
+    opacity: 1;
+  }
+
+  .inbox-row__avatar {
+    visibility: hidden;
+  }
+}
+
+// The avatar (`[avatar]`, round, 40px): a press on it is the checkbox's.
+.inbox-row__avatar {
+  pointer-events: none;
+}
+
+.inbox-row__name,
+.inbox-row__subject {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inbox-row__name {
+  grid-column: 2;
+}
+
+// The date, a filled star before it on a starred message.
+.inbox-row__when {
+  grid-column: 3;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font: var(--mat-sys-label-medium);
+  white-space: nowrap;
+}
+
+.inbox-row__starred {
+  --mat-icon-size: 16px;
+  color: var(--mat-sys-primary);
+}
+
+.inbox-row__subject {
+  grid-column: 2 / -1;
+}
+
+// The quick actions: small icon buttons (the wide toolbar's 28/32/16),
+// outlined glyphs, centred on the row's end over the date. Hidden until
+// the row is under a pointer or the keyboard is on it or in it (a click
+// leaves focus on a button: that alone keeps nothing shown) — and only on
+// a screen with a pointer that hovers: a touch screen never shows them.
+.inbox-actions {
+  --mat-icon-button-state-layer-size: 28px;
+  --mat-icon-button-touch-target-size: 32px;
+  --mat-icon-button-icon-size: 16px;
+  --mat-icon-fill: 0;
+
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 16px;
+  display: none;
+  align-items: center;
+  gap: 4px;
+  // The bar spans the row's height to centre its buttons, but only the
+  // buttons take a press: above, below and between them the press goes
+  // through to the row's link and opens the message.
+  pointer-events: none;
+}
+
+// Starred: its star filled, in the primary.
+.inbox-actions__star[aria-pressed='true'] {
+  --mat-icon-fill: 1;
+  color: var(--mat-sys-primary);
+}
+
+@media (hover: hover) {
+  // Laid out always, unseen until shown: a button the arrows step to must
+  // stay focusable while focus is between two of the row's stops — then
+  // nothing in it matches `:focus-visible`, and a bar gone from the layout
+  // would drop the focus on the body.
+  .inbox-actions {
+    display: flex;
+    opacity: 0;
+  }
+
+  .inbox-item:hover,
+  .inbox-item:focus-visible,
+  .inbox-item:has(:focus-visible) {
+    .inbox-actions {
+      opacity: 1;
+
+      button {
+        pointer-events: auto;
+      }
+    }
+
+    // The date gives way, and the text ends short of the buttons.
+    .inbox-row {
+      grid-template-columns: 40px minmax(0, 1fr) var(--_actions);
+    }
+
+    .inbox-row__when {
+      visibility: hidden;
+    }
+
+    .inbox-row__subject {
+      grid-column: 2;
+    }
+  }
+
+  // The row's hover wash, while the pointer is on its actions or avatar too.
+  .inbox-item:not([aria-current='page']):hover .inbox-row {
+    background-color: var(--_wash);
+  }
+}
+
+// Unread, Linear's way: one thing bold — the sender, at the 500 the app
+// loads (a 600 is a smeared faux bold) — the subject in full ink but
+// regular, the date grey as ever; read ones stay quiet.
+.inbox-row--unread {
+  .inbox-row__name {
+    font-weight: 500;
+    color: var(--mat-sys-on-surface);
+  }
+
+  .inbox-row__subject {
+    color: var(--mat-sys-on-surface);
+  }
+}
+
+// The open one (`aria-current="page"`): a pane of glass, Wuthering Waves' —
+// never a fill. A wash of the sender's hue, brighter at its top corner, a
+// soft glow from its edges in, and a double frame: the hue's line at the
+// edge (the outline), a fainter one 4px inside it. Its ink stays the row's
+// own, read or not.
+.inbox-item[aria-current='page'] .inbox-row {
+  position: relative;
+  border-radius: var(--mat-sys-corner-small);
+  background: linear-gradient(
+    135deg,
+    color-mix(in oklch, var(--avatar-tint) 16%, transparent),
+    color-mix(in oklch, var(--avatar-tint) 6%, transparent) 60%
+  );
+  box-shadow: inset 0 0 12px color-mix(in oklch, var(--avatar-tint) 20%, transparent);
+  outline: 1px solid var(--avatar-tint);
+  outline-offset: -1px;
+  color: var(--mat-sys-on-surface);
+
+  // The inner line.
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    border: 1px solid color-mix(in oklch, var(--avatar-tint) 50%, transparent);
+    border-radius: calc(var(--mat-sys-corner-small) - 4px);
+    pointer-events: none;
+  }
+
+  .inbox-row__name,
+  .inbox-row__subject {
+    color: var(--mat-sys-on-surface);
+  }
+
+  .inbox-row__when {
+    color: var(--avatar-tint);
+  }
+}
+
+// The keyboard's row: the primary's line at the edge — on the open one in
+// place of its hue's, the inner line kept, so the two show together. Its
+// corners the open one's, softened — its hover wash with them.
+.inbox-item:focus-visible .inbox-row {
+  border-radius: var(--mat-sys-corner-small);
+  outline: 2px solid var(--mat-sys-primary);
+  outline-offset: -2px;
+}
