@@ -74,6 +74,8 @@ describe('ApiReference', () => {
     const root = await open('editor');
     const headings = [...root.querySelectorAll('.doc-h2')].map((h) => h.textContent?.trim());
     expect(headings).toEqual(['Editor', 'Kits & authoring', 'Built-in behaviour']);
+    // the trail names the page: no title or lede of its own repeats the first section
+    expect(root.querySelector('.doc-title, .doc-lede')).toBeNull();
     expect(root.querySelector('nav[docToc] a[href$="#create-editor"]')).not.toBeNull();
   });
 });

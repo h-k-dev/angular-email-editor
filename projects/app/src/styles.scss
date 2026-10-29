@@ -2550,6 +2550,12 @@ section[html-email-compose][data-wrap='off'] .aee-editor {
   &:not(:has(> .doc-h2)) {
     margin-block-start: 32px;
   }
+
+  /* A page with no title (the API reference: its trail names it) opens on
+     its first section. */
+  .doc-body > &:first-child {
+    margin-block-start: 0;
+  }
 }
 
 /* Small: the code under it is what the eye goes to. */

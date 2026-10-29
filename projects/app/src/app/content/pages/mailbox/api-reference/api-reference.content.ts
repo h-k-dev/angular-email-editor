@@ -28,14 +28,12 @@ export interface ApiSection {
   readonly entries: readonly ApiEntry[];
 }
 
-/** A page of the reference: one aside link, a few sections. A page of one
-    section is that section: its intro is the page's lede, no heading
-    repeats the title. */
+/** A page of the reference: one aside link, a few sections. No lede of
+    its own: the trail names the page and its first section opens it. */
 export interface ApiPage {
   /** The route segment — its `API_PAGES` id. */
   readonly id: string;
   readonly title: string;
-  readonly lede: string;
   readonly sections: readonly ApiSection[];
 }
 
@@ -841,43 +839,36 @@ export const API_PAGE_CONTENT: readonly ApiPage[] = [
   {
     id: 'editor',
     title: 'Editor',
-    lede: 'Mount an editor, choose a kit, and the behaviour that comes with it.',
     sections: [section('editor'), section('kits'), section('behaviour')],
   },
   {
     id: 'menus',
     title: 'Menus & suggestions',
-    lede: 'Floating menus and handles, the menus that open at the caret, and the writing aids around them.',
     sections: [section('menus'), section('suggestions'), section('writing')],
   },
   {
     id: 'documents',
     title: 'Documents & source',
-    lede: 'HTML in and out of the editor, the source pane’s tooling, and the seeds for a reply, a forward or an import.',
     sections: [section('documents'), section('source'), section('reply-forward-import')],
   },
   {
     id: 'addresses',
     title: 'Addresses',
-    lede: section('addresses').intro,
     sections: [section('addresses')],
   },
   {
     id: 'sending',
     title: 'Merge tags & sending',
-    lede: 'Personalization, the payload a send produces, and the inline images it carries.',
     sections: [section('merge-tags'), section('send'), section('inline-images')],
   },
   {
     id: 'safety',
     title: 'Email safety',
-    lede: 'What mail clients will do to the document, and how long it is — answered before it is sent.',
     sections: [section('email-safety'), section('measurement')],
   },
   {
     id: 'integration',
     title: 'Integration directives',
-    lede: section('integration').intro,
     sections: [section('integration')],
   },
 ];

@@ -1,16 +1,12 @@
 <doc-page [icon]="link().icon" [trail]="trail()" [toc]="toc()">
-  <h1 class="doc-title">{{ content().title }}</h1>
-  <p class="doc-lede" [docProse]="content().lede"></p>
-
+  <!-- No page title: the trail above names the page. It starts with its
+       first section, heading and intro. -->
   @for (section of content().sections; track section.id) {
     <section class="doc-section" [id]="section.id" [attr.aria-labelledby]="section.id + '-title'">
-      <!-- A page of one section is that section: the title says it. -->
-      @if (content().sections.length > 1) {
-        <h2 class="doc-h2" [id]="section.id + '-title'">
-          <a class="doc-anchor" routerLink="." [fragment]="section.id">{{ section.title }}</a>
-        </h2>
-        <p class="doc-intro" [docProse]="section.intro"></p>
-      }
+      <h2 class="doc-h2" [id]="section.id + '-title'">
+        <a class="doc-anchor" routerLink="." [fragment]="section.id">{{ section.title }}</a>
+      </h2>
+      <p class="doc-intro" [docProse]="section.intro"></p>
 
       <!-- An export, a step: its name and what it is for in a line, then
            the code — how it is used, or its import and signature; what to
