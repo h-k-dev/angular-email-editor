@@ -1,6 +1,6 @@
 {
   "name": "@h-k-dev/angular-email-editor",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "An email editor for Angular on ProseMirror — a visual composer and an HTML source editor over one schema that is the vocabulary of email HTML.",
   "license": "MIT",
   "author": "h-k-dev",
