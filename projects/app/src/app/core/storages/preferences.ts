@@ -57,6 +57,11 @@ export const DESIGNER_DETAILS_MIN = 320;
 export const DESIGNER_DETAILS_MAX = 1200;
 export const DESIGNER_DETAILS_DEFAULT = 420;
 
+/** From how wide a desk the designer's details push the editor aside, px —
+    a pane of their own beside it. Narrower, they float over the editor's
+    end, a Mac's sidebar: a small window keeps the email its whole width. */
+export const DESIGNER_DETAILS_PUSH_MIN = 1200;
+
 /**
  * What the user chose, as two-way signals that survive a reload and reach
  * every tab of the app. The app's own — its theme and language — are

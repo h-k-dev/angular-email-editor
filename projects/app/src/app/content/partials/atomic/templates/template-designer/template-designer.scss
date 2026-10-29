@@ -260,17 +260,21 @@ $preview-min: 448px;
   }
 }
 
-// Too narrow a desk for them beside the editor: floating down its end, as
-// tall as they are — on the paper's own fill, so what they float over goes
-// under them and they read as no surface at all.
+// Short of a wide desk (`DESIGNER_DETAILS_PUSH_MIN`): floating over the
+// editor's end, a Mac's sidebar — the desk's whole height, 8px off its
+// edges, lifted off the email only just (the lowest elevation), its
+// corners round.
 :host([data-details='over']) .designer-details {
+  // The whole desk its box, not the details' track (no width while they
+  // float): an absolute grid child's containing block is its grid area.
+  grid-area: auto;
   position: absolute;
   z-index: 2;
-  inset-block-start: 12px;
-  inset-inline-end: 12px;
-  max-block-size: calc(100% - 24px);
-  inline-size: max(300px, min(var(--designer-details-width), 100% - 24px));
-  padding-block-start: 0;
+  inset-block: 8px;
+  inset-inline-end: 8px;
+  inline-size: max(300px, min(var(--designer-details-width), 100% - 16px));
+  border-radius: var(--mat-sys-corner-large);
+  box-shadow: var(--mat-sys-level1);
 }
 
 .designer-block__empty {

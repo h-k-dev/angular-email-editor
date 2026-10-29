@@ -191,6 +191,24 @@ describe('TemplateDesigner desk (render)', () => {
     }
   });
 
+  it('floats the details over the editor short of a wide desk, a Mac’s sidebar, raised off the email', async () => {
+    // Room for the details beside the editor's 720px — but short of 1200.
+    await open(1100);
+    expect(host().getAttribute('data-details')).toBe('over');
+    // The email keeps the desk's whole width: nothing pushed aside.
+    expect(width('.designer-canvas')).toBe(1100);
+    const details = getComputedStyle(el('.designer-details'));
+    expect(details.position).toBe('absolute');
+    expect(details.boxShadow).not.toBe('none');
+    // As wide as they were dragged — the desk is their box, not their track
+    // — and its whole height, 8px off the edges.
+    expect(width('.designer-details')).toBe(420);
+    const desk = el('.designer-body').getBoundingClientRect();
+    const panel = el('.designer-details').getBoundingClientRect();
+    expect([panel.top - desk.top, desk.bottom - panel.bottom, desk.right - panel.right]).toEqual([8, 8, 8]);
+    expect(host().querySelector('.designer-divider--details')).toBeNull();
+  });
+
   it('floats a side over the editor where the desk is too narrow for it', async () => {
     await open(1000);
     expect(host().getAttribute('data-details')).toBe('over');

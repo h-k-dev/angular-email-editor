@@ -60,6 +60,7 @@ import { DIALECT_NAMES, EmailTemplate, Templates } from '../../../../../core/ema
 import {
   DESIGNER_DETAILS_MAX,
   DESIGNER_DETAILS_MIN,
+  DESIGNER_DETAILS_PUSH_MIN,
   DESIGNER_EDITOR_MIN,
   DESIGNER_PREVIEW_MAX,
   DESIGNER_PREVIEW_MIN,
@@ -269,11 +270,14 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
   protected readonly detailsMin = DESIGNER_DETAILS_MIN;
   protected readonly detailsMax = DESIGNER_DETAILS_MAX;
 
-  /** The details as a pane of their own: open, where the desk holds them
-      at their least beside the editor's. Narrower, they float over the
-      editor's end instead. */
+  /** The details as a pane of their own, pushing the editor aside: open,
+      on a wide desk (`DESIGNER_DETAILS_PUSH_MIN`). Narrower, they float
+      over the editor's end — a Mac's sidebar — and the email keeps the
+      desk's width. */
   protected readonly detailsDocked = computed(
-    () => this.detailsOpen() && this.#deskWidth() >= DESIGNER_EDITOR_MIN + DESIGNER_DETAILS_MIN,
+    () =>
+      this.detailsOpen() &&
+      this.#deskWidth() >= Math.max(DESIGNER_DETAILS_PUSH_MIN, DESIGNER_EDITOR_MIN + DESIGNER_DETAILS_MIN),
   );
 
   /** The preview as a pane of its own: open, where the desk holds it at
