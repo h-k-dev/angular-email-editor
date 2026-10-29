@@ -100,6 +100,18 @@ export class EnvelopeRows {
       HTML document. */
   readonly plainText = input(false);
 
+  /** To's label: Gmail's — shown only while focus is in its row, the row
+      its addresses alone at rest (`on-focus`, a message being written) —
+      or always there, From's way (`always`: a template's details, a form
+      read row by row). */
+  readonly toLabel = input<'on-focus' | 'always'>('on-focus');
+
+  /** Whether the recipients merge into one line at rest, Gmail's (a
+      message being written) — or stay a row each, labelled, however full
+      (a template's details: a narrow pane, where a merged line is too
+      cramped to read). */
+  readonly mergeRecipients = input(true);
+
   /** The message as the rows read it. */
   protected readonly value = computed(() => this.form()().value());
 
@@ -194,7 +206,7 @@ export class EnvelopeRows {
       A lone To row already reads as a line when it is not focused, and
       swapping it for a lookalike would only move its placeholder. */
   protected readonly recipientsMerged = computed(
-    () => !this.recipientsActive() && (this.showCc() || this.showBcc()),
+    () => this.mergeRecipients() && !this.recipientsActive() && (this.showCc() || this.showBcc()),
   );
 
   /** The merged line's groups, To first; empty groups left out. The first

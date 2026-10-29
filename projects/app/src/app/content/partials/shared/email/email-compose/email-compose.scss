@@ -60,8 +60,17 @@
     padding-block-end: 0;
   }
 
+  // Stuck sideways as well (its inset is both inline ends): a page wider
+  // than the scroller (a fixed-width email in the designer) scrolls under
+  // it, the foot no wider than the scroller (`--email-compose-foot-max`,
+  // the host's to say: its scroller's width) and what it holds kept to a
+  // measure in its middle (`--email-compose-foot-inset-inline`, the host's
+  // too) — centred in the scroller, not spread across it.
   .email-compose__foot {
     position: sticky;
+    box-sizing: border-box;
+    max-inline-size: var(--email-compose-foot-max, none);
+    padding-inline: var(--email-compose-foot-inset-inline, 0px);
   }
 }
 

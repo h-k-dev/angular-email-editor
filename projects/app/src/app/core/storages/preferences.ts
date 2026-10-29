@@ -38,6 +38,25 @@ export const SNIPPET_LIST_MIN = 280;
     and its insets. */
 export const SNIPPET_EDITOR_MIN = 640;
 
+/** What the template designer's editor keeps at least, px, however far
+    either pane beside it is dragged: the email's 720px column — an email
+    wider than that scrolls in it. */
+export const DESIGNER_EDITOR_MIN = 720;
+
+/** How narrow the designer's preview may be dragged, px: the phone — its
+    375px screen and 12px bezel either side — and 24px round it. How wide
+    is a sanity bound: what stops it is the editor's least. Unset, it is
+    as narrow as it goes. */
+export const DESIGNER_PREVIEW_MIN = 448;
+export const DESIGNER_PREVIEW_MAX = 1200;
+
+/** How narrow the designer's details may be dragged, px: an address row's
+    label beside a short address; their width until dragged — a whole
+    address on one line — and a sanity bound. */
+export const DESIGNER_DETAILS_MIN = 320;
+export const DESIGNER_DETAILS_MAX = 1200;
+export const DESIGNER_DETAILS_DEFAULT = 420;
+
 /**
  * What the user chose, as two-way signals that survive a reload and reach
  * every tab of the app. The app's own — its theme and language — are
@@ -131,6 +150,20 @@ export class Preferences {
   readonly inboxListWidth = this.#storage.pairSignal(
     `${PREFIX}inbox-list-width`,
     wholeIn(INBOX_LIST_MIN, INBOX_LIST_MAX, INBOX_LIST_DEFAULT),
+  );
+
+  /** How wide the template designer's preview is, px — its divider,
+      dragged. */
+  readonly designerPreviewWidth = this.#storage.pairSignal(
+    `${PREFIX}designer-preview-width`,
+    wholeIn(DESIGNER_PREVIEW_MIN, DESIGNER_PREVIEW_MAX, DESIGNER_PREVIEW_MIN),
+  );
+
+  /** How wide the template designer's details are, px — their divider,
+      dragged. */
+  readonly designerDetailsWidth = this.#storage.pairSignal(
+    `${PREFIX}designer-details-width`,
+    wholeIn(DESIGNER_DETAILS_MIN, DESIGNER_DETAILS_MAX, DESIGNER_DETAILS_DEFAULT),
   );
 
   /** How wide the snippets' list is, px — its divider, dragged. */

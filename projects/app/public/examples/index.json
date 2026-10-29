@@ -131,6 +131,8 @@
           "file": "angularjs/poor-fix-width.html",
           "envelope": {
             "from": ["forderungen@example.com"],
+            "cc": ["buchhaltung@example.com"],
+            "bcc": ["archiv@example.com"],
             "subject": "Zahlungserinnerung zu Rechnung {{ invoice.number }} – Kundennummer {{ customer.number }}",
             "previewText": "Offen: {{ invoice.total | currency:'€' }}, bitte zahlen bis {{ invoice.dueDate | date:'dd.MM.yyyy' }}."
           }

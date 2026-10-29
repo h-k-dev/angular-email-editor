@@ -30,6 +30,9 @@ export interface ExampleEntry {
 /** What a catalogue entry may say of the message round its template. */
 export interface ExampleEnvelope {
   from?: string[];
+  to?: string[];
+  cc?: string[];
+  bcc?: string[];
   subject?: string;
   previewText?: string;
 }

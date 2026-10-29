@@ -1,7 +1,8 @@
 import {
   Component,
-  DestroyRef,
+  DOCUMENT,
   ElementRef,
+  afterNextRender,
   afterRenderEffect,
 
   // Signals
@@ -57,7 +58,14 @@ import { TranslatePipe } from '@ngx-translate/core';
 
 import { BLANK, Envelope } from '../../../../../core/email/envelope';
 import { DIALECT_NAMES, EmailTemplate, Templates } from '../../../../../core/email/templates';
-import { Preferences } from '../../../../../core/storages/preferences';
+import {
+  DESIGNER_DETAILS_MAX,
+  DESIGNER_DETAILS_MIN,
+  DESIGNER_EDITOR_MIN,
+  DESIGNER_PREVIEW_MAX,
+  DESIGNER_PREVIEW_MIN,
+  Preferences,
+} from '../../../../../core/storages/preferences';
 import { Badge } from '../../../common/badge/badge';
 import { PageHeader } from '../../../common/page-header/page-header';
 import { PaperToggle } from '../../../common/paper-toggle/paper-toggle';
@@ -73,7 +81,7 @@ import {
   EnvelopeRows,
 } from '../../../shared/email/message-form/envelope-rows/envelope-rows';
 import { MessageMenu } from '../../../shared/email/message-form/message-menu/message-menu';
-import { EditorView, MessageSheet } from '../../../shared/email/message-form/message-sheet';
+import { MessageSheet } from '../../../shared/email/message-form/message-sheet';
 import {
   IslandMarquee,
   MarqueeStart,
@@ -109,12 +117,16 @@ function sameMessage(a: Envelope, b: Envelope): boolean {
  *
  * - One paper, as the zoomed window is: bar, canvas, phone and details all
  *   on the message's paper, nothing of a desk under them.
- * - The canvas: the editor in the email's 600px column, its layout blocks
- *   taking their gestures (design, never write) and the formatting toolbar
- *   always there.
- * - On the right, three outlined blocks: the message's rows — From, To,
- *   Cc, Bcc, Subject, Preview — its attachments, and its layout, each
- *   folding to its heading on its own.
+ * - Three panes, an editor's (VS Code's): the phone's preview, the editor,
+ *   the details — the sides dragged by their dividers and folded from the
+ *   bar, the editor keeping its 720px whatever they ask.
+ * - The canvas: the editor in the email's 720px column — or a wider
+ *   email's own width, the canvas scrolling it both ways — its layout
+ *   blocks taking their gestures (design, never write) and the formatting
+ *   toolbar always there.
+ * - On the right, the message's rows — From, To, Cc, Bcc, Subject,
+ *   Preview — straight away, and its attachments under them, dropped or
+ *   picked on one zone.
  * - The layout is the email's page (the library's `PageLayout`): none, or
  *   a centred column of a width on a page colour, the column's own colour
  *   over it — set only here, a step of the editor's, so undo takes it back.
@@ -124,9 +136,8 @@ function sameMessage(a: Envelope, b: Envelope): boolean {
  *   — the very `mail-view` the reader uses, which lays itself out by the
  *   room the phone gives it — live as typing settles, on the light paper
  *   and the dark at once: a divider down the screen parts the two, and
- *   slides to show all of either. On when asked for,
- *   centred in the room left of the email's column; it pushes the column
- *   only where that room is too narrow to hold it.
+ *   slides to show all of either. On when asked for, in the pane on the
+ *   left.
  * - Its HTML: the bar's </> puts the source in the editor's place (code
  *   view, the compose page's same pane) and back.
  * - No Send: a template is not sent. Save stores it (Ctrl/⌘+S too);
@@ -181,9 +192,11 @@ function sameMessage(a: Envelope, b: Envelope): boolean {
   styleUrl: './template-designer.scss',
   host: {
     '[attr.data-paper-scheme]': 'scheme()',
-    '[attr.data-phone]': 'phoneOpen() || null',
-    '[attr.data-details]': "detailsOpen() ? null : 'folded'",
+    '[attr.data-preview]': "phoneOpen() ? (previewDocked() ? 'docked' : 'over') : null",
+    '[attr.data-details]': "detailsOpen() ? (detailsDocked() ? 'docked' : 'over') : 'folded'",
+    '[attr.data-view]': 'editorView()',
     '(keydown)': 'shortcut($event)',
+    '(window:resize)': 'measureDesk()',
   },
 })
 export class TemplateDesigner extends MessageSheet implements PaperIsland {
@@ -243,6 +256,51 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
   /** The phone on the left of the canvas. */
   protected readonly phoneOpen = signal(false);
 
+  /** The desk under the bar: the three panes' room. */
+  private readonly desk = viewChild.required('desk', { read: ElementRef<HTMLElement> });
+  /** Its width, px — the screen's until it is first measured (the dialog
+      fills it), so the panes open docked where they will stay. */
+  readonly #deskWidth = signal(inject(DOCUMENT).defaultView?.innerWidth ?? 0);
+
+  /** The panes' widths as dragged — kept for the next template. */
+  protected readonly previewWidth = inject(Preferences).designerPreviewWidth;
+  protected readonly detailsWidth = inject(Preferences).designerDetailsWidth;
+  protected readonly previewMin = DESIGNER_PREVIEW_MIN;
+  protected readonly previewMax = DESIGNER_PREVIEW_MAX;
+  protected readonly detailsMin = DESIGNER_DETAILS_MIN;
+  protected readonly detailsMax = DESIGNER_DETAILS_MAX;
+
+  /** The details as a pane of their own: open, where the desk holds them
+      at their least beside the editor's. Narrower, they float over the
+      editor's end instead. */
+  protected readonly detailsDocked = computed(
+    () => this.detailsOpen() && this.#deskWidth() >= DESIGNER_EDITOR_MIN + DESIGNER_DETAILS_MIN,
+  );
+
+  /** The preview as a pane of its own: open, where the desk holds it at
+      its least beside the editor's and the docked details' — it gives way
+      first. Narrower, it floats over the editor's start. */
+  protected readonly previewDocked = computed(
+    () =>
+      this.phoneOpen() &&
+      this.#deskWidth() >=
+        DESIGNER_EDITOR_MIN + DESIGNER_PREVIEW_MIN + (this.detailsDocked() ? DESIGNER_DETAILS_MIN : 0),
+  );
+
+  /** What each divider leaves the rest, px: the editor's least, and the
+      other pane — the details as wide as they stand (the preview only
+      takes what they leave), the preview at its least (the details may
+      push it there). The desk's tracks say the same (the stylesheet). */
+  protected readonly previewKeep = computed(() => {
+    if (!this.detailsDocked()) return DESIGNER_EDITOR_MIN;
+    const least = this.previewDocked() ? DESIGNER_PREVIEW_MIN : 0;
+    const details = Math.min(this.detailsWidth(), this.#deskWidth() - DESIGNER_EDITOR_MIN - least);
+    return DESIGNER_EDITOR_MIN + details;
+  });
+  protected readonly detailsKeep = computed(
+    () => DESIGNER_EDITOR_MIN + (this.previewDocked() ? DESIGNER_PREVIEW_MIN : 0),
+  );
+
   /** The phone's screen, px: the narrowest a message is still read on. */
   protected readonly phoneWidth = PHONE_WIDTH;
   /** The papers the phone reads the mail on, left to right of its divider. */
@@ -276,11 +334,6 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
     this.layoutOpen.set(false);
     (origin.elementRef.nativeElement as HTMLElement).focus();
   }
-
-  /** The details' blocks on the right — the rows, the files — each open,
-      or folded to its heading. */
-  protected readonly messageOpen = signal(true);
-  protected readonly filesOpen = signal(true);
 
   /** The page layouts, as the Layout tab's swatches offer them. */
   protected readonly layoutKinds = ['none', 'centered', 'table'] as const;
@@ -342,43 +395,42 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
     // screen: there is no backdrop to press beside it).
     effect(() => (this.#ref.disableClose = this.dirty()));
 
-    // A wider email widens its column: measured as it changes, and as the
-    // paper grows (an image come in).
+    afterNextRender(() => this.measureDesk());
+
+    // Once per edit, and once the editor has drawn the body: the paper held
+    // to the email's real width.
     afterRenderEffect(() => {
       this.html();
-      this.#fitMail(this.editorView());
+      this.emailPane().baseline();
+      this.#fitPaper(this.editorView() === 'editor');
     });
-    // A frame later: the fit resizes the paper it observes, which inside
-    // the observer's own callback is a resize loop.
-    const resize = new ResizeObserver(() =>
-      requestAnimationFrame(() => this.#fitMail(untracked(this.editorView))),
-    );
-    afterRenderEffect(() => resize.observe(this.paper().nativeElement));
-    inject(DestroyRef).onDestroy(() => resize.disconnect());
   }
 
   /** The editor's paper: the email's column. */
   private readonly paper = viewChild.required('paper', { read: ElementRef<HTMLElement> });
 
   /**
-   * How wide the email is where it is wider than its column (a fixed-width
-   * table, a wide image), on the desk as `--designer-mail-width`: the column
-   * grows to it, the empty room beside it giving way (the details keep
-   * theirs), and the canvas scrolls what still does not fit. Measured at the
-   * column's own width — the property taken away, read, put back in one
-   * task, so nothing is drawn between — so an email that shrank gives the
-   * room back; one that fits sets none.
+   * The column is as wide as the email's min-content (the stylesheet) — but
+   * an email can draw wider than that: a no-wrap cell past its table's own
+   * width, which is what a table's min-content says. Then the canvas would
+   * scroll on past the paper, and the paper's sticky foot stop short of the
+   * scroll's end. So the paper is held to what it really draws: its own
+   * least taken away, read, put back where wider, in one task — nothing is
+   * drawn between.
    */
-  #fitMail(view: EditorView): void {
-    const desk = this.element;
-    desk.style.removeProperty('--designer-mail-width');
-    if (view !== 'editor') return;
+  #fitPaper(editing: boolean): void {
     const paper = this.paper().nativeElement as HTMLElement;
-    if (paper.scrollWidth <= paper.clientWidth) return;
-    // The editor's inset at the column's end, kept past the email's end.
-    const editor = paper.querySelector('.ProseMirror') ?? paper;
-    const inset = paper.getBoundingClientRect().right - editor.getBoundingClientRect().right;
-    desk.style.setProperty('--designer-mail-width', `${Math.ceil(paper.scrollWidth + inset)}px`);
+    paper.style.removeProperty('min-inline-size');
+    if (!editing) return;
+    const width = paper.scrollWidth;
+    if (width > paper.clientWidth) paper.style.minInlineSize = `${width}px`;
+  }
+
+  /** The desk's width, read as it is first drawn and as the window
+      resizes — it fills the window, nothing else moves it: which panes it
+      holds. */
+  protected measureDesk(): void {
+    this.#deskWidth.set(this.desk().nativeElement.clientWidth);
   }
 
   /** The HTML source, and its node for the code-view portal. */

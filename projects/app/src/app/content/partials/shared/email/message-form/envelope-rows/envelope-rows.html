@@ -147,12 +147,19 @@
           (savedModelChange)="rowSaved.emit({ row: 'to', value: $event })"
         >
           <ng-template emailAddressLabel
-            ><span class="writer-field__label writer-field__label--on-focus">To</span></ng-template
+            ><span class="writer-field__label" [class.writer-field__label--on-focus]="toLabel() === 'on-focus'"
+              >To</span
+            ></ng-template
           >
         </div>
       </mat-form-field>
     } @else {
-      <label class="writer-field__label writer-field__label--on-focus" [for]="toField.id">To</label>
+      <label
+        class="writer-field__label"
+        [class.writer-field__label--on-focus]="toLabel() === 'on-focus'"
+        [for]="toField.id"
+        >To</label
+      >
       @if (!showCc() || !showBcc()) {
         <span class="writer-field__actions writer-field__actions--copy">
           <ng-container [ngTemplateOutlet]="copyButtons" />

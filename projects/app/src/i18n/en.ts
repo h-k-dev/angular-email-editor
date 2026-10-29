@@ -140,7 +140,8 @@ export default {
     phone: 'Phone preview',
     phoneSplit: 'Light and dark divider',
     details: 'Message details',
-    message: 'Message',
+    previewWidth: 'Preview width',
+    detailsWidth: 'Details width',
     revert: 'Revert to saved',
     save: 'Save',
     saving: 'Saving…',
@@ -148,7 +149,7 @@ export default {
     saved: 'Template saved',
     saveFailed: 'The template could not be saved',
     noSubject: '(no subject)',
-    add: 'Add',
+    addAttachments: 'Add attachments',
     layout: {
       title: 'Layout',
       kind: 'Page layout',

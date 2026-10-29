@@ -15,6 +15,7 @@ import { SplitHandle } from './split-handle';
         splitMin="200"
         splitMax="500"
         [splitKeep]="keep()"
+        [splitEdge]="edge()"
       ></div>
     </div>
   `,
@@ -22,6 +23,7 @@ import { SplitHandle } from './split-handle';
 class Host {
   readonly width = signal(300);
   readonly keep = signal(0);
+  readonly edge = signal<'start' | 'end'>('start');
 }
 
 describe('SplitHandle', () => {
@@ -104,5 +106,27 @@ describe('SplitHandle', () => {
     expect(fixture.componentInstance.width()).toBe(500);
     await fixture.whenStable();
     expect(handle.getAttribute('aria-valuenow')).toBe('500');
+  });
+
+  it('sizes an end column the other way: left widens it, by pointer and by key', async () => {
+    fixture.componentInstance.edge.set('end');
+    await fixture.whenStable();
+
+    pointer('pointerdown', 400);
+    pointer('pointermove', 350);
+    await frame();
+    expect(grid.style.getPropertyValue('--list')).toBe('350px');
+    pointer('pointerup', 350);
+    expect(fixture.componentInstance.width()).toBe(350);
+
+    key('ArrowLeft');
+    expect(fixture.componentInstance.width()).toBe(366);
+    key('ArrowRight', true);
+    expect(fixture.componentInstance.width()).toBe(302);
+    // Its ends are its least and most, whichever side it stands on.
+    key('Home');
+    expect(fixture.componentInstance.width()).toBe(200);
+    key('End');
+    expect(fixture.componentInstance.width()).toBe(500);
   });
 });

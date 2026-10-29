@@ -264,8 +264,18 @@
   </button>
 </header>
 
-<div class="designer-body">
-  <!-- The phone, centred in the room left of the email's column: a mobile
+<!-- The desk: three panes, an editor's (VS Code's) — the phone's preview,
+     the editor, the details — the sides as wide as their dividers were
+     dragged, the editor never under 720px; each side folded from the bar.
+     Where the desk is too narrow for a side at its least, it floats over
+     the editor instead (the preview first). -->
+<div
+  class="designer-body"
+  #desk
+  [style.--designer-preview-width.px]="previewWidth()"
+  [style.--designer-details-width.px]="detailsWidth()"
+>
+  <!-- The phone, centred in the preview pane: a mobile
        browser (Brave's bars) on the webmail, the message as the inbox shows
        it received — the reader's own
        `mail-view`, laid out by the 375px the phone gives it (a container
@@ -330,11 +340,41 @@
     </section>
   }
 
-  <!-- The canvas: the email's 600px column on the paper, the editor in it —
-       the zoomed window's document. It owns the scroll (`scrollOwner`): the
-       editor grows with the email and the whole canvas scrolls, the wheel
-       anywhere on it. Its own empty room starts the block marquee, as the
-       editor's margin does. -->
+  <!-- The dividers, a side pane's while it is a pane: drag one, or focus
+       it and use the arrows. Neither takes the editor under its least. -->
+  @if (previewDocked()) {
+    <div
+      class="designer-divider designer-divider--preview"
+      [(splitHandle)]="previewWidth"
+      [splitTarget]="desk"
+      splitProperty="--designer-preview-width"
+      [splitMin]="previewMin"
+      [splitMax]="previewMax"
+      [splitKeep]="previewKeep()"
+      [attr.aria-label]="'designer.previewWidth' | translate"
+    ></div>
+  }
+  @if (detailsDocked()) {
+    <div
+      class="designer-divider designer-divider--details"
+      [(splitHandle)]="detailsWidth"
+      [splitTarget]="desk"
+      splitProperty="--designer-details-width"
+      splitEdge="end"
+      [splitMin]="detailsMin"
+      [splitMax]="detailsMax"
+      [splitKeep]="detailsKeep()"
+      aria-controls="designer-details"
+      [attr.aria-label]="'designer.detailsWidth' | translate"
+    ></div>
+  }
+
+  <!-- The canvas: the editor pane — the email's 720px column on the paper,
+       or a wider email's own width, the editor in it; the zoomed window's
+       document. It owns the scroll (`scrollOwner`), both ways: the editor
+       grows with the email and the whole canvas scrolls, the wheel anywhere
+       on it, its bars floating. Its own empty room starts the block
+       marquee, as the editor's margin does. -->
   <main class="designer-canvas" marqueeStart scrollOwner>
     <!-- Focusable from the first render, before its editor mounts: the
          dialog's initial focus lands on it (openTemplateDesigner), and the
@@ -376,83 +416,41 @@
     ></section>
   </main>
 
-  <!-- The details, on the right: the envelope — the message's rows and its
-       files; each block folds to its heading on its own. -->
+  <!-- The details, the pane on the right: the envelope — the message's
+       rows straight away, no heading over them (the pane says what it is),
+       its files under them. -->
   <aside
     id="designer-details"
     class="designer-details"
     [hidden]="!detailsOpen()"
     [attr.aria-label]="'designer.details' | translate"
   >
-    <section
-      class="designer-block"
-      [attr.data-open]="messageOpen() || null"
-    >
-      <div class="aside-section__head">
-        <h2 class="aside-section__title">
-          <button
-            type="button"
-            class="aside-section__toggle"
-            aria-controls="designer-message"
-            [attr.aria-expanded]="messageOpen()"
-            (click)="messageOpen.set(!messageOpen())"
-          >
-            {{ 'designer.message' | translate }}
-            <mat-icon class="aside-section__chevron" aria-hidden="true">expand_more</mat-icon>
-          </button>
-        </h2>
-      </div>
-      <!-- Folded, the rows stay — hidden, their state kept. -->
-      <div id="designer-message" class="designer-block__body" [hidden]="!messageOpen()">
-        <!-- Every address row is stored as soon as it is left. -->
-        <div
-          envelope-rows
-          [form]="envelope"
-          fields="material"
-          [plainText]="plainText()"
-          (rowSaved)="saveRow($event)"
-        ></div>
-      </div>
-    </section>
+    <!-- Every address row is stored as soon as it is left. -->
+    <div
+      envelope-rows
+      [form]="envelope"
+      fields="material"
+      toLabel="always"
+      [mergeRecipients]="false"
+      [plainText]="plainText()"
+      (rowSaved)="saveRow($event)"
+    ></div>
 
-    <!-- The files: a block of their own. Its body is where a file dropped
-         attaches, and its "+ Add" opens the picker. -->
-    <section
-      class="designer-block"
-      [attr.data-open]="filesOpen() || null"
+    <!-- The files: the chips, then the zone they are added on — a file
+         dropped anywhere here attaches, and a press on the zone picks one. -->
+    <div
+      class="designer-files"
+      dropZone
+      #zone="dropZone"
+      [clickable]="false"
+      [directory]="false"
+      [multiple]="true"
+      [attr.data-drag-over]="zone.isDragOver() || null"
+      (fileDrop)="onAttachmentDrop($event)"
     >
-      <div class="aside-section__head">
-        <h2 class="aside-section__title">
-          <button
-            type="button"
-            class="aside-section__toggle"
-            aria-controls="designer-files"
-            [attr.aria-expanded]="filesOpen()"
-            (click)="filesOpen.set(!filesOpen())"
-          >
-            {{ 'composer.attachments.label' | translate }}
-            @if (attachmentCount()) {
-              <span class="designer-block__count">{{ attachmentCount() }}</span>
-            }
-            <mat-icon class="aside-section__chevron" aria-hidden="true">expand_more</mat-icon>
-          </button>
-        </h2>
-      </div>
-      <div
-        id="designer-files"
-        class="designer-block__body designer-files"
-        [hidden]="!filesOpen()"
-        dropZone
-        #zone="dropZone"
-        [clickable]="false"
-        [directory]="false"
-        [multiple]="true"
-        [attr.data-drag-over]="zone.isDragOver() || null"
-        (fileDrop)="onAttachmentDrop($event)"
-      >
-        @if (attachmentCount()) {
-          <!-- The chips, wrapping onto as many lines as they need. -->
-          <ul email-attachment-chips [formField]="envelope.attachments">
+      @if (attachmentCount()) {
+        <!-- The chips, wrapping onto as many lines as they need. -->
+        <ul email-attachment-chips [formField]="envelope.attachments">
           @for (attachment of envelope.attachments().value(); track attachment.key) {
             <li
               email-attachment-chip
@@ -472,18 +470,12 @@
             </li>
           }
         </ul>
-        }
-        <!-- The picker: a quiet "+ Add" in the placeholder's ink. -->
-        <button
-          type="button"
-          class="designer-files__add"
-          [attr.aria-label]="'composer.attach' | translate"
-          (click)="zone.openFilePicker($event)"
-        >
-          <mat-icon aria-hidden="true">add</mat-icon>
-          {{ 'designer.add' | translate }}
-        </button>
-      </div>
-    </section>
+      }
+      <!-- The drop zone, drawn: a dashed box that is the picker's button. -->
+      <button type="button" class="designer-files__zone" (click)="zone.openFilePicker($event)">
+        <mat-icon aria-hidden="true">attach_file</mat-icon>
+        {{ 'designer.addAttachments' | translate }}
+      </button>
+    </div>
   </aside>
 </div>

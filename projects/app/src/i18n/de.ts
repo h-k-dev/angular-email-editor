@@ -137,7 +137,8 @@ export default {
     phone: 'Handyvorschau',
     phoneSplit: 'Trenner zwischen hell und dunkel',
     details: 'Nachrichtendetails',
-    message: 'Nachricht',
+    previewWidth: 'Breite der Vorschau',
+    detailsWidth: 'Breite der Details',
     revert: 'Auf Gespeichertes zurücksetzen',
     save: 'Speichern',
     saving: 'Wird gespeichert…',
@@ -145,7 +146,7 @@ export default {
     saved: 'Vorlage gespeichert',
     saveFailed: 'Die Vorlage konnte nicht gespeichert werden',
     noSubject: '(kein Betreff)',
-    add: 'Hinzufügen',
+    addAttachments: 'Anhänge hinzufügen',
     layout: {
       title: 'Layout',
       kind: 'Seitenlayout',

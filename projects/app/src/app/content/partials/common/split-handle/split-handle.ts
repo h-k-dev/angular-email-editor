@@ -39,6 +39,13 @@ interface Grab {
  * while a drag is under way, for the stylesheet to keep the col-resize
  * cursor and stop text selection across the whole grid, and the handle
  * `data-dragging`, to stay lit (styles/_split-handle.scss: its look).
+ *
+ * The pane it sizes may be the last instead (`splitEdge="end"`): a panel on
+ * the right, its handle on its start edge — a drag to the left widens it,
+ * and so does ArrowLeft, the handle moving the way the key points.
+ *
+ *     <div [(splitHandle)]="width" [splitTarget]="grid" splitEdge="end"></div>
+ *     .grid { grid-template-columns: minmax(0, 1fr) min(var(--split-size), 100% - 720px) }
  */
 @Directive({
   selector: '[splitHandle]',
@@ -57,7 +64,7 @@ interface Grab {
   },
 })
 export class SplitHandle {
-  /** The first column's width, px — committed on release. */
+  /** The sized column's width, px — committed on release. */
   readonly size = model.required<number>({ alias: 'splitHandle' });
 
   /** The element whose custom property sets the width: the grid. */
@@ -69,7 +76,11 @@ export class SplitHandle {
   readonly min = input(0, { alias: 'splitMin', transform: numberAttribute });
   readonly max = input(Infinity, { alias: 'splitMax', transform: numberAttribute });
 
-  /** What the second column keeps at least, px: the width never reaches
+  /** Which column it sizes: the first (`start`), or the last (`end`) — the
+      handle on that column's start edge, so a move to the left widens it. */
+  readonly edge = input<'start' | 'end'>('start', { alias: 'splitEdge' });
+
+  /** What the other column keeps at least, px: the width never reaches
       past the target's width minus this. The grid's own track says the
       same (`min(var(--size), 100% - <keep>)`), so the handle and the
       column never part on a narrow screen. */
@@ -116,7 +127,8 @@ export class SplitHandle {
   protected drag(event: PointerEvent): void {
     const grab = this.#grab;
     if (!grab || event.pointerId !== grab.pointer) return;
-    grab.size = this.#clamp(grab.from + event.clientX - grab.x, grab.ceiling);
+    const moved = event.clientX - grab.x;
+    grab.size = this.#clamp(grab.from + (this.edge() === 'end' ? -moved : moved), grab.ceiling);
     if (grab.frame) return;
     grab.frame =
       this.#window?.requestAnimationFrame(() => {
@@ -136,12 +148,14 @@ export class SplitHandle {
     this.size.set(grab.size);
   }
 
-  /** The arrows move it a step (Shift: four) from where it stands, Home and
-      End to its ends — the separator pattern's keys. */
+  /** The arrows move it a step (Shift: four) from where it stands — the
+      handle the way the key points, so on an end column ArrowLeft widens
+      it — Home and End to its least and most: the separator pattern's
+      keys. */
   protected key(event: KeyboardEvent): void {
     const ceiling = this.#ceiling();
     const now = this.#clamp(this.size(), ceiling);
-    const step = event.shiftKey ? KEY_STEP * 4 : KEY_STEP;
+    const step = (event.shiftKey ? KEY_STEP * 4 : KEY_STEP) * (this.edge() === 'end' ? -1 : 1);
     const to =
       event.key === 'ArrowLeft'
         ? now - step

@@ -17,8 +17,9 @@
 // - `--email-scroll-thumb` / `--email-scroll-thumb-hover` — the thumb, and
 //   the thumb under the pointer.
 //
-// The rail's ends keep clear of the scroller's block scroll padding (what
-// is stuck over its top or foot), read by the directive as `--_cover-*`.
+// The down rail's ends keep clear of the scroller's block scroll padding
+// (what is stuck over its top or foot), read by the directive as
+// `--_cover-*`; the across rail stands on the foot's.
 
 // Over whatever else styles the scroller's bar — a component's own scroll
 // mixin (the library's suggestion menu's list) outranks a global attribute
@@ -38,51 +39,82 @@
   position: absolute;
   z-index: 1;
   pointer-events: none;
+}
+
+// A rail: the strip its thumb can be taken by, a little wider than the
+// thumb — out of sight until its scroll is on, then live (a hidden rail
+// never takes a press meant for the text's margin), gone after the linger,
+// slower than it came.
+.floating-scrollbar__rail {
+  position: absolute;
   opacity: 0;
-  // Gone after the linger, slower than it came.
   transition: opacity 300ms ease-out;
 
   &[data-shown] {
     opacity: 1;
+    pointer-events: auto;
     transition-duration: 80ms;
   }
-}
 
-// The strip it can be taken by: a little wider than the thumb, on the end
-// edge, live only while the bar shows — a hidden bar never takes a press
-// meant for the text's margin.
-.floating-scrollbar__rail {
-  position: absolute;
-  // 2px off each end, as off the edge: the thumb never touches the box.
-  inset-block: calc(var(--_cover-start, 0px) + 2px) calc(var(--_cover-end, 0px) + 2px);
-  inset-inline-end: 0;
-  inline-size: calc(var(--_size) + 4px);
+  // Down the end edge, 2px off each end, as off the edge: the thumb never
+  // touches the box.
+  &[data-axis='block'] {
+    inset-block: calc(var(--_cover-start, 0px) + 2px) calc(var(--_cover-end, 0px) + 2px);
+    inset-inline-end: 0;
+    inline-size: calc(var(--_size) + 4px);
+  }
 
-  .floating-scrollbar[data-shown] & {
-    pointer-events: auto;
+  // Across the foot, standing on what is stuck there — short of the down
+  // rail's corner, so the two never cross.
+  &[data-axis='inline'] {
+    inset-block-end: var(--_cover-end, 0px);
+    inset-inline: 2px calc(var(--_size) + 6px);
+    block-size: calc(var(--_size) + 4px);
   }
 }
 
 .floating-scrollbar__thumb {
   position: absolute;
-  inset-block-start: 0;
-  inset-inline-end: 2px;
-  inline-size: calc(var(--_size) - 2px);
   border-radius: 1e3px;
   background-color: var(
     --email-scroll-thumb,
     color-mix(in srgb, var(--mat-sys-outline, light-dark(#747775, #8e918f)) 50%, transparent)
   );
-  transition:
-    inline-size 120ms ease-out,
-    background-color 120ms ease-out;
 
-  .floating-scrollbar__rail:hover &,
-  .floating-scrollbar[data-dragging] & {
-    inline-size: var(--_size);
+  [data-axis='block'] > & {
+    inset-block-start: 0;
+    inset-inline-end: 2px;
+    inline-size: calc(var(--_size) - 2px);
+    transition:
+      inline-size 120ms ease-out,
+      background-color 120ms ease-out;
+  }
+
+  [data-axis='inline'] > & {
+    inset-inline-start: 0;
+    inset-block-end: 2px;
+    block-size: calc(var(--_size) - 2px);
+    transition:
+      block-size 120ms ease-out,
+      background-color 120ms ease-out;
+  }
+
+  // Under the pointer, or dragged: full thickness, darker.
+  .floating-scrollbar__rail:hover > &,
+  .floating-scrollbar__rail[data-dragging] > & {
     background-color: var(
       --email-scroll-thumb-hover,
       color-mix(in srgb, var(--mat-sys-outline, light-dark(#747775, #8e918f)) 75%, transparent)
     );
+  }
+
+  [data-axis='block']:hover > &,
+  [data-axis='block'][data-dragging] > & {
+    inline-size: var(--_size);
+  }
+
+  [data-axis='inline']:hover > &,
+  [data-axis='inline'][data-dragging] > & {
+    block-size: var(--_size);
   }
 }

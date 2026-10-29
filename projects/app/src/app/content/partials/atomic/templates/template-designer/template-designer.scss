@@ -1,4 +1,3 @@
-@use 'sass:meta';
 @use '@angular/material' as mat;
 @use '@h-k-dev/angular-email-editor/styles/scroll';
 @use '../../../../../../styles/split-handle';
@@ -7,18 +6,12 @@
 // desk under it — one paper, edge to edge, as the zoomed window's document
 // is: bar, canvas, phone and details all lie on it, with no surface of their
 // own. The whole of it is a paper island (`data-paper-scheme`).
+// The editor's least and the preview's, px — DESIGNER_EDITOR_MIN and
+// DESIGNER_PREVIEW_MIN (core/storages/preferences.ts): change them together.
+$editor-min: 720px;
+$preview-min: 448px;
+
 :host {
-  // The details' width: room for an address row's label and a whole
-  // address on one line, and the layout swatches side by side.
-  --designer-details-width: 420px;
-  // What the right room keeps free for them while they show, so the email
-  // never runs under them: their width and the room's 12px either side.
-  --_details-space: calc(var(--designer-details-width) + 24px);
-  // How far the files' + sits in from the section's end, so it stands over
-  // the remove button of a chip at the row's end: the chips' list keeps 16px
-  // in, a chip's × is centred 20px in from its end (the 1px border, the 7px
-  // padding, half its 24px button) — 36px; the +'s 32px state layer is
-  // centred 16px in from its own end, so 20px more.
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   block-size: 100%;
@@ -95,59 +88,72 @@
   --mat-progress-spinner-active-indicator-color: currentColor;
 }
 
-// The right room's least, on a desk `$desk` wide: the details' room — or
-// what the email's 600px leave of it on a narrow screen (the details give
-// way, not the email).
-@function right-min($desk) {
-  @return max(0px, min(var(--_details-space), #{$desk} - var(--email-column-min) - 24px));
-}
-
-// The email column's most, on a desk `$desk` wide: 720px, or a wider
-// email's own width as far as the desk holds it beside the right room.
-@function email-column-max($desk) {
-  @return max(
-    var(--email-column-max),
-    min(var(--designer-mail-width, 0px), #{$desk} - right-min($desk) - 24px)
-  );
-}
-
-// The desk, three rooms in a row: what is left of the email's column, the
-// column, what is right of it — the two sides equal, so the email stands in
-// the middle of the screen; the details float over the right room and take
-// none of their own. The canvas spans them all (its empty room starts the marquee) and
-// lends the rows its columns (subgrid). The phone stands in the left room,
-// over the canvas: it never moves the email — unless that room is narrower
-// than the phone, which then widens it (the room's minimum is the phone's
-// width) and the email gives way only by what is missing. The email's
-// column is a document's (styles.scss): 720px where the room allows, never
-// under 600 — or a wider email's own width (`--designer-mail-width`, a
-// fixed-width table), as far as the desk holds it beside the details'
-// room; the canvas scrolls the rest sideways (`.designer-paper`).
+// The desk, three panes in a row, VS Code's: the preview, the editor, the
+// details. A side pane is as wide as its divider was dragged
+// (`--designer-*-width`, the preferences') — the details held to what the
+// editor's least and the preview's least leave, the preview to what the
+// editor's least and the details leave, so neither divider ever squeezes
+// the editor (each handle's `splitKeep` says the same) — or no track at all
+// while it is folded, or floats (`over`: the desk too narrow for it).
 .designer-body {
-  // The desk's width, for the paper to read (`100cqi`).
-  container-type: inline-size;
+  --_preview-least: 0px;
+  --_preview: 0px;
+  --_details: 0px;
+
   position: relative;
   display: grid;
-  grid-template-columns:
-    [left] 1fr
-    [email] minmax(var(--email-column-min), email-column-max(100%))
-    [right] minmax(right-min(100%), 1fr);
+  grid-template-columns: [preview] var(--_preview) [editor] minmax(0, 1fr) [details] var(--_details);
   grid-template-rows: minmax(0, 1fr);
-  column-gap: 12px;
   min-block-size: 0;
 }
 
-// The phone, dead centre of the left room: as tall as the desk lets it be,
-// up to the phone's own, and centred on both axes in it.
+:host([data-preview='docked']) .designer-body {
+  --_preview-least: #{$preview-min};
+  --_preview: max(0px, min(var(--designer-preview-width), 100% - #{$editor-min} - var(--_details)));
+}
+
+:host([data-details='docked']) .designer-body {
+  --_details: max(0px, min(var(--designer-details-width), 100% - #{$editor-min} - var(--_preview-least)));
+}
+
+// The dividers: the inbox's — a vanishing line between two panes, lit once
+// the pointer rests on it (styles/_split-handle.scss) — on each side pane's
+// edge.
+.designer-divider {
+  @include split-handle.handle;
+}
+
+.designer-divider--preview {
+  inset-inline-start: calc(var(--_preview) - 4px);
+}
+
+.designer-divider--details {
+  inset-inline-start: calc(100% - var(--_details) - 4px);
+}
+
+// The preview: the phone, dead centre of its pane, as tall as the desk lets
+// it be, up to the phone's own.
 .designer-phone {
-  z-index: 1;
-  grid-area: 1 / left;
-  justify-self: center;
+  grid-area: 1 / preview;
   display: flex;
   align-items: center;
+  justify-content: center;
   box-sizing: border-box;
   block-size: 100%;
+  min-inline-size: 0;
   padding: 24px;
+}
+
+// Too narrow a desk for it beside the editor: over the editor's start, at
+// its least, on the paper.
+:host([data-preview='over']) .designer-phone {
+  position: absolute;
+  z-index: 2;
+  inset-block: 0;
+  inset-inline-start: 0;
+  inline-size: $preview-min;
+  background: var(--email-paper, var(--mat-sys-surface-bright));
+  box-shadow: var(--mat-sys-level2);
 }
 
 // The two papers in one place, the dark over the light, cut from the left
@@ -170,46 +176,56 @@
   }
 }
 
-// The divider: the inbox's own — a vanishing line down the page between the
-// bars, standing still as the mail scrolls, lit once the pointer rests on it
-// (styles/_split-handle.scss). No knob: the line is what is taken.
+// The light and dark divider: the same handle — a vanishing line down the
+// page between the bars, standing still as the mail scrolls. No knob: the
+// line is what is taken.
 .designer-phone__divider {
   @include split-handle.handle;
   inset-inline-start: calc(var(--phone-split, 50%) - 4px);
 }
 
-// The canvas: every room, the editor in the email's — and the scroller
-// (`scrollOwner`): the editor grows with the email, at least the canvas
-// tall, and the canvas scrolls it, its toolbar stuck to the canvas's foot.
+// The canvas: the editor pane — and its scroller (`scrollOwner`), both
+// ways: the editor grows with the email, at least the canvas tall, and the
+// canvas scrolls it, its toolbar stuck to the canvas's foot. The email's
+// column stands in the middle, as wide as the paper (below).
 .designer-canvas {
-  grid-area: 1 / 1 / auto / -1;
+  // Its width, for the editor's foot (`100cqi`, below).
+  container-type: inline-size;
+  grid-area: 1 / editor;
   display: grid;
-  grid-template-columns: subgrid;
+  grid-template-columns: [start] 1fr [email] auto [end] 1fr;
   min-inline-size: 0;
   min-block-size: 0;
 }
 
 // The editor: the email's measure and the inset its layout blocks' grips
-// hang into, nothing round it — the text sits on the paper.
-//
-// An email wider than its column grown as far as it goes runs on past it:
-// the paper as wide as the email, and the details' room kept after it (a
-// clear end border, `--_reach`, none while the email fits) — so the canvas
-// scrolls the email's end out from under the details instead of leaving it
-// there.
+// hang into, nothing round it — the text sits on the paper. 720px, or as
+// wide as the email will go (a fixed-width table: its min-content) — the
+// canvas then scrolling it sideways from the column's start. The HTML
+// source in its place keeps the column's 720px at most — its lines are
+// formatted at 80 columns, which fit — centred, narrower only with the
+// pane.
 .designer-paper {
-  --_reach: clamp(
-    0px,
-    (var(--designer-mail-width, 0px) - #{email-column-max(100cqi)}) * 1000,
-    #{right-min(100cqi)} + 12px
-  );
-
   grid-column: email;
-  box-sizing: border-box;
-  min-inline-size: calc(var(--designer-mail-width, 0px) + var(--_reach));
+  inline-size: var(--email-column-max);
+  min-inline-size: min-content;
   min-block-size: 100%;
-  border-inline-end: var(--_reach) solid transparent;
   --email-compose-surface-padding-block: 16px;
+  // The formatting toolbar no wider than the editor pane, and centred in
+  // it at the column's measure: it stays put while a wide email scrolls
+  // under it. The foot is the pane's width or the paper's, whichever is
+  // less (`100%`, in its padding, is the paper's); what is over the
+  // column's 720px is its inset, half each side.
+  --email-compose-foot-max: 100cqi;
+  --email-compose-foot-inset-inline: max(0px, (min(100%, 100cqi) - var(--email-column-max)) / 2);
+
+  :host([data-view='html']) & {
+    grid-column: 1 / -1;
+    justify-self: center;
+    inline-size: 100%;
+    min-inline-size: 0;
+    max-inline-size: var(--email-column-max);
+  }
 }
 
 // The HTML source waits here, out of sight, while the editor shows: it is
@@ -220,74 +236,22 @@
   display: none;
 }
 
-// Folded away (the bar's toggle): the right room is the left's again.
-:host([data-details='folded']) {
-  --_details-space: 0px;
-}
-
-// The details: an editor's aside (styles/_aside-section.scss, iusta core's
-// dashboard settings' — loaded under the aside, so its rules reach this
-// aside alone) floating down the right edge — as tall as it is, scrolling
-// when the rows outgrow the screen. Figma's compact 13px base its parts size
-// against in em, the 8px gutter. Every part inside starts 16px in — the
-// titles' line; a section's chevron follows its title.
+// The details: an editor's aside, the pane on the right — the rows straight
+// away, the files under them — scrolling down on its own when they outgrow
+// the screen. Figma's compact 13px base its parts size against in em.
+// Every part inside starts 16px in.
 .designer-details {
   @include scroll.scroll;
-  @include meta.load-css('../../../../../../styles/aside-section');
 
-  --aside-padding-inline: calc(var(--mat-sys-spacing) * 2);
-  --aside-lead-size: 12px;
-  font-size: 0.8125rem;
-
-  // The sections' chevron: a Material Symbol in the lead slot.
-  .aside-section__chevron {
-    --mat-icon-size: var(--aside-lead-size);
-  }
-
-  // On the 4px grid: the 13px base would make a head 32.5px tall (2.5em)
-  // and its fold a fraction — a 32px head, a 24px fold centred in it.
-  .aside-section__head {
-    min-block-size: 32px;
-  }
-
-  .aside-section__toggle {
-    gap: 8px;
-    padding-block: 4px;
-    line-height: 16px;
-  }
-
-  // The chevron shows on the head's hover (or the fold's focus) alone — where
-  // a pointer can hover; a touch screen keeps it.
-  @media (hover: hover) {
-    .aside-section__chevron {
-      opacity: 0;
-      transition:
-        rotate 150ms ease,
-        opacity 150ms ease;
-    }
-
-    .aside-section__head:hover .aside-section__chevron,
-    .aside-section__toggle:focus-visible .aside-section__chevron {
-      opacity: 1;
-    }
-  }
-
-  position: absolute;
-  z-index: 1;
-  inset-block-start: 12px;
-  inset-inline-end: 12px;
-  max-block-size: calc(100% - 24px);
+  grid-area: 1 / details;
   display: flex;
   flex-direction: column;
   gap: 12px;
   box-sizing: border-box;
-  // 420px where the room allows; on a narrow screen what the email's 600px
-  // and the gaps leave (its room's 12px either side), never under 300px.
-  inline-size: max(300px, min(var(--designer-details-width), 100% - var(--email-column-min) - 48px));
+  min-inline-size: 0;
   overflow-y: auto;
-  // One aside, on the paper's own fill: what it floats over goes under it,
-  // and it reads as no surface at all.
-  padding-block-end: 12px;
+  padding-block: 12px;
+  font-size: 0.8125rem;
   background: var(--email-paper, var(--mat-sys-surface-bright));
 
   // Its own `display` would beat the `hidden` attribute (the bar's toggle).
@@ -296,31 +260,17 @@
   }
 }
 
-// A block: no edge and no fill of its own — its heading says where it
-// starts; the aside round it is the paper.
-.designer-block {
-  flex: none;
-}
-
-// The files' +, over the chips' ×.
-.designer-block__count {
-  font-weight: 400;
-  color: var(--mat-sys-on-surface-variant);
-}
-
-.designer-block__body {
-  // No inline padding: every part sets its own 16px (the envelope's rows
-  // and the chips' list carry theirs).
-  padding: 0 0 0.75rem;
-
-  &[hidden] {
-    display: none;
-  }
-
-  // The chips start 16px in, where the envelope's entries do.
-  ul[email-attachment-chips] {
-    --email-attachment-chips-inset: var(--mat-sys-inner-spacing, 16px);
-  }
+// Too narrow a desk for them beside the editor: floating down its end, as
+// tall as they are — on the paper's own fill, so what they float over goes
+// under them and they read as no surface at all.
+:host([data-details='over']) .designer-details {
+  position: absolute;
+  z-index: 2;
+  inset-block-start: 12px;
+  inset-inline-end: 12px;
+  max-block-size: calc(100% - 24px);
+  inline-size: max(300px, min(var(--designer-details-width), 100% - 24px));
+  padding-block-start: 0;
 }
 
 .designer-block__empty {
@@ -330,69 +280,61 @@
   color: var(--mat-sys-on-surface-variant);
 }
 
-// Nothing there yet — said in the placeholder's ink, as the empty rows above
-// say theirs.
-.designer-block__empty--placeholder {
-  color: var(--mat-sys-placeholder);
-}
-
-// The files' body: the chips, then "+ Add"; the place a file dropped
-// attaches — washed, its edge dashed, while one hangs over it.
+// The files: the chips, then the zone — the place a file dropped attaches,
+// all of it, on the rows' 16px line.
 .designer-files {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  border-radius: var(--mat-sys-corner-medium);
-  outline: 1px dashed transparent;
-  outline-offset: -1px;
-  transition:
-    background-color 150ms ease,
-    outline-color 150ms ease;
+  gap: 8px;
+  padding-inline: var(--mat-sys-inner-spacing, 16px);
 
-  &[hidden] {
-    display: none;
-  }
-
-  &[data-drag-over] {
-    background: color-mix(in srgb, var(--mat-sys-primary) 6%, transparent);
-    outline-color: var(--mat-sys-primary);
+  // The chips start on the block's own line.
+  ul[email-attachment-chips] {
+    --email-attachment-chips-inset: 0px;
   }
 }
 
-// "+ Add": quiet, in the placeholder's ink, its + on the content's 16px line
-// (8px in, then 8px of its own); a wash under the pointer. On the 4px grid:
-// 32px tall, 8px to its word.
-.designer-files__add {
-  display: inline-flex;
+// The drop zone, drawn: a dashed box the whole width, the picker's button —
+// an icon and its words in the middle, its edge in the outline's ink (the
+// outline-variant is all but the paper's own), brighter under the pointer,
+// in the primary while a file hangs over the block.
+.designer-files__zone {
+  --mat-icon-size: 20px;
+
+  display: flex;
   align-items: center;
-  align-self: flex-start;
+  justify-content: center;
   gap: 8px;
-  block-size: 32px;
-  margin-inline-start: 8px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: var(--mat-sys-corner-small);
+  box-sizing: border-box;
+  inline-size: 100%;
+  min-block-size: 64px;
+  padding: 12px 16px;
+  border: 1px dashed var(--mat-sys-outline);
+  border-radius: var(--mat-sys-corner-medium);
   background: transparent;
-  color: var(--mat-sys-placeholder);
+  color: var(--mat-sys-on-surface-variant);
   font: var(--mat-sys-label-large);
   cursor: pointer;
-  transition: background-color 150ms ease;
-
-  --mat-icon-size: 16px;
-
-  > mat-icon {
-    inline-size: 16px;
-    block-size: 16px;
-    font-size: 16px;
-  }
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
 
   &:hover {
-    background: var(--mat-sys-surface-container-high);
+    border-color: var(--mat-sys-on-surface-variant);
+    background: color-mix(in srgb, var(--mat-sys-on-surface) 4%, transparent);
+    color: var(--mat-sys-on-surface);
   }
 
   &:focus-visible {
     outline: 2px solid var(--mat-sys-primary);
     outline-offset: 2px;
+  }
+
+  [data-drag-over] > & {
+    border-color: var(--mat-sys-primary);
+    background: color-mix(in srgb, var(--mat-sys-primary) 8%, transparent);
+    color: var(--mat-sys-primary);
   }
 }
 
