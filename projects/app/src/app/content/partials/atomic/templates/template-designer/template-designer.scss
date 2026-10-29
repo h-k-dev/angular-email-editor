@@ -345,8 +345,11 @@ $preview-min: 448px;
 // The layout's panel, under its button, over the canvas: the page's paper,
 // lifted (a menu's elevation and corner), on the details' compact 13px
 // base. 320px — two swatches side by side, the rows under them — on a 16px
-// inset; its parts 12px apart.
+// inset; its parts 12px apart. It grows out of its button's end, where it
+// hangs from (styles/_motion.scss).
 .designer-layout {
+  --motion-origin-x: right;
+
   box-sizing: border-box;
   display: flex;
   flex-direction: column;

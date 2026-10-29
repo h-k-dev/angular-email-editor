@@ -9,6 +9,9 @@
 // Avatars and the containers in their hue ([avatar], [hueOf]): any element
 // can be one, so their look is global.
 @use 'styles/avatar';
+// Cards coming and going (animate.enter / animate.leave): global classes,
+// worn inside overlays, outside any component's view.
+@use 'styles/motion';
 
 /* Notion in light, Linear in dark (styles/_theme.scss): Notion's generated
  * palette is the theme's, and every system colour is overridden with its
@@ -34,6 +37,10 @@ html {
   --email-suggestion-placeholder-color: var(--mat-sys-placeholder);
   --email-address-input-placeholder-color: var(--mat-sys-placeholder);
   --email-chat-input-placeholder-color: var(--mat-sys-placeholder);
+
+  /* How a card comes and goes (styles/_motion.scss). */
+  --app-motion-duration: #{theme.$motion-duration};
+  --app-motion-easing: #{theme.$motion-easing};
 }
 
 /* The document is the page's scroller (app.scss): a phone pulls it down to

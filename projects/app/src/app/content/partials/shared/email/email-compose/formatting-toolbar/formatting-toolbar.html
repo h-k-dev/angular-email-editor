@@ -199,6 +199,8 @@
       <div
         color-picker
         paperIslandScheme
+        animate.enter="motion-enter"
+        animate.leave="motion-leave"
         [color]="commands.textColor()"
         [background]="commands.backgroundColor()"
         (colorPicked)="applyColor($event)"
@@ -206,7 +208,13 @@
       ></div>
     }
     @case ('table') {
-      <div table-picker paperIslandScheme (picked)="insertTable($event)"></div>
+      <div
+        table-picker
+        paperIslandScheme
+        animate.enter="motion-enter"
+        animate.leave="motion-leave"
+        (picked)="insertTable($event)"
+      ></div>
     }
   }
 </ng-template>

@@ -16,12 +16,99 @@
         }
       </div>
       @if (to()) {
-        <div class="mail-view__to">
-          {{ 'inbox.to' | translate }} {{ to() }}
-          @if (cc(); as cc) {
-            · {{ 'inbox.cc' | translate }} {{ cc }}
-          }
+        <!-- Gmail's "to me ▾": the ▾ opens the details card under the line
+             (the line is its origin, so the card starts where it does). -->
+        <div class="mail-view__to" cdkOverlayOrigin #toLine="cdkOverlayOrigin">
+          <span class="mail-view__recipients">
+            {{ 'inbox.to' | translate }} {{ to() }}
+            @if (cc(); as cc) {
+              · {{ 'inbox.cc' | translate }} {{ cc }}
+            }
+          </span>
+          <button
+            matIconButton
+            type="button"
+            class="mail-view__details-toggle"
+            #detailsButton
+            aria-haspopup="dialog"
+            [attr.aria-expanded]="detailsOpen()"
+            [attr.aria-controls]="detailsOpen() ? 'mail-view-details' : null"
+            [attr.aria-label]="'inbox.details.show' | translate"
+            [title]="'inbox.details.show' | translate"
+            (click)="detailsOpen.set(!detailsOpen())"
+          >
+            <mat-icon>{{ detailsOpen() ? 'arrow_drop_up' : 'arrow_drop_down' }}</mat-icon>
+          </button>
         </div>
+        <ng-template
+          cdkConnectedOverlay
+          [cdkConnectedOverlayOrigin]="toLine"
+          [cdkConnectedOverlayOpen]="detailsOpen()"
+          [cdkConnectedOverlayPositions]="detailsPositions"
+          [cdkConnectedOverlayPush]="true"
+          [cdkConnectedOverlayViewportMargin]="8"
+          (overlayOutsideClick)="detailsOpen.set(false)"
+          (overlayKeydown)="detailsKey($event, detailsButton)"
+          (detach)="detailsOpen.set(false)"
+        >
+          <!-- Notion's properties: an icon and a quiet name on the left, the
+               value after them, every row starting at the card's start. -->
+          <section
+            id="mail-view-details"
+            class="mail-view__details"
+            role="dialog"
+            paperIslandScheme
+            animate.enter="motion-enter"
+            animate.leave="motion-leave"
+            [attr.aria-label]="'inbox.details.title' | translate"
+          >
+            <dl class="mail-view__properties">
+              <div class="mail-view__detail">
+                <dt><mat-icon aria-hidden="true">person</mat-icon>{{ 'inbox.details.from' | translate }}</dt>
+                <dd>
+                  <span class="mail-view__name">{{ name() }}</span>
+                  @if (address(); as address) {
+                    <span class="mail-view__detail-quiet">&lt;{{ address }}&gt;</span>
+                  }
+                </dd>
+              </div>
+              <div class="mail-view__detail">
+                <dt><mat-icon aria-hidden="true">group</mat-icon>{{ 'inbox.details.to' | translate }}</dt>
+                <dd>{{ to() }}</dd>
+              </div>
+              @if (cc(); as cc) {
+                <div class="mail-view__detail">
+                  <dt><mat-icon aria-hidden="true">group_add</mat-icon>{{ 'inbox.details.cc' | translate }}</dt>
+                  <dd>{{ cc }}</dd>
+                </div>
+              }
+              @if (date()) {
+                <div class="mail-view__detail">
+                  <dt><mat-icon aria-hidden="true">calendar_today</mat-icon>{{ 'inbox.details.date' | translate }}</dt>
+                  <dd>{{ date() }}</dd>
+                </div>
+              }
+              <div class="mail-view__detail">
+                <dt><mat-icon aria-hidden="true">notes</mat-icon>{{ 'inbox.details.subject' | translate }}</dt>
+                <dd>{{ subject() }}</dd>
+              </div>
+              @if (domain(); as domain) {
+                <div class="mail-view__detail">
+                  <dt><mat-icon aria-hidden="true">send</mat-icon>{{ 'inbox.details.mailedBy' | translate }}</dt>
+                  <dd>{{ domain }}</dd>
+                </div>
+                <div class="mail-view__detail">
+                  <dt><mat-icon aria-hidden="true">verified</mat-icon>{{ 'inbox.details.signedBy' | translate }}</dt>
+                  <dd>{{ domain }}</dd>
+                </div>
+              }
+              <div class="mail-view__detail">
+                <dt><mat-icon aria-hidden="true">lock</mat-icon>{{ 'inbox.details.security' | translate }}</dt>
+                <dd>{{ 'inbox.details.tls' | translate }}</dd>
+              </div>
+            </dl>
+          </section>
+        </ng-template>
       }
     </div>
     <span class="mail-view__date">{{ date() }}</span>

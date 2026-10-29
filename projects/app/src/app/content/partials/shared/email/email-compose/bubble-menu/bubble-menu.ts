@@ -74,7 +74,14 @@ const IMAGE_LAYOUT: FormattingLayout = [
 /** The colour pane, centred on its button: away from the selection first
     (see `toggleColor`), the other side when there is no room. */
 const COLOR_ABOVE: ConnectedPosition[] = [
-  { originX: 'center', originY: 'top', overlayX: 'center', overlayY: 'bottom', offsetY: -4 },
+  {
+    originX: 'center',
+    originY: 'top',
+    overlayX: 'center',
+    overlayY: 'bottom',
+    offsetY: -4,
+    panelClass: 'motion-above',
+  },
   { originX: 'center', originY: 'bottom', overlayX: 'center', overlayY: 'top', offsetY: 4 },
 ];
 const COLOR_BELOW: ConnectedPosition[] = [COLOR_ABOVE[1], COLOR_ABOVE[0]];

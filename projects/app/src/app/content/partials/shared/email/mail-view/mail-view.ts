@@ -3,11 +3,15 @@ import {
   DestroyRef,
   ElementRef,
   computed,
+  effect,
   inject,
   input,
   output,
   signal,
 } from '@angular/core';
+
+// Angular CDK
+import { CdkConnectedOverlay, CdkOverlayOrigin, ConnectedPosition } from '@angular/cdk/overlay';
 
 // Angular Material
 import { MatButton, MatIconButton } from '@angular/material/button';
@@ -24,6 +28,7 @@ import { PaperScheme } from '../../../../../core/dawn/dawn.render';
 import { PHONE_CONTAINER_MAX } from '../../../../../core/layout/viewport';
 import { I18n } from '../../../../../core/translations/i18n';
 import { EmailViewer } from '../../../common/email-viewer/email-viewer';
+import { PaperIslandScheme } from '../paper-island';
 import {
   ToolbarMenu,
   ToolbarMenuItem,
@@ -55,7 +60,18 @@ const INSET = { wide: 32, phone: 16 } as const;
  */
 @Component({
   selector: 'article[mail-view]',
-  imports: [TranslatePipe, MatButton, MatIconButton, MatIcon, MenuTrigger, ToolbarMenu, EmailViewer],
+  imports: [
+    TranslatePipe,
+    CdkConnectedOverlay,
+    CdkOverlayOrigin,
+    MatButton,
+    MatIconButton,
+    MatIcon,
+    MenuTrigger,
+    ToolbarMenu,
+    EmailViewer,
+    PaperIslandScheme,
+  ],
   templateUrl: './mail-view.html',
   styleUrl: './mail-view.scss',
   host: {
@@ -102,8 +118,60 @@ export class MailView {
     { value: 'forward', label: this.#i18n.t('inbox.forward'), icon: 'forward' },
   ]);
 
+  /** The details card under the to line: Gmail's, read as Notion's
+      properties — who, when, what, and how it came (made up: the sender's
+      domain mailed and signed it, over TLS). */
+  protected readonly detailsOpen = signal(false);
+  /** Under the to line, its start on the line's start; above it when the
+      screen's foot is too near. */
+  protected readonly detailsPositions: ConnectedPosition[] = [
+    { originX: 'start', originY: 'bottom', overlayX: 'start', overlayY: 'top', offsetY: 4 },
+    {
+      originX: 'start',
+      originY: 'top',
+      overlayX: 'start',
+      overlayY: 'bottom',
+      offsetY: -4,
+      panelClass: 'motion-above',
+    },
+  ];
+  /** The sender's domain — what mailed and signed it, as far as the card
+      tells; none without an address. */
+  protected readonly domain = computed(() => {
+    const address = this.address() ?? this.name();
+    const at = address.lastIndexOf('@');
+    return at < 0 ? null : address.slice(at + 1);
+  });
+
+  /** Escape puts the card away, the focus back on its button. (A press
+      outside closes it too — never one on the to line, which holds the
+      button: the CDK leaves the origin out of `overlayOutsideClick`.) */
+  protected detailsKey(event: KeyboardEvent, button: MatIconButton): void {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.detailsOpen.set(false);
+    button.focus();
+  }
+
   constructor() {
     const host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+
+    // A press in the body's frame never reaches this document, so the CDK's
+    // outside click misses it: the frame taking the focus — the window
+    // blurring onto it — is the press, and puts the card away.
+    effect((onCleanup) => {
+      const view = host.ownerDocument.defaultView;
+      if (!this.detailsOpen() || !view) return;
+      const blur = () => {
+        if (host.ownerDocument.activeElement instanceof HTMLIFrameElement) {
+          this.detailsOpen.set(false);
+        }
+      };
+      view.addEventListener('blur', blur);
+      onCleanup(() => view.removeEventListener('blur', blur));
+    });
+
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(([entry]) =>
       this.phone.set(entry.contentRect.width <= PHONE_CONTAINER_MAX),

@@ -160,6 +160,8 @@
   <div
     color-picker
     paperIslandScheme
+    animate.enter="motion-enter"
+    animate.leave="motion-leave"
     [color]="textColor()"
     [background]="backgroundColor()"
     (colorPicked)="applyColor($event)"

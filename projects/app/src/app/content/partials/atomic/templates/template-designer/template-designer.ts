@@ -318,7 +318,14 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
       screen's foot is too near. */
   protected readonly layoutPositions: ConnectedPosition[] = [
     { originX: 'end', originY: 'bottom', overlayX: 'end', overlayY: 'top', offsetY: 8 },
-    { originX: 'end', originY: 'top', overlayX: 'end', overlayY: 'bottom', offsetY: -8 },
+    {
+      originX: 'end',
+      originY: 'top',
+      overlayX: 'end',
+      overlayY: 'bottom',
+      offsetY: -8,
+      panelClass: 'motion-above',
+    },
   ];
 
   /** Escape puts the panel away, the focus back on its button. (A press

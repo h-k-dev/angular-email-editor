@@ -189,3 +189,10 @@ $overrides: map.merge(
 /// step under a label's ink (`on-surface-variant`), so a row's name and
 /// what is missing from it never read alike.
 $placeholder: light-dark(rgb(55 53 47 / 40%), #62666d);
+
+/// How long a card takes to come in (it goes at once), and its curve — Motion's Base UI
+/// dropdown (motion.dev/examples/react-base-menu), at 150ms: Motion's
+/// `easeOut`. Set on html as `--app-motion-duration` /
+/// `--app-motion-easing`; styles/_motion.scss reads them.
+$motion-duration: 150ms;
+$motion-easing: cubic-bezier(0, 0, 0.58, 1);

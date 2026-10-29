@@ -176,7 +176,13 @@ export class FormattingToolbar {
       pushed back on screen near an edge. */
   protected readonly pickerPositions: ConnectedPosition[] = [
     { originX: 'center', originY: 'bottom', overlayX: 'center', overlayY: 'top' },
-    { originX: 'center', originY: 'top', overlayX: 'center', overlayY: 'bottom' },
+    {
+      originX: 'center',
+      originY: 'top',
+      overlayX: 'center',
+      overlayY: 'bottom',
+      panelClass: 'motion-above',
+    },
   ];
 
   protected readonly overflow = viewChild(ToolbarOverflow);

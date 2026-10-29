@@ -1,3 +1,4 @@
+@use '@angular/material' as mat;
 @use '../../../../../../styles/breakpoints' as bp;
 
 // The sheet: the editor's paper (the island's `--email-paper`), the header
@@ -100,10 +101,104 @@
   margin-inline-start: 4px;
 }
 
+// The to line: the recipients, cut short where the room ends, and the ▾
+// right after them.
 .mail-view__to {
+  display: flex;
+  align-items: center;
+  min-inline-size: 0;
+}
+
+.mail-view__recipients {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+// The ▾: a very small Material icon button — a 16px glyph, a 24px state
+// layer, 28px to touch — held into the line's own height, so the line
+// keeps it.
+.mail-view__details-toggle {
+  @include mat.icon-button-overrides(
+    (
+      icon-size: 16px,
+      state-layer-size: 24px,
+      touch-target-size: 28px,
+      icon-color: var(--mat-sys-on-surface-variant),
+    )
+  );
+
+  --mat-icon-size: 16px;
+
+  flex: none;
+  margin-block: -4px;
+  margin-inline-start: 4px;
+}
+
+// The details card: Notion's properties on the reading paper — lifted, a
+// hairline round it, every row starting at the card's start (Gmail's are
+// right-aligned to a column). 13px, as the designer's panels. It grows out
+// of the line's start (styles/_motion.scss).
+.mail-view__details {
+  --motion-origin-x: left;
+
+  box-sizing: border-box;
+  inline-size: max-content;
+  max-inline-size: min(480px, calc(100vw - 16px));
+  padding: 6px;
+  border-radius: var(--mat-sys-corner-medium);
+  background: var(--email-paper, var(--mat-sys-surface-container-low));
+  box-shadow:
+    0 0 0 1px var(--mat-sys-outline-variant),
+    var(--mat-sys-level2);
+  color: var(--mat-sys-on-surface);
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+
+.mail-view__properties {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: 12px;
+  margin: 0;
+}
+
+// One property: its own row of the card's grid, 28px at least.
+.mail-view__detail {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  min-block-size: 28px;
+  padding-inline: 6px;
+  border-radius: var(--mat-sys-corner-extra-small);
+
+  dt {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--mat-sys-on-surface-variant);
+    white-space: nowrap;
+
+    mat-icon {
+      --mat-icon-size: 16px;
+
+      inline-size: 16px;
+      block-size: 16px;
+      font-size: 16px;
+      opacity: 0.8;
+    }
+  }
+
+  dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+.mail-view__detail-quiet {
+  margin-inline-start: 4px;
+  color: var(--mat-sys-on-surface-variant);
 }
 
 .mail-view__date {
