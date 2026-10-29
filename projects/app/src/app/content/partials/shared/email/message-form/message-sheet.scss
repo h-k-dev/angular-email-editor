@@ -22,13 +22,12 @@
   --writer-column-min: var(--email-column-min);
   --writer-radius: 0;
   --writer-shadow: none;
-  // A page whose text scrolls under its frame: the bar and the envelope hold
-  // the top (the envelope under the bar: its height, and the sheet's top
-  // room), the formatting toolbar the foot — sideways too (a fixed-width
-  // email): only the email moves. The toolbar on frosted glass, not the
-  // fade: text half seen through a gradient reads as a glitch.
-  // The bar is the dense one (`dense`, 32px) over the sheet's top room.
-  --writer-envelope-stick: calc(32px + var(--writer-padding-start, 8px));
+  // A page: downwards the bar and the envelope go up with the text, only
+  // the formatting toolbar holds the foot — sideways all of them stay put
+  // (a fixed-width email): only the email moves. The toolbar on frosted
+  // glass, not the fade: text half seen through a gradient reads as a
+  // glitch.
+  --writer-stick-block: auto;
   // The sideways bar on the sheet's very foot: the window is raised off
   // the page already, its edge needs no margin (the toolbar's room is
   // the down bar's to keep).
@@ -45,6 +44,28 @@ form[email-writer] {
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
+}
+
+// Nothing held at a document's top (the bar goes up with the page): no
+// room kept for it there.
+:host([data-layout='document']) form[email-writer] {
+  scroll-padding-block-start: 0;
+}
+
+// A document's foot keeps the sideways bar's room under the toolbar (the
+// rail: the scroll size and 2px either side) — the bar sits on the sheet's
+// edge (`--email-scroll-across-end`), and never over the toolbar's buttons.
+:host([data-layout='document']) section[email-compose] {
+  --email-compose-foot-inset: calc(var(--writer-foot-bar, 0px) + var(--email-scroll-size, 8px) + 4px);
+}
+
+// A document's foot is glass down to the sheet's very edge — the toolbar on
+// it, or, the toolbar off, only its own room, holding the sideways bar: no
+// room of the sheet's own under it for the text to show through. The text
+// keeps the foot's room clear at its end (the scroll owner's end padding,
+// `stickFoot`), whichever it is.
+:host([data-layout='document']) form[email-writer] {
+  padding-block-end: 0;
 }
 
 

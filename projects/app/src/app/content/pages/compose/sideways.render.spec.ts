@@ -4,8 +4,8 @@
  * (`document`), the whole sheet the scroller. An email wider than the
  * column — a fixed-layout table round a wider one, as Poor Fix Width is —
  * scrolls sideways under the bar, the envelope and the formatting toolbar,
- * which stay where the column puts them. Downwards the bar and the
- * envelope hold the top, the toolbar the foot: only the text scrolls.
+ * which stay where the column puts them. Downwards only the toolbar holds
+ * (the foot): the bar and the envelope go up with the text.
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
@@ -78,23 +78,27 @@ describe('Compose sideways (render)', () => {
     }
   });
 
-  it('holds the bar and the envelope at the top downwards, the toolbar at the foot', async () => {
+  it('scrolls the bar and the envelope away downwards — only the toolbar holds the foot', async () => {
     const form = el('form[email-writer]');
     const box = (selector: string) => el(selector).getBoundingClientRect();
     const bar = box('form[email-writer] > header.writer-bar');
     const toolbar = box('.email-compose__dock');
     const email = box('section[email-compose]');
+    const envelope = box('.writer-envelope');
     form.scrollTop = 300;
     await frame();
     const by = form.scrollTop;
     expect(by).toBeGreaterThan(100);
     // Only the text moves.
     expect(box('section[email-compose]').top).toBeCloseTo(email.top - by, 0);
-    expect(box('form[email-writer] > header.writer-bar').top).toBeCloseTo(bar.top, 0);
-    expect(box('.writer-envelope').top).toBeCloseTo(bar.bottom, 0);
+    expect(box('form[email-writer] > header.writer-bar').top).toBeCloseTo(bar.top - by, 0);
+    expect(box('.writer-envelope').top).toBeCloseTo(envelope.top - by, 0);
     expect(box('.email-compose__dock').top).toBeCloseTo(toolbar.top, 0);
-    // On paper edge to edge, not the column alone: nothing shows beside it.
-    expect(getComputedStyle(el('.writer-envelope')).clipPath).toMatch(/^inset\(0px -/);
+    // The toolbar's glass down to the sheet's very edge: nothing shows under it.
+    expect(box('.email-compose__foot').bottom).toBeCloseTo(form.getBoundingClientRect().bottom, 0);
+    // Under the toolbar, the sideways bar's room (its rail): it never lies
+    // over the buttons.
+    expect(box('.email-compose__foot').bottom - box('.email-compose__dock').bottom).toBeCloseTo(12, 0);
   });
 
   it('leaves the column alone for an email that fits', async () => {

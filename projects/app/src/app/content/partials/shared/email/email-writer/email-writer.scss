@@ -88,22 +88,17 @@
   // both sides (a shadow, clipped to its own height).
   --_writer-band: 0 0 0 100vmax var(--email-paper, var(--mat-sys-surface-bright));
 
-  // The envelope goes up with the text (a phone's sheet: the text has the
-  // screen) — or stays under the bar (`--writer-envelope-stick`, a
-  // document's), on the paper, the text scrolling on under it.
+  // Sideways only: downwards the envelope goes up with the text.
   > .writer-envelope {
     position: sticky;
-    z-index: 1;
-    inset-block-start: var(--writer-envelope-stick, auto);
     inset-inline-start: var(--_writer-offset);
-    background-color: var(--email-paper, var(--mat-sys-surface-bright));
-    box-shadow: var(--_writer-band);
-    clip-path: inset(0 -100vmax);
   }
 
+  // Stuck to the top (a phone's sheet: Send in reach) — or, a document
+  // (`--writer-stick-block: auto`), sideways only: it goes up with the page.
   > header.writer-bar {
     position: sticky;
-    inset-block-start: 0;
+    inset-block-start: var(--writer-stick-block, 0);
     inset-inline-start: var(--_writer-offset);
     block-size: calc(var(--writer-bar-size) + var(--writer-padding-start, 8px));
     padding-block-start: var(--writer-padding-start, 8px);
