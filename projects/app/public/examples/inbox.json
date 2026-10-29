@@ -45,6 +45,15 @@
       "subject": "Suspicious newsletter"
     },
     {
+      "id": "reply-fixed-width-statement",
+      "file": "reply/fixed-width-statement.json",
+      "kind": "reply",
+      "name": "Nordwerk Telekom",
+      "from": "Nordwerk Telekom <rechnung@nordwerk.example>",
+      "date": "2026-10-02T07:15:00.000Z",
+      "subject": "Ihre Monatsabrechnung September 2026 – Kundennummer 4711-0815"
+    },
+    {
       "id": "reply-outlook-letter",
       "file": "reply/outlook-letter.json",
       "kind": "reply",
@@ -79,6 +88,15 @@
       "from": "The Docket <docket@newsletter.example>",
       "date": "2026-10-29T06:00:00.000Z",
       "subject": "The Docket, October"
+    },
+    {
+      "id": "reply-poor-fix-width",
+      "file": "reply/poor-fix-width.json",
+      "kind": "reply",
+      "name": "Vogue Legal Desk",
+      "from": "Vogue Legal Desk <legal@vogue.example>",
+      "date": "2026-10-29T09:30:00.000Z",
+      "subject": "Nutzungsrechtsanfrage Fotografie – Print, Digital, Social, OOH"
     },
     {
       "id": "mjml-worldly",

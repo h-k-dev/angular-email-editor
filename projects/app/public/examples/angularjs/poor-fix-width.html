@@ -1,0 +1,82 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=1800">
+
+<table role="presentation" width="1800" cellpadding="0" cellspacing="0" border="0" style="width:1800px;min-width:1800px;table-layout:fixed;background:#1d2b36;">
+  <tbody>
+    <tr>
+      <td width="1800" style="width:1800px;min-width:1800px;padding:32px;">
+        <table role="presentation" width="1736" cellpadding="0" cellspacing="0" border="0" style="width:1736px;min-width:1736px;background:#ffffff;">
+          <tbody>
+            <tr>
+              <td width="600" style="width:600px;min-width:600px;padding:28px 32px;background:#f2b705;font-family:Impact,'Arial Black',sans-serif;font-size:40px;letter-spacing:12px;white-space:nowrap;color:#1d2b36;">
+                {{ company.name | uppercase }}
+              </td>
+              <td width="1136" style="width:1136px;min-width:1136px;padding:28px 32px;background:#f2b705;font-family:Arial,sans-serif;font-size:13px;text-align:right;white-space:nowrap;color:#1d2b36;">
+                Forderungsmanagement &nbsp;·&nbsp; Vorgang&nbsp;ZE-{{ invoice.number }}-{{ customer.number }}-ZAHLUNGSERINNERUNG-ZWEITE-STUFE-VOR-GERICHTLICHEM-MAHNVERFAHREN
+              </td>
+            </tr>
+            <tr>
+              <td colspan="2" style="padding:0;">
+                <img src="https://static.mailjet.com/mjml-website/templates/card-bg.jpg" alt="" width="1736" height="260" style="display:block;width:1736px;min-width:1736px;height:260px;border:0;">
+              </td>
+            </tr>
+            <tr>
+              <td colspan="2" style="padding:32px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;white-space:nowrap;color:#1d2b36;">
+                <p style="margin:0 0 12px;white-space:nowrap;">{{ customer.salutation }} {{ customer.lastName }},</p>
+                <p style="margin:0 0 12px;white-space:nowrap;">
+                  trotz unserer Rechnung vom {{ invoice.date | date:'dd.MM.yyyy' }} konnten wir bis heute keinen Zahlungseingang für die unten aufgeführten Posten feststellen. Bitte überweisen Sie den offenen Betrag
+                  von <b>{{ invoice.total | currency:'€' }}</b> bis spätestens {{ invoice.dueDate | date:'dd.MM.yyyy' }}, um weitere Kosten zu vermeiden.
+                </p>
+                <p style="margin:0;white-space:nowrap;" ng-if="invoice.feesApplied">Für diese Erinnerung berechnen wir eine Mahngebühr von {{ invoice.fee | currency:'€' }}.</p>
+              </td>
+            </tr>
+            <tr>
+              <td colspan="2" style="padding:0 32px 32px;">
+                <table role="presentation" width="1672" cellpadding="10" cellspacing="0" border="1" style="width:1672px;min-width:1672px;border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px;">
+                  <tbody>
+                    <tr style="background:#eef1f4;">
+                      <td width="200" style="width:200px;white-space:nowrap;"><b>Rechnung</b></td>
+                      <td width="200" style="width:200px;white-space:nowrap;"><b>Datum</b></td>
+                      <td width="472" style="width:472px;white-space:nowrap;"><b>Leistung</b></td>
+                      <td width="200" style="width:200px;white-space:nowrap;"><b>Betrag</b></td>
+                      <td width="200" style="width:200px;white-space:nowrap;"><b>Bereits gezahlt</b></td>
+                      <td width="200" style="width:200px;white-space:nowrap;"><b>Offen</b></td>
+                      <td width="200" style="width:200px;white-space:nowrap;"><b>Fällig seit</b></td>
+                    </tr>
+                    <tr ng-repeat="item in invoice.items">
+                      <td style="white-space:nowrap;">{{ item.number }}</td>
+                      <td style="white-space:nowrap;">{{ item.date | date:'dd.MM.yyyy' }}</td>
+                      <td style="white-space:nowrap;">{{ item.description }}</td>
+                      <td style="white-space:nowrap;">{{ item.amount | currency:'€' }}</td>
+                      <td style="white-space:nowrap;">{{ item.paid | currency:'€' }}</td>
+                      <td style="white-space:nowrap;"><b>{{ item.amount - item.paid | currency:'€' }}</b></td>
+                      <td style="white-space:nowrap;">{{ item.overdueDays }} Tagen</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td colspan="2" style="padding:0 32px 32px;font-family:'Courier New',monospace;font-size:13px;color:#1d2b36;">
+                <pre style="margin:0;white-space:pre;">Empfänger: {{ company.name }}    IBAN: DE00 0000 0000 0000 0000 00    BIC: XXXXDEXXXXX    Verwendungszweck: ZE-{{ invoice.number }}-{{ customer.number }}-BITTE-UNBEDINGT-VOLLSTÄNDIG-ANGEBEN
+
+Online bezahlen: {{ portal.url }}/pay?invoice={{ invoice.number }}&amp;customer={{ customer.number }}&amp;session=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB&amp;return={{ portal.url }}%2Fdanke</pre>
+              </td>
+            </tr>
+            <tr>
+              <td colspan="2" style="padding:0 32px 32px;font-family:Arial,sans-serif;font-size:15px;line-height:22px;white-space:nowrap;color:#1d2b36;">
+                <p style="margin:0 0 12px;white-space:nowrap;">Sollten Sie die Zahlung bereits veranlasst haben, betrachten Sie dieses Schreiben bitte als gegenstandslos.</p>
+                <p style="margin:0;white-space:nowrap;">Mit freundlichen Grüßen<br><i>Ihr Team Forderungsmanagement, {{ company.name }}</i></p>
+              </td>
+            </tr>
+            <tr>
+              <td colspan="2" style="padding:16px 32px;background:#1d2b36;font-family:Arial,sans-serif;font-size:12px;color:#c9d3dc;white-space:nowrap;">
+                {{ company.name }} · {{ company.address }} · Geschäftsführung: Erika Musterfrau · Amtsgericht Hamburg HRB 000000 · USt-IdNr. DE000000000 · Diese E-Mail wurde automatisch erstellt; Antworten an diese Adresse werden nicht gelesen.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </td>
+    </tr>
+  </tbody>
+</table>

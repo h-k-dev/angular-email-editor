@@ -27,6 +27,10 @@
           "file": "reply/suspicious-newsletter.json"
         },
         {
+          "name": "Fixed-width statement (non-responsive)",
+          "file": "reply/fixed-width-statement.json"
+        },
+        {
           "name": "Outlook letter (whole document)",
           "file": "reply/outlook-letter.json"
         },
@@ -41,6 +45,10 @@
         {
           "name": "Centred newsletter (div wrapper)",
           "file": "reply/centred-newsletter.json"
+        },
+        {
+          "name": "Poor Fix Width",
+          "file": "reply/poor-fix-width.json"
         }
       ]
     },
@@ -107,6 +115,24 @@
             "from": ["billing@example.com"],
             "subject": "Rechnung Nr. 46786 zu Vorgang {{ case_number }}",
             "previewText": "Zahlbar innerhalb von 14 Tagen."
+          }
+        },
+        {
+          "name": "Monatsabrechnung (fixed width, non-responsive)",
+          "file": "angularjs/fixed-width-statement.html",
+          "envelope": {
+            "from": ["billing@example.com"],
+            "subject": "Ihre Monatsabrechnung {{ statement.period }} – Kundennummer {{ customer.number }}",
+            "previewText": "Rechnungsbetrag {{ statement.total }} €, fällig am {{ statement.dueDate }}."
+          }
+        },
+        {
+          "name": "Poor Fix Width (Zahlungserinnerung)",
+          "file": "angularjs/poor-fix-width.html",
+          "envelope": {
+            "from": ["forderungen@example.com"],
+            "subject": "Zahlungserinnerung zu Rechnung {{ invoice.number }} – Kundennummer {{ customer.number }}",
+            "previewText": "Offen: {{ invoice.total | currency:'€' }}, bitte zahlen bis {{ invoice.dueDate | date:'dd.MM.yyyy' }}."
           }
         }
       ]
