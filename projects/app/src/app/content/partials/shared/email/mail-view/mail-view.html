@@ -1,6 +1,10 @@
 <!-- Gmail's header, without its avatar: the subject; under it who sent it
      and to whom, and at the line's end the date, the paper's light or dark,
      and the answers — Reply, the rest in ⋮. -->
+<!-- The sheet: the room's width, or a wider email's — so a fixed-width
+     table scrolls sideways with whatever scrolls the sheet, and the header
+     and the answers stay put over it (sticky at the start, the room wide). -->
+<div class="mail-view__sheet">
 <header class="mail-view__header">
   <h1 class="mail-view__subject">{{ subject() }}</h1>
   <div class="mail-view__line">
@@ -100,3 +104,4 @@
 } @else {
   <div class="mail-view__loading" role="status" [attr.aria-label]="'inbox.loading' | translate"></div>
 }
+</div>

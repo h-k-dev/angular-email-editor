@@ -79,12 +79,23 @@
 
 // The mail's half is paper, header included: the island's paper
 // (`--email-paper`), its scheme the reading paper's. It scrolls as one
-// sheet — the header is no fixed bar: it goes up with the mail.
+// sheet — the header is no fixed bar: it goes up with the mail. Sideways
+// too, where the mail is wider than the pane (a fixed-width table): then
+// the header stays put, stuck at the start, as the mail's own header and
+// answers do (mail-view).
 .inbox-pane {
-  overflow-y: auto;
+  overflow: auto;
+  // The bars clear of the window's edge: a strip of paper under the
+  // sideways one (a border, so the paper runs on under it).
+  border-block-end: var(--email-scroll-size, 8px) solid transparent;
   background: var(--email-paper, var(--mat-sys-surface-bright));
   color: var(--mat-sys-on-surface);
   @include scroll.scroll;
+
+  > header {
+    position: sticky;
+    inset-inline-start: 0;
+  }
 }
 
 // At least the rest of the pane (the note centres in it), as tall as the
@@ -94,17 +105,28 @@
 }
 
 // A phone: the list, until a message opens — then the message alone, each
-// in the document's scroll instead of its own. The list's header stays at
-// the top over it.
+// in the document's scroll instead of its own (downwards; a wide mail's
+// sideways scroll stays the pane's). The list's header stays at the top
+// over it.
 @include bp.phone {
   :host(:not([data-reading])) .inbox-pane,
   :host([data-reading]) .inbox-side {
     display: none;
   }
 
-  .inbox-list,
-  .inbox-pane {
+  .inbox-list {
     overflow: visible;
+  }
+
+  // Sideways the pane still scrolls itself — a wide mail never widens the
+  // page (a phone would zoom it out), and its header stays put. No room
+  // kept for a bar down its side: it never scrolls that way here.
+  .inbox-pane {
+    --email-scroll-gutter: auto;
+
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-block-end: 0;
   }
 
   .inbox-side > header {

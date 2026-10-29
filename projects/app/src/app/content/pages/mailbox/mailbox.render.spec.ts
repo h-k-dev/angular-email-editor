@@ -5,7 +5,7 @@
  * — the inbox's two panes on a desk — is a frame: the viewport's height,
  * each pane scrolling inside itself, the document never.
  */
-import { Component } from '@angular/core';
+import { Component, Provider } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
@@ -13,10 +13,13 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import { page } from 'vitest/browser';
 
 import { ComposeWindows } from '../../../core/email/compose-windows';
+import { ExampleAssets } from '../../../core/email/examples';
 import { PageScroller } from '../../../core/router/page-scroller';
+import { Preferences } from '../../../core/storages/preferences';
 import { provideExampleMail } from '../../../../../test/received-mail-fixture';
 import { MailboxAside } from '../../partials/atomic/mailbox/mailbox-aside';
 import { InboxEmpty } from '../../partials/atomic/inbox/inbox-empty/inbox-empty';
+import { InboxReader } from '../../partials/atomic/inbox/inbox-reader/inbox-reader';
 import { PageHeader } from '../../partials/common/page-header/page-header';
 import { Inbox } from './inbox/inbox';
 import { Mailbox } from './mailbox';
@@ -28,6 +31,30 @@ import { Mailbox } from './mailbox';
   styles: '.long { block-size: 3000px; }',
 })
 class LongPage {}
+
+/** An inbox of one mail wider than any pane: a fixed-width, non-responsive
+    table (a statement, a poorly written template), taller than the screen. */
+function provideWideMail(): Provider {
+  const files: Record<string, string> = {
+    'inbox.json': JSON.stringify({
+      mails: [
+        {
+          id: 'reply-wide',
+          file: 'reply/wide.json',
+          kind: 'reply',
+          name: 'Billing',
+          from: 'Billing <billing@example.com>',
+          subject: 'Statement',
+        },
+      ],
+    }),
+    'reply/wide.json': JSON.stringify({
+      html: '<table width="2000" style="width: 2000px; height: 1500px"><tr><td>Statement</td></tr></table>',
+      from: 'Billing <billing@example.com>',
+    }),
+  };
+  return { provide: ExampleAssets, useValue: { file: async (file: string) => files[file] ?? '' } };
+}
 
 describe('Mailbox scrolling (render)', () => {
   let harness: RouterTestingHarness;
@@ -45,7 +72,7 @@ describe('Mailbox scrolling (render)', () => {
   };
   const frame = () => new Promise((resolve) => requestAnimationFrame(resolve));
 
-  const start = async (width: number, height: number, url: string) => {
+  const start = async (width: number, height: number, url: string, assets: Provider = provideExampleMail()) => {
     await page.viewport(width, height);
     // What the shell gives its pages (app.scss, styles.scss).
     document.documentElement.style.setProperty('--app-frame', '100dvh');
@@ -58,7 +85,14 @@ describe('Mailbox scrolling (render)', () => {
               path: '',
               component: Mailbox,
               children: [
-                { path: 'inbox', component: Inbox, children: [{ path: '', component: InboxEmpty }] },
+                {
+                  path: 'inbox',
+                  component: Inbox,
+                  children: [
+                    { path: '', component: InboxEmpty },
+                    { path: ':id', component: InboxReader },
+                  ],
+                },
                 { path: 'read', component: LongPage },
               ],
             },
@@ -66,7 +100,7 @@ describe('Mailbox scrolling (render)', () => {
           withComponentInputBinding(),
         ),
         { provide: ComposeWindows, useValue: { open: async () => undefined } },
-        provideExampleMail(),
+        assets,
       ],
     });
     harness = await RouterTestingHarness.create(url);
@@ -148,6 +182,43 @@ describe('Mailbox scrolling (render)', () => {
       expect(list().scrollHeight).toBeGreaterThan(list().clientHeight + 2000);
       list().scrollTop = 300;
       expect(list().scrollTop).toBe(300);
+    });
+
+    it('scrolls a mail wider than the pane in the pane, both ways — the list keeps its width', async () => {
+      await start(1600, 800, '/inbox/reply-wide', provideWideMail());
+      TestBed.inject(Preferences).inboxListWidth.set(500);
+      const pane = root.querySelector('.inbox-pane') as HTMLElement;
+      const viewer = () => root.querySelector('email-viewer') as HTMLElement;
+      await vi.waitFor(async () => {
+        await harness.fixture.whenStable();
+        expect(pane.scrollWidth).toBeGreaterThanOrEqual(2000);
+      });
+      await frame();
+      // The list as wide as it was dragged, however wide the mail.
+      expect((root.querySelector('.inbox-side') as HTMLElement).getBoundingClientRect().width).toBe(500);
+      // One scroller: the pane, not the viewer, nor the document.
+      expect(getComputedStyle(viewer()).overflowX).toBe('visible');
+      const email = viewer().querySelector('iframe')!.contentDocument!.documentElement;
+      expect([email.clientWidth, email.clientHeight]).toEqual([email.scrollWidth, email.scrollHeight]);
+      expect(doc().scrollWidth).toBe(window.innerWidth);
+      expect(pane.scrollHeight).toBeGreaterThan(pane.clientHeight);
+
+      const left = pane.getBoundingClientRect().left;
+      const stuck = ['.inbox-pane > header', '.mail-view__header', '.mail-view__answers'].map(
+        (selector) => root.querySelector(selector) as HTMLElement,
+      );
+      // Sideways: the mail goes, what frames it stays.
+      pane.scrollLeft = 800;
+      await frame();
+      expect(viewer().getBoundingClientRect().left).toBeCloseTo(left - 800, 0);
+      for (const el of stuck) expect(el.getBoundingClientRect().left).toBeCloseTo(left, 0);
+
+      // Downwards: nothing held — the header goes up with the mail.
+      const header = stuck[1]!;
+      const top = header.getBoundingClientRect().top;
+      pane.scrollTop = 100;
+      await frame();
+      expect(header.getBoundingClientRect().top).toBeCloseTo(top - 100, 0);
     });
   });
 });

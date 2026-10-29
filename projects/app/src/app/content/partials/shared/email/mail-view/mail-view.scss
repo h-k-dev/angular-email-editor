@@ -8,12 +8,23 @@
 // is given (`bp.phone-container`), never of the screen.
 :host {
   container: mail-view / inline-size;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  display: block;
   box-sizing: border-box;
   background: var(--email-paper, var(--mat-sys-surface-bright));
   color: var(--mat-sys-on-surface);
+}
+
+// The sheet: the room's width (the host's, the container), or an email's
+// wider than it — a fixed-width table — spilling out of the host, so
+// whatever scrolls the host scrolls it sideways, one scroller both ways.
+// The paper goes with it.
+.mail-view__sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  inline-size: max-content;
+  min-inline-size: 100%;
+  background: inherit;
 }
 
 .mail-view__header,
@@ -24,6 +35,17 @@
   @include bp.phone-container(mail-view) {
     --_inset: 16px;
   }
+}
+
+// What frames the email stays the room's width and, sideways, in sight —
+// stuck at the start while a wide email scrolls under it. Sideways only:
+// downwards it goes up with the mail.
+.mail-view__header,
+.mail-view__answers {
+  position: sticky;
+  inset-inline-start: 0;
+  inline-size: 100cqi;
+  box-sizing: border-box;
 }
 
 // Gmail's header, without its avatar: the subject, and under it one line —
