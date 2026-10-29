@@ -4,61 +4,74 @@
 //
 //     <section class="my-card" animate.enter="motion-enter" animate.leave="motion-leave">
 //
-// Motion's Base UI dropdown (motion.dev/examples/react-base-menu): the card
-// grows in from 85% as it fades in, on Motion's `easeOut` — 150ms here. It
-// goes at once: the leave takes no time unless a card asks for one
-// (`--motion-leave-duration`), and then it shrinks back to 85% as it fades,
-// quick off the mark too. No slide. It grows out of the side it hangs from.
+// Core's dropdown pop (iusta-core-frontend, cdk/_overlay.scss
+// `dropdown-animation-enter`): the card drops 10px into place from above as
+// it grows from 95% and fades in — 250ms on a soft ease-out that is nearly
+// there in half the time.
+//
+// It leaves at once, in two parts over 100ms: its opacity on a curve that
+// drops off the mark — most of it gone in the first few frames — and a
+// nudge of 2px back, barely smaller, under it. A leave that moves far, or
+// fades on the same accelerating curve as it moves, hangs about while the
+// next thing is wanted; this one is gone before the eye follows it.
+//
+// It grows out of the side it hangs from.
 //
 // Everything is a custom property with a default, set on the card (or on
 // anything round it — they inherit):
 //
-//   --motion-dir        a slide on top, as a `translate`    (0 0: none)
+//   --motion-dir        where it comes from, a `translate`   (0 -10px: from above)
+//   --motion-leave-dir  where it goes                       (0 -2px: a nudge back)
 //   --motion-origin     the `transform-origin`              (x y, from the two below)
 //   --motion-origin-x   …its inline part                    (center)
 //   --motion-origin-y   …its block part                     (top)
 //   --motion-direction  the enter's `animation-direction`   (normal)
 //   --motion-leave-direction  the leave's                   (normal)
-//   --motion-duration   how long it comes in                (the theme's, 150ms)
-//   --motion-leave-duration   how long it goes              (0ms: at once)
-//   --motion-easing     the curve                           (the theme's, Motion's easeOut)
-//   --motion-scale      how small it is when it is not there (0.85)
+//   --motion-duration   how long it comes in                (the theme's, 250ms)
+//   --motion-leave-duration   how long it goes              (the theme's, 100ms)
+//   --motion-easing     the curve it comes in on            (the theme's, core's)
+//   --motion-leave-easing     the nudge's curve             (the theme's, accelerating)
+//   --motion-leave-fade-easing  the fade's curve            (the theme's, gone off the mark)
+//   --motion-scale      how small it comes from             (0.95)
+//   --motion-leave-scale      how small it goes to          (0.99)
 //
-// The theme's duration and curve (`--app-motion-duration`,
-// `--app-motion-easing`) come from styles/_theme.scss, set on html.
+// The theme's durations and curves (`--app-motion-duration`,
+// `--app-motion-easing`, and the `--app-motion-leave-*` three) come from
+// styles/_theme.scss, set on html.
 //
 // A CDK overlay that may open the other way marks that position with
-// `panelClass: 'motion-above'` (ConnectedPosition): its pane then moves the
-// origin to the bottom, so a card shown above its trigger grows up out of
-// it. A card that sets `--motion-origin` / `--motion-origin-y` itself keeps
-// its own — set `--motion-origin-x` instead.
+// `panelClass: 'motion-above'` (ConnectedPosition): its pane then flips the
+// travel both ways and moves the origin to the bottom, so a card shown
+// above its trigger rises up out of it and sinks back into it. A card that
+// sets `--motion-dir` / `--motion-leave-dir` / `--motion-origin` /
+// `--motion-origin-y` itself keeps its own — set `--motion-origin-x`
+// instead.
 //
 // Less motion: it only fades.
 
 @keyframes motion-in {
   from {
     opacity: 0;
-    translate: var(--motion-dir, 0 0);
-    scale: var(--motion-scale, 0.85);
+    translate: var(--motion-dir, 0 -10px);
+    scale: var(--motion-scale, 0.95);
   }
 }
 
-@keyframes motion-out {
+@keyframes motion-out-fade {
   to {
     opacity: 0;
-    translate: var(--motion-dir, 0 0);
-    scale: var(--motion-scale, 0.85);
+  }
+}
+
+@keyframes motion-out-move {
+  to {
+    translate: var(--motion-leave-dir, 0 -2px);
+    scale: var(--motion-leave-scale, 0.99);
   }
 }
 
 @keyframes motion-fade-in {
   from {
-    opacity: 0;
-  }
-}
-
-@keyframes motion-fade-out {
-  to {
     opacity: 0;
   }
 }
@@ -69,28 +82,41 @@
     --motion-origin,
     var(--motion-origin-x, center) var(--motion-origin-y, top)
   );
-  animation-duration: var(--motion-duration, var(--app-motion-duration, 150ms));
-  animation-timing-function: var(
-    --motion-easing,
-    var(--app-motion-easing, cubic-bezier(0, 0, 0.58, 1))
-  );
   animation-fill-mode: both;
+  will-change: opacity, transform;
 }
 
 .motion-enter {
   animation-name: motion-in;
+  animation-duration: var(--motion-duration, var(--app-motion-duration, 250ms));
+  animation-timing-function: var(
+    --motion-easing,
+    var(--app-motion-easing, cubic-bezier(0.16, 1, 0.3, 1))
+  );
   animation-direction: var(--motion-direction, normal);
 }
 
+// Two animations, one length: the fade and the nudge.
 .motion-leave {
-  animation-name: motion-out;
-  animation-duration: var(--motion-leave-duration, 0ms);
+  --_motion-leave-duration: var(--motion-leave-duration, var(--app-motion-leave-duration, 100ms));
+
+  animation-name: motion-out-fade, motion-out-move;
+  animation-duration: var(--_motion-leave-duration), var(--_motion-leave-duration);
+  animation-timing-function:
+    var(
+      --motion-leave-fade-easing,
+      var(--app-motion-leave-fade-easing, cubic-bezier(0, 0, 0.2, 1))
+    ),
+    var(--motion-leave-easing, var(--app-motion-leave-easing, cubic-bezier(0.4, 0, 1, 1)));
   animation-direction: var(--motion-leave-direction, normal);
   pointer-events: none;
 }
 
-// The other way: shown above its trigger, it grows up out of it.
+// The other way: shown above its trigger, it rises up out of it and sinks
+// back into it.
 .cdk-overlay-pane.motion-above {
+  --motion-dir: 0 10px;
+  --motion-leave-dir: 0 2px;
   --motion-origin-y: bottom;
 }
 
@@ -100,6 +126,6 @@
   }
 
   .motion-leave {
-    animation-name: motion-fade-out;
+    animation-name: motion-out-fade;
   }
 }

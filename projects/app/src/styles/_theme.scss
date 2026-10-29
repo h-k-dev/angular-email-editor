@@ -190,9 +190,13 @@ $overrides: map.merge(
 /// what is missing from it never read alike.
 $placeholder: light-dark(rgb(55 53 47 / 40%), #62666d);
 
-/// How long a card takes to come in (it goes at once), and its curve — Motion's Base UI
-/// dropdown (motion.dev/examples/react-base-menu), at 150ms: Motion's
-/// `easeOut`. Set on html as `--app-motion-duration` /
-/// `--app-motion-easing`; styles/_motion.scss reads them.
-$motion-duration: 150ms;
-$motion-easing: cubic-bezier(0, 0, 0.58, 1);
+/// How a card comes and goes. In: core's dropdown pop (iusta-core-frontend,
+/// cdk/_overlay.scss), 250ms on a soft ease-out. Out: 100ms — the opacity
+/// gone off the mark (`leave-fade-easing`), a 2px nudge accelerating under
+/// it (`leave-easing`). Set on html as `--app-motion-*`; styles/_motion.scss
+/// reads them.
+$motion-duration: 250ms;
+$motion-easing: cubic-bezier(0.16, 1, 0.3, 1);
+$motion-leave-duration: 100ms;
+$motion-leave-easing: cubic-bezier(0.4, 0, 1, 1);
+$motion-leave-fade-easing: cubic-bezier(0, 0, 0.2, 1);

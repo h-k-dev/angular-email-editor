@@ -41,6 +41,9 @@ html {
   /* How a card comes and goes (styles/_motion.scss). */
   --app-motion-duration: #{theme.$motion-duration};
   --app-motion-easing: #{theme.$motion-easing};
+  --app-motion-leave-duration: #{theme.$motion-leave-duration};
+  --app-motion-leave-easing: #{theme.$motion-leave-easing};
+  --app-motion-leave-fade-easing: #{theme.$motion-leave-fade-easing};
 }
 
 /* The document is the page's scroller (app.scss): a phone pulls it down to
