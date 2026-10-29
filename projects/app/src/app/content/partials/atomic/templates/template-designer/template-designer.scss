@@ -95,6 +95,22 @@
   --mat-progress-spinner-active-indicator-color: currentColor;
 }
 
+// The right room's least, on a desk `$desk` wide: the details' room — or
+// what the email's 600px leave of it on a narrow screen (the details give
+// way, not the email).
+@function right-min($desk) {
+  @return max(0px, min(var(--_details-space), #{$desk} - var(--email-column-min) - 24px));
+}
+
+// The email column's most, on a desk `$desk` wide: 720px, or a wider
+// email's own width as far as the desk holds it beside the right room.
+@function email-column-max($desk) {
+  @return max(
+    var(--email-column-max),
+    min(var(--designer-mail-width, 0px), #{$desk} - right-min($desk) - 24px)
+  );
+}
+
 // The desk, three rooms in a row: what is left of the email's column, the
 // column, what is right of it — the two sides equal, so the email stands in
 // the middle of the screen; the details float over the right room and take
@@ -104,16 +120,18 @@
 // than the phone, which then widens it (the room's minimum is the phone's
 // width) and the email gives way only by what is missing. The email's
 // column is a document's (styles.scss): 720px where the room allows, never
-// under 600.
+// under 600 — or a wider email's own width (`--designer-mail-width`, a
+// fixed-width table), as far as the desk holds it beside the details'
+// room; the canvas scrolls the rest sideways (`.designer-paper`).
 .designer-body {
+  // The desk's width, for the paper to read (`100cqi`).
+  container-type: inline-size;
   position: relative;
   display: grid;
   grid-template-columns:
     [left] 1fr
-    [email] minmax(var(--email-column-min), var(--email-column-max))
-    // The details' room — or what the email's 600px leave of it on a narrow
-    // screen (the details give way, not the email).
-    [right] minmax(max(0px, min(var(--_details-space), 100% - var(--email-column-min) - 24px)), 1fr);
+    [email] minmax(var(--email-column-min), email-column-max(100%))
+    [right] minmax(right-min(100%), 1fr);
   grid-template-rows: minmax(0, 1fr);
   column-gap: 12px;
   min-block-size: 0;
@@ -173,10 +191,24 @@
 
 // The editor: the email's measure and the inset its layout blocks' grips
 // hang into, nothing round it — the text sits on the paper.
+//
+// An email wider than its column grown as far as it goes runs on past it:
+// the paper as wide as the email, and the details' room kept after it (a
+// clear end border, `--_reach`, none while the email fits) — so the canvas
+// scrolls the email's end out from under the details instead of leaving it
+// there.
 .designer-paper {
+  --_reach: clamp(
+    0px,
+    (var(--designer-mail-width, 0px) - #{email-column-max(100cqi)}) * 1000,
+    #{right-min(100cqi)} + 12px
+  );
+
   grid-column: email;
-  min-inline-size: 0;
+  box-sizing: border-box;
+  min-inline-size: calc(var(--designer-mail-width, 0px) + var(--_reach));
   min-block-size: 100%;
+  border-inline-end: var(--_reach) solid transparent;
   --email-compose-surface-padding-block: 16px;
 }
 

@@ -1,6 +1,8 @@
 import {
   Component,
+  DestroyRef,
   ElementRef,
+  afterRenderEffect,
 
   // Signals
   computed,
@@ -71,7 +73,7 @@ import {
   EnvelopeRows,
 } from '../../../shared/email/message-form/envelope-rows/envelope-rows';
 import { MessageMenu } from '../../../shared/email/message-form/message-menu/message-menu';
-import { MessageSheet } from '../../../shared/email/message-form/message-sheet';
+import { EditorView, MessageSheet } from '../../../shared/email/message-form/message-sheet';
 import {
   IslandMarquee,
   MarqueeStart,
@@ -339,6 +341,44 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
     // Nothing unsaved is lost to a stray Escape (the dialog fills the
     // screen: there is no backdrop to press beside it).
     effect(() => (this.#ref.disableClose = this.dirty()));
+
+    // A wider email widens its column: measured as it changes, and as the
+    // paper grows (an image come in).
+    afterRenderEffect(() => {
+      this.html();
+      this.#fitMail(this.editorView());
+    });
+    // A frame later: the fit resizes the paper it observes, which inside
+    // the observer's own callback is a resize loop.
+    const resize = new ResizeObserver(() =>
+      requestAnimationFrame(() => this.#fitMail(untracked(this.editorView))),
+    );
+    afterRenderEffect(() => resize.observe(this.paper().nativeElement));
+    inject(DestroyRef).onDestroy(() => resize.disconnect());
+  }
+
+  /** The editor's paper: the email's column. */
+  private readonly paper = viewChild.required('paper', { read: ElementRef<HTMLElement> });
+
+  /**
+   * How wide the email is where it is wider than its column (a fixed-width
+   * table, a wide image), on the desk as `--designer-mail-width`: the column
+   * grows to it, the empty room beside it giving way (the details keep
+   * theirs), and the canvas scrolls what still does not fit. Measured at the
+   * column's own width — the property taken away, read, put back in one
+   * task, so nothing is drawn between — so an email that shrank gives the
+   * room back; one that fits sets none.
+   */
+  #fitMail(view: EditorView): void {
+    const desk = this.element;
+    desk.style.removeProperty('--designer-mail-width');
+    if (view !== 'editor') return;
+    const paper = this.paper().nativeElement as HTMLElement;
+    if (paper.scrollWidth <= paper.clientWidth) return;
+    // The editor's inset at the column's end, kept past the email's end.
+    const editor = paper.querySelector('.ProseMirror') ?? paper;
+    const inset = paper.getBoundingClientRect().right - editor.getBoundingClientRect().right;
+    desk.style.setProperty('--designer-mail-width', `${Math.ceil(paper.scrollWidth + inset)}px`);
   }
 
   /** The HTML source, and its node for the code-view portal. */
