@@ -26,7 +26,7 @@ import {
 import { CalendarFormat } from '../../../../../core/calendar/calendar-format';
 import { placeInLanes } from '../../../../../core/calendar/calendar-layout';
 import { EventChip } from '../../../shared/calendar/event-chip/event-chip';
-import { DRAG_THRESHOLD, GridCreate, GridOpen, boxOf, GridSlot } from '../calendar-grid';
+import { DRAG_THRESHOLD, GridCreate, GridOpen, boxOf, GridSlot, headOf } from '../calendar-grid';
 
 /** A row's sizes, px: the date's line, and a lane (22 + 2 apart). */
 const DATE_LINE = 28;
@@ -294,7 +294,7 @@ export class MonthGrid {
       return;
     }
     if (!drag.moved) {
-      this.open.emit({ id: drag.stored.id, rect: boxOf(drag.element) });
+      this.open.emit({ id: drag.stored.id, rect: headOf(drag.element) });
       return;
     }
     if (drag.preview.start !== drag.stored.start) this.change.emit(drag.preview);
@@ -310,6 +310,6 @@ export class MonthGrid {
       return;
     }
     if (shown.id === DRAFT_ID) return;
-    this.open.emit({ id: shown.id, rect: boxOf(event.currentTarget as Element) });
+    this.open.emit({ id: shown.id, rect: headOf(event.currentTarget as Element) });
   }
 }

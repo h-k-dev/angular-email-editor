@@ -40,7 +40,7 @@ import {
 import { CalendarFormat } from '../../../../../core/calendar/calendar-format';
 import { laneCount, placeInDay, placeInLanes } from '../../../../../core/calendar/calendar-layout';
 import { EventChip } from '../../../shared/calendar/event-chip/event-chip';
-import { DRAG_THRESHOLD, GridCreate, GridOpen, GridSlot, boxOf } from '../calendar-grid';
+import { DRAG_THRESHOLD, GridCreate, GridOpen, GridSlot, boxOf, headOf } from '../calendar-grid';
 
 /** An hour's height, px — the one size the grid's minutes are multiplied
     by (set on the host as `--hour`). */
@@ -490,7 +490,7 @@ export class TimeGrid {
 
     const { id, ...draft } = drag.preview;
     if (drag.kind === 'mark') {
-      this.create.emit({ draft, rect: this.#slotBox(drag.preview) });
+      this.create.emit({ draft, rect: this.#markHead(drag) });
       return;
     }
     if (drag.kind === 'days') {
@@ -498,11 +498,11 @@ export class TimeGrid {
       return;
     }
     if (id === DRAFT_ID) {
-      if (drag.moved) this.draftChange.emit({ draft, rect: this.#slotBox(drag.preview) });
+      if (drag.moved) this.draftChange.emit({ draft, rect: this.#markHead(drag) });
       return;
     }
     if (!drag.moved) {
-      if (drag.element) this.open.emit({ id, rect: boxOf(drag.element) });
+      if (drag.element) this.open.emit({ id, rect: headOf(drag.element) });
       return;
     }
     const stored = this.events().find((one) => one.id === id);
@@ -529,7 +529,7 @@ export class TimeGrid {
       return;
     }
     if (shown.id === DRAFT_ID) return;
-    this.open.emit({ id: shown.id, rect: boxOf(event.currentTarget as Element) });
+    this.open.emit({ id: shown.id, rect: headOf(event.currentTarget as Element) });
   }
 
   /** A press on the band: an all-day event that day. */
@@ -573,6 +573,17 @@ export class TimeGrid {
       width: span * width,
       height: band.height,
     };
+  }
+
+  /** The dragged mark's head, for its card (`headOf`) — where it begins,
+      across days. Only a drag that moved has drawn it: a press alone still
+      shows the mark before it (or none), so its place is worked out from
+      its times — the page stands the card on the head once it is drawn. */
+  #markHead(drag: Drag): AnchorRect {
+    const drawn = drag.moved
+      ? this.columnsEl().nativeElement.querySelector('[data-event-id="draft"]')
+      : null;
+    return drawn ? headOf(drawn) : this.#slotBox(drag.preview);
   }
 
   /** Where an event in the hours stands on screen — for its card, before

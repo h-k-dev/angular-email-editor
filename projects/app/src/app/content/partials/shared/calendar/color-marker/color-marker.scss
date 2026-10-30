@@ -4,16 +4,16 @@
   flex: none;
 }
 
-// The marker: a round dot like the menu's own, in a round 28px box — a
-// quiet button where the colour can be changed. Pulled back by the dot's
-// inset (7px), so the dot itself stands on the card's start, level with
-// the title and the icons under it.
+// The marker: a round 12px dot like the menu's own swatches, in a round
+// 28px box — a quiet button where the colour can be changed. Pulled back by
+// the 8px between box and dot, so the dot itself stands on the card's
+// start, level with the title and the icons under it; its middle 6px in.
 .color-marker {
   display: grid;
   place-items: center;
   inline-size: 28px;
   block-size: 28px;
-  margin: 0 0 0 -7px;
+  margin: 0 0 0 -8px;
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -35,8 +35,8 @@
 }
 
 .color-marker__dot {
-  inline-size: 14px;
-  block-size: 14px;
+  inline-size: 12px;
+  block-size: 12px;
   border-radius: 50%;
   background: var(--event-color);
   transition: background-color 200ms ease-out;

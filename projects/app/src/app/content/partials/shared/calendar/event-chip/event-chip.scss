@@ -54,7 +54,9 @@
 // In the hours: title over times, the edge down its start.
 :host([data-shape='block']) {
   flex-direction: column;
-  padding: 2px 6px 2px 9px;
+  // The stripe from 2px to 6px (its middle at 4 — where a card's dot
+  // lines up), the words 4px after it.
+  padding: 2px 6px 2px 10px;
   box-sizing: border-box;
   overflow: hidden;
   background: var(--_wash);
@@ -62,9 +64,9 @@
   &::before {
     content: '';
     position: absolute;
-    inset-block: 3px;
-    inset-inline-start: 3px;
-    inline-size: 3px;
+    inset-block: 2px;
+    inset-inline-start: 2px;
+    inline-size: 4px;
     border-radius: 2px;
     background: var(--event-color);
   }
@@ -110,7 +112,8 @@
   align-items: center;
   gap: 6px;
   block-size: 22px;
-  padding-inline: 6px;
+  // The dot from 8px to 16px, its middle at 12.
+  padding-inline: 8px;
   box-sizing: border-box;
   color: var(--mat-sys-on-surface);
 

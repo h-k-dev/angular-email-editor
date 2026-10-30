@@ -40,6 +40,7 @@ import {
 import {
   CalendarEvent,
   CalendarEventDraft,
+  DRAFT_ID,
   EVENT_COLOR_VALUES,
   EventColor,
   EventEdit,
@@ -70,7 +71,9 @@ import {
   GridCreate,
   GridOpen,
   GridSlot,
+  HEAD_ROOM,
   boxOf,
+  headOf,
 } from '../../../partials/atomic/calendar/calendar-grid';
 import { EventEditor } from '../../../partials/atomic/calendar/event-editor/event-editor';
 import { MonthGrid } from '../../../partials/atomic/calendar/month-grid/month-grid';
@@ -105,21 +108,75 @@ function contentOf(event: CalendarEvent): CalendarEventDraft {
   return { title, start, end, allDay, color, location, description };
 }
 
-/** The card beside an event: at its end, else its start, else under or
-    over it — Google's. The ones over it rise out of it (`motion-above`). */
-const CARD_POSITIONS: ConnectedPosition[] = [
-  { originX: 'end', originY: 'top', overlayX: 'start', overlayY: 'top', offsetX: 8 },
-  { originX: 'start', originY: 'top', overlayX: 'end', overlayY: 'top', offsetX: -8 },
-  { originX: 'start', originY: 'bottom', overlayX: 'start', overlayY: 'top', offsetY: 8 },
-  {
-    originX: 'start',
-    originY: 'top',
-    overlayX: 'start',
-    overlayY: 'bottom',
-    offsetY: -8,
-    panelClass: 'motion-above',
-  },
-];
+/** Where the card's colour dot stands across it, from its start: the
+    card's inset (16px, calendar.scss — its lines are rings, taking no
+    room) and the dot's half (12px, the colour marker — set flush on the
+    inset). The card stands that far before the event's colour mark
+    (`headOf` starts there: a block's stripe at 4px, a month item's dot at
+    12px), dot over colour, px. */
+const CARD_DOT = 16 + 6;
+/** How far the card stands out past the event's end, where it lines up
+    with that instead (near the screen's end), px. */
+const CARD_SHIFT = 16;
+/** How far the shown card comes up over its event's head (`headOf`):
+    the room the head keeps under its words — over the body of a long
+    event, over the bottom edge of a short one — px. */
+const CARD_OVERLAP = HEAD_ROOM;
+/** The gap under an event being written: its foot — the end's handle —
+    stays in reach, the card clear of it, px. */
+const CARD_CLEAR = 4;
+
+/**
+ * The card under its event, hung from its head (`headOf`): its own colour
+ * dot right under the event's colour (`CARD_DOT`), and over the head's
+ * bottom a little (`lap`) — a short event mostly in view, the card
+ * plainly its own.
+ * Near the screen's end it lines up with the event's end instead; with no
+ * room under it, over it, rising out of it (`motion-above`).
+ */
+function cardPositions(lap: number): ConnectedPosition[] {
+  return [
+    {
+      originX: 'start',
+      originY: 'bottom',
+      overlayX: 'start',
+      overlayY: 'top',
+      offsetX: -CARD_DOT,
+      offsetY: -lap,
+    },
+    {
+      originX: 'end',
+      originY: 'bottom',
+      overlayX: 'end',
+      overlayY: 'top',
+      offsetX: CARD_SHIFT,
+      offsetY: -lap,
+    },
+    {
+      originX: 'start',
+      originY: 'top',
+      overlayX: 'start',
+      overlayY: 'bottom',
+      offsetX: -CARD_DOT,
+      offsetY: lap,
+      panelClass: 'motion-above',
+    },
+    {
+      originX: 'end',
+      originY: 'top',
+      overlayX: 'end',
+      overlayY: 'bottom',
+      offsetX: CARD_SHIFT,
+      offsetY: lap,
+      panelClass: 'motion-above',
+    },
+  ];
+}
+
+/** The shown event's card over its edge; the one writing an event clear of
+    its foot. */
+const SHOWN_CARD = cardPositions(CARD_OVERLAP);
+const WRITING_CARD = cardPositions(-CARD_CLEAR);
 
 /** Google Calendar's views, in its menu's order, each with its key — the
     custom one (X) at its remembered length. */
@@ -386,7 +443,7 @@ export class CalendarPage {
     const color = this.edit()?.color ?? this.shown()?.color;
     return color ? EVENT_COLOR_VALUES[color] : null;
   });
-  protected readonly cardPositions = CARD_POSITIONS;
+  protected readonly cardPositions = computed(() => (this.edit() ? WRITING_CARD : SHOWN_CARD));
   protected readonly editingStored = computed(() => !!this.edit()?.id);
 
   /** What an event without a title says: "(No title)". */
@@ -399,9 +456,11 @@ export class CalendarPage {
     inject(DestroyRef).onDestroy(() => clearInterval(tick));
 
     // An open card follows its anchor — the next mark, the mark dragged —
-    // once the anchor stands there.
+    // once the anchor stands there; and takes its new place when it turns
+    // from showing an event to writing it (clear of the event's foot).
     afterRenderEffect(() => {
       this.anchor();
+      this.cardPositions();
       this.card().overlayRef?.updatePosition();
     });
 
@@ -468,8 +527,11 @@ export class CalendarPage {
 
   /** Time marked out in a grid: a card to write the event in. One open
       already gives way to it — the next mark is a press away, Notion's. */
+  /** Room marked for a new event: its card, first where the grid says
+      the mark stands, then on the mark's head once it is drawn. */
   protected created({ draft, rect }: GridCreate): void {
     this.#write(draft, rect);
+    this.#anchorOn(DRAFT_ID);
   }
 
   /** The open mark dragged or stretched: the event takes its times, the
@@ -527,29 +589,33 @@ export class CalendarPage {
     this.#store.save(event);
     const edit = this.edit();
     if (edit?.id === event.id) this.edit.set({ ...edit, start: event.start, end: event.end });
-    // Its card goes with it: beside where it was dropped, once it stands
-    // there (the hours, or the band it moved into). The anchor is moved by
-    // its bindings in the render after this one — the card is placed
-    // against it then, not in this pass, where it still stands where it was.
-    if (edit?.id === event.id || this.#shownId() === event.id) {
-      afterNextRender(
-        {
-          earlyRead: () => {
-            const chip = this.#host.querySelector(`[data-event-id="${CSS.escape(event.id)}"]`);
-            return chip ? boxOf(chip) : null;
-          },
-          write: (box) => {
-            if (!box) return;
-            this.anchor.set(box);
-            afterNextRender(
-              { read: () => this.card().overlayRef?.updatePosition() },
-              { injector: this.#injector },
-            );
-          },
+    // Its card goes with it, to where it was dropped (the hours, or the
+    // band it moved into).
+    if (edit?.id === event.id || this.#shownId() === event.id) this.#anchorOn(event.id);
+  }
+
+  /** Stands the card's anchor on the event with this id (`draft` for the
+      mark) once the next render has drawn it there. The anchor is moved by
+      its bindings in the render after that — the card is placed against it
+      then, not in this pass, where it still stands where it was. */
+  #anchorOn(id: string): void {
+    afterNextRender(
+      {
+        earlyRead: () => {
+          const chip = this.#host.querySelector(`[data-event-id="${CSS.escape(id)}"]`);
+          return chip ? headOf(chip) : null;
         },
-        { injector: this.#injector },
-      );
-    }
+        write: (box) => {
+          if (!box) return;
+          this.anchor.set(box);
+          afterNextRender(
+            { read: () => this.card().overlayRef?.updatePosition() },
+            { injector: this.#injector },
+          );
+        },
+      },
+      { injector: this.#injector },
+    );
   }
 
   protected saved(edit: EventEdit): void {
@@ -707,9 +773,10 @@ export class CalendarPage {
     void navigator.clipboard?.writeText(words.join('\n')).catch(() => undefined);
   }
 
-  /** A new event at a slot, its card beside where the menu was asked
-      for: an hour from the quarter in the hours — the whole day on the
-      all-day band or a month's day, as a press there makes. */
+  /** A new event at a slot: an hour from the quarter in the hours — the
+      whole day on the all-day band or a month's day, as a press there
+      makes. Its card stands at the pointer until the mark is drawn, then
+      hangs from the mark as every card hangs from its event (`created`). */
   #createAt(slot: GridSlot): void {
     const day = parseDay(slot.day);
     if (!day) return;
