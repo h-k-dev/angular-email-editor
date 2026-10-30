@@ -33,6 +33,14 @@ interface InboxRow {
   readonly open: boolean;
 }
 
+/** A run of rows under a title of its own: the messages brought in by hand
+    (an `.eml` dropped, a raw message pasted), or the catalogue's. */
+interface InboxSection {
+  readonly id: 'imported' | 'mail';
+  readonly label: string;
+  readonly rows: readonly InboxRow[];
+}
+
 /** What the snackbar says once a message has moved out. */
 const MOVED: Record<MailPlace, string> = {
   trash: 'inbox.moved.trash',
@@ -51,7 +59,8 @@ function sent(date: InboxHeader['date']): Date | string {
 }
 
 /**
- * The inbox's list (`ReceivedMail`), Proton's rows on a `grid` — Gmail's
+ * The inbox's list (`ReceivedMail`) — the imported section on top, then the
+ * catalogue's (Gmail's Priority Inbox sections) — Proton's rows on a `grid` — Gmail's
  * keyboard: one tab stop, ↑ ↓ the rows, Enter opens, Space ticks, → to a
  * row's checkbox and quick actions. A row still links to its message
  * (`/inbox/:id`) for the pointer: a click, a middle click, a copied link.
@@ -95,10 +104,11 @@ export class InboxList {
   /** The rows ticked, by id — for show, for now: nothing acts on them. */
   readonly #picked = signal<ReadonlySet<string>>(new Set());
 
-  /** The list: today's messages by their time, older ones by their day, in
-      the app's language; a date the message wrote out itself as it is,
-      and none where it has none. */
-  protected readonly rows = computed<readonly InboxRow[]>(() => {
+  /** The list, a section at a time: the messages brought in on top, then
+      the catalogue's. Today's messages by their time, older ones by their
+      day, in the app's language; a date the message wrote out itself as it
+      is, and none where it has none. */
+  protected readonly sections = computed<readonly InboxSection[]>(() => {
     const locale = this.#i18n.lang();
     const time = new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit' });
     const day = new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' });
@@ -107,7 +117,7 @@ export class InboxList {
     const starred = this.#mailbox.starred();
     const picked = this.#picked();
     const open = this.open();
-    return this.#mailbox.inbox().map((mail) => {
+    const row = (mail: InboxHeader): InboxRow => {
       const date = sent(mail.date);
       return {
         mail,
@@ -118,7 +128,19 @@ export class InboxList {
         picked: picked.has(mail.id),
         open: mail.id === open,
       };
-    });
+    };
+    return [
+      {
+        id: 'imported',
+        label: this.#i18n.t('inbox.import.title'),
+        rows: this.#mailbox.imported().map(row),
+      },
+      {
+        id: 'mail',
+        label: this.#i18n.t('inbox.import.rest'),
+        rows: this.#mailbox.inbox().map(row),
+      },
+    ];
   });
 
   /** A row's checkbox, ticked or not — or Space on the row. */

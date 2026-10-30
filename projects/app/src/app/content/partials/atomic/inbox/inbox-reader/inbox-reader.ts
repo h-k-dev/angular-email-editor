@@ -18,6 +18,7 @@ import { InboxMail, ReceivedMail } from '../../../../../core/email/mailbox/recei
 import { I18n } from '../../../../../core/translations/i18n';
 import { MailView } from '../../../shared/email/mail-view/mail-view';
 import { InboxPaper } from '../inbox-paper';
+import { InviteCard } from '../invite-card/invite-card';
 
 /**
  * One message of the inbox, read — the inbox's routed pane (`/inbox/:id`):
@@ -48,7 +49,7 @@ import { InboxPaper } from '../inbox-paper';
  */
 @Component({
   selector: 'app-inbox-reader',
-  imports: [TranslatePipe, MailView],
+  imports: [TranslatePipe, MailView, InviteCard],
   templateUrl: './inbox-reader.html',
   styleUrl: './inbox-reader.scss',
 })

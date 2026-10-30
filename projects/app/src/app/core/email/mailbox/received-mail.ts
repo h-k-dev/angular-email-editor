@@ -1,7 +1,10 @@
 import { Service, computed, inject, resource, signal } from '@angular/core';
 
-import type { InboundMessage } from '@h-k-dev/angular-email-editor';
+import { type InboundMessage, toInboundMessage } from '@h-k-dev/angular-email-editor';
 
+import type { Attachment } from 'postal-mime';
+
+import type { Invite } from '../../calendar/invite';
 import { messageHtml } from '../../dawn/dawn.render';
 import { BLANK } from '../envelope';
 import { ExampleAssets, inbound, sentDate } from '../examples';
@@ -30,6 +33,9 @@ export interface InboxMail extends InboxHeader {
   /** The body to read, as HTML (a fragment or a whole document). */
   readonly html: string;
   readonly text?: string;
+  /** The invitation it carries, where it is one (its `text/calendar`
+      part) — what the card above it shows. */
+  readonly invite?: Invite;
 }
 
 /** The listing as `inbox.json` holds it (`scripts/inbox-listing.mjs`). */
@@ -56,6 +62,10 @@ const SELF = BLANK.from.join(', ');
  * Every message unread until it is opened, the list, the reader and the
  * aside's count one state. What a row's actions do — read or not, starred,
  * moved out to the trash, the archive or snoozed — lasts this visit only.
+ *
+ * On top of the catalogue's, the imported: whole messages brought in by
+ * hand (`import`), parsed by postal-mime — lazy, on the first one — and
+ * kept in memory, saved nowhere: a reload empties them.
  */
 @Service()
 export class ReceivedMail {
@@ -92,13 +102,87 @@ export class ReceivedMail {
     this.mails().filter((mail) => !this.#moved().has(mail.id)),
   );
 
+  /** The messages brought in by hand, the latest first — this visit's
+      alone. */
+  readonly #imported = signal<readonly InboxMail[]>([]);
+
+  /** The inbox's imported section: those brought in, less those moved out. */
+  readonly imported = computed<readonly InboxHeader[]>(() =>
+    this.#imported().filter((mail) => !this.#moved().has(mail.id)),
+  );
+
+  /** How many have been brought in: each one's id. */
+  #imports = 0;
+
   /** The messages opened (or marked read) so far. */
   readonly #read = signal<ReadonlySet<string>>(new Set());
 
-  /** The inbox's messages not yet read, by id. */
+  /** The inbox's messages not yet read, by id — imported ones too. */
   readonly unread = computed(
-    () => new Set(this.inbox().filter((mail) => !this.#read().has(mail.id)).map((mail) => mail.id)),
+    () =>
+      new Set(
+        [...this.inbox(), ...this.imported()]
+          .filter((mail) => !this.#read().has(mail.id))
+          .map((mail) => mail.id),
+      ),
   );
+
+  /** A whole message brought in — an `.eml`, or the raw text of one — read
+      by postal-mime and put on top of the imported section, unread. Its inline
+      images (`cid:`) are drawn from its own parts. Resolves to its id;
+      rejects where nothing can be read from it. */
+  async import(raw: Blob | string): Promise<string> {
+    const { default: PostalMime } = await import('postal-mime');
+    const parsed = await PostalMime.parse(raw);
+    const message = toInboundMessage(parsed);
+    if (!message.html && !message.text && !message.subject && !message.from) {
+      throw new Error('Nothing in it reads as a message.');
+    }
+    let html = messageHtml(message);
+    for (const part of parsed.attachments) {
+      const cid = part.contentId?.replace(/^<|>$/g, '');
+      if (!cid || typeof part.content === 'string') continue;
+      const url = URL.createObjectURL(
+        new Blob([part.content as BlobPart], { type: part.mimeType || 'application/octet-stream' }),
+      );
+      html = html.split(`cid:${cid}`).join(url);
+    }
+    const invite = await this.#invite(parsed.attachments);
+    const id = `imported-${++this.#imports}`;
+    const mail: InboxMail = {
+      id,
+      file: '',
+      kind: 'html',
+      name: parsed.from?.name || parsed.from?.address || message.from || '',
+      from: message.from ?? '',
+      to: message.to ?? '',
+      cc: message.cc,
+      replyTo: message.replyTo,
+      date: message.date,
+      subject: message.subject ?? '',
+      text: message.text,
+      html,
+      invite,
+    };
+    this.#imported.update((mails) => [mail, ...mails]);
+    return id;
+  }
+
+  /** The invitation among a message's parts: the calendar part sent with a
+      method (the one inside the message) before an `invite.ics` beside it.
+      Its reader, and ical.js with it, loaded only for a message that has
+      one. */
+  async #invite(parts: readonly Attachment[]): Promise<Invite | undefined> {
+    const calendars = parts.filter((part) =>
+      ['text/calendar', 'application/ics'].includes(part.mimeType),
+    );
+    const part = calendars.find((one) => one.method) ?? calendars[0];
+    if (!part) return undefined;
+    const ics =
+      typeof part.content === 'string' ? part.content : new TextDecoder().decode(part.content);
+    const { readInvite } = await import('../../calendar/invite');
+    return readInvite(ics, part.method) ?? undefined;
+  }
 
   /** Starred messages, by id. */
   readonly #starred = signal<ReadonlySet<string>>(new Set());
@@ -152,6 +236,8 @@ export class ReceivedMail {
       names none. Once per message; one that failed is fetched again the
       next time it is asked for. */
   open(id: string): Promise<InboxMail | null> {
+    const imported = this.#imported().find((mail) => mail.id === id);
+    if (imported) return Promise.resolve(imported);
     let pending = this.#opened.get(id);
     if (!pending) {
       pending = this.#fetch(id);

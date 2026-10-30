@@ -3,6 +3,11 @@ import { TestBed } from '@angular/core/testing';
 import { provideExampleMail } from '../../../../../test/received-mail-fixture';
 import { ReceivedMail } from './received-mail';
 
+/** A whole message as it travels: the app's sample .eml. */
+const SAMPLE: string = (globalThis as any).process
+  .getBuiltinModule('fs')
+  .readFileSync('projects/app/test/sample-email.eml', 'utf8');
+
 describe('ReceivedMail', () => {
   let mail: ReceivedMail;
   let fetched: string[];
@@ -70,5 +75,29 @@ describe('ReceivedMail', () => {
     mail.read('mjml-austin');
     expect(mail.unread().has('mjml-austin')).toBe(false);
     expect(mail.unread().size).toBe(2);
+  });
+  describe('the imported section', () => {
+    it('reads a whole message into it, on top and unread — the inbox untouched', async () => {
+      const id = await mail.import(SAMPLE);
+      expect(mail.imported().map((m) => m.id)).toEqual([id]);
+      expect(mail.inbox().some((m) => m.id === id)).toBe(false);
+      expect(mail.unread().has(id)).toBe(true);
+      const [header] = mail.imported();
+      expect(header.name).toBe('Jane Doe');
+      expect(header.subject).toBe('Café plans — Friday');
+      expect((await mail.open(id))?.html).toContain('<b>café</b>');
+      expect(fetched).toEqual(['inbox.json']);
+    });
+
+    it('lists the latest first', async () => {
+      const first = await mail.import(SAMPLE);
+      const second = await mail.import(SAMPLE);
+      expect(mail.imported().map((m) => m.id)).toEqual([second, first]);
+    });
+
+    it('turns down what is no message', async () => {
+      await expect(mail.import('')).rejects.toThrow();
+      expect(mail.imported()).toEqual([]);
+    });
   });
 });

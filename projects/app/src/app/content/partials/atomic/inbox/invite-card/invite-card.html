@@ -1,0 +1,91 @@
+<!-- The invitation: when, what, then its properties a row each — who,
+     where to join, how often — and your answer. -->
+<div class="invite-card__main">
+  <div class="invite-card__head">
+    <p class="invite-card__when">{{ when() }}</p>
+    <h2 class="invite-card__title">{{ invite().title }}</h2>
+    @if (invite().cancelled) {
+      <span class="invite-card__label invite-card__label--cancelled">{{
+        'inbox.invite.cancelled' | translate
+      }}</span>
+    } @else if (updated()) {
+      <span class="invite-card__label">{{ 'inbox.invite.updated' | translate }}</span>
+    }
+  </div>
+
+  <div class="invite-card__props">
+    @if (invite().organizer; as organizer) {
+      <div class="invite-card__prop">
+        <mat-icon aria-hidden="true">person</mat-icon>
+        <span>
+          {{ organizer.name }}
+          <span class="invite-card__quiet">{{ 'inbox.invite.organizer' | translate }}</span>
+        </span>
+      </div>
+    }
+    @if (guests()) {
+      <div class="invite-card__prop">
+        <mat-icon aria-hidden="true">group</mat-icon>
+        <span class="invite-card__quiet">{{ guests() }}</span>
+      </div>
+    }
+    @if (invite().conference; as conference) {
+      <div class="invite-card__prop">
+        <mat-icon aria-hidden="true">videocam</mat-icon>
+        <a class="invite-card__link" [href]="conference" target="_blank" rel="noopener">{{
+          'inbox.invite.join' | translate
+        }}</a>
+      </div>
+    }
+    @if (invite().recurring) {
+      <div class="invite-card__prop">
+        <mat-icon aria-hidden="true">repeat</mat-icon>
+        <span class="invite-card__quiet">{{ 'inbox.invite.recurring' | translate }}</span>
+      </div>
+    }
+  </div>
+
+  @if (!invite().cancelled) {
+    <!-- Yes, No, Maybe: one choice on a track, the library's segmented
+         control — a radio group, the arrows move the pick. -->
+    <div class="invite-card__answer">
+      <span class="invite-card__quiet" aria-hidden="true">{{
+        'inbox.invite.going' | translate
+      }}</span>
+      <hk-tgb
+        class="invite-card__answers"
+        [attr.aria-label]="'inbox.invite.going' | translate"
+        [value]="response()"
+        (valueChange)="answer($event)"
+      >
+        @for (one of answers; track one.answer) {
+          <button hkTgbText [value]="one.answer">{{ one.key | translate }}</button>
+        }
+      </hk-tgb>
+    </div>
+  }
+</div>
+
+<!-- Beside it, your own calendar then: what is nearest, under what it is
+     to this one — the day in the calendar a click away. -->
+<aside class="invite-card__mine">
+  <a class="invite-card__eyebrow" [routerLink]="dayLink()">
+    {{ 'inbox.invite.inCalendar' | translate }}
+    <mat-icon aria-hidden="true">arrow_outward</mat-icon>
+  </a>
+  @if (beside(); as other) {
+    <div
+      class="invite-card__other"
+      [class.invite-card__other--conflict]="other.kind === 'conflict'"
+    >
+      <span class="invite-card__kind">{{ other.key | translate }}</span>
+      <span class="invite-card__event">
+        <span class="invite-card__dot" [style.background]="other.color"></span>
+        {{ other.title }}
+      </span>
+      <span class="invite-card__quiet">{{ other.time }}</span>
+    </div>
+  } @else {
+    <span class="invite-card__quiet">{{ 'inbox.invite.free' | translate }}</span>
+  }
+</aside>

@@ -66,7 +66,17 @@ export interface CalendarEvent {
   /** A subscribed calendar's (holidays): shown and opened, never moved,
       written or deleted — and never stored. */
   readonly?: boolean;
+  /** An invitation's: its `UID`, the one every message about it carries. */
+  uid?: string;
+  /** An invitation's: the organizer's `SEQUENCE` it was last brought to. */
+  sequence?: number;
+  /** An invitation's: what you said to it. */
+  response?: InviteAnswer;
 }
+
+/** What you can say to an invitation: Yes, Maybe, No — iCalendar's
+    `PARTSTAT`. */
+export type InviteAnswer = 'accepted' | 'tentative' | 'declined';
 
 /** An event as written, before the store has given it an id. */
 export type CalendarEventDraft = Omit<CalendarEvent, 'id'>;
@@ -147,6 +157,10 @@ export function isCalendarEvent(value: unknown): value is CalendarEvent {
     typeof event['allDay'] === 'boolean' &&
     EVENT_COLORS.includes(event['color'] as EventColor) &&
     typeof event['location'] === 'string' &&
-    typeof event['description'] === 'string'
+    typeof event['description'] === 'string' &&
+    (event['uid'] === undefined || typeof event['uid'] === 'string') &&
+    (event['sequence'] === undefined || typeof event['sequence'] === 'number') &&
+    (event['response'] === undefined ||
+      ['accepted', 'tentative', 'declined'].includes(event['response'] as string))
   );
 }

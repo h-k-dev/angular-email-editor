@@ -46,3 +46,12 @@
     <router-outlet />
   </div>
 </div>
+
+<!-- While a file hangs over the page: what letting go of an .eml does. -->
+<div
+  drop-hint
+  art="import"
+  [heading]="'inbox.import.dropHeading' | translate"
+  [text]="'inbox.import.dropText' | translate"
+  [active]="dragging()"
+></div>

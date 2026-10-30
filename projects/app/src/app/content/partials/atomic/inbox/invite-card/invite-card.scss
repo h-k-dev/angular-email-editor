@@ -1,0 +1,204 @@
+@use '../../../../../../styles/breakpoints' as bp;
+
+// Linear's quiet: a flat panel on the paper — a hairline round it, no fill
+// to speak of — the invitation as a title over property rows, and your
+// calendar in a side column past a hairline (under it on a phone's sheet).
+// Room above and below: 20px to the subject and to who sent it (with the
+// header's 8px gap).
+:host {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
+  margin-block: 12px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: var(--mat-sys-corner-medium);
+  background: color-mix(in oklch, var(--mat-sys-on-surface) 2%, transparent);
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
+
+  @include bp.phone-container(mail-view) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.invite-card__main {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  padding: 16px;
+  min-inline-size: 0;
+}
+
+.invite-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.invite-card__when {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-medium);
+}
+
+.invite-card__title {
+  margin: 0;
+  font: var(--mat-sys-title-medium);
+  overflow-wrap: anywhere;
+}
+
+// Linear's label: a hairline pill with a dot of its colour, words in
+// sentence case.
+.invite-card__label {
+  --_dot: var(--mat-sys-primary);
+
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  block-size: 20px;
+  padding-inline: 8px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: var(--mat-sys-corner-full);
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-small);
+
+  &::before {
+    content: '';
+    inline-size: 6px;
+    block-size: 6px;
+    border-radius: 50%;
+    background: var(--_dot);
+  }
+
+  &--cancelled {
+    --_dot: var(--mat-sys-error);
+  }
+}
+
+// A property a row: a 16px icon in a quiet column, the words beside it —
+// the calendar card's rows, smaller.
+.invite-card__props {
+  display: grid;
+  gap: 8px;
+}
+
+.invite-card__prop {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: start;
+  column-gap: 12px;
+
+  > mat-icon {
+    --mat-icon-size: 16px;
+    inline-size: 16px;
+    block-size: 16px;
+    margin-block-start: 2px;
+    font-size: 16px;
+    color: var(--mat-sys-on-surface-variant);
+  }
+}
+
+.invite-card__quiet {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.invite-card__link {
+  color: var(--mat-sys-primary);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+}
+
+// Your answer: its question, then the segmented control — Linear's: a
+// square-ish track, the picked one raised on it.
+.invite-card__answer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.invite-card__answers {
+  --hk-tgb-corner: var(--mat-sys-corner-small);
+  --hk-tgb-thumb-corner: 6px;
+  --hk-tgb-size: 28px;
+  --hk-tgb-padding: 12px;
+  --hk-tgb-font-size: 13px;
+  --hk-tgb-font-weight: 500;
+  // Raised off the track: white on light paper, a lighter grey on dark.
+  --hk-tgb-thumb: light-dark(
+    var(--mat-sys-surface-container-lowest),
+    var(--mat-sys-surface-container-highest)
+  );
+  --hk-tgb-thumb-shadow: 0 0 0 1px var(--mat-sys-outline-variant), 0 1px 2px rgb(0 0 0 / 0.08);
+  --hk-tgb-checked-color: var(--mat-sys-on-surface);
+}
+
+// Your calendar: a side column past a hairline — beneath, on a phone's
+// sheet.
+.invite-card__mine {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 16px;
+  border-inline-start: 1px solid var(--mat-sys-outline-variant);
+
+  @include bp.phone-container(mail-view) {
+    border-inline-start: 0;
+    border-block-start: 1px solid var(--mat-sys-outline-variant);
+  }
+}
+
+.invite-card__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  justify-self: start;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-medium);
+  text-decoration: none;
+
+  > mat-icon {
+    --mat-icon-size: 14px;
+    inline-size: 14px;
+    block-size: 14px;
+    font-size: 14px;
+  }
+
+  &:hover {
+    color: var(--mat-sys-on-surface);
+  }
+}
+
+.invite-card__other {
+  display: grid;
+  gap: 2px;
+}
+
+.invite-card__kind {
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-small);
+}
+
+.invite-card__other--conflict .invite-card__kind {
+  color: var(--mat-sys-error);
+}
+
+.invite-card__event {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.invite-card__dot {
+  flex: none;
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: 50%;
+}

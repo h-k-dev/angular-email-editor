@@ -1,7 +1,27 @@
 import { Service, computed, inject } from '@angular/core';
 
 import { LocalStorage, StorageCodec } from '../storages/local-storage';
-import { CalendarEvent, CalendarEventDraft, isCalendarEvent } from './calendar-event';
+import {
+  CalendarEvent,
+  CalendarEventDraft,
+  DEFAULT_EVENT_COLOR,
+  InviteAnswer,
+  isCalendarEvent,
+} from './calendar-event';
+import type { Invite } from './invite';
+
+/** What an invitation says of its event: when, what, where — and which
+    version of it, by the organizer's count. */
+const fromInvite = (invite: Invite) => ({
+  title: invite.title,
+  start: invite.start,
+  end: invite.end,
+  allDay: invite.allDay,
+  location: invite.location || invite.conference || '',
+  description: invite.description,
+  uid: invite.uid,
+  sequence: invite.sequence,
+});
 
 /** The events as storage keeps them: a JSON array, nothing while empty. A
     row this version does not read is dropped, never a broken calendar. */
@@ -37,11 +57,49 @@ export class CalendarEvents {
     eventList,
   );
 
-  /** Every event, in the order they were made. */
-  readonly events = this.#stored.asReadonly();
+  /** Every event, in the order they were made — but invitations you said
+      No to, which are kept for their answer, off the calendar. */
+  readonly events = computed(() => this.#stored().filter((event) => event.response !== 'declined'));
 
   /** Each event by its id. */
   readonly byId = computed(() => new Map(this.events().map((event) => [event.id, event])));
+
+  /** The events invitations made, by their `UID` — those you said No to
+      too: the card above the message shows what you said. */
+  readonly byUid = computed(
+    () =>
+      new Map(this.#stored().flatMap((event) => (event.uid ? [[event.uid, event] as const] : []))),
+  );
+
+  /** Your answer to an invitation: Yes and Maybe put it in the calendar
+      (or keep it there, brought up to this message), No takes it off —
+      the answer kept all the same. A real client would also mail the
+      organizer a `REPLY`; here the calendar is the whole of it. */
+  answer(invite: Invite, response: InviteAnswer): CalendarEvent {
+    const known = this.byUid().get(invite.uid);
+    const event: CalendarEvent = {
+      ...fromInvite(invite),
+      id: known?.id ?? crypto.randomUUID(),
+      color: known?.color ?? DEFAULT_EVENT_COLOR,
+      response,
+    };
+    this.save(event);
+    return event;
+  }
+
+  /** A message about an invitation already answered, come in: a newer
+      version (a higher `SEQUENCE`) moves the event to it, a cancellation
+      takes it off. What you said stays. Nothing for one never answered,
+      or one this calendar has newer. */
+  follow(invite: Invite): void {
+    const known = this.byUid().get(invite.uid);
+    if (!known || invite.sequence < (known.sequence ?? 0)) return;
+    if (invite.cancelled) {
+      this.remove(known.id);
+      return;
+    }
+    if (invite.sequence > (known.sequence ?? 0)) this.save({ ...known, ...fromInvite(invite) });
+  }
 
   /** Stores a new event and answers it with its id — one that survives the
       reload the event does. */
@@ -64,7 +122,7 @@ export class CalendarEvents {
   /** Deletes the event with this id and answers it, for an undo — or null,
       where it was gone already. */
   remove(id: string): CalendarEvent | null {
-    const gone = this.byId().get(id) ?? null;
+    const gone = this.#stored().find((one) => one.id === id) ?? null;
     if (gone) this.#stored.update((events) => events.filter((one) => one.id !== id));
     return gone;
   }

@@ -19,6 +19,33 @@
   }
 }
 
+// A section: its title, then its rows, spaced as the list's — the next
+// section a breath further down.
+.inbox-section {
+  display: grid;
+  row-gap: 2px;
+
+  & + & {
+    margin-block-start: 12px;
+  }
+}
+
+// A section's title: small and quiet, lined up with the rows' text —
+// Gmail's Priority Inbox headings.
+.inbox-section__title {
+  padding: 8px 16px 4px;
+  font: var(--mat-sys-label-medium);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+// The imported section, empty: how to fill it.
+.inbox-section__empty {
+  margin: 0;
+  padding: 4px 16px 8px;
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-placeholder);
+}
+
 // A row of the grid: the link, and beside it — laid over it — the avatar's
 // checkbox and the quick actions. It is the keyboard's focus; its ring is
 // drawn on the link's shape (below).

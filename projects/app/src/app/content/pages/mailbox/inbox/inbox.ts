@@ -7,12 +7,14 @@ import { filter } from 'rxjs';
 // Angular Material
 import { MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTooltip } from '@angular/material/tooltip';
 
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { Viewport } from '../../../../core/layout/viewport';
 import { ReceivedMail } from '../../../../core/email/mailbox/received-mail';
+import { I18n } from '../../../../core/translations/i18n';
 import {
   INBOX_LIST_MAX,
   INBOX_LIST_MIN,
@@ -23,6 +25,8 @@ import { SplitHandle } from '../../../partials/common/split-handle/split-handle'
 import { InboxList } from '../../../partials/atomic/inbox/inbox-list/inbox-list';
 import { InboxPaper } from '../../../partials/atomic/inbox/inbox-paper';
 import { PageHeader } from '../../../partials/common/page-header/page-header';
+import { DropHint } from '../../../partials/common/drop-hint/drop-hint';
+import { MessageImport } from '../../../partials/common/message-import/message-import';
 import { PaperIslandDirective } from '../../../partials/shared/email/paper-island';
 
 /**
@@ -38,6 +42,9 @@ import { PaperIslandDirective } from '../../../partials/shared/email/paper-islan
  * app's surface, the mail's on the reading paper (`InboxPaper`) — the whole
  * half is paper, light or dark as the reader's button turns it, whatever the
  * app round it is.
+ *
+ * The page takes a message in: an `.eml` dropped on it, or a whole message
+ * pasted (`MessageImport`) — into the list's Imported section, and open.
  */
 @Component({
   selector: 'app-inbox',
@@ -51,15 +58,19 @@ import { PaperIslandDirective } from '../../../partials/shared/email/paper-islan
     SplitHandle,
     PageHeader,
     PaperIslandDirective,
+    DropHint,
   ],
   templateUrl: './inbox.html',
   styleUrl: './inbox.scss',
   // The paper the mail is read on: this page's, shared with the reader it
   // routes to (which turns it).
   providers: [InboxPaper],
+  // The whole page takes a message in.
+  hostDirectives: [{ directive: MessageImport, outputs: ['messageImport'] }],
   host: {
     '[style.--inbox-list-width.px]': 'listWidth()',
     '[attr.data-reading]': 'reading() || null',
+    '(messageImport)': 'bringIn($event)',
   },
 })
 export class Inbox {
@@ -67,6 +78,22 @@ export class Inbox {
   readonly #mailbox = inject(ReceivedMail);
   readonly #router = inject(Router);
   readonly #viewport = inject(Viewport);
+  readonly #i18n = inject(I18n);
+  readonly #snackBar = inject(MatSnackBar);
+
+  /** A file hangs over the page: the drop hint says what letting go does. */
+  protected readonly dragging = inject(MessageImport).dragging;
+
+  /** A message brought in: read, put on top of the Imported section, and
+      opened. */
+  protected async bringIn(file: File): Promise<void> {
+    try {
+      const id = await this.#mailbox.import(file);
+      void this.#router.navigate([id], { relativeTo: this.#route });
+    } catch {
+      this.#snackBar.open(this.#i18n.t('inbox.import.failed'), undefined, { duration: 4000 });
+    }
+  }
 
   /** The paper the mail's half is read on (`InboxPaper`): the reader's
       button turns it. */

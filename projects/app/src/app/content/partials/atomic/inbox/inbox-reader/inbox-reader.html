@@ -16,5 +16,16 @@
     [bodyLabel]="'inbox.body' | translate"
     (answer)="answer($event)"
     (flipPaper)="flipPaper()"
-  ></article>
+  >
+    <!-- An invitation's card, Gmail's: in a chunk of its own (ical.js's
+         reader is the import's; Luxon is the calendar's), fetched only for
+         a message that is one. -->
+    @if (mail.invite; as invite) {
+      <div mailViewLead>
+        @defer {
+          <app-invite-card [invite]="invite" />
+        }
+      </div>
+    }
+  </article>
 }

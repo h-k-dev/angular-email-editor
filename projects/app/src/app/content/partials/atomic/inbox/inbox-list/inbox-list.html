@@ -1,138 +1,156 @@
-<!-- The rows of the grid — the host is the grid (`hostDirectives`). A row
-     is named by its sender, state, date and subject alone — never by the
-     labels of the controls in it. -->
-@for (row of rows(); track row.mail.id) {
-  @let id = 'inbox-' + row.mail.id;
+<!-- The rows of the grid — the host is the grid (`hostDirectives`), a row
+     group per section: the messages brought in on top, then the
+     catalogue's. A section's title is for the eye; assistive tech has the
+     group's name. A row is named by its sender, state, date and subject
+     alone — never by the labels of the controls in it. -->
+@for (section of sections(); track section.id) {
   <div
-    class="inbox-item"
-    gridRow
-    [hueOf]="row.mail.name"
-    [selected]="row.picked"
-    (selectedChange)="pick(row.mail.id)"
-    [current]="row.open ? 'page' : false"
-    [attr.aria-labelledby]="
-      id + '-name ' + (row.unread ? id + '-unread ' : '') + id + '-when ' + id + '-subject'
-    "
-    (activate)="openMail(row.mail.id)"
-    (focus)="prefetch(row.mail.id)"
-    (pointerenter)="prefetch(row.mail.id)"
+    class="inbox-section"
+    role="rowgroup"
+    [attr.aria-label]="section.label"
+    [attr.aria-describedby]="section.rows.length ? null : 'inbox-' + section.id + '-empty'"
   >
-    <!-- Proton's leading avatar: the sender's initials on the sender's
+    <div class="inbox-section__title" aria-hidden="true">{{ section.label }}</div>
+    @if (section.id === 'imported' && !section.rows.length) {
+      <!-- Empty, the section says how to fill it. -->
+      <p class="inbox-section__empty" aria-hidden="true" [id]="'inbox-' + section.id + '-empty'">
+        {{ 'inbox.import.empty' | translate }}
+      </p>
+    }
+    @for (row of section.rows; track row.mail.id) {
+      @let id = 'inbox-' + row.mail.id;
+      <div
+        class="inbox-item"
+        gridRow
+        [hueOf]="row.mail.name"
+        [selected]="row.picked"
+        (selectedChange)="pick(row.mail.id)"
+        [current]="row.open ? 'page' : false"
+        [attr.aria-labelledby]="
+          id + '-name ' + (row.unread ? id + '-unread ' : '') + id + '-when ' + id + '-subject'
+        "
+        (activate)="openMail(row.mail.id)"
+        (focus)="prefetch(row.mail.id)"
+        (pointerenter)="prefetch(row.mail.id)"
+      >
+        <!-- Proton's leading avatar: the sender's initials on the sender's
          own hue (the row's, `[hueOf]` — its wash and frame are in it
          too) — and the row's checkbox under it, shown while the
          pointer is on it or it is ticked. Pressing the avatar is
          pressing the checkbox; Space on the row ticks it too. Beside the
          link, not in it: a link holds no controls. -->
-    <div class="inbox-pick" gridCell>
-      <span class="inbox-row__avatar" [avatar]="row.mail.name"></span>
-      <mat-checkbox
-        class="inbox-pick__box"
-        gridWidget
-        tabindex="-1"
-        [checked]="row.picked"
-        [aria-label]="'inbox.actions.select' | translate: { name: row.mail.name }"
-        (change)="pick(row.mail.id)"
-      />
-    </div>
-    <!-- The row's link, for the pointer — the keyboard opens with Enter
+        <div class="inbox-pick" gridCell>
+          <span class="inbox-row__avatar" [avatar]="row.mail.name"></span>
+          <mat-checkbox
+            class="inbox-pick__box"
+            gridWidget
+            tabindex="-1"
+            [checked]="row.picked"
+            [aria-label]="'inbox.actions.select' | translate: { name: row.mail.name }"
+            (change)="pick(row.mail.id)"
+          />
+        </div>
+        <!-- The row's link, for the pointer — the keyboard opens with Enter
          on the row. -->
-    <div class="inbox-item__main" gridCell>
-      <a
-        class="inbox-row"
-        tabindex="-1"
-        [routerLink]="row.mail.id"
-        [class.inbox-row--unread]="row.unread"
-      >
-        <span class="inbox-row__name" [id]="id + '-name'">{{ row.mail.name }}</span>
-        @if (row.unread) {
-          <span hidden [id]="id + '-unread'">{{ 'inbox.unread' | translate }}</span>
-        }
-        <span class="inbox-row__when" [id]="id + '-when'">
-          @if (row.starred) {
-            <mat-icon
-              class="inbox-row__starred"
-              role="img"
-              [attr.aria-label]="'inbox.starred' | translate"
-              >star</mat-icon
-            >
-          }
-          {{ row.when }}
-        </span>
-        <span class="inbox-row__subject" [id]="id + '-subject'">{{ row.mail.subject }}</span>
-      </a>
-    </div>
-    <!-- Proton's quick actions, over the date while the row is under
+        <div class="inbox-item__main" gridCell>
+          <a
+            class="inbox-row"
+            tabindex="-1"
+            [routerLink]="row.mail.id"
+            [class.inbox-row--unread]="row.unread"
+          >
+            <span class="inbox-row__name" [id]="id + '-name'">{{ row.mail.name }}</span>
+            @if (row.unread) {
+              <span hidden [id]="id + '-unread'">{{ 'inbox.unread' | translate }}</span>
+            }
+            <span class="inbox-row__when" [id]="id + '-when'">
+              @if (row.starred) {
+                <mat-icon
+                  class="inbox-row__starred"
+                  role="img"
+                  [attr.aria-label]="'inbox.starred' | translate"
+                  >star</mat-icon
+                >
+              }
+              {{ row.when }}
+            </span>
+            <span class="inbox-row__subject" [id]="id + '-subject'">{{ row.mail.subject }}</span>
+          </a>
+        </div>
+        <!-- Proton's quick actions, over the date while the row is under
          the pointer or the keyboard is on it — only where there is a
          pointer to hover with: a touch screen never shows them. → from
          the row reaches them; while the pointer is on the row they are
          in the Tab order too (`tabOnHover`). -->
-    <div class="inbox-actions" gridCell [attr.aria-label]="'inbox.actions.label' | translate">
-      <button
-        matIconButton
-        gridWidget
-        tabOnHover
-        type="button"
-        tabindex="-1"
-        [attr.aria-label]="
-          (row.unread ? 'inbox.actions.markRead' : 'inbox.actions.markUnread') | translate
-        "
-        [matTooltip]="
-          (row.unread ? 'inbox.actions.markRead' : 'inbox.actions.markUnread') | translate
-        "
-        (click)="toggleRead(row)"
-      >
-        <mat-icon>{{ row.unread ? 'mark_email_read' : 'mark_email_unread' }}</mat-icon>
-      </button>
-      <button
-        matIconButton
-        gridWidget
-        tabOnHover
-        type="button"
-        tabindex="-1"
-        [attr.aria-label]="'inbox.actions.trash' | translate"
-        [matTooltip]="'inbox.actions.trash' | translate"
-        (click)="move(row.mail.id, 'trash')"
-      >
-        <mat-icon>delete</mat-icon>
-      </button>
-      <button
-        matIconButton
-        gridWidget
-        tabOnHover
-        type="button"
-        tabindex="-1"
-        [attr.aria-label]="'inbox.actions.archive' | translate"
-        [matTooltip]="'inbox.actions.archive' | translate"
-        (click)="move(row.mail.id, 'archive')"
-      >
-        <mat-icon>archive</mat-icon>
-      </button>
-      <button
-        matIconButton
-        gridWidget
-        tabOnHover
-        type="button"
-        tabindex="-1"
-        [attr.aria-label]="'inbox.actions.snooze' | translate"
-        [matTooltip]="'inbox.actions.snooze' | translate"
-        (click)="move(row.mail.id, 'snoozed')"
-      >
-        <mat-icon>schedule</mat-icon>
-      </button>
-      <button
-        matIconButton
-        gridWidget
-        tabOnHover
-        type="button"
-        tabindex="-1"
-        class="inbox-actions__star"
-        [attr.aria-pressed]="row.starred"
-        [attr.aria-label]="'inbox.actions.star' | translate"
-        [matTooltip]="(row.starred ? 'inbox.actions.unstar' : 'inbox.actions.star') | translate"
-        (click)="toggleStar(row.mail.id)"
-      >
-        <mat-icon>star</mat-icon>
-      </button>
-    </div>
+        <div class="inbox-actions" gridCell [attr.aria-label]="'inbox.actions.label' | translate">
+          <button
+            matIconButton
+            gridWidget
+            tabOnHover
+            type="button"
+            tabindex="-1"
+            [attr.aria-label]="
+              (row.unread ? 'inbox.actions.markRead' : 'inbox.actions.markUnread') | translate
+            "
+            [matTooltip]="
+              (row.unread ? 'inbox.actions.markRead' : 'inbox.actions.markUnread') | translate
+            "
+            (click)="toggleRead(row)"
+          >
+            <mat-icon>{{ row.unread ? 'mark_email_read' : 'mark_email_unread' }}</mat-icon>
+          </button>
+          <button
+            matIconButton
+            gridWidget
+            tabOnHover
+            type="button"
+            tabindex="-1"
+            [attr.aria-label]="'inbox.actions.trash' | translate"
+            [matTooltip]="'inbox.actions.trash' | translate"
+            (click)="move(row.mail.id, 'trash')"
+          >
+            <mat-icon>delete</mat-icon>
+          </button>
+          <button
+            matIconButton
+            gridWidget
+            tabOnHover
+            type="button"
+            tabindex="-1"
+            [attr.aria-label]="'inbox.actions.archive' | translate"
+            [matTooltip]="'inbox.actions.archive' | translate"
+            (click)="move(row.mail.id, 'archive')"
+          >
+            <mat-icon>archive</mat-icon>
+          </button>
+          <button
+            matIconButton
+            gridWidget
+            tabOnHover
+            type="button"
+            tabindex="-1"
+            [attr.aria-label]="'inbox.actions.snooze' | translate"
+            [matTooltip]="'inbox.actions.snooze' | translate"
+            (click)="move(row.mail.id, 'snoozed')"
+          >
+            <mat-icon>schedule</mat-icon>
+          </button>
+          <button
+            matIconButton
+            gridWidget
+            tabOnHover
+            type="button"
+            tabindex="-1"
+            class="inbox-actions__star"
+            [attr.aria-pressed]="row.starred"
+            [attr.aria-label]="'inbox.actions.star' | translate"
+            [matTooltip]="(row.starred ? 'inbox.actions.unstar' : 'inbox.actions.star') | translate"
+            (click)="toggleStar(row.mail.id)"
+          >
+            <mat-icon>star</mat-icon>
+          </button>
+        </div>
+      </div>
+    }
   </div>
 }
