@@ -32,7 +32,6 @@ import { Paper } from '../../../../core/theme/paper';
       [title]="label()"
       [srcdoc]="document()"
       [style.block-size.px]="height()"
-      [style.min-inline-size.px]="width() || null"
       [style.transform]="scale() < 1 ? 'scale(' + scale() + ')' : null"
       (load)="fit(frame)"
     ></iframe>
@@ -135,6 +134,11 @@ export class EmailViewer {
       keep fitting it as its width reflows the email. */
   protected fit(frame: HTMLIFrameElement): void {
     this.#observer?.disconnect();
+    // Measured at the room's width, never the last email's: a frame still
+    // as wide as the email before would read as one that fits. Set here,
+    // not bound — cleared and set again in one go, a binding would never
+    // see it change.
+    frame.style.minInlineSize = '';
     this.width.set(0);
     const root = frame.contentDocument?.documentElement;
     if (!root) return;
@@ -146,7 +150,10 @@ export class EmailViewer {
     // frame, whatever its own width. Read once, as it is drawn — widened to
     // it the email fits, and that width holds until the next document (a
     // width set from the observer would resize what it observes, a loop).
-    if (root.scrollWidth > root.clientWidth) this.width.set(root.scrollWidth);
+    if (root.scrollWidth > root.clientWidth) {
+      this.width.set(root.scrollWidth);
+      frame.style.minInlineSize = `${root.scrollWidth}px`;
+    }
     const measure = () => this.height.set(Math.ceil(root.getBoundingClientRect().height));
     measure();
     if (typeof ResizeObserver === 'undefined') return;

@@ -1,0 +1,21 @@
+// The name over the set, the dialog's width each.
+.template-add {
+  display: grid;
+  gap: 8px;
+  padding-block-start: 8px;
+}
+
+.template-add__name {
+  inline-size: 100%;
+}
+
+.template-add__set {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+
+.template-add__label {
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-large);
+}

@@ -13,6 +13,12 @@ $inset: 24px;
   font: var(--mat-sys-title-medium);
 }
 
+// The +, at the header's end.
+.gallery-new {
+  flex: none;
+  margin-inline-start: auto;
+}
+
 // On the page's own surface, so the feed scrolls under them unseen; one
 // line, scrolling sideways where it does not fit (`overflow-row`).
 .gallery-shelves {

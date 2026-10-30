@@ -107,6 +107,15 @@ export default {
     mergeTags: '{{count}} merge tags',
     noMergeTags: 'No merge tags',
     empty: 'No templates here.',
+    new: 'New template',
+    add: {
+      title: 'New template',
+      name: 'Name',
+      set: 'Set',
+      cancel: 'Cancel',
+      create: 'Create',
+      nameMissing: 'A template needs a name',
+    },
     sets: {
       angularjs: 'AngularJS expressions',
       handlebars: 'Handlebars',

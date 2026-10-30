@@ -1,4 +1,9 @@
-import { Component, computed, inject, resource, signal } from '@angular/core';
+import { Component, Injector, computed, inject, resource, signal } from '@angular/core';
+
+// Angular Material
+import { MatIconButton } from '@angular/material/button';
+import { MatIcon } from '@angular/material/icon';
+import { MatTooltip } from '@angular/material/tooltip';
 
 import { TranslatePipe } from '@ngx-translate/core';
 
@@ -13,6 +18,11 @@ import {
   TemplateCard,
   TemplateCardModel,
 } from '../../../partials/atomic/templates/template-card/template-card';
+import {
+  TemplateAddSet,
+  openTemplateAdd,
+} from '../../../partials/atomic/templates/template-add/template-add';
+import { openTemplateDesigner } from '../../../partials/atomic/templates/template-designer/open-template-designer';
 import { OverflowRow } from '../../../partials/common/overflow-row/overflow-row';
 import { PageHeader } from '../../../partials/common/page-header/page-header';
 import {
@@ -47,12 +57,16 @@ const mergeTagsIn = (html: string): number =>
  * in the card's shape). Each card's wash is its template's colour. A thumbnail is drawn
  * only once its card is looked at (`*gridSeen`). The shelves over the feed
  * narrow it to one set, as YouTube's chips do. A card opens a new message
- * on its template.
+ * on its template. The header's + makes a new one — named, on a set — and
+ * opens it in the designer.
  */
 @Component({
   selector: 'app-template-gallery',
   imports: [
     TranslatePipe,
+    MatIconButton,
+    MatIcon,
+    MatTooltip,
     HueOf,
     PageHeader,
     OverflowRow,
@@ -69,6 +83,7 @@ export class TemplateGallery {
   readonly #examples = inject(Examples);
   readonly #i18n = inject(I18n);
   readonly #scroller = inject(PageScroller);
+  readonly #injector = inject(Injector);
 
   /** A touch screen scrolls the shelves with a finger: no paddles, no drag. */
   protected readonly touch = inject(Viewport).touch;
@@ -140,13 +155,45 @@ export class TemplateGallery {
   /** A shelf pressed: the feed starts over on it, from the top. */
   protected pick(key: string | null): void {
     if (key === this.shelf()) return;
+    this.shelf.set(key);
+    this.#restart();
+    this.#scroller.scrollToPosition([0, 0]);
+  }
+
+  /** The sets a new template can join: the shelves' own. */
+  protected readonly addSets = computed<readonly TemplateAddSet[]>(() =>
+    (this.#sets.value() ?? []).map((set) => ({
+      key: set.key,
+      label: this.#setLabel(set),
+      dialect: set.dialect!,
+    })),
+  );
+
+  /** The header's +: a new template, named, on the shelf in view (the
+      first set on All) — the feed reads again, so it stands in its place,
+      and it opens in the designer. */
+  protected async add(): Promise<void> {
+    const sets = this.addSets();
+    if (!sets.length) return;
+    const created = await openTemplateAdd(this.#injector, {
+      sets,
+      set: this.shelf() ?? sets[0].key,
+    });
+    if (!created) return;
+    this.#restart();
+    const ref = await openTemplateDesigner(this.#injector, created);
+    const saves = ref.componentInstance.saved.subscribe((template) => this.patch(template));
+    ref.afterClosed().subscribe(() => saves.unsubscribe());
+  }
+
+  /** The feed from its start: what is on its way dropped, the grid asks
+      for the first page again. */
+  #restart(): void {
     this.#request?.abort();
     this.#request = null;
-    this.shelf.set(key);
     this.#rows.set([]);
     this.#done.set(false);
     this.#loading.set(false);
-    this.#scroller.scrollToPosition([0, 0]);
   }
 
   /** The feed's end is near (the grid asks): the next page — unless one is

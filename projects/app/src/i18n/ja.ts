@@ -103,6 +103,15 @@ export default {
     mergeTags: '差し込みタグ {{count}} 個',
     noMergeTags: '差し込みタグなし',
     empty: 'テンプレートがありません。',
+    new: '新しいテンプレート',
+    add: {
+      title: '新しいテンプレート',
+      name: '名前',
+      set: 'セット',
+      cancel: 'キャンセル',
+      create: '作成',
+      nameMissing: 'テンプレートには名前が必要です',
+    },
     sets: {
       angularjs: 'AngularJS 式',
       handlebars: 'Handlebars',

@@ -247,21 +247,23 @@
     class="designer-bar__save"
     disabledInteractive
     [disabled]="!dirty() || saving()"
+    [showProgress]="saving()"
     [attr.aria-busy]="saving() || null"
     [matTooltip]="'designer.saveHint' | translate"
     matTooltipPosition="below"
     (click)="save()"
   >
-    <!-- Any save on its way — Save's, or a row's own as it is left. -->
-    @if (saving()) {
-      <mat-progress-spinner
-        class="designer-bar__spinner"
-        mode="indeterminate"
-        diameter="16"
-        strokeWidth="2"
-        [attr.aria-label]="'designer.saving' | translate"
-      />
-    }
+    <!-- Any save on its way — Save's, or a row's own as it is left: in the
+         label's place (Material's `showProgress`), the button as wide as
+         ever — nothing beside it moves. -->
+    <mat-progress-spinner
+      progressIndicator
+      class="designer-bar__spinner"
+      mode="indeterminate"
+      diameter="16"
+      strokeWidth="2"
+      [attr.aria-label]="'designer.saving' | translate"
+    />
     {{ 'designer.save' | translate }}
   </button>
 </header>
@@ -385,11 +387,10 @@
       email-compose
       class="designer-paper"
       tabindex="-1"
+      design
       [formField]="envelope.html"
       [(quoted)]="quoted"
-      (placeholdersFilled)="placeholdersFilled($event)"
       (templatePicked)="templatePicked($event)"
-      (placeholdersFailed)="placeholdersFailed()"
       (fileDrop)="onAttachmentDrop($event)"
       [(sourceView)]="sourceView"
       [toolbar]="!plainText() && formattingOpen()"

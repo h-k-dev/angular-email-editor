@@ -79,12 +79,8 @@ $preview-min: 448px;
   margin-inline-start: 8px;
 }
 
-// The spinner sits where a button's icon does, on the label's line, in its
-// ink.
+// The spinner, in the label's place while a save is on its way, in its ink.
 .designer-bar__spinner {
-  display: inline-block;
-  vertical-align: middle;
-  margin-inline-end: 8px;
   --mat-progress-spinner-active-indicator-color: currentColor;
 }
 

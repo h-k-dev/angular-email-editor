@@ -1,0 +1,48 @@
+<h2 mat-dialog-title>{{ 'templates.add.title' | translate }}</h2>
+
+<mat-dialog-content>
+  <form id="template-add-form" class="template-add" [formRoot]="addForm" novalidate>
+    <mat-form-field class="template-add__name">
+      <mat-label>{{ 'templates.add.name' | translate }}</mat-label>
+      <input matInput cdkFocusInitial autocomplete="off" [formField]="addForm.name" />
+      @for (error of addForm.name().errors(); track error.kind) {
+        <mat-error>{{ error.kind | translate }}</mat-error>
+      }
+    </mat-form-field>
+
+    <!-- The set it joins: its shelf, and the dialect its tokens are
+         written in. -->
+    @if (data.sets.length > 1) {
+      <div class="template-add__set">
+        <span class="template-add__label" id="template-add-set">{{ 'templates.add.set' | translate }}</span>
+        <hk-tgb
+          aria-labelledby="template-add-set"
+          [value]="addForm.set().value()"
+          (valueChange)="pickSet($event)"
+        >
+          @for (set of data.sets; track set.key) {
+            <button hkTgbText [value]="set.key">{{ set.label }}</button>
+          }
+        </hk-tgb>
+      </div>
+    }
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button matButton type="button" mat-dialog-close [disabled]="addForm().submitting()">
+    {{ 'templates.add.cancel' | translate }}
+  </button>
+  <!-- On its way: the spinner in the label's place (Material's
+       `showProgress`), the button as wide as ever. -->
+  <button
+    matButton="filled"
+    type="submit"
+    form="template-add-form"
+    [showProgress]="addForm().submitting()"
+    [attr.aria-busy]="addForm().submitting() || null"
+  >
+    <mat-progress-spinner progressIndicator mode="indeterminate" diameter="16" strokeWidth="2" />
+    {{ 'templates.add.create' | translate }}
+  </button>
+</mat-dialog-actions>

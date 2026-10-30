@@ -104,6 +104,15 @@ export default {
     mergeTags: '{{count}} Platzhalter',
     noMergeTags: 'Keine Platzhalter',
     empty: 'Hier sind keine Vorlagen.',
+    new: 'Neue Vorlage',
+    add: {
+      title: 'Neue Vorlage',
+      name: 'Name',
+      set: 'Sammlung',
+      cancel: 'Abbrechen',
+      create: 'Erstellen',
+      nameMissing: 'Eine Vorlage braucht einen Namen',
+    },
     sets: {
       angularjs: 'AngularJS-Ausdrücke',
       handlebars: 'Handlebars',

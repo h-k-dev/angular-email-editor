@@ -6,6 +6,7 @@ import {
   Injector,
   afterNextRender,
   afterRenderEffect,
+  booleanAttribute,
   inject,
 
   // Signals
@@ -260,6 +261,12 @@ export class EmailCompose implements FormValueControl<string> {
       (`plainTextHTML(emailPlainText(html))` into plain text). */
   format = input<ComposeKit>('html');
 
+  /** A design desk (the template designer): a template is designed, never
+      sent — nothing of sending is in its kit: no Send (`/send`, Mod-Enter,
+      `intent()`), no placeholder fill (Mod-Shift-Enter, its `/` row). Another
+      kit is another editor, mounted in this one's place a render later. */
+  design = input(false, { transform: booleanAttribute });
+
   /** The kit the editor in place was mounted with. */
   #mountedFormat: ComposeKit | null = null;
 
@@ -275,7 +282,8 @@ export class EmailCompose implements FormValueControl<string> {
       elements to are on screen. */
   protected readonly kit = computed<EditorKit>(() => {
     const format = this.format();
-    return () => this.#kitFor(format);
+    const design = this.design();
+    return () => this.#kitFor(format, design);
   });
 
   /** The editable root's attributes. */
@@ -423,10 +431,11 @@ export class EmailCompose implements FormValueControl<string> {
       action. Always the email editor: its send-intent extension builds it,
       and in code view its document is already the source's (it syncs while
       unfocused). Nothing is emitted; `send` is for the user's own gestures.
-      Undefined before the editor has mounted. */
+      Undefined before the editor has mounted, and on a design desk —
+      nothing there is sent (`design`). */
   intent(): SendIntent | undefined {
     const editor = this.editor();
-    if (!editor) return undefined;
+    if (!editor || this.design()) return undefined;
     this.#capturing = true;
     this.#captured = undefined;
     try {
@@ -635,7 +644,7 @@ export class EmailCompose implements FormValueControl<string> {
   /** The kit an HTML message is written with: the email kit and everything
       the composer adds to it — the assistant, the menus, the grips, the
       tokens, the images. */
-  #htmlKit(): Extension[] {
+  #htmlKit(design: boolean): Extension[] {
     return [
       // The writing assistant: an extension of the composer's own. It
       // declares one action, `ai` — first in the kit, so first in the `/`
@@ -712,23 +721,28 @@ export class EmailCompose implements FormValueControl<string> {
         claim: claimDragEvent,
         onChange: (over) => this.imageDrag.set(over),
       }),
-      this.#sendIntent(),
-      // Core's "Parse", done from the document: each distinct expression
-      // goes to the evaluator raw (no HTML, so no `&amp;&amp;`), every
-      // value comes back in as text in its token's place — one undo step.
-      createMergeTagResolution({
-        resolve: (expressions) => this.#mergeTags.resolve(expressions),
-        onResolved: (report) => this.placeholdersFilled.emit(report),
-        onError: (error) => this.placeholdersFailed.emit(error),
-      }),
+      // A message's, never a design desk's (`design`): sending, and core's
+      // "Parse", done from the document — each distinct expression goes to
+      // the evaluator raw (no HTML, so no `&amp;&amp;`), every value comes
+      // back in as text in its token's place, one undo step.
+      ...(design
+        ? []
+        : [
+            this.#sendIntent(),
+            createMergeTagResolution({
+              resolve: (expressions) => this.#mergeTags.resolve(expressions),
+              onResolved: (report) => this.placeholdersFilled.emit(report),
+              onError: (error) => this.placeholdersFailed.emit(error),
+            }),
+          ]),
     ];
   }
 
   /** The kit a plain-text message is written with: lines, and the few
       things a plain-text mode keeps — its quoted history, the words on an
       empty line, its measures, and Mod-Enter to send. No menu, no grip, no
-      token, nothing that formats. */
-  #plainTextKit(): Extension[] {
+      token, nothing that formats — and on a design desk, nothing to send. */
+  #plainTextKit(design: boolean): Extension[] {
     return [
       ...plainTextExtensions.filter((extension) => extension.name !== 'quotedHistory'),
       this.#quotedHistory(),
@@ -736,7 +750,7 @@ export class EmailCompose implements FormValueControl<string> {
       // The dark paper, drawn by Dawn — as the reading pane draws the mail.
       createDarkRendering({ scope: DARK_PAPER }),
       createTextMetrics({ onMetrics: (metrics) => this.bodyMetrics.set(metrics) }),
-      this.#sendIntent(),
+      ...(design ? [] : [this.#sendIntent()]),
     ];
   }
 
@@ -849,14 +863,14 @@ export class EmailCompose implements FormValueControl<string> {
 
   /** The kit of a format, as the editor mounts: the format's own, and what
       every kit takes — the caret scrolls clear of the floating foot. */
-  #kitFor(format: ComposeKit): Extension[] {
+  #kitFor(format: ComposeKit, design: boolean): Extension[] {
     this.#mountedFormat = format;
     const kit =
       format === 'text'
-        ? this.#plainTextKit()
+        ? this.#plainTextKit(design)
         : format === 'snippet'
           ? this.#snippetKit()
-          : this.#htmlKit();
+          : this.#htmlKit(design);
     return [...kit, footClearance(this.#footRoom)];
   }
 

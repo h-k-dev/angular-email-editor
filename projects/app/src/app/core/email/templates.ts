@@ -45,18 +45,28 @@ export interface TemplateEnvelope {
   attachments: AttachmentRef[];
 }
 
+/** What a new template is made of: its name, and the set it joins — written
+    in that set's dialect. Its body and its rows start empty. */
+export interface TemplateDraft {
+  name: string;
+  set: string;
+  dialect: EmailTemplate['dialect'];
+}
+
 /**
  * The template store. Stands in for `GET /api/templates?filter=…` on a
  * LoopBack 3 backend: `find(filter)` is the one call, answered by the shared
  * filter mock (`where` with `like` / `ilike` / `inq` / `and` / `or`,
  * `order`, `skip`, `limit`) after a small latency, and cancelled by an
- * `AbortSignal`; `save(template)` writes one back (the designer's). A real
- * host swaps the bodies for
+ * `AbortSignal`; `save(template)` writes one back (the designer's), and
+ * `create(draft)` adds one (the gallery's +). A real host swaps the bodies
+ * for
  *
  *     firstValueFrom(this.#http.get<EmailTemplate[]>('/api/templates', {
  *       params: { filter: JSON.stringify(filter) },
  *     }))
  *     firstValueFrom(this.#http.patch<EmailTemplate>(`/api/templates/${id}`, template))
+ *     firstValueFrom(this.#http.post<EmailTemplate>('/api/templates', draft))
  *
  * Demo data: every example set written in a dialect (`Examples`), loaded
  * on the first find.
@@ -66,6 +76,7 @@ export class Templates {
   readonly #examples = inject(Examples);
 
   #rows: Promise<EmailTemplate[]> | null = null;
+  #next = 1;
 
   async find(
     filter: Filter<EmailTemplate> = {},
@@ -82,6 +93,19 @@ export class Templates {
     if (at < 0) throw new Error(`No template ${template.id}`);
     const [stored] = await respond([structuredClone(template)], signal);
     rows[at] = structuredClone(stored);
+    return stored;
+  }
+
+  /** Stores a new template — its set's, empty — and answers it with its
+      id, after the same latency a find takes. */
+  async create(draft: TemplateDraft, signal?: AbortSignal): Promise<EmailTemplate> {
+    const rows = await this.#all();
+    let id: string;
+    do id = `${draft.set}/template-${this.#next++}`;
+    while (rows.some((row) => row.id === id));
+    const template: EmailTemplate = { id, name: draft.name, dialect: draft.dialect, html: '' };
+    const [stored] = await respond([template], signal);
+    rows.push(structuredClone(stored));
     return stored;
   }
 

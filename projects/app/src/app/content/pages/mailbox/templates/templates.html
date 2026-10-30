@@ -1,5 +1,16 @@
 <header page-header>
   <h1 class="gallery-title">{{ 'templates.title' | translate }}</h1>
+  <button
+    matIconButton
+    type="button"
+    class="gallery-new"
+    [attr.aria-label]="'templates.new' | translate"
+    [matTooltip]="'templates.new' | translate"
+    [disabled]="!addSets().length"
+    (click)="add()"
+  >
+    <mat-icon>add</mat-icon>
+  </button>
 </header>
 
 <!-- The shelves, YouTube's chips: every template, or one set's — one line
