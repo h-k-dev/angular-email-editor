@@ -36,6 +36,10 @@ export async function openTemplateDesigner(
     height: '100svh',
     maxWidth: 'none',
     maxHeight: 'none',
+    // The back button is the designer's own (its `BackButton` guard): the
+    // dialog must not also close on the popstate, nor on the one its guard
+    // makes taking its entry back out as it closes.
+    closeOnNavigation: false,
     // The caret starts in the text: the dialog focuses the editor's pane
     // once it is open, and the pane hands the caret on in.
     autoFocus: 'section[email-compose]',

@@ -1,6 +1,7 @@
 import {
   Component,
   DOCUMENT,
+  DestroyRef,
   ElementRef,
   afterNextRender,
 
@@ -56,6 +57,7 @@ import { AttachmentChips } from '@h-k-dev/angular-email-editor/attachment-chips'
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { BLANK, Envelope } from '../../../../../core/email/envelope';
+import { BackButton } from '../../../../../core/router/back-button';
 import { DIALECT_NAMES, EmailTemplate, Templates } from '../../../../../core/email/templates';
 import {
   DESIGNER_DETAILS_MAX,
@@ -404,6 +406,13 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
     // Nothing unsaved is lost to a stray Escape (the dialog fills the
     // screen: there is no backdrop to press beside it).
     effect(() => (this.#ref.disableClose = this.dirty()));
+
+    // The designer is the screen: the back button (the gesture, the
+    // browser's own) closes it instead of leaving the gallery under it, as
+    // it closes a full-screen compose window. Closed any other way, the
+    // guard's entry goes with it.
+    const held = inject(BackButton).guard({ dismiss: () => this.close() });
+    inject(DestroyRef).onDestroy(held.release);
 
     afterNextRender(() => this.measureDesk());
   }
