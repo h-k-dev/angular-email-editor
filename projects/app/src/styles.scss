@@ -2803,9 +2803,6 @@ section[html-email-compose][data-wrap='off'] .aee-editor {
   border: 0;
 }
 
-/* A menu that opened above its trigger rises into place from below
- * (styles/_menu.scss `motion`); the CDK marks the pane with the position it
- * took. */
-.cdk-overlay-pane.menu-above {
-  --_menu-rise: 4px;
-}
+/* Every menu's coming and going (styles/_menu.scss `motion`): global, as
+ * menus are drawn in overlays, outside any component's view. */
+@include menu.motion;

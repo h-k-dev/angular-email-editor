@@ -83,7 +83,10 @@ function clamp(value: number, min: number, max: number): number {
  * Puts an Angular Aria submenu in its place each time it opens
  * (`placeSubmenu`): beside its row, on the side with room, pushed into the
  * screen. The list stands absolute in its menu (the menu is its offset
- * parent); the side it went to is on it as `data-side`.
+ * parent); the side it went to is on it as `data-side`, and where its row
+ * stands down it as `--submenu-row-y` (the row's middle, from the list's
+ * top) — what a motion grows it out of: a heading over its rows puts the
+ * row below the list's top.
  *
  *     <div ngMenu menuSafeTriangle class="menu">          (position: relative)
  *       <div ngMenuItem [submenu]="sub">…</div>
@@ -158,12 +161,15 @@ export class SubmenuPlacement {
             return a.playState === 'running' && !!target && target.contains(menu);
           })
         : [];
-    return { place, landing };
+    // The row's middle, down the list — both in the menu.
+    const rowY = row.offsetTop + row.offsetHeight / 2 - place.top;
+    return { place: { ...place, rowY }, landing };
   }
 
-  #apply(place: SubmenuPlace): void {
+  #apply(place: SubmenuPlace & { rowY: number }): void {
     this.#host.style.left = `${place.left}px`;
     this.#host.style.top = `${place.top}px`;
+    this.#host.style.setProperty('--submenu-row-y', `${place.rowY}px`);
     this.#host.dataset['side'] = place.side;
   }
 }

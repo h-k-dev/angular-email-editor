@@ -1,4 +1,9 @@
-<!-- (detach): the CDK detaches an overlay by itself on Escape; closing the
+<!-- It grows out of the trigger (the app's one menu motion, styles/_menu.scss):
+     the CDK sets the menu's transform origin to the side facing it, for
+     whichever position it took; lined up on a row (`anchor: 'selected'`),
+     the origin is that row, set where it is lined up — the CDK's is off
+     then, or it would put its own back on every reposition.
+     (detach): the CDK detaches an overlay by itself on Escape; closing the
      trigger keeps `expanded()` — the overlay's open binding — in step.
      (overlayOutsideClick): the menu closes itself when focus leaves it, but
      toolbar buttons keep focus where it is on a press (the editor keeps its
@@ -11,6 +16,7 @@
   [cdkConnectedOverlayPositions]="positions()"
   [cdkConnectedOverlayPush]="true"
   [cdkConnectedOverlayViewportMargin]="8"
+  [cdkConnectedOverlayTransformOriginOn]="anchor() === 'selected' ? '' : '.toolbar-menu'"
   (overlayOutsideClick)="trigger().close()"
   (attach)="onAttach()"
   (detach)="trigger().close()"

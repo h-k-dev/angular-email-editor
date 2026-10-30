@@ -1,4 +1,5 @@
 @use '../../../../../../styles/breakpoints' as bp;
+@use '../../../../../../styles/menu' as menu;
 
 // Lives inside the writer's sheet (email-writer.scss): the surface is the
 // writer's, so nothing here paints a background of its own — but the foot,
@@ -239,6 +240,20 @@
 
 // The suggestion menus are the library's pair (`email-suggestion-menu`),
 // themed by its own tokens; the composer only lays out what it puts in a row.
+// At the caret, the suggestion menu comes as every menu does
+// (styles/_menu.scss) each time it opens (`data-open`), growing out of the
+// caret: the box's edge on the line's side (`data-side`), where the caret
+// stands across it (`--email-suggestion-menu-anchor-x`) — both the
+// library's. Docked over the keyboard, it stays as it is.
+[email-suggestion-menu][data-placement='caret'][data-open] {
+  @include menu.enter;
+  transform-origin: var(--email-suggestion-menu-anchor-x, 0) top;
+
+  &[data-side='above'] {
+    transform-origin: var(--email-suggestion-menu-anchor-x, 0) bottom;
+  }
+}
+
 [email-suggestion-menu-item] {
   mat-icon {
     flex: none;

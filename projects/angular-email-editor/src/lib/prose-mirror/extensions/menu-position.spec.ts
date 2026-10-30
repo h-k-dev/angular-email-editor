@@ -32,6 +32,8 @@ describe('measureMenuPlacement', () => {
       left: 130,
       top: 40,
       maxHeight: null,
+      side: 'below',
+      anchorX: 0,
     });
   });
 
@@ -41,6 +43,8 @@ describe('measureMenuPlacement', () => {
       left: 130,
       top: 340 - 4 - 320,
       maxHeight: null,
+      side: 'above',
+      anchorX: 0,
     });
   });
 
@@ -50,6 +54,8 @@ describe('measureMenuPlacement', () => {
       left: 130,
       top: 0,
       maxHeight: 254,
+      side: 'above',
+      anchorX: 0,
     });
   });
 
@@ -59,6 +65,8 @@ describe('measureMenuPlacement', () => {
       left: 130,
       top: 100,
       maxHeight: 280,
+      side: 'below',
+      anchorX: 0,
     });
   });
 
@@ -68,6 +76,8 @@ describe('measureMenuPlacement', () => {
       left: 130,
       top: 500,
       maxHeight: 254,
+      side: 'above',
+      anchorX: 0,
     });
   });
 
@@ -79,6 +89,8 @@ describe('measureMenuPlacement', () => {
       left: 130,
       top: 0,
       maxHeight: 254,
+      side: 'above',
+      anchorX: 0,
     });
   });
 
@@ -89,6 +101,18 @@ describe('measureMenuPlacement', () => {
       left: 130,
       top: 394,
       maxHeight: null,
+      side: 'below',
+      anchorX: 0,
+    });
+  });
+
+  it('says where the caret stands across a box pushed in from the edge', () => {
+    // A caret 100px from the right edge of a 600px-wide container: a 240px
+    // box is pushed in to end at the edge, the caret 140px across it.
+    expect(measureMenuPlacement({ left: 500, top: 120, bottom: 136 }, mount(), 4)).toMatchObject({
+      left: 360,
+      anchorX: 140,
+      side: 'below',
     });
   });
 
@@ -122,6 +146,8 @@ describe('measureMenuPlacement', () => {
         left: 130,
         top: 300,
         maxHeight: 296,
+        side: 'above',
+        anchorX: 0,
       });
     } finally {
       sheet.remove();

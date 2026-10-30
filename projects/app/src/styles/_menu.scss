@@ -279,37 +279,121 @@ $active-wash: var(
   }
 }
 
-/// A menu coming and going — for `[animate.enter]` / `[animate.leave]` on the
-/// panel: a short rise into place, a shorter fall away. The origin is the
-/// edge nearest the trigger, so a menu that opens upward rises from below.
-/// Still for whoever asked for less motion.
-@mixin motion($enter: 'menu-enter', $leave: 'menu-leave') {
-  @keyframes menu-motion-enter {
-    from {
-      opacity: 0;
-      transform: translateY(var(--_menu-rise, -4px)) scale(0.98);
-    }
-  }
+/// Every menu comes and goes one way — Linear's, read off its own (a
+/// spring it drives frame by frame): it grows out of where it is anchored,
+/// from 98% of its size, on a spring with no overshoot — quick at first,
+/// settling slowly — while it fades in on twice the spring's progress, so it
+/// is all there within the first quarter and only the size is still
+/// settling. It leaves on the same spring, in a third of the time.
+///
+/// No travel: where it comes from is its `transform-origin`, the side (or
+/// the row) that faces what it opened from — set by whatever places it (the
+/// CDK's `transformOriginOn` for an overlay, the menu itself where it lines
+/// up a row with its trigger, `data-side` for a submenu, the caret's side
+/// for the suggestion menu). The motion is `scale`, not `transform`, so it
+/// never fights what positions a menu.
+///
+/// The spring, sampled into `linear()` stops: a critically damped one,
+/// x(t) = 1 − (1 + ωt)·e^(−ωt), within 1% of rest at the end (ωT = 6.64).
+/// The fade is min(1, 2x(t)) — what a fade from 0 to 2 on the same spring
+/// looks like once opacity stops at 1.
+$spring: linear(
+  0,
+  0.032,
+  0.107,
+  0.202,
+  0.303,
+  0.402,
+  0.494,
+  0.576,
+  0.649,
+  0.71,
+  0.763,
+  0.807,
+  0.844,
+  0.874,
+  0.899,
+  0.919,
+  0.935,
+  0.948,
+  0.959,
+  0.967,
+  0.974,
+  0.98,
+  0.984,
+  0.987,
+  1
+);
+$spring-fade: linear(
+  0 0%,
+  0.064 4.167%,
+  0.213 8.333%,
+  0.404 12.5%,
+  0.607 16.667%,
+  0.805 20.833%,
+  0.988 25%,
+  1 29.167%,
+  1 100%
+);
+$enter-duration: 350ms;
+$leave-duration: 120ms;
 
-  @keyframes menu-motion-leave {
-    to {
-      opacity: 0;
-      transform: translateY(var(--_menu-rise, -4px));
-    }
-  }
-
-  .#{$enter} {
-    animation: menu-motion-enter 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .#{$leave} {
-    animation: menu-motion-leave 0.12s cubic-bezier(0.4, 0, 1, 1) forwards;
-  }
+/// A menu arriving — on whatever element comes in (`.menu-enter`, or a
+/// submenu each time it is shown).
+@mixin enter {
+  animation:
+    menu-grow $enter-duration $spring both,
+    menu-fade-in $enter-duration $spring-fade both;
 
   @media (prefers-reduced-motion: reduce) {
-    .#{$enter},
-    .#{$leave} {
-      animation: none;
+    animation: menu-fade-in $leave-duration linear both;
+  }
+}
+
+/// A menu leaving.
+@mixin leave {
+  animation: menu-shrink $leave-duration $spring both;
+  pointer-events: none;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: menu-fade-out $leave-duration linear both;
+  }
+}
+
+/// The keyframes and the two classes for `[animate.enter]` /
+/// `[animate.leave]` — once, globally (styles.scss): a menu drawn in an
+/// overlay is outside any component's view.
+@mixin motion {
+  @keyframes menu-grow {
+    from {
+      scale: 0.98;
     }
+  }
+
+  @keyframes menu-fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes menu-shrink {
+    to {
+      opacity: 0;
+      scale: 0.98;
+    }
+  }
+
+  @keyframes menu-fade-out {
+    to {
+      opacity: 0;
+    }
+  }
+
+  .menu-enter {
+    @include enter;
+  }
+
+  .menu-leave {
+    @include leave;
   }
 }

@@ -14,7 +14,11 @@ import {
   viewChild,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
-import { SuggestionItem, SuggestionMenuState, measureMenuPlacement } from '@h-k-dev/angular-email-editor';
+import {
+  SuggestionItem,
+  SuggestionMenuState,
+  measureMenuPlacement,
+} from '@h-k-dev/angular-email-editor';
 import { SuggestionMenuHeader, SuggestionMenuHeaderContext } from './suggestion-menu.slots';
 
 /**
@@ -298,11 +302,20 @@ export class SuggestionMenu {
           style.removeProperty('left');
           style.removeProperty('top');
           style.removeProperty('visibility');
+          style.removeProperty('--email-suggestion-menu-anchor-x');
+          delete this.#host.dataset['side'];
           this.listbox().nativeElement.style.removeProperty('max-height');
           return;
         }
         const visibility = place ? 'visible' : 'hidden';
         if (place) {
+          // Where it opened, for a stylesheet to grow it out of the caret:
+          // the side of the line, and the caret across the box.
+          const anchorX = `${place.anchorX}px`;
+          if (this.#host.dataset['side'] !== place.side) this.#host.dataset['side'] = place.side;
+          if (style.getPropertyValue('--email-suggestion-menu-anchor-x') !== anchorX) {
+            style.setProperty('--email-suggestion-menu-anchor-x', anchorX);
+          }
           const left = `${place.left}px`;
           const top = `${place.top}px`;
           const listHeight =

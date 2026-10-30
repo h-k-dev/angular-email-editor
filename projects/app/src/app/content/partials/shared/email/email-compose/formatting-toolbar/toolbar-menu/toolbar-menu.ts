@@ -199,15 +199,12 @@ export class ToolbarMenu<V> {
       ];
     }
     const x = this.align();
-    // `menu-above`: the pane says which way it opened, so the menu rises
-    // into place from the trigger's side (styles.scss).
     const above: ConnectedPosition = {
       originX: x,
       originY: 'top',
       overlayX: x,
       overlayY: 'bottom',
       offsetY: -4,
-      panelClass: 'menu-above',
     };
     const below: ConnectedPosition = {
       originX: x,
@@ -264,6 +261,11 @@ export class ToolbarMenu<V> {
     const item = pane?.querySelector<HTMLElement>(
       '.toolbar-menu__item:is([aria-checked="true"], [aria-current="page"])',
     );
+    // Nothing to line up: as `trigger` would, out of its top start corner.
+    if (pane && !item)
+      pane
+        .querySelector<HTMLElement>('.toolbar-menu')
+        ?.style.setProperty('transform-origin', '0 0');
     if (!ref || !pane || !item) return;
     const mark =
       item.querySelector<HTMLElement>('.toolbar-menu__swatch, mat-icon:not([data-slot])') ?? item;
@@ -310,6 +312,11 @@ export class ToolbarMenu<V> {
       },
     ]);
     ref.updatePosition();
+    // It grows out of the row on the trigger — over it, from the mark;
+    // beside it, from its edge at the row (the CDK's origin, set by the
+    // update above, is the box's corner).
+    const panel = pane.querySelector<HTMLElement>('.toolbar-menu');
+    if (panel) panel.style.transformOrigin = `${this.side() === 'after' ? 0 : x}px ${y}px`;
     afterNextRender({ write: () => this.#activate(item) }, { injector: this.#injector });
   }
 
