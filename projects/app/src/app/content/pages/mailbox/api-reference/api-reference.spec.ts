@@ -33,8 +33,16 @@ describe('ApiReference', () => {
     expect(first.id).toBe('address-rules');
     expect(first.querySelector('.doc-step__lead')?.textContent?.trim()).toBe('AddressRules');
     // No example: the import from its entry point, the signature, the notes
-    // as comments — no bullets under it.
-    const code = first.querySelector('doc-code pre')?.textContent ?? '';
+    // as comments — no bullets under it. The code is highlighted
+    // asynchronously: waited for, with room for a busy runner.
+    const code = await vi.waitFor(
+      () => {
+        const text = first.querySelector('doc-code pre')?.textContent ?? '';
+        expect(text).toContain('AddressRules');
+        return text;
+      },
+      { timeout: 5000 },
+    );
     expect(code).toContain("import { AddressRules } from '@h-k-dev/angular-email-editor/address';");
     expect(code).toContain('AddressRules: ');
     expect(code).toContain('// identity: ');

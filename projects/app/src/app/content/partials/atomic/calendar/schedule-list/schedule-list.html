@@ -1,0 +1,40 @@
+<!-- A day a row: its date on the left, its events beside it. -->
+<ol class="schedule-list">
+  @for (row of rows(); track row.day) {
+    <li class="schedule-list__day" [class.schedule-list__day--today]="row.today">
+      <button
+        type="button"
+        class="schedule-list__date"
+        [attr.aria-current]="row.today ? 'date' : null"
+        [attr.aria-label]="row.longDay"
+        (click)="dayOpen.emit(row.day)"
+      >
+        <span class="schedule-list__number">{{ row.number }}</span>
+        <span class="schedule-list__label">{{ row.label }}</span>
+      </button>
+      <ul class="schedule-list__events">
+        @for (item of row.items; track item.key) {
+          <li>
+            <button
+              type="button"
+              class="schedule-list__event"
+              [style.--event-color]="item.color"
+              (click)="pressed($event, item.event.id)"
+            >
+              <span class="schedule-list__dot" aria-hidden="true"></span>
+              <span class="schedule-list__when">
+                {{ item.when || ('calendar.allDay' | translate) }}
+              </span>
+              <span class="schedule-list__title">{{ item.title }}</span>
+            </button>
+          </li>
+        } @empty {
+          <li class="schedule-list__nothing">{{ 'calendar.nothingToday' | translate }}</li>
+        }
+      </ul>
+    </li>
+  }
+</ol>
+@if (empty()) {
+  <p class="schedule-list__empty">{{ 'calendar.nothingAhead' | translate }}</p>
+}

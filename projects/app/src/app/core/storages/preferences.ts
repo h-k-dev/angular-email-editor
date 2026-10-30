@@ -5,6 +5,7 @@ import { LANGUAGES } from '../../../i18n/loader';
 import type { CustomSwatches } from '@h-k-dev/angular-email-editor/swatches';
 import { LocalStorage, StorageCodec, onOff, oneOf, wholeIn } from './local-storage';
 import type { ThemeScheme } from '../theme/theme';
+import { CustomView, DEFAULT_CUSTOM_VIEW, isCustomView } from '../calendar/calendar-view-token';
 
 /** The app's theme as chosen: light or dark of its own, or the system's. */
 export type ThemePreference = ThemeScheme | 'system';
@@ -176,6 +177,27 @@ export class Preferences {
     `${PREFIX}snippet-list-width`,
     wholeIn(SNIPPET_LIST_MIN, INBOX_LIST_MAX, INBOX_LIST_DEFAULT),
   );
+
+  /** The calendar's custom view — Google's X: as many days or weeks as the
+      last drag across the mini month asked for (`4d`, `3w`); its paths
+      (`/r/customday`, `/r/customweek`) and its arrows take its length. */
+  readonly calendarCustomView = this.#storage.pairSignal(
+    `${PREFIX}calendar-custom-view`,
+    customView(),
+  );
+
+  /** Whether the calendar shows Saturdays and Sundays — Google's "Show
+      weekends". */
+  readonly calendarWeekends = this.#storage.pairSignal(`${PREFIX}calendar-weekends`, onOff(true));
+}
+
+/** A custom calendar view, `2d`–`7d` or `2w`–`6w`; the default (four
+    days) while unset or unknown, and kept as no key at all. */
+function customView(): StorageCodec<CustomView> {
+  return {
+    read: (raw) => (isCustomView(raw) ? raw : DEFAULT_CUSTOM_VIEW),
+    write: (value) => (value === DEFAULT_CUSTOM_VIEW ? null : value),
+  };
 }
 
 /** The custom swatches as storage keeps them: JSON of two lists of
@@ -196,7 +218,6 @@ function swatchLists(): StorageCodec<CustomSwatches> {
         return NONE;
       }
     },
-    write: (value) =>
-      value.text.length || value.background.length ? JSON.stringify(value) : null,
+    write: (value) => (value.text.length || value.background.length ? JSON.stringify(value) : null),
   };
 }

@@ -26,14 +26,19 @@ describe('DocCode', () => {
   it('shows the code as lines coloured GitHub’s way, light and dark', async () => {
     const fixture = await start();
     const root = fixture.nativeElement as HTMLElement;
-    await vi.waitFor(async () => {
-      await fixture.whenStable();
-      expect(text(root)).toEqual([
-        'const editor = createEditor({ parent });',
-        '',
-        'editor.focus();',
-      ]);
-    });
+    // Highlighted asynchronously (the grammar loads first): waited for,
+    // with room for a busy runner — CI's, or one after the Chromium suite.
+    await vi.waitFor(
+      async () => {
+        await fixture.whenStable();
+        expect(text(root)).toEqual([
+          'const editor = createEditor({ parent });',
+          '',
+          'editor.focus();',
+        ]);
+      },
+      { timeout: 5000 },
+    );
     // The keyword `const`, in GitHub's red for either scheme.
     const keyword = root.querySelector<HTMLElement>('.doc-code__line span')!;
     expect(keyword.textContent).toBe('const');

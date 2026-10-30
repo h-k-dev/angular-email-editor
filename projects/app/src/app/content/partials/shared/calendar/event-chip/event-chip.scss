@@ -1,7 +1,7 @@
 // Notion Calendar's chip: a wash of the event's colour, a solid edge on
 // its start side, the words in a deep shade of the colour (a pale one in
 // dark) — readable on any of Google's eleven. No border, no shadow at
-// rest: Linear's flat.
+// rest, no motion: it stands where it is put.
 :host {
   --_wash: color-mix(in oklch, var(--event-color) 18%, var(--mat-sys-surface-bright));
   --_ink: light-dark(
@@ -18,15 +18,13 @@
   border-radius: 4px;
   background: none;
   color: var(--_ink);
-  font: var(--mat-sys-label-medium);
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 16px;
   text-align: start;
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  // The lift and drop: scale and shadow on the spring.
-  transition:
-    scale var(--app-motion-spring-duration, 400ms) var(--app-motion-spring, ease-out),
-    box-shadow var(--app-motion-duration, 250ms) var(--app-motion-easing, ease-out);
 
   &:focus-visible {
     outline: 2px solid var(--event-color);
@@ -47,6 +45,7 @@
   overflow: hidden;
   flex: none;
   opacity: 0.8;
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -55,8 +54,7 @@
 // In the hours: title over times, the edge down its start.
 :host([data-shape='block']) {
   flex-direction: column;
-  gap: 0;
-  padding: 2px 6px 2px 8px;
+  padding: 2px 6px 2px 9px;
   box-sizing: border-box;
   overflow: hidden;
   background: var(--_wash);
@@ -64,8 +62,8 @@
   &::before {
     content: '';
     position: absolute;
-    inset-block: 2px;
-    inset-inline-start: 2px;
+    inset-block: 3px;
+    inset-inline-start: 3px;
     inline-size: 3px;
     border-radius: 2px;
     background: var(--event-color);
@@ -134,53 +132,53 @@
   background: var(--event-color);
 }
 
-// Being written: the shape it will take, dashed and lifted over the grid.
-:host(.event-chip--ghost) {
+// Marked out, not yet an event: Notion's selection — the colour at an
+// eighth (a step more on light paper), flat and square, no edge, no
+// shadow; its words in the plain ink, its times first.
+:host(.event-chip--mark) {
+  --_wash: light-dark(
+    color-mix(in oklch, var(--event-color) 16%, transparent),
+    color-mix(in oklch, var(--event-color) 13%, transparent)
+  );
+
   z-index: 3;
-  box-shadow: var(--mat-sys-level2);
-  outline: 1px dashed var(--event-color);
-  outline-offset: -1px;
-  pointer-events: none;
+  border-radius: 0;
+  background: var(--_wash);
+  color: var(--mat-sys-on-surface);
+  cursor: grab;
+
+  &::before {
+    content: none;
+  }
+
+  &:hover {
+    --_wash: light-dark(
+      color-mix(in oklch, var(--event-color) 16%, transparent),
+      color-mix(in oklch, var(--event-color) 13%, transparent)
+    );
+  }
 }
 
-:host(.event-chip--ghost[data-shape='item']) {
-  background: color-mix(in oklch, var(--event-color) 18%, var(--mat-sys-surface-bright));
+:host(.event-chip--mark[data-shape='block']) {
+  flex-direction: column-reverse;
+  justify-content: flex-end;
+  padding-inline: 6px;
+
+  .event-chip__title {
+    color: var(--mat-sys-on-surface-variant);
+    font-weight: 400;
+  }
+
+  .event-chip__time {
+    opacity: 1;
+    font-weight: 500;
+  }
 }
 
-// Dragged: picked up off the grid — a hair bigger, a shadow under it.
+// Dragged: picked up off the grid — a shadow under it, nothing else.
 :host(.event-chip--lifted) {
   z-index: 4;
-  scale: 1.02;
-  box-shadow: var(--mat-sys-level3);
+  box-shadow: var(--mat-sys-level2);
   cursor: grabbing;
   pointer-events: none;
-}
-
-// Just made: it pops into place on the spring.
-:host(.event-chip--fresh) {
-  animation: event-chip-pop var(--app-motion-spring-duration, 400ms)
-    var(--app-motion-spring, ease-out) both;
-}
-
-@keyframes event-chip-pop {
-  from {
-    opacity: 0;
-    scale: 0.92;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  :host {
-    transition: none;
-  }
-
-  :host(.event-chip--fresh) {
-    animation-name: event-chip-fade;
-  }
-}
-
-@keyframes event-chip-fade {
-  from {
-    opacity: 0;
-  }
 }

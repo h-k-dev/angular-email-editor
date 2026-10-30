@@ -63,12 +63,14 @@ describe('Mailbox scrolling (render)', () => {
   const doc = () => document.scrollingElement as HTMLElement;
   const main = () => root.querySelector('.mailbox-main') as HTMLElement;
   const aside = () => root.querySelector('.mailbox-aside') as HTMLElement;
-  const list = () => root.querySelector('.inbox-list') as HTMLElement;
-  /** The inbox's list made long: rows enough to outgrow any screen. */
+  /** The inbox's list — the grid's host itself (`app-inbox-list`), its
+      rows its own children. */
+  const list = () => root.querySelector('app-inbox-list') as HTMLElement;
+  /** The inbox's list made long: a row enough to outgrow any screen. */
   const lengthen = () => {
-    const spacer = document.createElement('li');
+    const spacer = document.createElement('div');
     spacer.style.blockSize = '3000px';
-    list().querySelector('ul')!.append(spacer);
+    list().append(spacer);
   };
   const frame = () => new Promise((resolve) => requestAnimationFrame(resolve));
 

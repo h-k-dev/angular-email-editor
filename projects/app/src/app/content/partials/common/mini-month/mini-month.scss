@@ -1,3 +1,5 @@
+@use '@angular/material' as mat;
+
 // Google's mini month, Linear's quiet: small type, round days, no lines.
 :host {
   display: grid;
@@ -6,7 +8,17 @@
   max-inline-size: 256px;
 }
 
+// The month's name and its arrows — a toolbar's icon buttons: a 20px
+// glyph on a 32px state layer and touch target, Material's own layout.
 .mini-month__head {
+  @include mat.icon-button-overrides(
+    (
+      icon-size: 20px,
+      state-layer-size: 32px,
+      touch-target-size: 32px,
+    )
+  );
+
   display: flex;
   align-items: center;
   gap: 0;
@@ -24,45 +36,43 @@
 }
 
 .mini-month__step {
-  --mat-icon-button-state-layer-size: 28px;
-  --mat-icon-button-icon-size: 18px;
   flex: none;
-  inline-size: 28px;
-  block-size: 28px;
-  padding: 0;
-
-  .mat-icon {
-    --mat-icon-size: 18px;
-    inline-size: 18px;
-    block-size: 18px;
-    font-size: 18px;
-  }
 }
 
-// The old month and the new in one cell while they turn.
-.mini-month__pages {
-  display: grid;
-  overflow: hidden;
-}
-
+// A drag across the days marks them, never the text.
 .mini-month__page {
-  grid-area: 1 / 1;
   inline-size: 100%;
+  user-select: none;
   border-collapse: collapse;
   table-layout: fixed;
-  --motion-turn-distance: 24px;
+}
 
-  td {
-    padding: 1px 0;
-    text-align: center;
-  }
+.mini-month__cell {
+  padding: 1px 0;
+  text-align: center;
+}
+
+// The selected days: one band across them, round at its two ends —
+// Notion's week.
+.mini-month__cell--band {
+  background: color-mix(in oklch, var(--mat-sys-on-surface) 8%, transparent);
+}
+
+.mini-month__cell--band-start {
+  border-start-start-radius: 6px;
+  border-end-start-radius: 6px;
+}
+
+.mini-month__cell--band-end {
+  border-start-end-radius: 6px;
+  border-end-end-radius: 6px;
 }
 
 .mini-month__weekday {
   block-size: 24px;
   padding: 0;
-  color: var(--mat-sys-on-surface-variant);
-  font: var(--mat-sys-label-small);
+  color: color-mix(in oklch, var(--mat-sys-on-surface) 46%, transparent);
+  font-size: 11px;
   font-weight: 500;
   text-align: center;
 }
@@ -70,18 +80,18 @@
 .mini-month__day {
   display: inline-grid;
   place-items: center;
-  inline-size: 28px;
-  block-size: 28px;
+  inline-size: 24px;
+  block-size: 24px;
   margin: 0;
   padding: 0;
   border: 0;
-  border-radius: 50%;
+  border-radius: 6px;
   background: none;
   color: var(--mat-sys-on-surface);
-  font: var(--mat-sys-label-medium);
+  font: inherit;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
-  transition: background-color 120ms ease-out;
 
   &:hover {
     background: color-mix(in oklch, var(--mat-sys-on-surface) 8%, transparent);
@@ -94,19 +104,10 @@
 }
 
 .mini-month__day--outside {
-  color: var(--mat-sys-placeholder, var(--mat-sys-on-surface-variant));
+  color: color-mix(in oklch, var(--mat-sys-on-surface) 32%, transparent);
 }
 
-.mini-month__day--selected {
-  background: color-mix(in oklch, var(--mat-sys-primary) 14%, transparent);
-  color: var(--mat-sys-primary);
-
-  &:hover {
-    background: color-mix(in oklch, var(--mat-sys-primary) 22%, transparent);
-  }
-}
-
-// Today: the one filled circle.
+// Today: the one primary square.
 .mini-month__day[aria-current='date'] {
   background: var(--mat-sys-primary);
   color: var(--mat-sys-on-primary);

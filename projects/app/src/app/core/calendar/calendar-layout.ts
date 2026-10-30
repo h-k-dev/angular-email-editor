@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon';
 
-import { DAY_MINUTES, IsoDay, daysBetween, minuteOfDay, parseDay } from './calendar-dates';
+import { DAY_MINUTES, IsoDay, isoDay, minuteOfDay, parseDay } from './calendar-dates';
 import { CalendarEvent, eventSpan, inBand } from './calendar-event';
 
 /**
@@ -34,18 +34,21 @@ export interface DayPlacement {
  * The timed events of `day`, placed. `minLength` is the shortest an event
  * shows for (a 5-minute event still needs room for its title) — and counts
  * for overlap too, as Google's does: two that only look stacked share.
+ * `spanning` keeps the timed events that run across a midnight too, cut
+ * at the day's ends — a mark dragged sideways over days, shown in each —
+ * which otherwise belong to the band.
  */
 export function placeInDay(
   events: readonly CalendarEvent[],
   day: IsoDay,
-  minLength = 20,
+  { minLength = 20, spanning = false }: { minLength?: number; spanning?: boolean } = {},
 ): DayPlacement[] {
   const midnight = parseDay(day);
   if (!midnight) return [];
   const next = midnight.plus({ days: 1 });
 
   const placed = events
-    .filter((event) => !inBand(event))
+    .filter((event) => !event.allDay && (spanning || !inBand(event)))
     .map((event) => ({ event, ...eventSpan(event) }))
     .filter(({ start, end }) => start < next && (end > midnight || +start === +end))
     .map(({ event, start, end }) => {
@@ -114,32 +117,33 @@ export function placeInLanes(
   days: readonly IsoDay[],
   only: 'band' | 'all' = 'band',
 ): LanePlacement[] {
-  const first = parseDay(days[0]);
-  if (!first) return [];
   const count = days.length;
+  if (!count) return [];
 
+  // By the days shown, not by the calendar: a run without its weekends
+  // leaves gaps the bars close over. ISO days compare as strings.
   const placed = events
     .filter((event) => only === 'all' || inBand(event))
     .map((event) => {
       const { start, end } = eventSpan(event);
       // The last day it holds: its exclusive end's minute before.
-      const last = DateTime.max(start, end.minus({ minutes: 1 }));
-      const from = daysBetween(first, start);
-      const to = daysBetween(first, last);
-      return { event, from, to, band: inBand(event), start };
+      const first = isoDay(start);
+      const last = isoDay(DateTime.max(start, end.minus({ minutes: 1 })));
+      const from = days.findIndex((day) => day >= first);
+      let to = count - 1;
+      while (to >= 0 && days[to] > last) to--;
+      return { event, first, last, from, to, band: inBand(event), start };
     })
-    .filter(({ from, to }) => to >= 0 && from < count)
-    .map(({ event, from, to, band, start }) => {
-      const shownFrom = Math.max(from, 0);
-      const shownTo = Math.min(to, count - 1);
+    .filter(({ from, to }) => from >= 0 && to >= from)
+    .map(({ event, first, last, from, to, band, start }) => {
       return {
         placement: {
           event,
-          from: shownFrom,
-          span: shownTo - shownFrom + 1,
+          from,
+          span: to - from + 1,
           lane: 0,
-          before: from < 0,
-          after: to > count - 1,
+          before: first < days[0],
+          after: last > days[count - 1],
         } satisfies LanePlacement,
         band,
         start: +start,

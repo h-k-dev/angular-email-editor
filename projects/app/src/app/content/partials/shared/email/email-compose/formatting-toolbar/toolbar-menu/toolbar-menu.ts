@@ -33,7 +33,8 @@ export interface ToolbarMenuItem<V> {
   /** A leading glyph — the ⋯ menu's items carry their button's. */
   icon?: string;
   /** `radio`: one of a set, ticked at the item's end (font, size).
-      `checkbox`: a toggle (a moved Bold). Plain otherwise. */
+      `checkbox`: a toggle (a moved Bold) — ticked at its end too where it
+      has no icon (the calendar's Show weekends). Plain otherwise. */
   kind?: 'radio' | 'checkbox';
   checked?: boolean;
   disabled?: boolean;
@@ -48,6 +49,10 @@ export interface ToolbarMenuItem<V> {
       `badgesTitle` says it in words, as a tooltip. */
   badges?: readonly { text: string; on: boolean }[];
   badgesTitle?: string;
+  /** The key that does the same outside the menu, at the item's end —
+      the calendar's views, Google's D W M. Said to assistive tech as
+      `aria-keyshortcuts`. */
+  shortcut?: string;
 }
 
 /**

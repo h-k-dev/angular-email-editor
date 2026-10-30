@@ -32,13 +32,16 @@ import { DRAG_THRESHOLD, GridCreate, GridOpen, boxOf } from '../calendar-grid';
 const DATE_LINE = 28;
 const LANE = 24;
 
-/** A drag across the month: an event picked up and carried to a day. */
+/** A drag across the month: an event picked up and carried to a day, or
+    days marked out for a new one. */
 interface Drag {
+  kind: 'move' | 'days';
   pointer: number;
   x: number;
   y: number;
   moved: boolean;
-  /** The day it was picked up on, and the event as it would drop. */
+  /** The day it was picked up (or pressed) on, and the event as it would
+      drop — for days, the new one as marked so far. */
   from: IsoDay;
   stored: CalendarEvent;
   preview: CalendarEvent;
@@ -54,7 +57,9 @@ interface Drag {
  * rest behind "+2 more" (which opens the day). Days of the months either
  * side are faint, today's date a filled circle.
  *
- * Press a day and it holds a new all-day event (`create`); press its date
+ * Press a day and it holds a new all-day event (`create`) — drag sideways,
+ * or down a week, and the mark runs over every day between, Notion's; the
+ * card opens by its first day. Press its date
  * and that day opens alone (`dayOpen`); press an event and it opens
  * (`open`); carry one to another day and it moves there, its time kept
  * (`change`).
@@ -69,6 +74,7 @@ interface Drag {
   styleUrl: './month-grid.scss',
   host: {
     '[style.--weeks]': 'weeks().length',
+    '[style.--cols]': 'weeks()[0]?.length ?? 7',
     '[class.month-grid--dragging]': 'dragging()',
     '(pointermove)': 'move($event)',
     '(pointerup)': 'release($event)',
@@ -80,12 +86,12 @@ export class MonthGrid {
   readonly #host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
   readonly weeks = input.required<readonly (readonly IsoDay[])[]>();
-  /** A day of the month shown: the others are faint. */
-  readonly month = input.required<IsoDay>();
+  /** A day of the month shown: the others are faint. None for a run of
+      weeks (Google's custom weeks): every day is as much its own. */
+  readonly month = input<IsoDay | null>(null);
   readonly events = input.required<readonly CalendarEvent[]>();
   readonly draft = input<EventEdit | null>(null);
   readonly today = input.required<IsoDay>();
-  readonly fresh = input<string | null>(null);
   readonly untitled = input('');
 
   readonly create = output<GridCreate>();
@@ -115,15 +121,12 @@ export class MonthGrid {
 
   protected readonly rows = computed(() => {
     const formats = this.#formats();
-    const month = parseDay(this.month())!;
+    const month = parseDay(this.month());
     const today = this.today();
     const shown = this.#shown();
     const capacity = this.#lanes();
     const drag = this.#drag();
-    const draft = this.draft();
-    const ghost = draft ? (draft.id ?? DRAFT_ID) : null;
     const lifted = drag?.moved ? drag.preview.id : null;
-    const fresh = this.fresh();
 
     return this.weeks().map((week) => {
       const placed = placeInLanes(shown, week, 'all');
@@ -144,7 +147,8 @@ export class MonthGrid {
             column: i + 1,
             number: date.day === 1 ? formats.shortDay(date) : String(date.day),
             label: formats.longDay(date),
-            outside: !date.hasSame(month, 'month'),
+            outside: !!month && !date.hasSame(month, 'month'),
+            weekend: date.weekday > 5,
             today: day === today,
             more: hidden[i],
           };
@@ -158,9 +162,9 @@ export class MonthGrid {
             shape: inBand(one.event) ? ('bar' as const) : ('item' as const),
             column: `${one.from + 1} / span ${one.span}`,
             row: one.lane + 2,
-            ghost: one.event.id === ghost,
+            // A new one, marked out — Notion's selection.
+            mark: one.event.id === DRAFT_ID,
             lifted: one.event.id === lifted,
-            fresh: one.event.id === fresh,
           })),
       };
     });
@@ -188,12 +192,25 @@ export class MonthGrid {
     this.dayOpen.emit(day);
   }
 
-  /** A press on a day's empty room: an all-day event that day. */
-  protected pressDay(event: MouseEvent, day: IsoDay): void {
-    if (event.target !== event.currentTarget) return;
-    this.create.emit({
-      draft: draftAt(parseDay(day)!, { allDay: true }),
-      rect: boxOf(event.currentTarget as Element),
+  /** A press on a day's empty room: a new all-day event's mark begins
+      there — that day, or every day the drag goes over. */
+  protected pressDay(event: PointerEvent, day: IsoDay): void {
+    if (event.button !== 0 || event.target !== event.currentTarget) return;
+    if (event.pointerType !== 'touch') {
+      this.#host.setPointerCapture(event.pointerId);
+      event.preventDefault();
+    }
+    const mark = editAsEvent(draftAt(parseDay(day)!, { allDay: true }));
+    this.#drag.set({
+      kind: 'days',
+      pointer: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      moved: false,
+      from: day,
+      stored: mark,
+      preview: mark,
+      element: event.currentTarget as Element,
     });
   }
 
@@ -205,6 +222,7 @@ export class MonthGrid {
     const under = this.#dayAt(event) ?? day;
     this.#host.setPointerCapture(event.pointerId);
     this.#drag.set({
+      kind: 'move',
       pointer: event.pointerId,
       x: event.clientX,
       y: event.clientY,
@@ -229,8 +247,15 @@ export class MonthGrid {
     const moved =
       drag.moved || Math.hypot(event.clientX - drag.x, event.clientY - drag.y) > DRAG_THRESHOLD;
     if (!moved) return;
+    if (event.pointerType === 'touch') return this.#drag.set(null);
     const day = this.#dayAt(event);
     if (!day) return this.#drag.set({ ...drag, moved });
+    if (drag.kind === 'days') {
+      const [from, to] = [drag.from, day].sort();
+      const days = daysBetween(parseDay(from)!, parseDay(to)!) + 1;
+      const mark = { ...drag.stored, ...draftAt(parseDay(from)!, { allDay: true, days }) };
+      return this.#drag.set({ ...drag, moved, preview: mark });
+    }
     const shift = daysBetween(parseDay(drag.from)!, parseDay(day)!);
     const start = eventSpan(drag.stored).start.plus({ days: shift });
     this.#drag.set({ ...drag, moved, preview: movedTo(drag.stored, start) });
@@ -244,6 +269,15 @@ export class MonthGrid {
     // click it ends with lands on the grid — and is spent, as a drag's is.
     this.#swallowClick = true;
     setTimeout(() => (this.#swallowClick = false));
+    if (drag.kind === 'days') {
+      // The card opens by the mark's first day.
+      const { id: _, ...draft } = drag.preview;
+      const first = this.#host.querySelector(
+        `.month-grid__cell[data-day="${drag.preview.start.slice(0, 10)}"]`,
+      );
+      this.create.emit({ draft, rect: boxOf(first ?? drag.element) });
+      return;
+    }
     if (!drag.moved) {
       this.open.emit({ id: drag.stored.id, rect: boxOf(drag.element) });
       return;

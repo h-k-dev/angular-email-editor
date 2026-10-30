@@ -14,10 +14,11 @@
       <div
         class="month-grid__cell"
         [class.month-grid__cell--outside]="day.outside"
+        [class.month-grid__cell--weekend]="day.weekend"
         [class.month-grid__cell--first]="day.column === 1"
         [attr.data-day]="day.day"
         [style.--column]="day.column"
-        (click)="pressDay($event, day.day)"
+        (pointerdown)="pressDay($event, day.day)"
       >
         <button
           type="button"
@@ -47,9 +48,8 @@
         [calendarEventChip]="chip.event"
         [shape]="chip.shape"
         [untitled]="untitled()"
-        [ghost]="chip.ghost"
+        [mark]="chip.mark"
         [lifted]="chip.lifted"
-        [fresh]="chip.fresh"
         [cutBefore]="chip.before"
         [cutAfter]="chip.after"
         [style.grid-column]="chip.column"

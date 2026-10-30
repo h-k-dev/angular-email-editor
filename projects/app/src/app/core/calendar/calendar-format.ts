@@ -23,6 +23,8 @@ export interface CalendarFormats {
   shortDay(date: DateTime): string;
   /** "10:00 – 11:00 AM" — a timed event's two times. */
   timeRange(start: DateTime, end: DateTime): string;
+  /** "Oct 27, 3:00 PM – Oct 29, 10:30 AM" — two times on different days. */
+  dayTimeRange(start: DateTime, end: DateTime): string;
   /** When an event is, in a line: "Thursday, October 29 · 10:00 – 11:00 AM",
       "Thursday, October 29" all day, "October 29 – 31" over days. */
   when(event: Pick<CalendarEvent, 'start' | 'end' | 'allDay'>): string;
@@ -42,6 +44,7 @@ const SHORT_DAY: DateTimeFormatOptions = { month: 'short', day: 'numeric' };
 const HOUR: DateTimeFormatOptions = { hour: 'numeric' };
 const HOUR_MINUTE: DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit' };
 const DAY_TIME: DateTimeFormatOptions = { ...MONTH_DAY, ...HOUR_MINUTE };
+const SHORT_DAY_TIME: DateTimeFormatOptions = { ...SHORT_DAY, ...HOUR_MINUTE };
 
 /** A language's formats — pure: the view's language in, its words out.
     Luxon writes them through `Intl`, a range through its `formatRange`. */
@@ -64,6 +67,7 @@ export function calendarFormats(language: string): CalendarFormats {
     time: (date) => one(date, date.minute ? HOUR_MINUTE : HOUR),
     shortDay: (date) => one(date, SHORT_DAY),
     timeRange,
+    dayTimeRange: (start, end) => range(start, end, SHORT_DAY_TIME),
     when: (event) => {
       const { start, end } = eventSpan(event);
       if (event.allDay) {

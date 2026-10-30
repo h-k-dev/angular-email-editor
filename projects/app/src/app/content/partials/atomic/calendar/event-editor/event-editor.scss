@@ -1,3 +1,5 @@
+@use '@angular/material' as mat;
+
 // Notion Calendar's card: words large, fields that look like text until
 // they are touched, an icon column down the start.
 :host {
@@ -26,11 +28,19 @@
   transition: background-color 200ms ease-out;
 }
 
+// Close: a toolbar's icon button, Material's own layout, its state layer
+// out to the card's padding.
+.event-editor__bar {
+  @include mat.icon-button-overrides(
+    (
+      icon-size: 20px,
+      state-layer-size: 32px,
+      touch-target-size: 32px,
+    )
+  );
+}
+
 .event-editor__close {
-  --mat-icon-button-state-layer-size: 32px;
-  inline-size: 32px;
-  block-size: 32px;
-  padding: 0;
   margin-inline-end: -8px;
 }
 
@@ -140,7 +150,7 @@
   padding-block: 2px;
 }
 
-// A swatch: a dot of the colour; the picked one ringed, on the spring.
+// A swatch: a dot of the colour; the picked one ringed.
 .event-editor__color {
   inline-size: 20px;
   block-size: 20px;
@@ -150,7 +160,7 @@
   border-radius: 50%;
   background: var(--swatch);
   cursor: pointer;
-  transition: scale var(--app-motion-spring-duration, 400ms) var(--app-motion-spring, ease-out);
+  transition: scale 120ms ease-out;
 
   &:hover {
     scale: 1.12;

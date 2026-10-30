@@ -1,4 +1,5 @@
-<!-- The side: the mini month, a press away from any day — on a desk. -->
+<!-- The side: the mini month, a press away from any day — or, dragged
+     across, any run of days or weeks (Google's custom view). On a desk. -->
 <aside class="calendar-side" [attr.aria-label]="'calendar.jump' | translate">
   <div class="calendar-side__head"></div>
   <mini-month
@@ -6,14 +7,38 @@
     [selected]="miniSelected()"
     [today]="today()"
     (pick)="pickDay($event)"
+    (pickRange)="pickRange($event)"
   />
 </aside>
 
 <div class="calendar-main">
-  <!-- Linear's few controls: today and the two arrows, the range's name,
-       the views on a sliding thumb, a new event. -->
+  <!-- The bar: the range's name on the left; on the right Google's view
+       menu (its trigger says the view: "Week", "3 weeks"), today, the two
+       arrows, a new event. -->
   <header page-header class="calendar-header">
-    <button matButton="outlined" type="button" class="calendar-today" (click)="goToday()">
+    <h1 class="calendar-title" aria-live="polite">{{ title() }}</h1>
+    <button
+      type="button"
+      class="calendar-view"
+      [attr.aria-label]="('calendar.view' | translate) + ': ' + viewLabel()"
+      ngMenuTrigger
+      #viewTrigger="ngMenuTrigger"
+      [menu]="viewMenu.menu()"
+    >
+      {{ viewLabel() }}
+      <mat-icon class="calendar-view__caret" aria-hidden="true">arrow_drop_down</mat-icon>
+    </button>
+    <div
+      toolbar-menu
+      #viewMenu
+      side="below"
+      align="end"
+      [label]="'calendar.view' | translate"
+      [trigger]="viewTrigger"
+      [items]="viewItems()"
+      (selected)="choose($event)"
+    ></div>
+    <button type="button" class="calendar-today" (click)="goToday()">
       {{ 'calendar.today' | translate }}
     </button>
     <div class="calendar-steps">
@@ -36,17 +61,6 @@
         <mat-icon>chevron_right</mat-icon>
       </button>
     </div>
-    <h1 class="calendar-title" aria-live="polite">{{ title() }}</h1>
-    <hk-tgb
-      class="calendar-views"
-      [attr.aria-label]="'calendar.view' | translate"
-      [value]="viewName()"
-      (valueChange)="switchView($event)"
-    >
-      @for (view of views; track view.id) {
-        <button hkTgbText [value]="view.id">{{ view.key | translate }}</button>
-      }
-    </hk-tgb>
     <button
       matIconButton
       type="button"
@@ -59,55 +73,69 @@
     </button>
   </header>
 
-  <!-- The page: the old and the new in one cell while it turns. -->
-  <div
-    class="calendar-pages"
-    [style.--motion-turn]="turn()"
-    [style.--motion-turn-scale]="turn() === 0 ? 0.985 : 1"
-  >
-    @for (page of pages(); track page.key) {
-      <div
-        class="calendar-page"
-        animate.enter="motion-turn-enter"
-        animate.leave="motion-turn-leave"
-      >
-        @if (page.view === 'month') {
-          <calendar-month-grid
-            [weeks]="page.weeks"
-            [month]="day()"
-            [events]="events()"
-            [draft]="edit()"
-            [today]="today()"
-            [fresh]="fresh()"
-            [untitled]="untitled()"
-            (create)="created($event)"
-            (open)="opened($event)"
-            (change)="changed($event)"
-            (dayOpen)="openDay($event)"
-          />
-        } @else {
-          <calendar-time-grid
-            [days]="page.days"
-            [events]="events()"
-            [draft]="edit()"
-            [today]="today()"
-            [now]="now()"
-            [fresh]="fresh()"
-            [untitled]="untitled()"
-            [(scrollTop)]="hoursScroll"
-            (create)="created($event)"
-            (open)="opened($event)"
-            (change)="changed($event)"
-            (dayOpen)="openDay($event)"
-          />
-        }
-      </div>
+  <!-- The surface: the hours or the month — the next range simply there,
+       nothing slides (Notion's). -->
+  <!-- The hours load with the page; the month, the year and the schedule
+       are chunks of their own, fetched the moment one is shown (@defer on
+       immediate — not on idle: a view asked for is wanted now) — a week
+       never pays for them. -->
+  <div class="calendar-surface">
+    @if (page().layout === 'weeks') {
+      @defer (on immediate) {
+        <calendar-month-grid
+          [weeks]="page().weeks"
+          [month]="page().month"
+          [events]="events()"
+          [draft]="edit()"
+          [today]="today()"
+          [untitled]="untitled()"
+          (create)="created($event)"
+          (open)="opened($event)"
+          (change)="changed($event)"
+          (dayOpen)="openDay($event)"
+        />
+      }
+    } @else if (page().layout === 'year') {
+      @defer (on immediate) {
+        <calendar-year-grid
+          [months]="page().months"
+          [today]="today()"
+          (dayOpen)="openDay($event)"
+          (pickRange)="pickRange($event)"
+        />
+      }
+    } @else if (page().layout === 'schedule') {
+      @defer (on immediate) {
+        <calendar-schedule-list
+          [days]="page().days"
+          [events]="events()"
+          [today]="today()"
+          [untitled]="untitled()"
+          (open)="opened($event)"
+          (dayOpen)="openDay($event)"
+        />
+      }
+    } @else {
+      <calendar-time-grid
+        [days]="page().days"
+        [events]="events()"
+        [draft]="edit()"
+        [today]="today()"
+        [now]="now()"
+        [untitled]="untitled()"
+        [(scrollTop)]="hoursScroll"
+        (create)="created($event)"
+        (draftChange)="draftMoved($event)"
+        (open)="opened($event)"
+        (change)="changed($event)"
+        (dayOpen)="openDay($event)"
+      />
     }
   </div>
 </div>
 
-<!-- What the card stands beside: an element over the box, outside the
-     turning page (an anchor must not sit in a transformed ancestor). -->
+<!-- What the card stands beside: an element over the box (an anchor must
+     not sit in a transformed ancestor, so it stands out here). -->
 <span
   class="calendar-anchor"
   [emailAnchor]="anchor()"

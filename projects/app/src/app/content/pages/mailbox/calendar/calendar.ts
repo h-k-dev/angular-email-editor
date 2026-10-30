@@ -2,30 +2,29 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  afterRenderEffect,
   computed,
   inject,
   input,
   linkedSignal,
   signal,
+  viewChild,
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { CdkConnectedOverlay, CdkOverlayOrigin, ConnectedPosition } from '@angular/cdk/overlay';
 import { DateTime } from 'luxon';
 
 // Angular Material
-import { MatButton, MatIconButton } from '@angular/material/button';
+import { MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTooltip } from '@angular/material/tooltip';
 
+import { MenuTrigger } from '@angular/aria/menu';
 import { Anchor, AnchorRect } from '@h-k-dev/angular-email-editor/anchor';
-import {
-  ToggleButtonGroup,
-  ToggleButtonGroupText,
-} from '@h-k-dev/angular-email-editor/toggle-button-group';
 import { TranslatePipe } from '@ngx-translate/core';
 
-import { IsoDay, isoDay, parseDay } from '../../../../core/calendar/calendar-dates';
+import { IsoDay, isoDay } from '../../../../core/calendar/calendar-dates';
 import {
   CalendarEvent,
   CalendarEventDraft,
@@ -35,21 +34,29 @@ import {
 import { CalendarEvents } from '../../../../core/calendar/calendar-events';
 import { CalendarFormat } from '../../../../core/calendar/calendar-format';
 import {
-  CALENDAR_VIEWS,
   CalendarView,
   calendarPage,
   calendarPath,
-  isCalendarView,
+  isCustomView,
+  rangeView,
   stepped,
 } from '../../../../core/calendar/calendar-view';
+import { segmentView } from '../../../../core/calendar/calendar-view-token';
+import { Preferences } from '../../../../core/storages/preferences';
 import { I18n } from '../../../../core/translations/i18n';
 import { GridCreate, GridOpen, boxOf } from '../../../partials/atomic/calendar/calendar-grid';
 import { EventEditor } from '../../../partials/atomic/calendar/event-editor/event-editor';
 import { MonthGrid } from '../../../partials/atomic/calendar/month-grid/month-grid';
+import { ScheduleList } from '../../../partials/atomic/calendar/schedule-list/schedule-list';
 import { TimeGrid } from '../../../partials/atomic/calendar/time-grid/time-grid';
+import { YearGrid } from '../../../partials/atomic/calendar/year-grid/year-grid';
 import { MiniMonth } from '../../../partials/common/mini-month/mini-month';
 import { PageHeader } from '../../../partials/common/page-header/page-header';
 import { EventSummary } from '../../../partials/shared/calendar/event-summary/event-summary';
+import {
+  ToolbarMenu,
+  ToolbarMenuItem,
+} from '../../../partials/shared/email/email-compose/formatting-toolbar/toolbar-menu/toolbar-menu';
 
 /** The card beside an event: at its end, else its start, else under or
     over it — Google's. The ones over it rise out of it (`motion-above`). */
@@ -67,27 +74,46 @@ const CARD_POSITIONS: ConnectedPosition[] = [
   },
 ];
 
-/** Google Calendar's keys: a letter each, no modifier. */
-const VIEW_KEYS: Readonly<Record<string, CalendarView>> = { d: 'day', w: 'week', m: 'month' };
+/** Google Calendar's views, in its menu's order, each with its key — the
+    custom one (X) at its remembered length. */
+const MENU_VIEWS = [
+  { id: 'day', key: 'D' },
+  { id: 'week', key: 'W' },
+  { id: 'month', key: 'M' },
+  { id: 'year', key: 'Y' },
+  { id: 'schedule', key: 'A' },
+  { id: 'custom', key: 'X' },
+] as const;
+
+/** What the view menu chooses: a view, or "Show weekends". */
+type ViewChoice = (typeof MENU_VIEWS)[number]['id'] | 'weekends';
 
 /** How often "now" moves on, ms: the red line, and today at midnight. */
 const TICK = 30_000;
 
 /**
- * The calendar: Google Calendar, Notion's look, Linear's few controls, and
- * Framer's motion — the mini month on the side, and the day, the week or
- * the month beside it. A place per view and day (`/calendar/week/2026-10-29`),
+ * The calendar: Google Calendar's views and paths, Notion Calendar's
+ * surface and feel — the mini month on the side, the view beside it. A
+ * place per view and day, Google's path (`/calendar/r/week/2026/10/29`),
  * so the browser's back and forward walk the pages, and anything — a
  * message's event, later — can link straight to a day.
  *
- * The page turns: the next week slides in from the end and the last one
- * fades back, on the spring (`motion-turn`); a view switched settles in
- * place. Press an hour, or drag across a few, and a card opens beside the
- * room to write the event in (`EventEditor`), the event shown in the grid
- * as it is typed; press an event for its card (`EventSummary`). Drag an
- * event to move it, its foot to stretch it.
+ * Google's view menu: Day, Week, Month, Year, Schedule and the custom view
+ * — any run of days or weeks dragged across the mini month, remembered:
+ * the arrows step by it, a day pressed in the mini month outside it opens
+ * it there (one inside narrows it to that day alone), X brings it back. Show weekends leaves Saturday and Sunday out. Month,
+ * Year and Schedule are deferred chunks: the hours load alone.
  *
- * Google's keys: T today, D / W / M a view, J or N next, K or P previous,
+ * Notion's feel: the next week is simply there, nothing slides. Drag
+ * across the hours and the time is marked out as you go; let go and a
+ * card opens beside the mark to write the event in (`EventEditor`) — a
+ * pop-out, not Notion's side panel, and nothing laid over the page: the
+ * mark can be dragged on while the card is open, and a press anywhere in
+ * the hours marks out the next one at once, the card following it. Press
+ * an event for its card (`EventSummary`); drag an event to move it, its
+ * foot to stretch it.
+ *
+ * Google's keys: T today, D W M Y A X a view, J or N next, K or P previous,
  * C a new event; Escape closes the card, Delete deletes the event it
  * shows.
  */
@@ -96,18 +122,19 @@ const TICK = 30_000;
   imports: [
     CdkConnectedOverlay,
     CdkOverlayOrigin,
-    MatButton,
     MatIconButton,
     MatIcon,
     MatTooltip,
     Anchor,
-    ToggleButtonGroup,
-    ToggleButtonGroupText,
+    MenuTrigger,
+    ToolbarMenu,
     TranslatePipe,
     PageHeader,
     MiniMonth,
     TimeGrid,
     MonthGrid,
+    YearGrid,
+    ScheduleList,
     EventEditor,
     EventSummary,
   ],
@@ -123,57 +150,100 @@ export class CalendarPage {
   readonly #i18n = inject(I18n);
   readonly #host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
-  /** The route's: which view, and a day it shows. */
+  /** The route's, Google's path: the view's segment, and the day's numbers
+      (the year view has the year alone). */
   readonly view = input.required<string>();
-  readonly date = input.required<string>();
+  readonly y = input.required<string>();
+  /** None on the year's path — and the router's input binding sets an
+      input its route lacks to undefined, whatever its default. */
+  readonly m = input<string | undefined>();
+  readonly d = input<string | undefined>();
+
+  readonly #preferences = inject(Preferences);
+  /** The custom view's length, remembered — the last drag across the mini
+      month's (Google's X). */
+  readonly #custom = this.#preferences.calendarCustomView;
+  /** Whether Saturdays and Sundays show. */
+  protected readonly weekends = this.#preferences.calendarWeekends;
 
   /** Now, a tick at a time. */
   protected readonly now = signal(DateTime.now());
   protected readonly today = computed(() => isoDay(this.now()));
 
-  readonly #view = computed<CalendarView>(() =>
-    isCalendarView(this.view()) ? (this.view() as CalendarView) : 'week',
-  );
-  readonly #day = computed(() => parseDay(this.date()) ?? this.now().startOf('day'));
-
-  readonly #page = computed(() =>
-    calendarPage(this.#view(), this.#day(), this.#formats().weekStart),
-  );
-
-  /** The page, keyed: a new range is a new page, which turns in. */
-  protected readonly pages = computed(() => [this.#page()]);
-
-  /** Which way the page turned: 1 on, -1 back, 0 a view switched. Worked
-      out from the page before, so the browser's back turns it too. */
-  protected readonly turn = linkedSignal<ReturnType<typeof calendarPage>, -1 | 0 | 1>({
-    source: this.#page,
-    computation: (page, previous) => {
-      if (!previous || previous.source.view !== page.view) return 0;
-      return Math.sign(page.from.toMillis() - previous.source.from.toMillis()) as -1 | 0 | 1;
-    },
+  readonly #view = computed<CalendarView>(() => segmentView(this.view(), this.#custom()) ?? 'week');
+  /** The day, from the path's numbers as they are — the matcher checked
+      them. The year's path has no day: today, in this year — its first of
+      January in another — so leaving the year lands somewhere sensible. */
+  readonly #day = computed(() => {
+    const m = this.m();
+    const d = this.d();
+    if (m && d) return DateTime.local(+this.y(), +m, +d);
+    const today = this.now().startOf('day');
+    return today.year === +this.y() ? today : DateTime.local(+this.y(), 1, 1);
   });
 
-  protected readonly views = CALENDAR_VIEWS.map((id) => ({ id, key: `calendar.views.${id}` }));
-  protected readonly viewName = this.#view;
+  readonly #page = computed(() =>
+    calendarPage(this.#view(), this.#day(), this.#formats().weekStart, {
+      weekends: this.weekends(),
+    }),
+  );
+
+  /** What the view shows: its days, or its month's weeks. */
+  protected readonly page = this.#page;
+
   protected readonly day = computed(() => isoDay(this.#day()));
+
+  /** A view's name: "Day", or a custom one's length, "3 weeks". */
+  #viewLabel(view: CalendarView): string {
+    if (!isCustomView(view)) return this.#i18n.t(`calendar.views.${view}`);
+    const count = parseInt(view, 10);
+    return this.#i18n.t(view.endsWith('d') ? 'calendar.views.days' : 'calendar.views.weeks', {
+      count,
+    });
+  }
+
+  /** The view menu's trigger says the view: "Week", "3 weeks". */
+  protected readonly viewLabel = computed(() => this.#viewLabel(this.#view()));
+
+  /** Google's view menu: the views with their keys, the custom one at its
+      length, then Show weekends. */
+  protected readonly viewItems = computed<ToolbarMenuItem<ViewChoice>[]>(() => [
+    ...MENU_VIEWS.map(({ id, key }) => ({
+      value: id,
+      label: this.#viewLabel(id === 'custom' ? this.#custom() : id),
+      shortcut: key,
+    })),
+    {
+      value: 'weekends',
+      label: this.#i18n.t('calendar.showWeekends'),
+      kind: 'checkbox',
+      checked: this.weekends(),
+      separated: true,
+    },
+  ]);
 
   protected readonly title = computed(() => {
     const page = this.#page();
     const formats = this.#formats();
-    return page.view === 'day' ? formats.longDay(page.from) : formats.title(page.from, page.to);
+    if (page.view === 'day') return formats.longDay(page.from);
+    if (page.view === 'year') return String(page.from.year);
+    return formats.title(page.from, page.to);
   });
 
   /** The mini month's month: the page's, until its arrows move it. */
   protected readonly miniMonth = linkedSignal(() => this.day());
-  /** What it washes: the days in the hours, or the one day of a month. */
+  /** What it washes: the days in the hours, a run of weeks' days — or,
+      for a month, a year or the schedule, the one day. */
   protected readonly miniSelected = computed(() => {
     const page = this.#page();
-    return page.view === 'month' ? [this.day()] : page.days;
+    if (page.layout === 'hours') return page.days;
+    if (page.layout === 'weeks' && !page.month) return page.weeks.flat();
+    return [this.day()];
   });
 
   protected readonly events = this.#store.events;
 
-  /** The hours' scroll, kept across turns. */
+  /** The hours' scroll, kept across a visit to the month. */
   protected readonly hoursScroll = signal<number | null>(null);
 
   // ─── The card ───────────────────────────────────────────────────────
@@ -190,22 +260,31 @@ export class CalendarPage {
   protected readonly anchor = signal<AnchorRect | null>(null);
   protected readonly cardOpen = computed(() => !!this.edit() || !!this.shown());
   protected readonly cardPositions = CARD_POSITIONS;
-  /** The event just made: it pops in where it was written. */
-  protected readonly fresh = signal<string | null>(null);
   protected readonly editingStored = computed(() => !!this.edit()?.id);
 
   /** What an event without a title says: "(No title)". */
   protected readonly untitled = computed(() => this.#i18n.t('calendar.untitled'));
 
+  private readonly card = viewChild.required(CdkConnectedOverlay);
+
   constructor() {
     const tick = setInterval(() => this.now.set(DateTime.now()), TICK);
     inject(DestroyRef).onDestroy(() => clearInterval(tick));
+
+    // An open card follows its anchor — the next mark, the mark dragged —
+    // once the anchor stands there.
+    afterRenderEffect(() => {
+      this.anchor();
+      this.card().overlayRef?.updatePosition();
+    });
   }
 
   // ─── Going places ───────────────────────────────────────────────────
 
+  /** To a view and a day. A custom view is remembered first: its path
+      (`/r/customweek/…`) names its kind, the length is the setting's. */
   protected go(view: CalendarView, day: IsoDay | DateTime): void {
-    this.fresh.set(null);
+    if (isCustomView(view)) this.#custom.set(view);
     void this.#router.navigateByUrl(calendarPath(view, day));
   }
 
@@ -221,8 +300,25 @@ export class CalendarPage {
     this.go(view, this.#day());
   }
 
+  /** A day pressed in the mini month, Google's: one inside the interval
+      shown narrows it to that day alone; one outside moves the same view
+      there — a custom one at exactly its length. */
   protected pickDay(day: IsoDay): void {
-    this.go(this.#view(), day);
+    const inside = this.miniSelected().includes(day);
+    this.go(inside ? 'day' : this.#view(), day);
+  }
+
+  /** A run dragged across the mini month: the view it asks for — days,
+      weeks — which is the custom view from now on. */
+  protected pickRange({ from, to }: { from: IsoDay; to: IsoDay }): void {
+    const { view, date } = rangeView(from, to, this.#formats().weekStart);
+    this.go(view, date);
+  }
+
+  /** The view menu: a view, or Show weekends turned over. */
+  protected choose(choice: ViewChoice): void {
+    if (choice === 'weekends') this.weekends.update((on) => !on);
+    else this.switchView(choice === 'custom' ? this.#custom() : choice);
   }
 
   protected openDay(day: IsoDay): void {
@@ -231,11 +327,19 @@ export class CalendarPage {
 
   // ─── Events ─────────────────────────────────────────────────────────
 
-  /** Room marked in a grid: a card to write the event in — unless a card
-      is open, which the press only closes, as Google's. */
+  /** Time marked out in a grid: a card to write the event in. One open
+      already gives way to it — the next mark is a press away, Notion's. */
   protected created({ draft, rect }: GridCreate): void {
-    if (this.cardOpen()) return this.closeCard();
     this.#write(draft, rect);
+  }
+
+  /** The open mark dragged or stretched: the event takes its times, the
+      card follows it. */
+  protected draftMoved({ draft, rect }: GridCreate): void {
+    const edit = this.edit();
+    if (!edit) return;
+    this.edit.set({ ...edit, start: draft.start, end: draft.end });
+    this.anchor.set(rect);
   }
 
   /** A new event from the header: at the next hour of the day shown. */
@@ -279,12 +383,8 @@ export class CalendarPage {
   }
 
   protected saved(edit: EventEdit): void {
-    if (edit.id) {
-      this.#store.save(edit as CalendarEvent);
-      this.fresh.set(null);
-    } else {
-      this.fresh.set(this.#store.create(edit).id);
-    }
+    if (edit.id) this.#store.save(edit as CalendarEvent);
+    else this.#store.create(edit);
     this.closeCard();
   }
 
@@ -308,7 +408,7 @@ export class CalendarPage {
   /** A press outside the card closes it — but not one in a grid, which
       decides itself (another event opens in its place). */
   protected outside(event: MouseEvent): void {
-    if ((event.target as Element | null)?.closest('.calendar-page')) return;
+    if ((event.target as Element | null)?.closest('.calendar-surface')) return;
     this.closeCard();
   }
 
@@ -335,13 +435,13 @@ export class CalendarPage {
       }
       return;
     }
-    const key = event.key.toLowerCase();
-    const view = VIEW_KEYS[key];
-    if (view) this.switchView(view);
-    else if (key === 't') this.goToday();
-    else if (key === 'j' || key === 'n') this.step(1);
-    else if (key === 'k' || key === 'p') this.step(-1);
-    else if (key === 'c') {
+    const key = event.key.toUpperCase();
+    const view = MENU_VIEWS.find((one) => one.key === key);
+    if (view) this.choose(view.id);
+    else if (key === 'T') this.goToday();
+    else if (key === 'J' || key === 'N') this.step(1);
+    else if (key === 'K' || key === 'P') this.step(-1);
+    else if (key === 'C') {
       const button = this.#host.querySelector('.calendar-new');
       this.#newAt(button ? boxOf(button) : { left: innerWidth / 2, top: 120 });
     } else return;

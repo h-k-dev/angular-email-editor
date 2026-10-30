@@ -28,8 +28,10 @@ export type EventChipShape = 'block' | 'bar' | 'item';
  *     <button type="button" [calendarEventChip]="event" shape="block"></button>
  *
  * Laid out by its container (position, size); it draws only itself. A
- * draft being written wears `ghost` (dashed, lifted), one just made
- * `fresh` (it pops in on the spring), one being dragged `lifted`.
+ * new event being marked out wears `mark` — Notion's selection: the
+ * colour at an eighth, flat and square, its times in it; one being dragged
+ * `lifted`. Nothing springs or pops: it is where the pointer says, at
+ * once.
  */
 @Component({
   selector: '[calendarEventChip]',
@@ -51,8 +53,7 @@ export type EventChipShape = 'block' | 'bar' | 'item';
   host: {
     class: 'event-chip',
     '[attr.data-shape]': 'shape()',
-    '[class.event-chip--ghost]': 'ghost()',
-    '[class.event-chip--fresh]': 'fresh()',
+    '[class.event-chip--mark]': 'mark()',
     '[class.event-chip--lifted]': 'lifted()',
     '[class.event-chip--cut-before]': 'cutBefore()',
     '[class.event-chip--cut-after]': 'cutAfter()',
@@ -70,8 +71,7 @@ export class EventChip {
   readonly shape = input<EventChipShape>('block');
   /** What it says while it has no title of its own: "(No title)". */
   readonly untitled = input('');
-  readonly ghost = input(false, { transform: booleanAttribute });
-  readonly fresh = input(false, { transform: booleanAttribute });
+  readonly mark = input(false, { transform: booleanAttribute });
   readonly lifted = input(false, { transform: booleanAttribute });
   /** A bar that began before the run it is in, or goes on after it: its
       end is cut square. */
@@ -88,6 +88,10 @@ export class EventChip {
     if (event.allDay) return '';
     const { start, end } = eventSpan(event);
     const formats = this.#formats();
-    return this.shape() === 'block' ? formats.timeRange(start, end) : formats.time(start);
+    if (this.shape() !== 'block') return formats.time(start);
+    // Across a midnight (a mark dragged over days): the days say which.
+    return start.hasSame(end.minus({ milliseconds: 1 }), 'day')
+      ? formats.timeRange(start, end)
+      : formats.dayTimeRange(start, end);
   });
 }

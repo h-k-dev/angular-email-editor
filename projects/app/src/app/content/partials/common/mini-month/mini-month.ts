@@ -2,6 +2,7 @@ import {
   Component,
   ElementRef,
   afterRenderEffect,
+  booleanAttribute,
   computed,
   inject,
   input,
@@ -19,7 +20,14 @@ import { MatTooltip } from '@angular/material/tooltip';
 import { TranslatePipe } from '@ngx-translate/core';
 import { DateTime } from 'luxon';
 
-import { IsoDay, isoDay, monthWeeks, parseDay } from '../../../../core/calendar/calendar-dates';
+import {
+  IsoDay,
+  dayRange,
+  daysBetween,
+  isoDay,
+  monthWeeks,
+  parseDay,
+} from '../../../../core/calendar/calendar-dates';
 import { CalendarFormat } from '../../../../core/calendar/calendar-format';
 
 /** A day of the grid, everything its button says worked out. */
@@ -30,26 +38,36 @@ interface MiniDay {
   outside: boolean;
   today: boolean;
   selected: boolean;
+  /** Where a run of selected days starts and ends in its week: the band's
+      round ends. */
+  bandStart: boolean;
+  bandEnd: boolean;
   /** The one tab stop. */
   stop: boolean;
 }
 
 /**
- * A month of days to pick one from — Google Calendar's mini month, Linear's
- * quiet: the month's name and its two arrows, the week's letters, the days.
- * Today is a filled circle, the days `selected` holds (the week a calendar
- * shows) a wash; days of the months either side are faint. Generic: it
+ * A month of days to pick one from — Notion Calendar's mini month: the
+ * month's name and its two arrows, the week's letters, the days. Today is
+ * a square in the theme's primary; the days
+ * `selected` holds (the week a calendar shows) one band across them; days
+ * of the months either side are faint. Generic: it
  * knows days, not events — any date field can open one.
  *
  *     <mini-month [(month)]="shown" [selected]="days()" [today]="today()" (pick)="go($event)" />
  *
  * One tab stop, a grid's: the arrows move a day or a week, Page Up / Page
  * Down a month, Home / End to the week's ends, Enter or Space picks.
- * Moving off the month turns it. A turn slides the days in from the side
- * they come from (styles/_motion.scss, `motion-turn`).
+ * Moving off the month turns it — at once, nothing slides.
+ *
+ * Press a day and drag over others, and the run is marked as it goes —
+ * Google Calendar's: let go on another day and the run is `pickRange`
+ * (a press that stays on its day is a `pick`). The arrows can go
+ * (`[steps]="false"`): the year view's twelve months hold still.
  */
 @Component({
   selector: 'mini-month',
+  host: { '(document:pointerup)': 'letGo()' },
   imports: [MatIconButton, MatIcon, MatTooltip, TranslatePipe],
   templateUrl: './mini-month.html',
   styleUrl: './mini-month.scss',
@@ -64,11 +82,24 @@ export class MiniMonth {
   readonly selected = input<readonly IsoDay[]>([]);
   readonly today = input.required<IsoDay>();
 
+  /** Whether the month's arrows show. */
+  readonly steps = input(true, { transform: booleanAttribute });
+
   /** A day was picked. */
   readonly pick = output<IsoDay>();
+  /** A run of days was dragged across, in order. */
+  readonly pickRange = output<{ from: IsoDay; to: IsoDay }>();
 
-  /** Which way the last turn went: the next month slides in from the end. */
-  protected readonly turn = signal<-1 | 0 | 1>(0);
+  /** A drag across the days, while it lasts: where it began and is now. */
+  readonly #range = signal<{ anchor: IsoDay; end: IsoDay } | null>(null);
+
+  /** What is washed: the run being dragged, else what `selected` holds. */
+  readonly #washed = computed<readonly IsoDay[]>(() => {
+    const range = this.#range();
+    if (!range) return this.selected();
+    const [from, to] = [range.anchor, range.end].sort();
+    return dayRange(parseDay(from)!, daysBetween(parseDay(from)!, parseDay(to)!) + 1);
+  });
 
   /** The day the keyboard is on — the selection's first while it shows,
       today's otherwise; reset whenever the month turns without it. */
@@ -93,9 +124,6 @@ export class MiniMonth {
     return this.#formats().title(month, month);
   });
 
-  /** The page's key: one per month, so a turn enters a new one. */
-  protected readonly page = computed(() => [this.month().slice(0, 7)]);
-
   protected readonly weekdays = computed(() => {
     const formats = this.#formats();
     const [week] = monthWeeks(this.#shown(), formats.weekStart);
@@ -112,20 +140,23 @@ export class MiniMonth {
   protected readonly weeks = computed(() => {
     const formats = this.#formats();
     const shown = this.#shown();
-    const selected = new Set(this.selected());
+    const selected = new Set(this.#washed());
     const today = this.today();
     const cursor = this.#cursor();
     return monthWeeks(shown, formats.weekStart).map((week) => ({
       key: week[0],
-      days: week.map((day): MiniDay => {
+      days: week.map((day, i): MiniDay => {
         const date = parseDay(day)!;
+        const on = selected.has(day);
         return {
           day,
           number: date.day,
           label: formats.longDay(date),
           outside: !date.hasSame(shown, 'month'),
           today: day === today,
-          selected: selected.has(day),
+          selected: on,
+          bandStart: on && !selected.has(week[i - 1]),
+          bandEnd: on && !selected.has(week[i + 1]),
           stop: day === cursor,
         };
       }),
@@ -134,24 +165,42 @@ export class MiniMonth {
 
   constructor() {
     // A key moved the cursor: the focus follows it, on the new month's
-    // button once a turn has drawn it.
+    // button once it is drawn.
     afterRenderEffect(() => {
       const cursor = this.#cursor();
       if (!this.#keyed) return;
       this.#keyed = false;
-      this.#host
-        .querySelector<HTMLElement>(
-          `.mini-month__page:not(.motion-turn-leave) [data-day="${cursor}"]`,
-        )
-        ?.focus();
+      this.#host.querySelector<HTMLElement>(`[data-day="${cursor}"]`)?.focus();
     });
   }
 
   /** The previous (-1) or next (1) month. */
   protected step(direction: -1 | 1): void {
-    const month = this.#shown().plus({ months: direction });
-    this.turn.set(direction);
-    this.month.set(isoDay(month));
+    this.month.set(isoDay(this.#shown().plus({ months: direction })));
+  }
+
+  /** A press on a day: a drag across days may begin. */
+  protected press(event: PointerEvent, day: IsoDay): void {
+    if (event.button !== 0) return;
+    this.#range.set({ anchor: day, end: day });
+  }
+
+  /** The pointer over a day while pressed: the run reaches it. */
+  protected over(event: PointerEvent): void {
+    const range = this.#range();
+    if (!range || !(event.buttons & 1)) return;
+    const day = (event.target as Element).closest<HTMLElement>('[data-day]')?.dataset['day'];
+    if (day && day !== range.end) this.#range.set({ ...range, end: day });
+  }
+
+  /** Let go: a run of more than its day is picked as one. */
+  protected letGo(): void {
+    const range = this.#range();
+    if (!range) return;
+    this.#range.set(null);
+    if (range.anchor === range.end) return; // The click picks it.
+    const [from, to] = [range.anchor, range.end].sort();
+    this.pickRange.emit({ from, to });
   }
 
   protected picked(day: IsoDay): void {
@@ -178,10 +227,7 @@ export class MiniMonth {
     const to = moves[event.key]?.();
     if (!to) return;
     event.preventDefault();
-    if (!to.hasSame(this.#shown(), 'month')) {
-      this.turn.set(to < cursor ? -1 : 1);
-      this.month.set(isoDay(to));
-    }
+    if (!to.hasSame(this.#shown(), 'month')) this.month.set(isoDay(to));
     this.#keyed = true;
     this.#cursor.set(isoDay(to));
   }

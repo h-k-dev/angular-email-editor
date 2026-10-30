@@ -48,6 +48,21 @@
   margin-inline-start: 0;
 }
 
+// A key at the item's end, quiet — Google's menu letters. A tick after it
+// (a checkbox item's) follows on.
+.toolbar-menu__shortcut {
+  margin-inline-start: auto;
+  padding-inline-start: calc(var(--mat-sys-spacing) * 6);
+  color: var(--mat-sys-on-surface-variant);
+  font: inherit;
+  font-size: 0.6875rem;
+  font-weight: 500;
+}
+
+.toolbar-menu__shortcut + [data-slot='check'] {
+  margin-inline-start: 0;
+}
+
 .toolbar-menu__separator {
   @include menu.separator;
 }

@@ -1,13 +1,17 @@
 @use '@h-k-dev/angular-email-editor/styles/scroll';
 
-// Google's hours, Linear's quiet: no boxes, hairlines a whisper of the
-// ink, the heads and band holding still over the one scroller. Columns:
-// the gutter (56px) and the days, the same tracks in the heads, the band
-// and the hours — the scroller's stable gutter mirrored as padding over
-// it, so the three line up.
+// Notion Calendar's hours: no boxes, hairlines at a whisper of the ink
+// (6%), small quiet words (10px labels, 13px heads), weekends a shade
+// down, today and now in the theme's primary (Notion's red, ours). The heads and
+// band hold still over the one scroller; the gutter (56px) and the days
+// are the same tracks in all three — the scroller's stable gutter
+// mirrored as padding over it, so they line up. Nothing moves by itself.
 :host {
   --_gutter: 56px;
-  --_line: color-mix(in oklch, var(--mat-sys-on-surface) 9%, transparent);
+  --_line: color-mix(in oklch, var(--mat-sys-on-surface) 6%, transparent);
+  --_quiet: color-mix(in oklch, var(--mat-sys-on-surface) 46%, transparent);
+  --_today: var(--mat-sys-primary);
+  --_weekend: color-mix(in oklch, var(--mat-sys-on-surface) 2.5%, transparent);
   --_tracks: var(--_gutter) repeat(var(--days), minmax(0, 1fr));
 
   display: flex;
@@ -30,83 +34,84 @@
 }
 
 .time-grid__heads {
-  padding-block: 4px 8px;
+  block-size: 32px;
+  align-items: center;
 }
 
 .time-grid__head {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
+  justify-content: center;
+  min-inline-size: 0;
 }
 
-.time-grid__weekday {
-  color: var(--mat-sys-on-surface-variant);
-  font: var(--mat-sys-label-small);
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
+// A day's head: "Thu 29", one line; today's date in a primary pill.
 .time-grid__date {
-  display: grid;
-  place-items: center;
-  inline-size: 36px;
-  block-size: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  block-size: 24px;
   margin: 0;
-  padding: 0;
+  padding: 0 6px;
   border: 0;
-  border-radius: 50%;
+  border-radius: 6px;
   background: none;
-  color: var(--mat-sys-on-surface);
-  font: var(--mat-sys-title-large);
-  font-variant-numeric: tabular-nums;
+  color: var(--_quiet);
+  font: inherit;
+  font-size: 13px;
+  white-space: nowrap;
   cursor: pointer;
-  transition: background-color 120ms ease-out;
 
   &:hover {
-    background: color-mix(in oklch, var(--mat-sys-on-surface) 8%, transparent);
+    background: color-mix(in oklch, var(--mat-sys-on-surface) 6%, transparent);
   }
 
   &:focus-visible {
     outline: 2px solid var(--mat-sys-primary);
-    outline-offset: 0;
-  }
-
-  &[aria-current='date'] {
-    background: var(--mat-sys-primary);
-    color: var(--mat-sys-on-primary);
+    outline-offset: -2px;
   }
 }
 
-.time-grid__head--past .time-grid__date:not([aria-current]),
-.time-grid__head--past .time-grid__weekday {
-  color: var(--mat-sys-placeholder, var(--mat-sys-on-surface-variant));
+.time-grid__number {
+  font-variant-numeric: tabular-nums;
+}
+
+.time-grid__date[aria-current='date'] {
+  color: var(--mat-sys-on-surface);
+  font-weight: 500;
+
+  .time-grid__number {
+    min-inline-size: 14px;
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: var(--_today);
+    color: var(--mat-sys-on-primary);
+    text-align: center;
+  }
 }
 
 .time-grid__corner {
-  min-inline-size: 0;
-}
-
-.time-grid__corner--band {
   align-self: center;
+  min-inline-size: 0;
+  overflow: hidden;
   padding-inline-end: 8px;
-  color: var(--mat-sys-on-surface-variant);
-  font: var(--mat-sys-label-small);
+  color: var(--_quiet);
+  font-size: 10px;
+  font-weight: 500;
   text-align: end;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 // The band: a lane per row, each 22px + 2px apart; one empty lane at the
-// least, to press in.
+// least, to press in. The days' lines carry on through it.
 .time-grid__band {
   grid-column: 2 / -1;
   display: grid;
   grid-template-columns: repeat(var(--days), minmax(0, 1fr));
   grid-template-rows: repeat(var(--lanes), 22px);
   row-gap: 2px;
-  padding-block: 2px 6px;
-  border-block-end: 1px solid var(--_line);
-  // The days' lines carry on through it.
+  padding-block: 2px 4px;
+  border-block: 1px solid var(--_line);
   background: repeating-linear-gradient(
     to right,
     var(--_line) 0 1px,
@@ -138,20 +143,37 @@
   position: relative;
 }
 
-.time-grid__hour {
+.time-grid__hour,
+.time-grid__now-label {
   position: absolute;
-  inset-block-start: calc(var(--at) * var(--hour));
   inset-inline-end: 8px;
   translate: 0 -50%;
-  color: var(--mat-sys-on-surface-variant);
-  font: var(--mat-sys-label-small);
+  font-size: 10px;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
+  line-height: 14px;
   white-space: nowrap;
 }
 
-// The days: an hour line every hour, the faintest half-hour between,
-// a line down each day's start.
+.time-grid__hour {
+  inset-block-start: calc(var(--at) * var(--hour));
+  color: var(--_quiet);
+}
+
+.time-grid__hour--hidden {
+  visibility: hidden;
+}
+
+// Now, in the gutter: its time in primary, where the line runs.
+.time-grid__now-label {
+  inset-block-start: calc(var(--top) * var(--hour) / 60);
+  color: var(--_today);
+}
+
+// The days: a line every hour, a line down each day's start, weekends a
+// shade down — Notion's.
 .time-grid__columns {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(var(--days), minmax(0, 1fr));
   background: repeating-linear-gradient(to bottom, var(--_line) 0 1px, transparent 1px var(--hour));
@@ -164,10 +186,13 @@
   cursor: default;
 }
 
+.time-grid__day--weekend {
+  background: var(--_weekend);
+}
+
 // An event's box: from its start, as long as it lasts, its share of the
 // day's width — a hair short at the end, so two side by side read as two.
-// It drops into a new place on the spring; while lifted it follows the
-// pointer step by step, on the same spring.
+// It stands where it is: no transition, the pointer moves it.
 .time-grid__event {
   --_width: calc((100% - 8px) / var(--columns));
 
@@ -177,11 +202,14 @@
   inline-size: calc(var(--_width) - 2px);
   block-size: calc(var(--length) * var(--hour) / 60 - 2px);
   display: flex;
-  transition:
-    inset-block-start var(--app-motion-spring-duration, 400ms) var(--app-motion-spring, ease-out),
-    block-size var(--app-motion-spring-duration, 400ms) var(--app-motion-spring, ease-out),
-    inset-inline-start var(--app-motion-spring-duration, 400ms) var(--app-motion-spring, ease-out),
-    inline-size var(--app-motion-spring-duration, 400ms) var(--app-motion-spring, ease-out);
+}
+
+// The mark: the day's whole width, edge to edge, over the events.
+.time-grid__event--mark {
+  inset-inline: 0;
+  inline-size: auto;
+  block-size: calc(var(--length) * var(--hour) / 60);
+  z-index: 3;
 }
 
 .time-grid__event--lifted {
@@ -193,17 +221,32 @@
   min-block-size: 0;
 }
 
-// The foot: the bottom 6px, a drag stretches the event.
+// The foot: the bottom 6px — a drag stretches the event. Over the chip
+// (a mark's included, which lifts itself over its neighbours).
 .time-grid__foot {
   position: absolute;
   inset-inline: 0;
   inset-block-end: 0;
+  z-index: 5;
   block-size: 6px;
   cursor: ns-resize;
   touch-action: none;
 }
 
-// Now: a red line across the day with a dot at its start, Google's.
+// The quarter hour under the pointer: where a press would mark from.
+.time-grid__hover {
+  position: absolute;
+  inset-block-start: calc(var(--top) * var(--hour) / 60);
+  inset-inline-start: calc(var(--day) * 100% / var(--days) + 2px);
+  inline-size: calc(100% / var(--days) - 4px);
+  block-size: 2px;
+  translate: 0 -1px;
+  border-radius: 1px;
+  background: color-mix(in oklch, var(--mat-sys-on-surface) 55%, transparent);
+  pointer-events: none;
+}
+
+// Now: a primary line across today, a dot at its start.
 .time-grid__now {
   position: absolute;
   inset-inline: -1px 0;
@@ -211,23 +254,17 @@
   z-index: 5;
   block-size: 2px;
   translate: 0 -50%;
-  background: var(--mat-sys-error);
+  background: var(--_today);
   pointer-events: none;
 
   &::before {
     content: '';
     position: absolute;
-    inset-inline-start: -5px;
-    inset-block-start: -4px;
-    inline-size: 10px;
-    block-size: 10px;
+    inset-inline-start: -4px;
+    inset-block-start: -3px;
+    inline-size: 8px;
+    block-size: 8px;
     border-radius: 50%;
-    background: var(--mat-sys-error);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .time-grid__event {
-    transition: none;
+    background: var(--_today);
   }
 }

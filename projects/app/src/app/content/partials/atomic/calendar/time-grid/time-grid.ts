@@ -18,6 +18,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import {
   DAY_MINUTES,
   IsoDay,
+  daysBetween,
   isoDay,
   isoMoment,
   minuteOfDay,
@@ -43,13 +44,13 @@ import { DRAG_THRESHOLD, GridCreate, GridOpen, boxOf } from '../calendar-grid';
     by (set on the host as `--hour`). */
 export const HOUR_HEIGHT = 48;
 
-/** The step a drag snaps to, minutes. */
+/** The step a press and a drag snap to, minutes — Notion's quarter hour. */
 const SNAP = 15;
 
-/** A drag on the hours: marking a new event's room, moving one, or
-    stretching its end. */
+/** A drag on the hours: marking out a new event — in the hours, or whole
+    days in the band — moving one, or stretching its end. */
 interface Drag {
-  kind: 'create' | 'move' | 'resize';
+  kind: 'mark' | 'days' | 'move' | 'resize';
   pointer: number;
   x: number;
   y: number;
@@ -57,8 +58,9 @@ interface Drag {
   moved: boolean;
   /** The event as it would be dropped now. */
   preview: CalendarEvent;
-  /** create: the minute it started at, on its day. move: the minutes from
-      the event's start to where it was picked up. */
+  /** mark: the minute it was pressed at, on its day. move: the minutes
+      from the event's start to where it was picked up. days: unused —
+      `day` is where it was pressed. */
   anchor: number;
   day: number;
   /** The event's chip, for a press: the grid holds the pointer, so the
@@ -67,17 +69,23 @@ interface Drag {
 }
 
 /**
- * A day's or a week's hours, Google Calendar's: the days' heads on top,
- * the band of all-day (and overnight) events under them, and the hours
- * below — the one scroller — each day a column its timed events stand
- * in, side by side where they overlap. A red line marks now.
+ * A day's or a week's hours, Notion Calendar's: the days' heads on top, the
+ * band of all-day (and overnight) events under them, and the hours below —
+ * the one scroller — each day a column its timed events stand in, side by
+ * side where they overlap. A line marks the quarter hour under the
+ * pointer, one in the theme's primary now.
  *
- * Press an empty hour (or drag down across a few) and room is marked for
- * a new event: `create`, with the box to open its card beside. Press an
- * event and it opens (`open`); drag it — across days too — and it moves,
- * drag its foot and it stretches (`change`), in 15-minute steps, lifted
- * off the grid while it travels and dropped on the spring. The event
- * being written (`draft`) stands in the grid as it will be, dashed.
+ * Press an hour and drag, and the time is marked out as you go — Notion's
+ * selection, the colour at an eighth, its times in it; drag sideways and
+ * it runs on across the days between, shown in each (and in the band,
+ * whole days); let go and it is a
+ * new event's room (`create`), with the box to open its card beside. The
+ * mark stays while the card is open, and is itself a thing to drag: move
+ * it, stretch its foot (`draftChange`). A press anywhere else marks out
+ * the next one at once. Press an event and it opens (`open`); drag it —
+ * across days too — and it moves, drag its foot and it stretches
+ * (`change`). Everything in quarter hours, where the pointer is, at once:
+ * no motion.
  *
  * Lays out numbers, never measures events: minutes × `--hour`.
  */
@@ -90,6 +98,7 @@ interface Drag {
     '[style.--hour.px]': 'hourHeight',
     '[style.--days]': 'days().length',
     '[class.time-grid--dragging]': 'dragging()',
+    '(document:keydown.escape)': 'escape($event)',
   },
 })
 export class TimeGrid {
@@ -101,16 +110,16 @@ export class TimeGrid {
   readonly draft = input<EventEdit | null>(null);
   readonly today = input.required<IsoDay>();
   readonly now = input.required<DateTime>();
-  /** The event just made: it pops in. */
-  readonly fresh = input<string | null>(null);
   readonly untitled = input('');
-  /** Where the hours are scrolled to, px — kept by the page across turns,
-      so next week opens at the same hour; null until first scrolled. */
+  /** Where the hours are scrolled to, px — kept by the page, so the month
+      and back opens at the same hour; null until first scrolled. */
   readonly scrollTop = model<number | null>(null);
 
   readonly create = output<GridCreate>();
   readonly open = output<GridOpen>();
   readonly change = output<CalendarEvent>();
+  /** The new event's mark was moved or stretched: its times, and its box. */
+  readonly draftChange = output<GridCreate>();
   /** A day's head was pressed: that day, alone. */
   readonly dayOpen = output<IsoDay>();
 
@@ -118,11 +127,15 @@ export class TimeGrid {
 
   protected readonly scroller = viewChild.required<ElementRef<HTMLElement>>('scroller');
   protected readonly columnsEl = viewChild.required<ElementRef<HTMLElement>>('dayColumns');
+  protected readonly bandEl = viewChild.required<ElementRef<HTMLElement>>('bandDays');
 
   readonly #drag = signal<Drag | null>(null);
   protected readonly dragging = computed(() => !!this.#drag()?.moved);
-  /** A drag just ended: the click that follows it is not a press. */
+  /** A drag or a press just ended: the click that follows is spent. */
   #swallowClick = false;
+
+  /** The quarter hour under a mouse, while nothing is dragged. */
+  readonly #hover = signal<{ day: number; minute: number } | null>(null);
 
   /** What the grid lays out: the stored events, the one being written in
       place of its stored self, the one being dragged as it would drop. */
@@ -134,15 +147,15 @@ export class TimeGrid {
     return replaced ? [...events, replaced] : events;
   });
 
-  /** Which shown event is the dashed draft, and which is lifted. */
-  readonly #marks = computed(() => {
+  /** The one being dragged, lifted. */
+  readonly #lifted = computed(() => {
     const drag = this.#drag();
-    const draft = this.draft();
-    return {
-      ghost:
-        drag?.moved && drag.kind === 'create' ? DRAFT_ID : draft ? (draft.id ?? DRAFT_ID) : null,
-      lifted: drag?.moved && drag.kind !== 'create' ? drag.preview.id : null,
-    };
+    return drag?.moved && drag.preview.id !== DRAFT_ID ? drag.preview.id : null;
+  });
+
+  protected readonly zone = computed(() => {
+    const formats = this.#formats();
+    return this.now().setLocale(formats.language).offsetNameShort ?? '';
   });
 
   protected readonly heads = computed(() => {
@@ -156,57 +169,85 @@ export class TimeGrid {
         number: date.day,
         label: formats.longDay(date),
         today: day === today,
-        past: day < today,
+        weekend: date.weekday > 5,
       };
     });
   });
 
-  /** The hours' labels, from 1 — midnight goes unsaid, as Google's does. */
+  /** The hours' labels, from 1 — midnight goes unsaid. The one now is
+      over hides itself: now's own time stands there in primary. */
   protected readonly hours = computed(() => {
     const formats = this.#formats();
     const midnight = parseDay(this.days()[0])!;
+    const now = this.days().includes(this.today()) ? minuteOfDay(this.now()) : null;
     return Array.from({ length: 23 }, (_, i) => ({
       hour: i + 1,
       label: formats.time(midnight.set({ hour: i + 1 })),
+      hidden: now !== null && Math.abs(now - (i + 1) * 60) < 15,
     }));
   });
 
+  /** Now, in the gutter: its time, in primary, where the line runs. */
+  protected readonly nowLabel = computed(() => {
+    if (!this.days().includes(this.today())) return null;
+    const now = this.now();
+    return {
+      top: minuteOfDay(now),
+      label: now.toLocaleString(DateTime.TIME_SIMPLE, { locale: this.#formats().language }),
+    };
+  });
+
   protected readonly band = computed(() => {
-    const { ghost, lifted } = this.#marks();
-    const fresh = this.fresh();
-    const placed = placeInLanes(this.#shown(), this.days(), 'band');
+    const lifted = this.#lifted();
+    // A timed mark across days stays in the hours, shown in each day.
+    const shown = this.#shown().filter((event) => event.id !== DRAFT_ID || event.allDay);
+    const placed = placeInLanes(shown, this.days(), 'band');
     return {
       lanes: Math.max(laneCount(placed), 1),
       bars: placed.map((one) => ({
         ...one,
         key: one.event.id,
-        ghost: one.event.id === ghost,
+        mark: one.event.id === DRAFT_ID,
         lifted: one.event.id === lifted,
-        fresh: one.event.id === fresh,
       })),
     };
   });
 
   protected readonly columns = computed(() => {
-    const { ghost, lifted } = this.#marks();
-    const fresh = this.fresh();
+    const lifted = this.#lifted();
     const shown = this.#shown();
+    const events = shown.filter((event) => event.id !== DRAFT_ID);
+    const mark = shown.filter((event) => event.id === DRAFT_ID);
     const today = this.today();
     const now = this.now();
-    return this.days().map((day) => ({
+    const heads = this.heads();
+    return this.days().map((day, i) => ({
       day,
+      weekend: heads[i].weekend,
       now: day === today ? minuteOfDay(now) : null,
-      events: placeInDay(shown, day).map((one) => ({
-        ...one,
-        key: one.event.id,
-        // A short block has room for one line: the title alone.
-        lines: one.length < 45 ? 1 : Math.max(1, Math.floor((one.length / 60) * 2.4) - 1),
-        ghost: one.event.id === ghost,
-        lifted: one.event.id === lifted,
-        fresh: one.event.id === fresh,
-      })),
+      events: [
+        ...placeInDay(events, day).map((one) => ({
+          ...one,
+          key: one.event.id,
+          // A short block has room for one line: the title alone.
+          lines: one.length < 45 ? 1 : Math.max(1, Math.floor((one.length / 60) * 2.4) - 1),
+          mark: false,
+          lifted: one.event.id === lifted,
+        })),
+        // The mark over them all, the column's whole width: Notion's.
+        ...placeInDay(mark, day, { spanning: true }).map((one) => ({
+          ...one,
+          key: one.event.id,
+          lines: 1,
+          mark: true,
+          lifted: false,
+        })),
+      ],
     }));
   });
+
+  /** The quarter hour line under the mouse: its day and minute. */
+  protected readonly hoverLine = computed(() => (this.#drag() ? null : this.#hover()));
 
   constructor() {
     // The hours open where they were — or an hour and a half before now,
@@ -249,46 +290,58 @@ export class TimeGrid {
     return parseDay(this.days()[day])!.plus({ minutes: minute });
   }
 
-  /** A press on an empty hour: room for a new event begins there. */
+  /** A press on an empty hour: a new event's mark begins at its quarter. */
   protected pressHours(event: PointerEvent): void {
     if (event.button !== 0 || event.target !== event.currentTarget) return;
     const { day, minute } = this.#at(event);
-    // Its slot: the half hour pressed, as Google's.
-    const anchor = Math.floor(minute / 30) * 30;
-    const start = this.#moment(day, anchor);
+    const anchor = Math.min(DAY_MINUTES - SNAP, Math.floor(minute / SNAP) * SNAP);
     this.#begin(event, {
-      kind: 'create',
-      anchor: Math.floor(minute / SNAP) * SNAP,
+      kind: 'mark',
+      anchor,
       day,
-      preview: editAsEvent(draftAt(start, { minutes: DEFAULT_EVENT_MINUTES })),
+      // A press alone marks Notion's default: an hour from the quarter.
+      preview: editAsEvent(
+        draftAt(this.#moment(day, anchor), {
+          minutes: Math.min(DEFAULT_EVENT_MINUTES, DAY_MINUTES - anchor),
+        }),
+      ),
     });
   }
 
-  /** A press on an event: a press opens it, a drag moves it. */
+  /** The event a chip shows, as it is stored — or the mark, as written. */
+  #source(shown: CalendarEvent): CalendarEvent | null {
+    if (shown.id === DRAFT_ID) {
+      const draft = this.draft();
+      return draft ? editAsEvent(draft) : null;
+    }
+    return this.events().find((one) => one.id === shown.id) ?? null;
+  }
+
+  /** A press on an event (or the mark): a press opens it, a drag moves it. */
   protected pressEvent(event: PointerEvent, shown: CalendarEvent): void {
-    if (event.button !== 0 || shown.id === DRAFT_ID || event.pointerType === 'touch') return;
-    const stored = this.events().find((one) => one.id === shown.id);
-    if (!stored) return;
+    if (event.button !== 0 || event.pointerType === 'touch') return;
+    const source = this.#source(shown);
+    if (!source) return;
     const { day, minute } = this.#at(event);
-    const start = eventSpan(stored).start;
+    const start = eventSpan(source).start;
     const startMinute = (start.toMillis() - parseDay(this.days()[day])!.toMillis()) / 60_000;
     this.#begin(event, {
       kind: 'move',
       anchor: minute - startMinute,
       day,
-      preview: stored,
+      preview: source,
       element: event.currentTarget as Element,
     });
   }
 
-  /** A press on an event's foot: a drag stretches it. */
+  /** A press on an event's foot (or the mark's): a drag stretches it. */
   protected pressFoot(event: PointerEvent, shown: CalendarEvent): void {
-    if (event.button !== 0 || shown.id === DRAFT_ID) return;
-    const stored = this.events().find((one) => one.id === shown.id);
-    if (!stored) return;
+    if (event.button !== 0) return;
+    const source = this.#source(shown);
+    if (!source) return;
     event.stopPropagation();
     const { day } = this.#at(event);
-    this.#begin(event, { kind: 'resize', anchor: 0, day, preview: stored });
+    this.#begin(event, { kind: 'resize', anchor: 0, day, preview: source });
   }
 
   #begin(
@@ -311,7 +364,11 @@ export class TimeGrid {
 
   protected move(event: PointerEvent): void {
     const drag = this.#drag();
-    if (!drag || drag.pointer !== event.pointerId) return;
+    if (!drag) {
+      if (event.pointerType === 'mouse') this.#hoverAt(event);
+      return;
+    }
+    if (drag.pointer !== event.pointerId) return;
     const moved =
       drag.moved || Math.hypot(event.clientX - drag.x, event.clientY - drag.y) > DRAG_THRESHOLD;
     if (!moved) return;
@@ -324,19 +381,40 @@ export class TimeGrid {
     this.#drag.set({ ...drag, moved, preview: this.#previewAt(drag, day, minute) });
   }
 
+  #hoverAt(event: PointerEvent): void {
+    const over = (event.target as Element).closest('.time-grid__day');
+    if (!over || event.target !== over) return this.#hover.set(null);
+    const { day, minute } = this.#at(event);
+    const quarter = Math.min(DAY_MINUTES - SNAP, Math.floor(minute / SNAP) * SNAP);
+    const hover = this.#hover();
+    if (hover?.day !== day || hover.minute !== quarter) this.#hover.set({ day, minute: quarter });
+  }
+
+  protected leave(): void {
+    this.#hover.set(null);
+  }
+
   #previewAt(drag: Drag, day: number, minute: number): CalendarEvent {
     const snapped = snapMinutes(minute, SNAP);
-    if (drag.kind === 'create') {
-      // From where it was pressed to where it is, either way; a step at
-      // the least.
-      const from = Math.min(drag.anchor, snapped);
-      const to = Math.max(drag.anchor + SNAP, snapped);
-      const start = this.#moment(drag.day, from);
-      return {
-        ...drag.preview,
-        start: isoMoment(start),
-        end: isoMoment(start.plus({ minutes: to - from })),
-      };
+    if (drag.kind === 'mark') {
+      // From the quarter pressed to the one the pointer is at — on its day:
+      // sideways, Notion's, the mark runs across the days between. Either
+      // way; a quarter at the least.
+      const pressed = this.#moment(drag.day, drag.anchor);
+      const pointer = this.#moment(day, snapped);
+      const [start, end] =
+        pointer >= pressed
+          ? [pressed, DateTime.max(pointer, pressed.plus({ minutes: SNAP }))]
+          : [pointer, pressed.plus({ minutes: SNAP })];
+      return { ...drag.preview, start: isoMoment(start), end: isoMoment(end) };
+    }
+    if (drag.kind === 'days') {
+      // Whole days, from the one pressed to the one the pointer is over.
+      // By the calendar: a run over hidden weekends holds them too.
+      const from = this.#moment(Math.min(drag.day, day), 0);
+      const to = this.#moment(Math.max(drag.day, day), 0);
+      const days = daysBetween(from, to) + 1;
+      return { ...drag.preview, ...draftAt(from, { allDay: true, days }) };
     }
     if (drag.kind === 'move') {
       const start = Math.min(
@@ -354,29 +432,48 @@ export class TimeGrid {
     const drag = this.#drag();
     if (!drag || drag.pointer !== event.pointerId) return;
     this.#drag.set(null);
-    if (drag.kind === 'create') {
-      // A press marks the slot's hour; a drag, the room it went across.
-      const { id: _, ...draft } = drag.preview;
+    // The grid held the pointer, so the click this ends with lands on the
+    // grid, not on what was pressed: a press is answered here, and the
+    // click is spent.
+    this.#swallowClick = true;
+    setTimeout(() => (this.#swallowClick = false));
+    if (event.pointerType === 'mouse') this.#hoverAt(event);
+
+    const { id, ...draft } = drag.preview;
+    if (drag.kind === 'mark') {
       this.create.emit({ draft, rect: this.#slotBox(drag.preview) });
       return;
     }
-    // A press opens the event here: the grid held the pointer, so the
-    // click it ends with lands on the grid — and is spent, as a drag's is.
-    this.#swallowClick = true;
-    setTimeout(() => (this.#swallowClick = false));
-    if (!drag.moved) {
-      if (drag.element) this.open.emit({ id: drag.preview.id, rect: boxOf(drag.element) });
+    if (drag.kind === 'days') {
+      this.create.emit({ draft, rect: this.#bandBox(drag.preview) });
       return;
     }
-    const { start, end } = drag.preview;
-    const stored = this.events().find((one) => one.id === drag.preview.id);
-    if (stored && (stored.start !== start || stored.end !== end)) this.change.emit(drag.preview);
+    if (id === DRAFT_ID) {
+      if (drag.moved) this.draftChange.emit({ draft, rect: this.#slotBox(drag.preview) });
+      return;
+    }
+    if (!drag.moved) {
+      if (drag.element) this.open.emit({ id, rect: boxOf(drag.element) });
+      return;
+    }
+    const stored = this.events().find((one) => one.id === id);
+    if (stored && (stored.start !== drag.preview.start || stored.end !== drag.preview.end)) {
+      this.change.emit(drag.preview);
+    }
   }
 
   protected cancel(): void {
     this.#drag.set(null);
   }
 
+  /** Escape lets go of a drag where it began — and is spent on it. */
+  protected escape(event: Event): void {
+    if (!this.#drag()) return;
+    event.preventDefault();
+    this.#drag.set(null);
+  }
+
+  /** A click that came by keyboard (Enter, Space): the event opens. */
   protected clicked(event: MouseEvent, shown: CalendarEvent): void {
     if (this.#swallowClick) {
       this.#swallowClick = false;
@@ -387,41 +484,64 @@ export class TimeGrid {
   }
 
   /** A press on the band: an all-day event that day. */
-  protected pressBand(event: MouseEvent): void {
-    if (event.target !== event.currentTarget) return;
-    const band = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    const count = this.days().length;
-    const rtl = getComputedStyle(event.currentTarget as HTMLElement).direction === 'rtl';
-    const x = rtl ? band.right - event.clientX : event.clientX - band.left;
-    const day = Math.min(count - 1, Math.max(0, Math.floor((x / band.width) * count)));
-    const width = band.width / count;
-    this.create.emit({
-      draft: draftAt(parseDay(this.days()[day])!, { allDay: true }),
-      rect: {
-        left: rtl ? band.right - (day + 1) * width : band.left + day * width,
-        top: band.top,
-        width,
-        height: band.height,
-      },
+  protected pressBand(event: PointerEvent): void {
+    if (event.button !== 0 || event.target !== event.currentTarget) return;
+    // The band's days line up with the hours' columns: the same tracks.
+    const { day } = this.#at(event);
+    if (event.pointerType !== 'touch') {
+      (event.currentTarget as Element).setPointerCapture(event.pointerId);
+      event.preventDefault();
+    }
+    this.#drag.set({
+      kind: 'days',
+      anchor: 0,
+      day,
+      preview: editAsEvent(draftAt(this.#moment(day, 0), { allDay: true })),
+      pointer: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      moved: false,
     });
   }
 
-  /** Where an event in the hours stands on screen — for a new one's card,
-      before it is drawn. */
+  /** Where days in the band stand on screen — for a new one's card. */
+  #bandBox(event: CalendarEvent): AnchorRect {
+    const band = this.bandEl().nativeElement.getBoundingClientRect();
+    const count = this.days().length;
+    const { start, end } = eventSpan(event);
+    // By the days shown: weekends hidden leave gaps the box closes over.
+    const days = this.days();
+    const from = Math.max(days.indexOf(isoDay(start)), 0);
+    const last = isoDay(end.minus({ minutes: 1 }));
+    let to = count - 1;
+    while (to > from && days[to] > last) to--;
+    const span = to - from + 1;
+    const width = band.width / count;
+    const rtl = getComputedStyle(this.bandEl().nativeElement).direction === 'rtl';
+    return {
+      left: rtl ? band.right - (from + span) * width : band.left + from * width,
+      top: band.top,
+      width: span * width,
+      height: band.height,
+    };
+  }
+
+  /** Where an event in the hours stands on screen — for its card, before
+      (or while) it is drawn. */
   #slotBox(event: CalendarEvent): AnchorRect {
     const box = this.columnsEl().nativeElement.getBoundingClientRect();
     const count = this.days().length;
     const { start, end } = eventSpan(event);
-    const day = this.days().indexOf(isoDay(start));
+    const day = Math.max(this.days().indexOf(isoDay(start)), 0);
     const width = box.width / count;
     const rtl = getComputedStyle(this.columnsEl().nativeElement).direction === 'rtl';
-    const top = box.top + (minuteOfDay(start) / 60) * HOUR_HEIGHT;
-    const height = (end.diff(start, 'minutes').minutes / 60) * HOUR_HEIGHT;
+    // Its first day's part: across days, the card stands by where it begins.
+    const last = DateTime.min(end, start.startOf('day').plus({ days: 1 }));
     return {
-      left: rtl ? box.right - (day + 1) * width : box.left + Math.max(day, 0) * width,
-      top,
+      left: rtl ? box.right - (day + 1) * width : box.left + day * width,
+      top: box.top + (minuteOfDay(start) / 60) * HOUR_HEIGHT,
       width,
-      height,
+      height: (last.diff(start, 'minutes').minutes / 60) * HOUR_HEIGHT,
     };
   }
 }

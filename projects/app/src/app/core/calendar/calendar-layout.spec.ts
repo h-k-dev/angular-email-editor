@@ -72,6 +72,27 @@ describe('calendar layout', () => {
     });
   });
 
+  describe('a mark across days', () => {
+    it('shows in each day it covers, cut at the midnights', () => {
+      const mark = event('2026-10-27T15:00', '2026-10-29T10:30');
+      const spanning = { spanning: true };
+      expect(placeInDay([mark], '2026-10-27', spanning)[0]).toEqual(
+        expect.objectContaining({ top: 900, length: 540, cutStart: false, cutEnd: true }),
+      );
+      expect(placeInDay([mark], '2026-10-28', spanning)[0]).toEqual(
+        expect.objectContaining({ top: 0, length: 1440, cutStart: true, cutEnd: true }),
+      );
+      expect(placeInDay([mark], '2026-10-29', spanning)[0]).toEqual(
+        expect.objectContaining({ top: 0, length: 630, cutStart: true, cutEnd: false }),
+      );
+      // Not asked to, it leaves it to the band; an all-day one always.
+      expect(placeInDay([mark], '2026-10-28')).toEqual([]);
+      expect(
+        placeInDay([event('2026-10-28T00:00', '2026-10-29T00:00', true)], '2026-10-28', spanning),
+      ).toEqual([]);
+    });
+  });
+
   describe('a run of days', () => {
     const week = dayRange(DateTime.local(2026, 10, 25), 7);
 
@@ -90,6 +111,17 @@ describe('calendar layout', () => {
         [4, 1, 0],
       ]);
       expect(laneCount(placed)).toBe(2);
+    });
+
+    it('closes the gaps of a run without its weekends', () => {
+      const weekdays = ['2026-10-23', '2026-10-26', '2026-10-27'];
+      const [one] = placeInLanes([event('2026-10-23T00:00', '2026-10-27T00:00', true)], weekdays);
+      expect(one).toEqual(
+        expect.objectContaining({ from: 0, span: 2, before: false, after: false }),
+      );
+      expect(placeInLanes([event('2026-10-24T00:00', '2026-10-26T00:00', true)], weekdays)).toEqual(
+        [],
+      );
     });
 
     it('cuts a bar at the run’s ends and says it goes on', () => {

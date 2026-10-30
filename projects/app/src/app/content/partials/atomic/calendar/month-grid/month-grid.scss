@@ -1,7 +1,10 @@
-// Google's month, Linear's quiet: hairlines between days, no boxes; the
-// rows share the height the page gives them.
+// Notion Calendar's month: hairlines between days at a whisper of the ink,
+// no boxes; small quiet dates, today's in a primary pill; weekends a shade
+// down. The rows share the height the page gives them.
 :host {
-  --_line: color-mix(in oklch, var(--mat-sys-on-surface) 9%, transparent);
+  --_line: color-mix(in oklch, var(--mat-sys-on-surface) 6%, transparent);
+  --_quiet: color-mix(in oklch, var(--mat-sys-on-surface) 46%, transparent);
+  --_today: var(--mat-sys-primary);
 
   display: grid;
   grid-template-rows: auto repeat(var(--weeks), minmax(0, 1fr));
@@ -16,19 +19,18 @@
   user-select: none;
 }
 
+// A row is a week, or its five weekdays (weekends hidden): `--cols`.
 .month-grid__weekdays {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  padding-block: 4px;
+  grid-template-columns: repeat(var(--cols, 7), minmax(0, 1fr));
+  block-size: 32px;
+  align-items: center;
 }
 
 .month-grid__weekday {
-  color: var(--mat-sys-on-surface-variant);
-  font: var(--mat-sys-label-small);
-  font-weight: 500;
-  letter-spacing: 0.04em;
+  color: var(--_quiet);
+  font-size: 13px;
   text-align: center;
-  text-transform: uppercase;
 }
 
 // A week: the date's line, then 22px lanes 2px apart, the events laid in
@@ -37,7 +39,7 @@
 .month-grid__week {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--cols, 7), minmax(0, 1fr));
   grid-template-rows: 28px;
   grid-auto-rows: 22px;
   align-content: start;
@@ -50,11 +52,11 @@
 .month-grid__cell {
   position: absolute;
   inset-block: 0;
-  inset-inline-start: calc((var(--column) - 1) * 100% / 7);
-  inline-size: calc(100% / 7);
+  inset-inline-start: calc((var(--column) - 1) * 100% / var(--cols, 7));
+  inline-size: calc(100% / var(--cols, 7));
   display: flex;
-  justify-content: center;
-  padding-block-start: 4px;
+  justify-content: flex-end;
+  padding: 4px 4px 0;
   box-sizing: border-box;
   border-inline-start: 1px solid var(--_line);
   cursor: default;
@@ -64,29 +66,34 @@
   border-inline-start: 0;
 }
 
-.month-grid__cell--outside .month-grid__date {
-  color: var(--mat-sys-placeholder, var(--mat-sys-on-surface-variant));
+.month-grid__cell--weekend {
+  background: color-mix(in oklch, var(--mat-sys-on-surface) 2.5%, transparent);
 }
 
+.month-grid__cell--outside .month-grid__date {
+  color: color-mix(in oklch, var(--mat-sys-on-surface) 28%, transparent);
+}
+
+// A day's date, at its top end: small and quiet; today's a primary pill.
 .month-grid__date {
   display: inline-grid;
   place-items: center;
-  min-inline-size: 24px;
-  block-size: 24px;
+  min-inline-size: 22px;
+  block-size: 20px;
   margin: 0;
-  padding-inline: 6px;
+  padding-inline: 4px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 4px;
   background: none;
-  color: var(--mat-sys-on-surface);
-  font: var(--mat-sys-label-medium);
-  font-weight: 500;
+  color: var(--_quiet);
+  font: inherit;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   cursor: pointer;
 
   &:hover {
-    background: color-mix(in oklch, var(--mat-sys-on-surface) 8%, transparent);
+    background: color-mix(in oklch, var(--mat-sys-on-surface) 6%, transparent);
   }
 
   &:focus-visible {
@@ -95,8 +102,9 @@
   }
 
   &[aria-current='date'] {
-    background: var(--mat-sys-primary);
+    background: var(--_today);
     color: var(--mat-sys-on-primary);
+    font-weight: 500;
   }
 }
 
@@ -115,8 +123,9 @@
   border: 0;
   border-radius: 4px;
   background: none;
-  color: var(--mat-sys-on-surface-variant);
-  font: var(--mat-sys-label-medium);
+  color: var(--_quiet);
+  font: inherit;
+  font-size: 12px;
   font-weight: 500;
   text-align: start;
   cursor: pointer;
