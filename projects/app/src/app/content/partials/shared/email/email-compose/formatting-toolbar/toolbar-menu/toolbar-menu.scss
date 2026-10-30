@@ -31,9 +31,16 @@
 // — not a place anyone has reached: no wash until a key moves (the menu
 // says `keyboard` then) or the pointer comes over it. A choice is its
 // tick alone.
-.toolbar-menu:not([data-modality='keyboard'])
-  .toolbar-menu__item:is([aria-checked='true'], [aria-current='page']):not(:hover) {
+.toolbar-menu:not([data-modality='keyboard']) .toolbar-menu__item[aria-checked='true']:not(:hover) {
   background-color: transparent;
+}
+
+// The place you are in (a link's `aria-current`) is not a choice but where
+// you stand: it wears the aside's own active place — the rail's wash and
+// full ink — however the menu was opened.
+.toolbar-menu__item[aria-current='page'] {
+  background-color: color-mix(in srgb, var(--mat-sys-on-surface) 8%, transparent);
+  color: var(--mat-sys-on-surface);
 }
 
 // A radio item: the label first, the tick at the item's end, in the same

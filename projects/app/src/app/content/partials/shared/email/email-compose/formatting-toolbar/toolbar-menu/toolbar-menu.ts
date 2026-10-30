@@ -63,8 +63,9 @@ export interface ToolbarMenuItem<V> {
   badgesTitle?: string;
   /** A place: the item is a link to it (`routerLink`), not a choice. */
   link?: string;
-  /** The place you are in — a link's: `aria-current="page"`, ticked; the
-      menu opens with it level with the trigger (`anchor: 'selected'`). */
+  /** The place you are in — a link's: `aria-current="page"`, in the
+      active wash (the aside's own); the menu opens with it level with the
+      trigger (`anchor: 'selected'`). */
   current?: boolean;
   /** The key that does the same outside the menu, at the item's end —
       the calendar's views, Google's D W M. Said to assistive tech as

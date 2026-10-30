@@ -109,11 +109,11 @@
   @if (item.shortcut) {
     <kbd class="toolbar-menu__shortcut" aria-hidden="true">{{ item.shortcut }}</kbd>
   }
-  <!-- The tick: a radio's, a checkbox's without a glyph of its own
+  <!-- The tick: a radio's, and a checkbox's without a glyph of its own
        (the calendar's Show weekends) — an icon-led checkbox, the ⋯
-       menu's moved Bold, says its state on its glyph — and the place
-       you are in, a link's. -->
-  @if (item.kind === 'radio' || (item.kind === 'checkbox' && !item.icon) || item.current) {
+       menu's moved Bold, says its state on its glyph. The place you are
+       in is no choice: it has the active wash, not a tick. -->
+  @if (item.kind === 'radio' || (item.kind === 'checkbox' && !item.icon)) {
     <mat-icon data-slot="check">check</mat-icon>
   }
 </ng-template>
