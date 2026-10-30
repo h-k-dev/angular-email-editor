@@ -3,6 +3,8 @@ import {
   DOCUMENT,
   DestroyRef,
   ElementRef,
+  Injector,
+  afterNextRender,
   afterRenderEffect,
   computed,
   effect,
@@ -195,6 +197,7 @@ export class CalendarPage {
   readonly #snackBar = inject(MatSnackBar);
   readonly #i18n = inject(I18n);
   readonly #host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+  readonly #injector = inject(Injector);
 
   /** The route's, Google's path: the view's segment, and the day's numbers
       (the year view has the year alone). */
@@ -524,6 +527,29 @@ export class CalendarPage {
     this.#store.save(event);
     const edit = this.edit();
     if (edit?.id === event.id) this.edit.set({ ...edit, start: event.start, end: event.end });
+    // Its card goes with it: beside where it was dropped, once it stands
+    // there (the hours, or the band it moved into). The anchor is moved by
+    // its bindings in the render after this one — the card is placed
+    // against it then, not in this pass, where it still stands where it was.
+    if (edit?.id === event.id || this.#shownId() === event.id) {
+      afterNextRender(
+        {
+          earlyRead: () => {
+            const chip = this.#host.querySelector(`[data-event-id="${CSS.escape(event.id)}"]`);
+            return chip ? boxOf(chip) : null;
+          },
+          write: (box) => {
+            if (!box) return;
+            this.anchor.set(box);
+            afterNextRender(
+              { read: () => this.card().overlayRef?.updatePosition() },
+              { injector: this.#injector },
+            );
+          },
+        },
+        { injector: this.#injector },
+      );
+    }
   }
 
   protected saved(edit: EventEdit): void {

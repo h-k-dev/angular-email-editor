@@ -149,6 +149,16 @@ export class TimeGrid {
     return replaced ? [...events, replaced] : events;
   });
 
+  /** A timed event moved or stretched in the hours: it stays in them for
+      the whole drag, shown in each day it runs over — the mark's way —
+      though run past midnight it belongs to the band; dropped, it goes
+      there. */
+  readonly #held = computed(() => {
+    const drag = this.#drag();
+    if (!drag || (drag.kind !== 'move' && drag.kind !== 'resize')) return null;
+    return drag.preview.id === DRAFT_ID || drag.preview.allDay ? null : drag.preview.id;
+  });
+
   /** The one being dragged, lifted. */
   readonly #lifted = computed(() => {
     const drag = this.#drag();
@@ -201,8 +211,12 @@ export class TimeGrid {
 
   protected readonly band = computed(() => {
     const lifted = this.#lifted();
-    // A timed mark across days stays in the hours, shown in each day.
-    const shown = this.#shown().filter((event) => event.id !== DRAFT_ID || event.allDay);
+    const held = this.#held();
+    // A timed mark across days stays in the hours, shown in each day — and
+    // so does an event in hand (`#held`).
+    const shown = this.#shown().filter(
+      (event) => (event.id !== DRAFT_ID || event.allDay) && event.id !== held,
+    );
     const placed = placeInLanes(shown, this.days(), 'band');
     return {
       lanes: Math.max(laneCount(placed), 1),
@@ -217,8 +231,10 @@ export class TimeGrid {
 
   protected readonly columns = computed(() => {
     const lifted = this.#lifted();
+    const held = this.#held();
     const shown = this.#shown();
-    const events = shown.filter((event) => event.id !== DRAFT_ID);
+    const events = shown.filter((event) => event.id !== DRAFT_ID && event.id !== held);
+    const holding = shown.filter((event) => event.id === held);
     const mark = shown.filter((event) => event.id === DRAFT_ID);
     const today = this.today();
     const now = this.now();
@@ -232,6 +248,14 @@ export class TimeGrid {
           ...one,
           key: one.event.id,
           // A short block has room for one line: the title alone.
+          lines: one.length < 45 ? 1 : Math.max(1, Math.floor((one.length / 60) * 2.4) - 1),
+          mark: false,
+          lifted: one.event.id === lifted,
+        })),
+        // The event in hand, across the days it runs over, as the mark.
+        ...placeInDay(holding, day, { spanning: true }).map((one) => ({
+          ...one,
+          key: one.event.id,
           lines: one.length < 45 ? 1 : Math.max(1, Math.floor((one.length / 60) * 2.4) - 1),
           mark: false,
           lifted: one.event.id === lifted,
