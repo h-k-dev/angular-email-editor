@@ -22,7 +22,14 @@ import { MatIconModule } from '@angular/material/icon';
 import { Menu, MenuItem, MenuTrigger } from '@angular/aria/menu';
 
 // CDK
-import { ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
+import { InputModalityDetector } from '@angular/cdk/a11y';
+import { toSignal } from '@angular/core/rxjs-interop';
+import {
+  CdkConnectedOverlay,
+  ConnectedPosition,
+  FlexibleConnectedPositionStrategy,
+  OverlayModule,
+} from '@angular/cdk/overlay';
 
 import { PaperIslandScheme } from '../../../paper-island';
 
@@ -32,6 +39,9 @@ export interface ToolbarMenuItem<V> {
   label: string;
   /** A leading glyph — the ⋯ menu's items carry their button's. */
   icon?: string;
+  /** A leading dot of this colour — a colour menu's items (the calendar's
+      event colours). Decoration: the label names the colour. */
+  swatch?: string;
   /** `radio`: one of a set, ticked at the item's end (font, size).
       `checkbox`: a toggle (a moved Bold) — ticked at its end too where it
       has no icon (the calendar's Show weekends). Plain otherwise. */
@@ -115,6 +125,13 @@ export class ToolbarMenu<V> {
       the sheet. */
   readonly side = input<'above' | 'below'>('above');
 
+  /** Where the menu opens: beside the trigger (`trigger`, `side` and
+      `align` say which way), or over it with the checked item's leading
+      mark exactly on the trigger (`selected`) — a select's: the button and
+      the item it stands for are one place, so the eye does not travel (the
+      calendar's colour menu, its dot on the event's dot). */
+  readonly anchor = input<'trigger' | 'selected'>('trigger');
+
   /** An item was chosen. The menu has closed and focus is back on the
       trigger. */
   readonly selected = output<V>();
@@ -132,6 +149,11 @@ export class ToolbarMenu<V> {
   readonly #injector = inject(Injector);
 
   protected readonly positions = computed<ConnectedPosition[]>(() => {
+    // Over the trigger, its top-left on the trigger's: the checked item is
+    // brought onto it once the menu can be measured (`onAttach`).
+    if (this.anchor() === 'selected') {
+      return [{ originX: 'start', originY: 'top', overlayX: 'start', overlayY: 'top' }];
+    }
     const x = this.align();
     // `menu-above`: the pane says which way it opened, so the menu rises
     // into place from the trigger's side (styles.scss).
@@ -158,6 +180,7 @@ export class ToolbarMenu<V> {
       instead, or it would stay on the trigger and Tab would walk out of the
       menu. */
   protected onAttach(): void {
+    if (this.anchor() === 'selected') this.#overChecked();
     if (this.items().length) return;
     afterNextRender({ write: () => this.#focusRow(0) }, { injector: this.#injector });
   }
@@ -171,6 +194,66 @@ export class ToolbarMenu<V> {
     event.preventDefault();
     event.stopPropagation();
     this.#focusRow(next);
+  }
+
+  private readonly overlay = viewChild(CdkConnectedOverlay);
+
+  readonly #modality = inject(InputModalityDetector);
+  /** How the menu is being used — `keyboard`, `mouse`, `touch` — on the
+      menu as `data-modality`: opened by the pointer, the checked row (where
+      the keyboard starts) is not lit until a key or the pointer reaches
+      it. */
+  protected readonly modality = toSignal(this.#modality.modalityChanged, {
+    initialValue: this.#modality.mostRecentModality,
+  });
+
+  /**
+   * `anchor: 'selected'`: moves the open menu so the checked item's leading
+   * mark (a swatch, an icon — else the item) is centred on the trigger, and
+   * puts the keyboard there. Measured by layout offsets, not boxes: the
+   * menu is mid-entrance (scaled, shifted), and offsets ignore that. Done
+   * as the menu attaches, before its first paint — no jump.
+   */
+  #overChecked(): void {
+    const ref = this.overlay()?.overlayRef;
+    const pane = ref?.overlayElement;
+    const item = pane?.querySelector<HTMLElement>('.toolbar-menu__item[aria-checked="true"]');
+    if (!ref || !pane || !item) return;
+    const mark =
+      item.querySelector<HTMLElement>('.toolbar-menu__swatch, mat-icon:not([data-slot])') ?? item;
+    let x = mark.offsetWidth / 2;
+    let y = mark.offsetHeight / 2;
+    for (
+      let el: HTMLElement | null = mark;
+      el && el !== pane;
+      el = el.offsetParent as HTMLElement
+    ) {
+      x += el.offsetLeft;
+      y += el.offsetTop;
+    }
+    const origin = this.trigger().element;
+    const box = origin.getBoundingClientRect();
+    // Where the menu's top-left would stand with the mark on the trigger —
+    // then kept on screen (8px in), as a select's list is: near an edge it
+    // gives up the alignment by as little as it must.
+    const margin = 8;
+    const fit = (start: number, size: number, room: number) =>
+      Math.min(Math.max(start, margin), Math.max(margin, room - margin - size));
+    const left = fit(box.left + origin.offsetWidth / 2 - x, pane.offsetWidth, innerWidth);
+    const top = fit(box.top + origin.offsetHeight / 2 - y, pane.offsetHeight, innerHeight);
+    const strategy = ref.getConfig().positionStrategy as FlexibleConnectedPositionStrategy;
+    strategy.withPositions([
+      {
+        originX: 'start',
+        originY: 'top',
+        overlayX: 'start',
+        overlayY: 'top',
+        offsetX: left - box.left,
+        offsetY: top - box.top,
+      },
+    ]);
+    ref.updatePosition();
+    afterNextRender({ write: () => item.focus() }, { injector: this.#injector });
   }
 
   /** Puts focus on a row's tab stop. */

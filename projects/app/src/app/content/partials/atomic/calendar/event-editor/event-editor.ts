@@ -1,5 +1,6 @@
 import {
   Component,
+  inject,
   ElementRef,
   afterNextRender,
   computed,
@@ -7,6 +8,7 @@ import {
   linkedSignal,
   model,
   output,
+  signal,
   viewChild,
 } from '@angular/core';
 import { FormField, FormRoot, form, validate } from '@angular/forms/signals';
@@ -19,7 +21,20 @@ import { MatTooltip } from '@angular/material/tooltip';
 
 import { TranslatePipe } from '@ngx-translate/core';
 
+import { MenuTrigger } from '@angular/aria/menu';
+
+import { mapsUrl } from '../../../../../core/calendar/maps';
+import { I18n } from '../../../../../core/translations/i18n';
+import { DateField } from '../../../common/date-field/date-field';
 import {
+  ToolbarMenu,
+  ToolbarMenuItem,
+} from '../../../shared/email/email-compose/formatting-toolbar/toolbar-menu/toolbar-menu';
+import { HoverCard } from '../../../common/hover-card/hover-card';
+import { QuietField } from '../../../common/quiet-field/quiet-field';
+
+import {
+  daysBetween,
   isoDay,
   isoMoment,
   parseDay,
@@ -91,6 +106,31 @@ function fromFields(fields: EditorFields, previous: EventEdit): EventEdit {
   return { ...base, start: isoMoment(start), end: isoMoment(end) };
 }
 
+/**
+ * A start moved and the end left as it was: the end moves with it, so the
+ * event keeps its length — Google's. An all-day event by whole days; a
+ * timed one by the time between, across midnight if need be. A change to
+ * the end itself, or to all day, is left alone.
+ */
+function keepLength(before: EditorFields, after: EditorFields): EditorFields {
+  const startMoved = after.startDay !== before.startDay || after.startTime !== before.startTime;
+  const endTouched = after.endDay !== before.endDay || after.endTime !== before.endTime;
+  if (!startMoved || endTouched || after.allDay !== before.allDay) return after;
+  if (after.allDay) {
+    const from = parseDay(before.startDay);
+    const to = parseDay(after.startDay);
+    const end = parseDay(before.endDay);
+    if (!from || !to || !end) return after;
+    return { ...after, endDay: isoDay(end.plus({ days: daysBetween(from, to) })) };
+  }
+  const from = parseMoment(`${before.startDay}T${before.startTime}`);
+  const to = parseMoment(`${after.startDay}T${after.startTime}`);
+  const end = parseMoment(`${before.endDay}T${before.endTime}`);
+  if (!from || !to || !end) return after;
+  const moved = to.plus(end.diff(from));
+  return { ...after, endDay: isoDay(moved), endTime: moved.toFormat('HH:mm') };
+}
+
 const sameEdit = (a: EventEdit, b: EventEdit): boolean =>
   (Object.keys(b) as (keyof EventEdit)[]).every((key) => a[key] === b[key]);
 
@@ -108,12 +148,27 @@ const sameEdit = (a: EventEdit, b: EventEdit): boolean =>
  */
 @Component({
   selector: 'calendar-event-editor',
-  imports: [FormRoot, FormField, MatButton, MatIconButton, MatIcon, MatTooltip, TranslatePipe],
+  imports: [
+    DateField,
+    MenuTrigger,
+    ToolbarMenu,
+    FormRoot,
+    FormField,
+    HoverCard,
+    MatButton,
+    MatIconButton,
+    MatIcon,
+    MatTooltip,
+    QuietField,
+    TranslatePipe,
+  ],
   templateUrl: './event-editor.html',
   styleUrl: './event-editor.scss',
   host: { '[style.--event-color]': 'color()' },
 })
 export class EventEditor {
+  readonly #i18n = inject(I18n);
+
   readonly value = model.required<EventEdit>();
   /** Whether the event is stored already: it can be deleted. */
   readonly stored = input(false);
@@ -134,9 +189,11 @@ export class EventEditor {
       previous && sameEdit(fromFields(previous.value, edit), edit)
         ? previous.value
         : toFields(edit),
+    // A start moved carries the end along (`keepLength`).
     set: (fields, rawSet) => {
-      rawSet(fields);
-      this.value.set(fromFields(fields, this.value()));
+      const kept = keepLength(this.#fields(), fields);
+      rawSet(kept);
+      this.value.set(fromFields(kept, this.value()));
     },
   });
 
@@ -174,15 +231,30 @@ export class EventEditor {
 
   protected readonly color = computed(() => EVENT_COLOR_VALUES[this.#fields().color]);
 
-  protected readonly swatches = computed(() => {
+  /** The colour menu: Google's eleven, each its dot and its name, the
+      event's ticked. */
+  protected readonly colors = computed<ToolbarMenuItem<EventColor>[]>(() => {
     const picked = this.#fields().color;
     return EVENT_COLORS.map((id) => ({
-      id,
-      value: EVENT_COLOR_VALUES[id],
-      key: `calendar.colors.${id}`,
-      picked: id === picked,
+      value: id,
+      label: this.#i18n.t(`calendar.colors.${id}`),
+      swatch: EVENT_COLOR_VALUES[id],
+      kind: 'radio',
+      checked: id === picked,
     }));
   });
+
+  /** Where the place is on Google Maps — none for no place — and the card
+      with the way there: only while the place is typed in. */
+  protected readonly mapsLink = computed(() => mapsUrl(this.#fields().location));
+  protected readonly placeTyping = signal(false);
+  protected readonly placeCardOff = computed(() => !this.placeTyping() || !this.mapsLink());
+
+  /** The marker's name: "Color: Peacock". */
+  protected readonly colorLabel = computed(
+    () =>
+      `${this.#i18n.t('calendar.color')}: ${this.#i18n.t(`calendar.colors.${this.#fields().color}`)}`,
+  );
 
   constructor() {
     afterNextRender(() => this.titleInput().nativeElement.focus());

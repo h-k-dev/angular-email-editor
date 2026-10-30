@@ -25,10 +25,14 @@ import {
   dayRange,
   daysBetween,
   isoDay,
-  monthWeeks,
+  fixedWeeks,
   parseDay,
 } from '../../../../core/calendar/calendar-dates';
 import { CalendarFormat } from '../../../../core/calendar/calendar-format';
+
+/** How many weeks the grid always shows: every month the same height, so
+    turning one never moves what is under it. */
+const WEEKS = 7;
 
 /** A day of the grid, everything its button says worked out. */
 interface MiniDay {
@@ -38,10 +42,6 @@ interface MiniDay {
   outside: boolean;
   today: boolean;
   selected: boolean;
-  /** Where a run of selected days starts and ends in its week: the band's
-      round ends. */
-  bandStart: boolean;
-  bandEnd: boolean;
   /** The one tab stop. */
   stop: boolean;
 }
@@ -51,7 +51,8 @@ interface MiniDay {
  * month's name and its two arrows, the week's letters, the days. Today is
  * a square in the theme's primary; the days
  * `selected` holds (the week a calendar shows) one band across them; days
- * of the months either side are faint. Generic: it
+ * of the months either side are faint, and there are always seven weeks of
+ * them (`WEEKS`) — the grid never changes height as the months turn. Generic: it
  * knows days, not events — any date field can open one.
  *
  *     <mini-month [(month)]="shown" [selected]="days()" [today]="today()" (pick)="go($event)" />
@@ -126,7 +127,7 @@ export class MiniMonth {
 
   protected readonly weekdays = computed(() => {
     const formats = this.#formats();
-    const [week] = monthWeeks(this.#shown(), formats.weekStart);
+    const [week] = fixedWeeks(this.#shown(), formats.weekStart, WEEKS);
     return week.map((day) => {
       const date = parseDay(day)!;
       return {
@@ -143,7 +144,7 @@ export class MiniMonth {
     const selected = new Set(this.#washed());
     const today = this.today();
     const cursor = this.#cursor();
-    return monthWeeks(shown, formats.weekStart).map((week) => ({
+    return fixedWeeks(shown, formats.weekStart, WEEKS).map((week) => ({
       key: week[0],
       days: week.map((day, i): MiniDay => {
         const date = parseDay(day)!;
@@ -155,8 +156,6 @@ export class MiniMonth {
           outside: !date.hasSame(shown, 'month'),
           today: day === today,
           selected: on,
-          bandStart: on && !selected.has(week[i - 1]),
-          bandEnd: on && !selected.has(week[i + 1]),
           stop: day === cursor,
         };
       }),

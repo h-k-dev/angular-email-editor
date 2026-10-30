@@ -24,8 +24,8 @@
         type="button"
         role="option"
         class="html-email-compose__autocomplete-item"
-        [class.html-email-compose__autocomplete-item--active]="i === completion.activeIndex"
         [attr.aria-selected]="i === completion.activeIndex"
+        [attr.data-active]="i === completion.activeIndex || null"
         (click)="completion.select(item)"
       >
         {{ item.label }}

@@ -2,20 +2,42 @@ import { TestBed } from '@angular/core/testing';
 
 import { BackButton } from './back-button';
 
-/** A back press, and the popstate it fires — jsdom's traversal is
-    asynchronous, like a browser's. */
+/**
+ * The next traversal, landed: jsdom's is asynchronous, like a browser's,
+ * and on a busy runner it can take far longer than any fixed wait — so the
+ * `popstate` itself is waited for (and a task after it, past the service's
+ * own handler and any traversal that sets off). A press with nothing to
+ * traverse fires none: `limit` ends that wait, and only that one.
+ */
+const traversal = (limit = 500) =>
+  new Promise<void>((resolve) => {
+    const done = () => {
+      clearTimeout(timer);
+      window.removeEventListener('popstate', landed);
+      resolve();
+    };
+    const landed = () => setTimeout(done);
+    const timer = setTimeout(done, limit);
+    window.addEventListener('popstate', landed, { once: true });
+  });
+
+/** A back press, landed. */
 const pressBack = async () => {
+  const landed = traversal();
   history.back();
-  await new Promise((resolve) => setTimeout(resolve, 40));
+  await landed;
 };
 
 /** The forward button, the same way. */
 const pressForward = async () => {
+  const landed = traversal();
   history.forward();
-  await new Promise((resolve) => setTimeout(resolve, 40));
+  await landed;
 };
 
-const settle = () => new Promise((resolve) => setTimeout(resolve, 40));
+/** Whatever traversal is on its way (a guard released, taking its entry
+    with it), landed — or none came. */
+const settle = () => traversal();
 
 describe('BackButton', () => {
   let back: BackButton;

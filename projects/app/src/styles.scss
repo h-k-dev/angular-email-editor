@@ -9,6 +9,11 @@
 // Avatars and the containers in their hue ([avatar], [hueOf]): any element
 // can be one, so their look is global.
 @use 'styles/avatar';
+// Quiet fields ([quietField]): text until touched, a ring on keyboard focus
+// alone — any field anywhere may be one, so their look is global.
+@use 'styles/quiet-field';
+// Hover cards ([hoverCard]): overlay panes, outside any component's view.
+@use 'styles/hover-card';
 // Cards coming and going (animate.enter / animate.leave): global classes,
 // worn inside overlays, outside any component's view.
 @use 'styles/motion';

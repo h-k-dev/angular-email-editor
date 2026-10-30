@@ -190,6 +190,29 @@ describe('Mailbox', () => {
       expect(host().hasAttribute('data-collapsed')).toBe(false);
     });
 
+    it('keeps the rail for the next visit: the choice is the browser’s, not the page’s', async () => {
+      const key = 'angular-email-editor:aside-collapsed';
+      try {
+        toggle().click();
+        await harness.fixture.whenStable();
+        expect(localStorage.getItem(key)).toBe('on');
+
+        // A new mailbox (its aside is the page's: left and come back to,
+        // as after a reload) opens on the rail.
+        await harness.navigateByUrl('/');
+        expect(host()).toBeNull();
+        await harness.navigateByUrl('/inbox');
+        expect(host().hasAttribute('data-collapsed')).toBe(true);
+
+        // Opened again, the default: nothing kept.
+        toggle().click();
+        await harness.fixture.whenStable();
+        expect(localStorage.getItem(key)).toBeNull();
+      } finally {
+        localStorage.removeItem(key);
+      }
+    });
+
     it('follows the route to another place', async () => {
       await harness.navigateByUrl('/api/addresses');
       expect(link('Addresses').getAttribute('aria-current')).toBe('page');
@@ -199,6 +222,13 @@ describe('Mailbox', () => {
 
   describe('on a phone', () => {
     beforeEach(() => start(true));
+
+    it('opens its aside for a moment, never for the next visit', async () => {
+      root.querySelector<HTMLButtonElement>('.mailbox-opener')!.click();
+      await harness.fixture.whenStable();
+      expect(host().hasAttribute('data-over')).toBe(true);
+      expect(localStorage.getItem('angular-email-editor:aside-collapsed')).toBeNull();
+    });
 
     it('has no rail: shut, only its opener shows; opened, it lies over the page under a scrim', async () => {
       expect(host().hasAttribute('data-collapsed')).toBe(true);

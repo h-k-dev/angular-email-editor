@@ -1,6 +1,7 @@
 import { Service, computed, inject, linkedSignal } from '@angular/core';
 
 import { Viewport } from '../../../../core/layout/viewport';
+import { Preferences } from '../../../../core/storages/preferences';
 
 /**
  * The mailbox's aside, open or not — the mailbox page's (listed in its
@@ -10,11 +11,21 @@ import { Viewport } from '../../../../core/layout/viewport';
 @Service({ autoProvided: false })
 export class MailboxAside {
   readonly #viewport = inject(Viewport);
+  readonly #saved = inject(Preferences).asideCollapsed;
 
-  /** Whether the aside is the rail. Open on a desk, the rail on a phone —
-      and back to that whenever the screen crosses the breakpoint: state
-      that resets with its source, not an effect writing into a signal. */
-  readonly collapsed = linkedSignal(() => this.#viewport.compact());
+  /** Whether the aside is the rail. On a desk, as it was left — the choice
+      kept across reloads and tabs (`Preferences.asideCollapsed`); on a
+      phone, shut — and back to that whenever the screen crosses the
+      breakpoint: state that resets with its sources, not an effect writing
+      into a signal. A phone's opening is a moment's, never saved. */
+  readonly collapsed = linkedSignal<{ compact: boolean; saved: boolean }, boolean>({
+    source: () => ({ compact: this.#viewport.compact(), saved: this.#saved() }),
+    computation: ({ compact, saved }) => compact || saved,
+    set: (collapsed, rawSet) => {
+      rawSet(collapsed);
+      if (!this.#viewport.compact()) this.#saved.set(collapsed);
+    },
+  });
 
   /** A phone's aside, opened: it lies over the page, under a scrim. */
   readonly over = computed(() => this.#viewport.compact() && !this.collapsed());

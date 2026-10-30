@@ -1,5 +1,6 @@
 import {
   Component,
+  DOCUMENT,
   DestroyRef,
   ElementRef,
   afterRenderEffect,
@@ -7,6 +8,7 @@ import {
   inject,
   input,
   linkedSignal,
+  resource,
   signal,
   viewChild,
 } from '@angular/core';
@@ -42,6 +44,12 @@ import {
   stepped,
 } from '../../../../core/calendar/calendar-view';
 import { segmentView } from '../../../../core/calendar/calendar-view-token';
+import {
+  HOLIDAY_SOURCE,
+  Holiday,
+  holidayCountry,
+  holidayEvents,
+} from '../../../../core/calendar/holidays';
 import { Preferences } from '../../../../core/storages/preferences';
 import { I18n } from '../../../../core/translations/i18n';
 import { GridCreate, GridOpen, boxOf } from '../../../partials/atomic/calendar/calendar-grid';
@@ -85,8 +93,8 @@ const MENU_VIEWS = [
   { id: 'custom', key: 'X' },
 ] as const;
 
-/** What the view menu chooses: a view, or "Show weekends". */
-type ViewChoice = (typeof MENU_VIEWS)[number]['id'] | 'weekends';
+/** What the view menu chooses: a view, or one of its two switches. */
+type ViewChoice = (typeof MENU_VIEWS)[number]['id'] | 'weekends' | 'holidays';
 
 /** How often "now" moves on, ms: the red line, and today at midnight. */
 const TICK = 30_000;
@@ -165,6 +173,8 @@ export class CalendarPage {
   readonly #custom = this.#preferences.calendarCustomView;
   /** Whether Saturdays and Sundays show. */
   protected readonly weekends = this.#preferences.calendarWeekends;
+  /** Whether the public holidays show. */
+  protected readonly showHolidays = this.#preferences.calendarHolidays;
 
   /** Now, a tick at a time. */
   protected readonly now = signal(DateTime.now());
@@ -220,6 +230,12 @@ export class CalendarPage {
       checked: this.weekends(),
       separated: true,
     },
+    {
+      value: 'holidays',
+      label: this.#i18n.t('calendar.showHolidays'),
+      kind: 'checkbox',
+      checked: this.showHolidays(),
+    },
   ]);
 
   protected readonly title = computed(() => {
@@ -241,7 +257,69 @@ export class CalendarPage {
     return [this.day()];
   });
 
-  protected readonly events = this.#store.events;
+  // ─── Holidays ───────────────────────────────────────────────────────
+
+  readonly #holidaySource = inject(HOLIDAY_SOURCE);
+  readonly #browserLanguage = inject(DOCUMENT).defaultView?.navigator.language ?? '';
+  /** Whose holidays: the browser's region, else the app language's. */
+  readonly #holidayCountry = computed(() =>
+    holidayCountry(this.#browserLanguage, this.#formats().language),
+  );
+
+  /** The years the page reaches into — a month's first week can start in
+      December. */
+  readonly #years = computed(() => {
+    const page = this.#page();
+    const first = page.days[0] ?? page.weeks[0]?.[0] ?? page.months[0];
+    const last = page.days.at(-1) ?? page.weeks.at(-1)?.at(-1) ?? page.to.toISODate()!;
+    const from = +first.slice(0, 4);
+    const to = +last.slice(0, 4);
+    return Array.from({ length: to - from + 1 }, (_, i) => from + i);
+  });
+
+  /** The connector's answer for those years — fetched once a country-year
+      (the connector keeps them). */
+  readonly #holidayRows = resource({
+    params: () =>
+      this.showHolidays() ? { country: this.#holidayCountry(), years: this.#years() } : undefined,
+    loader: async ({ params, abortSignal }) =>
+      (
+        await Promise.all(
+          params.years.map((year) =>
+            this.#holidaySource.holidays(year, params.country, abortSignal),
+          ),
+        )
+      ).flat(),
+  });
+
+  /** The holidays as events — the last ones held while the next year's
+      load, none while switched off or when the connector fails. */
+  readonly #holidays = linkedSignal<
+    { rows: Holiday[] | undefined; on: boolean; language: string },
+    CalendarEvent[]
+  >({
+    source: () => ({
+      rows: this.#holidayRows.hasValue() ? this.#holidayRows.value() : undefined,
+      on: this.showHolidays(),
+      language: this.#formats().language,
+    }),
+    computation: ({ rows, on, language }, previous) => {
+      if (!on) return [];
+      if (rows) {
+        return holidayEvents(rows, language, (regions) =>
+          this.#i18n.t('calendar.regionalHoliday', { regions }),
+        );
+      }
+      return previous?.value ?? [];
+    },
+  });
+
+  readonly #holidayById = computed(
+    () => new Map(this.#holidays().map((holiday) => [holiday.id, holiday])),
+  );
+
+  /** Every event the views lay out: the stored ones and the holidays. */
+  protected readonly events = computed(() => [...this.#store.events(), ...this.#holidays()]);
 
   /** The hours' scroll, kept across a visit to the month. */
   protected readonly hoursScroll = signal<number | null>(null);
@@ -254,8 +332,10 @@ export class CalendarPage {
   readonly #shownId = signal<string | null>(null);
   protected readonly shown = computed(() => {
     const id = this.#shownId();
-    return id ? (this.#store.byId().get(id) ?? null) : null;
+    return id ? (this.#store.byId().get(id) ?? this.#holidayById().get(id) ?? null) : null;
   });
+  /** Whether the shown event is a holiday's — no Edit, no Delete. */
+  protected readonly shownReadonly = computed(() => !!this.shown()?.readonly);
   /** Where the card stands beside: the event's box, or the room marked. */
   protected readonly anchor = signal<AnchorRect | null>(null);
   protected readonly cardOpen = computed(() => !!this.edit() || !!this.shown());
@@ -318,6 +398,7 @@ export class CalendarPage {
   /** The view menu: a view, or Show weekends turned over. */
   protected choose(choice: ViewChoice): void {
     if (choice === 'weekends') this.weekends.update((on) => !on);
+    else if (choice === 'holidays') this.showHolidays.update((on) => !on);
     else this.switchView(choice === 'custom' ? this.#custom() : choice);
   }
 
@@ -370,7 +451,7 @@ export class CalendarPage {
   /** The card's Edit: the shown event, written. */
   protected editShown(): void {
     const event = this.shown();
-    if (!event) return;
+    if (!event || event.readonly) return;
     this.#shownId.set(null);
     this.edit.set({ ...event });
   }
@@ -429,7 +510,11 @@ export class CalendarPage {
       return;
     }
     if (this.cardOpen()) {
-      if ((event.key === 'Delete' || event.key === 'Backspace') && this.shown()) {
+      if (
+        (event.key === 'Delete' || event.key === 'Backspace') &&
+        this.shown() &&
+        !this.shownReadonly()
+      ) {
         event.preventDefault();
         this.removed();
       }

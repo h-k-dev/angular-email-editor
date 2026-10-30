@@ -46,14 +46,7 @@
     @for (week of weeks(); track week.key) {
       <tr>
         @for (day of week.days; track day.day) {
-          <td
-            role="gridcell"
-            class="mini-month__cell"
-            [class.mini-month__cell--band]="day.selected"
-            [class.mini-month__cell--band-start]="day.bandStart"
-            [class.mini-month__cell--band-end]="day.bandEnd"
-            [attr.aria-selected]="day.selected"
-          >
+          <td role="gridcell" class="mini-month__cell" [attr.aria-selected]="day.selected">
             <button
               type="button"
               class="mini-month__day"

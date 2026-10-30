@@ -1,6 +1,6 @@
-<!-- The days' heads, Notion's: one quiet line each — the weekday and the
-     date, today's in a primary pill — a press away from that day alone. The
-     corner says the time zone. -->
+<!-- The days' heads, top down: the weekday over the date, today's in a
+     primary pill — a press away from that day alone. The corner says the
+     time zone. -->
 <div class="time-grid__heads">
   <div class="time-grid__corner">{{ zone() }}</div>
   @for (head of heads(); track head.day) {
@@ -80,6 +80,16 @@
       (pointercancel)="cancel()"
       (pointerleave)="leave()"
     >
+      <!-- Now's thin line, from the time in the gutter across the whole
+           row — under the events (they come after it); today's own line
+           stands over it. -->
+      @if (nowLabel(); as now) {
+        <div
+          class="time-grid__now-track"
+          [style.--top]="now.top"
+          aria-hidden="true"
+        ></div>
+      }
       @for (column of columns(); track column.day) {
         <div
           class="time-grid__day"

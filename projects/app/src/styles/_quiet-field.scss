@@ -1,0 +1,44 @@
+// The look of a quiet field (the directive: app/content/partials/common/
+// quiet-field) — global, since any field anywhere may be one. Text until
+// it is touched: no border, no fill at rest; a faint wash under the
+// pointer; the ring only on keyboard focus (`cdk-keyboard-focused`, the
+// CDK's focus monitor on the field itself); the error ring always.
+.quiet-field {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: var(--mat-sys-corner-medium);
+  background: none;
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
+  outline: 0;
+  transition: background-color 120ms ease-out;
+  // The native date and time pickers follow the page's scheme.
+  color-scheme: inherit;
+  // A button worn as one (a picker's trigger) reads as the text it shows.
+  text-align: start;
+  cursor: text;
+
+  &:is(button) {
+    cursor: pointer;
+  }
+
+  &::placeholder {
+    color: var(--mat-sys-placeholder, var(--mat-sys-on-surface-variant));
+  }
+
+  &:hover,
+  &.cdk-keyboard-focused {
+    background: color-mix(in oklch, var(--mat-sys-on-surface) 5%, transparent);
+  }
+
+  &.cdk-keyboard-focused {
+    box-shadow: inset 0 0 0 1px var(--mat-sys-primary);
+  }
+
+  &[aria-invalid='true'] {
+    box-shadow: inset 0 0 0 1px var(--mat-sys-error);
+    color: var(--mat-sys-error);
+  }
+}

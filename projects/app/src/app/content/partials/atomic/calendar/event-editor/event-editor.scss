@@ -1,12 +1,22 @@
 @use '@angular/material' as mat;
 
-// Notion Calendar's card: words large, fields that look like text until
-// they are touched, an icon column down the start.
+// Notion Calendar's card: words large, an icon column down the start. Its
+// fields are quiet ones ([quietField], common): text until touched, a ring
+// only when Tab brought you there — here, only how they sit and size.
 :host {
   display: block;
 }
 
+// Three parts — the bar, the fields, the foot — 24px apart: the one gap
+// that sets both the title's distance from the bar and Save's from the
+// fields. The fields, among themselves, 12px.
 .event-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.event-editor__body {
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -16,14 +26,37 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-block-end: -8px;
+}
+
+// The marker: the event's colour, the colour menu's trigger — a round
+// dot like the menu's own, in a round quiet button.
+.event-editor__marker {
+  display: grid;
+  place-items: center;
+  inline-size: 28px;
+  block-size: 28px;
+  margin: 0 0 0 -4px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+
+  &:hover,
+  &[aria-expanded='true'] {
+    background: color-mix(in oklch, var(--mat-sys-on-surface) 6%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: -2px;
+  }
 }
 
 .event-editor__swatch {
   inline-size: 14px;
   block-size: 14px;
-  margin-inline-start: 3px;
-  border-radius: 4px;
+  border-radius: 50%;
   background: var(--event-color);
   transition: background-color 200ms ease-out;
 }
@@ -44,40 +77,8 @@
   margin-inline-end: -8px;
 }
 
-%quiet-field {
-  min-inline-size: 0;
-  margin: 0;
-  padding: 4px 6px;
-  border: 0;
-  border-radius: var(--mat-sys-corner-extra-small);
-  background: none;
-  color: var(--mat-sys-on-surface);
-  font: var(--mat-sys-body-medium);
-  outline: 0;
-  transition: background-color 120ms ease-out;
-  color-scheme: inherit;
-
-  &::placeholder {
-    color: var(--mat-sys-placeholder, var(--mat-sys-on-surface-variant));
-  }
-
-  &:hover {
-    background: color-mix(in oklch, var(--mat-sys-on-surface) 5%, transparent);
-  }
-
-  &:focus-visible {
-    background: color-mix(in oklch, var(--mat-sys-on-surface) 5%, transparent);
-    box-shadow: inset 0 0 0 1px var(--mat-sys-primary);
-  }
-
-  &[aria-invalid='true'] {
-    box-shadow: inset 0 0 0 1px var(--mat-sys-error);
-    color: var(--mat-sys-error);
-  }
-}
-
+// The title, Notion's: large words.
 .event-editor__title {
-  @extend %quiet-field;
   margin-inline: -6px;
   font: var(--mat-sys-title-large);
 }
@@ -117,7 +118,6 @@
 }
 
 .event-editor__field {
-  @extend %quiet-field;
   font-variant-numeric: tabular-nums;
 }
 
@@ -143,50 +143,61 @@
   }
 }
 
-.event-editor__swatches {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding-block: 2px;
+.event-editor__line {
+  margin-inline-start: -6px;
 }
 
-// A swatch: a dot of the colour; the picked one ringed.
-.event-editor__color {
-  inline-size: 20px;
-  block-size: 20px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: var(--swatch);
-  cursor: pointer;
-  transition: scale 120ms ease-out;
+// The place's card (a hover card, drawn in an overlay — its template is
+// this view's, so these rules still reach it): one row, the way to the
+// place on Google Maps.
+.event-editor__maps {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  block-size: 32px;
+  padding-inline: 8px;
+  border-radius: var(--mat-sys-corner-small);
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
+  text-decoration: none;
+  white-space: nowrap;
 
   &:hover {
-    scale: 1.12;
+    background: color-mix(in oklch, var(--mat-sys-on-surface) 8%, transparent);
   }
 
   &:focus-visible {
     outline: 2px solid var(--mat-sys-primary);
-    outline-offset: 2px;
-  }
-
-  &[aria-pressed='true'] {
-    box-shadow:
-      0 0 0 2px var(--mat-sys-surface-container-high),
-      0 0 0 4px var(--swatch);
+    outline-offset: -2px;
   }
 }
 
-.event-editor__line {
-  @extend %quiet-field;
-  margin-inline-start: -6px;
+.event-editor__maps-icon {
+  --mat-icon-size: 20px;
+
+  inline-size: 20px;
+  block-size: 20px;
+  font-size: 20px;
+  color: var(--mat-sys-primary);
 }
 
+.event-editor__maps-out {
+  inline-size: 16px;
+  block-size: 16px;
+  font-size: 16px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+// The note grows with what is written, a line at a time: two lines at the
+// least, eight at the most, then it scrolls — in its own line height
+// (`lh`, the field's body-medium 20px), so the padding stays outside the
+// count (content-box). Where `field-sizing` is not known, `rows="2"` and
+// the vertical resize handle stand in.
 .event-editor__note {
-  resize: vertical;
+  field-sizing: content;
   min-block-size: 2lh;
-  font: var(--mat-sys-body-medium);
+  max-block-size: 8lh;
+  resize: vertical;
 }
 
 .event-editor__foot {

@@ -1,9 +1,12 @@
 import { DateTime } from 'luxon';
 
 import {
+  atMinute,
   daysBetween,
+  fixedWeeks,
   isoDay,
   isoMoment,
+  minutesInto,
   monthWeeks,
   parseDay,
   parseMoment,
@@ -36,11 +39,43 @@ describe('calendar dates', () => {
     expect(daysBetween(local(2026, 10, 24, 23), local(2026, 10, 26, 1))).toBe(2);
   });
 
+  it('reads a row’s minute by the clock — on the day the clocks change too', () => {
+    // Europe's clocks go back an hour at 3:00 on 2026-10-25: the day has 25
+    // hours, and 435 minutes after midnight is 6:15 on the clock.
+    const zone = 'Europe/Berlin';
+    const changeDay = DateTime.fromISO('2026-10-25', { zone });
+    const quarter = atMinute(changeDay, 435);
+    expect(quarter.toFormat('yyyy-MM-dd HH:mm')).toBe('2026-10-25 07:15');
+    expect(minutesInto(changeDay, quarter)).toBe(435);
+    // An ordinary day reads the same; the end is the next midnight.
+    expect(atMinute(DateTime.fromISO('2026-10-29', { zone }), 570).toFormat('HH:mm')).toBe('09:30');
+    expect(atMinute(changeDay, 1440).toISODate()).toBe('2026-10-26');
+    // Into a later day, past the day's minutes.
+    expect(minutesInto(changeDay, DateTime.fromISO('2026-10-26T01:00', { zone }))).toBe(1500);
+  });
+
   it('starts a week on the language’s day', () => {
     const thursday = local(2026, 10, 29);
     expect(isoDay(startOfWeek(thursday, weekStartOf('en')))).toBe('2026-10-25');
     expect(isoDay(startOfWeek(thursday, weekStartOf('de')))).toBe('2026-10-26');
     expect(isoDay(startOfWeek(local(2026, 10, 25), 1))).toBe('2026-10-19');
+  });
+
+  it('gives a picker seven weeks whatever the month: the same height every turn', () => {
+    const october = fixedWeeks(local(2026, 10, 29), 7, 7);
+    expect(october.length).toBe(7);
+    expect(october[0][0]).toBe('2026-09-27');
+    expect(october.at(-1)!.at(-1)).toBe('2026-11-14');
+    // February 2026 needs four: three more of March.
+    expect(fixedWeeks(local(2026, 2, 1), 7, 7).map((week) => week[0])).toEqual([
+      '2026-02-01',
+      '2026-02-08',
+      '2026-02-15',
+      '2026-02-22',
+      '2026-03-01',
+      '2026-03-08',
+      '2026-03-15',
+    ]);
   });
 
   it('gives a month every week that holds one of its days, whole', () => {

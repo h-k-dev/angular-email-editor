@@ -18,10 +18,12 @@ import { TranslatePipe } from '@ngx-translate/core';
 import {
   DAY_MINUTES,
   IsoDay,
+  atMinute,
   daysBetween,
   isoDay,
   isoMoment,
   minuteOfDay,
+  minutesInto,
   parseDay,
   snapMinutes,
 } from '../../../../../core/calendar/calendar-dates';
@@ -286,8 +288,10 @@ export class TimeGrid {
     return { day, minute };
   }
 
+  /** The moment at a row's minute on a column's day — by the clock, so a
+      press at 7:15 is 7:15 on the day the clocks change too. */
   #moment(day: number, minute: number): DateTime {
-    return parseDay(this.days()[day])!.plus({ minutes: minute });
+    return atMinute(parseDay(this.days()[day])!, minute);
   }
 
   /** A press on an empty hour: a new event's mark begins at its quarter. */
@@ -321,10 +325,11 @@ export class TimeGrid {
   protected pressEvent(event: PointerEvent, shown: CalendarEvent): void {
     if (event.button !== 0 || event.pointerType === 'touch') return;
     const source = this.#source(shown);
-    if (!source) return;
+    // A holiday opens on its click; it never moves.
+    if (!source || source.readonly) return;
     const { day, minute } = this.#at(event);
     const start = eventSpan(source).start;
-    const startMinute = (start.toMillis() - parseDay(this.days()[day])!.toMillis()) / 60_000;
+    const startMinute = minutesInto(parseDay(this.days()[day])!, start);
     this.#begin(event, {
       kind: 'move',
       anchor: minute - startMinute,
@@ -338,7 +343,7 @@ export class TimeGrid {
   protected pressFoot(event: PointerEvent, shown: CalendarEvent): void {
     if (event.button !== 0) return;
     const source = this.#source(shown);
-    if (!source) return;
+    if (!source || source.readonly) return;
     event.stopPropagation();
     const { day } = this.#at(event);
     this.#begin(event, { kind: 'resize', anchor: 0, day, preview: source });

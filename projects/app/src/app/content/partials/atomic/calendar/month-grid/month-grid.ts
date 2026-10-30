@@ -215,7 +215,15 @@ export class MonthGrid {
   }
 
   protected pressEvent(event: PointerEvent, shown: CalendarEvent, day: IsoDay): void {
-    if (event.button !== 0 || event.pointerType === 'touch' || shown.id === DRAFT_ID) return;
+    // A holiday (read-only) opens on its click; it never moves.
+    if (
+      event.button !== 0 ||
+      event.pointerType === 'touch' ||
+      shown.id === DRAFT_ID ||
+      shown.readonly
+    ) {
+      return;
+    }
     const stored = this.events().find((one) => one.id === shown.id);
     if (!stored) return;
     // The day it was picked up on: the one under the pointer.

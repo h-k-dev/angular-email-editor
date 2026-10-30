@@ -63,6 +63,9 @@ export interface CalendarEvent {
   color: EventColor;
   location: string;
   description: string;
+  /** A subscribed calendar's (holidays): shown and opened, never moved,
+      written or deleted — and never stored. */
+  readonly?: boolean;
 }
 
 /** An event as written, before the store has given it an id. */

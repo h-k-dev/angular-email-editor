@@ -1,7 +1,7 @@
 @use '@h-k-dev/angular-email-editor/styles/scroll';
 
 // Notion Calendar's hours: no boxes, hairlines at a whisper of the ink
-// (6%), small quiet words (10px labels, 13px heads), weekends a shade
+// (6%), small quiet words (10px labels, the heads' weekdays 11px), weekends a shade
 // down, today and now in the theme's primary (Notion's red, ours). The heads and
 // band hold still over the one scroller; the gutter (56px) and the days
 // are the same tracks in all three — the scroller's stable gutter
@@ -34,8 +34,8 @@
 }
 
 .time-grid__heads {
-  block-size: 32px;
-  align-items: center;
+  align-items: end;
+  padding-block: 4px;
 }
 
 .time-grid__head {
@@ -44,14 +44,15 @@
   min-inline-size: 0;
 }
 
-// A day's head: "Thu 29", one line; today's date in a primary pill.
+// A day's head, top down: the weekday, small and quiet, over the date;
+// today's date in a primary pill.
 .time-grid__date {
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
-  gap: 4px;
-  block-size: 24px;
+  gap: 0;
   margin: 0;
-  padding: 0 6px;
+  padding: 4px 8px;
   border: 0;
   border-radius: 6px;
   background: none;
@@ -71,7 +72,20 @@
   }
 }
 
+.time-grid__weekday {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+}
+
 .time-grid__number {
+  display: grid;
+  place-items: center;
+  min-inline-size: 28px;
+  block-size: 28px;
+  border-radius: 6px;
+  color: var(--mat-sys-on-surface);
+  font-size: 18px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -80,17 +94,14 @@
   font-weight: 500;
 
   .time-grid__number {
-    min-inline-size: 14px;
-    padding: 1px 4px;
-    border-radius: 4px;
     background: var(--_today);
     color: var(--mat-sys-on-primary);
-    text-align: center;
   }
 }
 
 .time-grid__corner {
-  align-self: center;
+  align-self: end;
+  padding-block-end: 4px;
   min-inline-size: 0;
   overflow: hidden;
   padding-inline-end: 8px;
@@ -243,6 +254,18 @@
   translate: 0 -1px;
   border-radius: 1px;
   background: color-mix(in oklch, var(--mat-sys-on-surface) 55%, transparent);
+  pointer-events: none;
+}
+
+// Now, across the whole row: a thin line from the gutter's time over every
+// day — the time reads across the week; today's own line stands over it.
+.time-grid__now-track {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: calc(var(--top) * var(--hour) / 60);
+  block-size: 1px;
+  translate: 0 -50%;
+  background: color-mix(in oklch, var(--_today) 60%, transparent);
   pointer-events: none;
 }
 

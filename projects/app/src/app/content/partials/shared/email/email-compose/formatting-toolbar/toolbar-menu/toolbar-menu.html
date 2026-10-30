@@ -18,6 +18,7 @@
   <!-- On a paper island, the island's paper (paper-island.ts). -->
   <div
     ngMenu
+    [attr.data-modality]="modality()"
     class="toolbar-menu"
     paperIslandScheme
     [attr.aria-label]="label()"
@@ -36,6 +37,7 @@
         ngMenuItem
         class="toolbar-menu__item"
         [value]="item.value"
+        [searchTerm]="item.label"
         [role]="
           item.kind === 'radio'
             ? 'menuitemradio'
@@ -49,6 +51,9 @@
       >
         @if (item.icon) {
           <mat-icon>{{ item.icon }}</mat-icon>
+        }
+        @if (item.swatch) {
+          <span class="toolbar-menu__swatch" aria-hidden="true" [style.background]="item.swatch"></span>
         }
         <span [style.font-family]="item.font">{{ item.label }}</span>
         @if (item.badges) {

@@ -1,0 +1,12 @@
+// The look of a hover card (the directive and service: app/content/
+// partials/common/hover-card) — global, since the card is an overlay's
+// pane, outside any component's view. A small surface above whatever it
+// opens from (often a card itself); what it shows sets its own inset rows.
+.hover-card {
+  padding: 4px;
+  box-sizing: border-box;
+  border-radius: var(--mat-sys-corner-large);
+  background: var(--mat-sys-surface-container-highest);
+  color: var(--mat-sys-on-surface);
+  box-shadow: var(--mat-sys-level2);
+}

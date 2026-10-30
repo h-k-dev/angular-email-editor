@@ -52,18 +52,23 @@
   text-align: center;
 }
 
-// The selected days: one band across them, round at its two ends —
-// Notion's week.
-.mini-month__cell--band {
+// The selected days (`aria-selected`, what the cells say to assistive
+// tech): one band across them, round where a run starts and ends in its
+// week — read off the neighbours' own state, no flag of the template's.
+.mini-month__cell[aria-selected='true'] {
   background: color-mix(in oklch, var(--mat-sys-on-surface) 8%, transparent);
 }
 
-.mini-month__cell--band-start {
+// A run starts where the cell before is not one of it (or there is none)…
+.mini-month__cell[aria-selected='true']:first-child,
+.mini-month__cell:not([aria-selected='true']) + .mini-month__cell[aria-selected='true'] {
   border-start-start-radius: 6px;
   border-end-start-radius: 6px;
 }
 
-.mini-month__cell--band-end {
+// …and ends where the cell after is not.
+.mini-month__cell[aria-selected='true']:last-child,
+.mini-month__cell[aria-selected='true']:has(+ .mini-month__cell:not([aria-selected='true'])) {
   border-start-end-radius: 6px;
   border-end-end-radius: 6px;
 }

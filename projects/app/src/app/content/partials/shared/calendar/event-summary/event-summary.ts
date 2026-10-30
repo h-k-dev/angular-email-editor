@@ -5,6 +5,7 @@ import { MatIcon } from '@angular/material/icon';
 
 import { CalendarEvent, EVENT_COLOR_VALUES } from '../../../../../core/calendar/calendar-event';
 import { CalendarFormat } from '../../../../../core/calendar/calendar-format';
+import { mapsUrl } from '../../../../../core/calendar/maps';
 
 /**
  * An event, told: its colour and title, when it is, where, and what it
@@ -35,7 +36,16 @@ import { CalendarFormat } from '../../../../../core/calendar/calendar-format';
     @if (event().location.trim(); as location) {
       <div class="event-summary__row">
         <mat-icon class="event-summary__icon" aria-hidden="true">location_on</mat-icon>
-        <p class="event-summary__text">{{ location }}</p>
+        <!-- The place, on Google Maps. -->
+        <p class="event-summary__text">
+          <a
+            class="event-summary__link"
+            [href]="mapsLink()"
+            target="_blank"
+            rel="noopener noreferrer"
+            >{{ location }}</a
+          >
+        </p>
       </div>
     }
     @if (event().description.trim(); as description) {
@@ -59,4 +69,6 @@ export class EventSummary {
   protected readonly titled = computed(() => !!this.event().title.trim());
   protected readonly title = computed(() => this.event().title.trim() || this.untitled());
   protected readonly when = computed(() => this.#formats().when(this.event()));
+  /** Where the place is on Google Maps. */
+  protected readonly mapsLink = computed(() => mapsUrl(this.event().location));
 }

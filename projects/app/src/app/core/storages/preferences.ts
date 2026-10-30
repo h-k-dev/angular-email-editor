@@ -140,6 +140,10 @@ export class Preferences {
     `${PREFIX}aside-developers-open`,
     onOff(true),
   );
+  /** Whether the mailbox's aside rests as the rail on a desk — the
+      toggle at its top, remembered. (A phone's aside always starts shut.) */
+  readonly asideCollapsed = this.#storage.pairSignal(`${PREFIX}aside-collapsed`, onOff(false));
+
   readonly asideApiOpen = this.#storage.pairSignal(`${PREFIX}aside-api-open`, onOff(true));
   readonly asideStylingOpen = this.#storage.pairSignal(`${PREFIX}aside-styling-open`, onOff(true));
   readonly asideComponentsOpen = this.#storage.pairSignal(
@@ -189,6 +193,9 @@ export class Preferences {
   /** Whether the calendar shows Saturdays and Sundays — Google's "Show
       weekends". */
   readonly calendarWeekends = this.#storage.pairSignal(`${PREFIX}calendar-weekends`, onOff(true));
+
+  /** Whether the calendar shows the public holidays (core/calendar/holidays). */
+  readonly calendarHolidays = this.#storage.pairSignal(`${PREFIX}calendar-holidays`, onOff(true));
 }
 
 /** A custom calendar view, `2d`–`7d` or `2w`–`6w`; the default (four

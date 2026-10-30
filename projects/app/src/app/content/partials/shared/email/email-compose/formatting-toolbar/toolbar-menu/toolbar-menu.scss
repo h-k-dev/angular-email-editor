@@ -17,6 +17,14 @@
   @include menu.item;
 }
 
+// Opened by the pointer, the checked row is where the keyboard would start
+// — not a place anyone has reached: no wash until a key moves (the menu
+// says `keyboard` then) or the pointer comes over it. A choice is its
+// tick alone.
+.toolbar-menu:not([data-modality='keyboard']) .toolbar-menu__item[aria-checked='true']:not(:hover) {
+  background-color: transparent;
+}
+
 // A radio item: the label first, the tick at the item's end, in the same
 // end padding as every menu's rows (styles/_menu.scss). The tick holds its
 // room when unchecked, so every item is as wide as a ticked one; the label
@@ -61,6 +69,15 @@
 
 .toolbar-menu__shortcut + [data-slot='check'] {
   margin-inline-start: 0;
+}
+
+// A colour item's dot, where an icon would lead: the colour it names.
+.toolbar-menu__swatch {
+  flex: none;
+  inline-size: 12px;
+  block-size: 12px;
+  margin-inline: 4px;
+  border-radius: 50%;
 }
 
 .toolbar-menu__separator {

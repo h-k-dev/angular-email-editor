@@ -86,11 +86,14 @@ $active-wash: var(
 /// state by is the attribute the pixels come from, so the two cannot drift
 /// apart. `aria-disabled` dims it, `aria-checked` is the tick's alone (the
 /// row wears no wash for it), `aria-expanded` holds a submenu's trigger lit while its child is
-/// open, `aria-haspopup` earns the trailing chevron, `aria-current` (and the
-/// `data-active` hook Angular Aria writes for `aria-activedescendant`, which
-/// lives on the *menu*, so the row has nothing of its own to show) and a
-/// listbox's `aria-selected` option are the keyboard's place in the list. Hover paints that same highlight, so the
-/// pointer and the keyboard can never disagree on screen.
+/// open, `aria-haspopup` earns the trailing chevron, `aria-current` and the
+/// `data-active` hook Angular Aria writes for `aria-activedescendant`
+/// (which lives on the *menu*, so the row has nothing of its own to show)
+/// are the keyboard's place in the list. `aria-selected` never washes a
+/// row (user, 2026-10-30): a selection is not where you are — a listbox
+/// that keeps its keyboard place in `aria-selected` writes `data-active`
+/// beside it. Hover paints that same highlight, so the pointer and the
+/// keyboard can never disagree on screen.
 @mixin item {
   display: flex;
   align-items: center;
@@ -148,7 +151,6 @@ $active-wash: var(
       :focus-visible,
       [aria-current='true'],
       [aria-expanded='true'],
-      [aria-selected='true'],
       [data-active='true']
     ) {
     background-color: var(--email-suggestion-menu-item-hover-background, #{$active-wash});

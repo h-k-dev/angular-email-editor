@@ -1,7 +1,7 @@
 <!-- A day a row: its date on the left, its events beside it. -->
 <ol class="schedule-list">
   @for (row of rows(); track row.day) {
-    <li class="schedule-list__day" [class.schedule-list__day--today]="row.today">
+    <li class="schedule-list__day">
       <button
         type="button"
         class="schedule-list__date"

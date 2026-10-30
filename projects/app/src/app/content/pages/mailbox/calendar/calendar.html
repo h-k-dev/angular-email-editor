@@ -173,24 +173,27 @@
     } @else if (shown(); as event) {
       <calendar-event-summary [event]="event" [untitled]="untitled()">
         <div eventSummaryActions class="calendar-card__actions">
-          <button
-            matIconButton
-            type="button"
-            [attr.aria-label]="'calendar.edit' | translate"
-            [matTooltip]="'calendar.edit' | translate"
-            (click)="editShown()"
-          >
-            <mat-icon>edit</mat-icon>
-          </button>
-          <button
-            matIconButton
-            type="button"
-            [attr.aria-label]="'calendar.delete' | translate"
-            [matTooltip]="'calendar.delete' | translate"
-            (click)="removed()"
-          >
-            <mat-icon>delete</mat-icon>
-          </button>
+          <!-- A holiday is the holidays calendar's: read, never written. -->
+          @if (!shownReadonly()) {
+            <button
+              matIconButton
+              type="button"
+              [attr.aria-label]="'calendar.edit' | translate"
+              [matTooltip]="'calendar.edit' | translate"
+              (click)="editShown()"
+            >
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button
+              matIconButton
+              type="button"
+              [attr.aria-label]="'calendar.delete' | translate"
+              [matTooltip]="'calendar.delete' | translate"
+              (click)="removed()"
+            >
+              <mat-icon>delete</mat-icon>
+            </button>
+          }
           <button
             matIconButton
             type="button"

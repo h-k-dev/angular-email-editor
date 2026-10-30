@@ -85,9 +85,37 @@ export function monthWeeks(date: DateTime, weekStart: WeekStart): IsoDay[][] {
   return weeks;
 }
 
-/** Minutes since midnight. */
+/** `count` whole weeks from the first week of `date`'s month — a picker's
+    grid that keeps its height whichever month it shows (the mini month's
+    seven), the next month's first days filling the rest. */
+export function fixedWeeks(date: DateTime, weekStart: WeekStart, count: number): IsoDay[][] {
+  const first = startOfWeek(date.startOf('month'), weekStart);
+  return Array.from({ length: count }, (_, i) => dayRange(first.plus({ weeks: i }), 7));
+}
+
+/** Minutes since midnight — by the clock: 7:15 is 435, even on the day
+    the clocks change. */
 export function minuteOfDay(date: DateTime): number {
   return date.hour * 60 + date.minute;
+}
+
+/**
+ * The moment at `minute` past midnight on `day` — by the clock, as a grid
+ * row reads it: 435 is 7:15. Never `plus({ minutes })`: that counts time
+ * passed, and on the day the clocks change (Europe's go back on
+ * 2026-10-25) 435 minutes after midnight is 6:15. `DAY_MINUTES` is the
+ * next midnight.
+ */
+export function atMinute(day: DateTime, minute: number): DateTime {
+  const midnight = day.startOf('day');
+  if (minute >= DAY_MINUTES) return midnight.plus({ days: 1 });
+  return midnight.set({ hour: Math.floor(minute / 60), minute: minute % 60 });
+}
+
+/** `atMinute`'s inverse: how far into `day` `moment` is, by the clock —
+    beyond `DAY_MINUTES` on a later day, below 0 on an earlier one. */
+export function minutesInto(day: DateTime, moment: DateTime): number {
+  return daysBetween(day, moment) * DAY_MINUTES + minuteOfDay(moment);
 }
 
 /** `minutes` rounded to the nearest `step`. */
