@@ -3,7 +3,9 @@
      and the answers — Reply, the rest in ⋮. -->
 <!-- The sheet: the room's width, or a wider email's — so a fixed-width
      table scrolls sideways with whatever scrolls the sheet, and the header
-     and the answers stay put over it (sticky at the start, the room wide). -->
+     and the answers stay put over it (sticky at the start, the room wide).
+     On a phone the email is drawn down to the room instead, as a phone's
+     mail app does, and the sheet never grows past it. -->
 <div class="mail-view__sheet">
 <header class="mail-view__header">
   <h1 class="mail-view__subject">{{ subject() }}</h1>
@@ -169,6 +171,7 @@
     [html]="html"
     [scheme]="scheme()"
     [inset]="inset()"
+    [shrink]="phone()"
     [label]="bodyLabel()"
   />
 
