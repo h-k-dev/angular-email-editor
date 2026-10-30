@@ -15,6 +15,11 @@
   column-gap: 12px;
 }
 
+// No swatch beside it: no column for one — the title at the card's start.
+.event-summary__row--flush {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .event-summary__swatch {
   inline-size: 14px;
   block-size: 14px;

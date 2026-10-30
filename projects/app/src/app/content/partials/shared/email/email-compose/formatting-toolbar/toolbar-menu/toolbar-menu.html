@@ -71,7 +71,7 @@
                 : 'menuitem'
           "
           [attr.aria-checked]="item.kind ? !!item.checked : null"
-          [attr.aria-keyshortcuts]="item.shortcut ?? null"
+          [attr.aria-keyshortcuts]="item.shortcutKeys ?? item.shortcut ?? null"
           [disabled]="item.disabled ?? false"
         >
           <ng-container [ngTemplateOutlet]="body" [ngTemplateOutletContext]="{ $implicit: item }" />

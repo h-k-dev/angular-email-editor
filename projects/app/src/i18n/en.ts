@@ -165,6 +165,12 @@ export default {
     delete: 'Delete',
     close: 'Close',
     deleted: 'Event deleted',
+    cut: 'Cut',
+    copy: 'Copy',
+    paste: 'Paste',
+    duplicate: 'Duplicate',
+    cutDone: 'Event cut',
+    eventMenu: 'Event actions',
     undo: 'Undo',
     colors: {
       tomato: 'Tomato',

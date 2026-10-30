@@ -1,5 +1,6 @@
 import { AnchorRect } from '@h-k-dev/angular-email-editor/anchor';
 
+import { IsoDay } from '../../../../core/calendar/calendar-dates';
 import { CalendarEventDraft } from '../../../../core/calendar/calendar-event';
 
 /**
@@ -18,6 +19,13 @@ export interface GridCreate {
 export interface GridOpen {
   id: string;
   rect: AnchorRect;
+}
+
+/** A place in a grid to put an event: a day at a minute of it, or the
+    whole day (`null` — the all-day band, a month's cell). */
+export interface GridSlot {
+  day: IsoDay;
+  minute: number | null;
 }
 
 /** How far a press travels before it is a drag, px. */

@@ -71,6 +71,9 @@ export interface ToolbarMenuItem<V> {
       the calendar's views, Google's D W M. Said to assistive tech as
       `aria-keyshortcuts`. */
   shortcut?: string;
+  /** The keys as assistive tech has them (`aria-keyshortcuts`: Meta+C,
+      Control+C), where what is shown is not that (⌘C) — else `shortcut`. */
+  shortcutKeys?: string;
 }
 
 /**

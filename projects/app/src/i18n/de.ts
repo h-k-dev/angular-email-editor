@@ -162,6 +162,12 @@ export default {
     delete: 'Löschen',
     close: 'Schließen',
     deleted: 'Termin gelöscht',
+    cut: 'Ausschneiden',
+    copy: 'Kopieren',
+    paste: 'Einfügen',
+    duplicate: 'Duplizieren',
+    cutDone: 'Termin ausgeschnitten',
+    eventMenu: 'Terminaktionen',
     undo: 'Rückgängig',
     colors: {
       tomato: 'Tomate',

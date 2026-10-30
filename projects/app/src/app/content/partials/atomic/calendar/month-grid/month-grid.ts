@@ -26,7 +26,7 @@ import {
 import { CalendarFormat } from '../../../../../core/calendar/calendar-format';
 import { placeInLanes } from '../../../../../core/calendar/calendar-layout';
 import { EventChip } from '../../../shared/calendar/event-chip/event-chip';
-import { DRAG_THRESHOLD, GridCreate, GridOpen, boxOf } from '../calendar-grid';
+import { DRAG_THRESHOLD, GridCreate, GridOpen, boxOf, GridSlot } from '../calendar-grid';
 
 /** A row's sizes, px: the date's line, and a lane (22 + 2 apart). */
 const DATE_LINE = 28;
@@ -242,7 +242,14 @@ export class MonthGrid {
     });
   }
 
-  #dayAt(event: PointerEvent): IsoDay | null {
+  /** The day under a pointer, the whole of it — for what the page puts
+      there (a paste). */
+  slotAt(event: MouseEvent): GridSlot | null {
+    const day = this.#dayAt(event);
+    return day ? { day, minute: null } : null;
+  }
+
+  #dayAt(event: MouseEvent): IsoDay | null {
     const hit = document
       .elementsFromPoint(event.clientX, event.clientY)
       .find((element) => element.matches('.month-grid__cell'));

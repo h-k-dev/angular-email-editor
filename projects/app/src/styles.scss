@@ -2290,6 +2290,20 @@ section[html-email-compose][data-wrap='off'] .aee-editor {
   );
 }
 
+/* Text selected on the calendar's event card — its words, its fields — is
+ * washed in the event's own colour, the card's tint (calendar.scss,
+ * `--_tint`, live while the colour is chosen): as the editor's highlight,
+ * translucent; stronger on the dark paper, where a light wash disappears.
+ * Global, since the card's text is drawn by components inside an overlay. */
+.calendar-card::selection,
+.calendar-card *::selection {
+  color: var(--mat-sys-on-surface);
+  background-color: light-dark(
+    color-mix(in oklch, var(--_tint) 28%, transparent),
+    color-mix(in oklch, var(--_tint) 42%, transparent)
+  );
+}
+
 /* A selected node: a tint under the outline. */
 .aee-editor .aee-image.ProseMirror-selectednode::after,
 .aee-editor a.ProseMirror-selectednode::after,

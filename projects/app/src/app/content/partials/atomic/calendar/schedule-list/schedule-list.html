@@ -18,6 +18,7 @@
             <button
               type="button"
               class="schedule-list__event"
+              [attr.data-event-id]="item.event.id"
               [style.--event-color]="item.color"
               (click)="pressed($event, item.event.id)"
             >

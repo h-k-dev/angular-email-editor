@@ -5,11 +5,13 @@ import {
   ElementRef,
   afterRenderEffect,
   computed,
+  effect,
   inject,
   input,
   linkedSignal,
   resource,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { Router } from '@angular/router';
@@ -26,12 +28,22 @@ import { MenuTrigger } from '@angular/aria/menu';
 import { Anchor, AnchorRect } from '@h-k-dev/angular-email-editor/anchor';
 import { TranslatePipe } from '@ngx-translate/core';
 
-import { IsoDay, isoDay } from '../../../../core/calendar/calendar-dates';
+import {
+  IsoDay,
+  atMinute,
+  isoDay,
+  minuteOfDay,
+  parseDay,
+} from '../../../../core/calendar/calendar-dates';
 import {
   CalendarEvent,
   CalendarEventDraft,
+  EVENT_COLOR_VALUES,
+  EventColor,
   EventEdit,
   draftAt,
+  eventSpan,
+  movedTo,
 } from '../../../../core/calendar/calendar-event';
 import { CalendarEvents } from '../../../../core/calendar/calendar-events';
 import { CalendarFormat } from '../../../../core/calendar/calendar-format';
@@ -52,7 +64,12 @@ import {
 } from '../../../../core/calendar/holidays';
 import { Preferences } from '../../../../core/storages/preferences';
 import { I18n } from '../../../../core/translations/i18n';
-import { GridCreate, GridOpen, boxOf } from '../../../partials/atomic/calendar/calendar-grid';
+import {
+  GridCreate,
+  GridOpen,
+  GridSlot,
+  boxOf,
+} from '../../../partials/atomic/calendar/calendar-grid';
 import { EventEditor } from '../../../partials/atomic/calendar/event-editor/event-editor';
 import { MonthGrid } from '../../../partials/atomic/calendar/month-grid/month-grid';
 import { ScheduleList } from '../../../partials/atomic/calendar/schedule-list/schedule-list';
@@ -61,10 +78,30 @@ import { YearGrid } from '../../../partials/atomic/calendar/year-grid/year-grid'
 import { MiniMonth } from '../../../partials/common/mini-month/mini-month';
 import { PageHeader } from '../../../partials/common/page-header/page-header';
 import { EventSummary } from '../../../partials/shared/calendar/event-summary/event-summary';
+import { ColorMarker } from '../../../partials/shared/calendar/color-marker/color-marker';
 import {
   ToolbarMenu,
   ToolbarMenuItem,
 } from '../../../partials/shared/email/email-compose/formatting-toolbar/toolbar-menu/toolbar-menu';
+
+/** What the context menu does — to an event, or at a slot. */
+type EventAction = 'cut' | 'copy' | 'duplicate' | 'delete' | 'create' | 'paste';
+
+const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent);
+
+/** A shortcut with the platform's command key: shown (⌘C, Ctrl+C) and
+    said to assistive tech (Meta+C, Control+C). */
+const withMod = (key: string) => ({
+  shortcut: MAC ? `⌘${key}` : `Ctrl+${key}`,
+  shortcutKeys: `${MAC ? 'Meta' : 'Control'}+${key}`,
+});
+
+/** An event's content, without what makes it that one: its id, and a
+    holiday's being read-only — what a copy or a duplicate is made of. */
+function contentOf(event: CalendarEvent): CalendarEventDraft {
+  const { title, start, end, allDay, color, location, description } = event;
+  return { title, start, end, allDay, color, location, description };
+}
 
 /** The card beside an event: at its end, else its start, else under or
     over it — Google's. The ones over it rise out of it (`motion-above`). */
@@ -145,6 +182,7 @@ const TICK = 30_000;
     ScheduleList,
     EventEditor,
     EventSummary,
+    ColorMarker,
   ],
   templateUrl: './calendar.html',
   styleUrl: './calendar.scss',
@@ -339,6 +377,12 @@ export class CalendarPage {
   /** Where the card stands beside: the event's box, or the room marked. */
   protected readonly anchor = signal<AnchorRect | null>(null);
   protected readonly cardOpen = computed(() => !!this.edit() || !!this.shown());
+  /** The card's tint: the colour of the event in it — its marker's, as it
+      is being chosen. */
+  protected readonly cardTint = computed(() => {
+    const color = this.edit()?.color ?? this.shown()?.color;
+    return color ? EVENT_COLOR_VALUES[color] : null;
+  });
   protected readonly cardPositions = CARD_POSITIONS;
   protected readonly editingStored = computed(() => !!this.edit()?.id);
 
@@ -356,6 +400,17 @@ export class CalendarPage {
     afterRenderEffect(() => {
       this.anchor();
       this.card().overlayRef?.updatePosition();
+    });
+
+    // The context menu gone: focus back on the event it was opened on —
+    // Aria hands it to the trigger, which is hidden and cannot hold it.
+    effect(() => {
+      if (this.menuOpener().expanded()) return;
+      untracked(() => {
+        const back = this.#menuReturn;
+        this.#menuReturn = null;
+        if (back?.isConnected) back.focus({ preventScroll: true });
+      });
     });
   }
 
@@ -456,6 +511,14 @@ export class CalendarPage {
     this.edit.set({ ...event });
   }
 
+  /** The shown event's colour changed at its card's head: stored at once,
+      the card staying open on it. */
+  protected recolor(color: EventColor): void {
+    const event = this.shown();
+    if (!event || event.readonly) return;
+    this.#store.save({ ...event, color });
+  }
+
   /** Moved or stretched in a grid: stored at once. */
   protected changed(event: CalendarEvent): void {
     this.#store.save(event);
@@ -473,12 +536,240 @@ export class CalendarPage {
   protected removed(): void {
     const id = this.edit()?.id ?? this.#shownId();
     this.closeCard();
-    const gone = id ? this.#store.remove(id) : null;
+    if (id) this.#remove(id, 'calendar.deleted');
+  }
+
+  /** Takes an event away — deleted, or cut — saying so, with a moment to
+      take it back; its card goes with it. */
+  #remove(id: string, said: string): void {
+    if (this.#shownId() === id || this.edit()?.id === id) this.closeCard();
+    const gone = this.#store.remove(id);
     if (!gone) return;
     this.#snackBar
-      .open(this.#i18n.t('calendar.deleted'), this.#i18n.t('calendar.undo'), { duration: 4000 })
+      .open(this.#i18n.t(said), this.#i18n.t('calendar.undo'), { duration: 4000 })
       .onAction()
       .subscribe(() => this.#store.save(gone));
+  }
+
+  // ─── Cut, copy, paste ───────────────────────────────────────────────
+
+  /** What was copied or cut: an event's content, to be pasted as a new
+      one. */
+  readonly #clipboard = signal<CalendarEventDraft | null>(null);
+  /** What the context menu is about: an event, or a slot to paste at. */
+  readonly #menuFor = signal<{ event: CalendarEvent } | { slot: GridSlot } | null>(null);
+  /** Where the menu's hidden trigger stands. */
+  protected readonly menuAt = signal({ x: 0, y: 0 });
+  /** Where focus goes back to once the menu is gone. */
+  #menuReturn: HTMLElement | null = null;
+  private readonly menuOpener = viewChild.required<MenuTrigger<EventAction>>('contextTrigger');
+  private readonly timeGrid = viewChild(TimeGrid);
+  private readonly monthGrid = viewChild(MonthGrid);
+
+  /** The menu's rows: an event's four (a holiday's own can be copied and
+      duplicated, not cut or deleted), or a slot's: a new event there, and
+      the copied one pasted there — there once something is copied. */
+  protected readonly menuItems = computed<ToolbarMenuItem<EventAction>[]>(() => {
+    const about = this.#menuFor();
+    if (!about) return [];
+    const t = (key: string) => this.#i18n.t(key);
+    if ('slot' in about) {
+      return [
+        { value: 'create', label: t('calendar.new'), icon: 'add', shortcut: 'C' },
+        {
+          value: 'paste',
+          label: t('calendar.paste'),
+          icon: 'content_paste',
+          ...withMod('V'),
+          disabled: !this.#clipboard(),
+        },
+      ];
+    }
+    const fixed = !!about.event.readonly;
+    return [
+      {
+        value: 'cut',
+        label: t('calendar.cut'),
+        icon: 'content_cut',
+        ...withMod('X'),
+        disabled: fixed,
+      },
+      { value: 'copy', label: t('calendar.copy'), icon: 'content_copy', ...withMod('C') },
+      { value: 'duplicate', label: t('calendar.duplicate'), icon: 'library_add', ...withMod('D') },
+      {
+        value: 'delete',
+        label: t('calendar.delete'),
+        icon: 'delete',
+        shortcut: MAC ? '⌫' : 'Del',
+        shortcutKeys: 'Delete Backspace',
+        disabled: fixed,
+        separated: true,
+      },
+    ];
+  });
+
+  /** A right-click in the views: on an event, its menu; on an empty slot
+      a new event there, or what was copied pasted there — anywhere else
+      (the heads, the corner), the browser's. */
+  protected contextMenu(event: MouseEvent): void {
+    const at = { x: event.clientX, y: event.clientY };
+    const chip = (event.target as Element).closest<HTMLElement>('[data-event-id]');
+    if (chip) {
+      const pressed = this.#eventById(chip.dataset['eventId'] ?? '');
+      if (!pressed) return;
+      event.preventDefault();
+      return this.#openMenu(at, { event: pressed }, chip);
+    }
+    const slot = this.timeGrid()?.slotAt(event) ?? this.monthGrid()?.slotAt(event);
+    if (!slot) return;
+    event.preventDefault();
+    this.#openMenu(at, { slot }, null);
+  }
+
+  #openMenu(
+    at: { x: number; y: number },
+    about: { event: CalendarEvent } | { slot: GridSlot },
+    returnTo: HTMLElement | null,
+  ): void {
+    this.menuAt.set(at);
+    this.#menuFor.set(about);
+    // After this event has gone round: the CDK closes an open menu on a
+    // right-click outside it — this one's — so a second right-click moves
+    // the menu rather than shutting it.
+    setTimeout(() => {
+      this.#menuReturn = returnTo;
+      this.menuOpener().open();
+    });
+  }
+
+  protected menuPicked(action: EventAction): void {
+    const about = this.#menuFor();
+    if (!about) return;
+    if ('slot' in about) {
+      if (action === 'create') this.#createAt(about.slot);
+      else if (action === 'paste') this.#paste(about.slot);
+      return;
+    }
+    this.#act(action, about.event);
+  }
+
+  /** Does `action` to an event — a holiday is never cut or deleted. */
+  #act(action: EventAction, event: CalendarEvent): void {
+    if (action === 'copy') return this.#copy(event);
+    if (action === 'duplicate') {
+      this.#store.create(contentOf(event));
+      return;
+    }
+    if (event.readonly) return;
+    if (action === 'cut') {
+      this.#copy(event);
+      this.#remove(event.id, 'calendar.cutDone');
+    } else if (action === 'delete') {
+      this.#remove(event.id, 'calendar.deleted');
+    }
+  }
+
+  /** Kept to be pasted — and, for anywhere else, as words: its title and
+      when it is. */
+  #copy(event: CalendarEvent): void {
+    this.#clipboard.set(contentOf(event));
+    const words = [
+      event.title.trim() || this.untitled(),
+      this.#formats().when(event),
+      event.location.trim(),
+    ].filter(Boolean);
+    void navigator.clipboard?.writeText(words.join('\n')).catch(() => undefined);
+  }
+
+  /** A new event at a slot, its card beside where the menu was asked
+      for: an hour from the quarter in the hours — the whole day on the
+      all-day band or a month's day, as a press there makes. */
+  #createAt(slot: GridSlot): void {
+    const day = parseDay(slot.day);
+    if (!day) return;
+    const draft =
+      slot.minute === null ? draftAt(day, { allDay: true }) : draftAt(atMinute(day, slot.minute));
+    const { x, y } = this.menuAt();
+    this.created({ draft, rect: { left: x, top: y, width: 0, height: 0 } });
+  }
+
+  /** The copied event, new, at a slot: a timed one at the slot's minute —
+      or at its own time of day on a whole day; an all-day one on the
+      slot's day. As long as it was. */
+  #paste(slot: GridSlot): void {
+    const copied = this.#clipboard();
+    const day = parseDay(slot.day);
+    if (!copied || !day) return;
+    const start = copied.allDay
+      ? day
+      : atMinute(day, slot.minute ?? minuteOfDay(eventSpan(copied).start));
+    this.#store.create(movedTo(copied, start));
+  }
+
+  #eventById(id: string): CalendarEvent | null {
+    return this.#store.byId().get(id) ?? this.#holidayById().get(id) ?? null;
+  }
+
+  /**
+   * The menu's keys, without the menu — on the focused event, else on the
+   * event whose card is open: ⌘/Ctrl C, X, D, Delete; ⌘/Ctrl V pastes at
+   * the quarter the pointer rests on, else at its own time on the day in
+   * view. Shift+F10 and the menu key open the menu under the focused
+   * event. A selection of words is the browser's to copy.
+   */
+  #shortcut(event: KeyboardEvent): boolean {
+    const focused = (event.target as Element | null)?.closest?.<HTMLElement>('[data-event-id]');
+    const subject = focused
+      ? this.#eventById(focused.dataset['eventId'] ?? '')
+      : this.edit()
+        ? null
+        : this.shown();
+    if (
+      focused &&
+      subject &&
+      (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10'))
+    ) {
+      const box = focused.getBoundingClientRect();
+      this.#openMenu({ x: box.left, y: box.bottom }, { event: subject }, focused);
+      return true;
+    }
+    const mod = (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey;
+    if (mod) {
+      const key = event.key.toLowerCase();
+      if (key === 'v') {
+        if (!this.#clipboard() || this.edit()) return false;
+        this.#paste(this.timeGrid()?.hoveredSlot() ?? { day: this.day(), minute: null });
+        return true;
+      }
+      if (!subject) return false;
+      if (key === 'c') {
+        if (getSelection()?.isCollapsed === false) return false;
+        this.#act('copy', subject);
+        return true;
+      }
+      if (key === 'x' && !subject.readonly) {
+        this.#act('cut', subject);
+        return true;
+      }
+      if (key === 'd') {
+        this.#act('duplicate', subject);
+        return true;
+      }
+      return false;
+    }
+    if (
+      focused &&
+      subject &&
+      !subject.readonly &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey &&
+      (event.key === 'Delete' || event.key === 'Backspace')
+    ) {
+      this.#act('delete', subject);
+      return true;
+    }
+    return false;
   }
 
   protected closeCard(): void {
@@ -502,13 +793,18 @@ export class CalendarPage {
   // ─── Keys ───────────────────────────────────────────────────────────
 
   protected key(event: KeyboardEvent): void {
-    if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (event.defaultPrevented) return;
     const target = event.target as HTMLElement | null;
     if (
       target?.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])')
     ) {
       return;
     }
+    if (this.#shortcut(event)) {
+      event.preventDefault();
+      return;
+    }
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
     if (this.cardOpen()) {
       if (
         (event.key === 'Delete' || event.key === 'Backspace') &&

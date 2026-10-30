@@ -1,4 +1,4 @@
-import { Component, computed, inject, input } from '@angular/core';
+import { Component, booleanAttribute, computed, inject, input } from '@angular/core';
 
 // Angular Material
 import { MatIcon } from '@angular/material/icon';
@@ -24,8 +24,13 @@ import { mapsUrl } from '../../../../../core/calendar/maps';
   imports: [MatIcon],
   template: `
     <ng-content select="[eventSummaryActions]" />
-    <div class="event-summary__row">
-      <span class="event-summary__swatch" aria-hidden="true"></span>
+    <!-- The colour beside the title — unless the host shows it at the
+         card's head (the swatch input): then the title stands at the
+         card's start, as the editor's does. -->
+    <div class="event-summary__row" [class.event-summary__row--flush]="!swatch()">
+      @if (swatch()) {
+        <span class="event-summary__swatch" aria-hidden="true"></span>
+      }
       <div class="event-summary__head">
         <h2 class="event-summary__title" [class.event-summary__title--none]="!titled()">
           {{ title() }}
@@ -64,6 +69,9 @@ export class EventSummary {
   readonly event = input.required<Omit<CalendarEvent, 'id'>>();
   /** What it says while the event has no title. */
   readonly untitled = input('');
+  /** The colour's dot beside the title; off where the host shows the
+      colour itself (the calendar's card, at its head, to be changed). */
+  readonly swatch = input(true, { transform: booleanAttribute });
 
   protected readonly color = computed(() => EVENT_COLOR_VALUES[this.event().color]);
   protected readonly titled = computed(() => !!this.event().title.trim());

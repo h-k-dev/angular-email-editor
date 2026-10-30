@@ -21,16 +21,10 @@ import { MatTooltip } from '@angular/material/tooltip';
 
 import { TranslatePipe } from '@ngx-translate/core';
 
-import { MenuTrigger } from '@angular/aria/menu';
-
 import { mapsUrl } from '../../../../../core/calendar/maps';
-import { I18n } from '../../../../../core/translations/i18n';
 import { DateField } from '../../../common/date-field/date-field';
-import {
-  ToolbarMenu,
-  ToolbarMenuItem,
-} from '../../../shared/email/email-compose/formatting-toolbar/toolbar-menu/toolbar-menu';
 import { HoverCard } from '../../../common/hover-card/hover-card';
+import { ColorMarker } from '../../../shared/calendar/color-marker/color-marker';
 import { QuietField } from '../../../common/quiet-field/quiet-field';
 
 import {
@@ -42,8 +36,6 @@ import {
 } from '../../../../../core/calendar/calendar-dates';
 import {
   DEFAULT_EVENT_MINUTES,
-  EVENT_COLORS,
-  EVENT_COLOR_VALUES,
   EventColor,
   EventEdit,
   eventSpan,
@@ -150,8 +142,7 @@ const sameEdit = (a: EventEdit, b: EventEdit): boolean =>
   selector: 'calendar-event-editor',
   imports: [
     DateField,
-    MenuTrigger,
-    ToolbarMenu,
+    ColorMarker,
     FormRoot,
     FormField,
     HoverCard,
@@ -164,11 +155,8 @@ const sameEdit = (a: EventEdit, b: EventEdit): boolean =>
   ],
   templateUrl: './event-editor.html',
   styleUrl: './event-editor.scss',
-  host: { '[style.--event-color]': 'color()' },
 })
 export class EventEditor {
-  readonly #i18n = inject(I18n);
-
   readonly value = model.required<EventEdit>();
   /** Whether the event is stored already: it can be deleted. */
   readonly stored = input(false);
@@ -229,32 +217,14 @@ export class EventEditor {
     () => this.editor.endTime().invalid() || this.editor.endDay().invalid(),
   );
 
-  protected readonly color = computed(() => EVENT_COLOR_VALUES[this.#fields().color]);
-
-  /** The colour menu: Google's eleven, each its dot and its name, the
-      event's ticked. */
-  protected readonly colors = computed<ToolbarMenuItem<EventColor>[]>(() => {
-    const picked = this.#fields().color;
-    return EVENT_COLORS.map((id) => ({
-      value: id,
-      label: this.#i18n.t(`calendar.colors.${id}`),
-      swatch: EVENT_COLOR_VALUES[id],
-      kind: 'radio',
-      checked: id === picked,
-    }));
-  });
+  /** The event's colour, as written (`calendar-color-marker`). */
+  protected readonly colorId = computed(() => this.#fields().color);
 
   /** Where the place is on Google Maps — none for no place — and the card
       with the way there: only while the place is typed in. */
   protected readonly mapsLink = computed(() => mapsUrl(this.#fields().location));
   protected readonly placeTyping = signal(false);
   protected readonly placeCardOff = computed(() => !this.placeTyping() || !this.mapsLink());
-
-  /** The marker's name: "Color: Peacock". */
-  protected readonly colorLabel = computed(
-    () =>
-      `${this.#i18n.t('calendar.color')}: ${this.#i18n.t(`calendar.colors.${this.#fields().color}`)}`,
-  );
 
   constructor() {
     afterNextRender(() => this.titleInput().nativeElement.focus());

@@ -161,6 +161,12 @@ export default {
     delete: '削除',
     close: '閉じる',
     deleted: '予定を削除しました',
+    cut: '切り取り',
+    copy: 'コピー',
+    paste: '貼り付け',
+    duplicate: '複製',
+    cutDone: '予定を切り取りました',
+    eventMenu: '予定の操作',
     undo: '元に戻す',
     colors: {
       tomato: 'トマト',

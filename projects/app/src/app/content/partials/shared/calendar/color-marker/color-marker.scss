@@ -1,0 +1,43 @@
+// Where the card's head has it: no box of its own beyond the marker's.
+:host {
+  display: inline-flex;
+  flex: none;
+}
+
+// The marker: a round dot like the menu's own, in a round 28px box — a
+// quiet button where the colour can be changed. Pulled back by the dot's
+// inset (7px), so the dot itself stands on the card's start, level with
+// the title and the icons under it.
+.color-marker {
+  display: grid;
+  place-items: center;
+  inline-size: 28px;
+  block-size: 28px;
+  margin: 0 0 0 -7px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+}
+
+.color-marker--button {
+  cursor: pointer;
+
+  &:hover,
+  &[aria-expanded='true'] {
+    background: color-mix(in oklch, var(--mat-sys-on-surface) 6%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: -2px;
+  }
+}
+
+.color-marker__dot {
+  inline-size: 14px;
+  block-size: 14px;
+  border-radius: 50%;
+  background: var(--event-color);
+  transition: background-color 200ms ease-out;
+}

@@ -79,7 +79,7 @@
        are chunks of their own, fetched the moment one is shown (@defer on
        immediate — not on idle: a view asked for is wanted now) — a week
        never pays for them. -->
-  <div class="calendar-surface">
+  <div class="calendar-surface" (contextmenu)="contextMenu($event)">
     @if (page().layout === 'weeks') {
       @defer (on immediate) {
         <calendar-month-grid
@@ -159,6 +159,7 @@
     role="dialog"
     animate.enter="motion-enter"
     animate.leave="motion-leave"
+    [style.--card-tint]="cardTint()"
     [attr.aria-label]="(edit() ? 'calendar.editing' : 'calendar.event') | translate"
   >
     @if (edit(); as value) {
@@ -171,8 +172,16 @@
         (close)="closeCard()"
       />
     } @else if (shown(); as event) {
-      <calendar-event-summary [event]="event" [untitled]="untitled()">
+      <calendar-event-summary [event]="event" [untitled]="untitled()" [swatch]="false">
         <div eventSummaryActions class="calendar-card__actions">
+          <!-- The colour at the card's head, as the editor has it — and
+               changed from here, stored at once; a holiday's is its own. -->
+          <calendar-color-marker
+            class="calendar-card__marker"
+            [color]="event.color"
+            [readonly]="shownReadonly()"
+            (picked)="recolor($event)"
+          />
           <!-- A holiday is the holidays calendar's: read, never written. -->
           @if (!shownReadonly()) {
             <button
@@ -209,3 +218,27 @@
     }
   </section>
 </ng-template>
+
+<!-- The context menu, Angular Aria's recipe: a hidden trigger stood where
+     the menu is asked for — at the pointer, or under the focused event
+     (Shift+F10, the menu key) — and the app's one menu opened from it. On
+     an event: cut, copy, duplicate, delete; on an empty slot, once
+     something is copied: paste there. The keys do the same without it. -->
+<div
+  class="calendar-menu-anchor"
+  ngMenuTrigger
+  #contextTrigger="ngMenuTrigger"
+  [menu]="contextItems.menu()"
+  [style.left.px]="menuAt().x"
+  [style.top.px]="menuAt().y"
+></div>
+<div
+  toolbar-menu
+  #contextItems
+  side="below"
+  align="start"
+  [label]="'calendar.eventMenu' | translate"
+  [trigger]="contextTrigger"
+  [items]="menuItems()"
+  (selected)="menuPicked($event)"
+></div>

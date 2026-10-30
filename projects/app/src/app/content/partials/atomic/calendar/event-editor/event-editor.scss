@@ -28,39 +28,6 @@
   justify-content: space-between;
 }
 
-// The marker: the event's colour, the colour menu's trigger — a round
-// dot like the menu's own, in a round quiet button.
-.event-editor__marker {
-  display: grid;
-  place-items: center;
-  inline-size: 28px;
-  block-size: 28px;
-  margin: 0 0 0 -4px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: none;
-  cursor: pointer;
-
-  &:hover,
-  &[aria-expanded='true'] {
-    background: color-mix(in oklch, var(--mat-sys-on-surface) 6%, transparent);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--mat-sys-primary);
-    outline-offset: -2px;
-  }
-}
-
-.event-editor__swatch {
-  inline-size: 14px;
-  block-size: 14px;
-  border-radius: 50%;
-  background: var(--event-color);
-  transition: background-color 200ms ease-out;
-}
-
 // Close: a toolbar's icon button, Material's own layout, its state layer
 // out to the card's padding.
 .event-editor__bar {

@@ -38,6 +38,7 @@
         type="button"
         class="time-grid__bar"
         [calendarEventChip]="bar.event"
+        [attr.data-event-id]="bar.event.id"
         shape="bar"
         [untitled]="untitled()"
         [mark]="bar.mark"
@@ -84,11 +85,7 @@
            row — under the events (they come after it); today's own line
            stands over it. -->
       @if (nowLabel(); as now) {
-        <div
-          class="time-grid__now-track"
-          [style.--top]="now.top"
-          aria-hidden="true"
-        ></div>
+        <div class="time-grid__now-track" [style.--top]="now.top" aria-hidden="true"></div>
       }
       @for (column of columns(); track column.day) {
         <div
@@ -110,6 +107,7 @@
                 type="button"
                 class="time-grid__chip"
                 [calendarEventChip]="one.event"
+                [attr.data-event-id]="one.event.id"
                 shape="block"
                 [untitled]="untitled()"
                 [mark]="one.mark"

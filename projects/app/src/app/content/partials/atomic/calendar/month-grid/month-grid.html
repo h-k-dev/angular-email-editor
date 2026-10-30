@@ -46,6 +46,7 @@
         type="button"
         class="month-grid__chip"
         [calendarEventChip]="chip.event"
+        [attr.data-event-id]="chip.event.id"
         [shape]="chip.shape"
         [untitled]="untitled()"
         [mark]="chip.mark"

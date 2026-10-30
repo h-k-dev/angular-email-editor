@@ -1,29 +1,9 @@
 <!-- One signal form: Save is its submit, so is Enter in the title. -->
 <form class="event-editor" [formRoot]="editor" novalidate>
   <header class="event-editor__bar">
-    <!-- The event's colour: its marker is the menu's trigger — Google's
-         eleven by name, a letter typed goes to the colour it starts
-         (the Aria menu's typeahead). -->
-    <button
-      type="button"
-      class="event-editor__marker"
-      [attr.aria-label]="colorLabel()"
-      [matTooltip]="colorLabel()"
-      ngMenuTrigger
-      #colorTrigger="ngMenuTrigger"
-      [menu]="colorMenu.menu()"
-    >
-      <span class="event-editor__swatch" aria-hidden="true"></span>
-    </button>
-    <div
-      toolbar-menu
-      #colorMenu
-      anchor="selected"
-      [label]="'calendar.color' | translate"
-      [trigger]="colorTrigger"
-      [items]="colors()"
-      (selected)="pickColor($event)"
-    ></div>
+    <!-- The event's colour, the menu to change it (the card that shows
+         the event has the same one). -->
+    <calendar-color-marker [color]="colorId()" (picked)="pickColor($event)" />
     <button
       matIconButton
       type="button"

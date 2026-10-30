@@ -40,7 +40,7 @@ import {
 import { CalendarFormat } from '../../../../../core/calendar/calendar-format';
 import { laneCount, placeInDay, placeInLanes } from '../../../../../core/calendar/calendar-layout';
 import { EventChip } from '../../../shared/calendar/event-chip/event-chip';
-import { DRAG_THRESHOLD, GridCreate, GridOpen, boxOf } from '../calendar-grid';
+import { DRAG_THRESHOLD, GridCreate, GridOpen, GridSlot, boxOf } from '../calendar-grid';
 
 /** An hour's height, px — the one size the grid's minutes are multiplied
     by (set on the host as `--hour`). */
@@ -275,18 +275,38 @@ export class TimeGrid {
   // ─── Pointer ────────────────────────────────────────────────────────
 
   /** The day and minute under the pointer. */
-  #at(event: PointerEvent): { day: number; minute: number } {
+  #at(event: MouseEvent): { day: number; minute: number } {
     const box = this.columnsEl().nativeElement.getBoundingClientRect();
     const count = this.days().length;
     const rtl = getComputedStyle(this.columnsEl().nativeElement).direction === 'rtl';
     const x = rtl ? box.right - event.clientX : event.clientX - box.left;
-    const day = Math.min(count - 1, Math.max(0, Math.floor((x / box.width) * count)));
+    // A grid not laid out (no width) has its pointer on the first day.
+    const across = box.width > 0 ? x / box.width : 0;
+    const day = Math.min(count - 1, Math.max(0, Math.floor(across * count)));
     const minute = Math.min(
       DAY_MINUTES,
       Math.max(0, ((event.clientY - box.top) / HOUR_HEIGHT) * 60),
     );
     return { day, minute };
   }
+
+  /** The slot under a pointer — the quarter of the hours, or the day of
+      the all-day band — for what the page puts there (a paste). */
+  slotAt(event: MouseEvent): GridSlot | null {
+    const target = event.target as Element;
+    const hours = target.closest('.time-grid__day');
+    if (!hours && !target.closest('.time-grid__band')) return null;
+    const { day, minute } = this.#at(event);
+    const quarter = Math.min(DAY_MINUTES - SNAP, Math.floor(minute / SNAP) * SNAP);
+    return { day: this.days()[day], minute: hours ? quarter : null };
+  }
+
+  /** The quarter the pointer rests on, the hover line's — where a key's
+      paste goes. */
+  readonly hoveredSlot = computed<GridSlot | null>(() => {
+    const hover = this.#hover();
+    return hover ? { day: this.days()[hover.day], minute: hover.minute } : null;
+  });
 
   /** The moment at a row's minute on a column's day — by the clock, so a
       press at 7:15 is 7:15 on the day the clocks change too. */
