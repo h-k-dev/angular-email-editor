@@ -37,7 +37,7 @@ import { Paper } from '../../../../core/theme/paper';
     ></iframe>
   `,
   host: {
-    '[attr.data-shrunk]': "scale() < 1 ? '' : null",
+    '[attr.data-shrink]': "shrink() ? '' : null",
     '[style.block-size.px]': 'scale() < 1 ? height() * scale() : null',
   },
   styles: `
@@ -45,15 +45,16 @@ import { Paper } from '../../../../core/theme/paper';
       display: block;
     }
 
-    // Shrunk: the room's width whatever the email's — no width of its own
-    // to give what is round it — and the frame, still the email's width,
-    // drawn down into it from its start.
-    :host([data-shrunk]) {
+    // Asked to shrink: the room's width whatever the email's — no width of
+    // its own to give what is round it, from the first draw on, so the room
+    // it reads is the room it is given — and the frame, still the email's
+    // width, drawn down into it from its start.
+    :host([data-shrink]) {
       contain: inline-size;
       overflow: clip;
     }
 
-    :host([data-shrunk]) .email-viewer__frame {
+    :host([data-shrink]) .email-viewer__frame {
       transform-origin: 0 0;
     }
 
@@ -108,8 +109,8 @@ export class EmailViewer {
       always does). */
   protected readonly width = signal(0);
 
-  /** The room's width, px: the box's own — as wide as it is given, while
-      the email fits or is shrunk. */
+  /** The room's width, px: the box's own — as wide as it is given, asked
+      to shrink (it then takes no width from the email). */
   readonly #room = signal(0);
 
   /** How far the email is drawn down: to the room, where it is asked to

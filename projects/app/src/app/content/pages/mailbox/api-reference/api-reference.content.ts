@@ -605,6 +605,34 @@ export const API_SECTIONS: readonly ApiSection[] = [
     ],
   },
   {
+    id: 'image-sources',
+    title: 'Image sources',
+    intro:
+      'Where an image may come from — the host’s rules, one by one. Without them the editor takes every file (embedded) and every safe address. A transport with no inline parts keeps to linked pictures: `files: false`, `accept` for public addresses, `choose` for its own dialog.',
+    entries: [
+      {
+        id: 'create-image-sources',
+        name: 'createImageSources',
+        signature:
+          '(options: { files?: boolean; choose?: (request) => Promise<ImageChoice | null>; accept?: (src: string) => boolean; onRefused?: (refusal: ImageRefusal) => void }) => FunctionalExtension',
+        summary:
+          'Bytes (`data:`, `blob:`, `file:`, `cid:`) go by `files`; addresses by `accept`. Placeholders and `{{ … }}` tokens always pass.',
+        notes: [
+          'files: false — a dropped or pasted file is refused and bubbles to the host’s dropzone; a picture dragged from a web page comes in by its address',
+          'choose — asked wherever the file picker would open: /image, Replace image, a placeholder’s click',
+          'accept — asked of every address: dropped, pasted, chosen, insertImage; a refused one is left out of a paste',
+          'onRefused — { reason: "file", files } or { reason: "source", src }, once per paste',
+        ],
+      },
+      {
+        id: 'image-source-accepted',
+        name: 'imageSourceAccepted',
+        signature: '(options: ImageSourceOptions, src: string | null) => boolean',
+        summary: 'The rule itself, for a host checking a source of its own (a template’s, say).',
+      },
+    ],
+  },
+  {
     id: 'inline-images',
     title: 'Inline images',
     intro:
@@ -859,7 +887,12 @@ export const API_PAGE_CONTENT: readonly ApiPage[] = [
   {
     id: 'sending',
     title: 'Merge tags & sending',
-    sections: [section('merge-tags'), section('send'), section('inline-images')],
+    sections: [
+      section('merge-tags'),
+      section('send'),
+      section('image-sources'),
+      section('inline-images'),
+    ],
   },
   {
     id: 'safety',

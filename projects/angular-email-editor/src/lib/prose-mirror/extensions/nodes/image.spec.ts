@@ -7,8 +7,13 @@ import {
   Image,
   ImageAttrs,
   PLACEHOLDER_WIDTH,
+  ImageRefusal,
+  ImageSourceOptions,
+  ImageSourceRequest,
   claimedImageFiles,
   createImageDrag,
+  createImageSources,
+  imageSourceAccepted,
   filledPlaceholderAttrs,
   imageDropTarget,
   selectedImage,
@@ -750,5 +755,226 @@ describe('image node', () => {
     expect(roundTrip('<img src="data:image/png;base64,AAAA" alt="ok">')).toContain(
       'data:image/png',
     );
+  });
+});
+
+describe('image sources: the host’s rules', () => {
+  const https = (src: string) => /^https:\/\//i.test(src);
+  const png = new File(['x'], 'a.png', { type: 'image/png' });
+
+  /** jsdom never loads a picture: measuring one fails at once (no width)
+      instead of waiting for a load that never comes. */
+  const measureNothing = () =>
+    vi
+      .spyOn(HTMLImageElement.prototype, 'src', 'set')
+      .mockImplementation(function (this: HTMLImageElement) {
+        queueMicrotask(() => this.onerror?.(new Event('error')));
+      });
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+  const mount = (options: ImageSourceOptions, content = '<div>x</div>') => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const extensions = [...emailExtensions, createImageSources(options)];
+    const editor = createEditor({ parent: host, extensions, content, parseMode: 'repair' });
+    const enabled = (id: string) =>
+      isActionEnabled(
+        extensionActions({ schema: editor.schema, extensions }).find((action) => action.id === id)!,
+        editor.state,
+      );
+    return { editor, enabled, unmount: () => (editor.destroy(), host.remove()) };
+  };
+
+  it('bytes go by files, addresses by accept; placeholders and tokens always pass', () => {
+    const linked: ImageSourceOptions = { files: false, accept: https };
+    expect(imageSourceAccepted({}, 'data:image/png;base64,AAAA')).toBe(true);
+    expect(imageSourceAccepted({}, 'http://example.com/a.png')).toBe(true);
+    expect(imageSourceAccepted(linked, 'https://example.com/a.png')).toBe(true);
+    expect(imageSourceAccepted(linked, 'http://example.com/a.png')).toBe(false);
+    for (const bytes of ['data:image/png;base64,AAAA', 'blob:x', 'file:///a.png', 'cid:part'])
+      expect(imageSourceAccepted(linked, bytes)).toBe(false);
+    expect(imageSourceAccepted({ accept: https }, 'data:image/png;base64,AAAA')).toBe(true);
+    expect(imageSourceAccepted(linked, null)).toBe(true);
+    expect(imageSourceAccepted(linked, '{{ company.logoUrl }}')).toBe(true);
+    expect(imageSourceAccepted({}, 'javascript:alert(1)')).toBe(false);
+  });
+
+  it('a paste keeps only the images the rules take, and says which it dropped', async () => {
+    const refused: ImageRefusal[] = [];
+    const { editor, unmount } = mount({
+      files: false,
+      accept: https,
+      onRefused: (refusal) => refused.push(refusal),
+    });
+    const html =
+      '<div>a<img src="https://example.com/a.png">b<img src="data:image/png;base64,AAAA">' +
+      'c<img src="http://example.com/c.png"><img src="{{ logo }}"></div>';
+    const event = Object.assign(new Event('paste'), {
+      clipboardData: { getData: (type: string) => (type === 'text/html' ? html : ''), types: ['text/html'] },
+    }) as unknown as ClipboardEvent;
+    editor.view.pasteHTML(html, event);
+    const out = editor.getHTML();
+    expect(out).toContain('src="https://example.com/a.png"');
+    expect(out).toContain('src="{{ logo }}"');
+    expect(out).not.toContain('data:image');
+    expect(out).not.toContain('http://example.com/c.png');
+    // Told once the paste is done, each address once.
+    expect(refused).toEqual([]);
+    await settle();
+    expect(refused).toEqual([
+      { reason: 'source', src: 'data:image/png;base64,AAAA' },
+      { reason: 'source', src: 'http://example.com/c.png' },
+    ]);
+    unmount();
+  });
+
+  describe('drops', () => {
+    const drop = (
+      editor: ReturnType<typeof mount>['editor'],
+      files: File[],
+      data: Record<string, string> = {},
+    ) => {
+      const event = {
+        dataTransfer: { files, types: ['Files', ...Object.keys(data)], getData: (type: string) => data[type] ?? '' },
+        preventDefault: vi.fn(),
+        clientX: 0,
+        clientY: 0,
+      } as unknown as DragEvent;
+      const claimed = editor.view.someProp('handleDrop', (f) =>
+        f(editor.view, event, editor.state.doc.slice(0, 0), false),
+      );
+      return {
+        claimed: claimed === true,
+        prevented: (event.preventDefault as ReturnType<typeof vi.fn>).mock.calls.length,
+      };
+    };
+
+    it('without files, a drop from the desktop is turned away and left to bubble', () => {
+      const refused: ImageRefusal[] = [];
+      const { editor, unmount } = mount({ files: false, onRefused: (r) => refused.push(r) });
+      expect(drop(editor, [png])).toEqual({ claimed: false, prevented: 0 });
+      expect(refused).toEqual([{ reason: 'file', files: [png] }]);
+      expect(editor.getHTML()).toBe('<div>x</div>');
+      unmount();
+    });
+
+    it('without files, a picture dragged from a web page comes in by its address', async () => {
+      const measured = measureNothing();
+      const refused: ImageRefusal[] = [];
+      const { editor, unmount } = mount({
+        files: false,
+        accept: https,
+        onRefused: (r) => refused.push(r),
+      });
+      const web = { 'text/html': '<meta charset="utf-8"><img src="https://example.com/cat.png" alt="cat">' };
+      expect(drop(editor, [png], web)).toEqual({ claimed: true, prevented: 1 });
+      await settle();
+      expect(editor.getHTML()).toContain('src="https://example.com/cat.png"');
+      expect(refused).toEqual([]);
+      measured.mockRestore();
+      unmount();
+    });
+
+    it('without files, a web picture the rules turn away is not taken by its address', () => {
+      const { editor, unmount } = mount({ files: false, accept: https });
+      const web = { 'text/uri-list': 'http://example.com/cat.png' };
+      expect(drop(editor, [png], web)).toEqual({ claimed: false, prevented: 0 });
+      unmount();
+    });
+
+    it('with files (the default), an image drop is embedded as ever', () => {
+      const { editor, unmount } = mount({});
+      expect(drop(editor, [png])).toEqual({ claimed: true, prevented: 1 });
+      unmount();
+    });
+  });
+
+  it('a paste of image files alone is turned away; one with HTML beside it pastes the HTML', () => {
+    const refused: ImageRefusal[] = [];
+    const { editor, unmount } = mount({ files: false, onRefused: (r) => refused.push(r) });
+    const paste = (types: string[]) => {
+      const event = { clipboardData: { files: [png], types, getData: () => '' } } as unknown as ClipboardEvent;
+      return editor.view.someProp('handlePaste', (f) => f(editor.view, event, editor.state.doc.slice(0, 0)));
+    };
+    expect(paste(['Files'])).toBeFalsy();
+    expect(refused).toEqual([{ reason: 'file', files: [png] }]);
+    expect(paste(['Files', 'text/html'])).toBeFalsy();
+    expect(refused).toHaveLength(1);
+    unmount();
+  });
+
+  it('without files or a way to choose, /image and Replace image are off; choose turns them on', () => {
+    const off = mount({ files: false }, '<div>a<img src="https://example.com/a.png">b</div>');
+    off.editor.view.dispatch(off.editor.state.tr.setSelection(NodeSelection.create(off.editor.state.doc, 2)));
+    expect(off.enabled('image')).toBe(false);
+    expect(off.enabled('replace-image')).toBe(false);
+    expect(off.enabled('remove-image')).toBe(true);
+    off.unmount();
+
+    const on = mount({ files: false, choose: async () => null }, '<div>a<img src="https://example.com/a.png">b</div>');
+    on.editor.view.dispatch(on.editor.state.tr.setSelection(NodeSelection.create(on.editor.state.doc, 2)));
+    expect(on.enabled('image')).toBe(true);
+    expect(on.enabled('replace-image')).toBe(true);
+    on.unmount();
+  });
+
+  it('choose stands in for the file picker: insert, fill a placeholder, replace — through the rules', async () => {
+    const measured = measureNothing();
+    const picker = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => {});
+    const requests: ImageSourceRequest[] = [];
+    const answers = ['https://example.com/new.png', 'https://example.com/filled.png', 'http://example.com/no.png'];
+    const refused: ImageRefusal[] = [];
+    const { editor, unmount } = mount(
+      {
+        files: false,
+        accept: https,
+        choose: async (request) => {
+          requests.push(request);
+          return { src: answers.shift()!, alt: 'chosen' };
+        },
+        onRefused: (r) => refused.push(r),
+      },
+      '<div>a<img alt="frame" width="320">b</div>',
+    );
+
+    // `/image`: at the caret.
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1)));
+    const actions = extensionActions({ schema: editor.schema, extensions: emailExtensions });
+    actions.find((action) => action.id === 'image')!.command!(editor.state, editor.view.dispatch, editor.view);
+    await settle();
+    expect(editor.getHTML()).toContain('src="https://example.com/new.png"');
+
+    // A click on the placeholder fills it, keeping its frame and its alt.
+    const frame = editor.view.dom.querySelector('.aee-image__placeholder') as HTMLElement;
+    frame.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await settle();
+    expect(editor.getHTML()).toContain('src="https://example.com/filled.png" alt="frame" width="320"');
+
+    // Replace: an address the rules turn away changes nothing, and is told.
+    const before = editor.getHTML();
+    let filledPos = -1;
+    editor.state.doc.descendants((node, pos) => {
+      if (node.attrs['src'] === 'https://example.com/filled.png') filledPos = pos;
+    });
+    editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, filledPos)));
+    actions.find((action) => action.id === 'replace-image')!.command!(editor.state, editor.view.dispatch, editor.view);
+    await settle();
+    expect(editor.getHTML()).toBe(before);
+
+    expect(requests.map((request) => request.kind)).toEqual(['insert', 'fill', 'replace']);
+    expect(requests[1].current).toMatchObject({ alt: 'frame', width: 320 });
+    expect(refused).toEqual([{ reason: 'source', src: 'http://example.com/no.png' }]);
+    expect(picker).not.toHaveBeenCalled();
+    picker.mockRestore();
+    measured.mockRestore();
+    unmount();
+  });
+
+  it('insertImage takes only what the rules take', () => {
+    const { editor, unmount } = mount({ files: false, accept: https });
+    expect(editor.commands['insertImage']({ src: 'http://example.com/a.png' })).toBe(false);
+    expect(editor.commands['insertImage']({ src: 'data:image/png;base64,AAAA' })).toBe(false);
+    expect(editor.commands['insertImage']({ src: 'https://example.com/a.png' })).toBe(true);
+    unmount();
   });
 });

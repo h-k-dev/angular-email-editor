@@ -9,7 +9,7 @@ import {
   Transaction,
 } from 'prosemirror-state';
 import { Decoration, EditorView, NodeView } from 'prosemirror-view';
-import { DOMSerializer, Node, Schema } from 'prosemirror-model';
+import { DOMSerializer, Fragment, Node, Schema, Slice } from 'prosemirror-model';
 import { FunctionalExtension, defineExtension, defineNode } from '../../extension';
 import { isSafeUrl } from '../marks/link';
 import { InlineImageRegistry, inlineImageRegistry } from '../inline-images';
@@ -131,8 +131,20 @@ function isFileDrag(data: DataTransfer | null): boolean {
  * not a file drag are never claimed: the zone's, or nobody's.
  */
 function claimImageDrag(view: EditorView, event: DragEvent): boolean {
-  if (isImageDrag(event.dataTransfer)) imageDragKey.getState(view.state)?.claim?.(event);
+  if (isImageDrag(event.dataTransfer) && takesImageDrag(view.state, event.dataTransfer)) {
+    imageDragKey.getState(view.state)?.claim?.(event);
+  }
   return false;
+}
+
+/** Whether the editor will take an image drag: always where files are
+    taken; where they are not (`createImageSources`), only a drag from a web
+    page — it carries the picture's address beside the file. One from the
+    desktop stays the zone's. */
+function takesImageDrag(state: EditorState, data: DataTransfer | null): boolean {
+  if (filesAllowed(state)) return true;
+  const types = Array.from(data?.types ?? []);
+  return types.includes('text/html') || types.includes('text/uri-list');
 }
 
 /**
@@ -188,6 +200,236 @@ export interface ImageDragOptions {
 /** The host's listener, if one is configured — plugin state, like the
     registry, so the drop line can find it from its view. */
 const imageDragKey = new PluginKey<ImageDragOptions>('imageDrag');
+
+/**
+ * Where an image's source may come from — the host's rules, one by one. By
+ * default the editor takes everything: a dropped, pasted or picked file is
+ * embedded (`readImageFile`), and any safe address may stand in the
+ * document. A host whose transport carries no embedded images keeps to
+ * linked ones:
+ *
+ *     createImageSources({
+ *       files: false,
+ *       accept: (src) => /^https:\/\//i.test(src),
+ *       choose: () => askForImageAddress(), // the host's own dialog
+ *       onRefused: () => toast('Only linked images can be sent'),
+ *     })
+ *
+ * Bytes and addresses are two rules: a source that carries a file's bytes
+ * (`data:`, `blob:`, `file:`, `cid:`) is a file, and `files` decides it; any
+ * other is an address, and `accept` does. An empty source (a placeholder)
+ * and a pending token (`{{ … }}`) are no picture yet: they always pass.
+ */
+export interface ImageSourceOptions {
+  /**
+   * Local files — dropped, pasted, picked — become images. On by default.
+   * Off, no file is ever read: a drop or paste of image files is turned
+   * away (`onRefused`) and left to bubble, so a dropzone round the editor
+   * still attaches it; the file picker never opens; a pasted `data:` image
+   * is dropped. A picture dragged from a web page still comes in — by its
+   * address, through `accept`.
+   */
+  files?: boolean;
+  /**
+   * Asked for a source wherever the editor would open the file picker —
+   * `/image`, Replace image, a click on a placeholder. Resolves with the
+   * picture (its address, and its alt if it has one), or null for nothing.
+   * Given, the file picker never opens, files or not. Without it and
+   * without files, those ways in are off.
+   */
+  choose?: (request: ImageSourceRequest) => Promise<ImageChoice | null>;
+  /**
+   * Whether an address may stand in the document — public `https:` only,
+   * say. Asked of every address that comes in: dragged from a web page,
+   * pasted, chosen, `insertImage`. One it turns away is not inserted
+   * (pasted, it is dropped from what is pasted). Default: every safe one.
+   */
+  accept?: (src: string) => boolean;
+  /** An image the rules turned away: files, or an address. */
+  onRefused?: (refusal: ImageRefusal) => void;
+}
+
+/** What the editor asks `choose` for. */
+export interface ImageSourceRequest {
+  /** `insert`: `/image`. `replace`: Replace image, on the selected one.
+      `fill`: a click on a placeholder — an empty frame, or a token's. */
+  readonly kind: 'insert' | 'replace' | 'fill';
+  /** The image replaced or filled; null for an insert. */
+  readonly current: ImageAttrs | null;
+}
+
+/** The picture `choose` gives back. */
+export interface ImageChoice {
+  readonly src: string;
+  readonly alt?: string | null;
+}
+
+export type ImageRefusal =
+  | { readonly reason: 'file'; readonly files: readonly File[] }
+  | { readonly reason: 'source'; readonly src: string };
+
+/** The host's rules, as plugin state — the image node reads them from its
+    view, as it reads the drag options. */
+const imageSourcesKey = new PluginKey<ImageSourceOptions>('imageSources');
+
+/** Installs the host's image rules ({@link ImageSourceOptions}). Without it
+    the editor takes every file and every safe address. */
+export const createImageSources = (options: ImageSourceOptions): FunctionalExtension =>
+  defineExtension({
+    name: 'imageSources',
+    plugins: () => [
+      new Plugin<ImageSourceOptions>({
+        key: imageSourcesKey,
+        state: { init: () => options, apply: (_tr, value) => value },
+        props: {
+          // What is pasted — or dropped as HTML — keeps only the images the
+          // rules take.
+          transformPasted: (slice) => keepAcceptedImages(slice, options),
+        },
+      }),
+    ],
+  });
+
+function imageSources(state: EditorState): ImageSourceOptions {
+  return imageSourcesKey.getState(state) ?? {};
+}
+
+function filesAllowed(state: EditorState): boolean {
+  return imageSources(state).files !== false;
+}
+
+/** A way to choose a picture: the host's `choose`, or the file picker. */
+function canChooseImage(state: EditorState): boolean {
+  return !!imageSources(state).choose || filesAllowed(state);
+}
+
+/** A source carrying a file's bytes, not an address. */
+const BYTES = /^\s*(?:data|blob|file|cid):/i;
+
+/** Whether `src` may stand in the document under `options`: bytes by
+    `files`, an address by `accept` (and never an unsafe one); an empty
+    source and a pending token always. */
+export function imageSourceAccepted(
+  options: ImageSourceOptions,
+  src: string | null | undefined,
+): boolean {
+  if (!src?.trim() || pendingImageSource(src)) return true;
+  if (!isSafeUrl(src)) return false;
+  if (BYTES.test(src)) return options.files !== false;
+  return options.accept?.(src.trim()) ?? true;
+}
+
+/** The addresses a paste turned away, told once the paste is done: one
+    paste can pass the rules twice (ProseMirror's parse, then the editor's
+    own — `PasteHygiene`), and the host hears each address once. */
+const refusedSources = new WeakMap<ImageSourceOptions, Set<string>>();
+
+function refuseSource(options: ImageSourceOptions, src: string): void {
+  let pending = refusedSources.get(options);
+  if (!pending) {
+    pending = new Set();
+    refusedSources.set(options, pending);
+    queueMicrotask(() => {
+      refusedSources.delete(options);
+      for (const refused of pending!) options.onRefused?.({ reason: 'source', src: refused });
+    });
+  }
+  pending.add(src);
+}
+
+/** `slice` without the images `options` turn away — each told once. */
+function keepAcceptedImages(slice: Slice, options: ImageSourceOptions): Slice {
+  let dropped = false;
+  const keep = (fragment: Fragment): Fragment => {
+    const nodes: Node[] = [];
+    fragment.forEach((node) => {
+      const src = node.type.name === 'image' ? (node.attrs['src'] as string | null) : null;
+      if (src && !imageSourceAccepted(options, src)) {
+        dropped = true;
+        refuseSource(options, src);
+      } else nodes.push(node.isLeaf ? node : node.copy(keep(node.content)));
+    });
+    return Fragment.fromArray(nodes);
+  };
+  const content = keep(slice.content);
+  return dropped ? new Slice(content, slice.openStart, slice.openEnd) : slice;
+}
+
+/** The picture a drag from a web page carries: the `<img>` its HTML holds,
+    else the first address of its URI list. Null for one from the desktop. */
+function webImageSource(data: DataTransfer | null): string | null {
+  const html = data?.getData('text/html');
+  if (html) {
+    const src = new DOMParser()
+      .parseFromString(html, 'text/html')
+      .querySelector('img')
+      ?.getAttribute('src');
+    if (src?.trim()) return src.trim();
+  }
+  const uri = (data?.getData('text/uri-list') ?? '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => line && !line.startsWith('#'));
+  return uri || null;
+}
+
+/**
+ * A drop of image files under rules that take no files. Dragged from a web
+ * page, the picture comes in by its address — where the rules take it; one
+ * they do not is left to the HTML paste, which drops it and says so. From
+ * the desktop, the files are turned away and the drop left to bubble: a
+ * dropzone round the editor attaches them.
+ */
+function dropLinkedImage(
+  view: EditorView,
+  event: DragEvent,
+  files: File[],
+  schema: Schema,
+): boolean {
+  const options = imageSources(view.state);
+  const src = webImageSource(event.dataTransfer);
+  if (!src) {
+    options.onRefused?.({ reason: 'file', files });
+    return false;
+  }
+  if (!imageSourceAccepted(options, src)) return false;
+  event.preventDefault();
+  imageDragKey.getState(view.state)?.claim?.(event);
+  void naturalWidth(src).then((width) =>
+    insertImageAttrs(view, schema, { src, alt: null, width }, imageDropTarget(view).pos),
+  );
+  return true;
+}
+
+/**
+ * The pictures to put in, chosen: by the host's `choose` where it has one —
+ * through the rules, measured — else from the file picker where files are
+ * taken; else none. A picker the user cancels never resolves (the browser
+ * does not tell).
+ */
+async function chooseImages(
+  view: EditorView,
+  request: ImageSourceRequest,
+  multiple: boolean,
+): Promise<ImageAttrs[]> {
+  const options = imageSources(view.state);
+  if (options.choose) {
+    const choice = await options.choose(request);
+    const src = choice?.src.trim();
+    if (!src || view.isDestroyed) return [];
+    if (!imageSourceAccepted(options, src)) {
+      options.onRefused?.({ reason: 'source', src });
+      return [];
+    }
+    return [{ src, alt: choice?.alt ?? null, width: await naturalWidth(src) }];
+  }
+  if (options.files === false) return [];
+  const files = await pickImageFiles(multiple);
+  const registry = inlineImageRegistry(view.state);
+  const picked: ImageAttrs[] = [];
+  for (const file of files) picked.push(await readImageFile(file, registry));
+  return picked;
+}
 
 export interface ImageDropTarget {
   /** The caret — the image is inserted inline where the cursor sits (Gmail's
@@ -315,18 +557,24 @@ async function insertImageFiles(
   for (const file of files) {
     const attrs = await readImageFile(file, inlineImageRegistry(view.state));
     if (view.isDestroyed) return;
-    // Fitted to its line with room for the caret to its right (`CARET_ROOM`):
-    // a full-width image would push the caret's spot to the next line.
-    const width = fitImageWidth(attrs.width, lineCeilingAt(view, pos));
-    const node = schema.nodes['image'].create({ ...attrs, width });
-    const tr = view.state.tr.insert(Math.min(pos, view.state.doc.content.size), node);
-    // A tall image can push the caret below the fold; bring it back the same
-    // way `insertImage` does, so a drop is not a caret that vanished.
-    view.dispatch(tr.scrollIntoView());
-    // Past whatever was inserted: at a block boundary the transform wraps the
-    // inline image into a line of its own, so the growth is not the node's size.
-    pos = tr.mapping.map(pos);
+    pos = insertImageAttrs(view, schema, attrs, pos);
   }
+}
+
+/** Puts one image in at `pos` and answers the position past it. */
+function insertImageAttrs(view: EditorView, schema: Schema, attrs: ImageAttrs, pos: number): number {
+  if (view.isDestroyed) return pos;
+  // Fitted to its line with room for the caret to its right (`CARET_ROOM`):
+  // a full-width image would push the caret's spot to the next line.
+  const width = fitImageWidth(attrs.width ?? null, lineCeilingAt(view, pos));
+  const node = schema.nodes['image'].create({ ...attrs, width });
+  const tr = view.state.tr.insert(Math.min(pos, view.state.doc.content.size), node);
+  // A tall image can push the caret below the fold; bring it back the same
+  // way `insertImage` does, so a drop is not a caret that vanished.
+  view.dispatch(tr.scrollIntoView());
+  // Past whatever was inserted: at a block boundary the transform wraps the
+  // inline image into a line of its own, so the growth is not the node's size.
+  return tr.mapping.map(pos);
 }
 
 /** Opens the OS file picker for images and resolves with the choice (a
@@ -407,13 +655,13 @@ function isWindows(): boolean {
   return /win/i.test(platform);
 }
 
-/** Opens the OS file picker and inserts the chosen image(s) at the cursor —
-    the slash-menu path, mirroring what drop and paste already do. */
+/** Chooses images — the host's way, or the OS file picker — and inserts
+    them at the cursor: the slash-menu path, mirroring what drop and paste
+    already do. */
 function pickAndInsertImages(view: EditorView, schema: Schema): void {
-  void pickImageFiles(true).then((files) => {
-    if (files.length && !view.isDestroyed) {
-      void insertImageFiles(view, schema, files, view.state.selection.from);
-    }
+  void chooseImages(view, { kind: 'insert', current: null }, true).then((images) => {
+    let pos = view.state.selection.from;
+    for (const attrs of images) pos = insertImageAttrs(view, schema, attrs, pos);
   });
 }
 
@@ -661,9 +909,10 @@ class ImageView implements NodeView {
     const src = this.node.attrs['src'] as string | null;
     if ((src && !pendingImageSource(src)) || this.resized) return;
     if ((event.target as Element | null)?.closest?.('.aee-image__pad')) return;
-    void pickImageFiles(false).then(async ([file]) => {
-      if (!file || this.view.isDestroyed) return;
-      const picked = await readImageFile(file, inlineImageRegistry(this.view.state));
+    if (!canChooseImage(this.view.state)) return;
+    const current = this.node.attrs as ImageAttrs;
+    void chooseImages(this.view, { kind: 'fill', current }, false).then(([picked]) => {
+      if (!picked || this.view.isDestroyed) return;
       const pos = this.getPos();
       if (pos === undefined || this.view.isDestroyed) return;
       const attrs = filledPlaceholderAttrs(this.node.attrs as ImageAttrs, picked);
@@ -781,9 +1030,9 @@ const removeImage: Command = (state, dispatch) => {
 function replaceSelectedImage(view: EditorView): void {
   const image = selectedImage(view.state);
   if (!image) return;
-  void pickImageFiles(false).then(async ([file]) => {
-    if (!file || view.isDestroyed) return;
-    const picked = await readImageFile(file, inlineImageRegistry(view.state));
+  const current = image.node.attrs as ImageAttrs;
+  void chooseImages(view, { kind: 'replace', current }, false).then(([picked]) => {
+    if (!picked || view.isDestroyed) return;
     const { state } = view;
     if (view.isDestroyed || state.doc.nodeAt(image.pos) !== image.node) return;
     const tr = state.tr.setNodeMarkup(image.pos, undefined, {
@@ -810,7 +1059,9 @@ function replaceSelectedImage(view: EditorView): void {
  * data-URL images — what a browser editor can hold on its own; the send
  * intent promotes them to `cid:` parts (`promoteInlineImages`), and the
  * source pane lints them until then. Which drops the editor claims at all
- * is {@link claimedImageFiles}: all images, or none.
+ * is {@link claimedImageFiles}: all images, or none. What it takes — files,
+ * which addresses, how a picture is chosen — is the host's
+ * ({@link createImageSources}).
  */
 export const Image = defineNode({
   name: 'image',
@@ -862,7 +1113,7 @@ export const Image = defineNode({
   },
   commands: ({ schema }) => ({
     insertImage: (attrs: ImageAttrs) => (state, dispatch) => {
-      if (attrs.src && !isSafeUrl(attrs.src)) return false;
+      if (attrs.src && !imageSourceAccepted(imageSources(state), attrs.src)) return false;
       dispatch?.(
         state.tr.replaceSelectionWith(schema.nodes['image'].create(attrs)).scrollIntoView(),
       );
@@ -878,7 +1129,10 @@ export const Image = defineNode({
       title: 'Image',
       keywords: ['image', 'picture', 'photo', 'img'],
       icon: 'image',
-      command: (_state, _dispatch, view) => {
+      // A way to choose one: the host's, or files (`createImageSources`).
+      isEnabled: canChooseImage,
+      command: (state, _dispatch, view) => {
+        if (!canChooseImage(state)) return false;
         if (view) pickAndInsertImages(view, schema);
         return true;
       },
@@ -907,9 +1161,9 @@ export const Image = defineNode({
       title: 'Replace image',
       keywords: ['replace', 'image', 'swap', 'change'],
       icon: 'swap_horiz',
-      isEnabled: (state) => !!selectedImage(state),
+      isEnabled: (state) => !!selectedImage(state) && canChooseImage(state),
       command: (state, _dispatch, view) => {
-        if (!selectedImage(state)) return false;
+        if (!selectedImage(state) || !canChooseImage(state)) return false;
         if (view) replaceSelectedImage(view);
         return true;
       },
@@ -935,6 +1189,7 @@ export const Image = defineNode({
         handleDrop(view, event) {
           const files = imageFiles(event.dataTransfer);
           if (!files.length) return false;
+          if (!filesAllowed(view.state)) return dropLinkedImage(view, event, files, schema);
           event.preventDefault();
           imageDragKey.getState(view.state)?.claim?.(event);
           void insertImageFiles(view, schema, files, imageDropTarget(view).pos);
@@ -943,6 +1198,14 @@ export const Image = defineNode({
         handlePaste(view, event) {
           const files = imageFiles(event.clipboardData);
           if (!files.length) return false;
+          if (!filesAllowed(view.state)) {
+            // The HTML beside them, if any — a picture copied from a web
+            // page — pastes as ever, its images through the rules; files
+            // alone are turned away.
+            const html = Array.from(event.clipboardData?.types ?? []).includes('text/html');
+            if (!html) imageSources(view.state).onRefused?.({ reason: 'file', files });
+            return false;
+          }
           void insertImageFiles(view, schema, files, view.state.selection.from);
           return true;
         },

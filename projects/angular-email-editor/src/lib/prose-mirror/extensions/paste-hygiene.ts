@@ -1,5 +1,6 @@
 import { Slice } from 'prosemirror-model';
 import { EditorState, Plugin, PluginKey, Selection } from 'prosemirror-state';
+import { EditorView } from 'prosemirror-view';
 import { defineExtension } from '../extension';
 import { parseHTML } from '../html';
 import { createDOMParser } from '../preserve';
@@ -57,6 +58,15 @@ function takesWholeDocument(state: EditorState): boolean {
   return selection.from <= Selection.atStart(doc).from && selection.to >= Selection.atEnd(doc).to;
 }
 
+/** What every paste goes through, parsed here or not: the plugins'
+    `transformPasted` (a pasted button made bare, the host's image rules). */
+function pasted(view: EditorView, slice: Slice): Slice {
+  view.someProp('transformPasted', (transform) => {
+    slice = transform(slice, view, false);
+  });
+  return slice;
+}
+
 /**
  * Pasted HTML reads as the editor's content does — `parseHTML` in the
  * editor's own mode — so an email pasted in is the email loaded: kept as
@@ -86,9 +96,9 @@ export const PasteHygiene = defineExtension({
           const tr =
             layout && takesWholeDocument(state)
               ? state.tr
-                  .replaceWith(0, state.doc.content.size, doc.content)
+                  .replaceWith(0, state.doc.content.size, pasted(view, new Slice(doc.content, 0, 0)).content)
                   .setDocAttribute('pageLayout', layout)
-              : state.tr.replaceSelection(Slice.maxOpen(doc.content));
+              : state.tr.replaceSelection(pasted(view, Slice.maxOpen(doc.content)));
           view.dispatch(tr.scrollIntoView().setMeta('paste', true).setMeta('uiEvent', 'paste'));
           return true;
         },
