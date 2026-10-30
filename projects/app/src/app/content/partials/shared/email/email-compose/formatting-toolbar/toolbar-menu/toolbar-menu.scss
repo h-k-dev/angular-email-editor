@@ -9,19 +9,30 @@
 // rows and hairline, which this dropdown and the table grips' menu both wear.
 .toolbar-menu {
   @include menu.panel;
+
+  &[data-surface='glass'] {
+    @include menu.glass;
+  }
 }
 
 @include menu.motion;
 
 .toolbar-menu__item {
   @include menu.item;
+
+  // A link item reads as every other.
+  &:is(a) {
+    color: inherit;
+    text-decoration: none;
+  }
 }
 
 // Opened by the pointer, the checked row is where the keyboard would start
 // — not a place anyone has reached: no wash until a key moves (the menu
 // says `keyboard` then) or the pointer comes over it. A choice is its
 // tick alone.
-.toolbar-menu:not([data-modality='keyboard']) .toolbar-menu__item[aria-checked='true']:not(:hover) {
+.toolbar-menu:not([data-modality='keyboard'])
+  .toolbar-menu__item:is([aria-checked='true'], [aria-current='page']):not(:hover) {
   background-color: transparent;
 }
 

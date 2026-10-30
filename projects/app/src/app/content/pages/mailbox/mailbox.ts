@@ -7,16 +7,23 @@ import { MatIcon } from '@angular/material/icon';
 import { NgTemplateOutlet } from '@angular/common';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet, isActive } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
+import { MenuTrigger } from '@angular/aria/menu';
 
 import { ComposeWindows } from '../../../core/email/compose-windows';
 import { ReceivedMail } from '../../../core/email/mailbox/received-mail';
 import { Preferences } from '../../../core/storages/preferences';
+import { I18n } from '../../../core/translations/i18n';
 import { MailboxAside } from '../../partials/atomic/mailbox/mailbox-aside';
 import { MailboxOpener } from '../../partials/atomic/mailbox/mailbox-opener';
 import { LanguageMenu } from '../../partials/common/language-menu/language-menu';
 import { PAGE_HEADER_LEAD } from '../../partials/common/page-header/page-header';
 import { ThemeToggle } from '../../partials/common/theme-toggle/theme-toggle';
+import { HoverCard } from '../../partials/common/hover-card/hover-card';
 import { DocPageLink } from '../../partials/common/doc-page/doc';
+import {
+  ToolbarMenu,
+  ToolbarMenuItem,
+} from '../../partials/shared/email/email-compose/formatting-toolbar/toolbar-menu/toolbar-menu';
 import { API_PAGES } from './api-reference/api-pages';
 import { COMPONENT_PAGES, UTILITY_PAGES } from './components/component-pages';
 import { STYLING_PAGES } from './styling/styling-pages';
@@ -42,6 +49,9 @@ interface MailboxGroup {
   readonly icon: string;
   readonly key: string;
   readonly links: readonly MailboxLink[];
+  /** Its places as the rail's menu has them: links under the group's
+      name, each with its icon, the one you are in ticked. */
+  readonly menu: Signal<ToolbarMenuItem<string>[]>;
   /** Whether its places show — kept across reloads. */
   readonly open: WritableSignal<boolean>;
   /** Whether the place you are in is one of its own. */
@@ -95,6 +105,9 @@ const pageLinks = (base: string, pages: readonly DocPageLink[]): MailboxLink[] =
     RouterOutlet,
     LanguageMenu,
     ThemeToggle,
+    MenuTrigger,
+    ToolbarMenu,
+    HoverCard,
   ],
   templateUrl: './mailbox.html',
   styleUrl: './mailbox.scss',
@@ -114,6 +127,12 @@ export class Mailbox {
   /** The inbox's unread, as it goes down. */
   readonly #unread = computed(() => this.#mailbox.unread().size);
   readonly #aside = inject(MailboxAside);
+
+  /** A rail icon's name, in a hover card beside it: after the pointer has
+      rested a moment (a pass over the rail shows nothing), gone the moment
+      it leaves — there is nothing in it to reach. Along the rail, the next
+      comes at once (`HoverCards.warm`). */
+  protected readonly railName = { show: 400, hide: 0 } as const;
 
   /** Whether the aside is the rail (`MailboxAside`). */
   readonly collapsed = this.#aside.collapsed;
@@ -158,9 +177,27 @@ export class Mailbox {
 
   readonly #preferences = inject(Preferences);
   readonly #router = inject(Router);
+  readonly #i18n = inject(I18n);
+
+  /** A group's pages as the rail's menu has them (`MailboxGroup.menu`). */
+  #menu(key: string, links: readonly MailboxLink[]): Signal<ToolbarMenuItem<string>[]> {
+    const active = links.map((link) => isActive(link.path, this.#router));
+    return computed(() =>
+      links.map((link, i) => ({
+        value: link.path,
+        label: this.#i18n.t(link.key),
+        icon: link.icon,
+        link: link.path,
+        current: active[i](),
+        section: i === 0 ? this.#i18n.t(key) : undefined,
+      })),
+    );
+  }
 
   /** The components and the utilities share `/components/…`: each group
       is lit by its own pages, not by the path they share. */
+  readonly #apiLinks = pageLinks('api', API_PAGES);
+  readonly #stylingLinks = pageLinks('styling', STYLING_PAGES);
   readonly #componentLinks = pageLinks('components', COMPONENT_PAGES);
   readonly #utilityLinks = pageLinks('components', UTILITY_PAGES);
   #anyActive(links: readonly MailboxLink[]): Signal<boolean> {
@@ -216,7 +253,8 @@ export class Mailbox {
           key: 'app.nav.api',
           open: this.#preferences.asideApiOpen,
           current: isActive('/api', this.#router),
-          links: pageLinks('api', API_PAGES),
+          links: this.#apiLinks,
+          menu: this.#menu('app.nav.api', this.#apiLinks),
         },
         {
           kind: 'group',
@@ -225,7 +263,8 @@ export class Mailbox {
           key: 'app.nav.styling',
           open: this.#preferences.asideStylingOpen,
           current: isActive('/styling', this.#router),
-          links: pageLinks('styling', STYLING_PAGES),
+          links: this.#stylingLinks,
+          menu: this.#menu('app.nav.styling', this.#stylingLinks),
         },
         {
           kind: 'group',
@@ -235,6 +274,7 @@ export class Mailbox {
           open: this.#preferences.asideComponentsOpen,
           current: this.#anyActive(this.#componentLinks),
           links: this.#componentLinks,
+          menu: this.#menu('app.nav.components', this.#componentLinks),
         },
         {
           kind: 'group',
@@ -244,6 +284,7 @@ export class Mailbox {
           open: this.#preferences.asideUtilitiesOpen,
           current: this.#anyActive(this.#utilityLinks),
           links: this.#utilityLinks,
+          menu: this.#menu('app.nav.utilities', this.#utilityLinks),
         },
         { kind: 'link', path: '/render', icon: 'compare', key: 'app.nav.render' },
       ],

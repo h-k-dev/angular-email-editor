@@ -49,6 +49,11 @@ export const HOVER_CARD_DEFAULT_OPTIONS = new InjectionToken<HoverCardDefaultOpt
 /** The gap between trigger and card, px. */
 const GAP = 4;
 
+/** How long after a card has gone the next still comes at once, ms — the
+    pointer sliding from one trigger to its neighbour (down a rail) waits
+    once, not at every stop. */
+const WARM = 300;
+
 /** A card the service shows. */
 export interface HoverCardOpen {
   /** Whom the card belongs to, from {@link HoverCards.open}. */
@@ -74,6 +79,14 @@ export class HoverCards {
   readonly #injector = inject(Injector);
   readonly #dir = inject(Directionality, { optional: true });
   #current: (HoverCardOpen & { ref: OverlayRef }) | null = null;
+  /** When the last card went, by `performance.now()`. */
+  #lastGone = -Infinity;
+
+  /** Whether a card is up or has just gone: the next comes at once, and
+      without its entrance — it takes the place of the last. */
+  warm(): boolean {
+    return !!this.#current || performance.now() - this.#lastGone < WARM;
+  }
 
   /** Shows `content` beside `origin`; `closed` is called once it has gone,
       for whatever reason (closed, another card, a scroll, Escape). */
@@ -83,6 +96,7 @@ export class HoverCards {
     content: TemplatePortal,
     options: { position: HoverCardPosition; panelClass?: string | string[]; closed: () => void },
   ): HoverCardOpen {
+    const warm = this.warm();
     this.#current?.close();
     const rtl = this.#dir?.value === 'rtl';
     const ref = createOverlayRef(this.#injector, {
@@ -91,7 +105,11 @@ export class HoverCards {
         .withFlexibleDimensions(false)
         .withViewportMargin(8),
       scrollStrategy: createCloseScrollStrategy(this.#injector),
-      panelClass: ['hover-card', 'motion-enter', ...[options.panelClass ?? []].flat()],
+      panelClass: [
+        'hover-card',
+        ...(warm ? [] : ['motion-enter']),
+        ...[options.panelClass ?? []].flat(),
+      ],
     });
     ref.attach(content);
 
@@ -100,6 +118,7 @@ export class HoverCards {
       if (gone) return;
       gone = true;
       if (this.#current === card) this.#current = null;
+      this.#lastGone = performance.now();
       ref.dispose();
       options.closed();
     };
@@ -110,9 +129,11 @@ export class HoverCards {
       close: () => {
         if (gone || this.#current !== card) return done();
         this.#current = null;
+        this.#lastGone = performance.now();
         // It leaves as every card does (styles/_motion.scss), then goes.
         const pane = ref.overlayElement;
-        pane.classList.replace('motion-enter', 'motion-leave');
+        pane.classList.remove('motion-enter');
+        pane.classList.add('motion-leave');
         pane.addEventListener('animationend', done, { once: true });
         setTimeout(done, 200);
       },
@@ -189,7 +210,9 @@ function positionsFor(position: HoverCardPosition, rtl: boolean): ConnectedPosit
  * on the host shows the template beside it after `hoverCardShowDelay`; it
  * stays while the pointer is on the host or in the card, and goes
  * `hoverCardHideDelay` after it has left both (time to cross into it).
- * Escape, a scroll or another card take it at once.
+ * Escape, a scroll or another card take it at once. Right after another
+ * card (up, or just gone), it comes at once: the pointer sliding along a
+ * row of triggers waits once (`HoverCards.warm`).
  *
  *     <input [hoverCard]="place" hoverCardPosition="below" [hoverCardDisabled]="!typing()" />
  *     <ng-template #place><a href="…">Open in Google Maps</a></ng-template>
@@ -242,7 +265,11 @@ export class HoverCard {
   );
   /** …after the wait: the show delay in, the hide delay out. */
   readonly #settled = debounced(this.#wanted, (wanted) => {
-    const wait = wanted ? this.hoverCardShowDelay() : this.hoverCardHideDelay();
+    const wait = wanted
+      ? this.#cards.warm()
+        ? 0
+        : this.hoverCardShowDelay()
+      : this.hoverCardHideDelay();
     return wait > 0 ? new Promise<void>((resolve) => setTimeout(resolve, wait)) : undefined;
   });
 

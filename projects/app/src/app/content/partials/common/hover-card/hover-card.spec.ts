@@ -17,13 +17,16 @@ import { HoverCard, HoverCards } from './hover-card';
     >
       One
     </button>
-    <button type="button" class="two" [hoverCard]="other" hoverCardShowDelay="0">Two</button>
+    <button type="button" class="two" [hoverCard]="other" [hoverCardShowDelay]="twoDelay">
+      Two
+    </button>
     <ng-template #card><a class="card-link" href="#">Open</a></ng-template>
     <ng-template #other><p class="other">Other</p></ng-template>
   `,
 })
 class Host {
   readonly off = signal(false);
+  twoDelay = 0;
 }
 
 describe('HoverCard', () => {
@@ -66,7 +69,7 @@ describe('HoverCard', () => {
 
     await point(card, 'pointerenter');
     await point(one, 'pointerleave');
-    expect(card.classList).toContain('motion-enter');
+    expect(card.classList).not.toContain('motion-leave');
 
     await point(card, 'pointerleave');
     expect(card.classList).toContain('motion-leave');
@@ -91,9 +94,23 @@ describe('HoverCard', () => {
     const { one, two, point } = await start();
     await point(one, 'pointerenter');
     await point(two, 'pointerenter');
-    const panes = document.querySelectorAll('.cdk-overlay-pane.hover-card.motion-enter');
+    const panes = document.querySelectorAll('.cdk-overlay-pane.hover-card:not(.motion-leave)');
     expect(panes.length).toBe(1);
     expect(panes[0].querySelector('.other')).not.toBeNull();
+  });
+
+  it('comes at once right after another: sliding along a row waits once', async () => {
+    const { fixture, one, two, point, pane } = await start();
+    fixture.componentInstance.twoDelay = 60_000;
+    fixture.changeDetectorRef.markForCheck();
+    await point(one, 'pointerenter');
+    await point(one, 'pointerleave');
+    await point(two, 'pointerenter');
+    const up = [...document.querySelectorAll('.cdk-overlay-pane.hover-card:not(.motion-leave)')];
+    expect(up.map((card) => card.textContent?.trim())).toEqual(['Other']);
+    // Taking the last one's place, it has no entrance of its own.
+    expect(up[0].classList).not.toContain('motion-enter');
+    expect(pane()).not.toBeNull();
   });
 
   it('does not come for touch — a tap is no hover', async () => {

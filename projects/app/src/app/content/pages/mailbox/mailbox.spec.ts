@@ -1,6 +1,6 @@
 import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 
 import { ComposeWindows } from '../../../core/email/compose-windows';
@@ -106,7 +106,7 @@ describe('Mailbox', () => {
       expect(link('Theming').getAttribute('href')).toBe('/styling/theming');
     });
 
-    it('folds a reference behind its row, and shows every page on the rail', async () => {
+    it('folds a reference behind its row', async () => {
       const api = group('API');
       const pages = root.querySelector<HTMLElement>('#' + api.getAttribute('aria-controls'))!;
       expect(api.getAttribute('aria-expanded')).toBe('true');
@@ -116,16 +116,41 @@ describe('Mailbox', () => {
       expect(api.getAttribute('aria-expanded')).toBe('false');
       expect(pages.hidden).toBe(true);
 
-      // The rail has no rows to unfold with: every place shows.
-      toggle().click();
-      await harness.fixture.whenStable();
-      expect(pages.hidden).toBe(false);
-      toggle().click();
-      await harness.fixture.whenStable();
-
       api.click();
       await harness.fixture.whenStable();
       expect(pages.hidden).toBe(false);
+    });
+
+    it('keeps the rail to a few icons: a group is its icon, its pages a menu beside it', async () => {
+      toggle().click();
+      await harness.fixture.whenStable();
+      // No page of a group stands on the rail…
+      expect(root.querySelector('.mailbox-group__links')).toBeNull();
+      const api = root.querySelector<HTMLButtonElement>(
+        '.mailbox-group__toggle[aria-label="API"]',
+      )!;
+      expect(api.getAttribute('aria-haspopup')).toBe('true');
+
+      // …its icon opens them, under the group's name, each a link.
+      api.click();
+      await harness.fixture.whenStable();
+      const menu = document.querySelector<HTMLElement>('.toolbar-menu[data-surface="glass"]')!;
+      expect(menu.getAttribute('aria-label')).toBe('API');
+      expect(menu.querySelector('.toolbar-menu__section')?.textContent?.trim()).toBe('API');
+      const addresses = [...menu.querySelectorAll<HTMLAnchorElement>('a[role="menuitem"]')].find(
+        (item) => item.textContent?.includes('Addresses'),
+      )!;
+      expect(addresses.getAttribute('href')).toBe('/api/addresses');
+      expect(menu.querySelector('[aria-current="page"]')).toBeNull();
+
+      // Picking one goes there — and there, the menu says so.
+      addresses.click();
+      await harness.fixture.whenStable();
+      expect(TestBed.inject(Router).url).toBe('/api/addresses');
+      api.click();
+      await harness.fixture.whenStable();
+      const reopened = document.querySelector<HTMLElement>('.toolbar-menu[data-surface="glass"]')!;
+      expect(reopened.querySelector('[aria-current="page"]')?.textContent).toContain('Addresses');
     });
 
     it('marks a folded group that holds the place you are in', async () => {

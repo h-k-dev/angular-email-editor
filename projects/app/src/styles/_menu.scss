@@ -35,6 +35,25 @@ $active-wash: var(
 /// rows out in a line, because that is what it told assistive tech it does.
 /// A little air between rows (`--email-suggestion-menu-item-spacing`, the
 /// suggestion menu's own), so two lit rows never run into one.
+/// A panel of glass, hongknop's nav flyout: the surface it would be, see-
+/// through toward the page's ground across it, the page under it blurred,
+/// and a hairline round it — a menu that floats over the page rather than
+/// a card laid on it. Worn over `panel`; without backdrop blur, the panel
+/// stays solid.
+@mixin glass {
+  border: 1px solid oklch(from var(--mat-sys-outline-variant) l c h / 0.85);
+
+  @supports (backdrop-filter: blur(1px)) {
+    background-color: transparent;
+    background-image: linear-gradient(
+      135deg,
+      oklch(from var(--mat-sys-surface-container) l c h / 0.92) 0%,
+      oklch(from var(--mat-sys-background) l c h / 0.65) 100%
+    );
+    backdrop-filter: blur(12px);
+  }
+}
+
 @mixin panel {
   display: flex;
   flex-direction: column;
@@ -147,12 +166,12 @@ $active-wash: var(
   // its focus in itself on opening would otherwise wear one the pointer
   // never asked for.
   &:where(
-      :hover,
-      :focus-visible,
-      [aria-current='true'],
-      [aria-expanded='true'],
-      [data-active='true']
-    ) {
+    :hover,
+    :focus-visible,
+    [aria-current='true'],
+    [aria-expanded='true'],
+    [data-active='true']
+  ) {
     background-color: var(--email-suggestion-menu-item-hover-background, #{$active-wash});
   }
 

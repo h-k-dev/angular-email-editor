@@ -222,7 +222,12 @@
   opacity: 0;
 
   // A run's heading and a group's row alike.
-  :is(.mailbox-section__toggle, .mailbox-group__toggle):is(:hover, :focus-visible, [aria-expanded='false']) & {
+  :is(.mailbox-section__toggle, .mailbox-group__toggle):is(
+      :hover,
+      :focus-visible,
+      [aria-expanded='false']
+    )
+    & {
     opacity: 1;
   }
 
@@ -293,14 +298,12 @@
   cursor: pointer;
   text-align: start;
 
-  // Folded over the place you are in: the wash that place would wear.
-  .mailbox-group--current > &[aria-expanded='false'] {
+  // Folded over the place you are in — or, on the rail, holding it: the
+  // wash that place would wear. On the rail, its menu open too.
+  .mailbox-group--current > &[aria-expanded='false'],
+  :host([data-collapsed]) &[aria-expanded='true'] {
     background: color-mix(in srgb, var(--mat-sys-on-surface) 8%, transparent);
     color: var(--mat-sys-on-surface);
-  }
-
-  :host([data-collapsed]) & {
-    display: none;
   }
 }
 
@@ -326,12 +329,16 @@
   &[hidden] {
     display: none;
   }
+}
 
-  // On the rail the row is gone: its pages stand on the first level.
-  :host([data-collapsed]) & {
-    margin: 0;
-    padding: 0;
-  }
+// A rail icon's name, in its hover card (drawn in an overlay; its
+// template is this view's): one line, set like the place's own label.
+.mailbox-rail-name {
+  display: block;
+  padding: 2px 6px;
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-label-large);
+  white-space: nowrap;
 }
 
 .mailbox-link__icon {

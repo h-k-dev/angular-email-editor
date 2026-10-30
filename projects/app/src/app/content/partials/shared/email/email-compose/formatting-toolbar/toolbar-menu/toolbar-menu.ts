@@ -31,6 +31,8 @@ import {
   OverlayModule,
 } from '@angular/cdk/overlay';
 
+import { Router, RouterLink } from '@angular/router';
+
 import { PaperIslandScheme } from '../../../paper-island';
 
 /** A row of a toolbar menu. */
@@ -59,6 +61,11 @@ export interface ToolbarMenuItem<V> {
       `badgesTitle` says it in words, as a tooltip. */
   badges?: readonly { text: string; on: boolean }[];
   badgesTitle?: string;
+  /** A place: the item is a link to it (`routerLink`), not a choice. */
+  link?: string;
+  /** The place you are in — a link's: `aria-current="page"`, ticked; the
+      menu opens with it level with the trigger (`anchor: 'selected'`). */
+  current?: boolean;
   /** The key that does the same outside the menu, at the item's end —
       the calendar's views, Google's D W M. Said to assistive tech as
       `aria-keyshortcuts`. */
@@ -106,7 +113,15 @@ export class ToolbarMenuRow {
  */
 @Component({
   selector: 'div[toolbar-menu]',
-  imports: [MatIconModule, Menu, MenuItem, NgTemplateOutlet, OverlayModule, PaperIslandScheme],
+  imports: [
+    MatIconModule,
+    Menu,
+    MenuItem,
+    NgTemplateOutlet,
+    OverlayModule,
+    PaperIslandScheme,
+    RouterLink,
+  ],
   templateUrl: './toolbar-menu.html',
   styleUrl: './toolbar-menu.scss',
 })
@@ -122,19 +137,41 @@ export class ToolbarMenu<V> {
 
   /** Which side of the trigger the menu tries first — the other when there
       is no room: `above` for a bar under the text, `below` for one heading
-      the sheet. */
-  readonly side = input<'above' | 'below'>('above');
+      the sheet, `after` beside it (a rail's flyout: its top level with the
+      trigger's, its bottom where there is no room below). */
+  readonly side = input<'above' | 'below' | 'after'>('above');
+
+  /** What the menu is drawn on: the app's solid menu surface, or `glass` —
+      see-through and blurring the page under it (a rail's flyout, the
+      aside's places over the page). */
+  readonly surface = input<'solid' | 'glass'>('solid');
 
   /** Where the menu opens: beside the trigger (`trigger`, `side` and
       `align` say which way), or over it with the checked item's leading
       mark exactly on the trigger (`selected`) — a select's: the button and
       the item it stands for are one place, so the eye does not travel (the
-      calendar's colour menu, its dot on the event's dot). */
+      calendar's colour menu, its dot on the event's dot). Opening `after`
+      the trigger, `selected` keeps beside it, the checked item — or the
+      place you are in — level with it (the rail's places). With nothing
+      checked, it opens as `trigger` would. */
   readonly anchor = input<'trigger' | 'selected'>('trigger');
 
   /** An item was chosen. The menu has closed and focus is back on the
       trigger. */
   readonly selected = output<V>();
+
+  readonly #router = inject(Router);
+  /** A link item was clicked: its link follows itself (`routerLink`). */
+  protected clicked = false;
+
+  /** An item was chosen: said — and a link chosen by key followed, since
+      the menu keeps Enter (and Space) from the link. */
+  protected onSelected(value: V): void {
+    const link = this.items().find((item) => item.value === value)?.link;
+    if (link && !this.clicked) void this.#router.navigateByUrl(link);
+    this.clicked = false;
+    this.selected.emit(value);
+  }
 
   /** The Aria menu, for the trigger's `[menu]`. It renders inside the
       overlay, so it only exists while open. */
@@ -151,8 +188,14 @@ export class ToolbarMenu<V> {
   protected readonly positions = computed<ConnectedPosition[]>(() => {
     // Over the trigger, its top-left on the trigger's: the checked item is
     // brought onto it once the menu can be measured (`onAttach`).
-    if (this.anchor() === 'selected') {
+    if (this.anchor() === 'selected' && this.side() !== 'after') {
       return [{ originX: 'start', originY: 'top', overlayX: 'start', overlayY: 'top' }];
+    }
+    if (this.side() === 'after') {
+      return [
+        { originX: 'end', originY: 'top', overlayX: 'start', overlayY: 'top', offsetX: 8 },
+        { originX: 'end', originY: 'bottom', overlayX: 'start', overlayY: 'bottom', offsetX: 8 },
+      ];
     }
     const x = this.align();
     // `menu-above`: the pane says which way it opened, so the menu rises
@@ -217,7 +260,9 @@ export class ToolbarMenu<V> {
   #overChecked(): void {
     const ref = this.overlay()?.overlayRef;
     const pane = ref?.overlayElement;
-    const item = pane?.querySelector<HTMLElement>('.toolbar-menu__item[aria-checked="true"]');
+    const item = pane?.querySelector<HTMLElement>(
+      '.toolbar-menu__item:is([aria-checked="true"], [aria-current="page"])',
+    );
     if (!ref || !pane || !item) return;
     const mark =
       item.querySelector<HTMLElement>('.toolbar-menu__swatch, mat-icon:not([data-slot])') ?? item;
@@ -230,6 +275,13 @@ export class ToolbarMenu<V> {
     ) {
       x += el.offsetLeft;
       y += el.offsetTop;
+      // An offset starts inside its parent's border (a glass menu's
+      // hairline): the border counts too.
+      const parent = el.offsetParent as HTMLElement | null;
+      if (parent) {
+        x += parent.clientLeft;
+        y += parent.clientTop;
+      }
     }
     const origin = this.trigger().element;
     const box = origin.getBoundingClientRect();
@@ -239,7 +291,11 @@ export class ToolbarMenu<V> {
     const margin = 8;
     const fit = (start: number, size: number, room: number) =>
       Math.min(Math.max(start, margin), Math.max(margin, room - margin - size));
-    const left = fit(box.left + origin.offsetWidth / 2 - x, pane.offsetWidth, innerWidth);
+    // Beside the trigger (`side: 'after'`): only level with it.
+    const left =
+      this.side() === 'after'
+        ? box.right + 8
+        : fit(box.left + origin.offsetWidth / 2 - x, pane.offsetWidth, innerWidth);
     const top = fit(box.top + origin.offsetHeight / 2 - y, pane.offsetHeight, innerHeight);
     const strategy = ref.getConfig().positionStrategy as FlexibleConnectedPositionStrategy;
     strategy.withPositions([
@@ -253,7 +309,20 @@ export class ToolbarMenu<V> {
       },
     ]);
     ref.updatePosition();
-    afterNextRender({ write: () => item.focus() }, { injector: this.#injector });
+    afterNextRender({ write: () => this.#activate(item) }, { injector: this.#injector });
+  }
+
+  private readonly menuItems = viewChildren(MenuItem);
+
+  /** Makes `element`'s item the menu's active one — Aria's own, so focus
+      and the keys start there (Down goes to the item after it). Aria has no
+      public way to say where a menu starts; its menu's pattern (typed,
+      `_pattern`) does, and focuses the item with it. */
+  #activate(element: HTMLElement): void {
+    const item = this.menuItems().find((one) => one.element === element);
+    const menu = this.menu();
+    if (item && menu) menu._pattern.listBehavior.goto(item._pattern);
+    else element.focus();
   }
 
   /** Puts focus on a row's tab stop. */

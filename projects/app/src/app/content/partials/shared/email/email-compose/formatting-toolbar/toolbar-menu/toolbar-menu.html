@@ -19,12 +19,13 @@
   <div
     ngMenu
     [attr.data-modality]="modality()"
+    [attr.data-surface]="surface()"
     class="toolbar-menu"
     paperIslandScheme
     [attr.aria-label]="label()"
     [animate.enter]="'menu-enter'"
     [animate.leave]="'menu-leave'"
-    (itemSelected)="selected.emit($event)"
+    (itemSelected)="onSelected($event)"
   >
     @for (item of items(); track item.value) {
       @if (item.separated) {
@@ -33,46 +34,43 @@
       @if (item.section) {
         <div class="toolbar-menu__section" role="none">{{ item.section }}</div>
       }
-      <div
-        ngMenuItem
-        class="toolbar-menu__item"
-        [value]="item.value"
-        [searchTerm]="item.label"
-        [role]="
-          item.kind === 'radio'
-            ? 'menuitemradio'
-            : item.kind === 'checkbox'
-              ? 'menuitemcheckbox'
-              : 'menuitem'
-        "
-        [attr.aria-checked]="item.kind ? !!item.checked : null"
-        [attr.aria-keyshortcuts]="item.shortcut ?? null"
-        [disabled]="item.disabled ?? false"
-      >
-        @if (item.icon) {
-          <mat-icon>{{ item.icon }}</mat-icon>
-        }
-        @if (item.swatch) {
-          <span class="toolbar-menu__swatch" aria-hidden="true" [style.background]="item.swatch"></span>
-        }
-        <span [style.font-family]="item.font">{{ item.label }}</span>
-        @if (item.badges) {
-          <span class="toolbar-menu__badges" aria-hidden="true" [title]="item.badgesTitle ?? ''">
-            @for (badge of item.badges; track badge.text) {
-              <span [class.toolbar-menu__badge--off]="!badge.on">{{ badge.text }}</span>
-            }
-          </span>
-        }
-        @if (item.shortcut) {
-          <kbd class="toolbar-menu__shortcut" aria-hidden="true">{{ item.shortcut }}</kbd>
-        }
-        <!-- The tick: a radio's, and a checkbox's without a glyph of its own
-             (the calendar's Show weekends) — an icon-led checkbox, the ⋯
-             menu's moved Bold, says its state on its glyph. -->
-        @if (item.kind === 'radio' || (item.kind === 'checkbox' && !item.icon)) {
-          <mat-icon data-slot="check">check</mat-icon>
-        }
-      </div>
+      @if (item.link) {
+        <!-- A place: a real link (a click follows it as any link — a new
+             tab with a modifier), Enter through the router (`onSelected`:
+             the menu keeps Enter for itself). Where you are says so,
+             `aria-current`. -->
+        <a
+          ngMenuItem
+          class="toolbar-menu__item"
+          [value]="item.value"
+          [searchTerm]="item.label"
+          [routerLink]="item.link"
+          [attr.aria-current]="item.current ? 'page' : null"
+          [disabled]="item.disabled ?? false"
+          (click)="clicked = true"
+        >
+          <ng-container [ngTemplateOutlet]="body" [ngTemplateOutletContext]="{ $implicit: item }" />
+        </a>
+      } @else {
+        <div
+          ngMenuItem
+          class="toolbar-menu__item"
+          [value]="item.value"
+          [searchTerm]="item.label"
+          [role]="
+            item.kind === 'radio'
+              ? 'menuitemradio'
+              : item.kind === 'checkbox'
+                ? 'menuitemcheckbox'
+                : 'menuitem'
+          "
+          [attr.aria-checked]="item.kind ? !!item.checked : null"
+          [attr.aria-keyshortcuts]="item.shortcut ?? null"
+          [disabled]="item.disabled ?? false"
+        >
+          <ng-container [ngTemplateOutlet]="body" [ngTemplateOutletContext]="{ $implicit: item }" />
+        </div>
+      }
     }
     <!-- The host's rows: controls of their own, not items (ToolbarMenuRow). -->
     @for (row of rows(); track row) {
@@ -90,4 +88,32 @@
       </div>
     }
   </div>
+</ng-template>
+
+<!-- An item's body: its mark, its label, what follows it. -->
+<ng-template #body let-item>
+  @if (item.icon) {
+    <mat-icon>{{ item.icon }}</mat-icon>
+  }
+  @if (item.swatch) {
+    <span class="toolbar-menu__swatch" aria-hidden="true" [style.background]="item.swatch"></span>
+  }
+  <span [style.font-family]="item.font">{{ item.label }}</span>
+  @if (item.badges) {
+    <span class="toolbar-menu__badges" aria-hidden="true" [title]="item.badgesTitle ?? ''">
+      @for (badge of item.badges; track badge.text) {
+        <span [class.toolbar-menu__badge--off]="!badge.on">{{ badge.text }}</span>
+      }
+    </span>
+  }
+  @if (item.shortcut) {
+    <kbd class="toolbar-menu__shortcut" aria-hidden="true">{{ item.shortcut }}</kbd>
+  }
+  <!-- The tick: a radio's, a checkbox's without a glyph of its own
+       (the calendar's Show weekends) — an icon-led checkbox, the ⋯
+       menu's moved Bold, says its state on its glyph — and the place
+       you are in, a link's. -->
+  @if (item.kind === 'radio' || (item.kind === 'checkbox' && !item.icon) || item.current) {
+    <mat-icon data-slot="check">check</mat-icon>
+  }
 </ng-template>
