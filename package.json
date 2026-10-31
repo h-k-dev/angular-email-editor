@@ -26,6 +26,7 @@
     "@chenglou/pretext": "^1.0.0",
     "@h-k-dev/angular-file-drop": "^2.0.0",
     "@ngx-translate/core": "^18.0.0",
+    "axios": "^1.21.0",
     "ical.js": "^2.2.1",
     "luxon": "^3.7.2",
     "postal-mime": "^4.0.7",

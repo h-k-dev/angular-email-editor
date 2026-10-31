@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>
+    svg:root { color: #37352F; }
+    @media (prefers-color-scheme: dark) {
+      svg:root { color: #F7F8F8; }
+    }
+  </style>
+  <path d="M6 6V26V18a4 4 0 0 1 8 0V26" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M17.23 12.94L24.98 8.69A2.5 2.5 0 1 0 21.92 4.83L16 11.4A1 1 0 0 0 17.23 12.94ZM18.1 19.11L21.57 26.56A2.5 2.5 0 1 0 25.58 23.71L19.7 17.97A1 1 0 0 0 18.1 19.11Z" fill="currentColor"/>
+</svg>
