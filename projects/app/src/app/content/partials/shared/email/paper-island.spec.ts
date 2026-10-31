@@ -54,7 +54,11 @@ describe('PaperIsland', () => {
   imports: [PaperIslandDirective, MarqueeStart],
   template: `
     <section class="island" [paperIsland]="null">
-      <form class="zone" marqueeStart><label class="child">From</label></form>
+      <form class="zone" marqueeStart>
+        <label class="child">From</label>
+        <header class="room" data-marquee-room><button class="in-room">Send</button></header>
+      </form>
+      <div class="outside" data-marquee-room></div>
     </section>
     <form class="stray" marqueeStart></form>
   `,
@@ -86,6 +90,27 @@ describe('MarqueeStart', () => {
     release();
     press('.zone');
     expect(pressed).toHaveLength(1);
+  });
+
+  it('takes a press on a part marked as empty room too — a bar\'s padding — but not what sits in it, nor a mark outside', async () => {
+    const fixture = TestBed.createComponent(StartHost);
+    await fixture.whenStable();
+    const root = fixture.nativeElement as HTMLElement;
+    const island = fixture.debugElement
+      .query((el) => el.nativeElement.classList?.contains('island'))
+      .injector.get(PaperIslandDirective);
+    const pressed: EventTarget[] = [];
+    island.marquee.register((event) => {
+      pressed.push(event.target!);
+      return true;
+    });
+    const press = (selector: string) =>
+      root.querySelector(selector)!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+
+    press('.room');
+    press('.in-room');
+    press('.outside');
+    expect(pressed).toEqual([root.querySelector('.room')]);
   });
 
   it('with no box to start, a press on its own empty room still takes the focus and puts no caret', async () => {

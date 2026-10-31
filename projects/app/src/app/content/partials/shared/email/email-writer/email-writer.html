@@ -56,7 +56,10 @@
      the end, under the thumb on a phone and where the eye ends a header
      (`barOnTop`; the host mirrors its own actions to match).
      The nodes move rather than being restyled, so the reading and Tab order
-     always follow what is on screen. -->
+     always follow what is on screen.
+     The bar's own room — its padding, its spacer — is the sheet's empty
+     room (`data-marquee-room`): where the host is a `marqueeStart`, a press
+     there starts the block marquee like a press beside the rows. -->
 <ng-template #bar>
   @if (barOnTop()) {
     <ng-container [ngTemplateOutlet]="actions" />

@@ -87,9 +87,11 @@ export class PaperIslandDirective implements PaperIsland {
 
 /**
  * A start point for the editor's block marquee, anywhere on its island: a
- * press on this element's own empty room — the element itself, never a child
- * (a label, a field, a button keep their presses) — starts the box, as a
- * press in the editor's margin does (Notion's page margins). A press released
+ * press on this element's own empty room — the element itself, or a part
+ * inside it that says it is empty room (`data-marquee-room`: a bar's
+ * padding and spacer), never anything else (a label, a field, a button keep
+ * their presses) — starts the box, as a press in the editor's margin does
+ * (Notion's page margins). A press released
  * in place changes nothing (`beginBlockMarquee`). Off an island, or with no
  * marquee editor on it, a press there is still one on empty room: it takes
  * the focus from whatever had it and puts no caret anywhere — the browser's
@@ -104,11 +106,21 @@ export class MarqueeStart {
   readonly #element = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
   protected press(event: MouseEvent): void {
-    if (event.target !== this.#element || event.button !== 0) return;
+    if (event.button !== 0 || !this.#isRoom(event.target)) return;
     if (this.#island?.marquee.begin(event)) return;
     event.preventDefault();
     const focused = this.#element.ownerDocument.activeElement;
     if (focused instanceof HTMLElement) focused.blur();
+  }
+
+  /** The element itself, or a part of it marked as empty room. */
+  #isRoom(target: EventTarget | null): boolean {
+    if (target === this.#element) return true;
+    return (
+      target instanceof HTMLElement &&
+      target.hasAttribute('data-marquee-room') &&
+      this.#element.contains(target)
+    );
   }
 }
 
