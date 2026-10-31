@@ -1,0 +1,40 @@
+// The error page, and the wait that says another window has the message:
+// a short notice in the middle of the window, the app's own surface.
+.pop-out__notice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--mat-sys-spacing) * 3); // 12px
+  block-size: 100%;
+  padding-inline: calc(var(--mat-sys-spacing) * 6); // 24px
+  text-align: center;
+  color: var(--mat-sys-on-surface);
+}
+
+.pop-out__art {
+  inline-size: 48px;
+  block-size: 48px;
+  font-size: 48px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.pop-out__title {
+  margin: 0;
+  font: var(--mat-sys-title-large);
+}
+
+.pop-out__text {
+  margin: 0;
+  max-inline-size: 44ch;
+  font: var(--mat-sys-body-medium);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.pop-out__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: calc(var(--mat-sys-spacing) * 2); // 8px
+  margin-block-start: calc(var(--mat-sys-spacing) * 2); // 8px
+}

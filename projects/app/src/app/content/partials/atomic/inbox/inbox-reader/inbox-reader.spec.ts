@@ -12,7 +12,7 @@ import { InboxReader } from './inbox-reader';
 describe('InboxReader', () => {
   let fixture: ComponentFixture<InboxReader>;
   let root: HTMLElement;
-  let opened: Parameters<ComposeWindows['open']>[0][];
+  let opened: Parameters<ComposeWindows['compose']>[0][];
 
   const button = (name: string) =>
     root.querySelector<HTMLButtonElement>(`.mail-view__line button[aria-label="${name}"]`)!;
@@ -33,7 +33,7 @@ describe('InboxReader', () => {
       providers: [
         {
           provide: ComposeWindows,
-          useValue: { open: async (options: (typeof opened)[number]) => opened.push(options) },
+          useValue: { compose: (options: (typeof opened)[number]) => opened.push(options) },
         },
         provideExampleMail(),
         // The inbox page's, in the app.

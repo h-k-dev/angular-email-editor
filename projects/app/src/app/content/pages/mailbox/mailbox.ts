@@ -150,10 +150,11 @@ export class Mailbox {
     this.#aside.toggle();
   }
 
-  /** Compose: a new message in a window, over the page. */
-  protected compose(): void {
+  /** Compose: a new message the way the settings' Open mode says — in a
+      window over the page, zoomed, or popped out; Shift pops it out. */
+  protected compose(event: MouseEvent): void {
     this.went();
-    void this.#composeWindows.open();
+    this.#composeWindows.compose({ popOut: event.shiftKey });
   }
 
   /** A place was picked (or Compose pressed): an aside lying over the page

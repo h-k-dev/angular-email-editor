@@ -122,7 +122,7 @@ export class InboxReader {
     if (!mail) return;
     const { to, cc, subject } = replyEnvelope(mail, kind, { self: BLANK.from });
     const quoted = kind === 'forward' ? forwardQuote(mail) : replyQuote(mail);
-    void this.#windows.open({
+    this.#windows.compose({
       content: { message: { ...BLANK, to, cc, subject, quoted }, images: [] },
       focus: kind === 'forward' ? 'to' : 'body',
     });

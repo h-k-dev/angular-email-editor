@@ -323,6 +323,17 @@ export default {
     collapse: 'Vollbild beenden',
     close: 'Schließen',
     sent: 'Nachricht gesendet',
+    popOut: 'In eigenem Fenster öffnen',
+    popIn: 'Zurück ins Postfach',
+  },
+  popOut: {
+    missing: {
+      title: 'Diese Nachricht ist nicht hier',
+      text: 'Sie wurde gesendet, verworfen oder ins Postfach zurückgeholt – oder der Link stammt aus einem anderen Browser.',
+    },
+    elsewhere: 'Diese Nachricht ist in einem anderen Fenster geöffnet',
+    mailbox: 'Zum Postfach',
+    close: 'Fenster schließen',
   },
   composer: {
     format: { title: 'Format', html: 'HTML', text: 'Nur Text' },
@@ -366,6 +377,14 @@ export default {
         hint: 'Ein Editor öffnet mit ihr – die Formatierungstaste der Schreibleiste schaltet sie auch',
         always: 'Auf dem Smartphone ist sie immer da',
         plainText: 'Nur Text hat keine Formatierung',
+      },
+      openMode: {
+        label: 'Öffnen als',
+        hint: 'Wie eine neue Nachricht öffnet: als Fenster am Rand, vergrößert über der Seite oder in einem eigenen Browserfenster',
+        window: 'Fenster',
+        zoom: 'Zoom',
+        popOut: 'Pop-out',
+        phone: 'Auf dem Smartphone öffnet eine Nachricht als Seite',
       },
       formatHint: 'Als was die Nachricht geschrieben und gesendet wird',
       themeHint: 'Der Editor auf eigenem Papier oder im Design der App',

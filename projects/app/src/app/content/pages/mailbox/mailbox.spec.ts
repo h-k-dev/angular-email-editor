@@ -64,7 +64,7 @@ describe('Mailbox', () => {
             keyboardInset: signal(0).asReadonly(),
           },
         },
-        { provide: ComposeWindows, useValue: { open: async () => opened++ } },
+        { provide: ComposeWindows, useValue: { compose: () => opened++ } },
         provideExampleMail(),
       ],
     });

@@ -1,7 +1,15 @@
 import { TestBed } from '@angular/core/testing';
 import { InlineImageStore } from '@h-k-dev/angular-email-editor';
 import { BlobStore } from '../storages/blob-store';
-import { DRAFT_KEY, Draft, DraftContent, parseDraft, serializeDraft } from './draft';
+import {
+  DRAFT_KEY,
+  DRAFT_SESSION,
+  Draft,
+  DraftContent,
+  draftKey,
+  parseDraft,
+  serializeDraft,
+} from './draft';
 import { LocalStorage } from '../storages/local-storage';
 
 /** The blob store, in memory — with a gate a spec can hold puts behind. */
@@ -236,6 +244,52 @@ describe('Draft', () => {
     start();
     await tick();
     expect([...blobs.data.keys()]).toEqual(['kept@aee']);
+  });
+
+  it('keeps a pop-out’s draft under its session, apart from the front page’s', () => {
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: BlobStore, useValue: blobs },
+        { provide: DRAFT_SESSION, useValue: 'abc' },
+      ],
+    });
+    TestBed.inject(Draft).save(content({ subject: 'Popped' }), parts);
+    expect(parseDraft(localStorage.getItem(draftKey('abc')))?.subject).toBe('Popped');
+    expect(localStorage.getItem(DRAFT_KEY)).toBeNull();
+  });
+
+  it('spares the images another draft references when it discards', async () => {
+    localStorage.setItem(
+      draftKey('other'),
+      serializeDraft(content({ html: '<img src="cid:theirs@aee" alt="a">' }))!,
+    );
+    blobs.data.set('theirs@aee', new Blob(['a']));
+    blobs.data.set('mine@aee', new Blob(['b']));
+    const service = start();
+    service.save(content({ html: '<img src="cid:mine@aee" alt="b">' }), parts);
+    service.discard();
+    await tick();
+    expect([...blobs.data.keys()]).toEqual(['theirs@aee']);
+  });
+
+  it('saves, discards and takes in nothing once closed', () => {
+    otherTab(serializeDraft(content({ subject: 'Kept' })));
+    const service = start();
+    expect(service.incoming().content?.subject).toBe('Kept');
+    service.close();
+    service.save(content({ subject: 'After' }), parts);
+    service.discard();
+    expect(parseDraft(localStorage.getItem(DRAFT_KEY))?.subject).toBe('Kept');
+    // Another tab taking it — the pop-in's — is not news here any more.
+    otherTab(null);
+    expect(service.incoming().content?.subject).toBe('Kept');
+  });
+
+  it('keeps a plain-text message plain text', () => {
+    const raw = serializeDraft(content({ format: 'text' }));
+    expect(parseDraft(raw)?.format).toBe('text');
+    // HTML, the default, stays the string it always was.
+    expect(serializeDraft(content({ format: 'html' }))).toBe(serializeDraft(content()));
   });
 
   it('says so when storage will not keep the draft', () => {

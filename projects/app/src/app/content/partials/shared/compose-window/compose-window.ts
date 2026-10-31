@@ -34,12 +34,14 @@ import { I18n } from '../../../../core/translations/i18n';
 import { BackButton } from '../../../../core/router/back-button';
 import {
   ComposeWindow,
+  ComposeWindowContent,
   ComposeWindowMobile,
   ComposeWindows,
   DOCK_GAP,
   InlinePart,
   slotPosition,
 } from '../../../../core/email/compose-windows';
+import { PopOuts } from '../../../../core/email/pop-outs';
 
 /** How far a press on the title bar travels before it is a drag and no
     longer a click, px. */
@@ -71,6 +73,8 @@ interface Grab {
  *   where a window is the whole screen.
  * - Expanded, it is a modal dialog: a scrim behind it (the dock's), focus
  *   kept inside, Escape and the scrim bring it back to the edge.
+ * - Popped out, it leaves for a browser window of its own, message and
+ *   all (`PopOuts`) — and closes here.
  * - Sent, it closes, and says so; discarded, it closes.
  *
  * The sheet stays mounted whatever the window shows — minimized hides it —
@@ -114,6 +118,7 @@ export class ComposeWindowFrame implements PaperIsland {
       writer's empty room asks for it (`MarqueeStart`). */
   readonly marquee = new IslandMarquee();
   readonly #snackBar = inject(MatSnackBar);
+  readonly #popOuts = inject(PopOuts);
   /** This window's inline image registry — the one provided above, so the
       parts of a message put back go in here, and the parts of one closing
       come out of here before it takes them with it. */
@@ -138,6 +143,17 @@ export class ComposeWindowFrame implements PaperIsland {
     () => this.window().mode === 'expanded' && this.zoomable(),
   );
   protected readonly front = computed(() => this.windows.front() === this.window().id);
+
+  /** Whether the message can be popped out now: where it can be zoomed (a
+      desk's sheet), and with nothing still uploading — an upload has no id
+      a draft could keep, and would be lost on the way. */
+  protected readonly poppable = computed(
+    () =>
+      this.zoomable() &&
+      !this.sheet()
+        ?.message()
+        .attachments.some((attachment) => !attachment.id),
+  );
 
   /** On a phone an open window is the screen: there is no edge to sit on,
       and no room beside it. */
@@ -266,18 +282,31 @@ export class ComposeWindowFrame implements PaperIsland {
     this.windows.close(this.window().id);
   }
 
+  /** The message into a browser window of its own — and out of this one,
+      once the browser has let it open. */
+  protected popOut(): void {
+    if (this.#popOuts.open(this.#content())) this.close();
+  }
+
   /** The window as it would have to come back: its own state, on the entry
       `guard` sits on, with what is written in it — the message as the sheet
       holds it, and the bytes of the inline parts its HTML names, which the
       registry would otherwise take with it. */
   #snapshot(guard: number): ComposeWindow {
+    return { ...this.window(), guard, restored: this.#content() };
+  }
+
+  /** What is written in the window: the message as the sheet holds it,
+      and the bytes of the inline parts its HTML names, which the registry
+      would otherwise take with it. */
+  #content(): ComposeWindowContent | null {
     const message = this.sheet()?.message() ?? null;
-    if (!message) return { ...this.window(), guard, restored: null };
+    if (!message) return null;
     const images = this.#images
       .cids()
       .map((cid) => ({ cid, blob: this.#images.blob(cid) }))
       .filter((part): part is InlinePart => part.blob !== undefined);
-    return { ...this.window(), guard, restored: { message, images } };
+    return { message, images };
   }
 
   /** The sheet sent its message: the window has done its job. */

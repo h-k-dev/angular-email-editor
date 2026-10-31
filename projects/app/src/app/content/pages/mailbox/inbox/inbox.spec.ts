@@ -47,7 +47,7 @@ describe('Inbox', () => {
           ],
           withComponentInputBinding(),
         ),
-        { provide: ComposeWindows, useValue: { open: async () => undefined } },
+        { provide: ComposeWindows, useValue: { compose: () => undefined } },
         provideExampleMail(fetched),
       ],
     });

@@ -22,7 +22,23 @@
       {{ label() }}
     </button>
 
+    <!-- Pop out, minimize, zoom, close: the way furthest out first, the
+         window's own last. -->
     <span class="compose-window__controls" data-slot="controls">
+      @if (zoomable()) {
+        <!-- Pop out: a browser window of its own, message and all. Not
+             while an attachment is still uploading — it would not come. -->
+        <button
+          mat-icon-button
+          type="button"
+          [disabled]="!poppable()"
+          [attr.aria-label]="'composeWindow.popOut' | translate"
+          [title]="'composeWindow.popOut' | translate"
+          (click)="popOut()"
+        >
+          <mat-icon>open_in_new</mat-icon>
+        </button>
+      }
       <button
         mat-icon-button
         type="button"

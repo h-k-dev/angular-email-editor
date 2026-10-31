@@ -102,7 +102,7 @@ export class TemplateCard {
       original the preview draws beside the editor's reading. */
   protected use(): void {
     const { html, envelope } = this.card().template;
-    void this.#windows.open({
+    this.#windows.compose({
       content: { message: { ...BLANK, ...envelope, html, original: html }, images: [] },
     });
   }

@@ -21,6 +21,12 @@ export const routes: Routes = [
     pathMatch: 'full',
     loadComponent: () => import('./content/pages/compose/landing').then((m) => m.Landing),
   },
+  // A pop-out: the landing's document in a browser window of its own, its
+  // message the session's draft — the URL names the session, nothing more.
+  {
+    path: 'compose/:session',
+    loadComponent: () => import('./content/pages/compose/pop-out').then((m) => m.PopOut),
+  },
   {
     path: '',
     loadComponent: () => import('./content/pages/mailbox/mailbox').then((m) => m.Mailbox),

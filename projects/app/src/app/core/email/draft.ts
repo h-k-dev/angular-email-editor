@@ -9,10 +9,26 @@ import {
 } from '@angular/core';
 import { InlineImageRegistry, inlineImageCids } from '@h-k-dev/angular-email-editor';
 import { BlobStore } from '../storages/blob-store';
+import type { AttachmentRef } from './attachment-uploads';
+import { Envelope, isBlank } from './envelope';
 import { LocalStorage } from '../storages/local-storage';
 
-/** Where the draft lives in localStorage. */
+/** Where the draft lives in localStorage: the front page's. A pop-out's
+    is under its session ({@link draftKey}). */
 export const DRAFT_KEY = 'angular-email-editor:draft';
+
+/** The key a draft lives under: the front page's ({@link DRAFT_KEY}), or a
+    pop-out's — `null` is the front page's. */
+export function draftKey(session: string | null): string {
+  return session === null ? DRAFT_KEY : `${DRAFT_KEY}:${session}`;
+}
+
+/** Which draft a composer keeps: `null` — the root's — is the front page's;
+    a pop-out provides its session, and a {@link Draft} of its own beside
+    it. */
+export const DRAFT_SESSION = new InjectionToken<string | null>('DRAFT_SESSION', {
+  factory: () => null,
+});
 
 /** How long the composer lets the message rest before saving it, in ms.
     Specs set it to 0. */
@@ -75,7 +91,8 @@ export interface SaveOptions {
     recognisable without comparing field by field. */
 export function serializeDraft(content: DraftContent | null): string | null {
   if (!content) return null;
-  const { from, to, cc, bcc, subject, previewText, html, original, quoted, attachments } = content;
+  const { from, to, cc, bcc, subject, previewText, format, html, original, quoted, attachments } =
+    content;
   return JSON.stringify({
     v: 1,
     from,
@@ -85,6 +102,8 @@ export function serializeDraft(content: DraftContent | null): string | null {
     subject,
     // Left out when empty, so a draft without one stays the string it was.
     ...(previewText && { previewText }),
+    // Left out for HTML, the default — the string it always was.
+    ...(format === 'text' && { format }),
     html,
     ...(original && { original }),
     ...(quoted && { quoted }),
@@ -104,7 +123,8 @@ export function parseDraft(raw: string | null): DraftContent | null {
     return null;
   }
   if (!isRecord(value) || value['v'] !== 1) return null;
-  const { from, to, cc, bcc, subject, previewText, html, original, quoted, attachments } = value;
+  const { from, to, cc, bcc, subject, previewText, format, html, original, quoted, attachments } =
+    value;
   if (
     !isStrings(from) ||
     !isStrings(to) ||
@@ -112,6 +132,7 @@ export function parseDraft(raw: string | null): DraftContent | null {
     !isStrings(bcc) ||
     typeof subject !== 'string' ||
     (previewText !== undefined && typeof previewText !== 'string') ||
+    (format !== undefined && format !== 'text') ||
     typeof html !== 'string' ||
     (original !== undefined && original !== null && typeof original !== 'string') ||
     (quoted !== undefined && quoted !== null && typeof quoted !== 'string') ||
@@ -127,6 +148,7 @@ export function parseDraft(raw: string | null): DraftContent | null {
     bcc,
     subject,
     ...(previewText !== undefined && { previewText }),
+    ...(format !== undefined && { format }),
     html,
     ...(original !== undefined && { original }),
     ...(quoted !== undefined && { quoted }),
@@ -135,11 +157,12 @@ export function parseDraft(raw: string | null): DraftContent | null {
 }
 
 /**
- * The one draft — there is never more than one at a time. The message lives
- * in localStorage (small, synchronous, and shared: every tab hears a save
- * through `pairSignal`), its inline images in the {@link BlobStore} under
- * their Content-IDs. The composer decides what the draft is and when to save
- * it; this service decides how it is kept:
+ * A draft — the front page's (the root's), or a pop-out's, under its
+ * session ({@link DRAFT_SESSION}: a pop-out provides one, and a `Draft` of
+ * its own). The message lives in localStorage (small, synchronous, and
+ * shared: every tab hears a save through `pairSignal`), its inline images in
+ * the {@link BlobStore} under their Content-IDs. The composer decides what
+ * the draft is and when to save it; this service decides how it is kept:
  *
  * - **Unchanged saves cost nothing.** The draft is one deterministic string;
  *   a save equal to what storage holds writes nothing, so a tab that takes
@@ -158,15 +181,20 @@ export function parseDraft(raw: string | null): DraftContent | null {
  *   yet, a save writes nothing: it was made from a message that draft is
  *   about to replace, and writing it would bury the newer one unread.
  *
- * Orphaned images — referenced by no draft — are swept once, when the app
- * starts, and all of them go with a discard. Not on every save: another tab
- * may have just put the image its next save is about to reference.
+ * Orphaned images — referenced by no draft — are swept when a draft is
+ * opened, and again with a discard; another draft's images are always
+ * spared. Not on every save: another tab may have just put the image its
+ * next save is about to reference.
  */
 @Service()
 export class Draft {
   readonly #storage = inject(LocalStorage);
   readonly #blobs = inject(BlobStore);
-  readonly #raw = this.#storage.pairSignal(DRAFT_KEY);
+  readonly #key = draftKey(inject(DRAFT_SESSION));
+  readonly #raw = this.#storage.pairSignal(this.#key);
+
+  /** Let go ({@link close}): nothing is saved or taken in any more. */
+  #closed = false;
 
   /** The draft string this tab last had in common with storage: written by
       it, or taken in from another tab. */
@@ -182,7 +210,7 @@ export class Draft {
   readonly incoming = linkedSignal<string | null, IncomingDraft>({
     source: this.#raw,
     computation: (raw, previous) => {
-      if (previous && raw === this.#synced) return previous.value;
+      if (previous && (raw === this.#synced || this.#closed)) return previous.value;
       this.#synced = raw;
       if (raw === null) this.#storedParts.clear();
       return { content: parseDraft(raw) };
@@ -206,6 +234,7 @@ export class Draft {
       with the bytes of every inline image it references, read from the
       composer's registry. */
   save(content: DraftContent | null, parts: InlineImageRegistry, options?: SaveOptions): void {
+    if (this.#closed) return;
     const generation = ++this.#generation;
     const raw = serializeDraft(content);
     if (raw === this.#raw() || this.#unread()) return;
@@ -226,12 +255,22 @@ export class Draft {
     });
   }
 
-  /** Throws the draft away, images and all. */
+  /** Throws the draft away, images and all — every image no other draft
+      references. */
   discard(): void {
+    if (this.#closed) return;
     ++this.#generation;
     this.#write(null);
     this.#storedParts.clear();
-    void this.#blobs.clear();
+    void this.#sweep();
+  }
+
+  /** Lets the draft go, as it is: from now on nothing is saved, discarded
+      or taken in — a pop-out handing its message back, or done with it.
+      What storage holds is whoever's has it next. */
+  close(): void {
+    ++this.#generation;
+    this.#closed = true;
   }
 
   /** Registers every image the html references that the registry lacks,
@@ -256,7 +295,7 @@ export class Draft {
   }
 
   #write(raw: string | null): void {
-    const stored = this.#storage.setItem(DRAFT_KEY, raw);
+    const stored = this.#storage.setItem(this.#key, raw);
     // A refused write leaves storage as it was — and so in sync as before.
     if (stored) this.#synced = raw;
     this.#failed.set(!stored);
@@ -264,16 +303,61 @@ export class Draft {
   }
 
   /** Drops the images no draft references — leftovers of a session that
-      ended mid-save, or of images deleted before the last save. Spares any
-      this tab has put in the meantime. */
+      ended mid-save, of images deleted before the last save, or of a draft
+      thrown away. Spares any this tab has put in the meantime, and every
+      image another draft references. */
   async #sweep(): Promise<void> {
     const keys = await this.#blobs.keys();
-    const referenced = new Set(inlineImageCids(parseDraft(this.#raw())?.html ?? ''));
-    for (const key of keys) if (referenced.has(key)) this.#storedParts.add(key);
+    const own = new Set(inlineImageCids(parseDraft(this.#raw())?.html ?? ''));
+    for (const key of keys) if (own.has(key)) this.#storedParts.add(key);
+    const referenced = new Set(
+      this.#storage
+        .keys()
+        .filter((key) => key === DRAFT_KEY || key.startsWith(`${DRAFT_KEY}:`))
+        .flatMap((key) => inlineImageCids(parseDraft(this.#storage.getItem(key))?.html ?? '')),
+    );
     await this.#blobs.delete(
       keys.filter((key) => !referenced.has(key) && !this.#storedParts.has(key)),
     );
   }
+}
+
+/** The message a draft makes, each kept attachment's reference made by
+    `attachment` — the store's adopted under keys of this session, or a
+    chip the message already holds. */
+export function envelopeOf(
+  content: DraftContent,
+  attachment: (kept: DraftAttachment) => AttachmentRef,
+): Envelope {
+  return {
+    from: [...content.from],
+    to: [...content.to],
+    cc: [...content.cc],
+    bcc: [...content.bcc],
+    subject: content.subject,
+    previewText: content.previewText ?? '',
+    format: content.format ?? 'html',
+    original: content.original ?? null,
+    quoted: content.quoted ?? null,
+    html: content.html,
+    attachments: content.attachments.map(attachment),
+  };
+}
+
+/** What of a message a draft keeps — `null` when there is nothing to keep
+    beyond a new message (`start`), unless `blank` asks to keep it anyway (a
+    pop-out's draft is its session: it lives as long as the window does). An
+    attachment still uploading is left out: it has no id yet. */
+export function draftOf(message: Envelope, start: Envelope, blank = false): DraftContent | null {
+  const attachments = message.attachments.flatMap(({ id, name, type, size }) =>
+    id === null ? [] : [{ id, name, type, size }],
+  );
+  const kept = message.attachments.filter((a) => a.id !== null);
+  if (!blank && isBlank({ ...message, attachments: kept }, start)) {
+    return null;
+  }
+  const { from, to, cc, bcc, subject, previewText, format, html, original, quoted } = message;
+  return { from, to, cc, bcc, subject, previewText, format, html, original, quoted, attachments };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -1,0 +1,34 @@
+<!-- A pop-out: the front page's composer on the session's draft, once
+     this window holds the session — or an error page where there is no
+     such session. Nothing while it waits, unless it waits long enough that
+     another window must have the message open. -->
+@switch (state()) {
+  @case ('open') {
+    <app-compose [session]="session()" />
+  }
+  @case ('missing') {
+    <main class="pop-out__notice" aria-labelledby="pop-out-title">
+      <mat-icon class="pop-out__art" aria-hidden="true">unknown_document</mat-icon>
+      <h1 class="pop-out__title" id="pop-out-title">
+        {{ 'popOut.missing.title' | translate }}
+      </h1>
+      <p class="pop-out__text">{{ 'popOut.missing.text' | translate }}</p>
+      <div class="pop-out__actions">
+        <a matButton="filled" routerLink="/inbox">{{ 'popOut.mailbox' | translate }}</a>
+        @if (closable) {
+          <button matButton type="button" (click)="close()">
+            {{ 'popOut.close' | translate }}
+          </button>
+        }
+      </div>
+    </main>
+  }
+  @case ('waiting') {
+    @if (elsewhere()) {
+      <main class="pop-out__notice" role="status">
+        <mat-icon class="pop-out__art" aria-hidden="true">open_in_new</mat-icon>
+        <p class="pop-out__text">{{ 'popOut.elsewhere' | translate }}</p>
+      </main>
+    }
+  }
+}

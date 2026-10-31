@@ -106,6 +106,29 @@ export class LocalStorage {
     return true;
   }
 
+  /** What the key holds now, read from storage itself — never from a signal
+      another tab's write may not have reached yet: `null` while it is not
+      set. Without storage, what this tab last wrote. */
+  getItem(key: string): string | null {
+    return this.#storage ? this.#read(key) : (this.#entries.get(key)?.() ?? null);
+  }
+
+  /** Every key storage holds — and, without storage, every key this tab
+      has written. */
+  keys(): string[] {
+    const storage = this.#storage;
+    if (!storage) {
+      return [...this.#entries].flatMap(([key, entry]) => (entry() === null ? [] : [key]));
+    }
+    try {
+      return Array.from({ length: storage.length }, (_, i) => storage.key(i)).filter(
+        (key): key is string => key !== null,
+      );
+    } catch {
+      return [];
+    }
+  }
+
   #entry(key: string): WritableSignal<string | null> {
     let entry = this.#entries.get(key);
     if (!entry) {

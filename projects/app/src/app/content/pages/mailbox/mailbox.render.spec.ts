@@ -101,7 +101,7 @@ describe('Mailbox scrolling (render)', () => {
           ],
           withComponentInputBinding(),
         ),
-        { provide: ComposeWindows, useValue: { open: async () => undefined } },
+        { provide: ComposeWindows, useValue: { compose: () => undefined } },
         assets,
       ],
     });

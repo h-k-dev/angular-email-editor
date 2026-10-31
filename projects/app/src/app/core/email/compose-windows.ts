@@ -15,6 +15,8 @@ import {
 import type { Envelope } from './envelope';
 import type { MessageSheetKind } from '../../content/partials/shared/email/message-form/message-sheet';
 import { Viewport } from '../layout/viewport';
+import { Preferences } from '../storages/preferences';
+import { PopOuts } from './pop-outs';
 
 /** How a compose window shows, Gmail's three states:
     - `docked`: a window in its place on the bottom edge of the screen;
@@ -22,6 +24,22 @@ import { Viewport } from '../layout/viewport';
     - `expanded`: a 16:9 dialog in the middle of the screen, over a scrim —
       one at a time. */
 export type ComposeWindowMode = 'docked' | 'minimized' | 'expanded';
+
+/** How a new message opens on a desk — the settings' Open mode:
+    - `window`: docked, in its place on the bottom edge;
+    - `zoom`: expanded, the dialog over the page (any other dialog goes
+      back to its place, as {@link ComposeWindows.expand} does);
+    - `pop-out`: a browser window of its own ({@link PopOuts}) — a window
+      on the edge where the browser blocks it.
+    A phone's window is the screen either way. */
+export type ComposeOpenMode = 'window' | 'zoom' | 'pop-out';
+
+/** What a new message opens with — see {@link ComposeWindows.open}. */
+export interface ComposeOptions {
+  readonly mobile?: ComposeWindowMobile;
+  readonly content?: ComposeWindowContent;
+  readonly focus?: ComposeWindowFocus;
+}
 
 /** How a window shows on a phone, where it is the whole screen either way:
     - `page`: as the page itself — no title bar, and no control of its own
@@ -148,6 +166,8 @@ export function slotPosition(slot: number): number {
 export class ComposeWindows {
   readonly #document = inject(DOCUMENT);
   readonly #viewport = inject(Viewport);
+  readonly #preferences = inject(Preferences);
+  readonly #popOuts = inject(PopOuts);
   readonly #app = inject(ApplicationRef);
   readonly #injector = inject(EnvironmentInjector);
 
@@ -186,6 +206,21 @@ export class ComposeWindows {
   }
 
   /**
+   * Compose: a new message the way the settings' Open mode says — popped
+   * out (`popOut`, Shift and a click: Gmail's) whatever it says. Call it in
+   * the click: a pop-out's browser window opens synchronously, and where
+   * the browser blocks it, or on a phone, the message opens here
+   * ({@link open}) instead.
+   */
+  compose(options?: ComposeOptions & { readonly popOut?: boolean }): void {
+    const popOut = options?.popOut || this.#preferences.composeOpenMode() === 'pop-out';
+    if (popOut && !this.#viewport.compact() && this.#popOuts.open(options?.content ?? null)) {
+      return;
+    }
+    void this.open(options);
+  }
+
+  /**
    * Opens a new message in the first free place on the edge and brings it
    * to the front. Resolves to its id once the dock is on the page.
    *
@@ -198,15 +233,15 @@ export class ComposeWindows {
    * `focus` where the caret starts: To by default, the editor for a reply
    * whose rows are already filled.
    *
+   * Zoomed, where the settings' Open mode says so — a window on the edge
+   * otherwise, pop-out included: this is the message in this tab
+   * ({@link compose} pops it out).
+   *
    * With every place taken there is nothing new to open: the oldest window
    * comes back instead — restored if it was minimized, in front, with the
    * caret in it.
    */
-  async open(options?: {
-    mobile?: ComposeWindowMobile;
-    content?: ComposeWindowContent;
-    focus?: ComposeWindowFocus;
-  }): Promise<number> {
+  async open(options?: ComposeOptions): Promise<number> {
     await this.#mount();
     const open = this.#windows();
     const slot = this.#freeSlot();
@@ -216,15 +251,21 @@ export class ComposeWindows {
       return oldest.id;
     }
     const id = this.#nextId++;
+    const sheet = this.#viewport.compact() ? 'mobile' : 'desktop';
+    // Zoomed (the settings' Open mode): the dialog, one at a time — any
+    // other goes back to its place.
+    const zoom = sheet === 'desktop' && this.#preferences.composeOpenMode() === 'zoom';
     this.#windows.update((windows) => [
-      ...windows,
+      ...(zoom
+        ? windows.map((w) => (w.mode === 'expanded' ? { ...w, mode: 'docked' as const } : w))
+        : windows),
       {
         id,
         slot,
-        mode: 'docked',
+        mode: zoom ? 'expanded' : 'docked',
         pin: null,
         mobile: options?.mobile ?? 'page',
-        sheet: this.#viewport.compact() ? 'mobile' : 'desktop',
+        sheet,
         restored: options?.content ?? null,
         focus: options?.focus ?? 'to',
         guard: null,

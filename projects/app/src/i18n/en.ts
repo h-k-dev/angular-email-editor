@@ -326,6 +326,17 @@ export default {
     collapse: 'Exit full screen',
     close: 'Close',
     sent: 'Message sent',
+    popOut: 'Pop out',
+    popIn: 'Back to the mailbox',
+  },
+  popOut: {
+    missing: {
+      title: 'This message isn’t here',
+      text: 'It was sent, discarded or moved back to the mailbox — or the link is from another browser.',
+    },
+    elsewhere: 'This message is open in another window',
+    mailbox: 'Go to the mailbox',
+    close: 'Close window',
   },
   composer: {
     format: { title: 'Format', html: 'HTML', text: 'Plain text' },
@@ -370,6 +381,14 @@ export default {
         hint: 'A composer opens with it — the writer bar’s formatting button switches it too',
         always: 'On a phone it is always there',
         plainText: 'Plain text has no formatting',
+      },
+      openMode: {
+        label: 'Open mode',
+        hint: 'How a new message opens: a window on the edge, zoomed over the page, or a browser window of its own',
+        window: 'Window',
+        zoom: 'Zoom',
+        popOut: 'Pop-out',
+        phone: 'On a phone a message opens as the page',
       },
       formatHint: 'What the message is written and sent as',
       themeHint: 'The editor on its own paper, or the app’s theme',

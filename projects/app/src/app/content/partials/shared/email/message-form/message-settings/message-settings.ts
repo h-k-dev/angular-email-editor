@@ -79,7 +79,8 @@ export function openMessageSettings(
  * page (Aria tabs — a row over the page at the compact width):
  * Personalization (the editor's theme), Designer (the HTML source's
  * word wrap) and Writer (the message's Format, the Layout — whether the layout blocks take their gestures, one
- * switch for every one of them — and the formatting toolbar). What cannot
+ * switch for every one of them — the Open mode, window, zoom or pop-out, and the
+ * formatting toolbar). What cannot
  * apply stands disabled, never hidden. The email's settings only: the
  * app's own — its theme, its language — stay in the app's top bar.
  *
@@ -135,6 +136,7 @@ export class MessageSettings {
   protected readonly themeLabelId = `${this.#id}-theme`;
   protected readonly wrapLabelId = `${this.#id}-wrap`;
   protected readonly wrapHintId = `${this.#id}-wrap-hint`;
+  protected readonly openModeLabelId = `${this.#id}-open-mode`;
   protected readonly toolbarLabelId = `${this.#id}-toolbar`;
   protected readonly toolbarHintId = `${this.#id}-toolbar-hint`;
   protected readonly layoutLabelId = `${this.#id}-layout`;

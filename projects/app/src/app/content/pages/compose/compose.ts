@@ -1,17 +1,20 @@
 import {
   Component,
   ElementRef,
+  Injector,
 
   // Signals
   computed,
   effect,
   inject,
+  input,
   signal,
   untracked,
   viewChild,
 } from '@angular/core';
 
 import { NgTemplateOutlet } from '@angular/common';
+import { Title } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 
@@ -19,7 +22,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { DomPortal } from '@angular/cdk/portal';
 
 // Angular Material
-import { MatIconAnchor } from '@angular/material/button';
+import { MatIconAnchor, MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTooltip } from '@angular/material/tooltip';
@@ -39,7 +42,9 @@ import { MessageForm } from '../../partials/shared/email/message-form/message-fo
 import { MobileMessageForm } from '../../partials/shared/email/message-form/mobile-message-form';
 import { MessageSheet } from '../../partials/shared/email/message-form/message-sheet';
 import { PaperIslandDirective } from '../../partials/shared/email/paper-island';
+import { DRAFT_SESSION, Draft } from '../../../core/email/draft';
 import { BLANK, Envelope } from '../../../core/email/envelope';
+import { PopOuts } from '../../../core/email/pop-outs';
 import { Viewport } from '../../../core/layout/viewport';
 import { I18n } from '../../../core/translations/i18n';
 
@@ -55,6 +60,10 @@ const WELCOME: Envelope = { ...BLANK, to: ['pride@example.com'] };
  * laid out as a document, the zoomed compose window on the whole page — and
  * nothing beside it: its HTML source shows in the editor's place, and the
  * page itself is the zone an .eml is opened by.
+ *
+ * A pop-out is this page too (`session`): its message is the session's
+ * draft — a new one blank, not the welcome — and its way out is back into
+ * the mailbox, not home. Sent or discarded, the window closes.
  */
 @Component({
   selector: 'app-compose',
@@ -65,6 +74,7 @@ const WELCOME: Envelope = { ...BLANK, to: ['pride@example.com'] };
 
     // Angular Material
     MatIconAnchor,
+    MatIconButton,
     MatIcon,
     MatTooltip,
 
@@ -78,20 +88,45 @@ const WELCOME: Envelope = { ...BLANK, to: ['pride@example.com'] };
     AngularFileDrop,
   ],
   // One inline image registry per composer — the sheet hands it to the
-  // editor, an import feeds it. Never in root.
-  providers: [InlineImages],
+  // editor, an import feeds it. Never in root. And one draft: the front
+  // page's, or the pop-out's session's.
+  providers: [
+    InlineImages,
+    { provide: DRAFT_SESSION, useFactory: () => inject(Compose).session() },
+    Draft,
+  ],
   templateUrl: './compose.html',
   styleUrl: './compose.scss',
 })
 export class Compose {
+  /** The pop-out's session — its draft; `null`, the front page's. Read as
+      the page opens. */
+  readonly session = input<string | null>(null);
+
+  readonly #injector = inject(Injector);
+  readonly #popOuts = inject(PopOuts);
+
+  /** This page's draft (its providers'), read once the page is there: the
+      draft is made from the page's session, so the page cannot wait for it
+      as it is made. */
+  get #draftStore(): Draft {
+    return this.#injector.get(Draft);
+  }
   /** The message's sheet — the desktop's or the phone's (`mobile`), read
       as either. Optional: the source pane after it in the page binds to it
       before it is created. */
   protected readonly sheet = viewChild(MessageSheet);
 
   /** What a new message on this page is (`WELCOME`): the one it opens on
-      without a draft, and the one Send and Discard start over on. */
-  protected readonly welcome = WELCOME;
+      without a draft, and the one Send and Discard start over on. A
+      pop-out's is blank — a new message, like a window's. */
+  protected readonly welcome = computed(() => (this.session() === null ? WELCOME : BLANK));
+
+  /** Where the caret starts: the text — a pop-out's in To while nobody is
+      addressed yet, as a new window's. */
+  protected readonly initialFocus = computed(() =>
+    this.session() !== null && !this.#draftStore.incoming().content?.to.length ? 'to' : 'body',
+  );
 
   /** The sheet's draft keeper. */
   protected readonly draft = viewChild(KeepDraft);
@@ -139,6 +174,15 @@ export class Compose {
       const html = this.#examples.loaded();
       if (html) untracked(() => this.sheet()?.original.set(html));
     });
+
+    // A pop-out's window is named by its message, as a window's title bar.
+    const title = inject(Title);
+    const page = title.getTitle();
+    effect((onCleanup) => {
+      if (this.session() === null) return;
+      title.setTitle(this.sheet()?.message().subject.trim() || this.#i18n.t('composeWindow.new'));
+      onCleanup(() => title.setTitle(page));
+    });
   }
   protected sourcePane = viewChild.required(HtmlEmailCompose);
 
@@ -161,8 +205,34 @@ export class Compose {
     this.#say(await sheet.importEml(dropped));
   }
 
-  /** The sheet sent its message — and cleared itself for the next one. */
+  /** The sheet sent its message — and cleared itself for the next one: the
+      front page's says so; a pop-out has done its job, and closes (the tab
+      that opened it says so). */
   protected sent(): void {
-    this.#say(this.#i18n.t('composeWindow.sent'));
+    const session = this.session();
+    if (session === null) {
+      this.#say(this.#i18n.t('composeWindow.sent'));
+      return;
+    }
+    this.#draftStore.close();
+    this.#popOuts.done(session, true);
+  }
+
+  /** Discarded: a pop-out closes; the front page starts over. */
+  protected discarded(): void {
+    const session = this.session();
+    if (session === null) return;
+    this.#draftStore.close();
+    this.#popOuts.done(session, false);
+  }
+
+  /** A pop-out's way out: its message back into the mailbox — saved now,
+      let go, and taken in by a tab (`PopOuts.popIn`). */
+  protected popIn(): void {
+    const session = this.session();
+    if (session === null) return;
+    this.draft()?.flush();
+    this.#draftStore.close();
+    void this.#popOuts.popIn(session);
   }
 }

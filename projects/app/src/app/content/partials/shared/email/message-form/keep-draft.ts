@@ -15,12 +15,15 @@ import { InlineImages } from '@h-k-dev/angular-email-editor';
 import { AttachmentUploads } from '../../../../../core/email/attachment-uploads';
 import {
   DRAFT_SAVE_DELAY,
+  DRAFT_SESSION,
   Draft,
   DraftContent,
   SaveOptions,
+  draftOf,
+  envelopeOf,
   serializeDraft,
 } from '../../../../../core/email/draft';
-import { Envelope, isBlank } from '../../../../../core/email/envelope';
+import { Envelope } from '../../../../../core/email/envelope';
 import { MessageSheet } from './message-sheet';
 
 /**
@@ -45,7 +48,9 @@ import { MessageSheet } from './message-sheet';
  *
  * On the sheet itself, so a frame opts in: the composer page keeps its
  * draft; a compose window, which is a message of its own, does not take
- * the page's.
+ * the page's. A pop-out keeps its session's ({@link DRAFT_SESSION}) — kept
+ * even while blank: the draft is the session, there as long as the window
+ * is.
  */
 @Directive({
   selector: '[keepDraft]',
@@ -57,6 +62,8 @@ export class KeepDraft {
   readonly #draft = inject(Draft);
   readonly #uploads = inject(AttachmentUploads);
   readonly #images = inject(InlineImages);
+  /** A pop-out's draft lives while it is blank too. */
+  readonly #session = inject(DRAFT_SESSION) !== null;
 
   /** The draft's state, for a status line. */
   readonly note = computed(() => {
@@ -94,7 +101,7 @@ export class KeepDraft {
 
     const document = inject(DOCUMENT);
     const window = document.defaultView;
-    const flush = () => this.#save(message(), { now: true });
+    const flush = () => this.flush();
     const onVisibility = () => {
       if (document.visibilityState === 'hidden') flush();
     };
@@ -110,8 +117,17 @@ export class KeepDraft {
     });
   }
 
+  /** Saves the message now, text first — the page may be going away. */
+  flush(): void {
+    this.#save(this.#sheet.message(), { now: true });
+  }
+
   #save(message: Envelope, options?: SaveOptions): void {
-    this.#draft.save(toDraft(message, this.#sheet.newMessage()), this.#images, options);
+    this.#draft.save(this.#toDraft(message), this.#images, options);
+  }
+
+  #toDraft(message: Envelope): DraftContent | null {
+    return draftOf(message, this.#sheet.newMessage(), this.#session);
   }
 
   /** Takes in a draft another tab saved — or its absence, once that tab has
@@ -119,7 +135,7 @@ export class KeepDraft {
       opened with, and changes nothing. */
   #take(content: DraftContent | null): void {
     const current = this.#sheet.message();
-    const kept = toDraft(current, this.#sheet.newMessage());
+    const kept = this.#toDraft(current);
     if (serializeDraft(content) === serializeDraft(kept)) return;
     const next = this.#fromDraft(content, current);
     for (const attachment of current.attachments) {
@@ -138,38 +154,16 @@ export class KeepDraft {
     const held = new Map(
       current?.attachments.flatMap((ref) => (ref.id === null ? [] : [[ref.id, ref] as const])),
     );
+    const message = envelopeOf(
+      content,
+      (attachment) => held.get(attachment.id) ?? this.#uploads.adopt(attachment),
+    );
     return {
-      from: [...content.from],
-      to: [...content.to],
-      cc: [...content.cc],
-      bcc: [...content.bcc],
-      subject: content.subject,
-      previewText: content.previewText ?? '',
-      format: content.format ?? 'html',
-      original: content.original ?? null,
-      quoted: content.quoted ?? null,
-      html: content.html,
+      ...message,
       attachments: [
-        ...content.attachments.map(
-          (attachment) => held.get(attachment.id) ?? this.#uploads.adopt(attachment),
-        ),
+        ...message.attachments,
         ...(current?.attachments.filter((ref) => ref.id === null) ?? []),
       ],
     };
   }
-}
-
-/** What of the message a draft keeps — `null` when there is nothing to
-    keep beyond a new message (`start`). An attachment still uploading is
-    left out: it has no id yet. */
-function toDraft(message: Envelope, start: Envelope): DraftContent | null {
-  const attachments = message.attachments.flatMap(({ id, name, type, size }) =>
-    id === null ? [] : [{ id, name, type, size }],
-  );
-  const kept = message.attachments.filter((a) => a.id !== null);
-  if (isBlank({ ...message, attachments: kept }, start)) {
-    return null;
-  }
-  const { from, to, cc, bcc, subject, previewText, format, html, original, quoted } = message;
-  return { from, to, cc, bcc, subject, previewText, format, html, original, quoted, attachments };
 }

@@ -195,11 +195,44 @@
           {{ 'composer.settings.layout.note' | translate }}
         </p>
 
-        <!-- The app's, apart from the message's: whether a composer
-             opens with its formatting toolbar — the writer bar's
-             formatting button, mirrored. A phone's toolbar is always
-             there, and plain text has none: disabled there, saying so. -->
+        <!-- The app's, apart from the message's: how a new message opens
+             on a desk — a window on the edge, zoomed, or popped out into a
+             browser window of its own (the next one: this one stays as it
+             is) — and whether a composer opens with its
+             formatting toolbar — the writer bar's formatting button,
+             mirrored. A phone opens a message as the page and its toolbar
+             is always there, and plain text has none: disabled there,
+             saying so. -->
         <div class="settings__card settings__card--apart">
+          <div class="settings__row" [attr.data-disabled]="viewport.compact() ? '' : null">
+            <div class="settings__text">
+              <span class="settings__label" [id]="openModeLabelId">{{
+                'composer.settings.openMode.label' | translate
+              }}</span>
+              <span class="settings__hint">{{
+                (viewport.compact()
+                  ? 'composer.settings.openMode.phone'
+                  : 'composer.settings.openMode.hint'
+                ) | translate
+              }}</span>
+            </div>
+            <hk-tgb
+              class="settings__toggle"
+              data-setting="open-mode"
+              [attr.aria-labelledby]="openModeLabelId"
+              [disabled]="viewport.compact()"
+              [value]="preferences.composeOpenMode()"
+              (valueChange)="preferences.composeOpenMode.set($event)"
+            >
+              <button hkTgbText value="window">
+                {{ 'composer.settings.openMode.window' | translate }}
+              </button>
+              <button hkTgbText value="zoom">{{ 'composer.settings.openMode.zoom' | translate }}</button>
+              <button hkTgbText value="pop-out">
+                {{ 'composer.settings.openMode.popOut' | translate }}
+              </button>
+            </hk-tgb>
+          </div>
           <div
             class="settings__row"
             [attr.data-disabled]="!sheet.toolbarSwitch || sheet.plainText() ? '' : null"

@@ -1,6 +1,7 @@
 import { Service, inject } from '@angular/core';
 
 import type { EditorAppearance } from '../../content/partials/shared/email/message-form/message-sheet';
+import type { ComposeOpenMode } from '../email/compose-windows';
 import { LANGUAGES } from '../../../i18n/loader';
 import type { CustomSwatches } from '@h-k-dev/angular-email-editor/swatches';
 import { LocalStorage, StorageCodec, onOff, oneOf, wholeIn } from './local-storage';
@@ -111,6 +112,15 @@ export class Preferences {
   readonly formattingToolbar = this.#storage.pairSignal(
     `${PREFIX}formatting-toolbar`,
     onOff(false),
+  );
+
+  /** How a new message opens on a desk — the settings' Open mode: a
+      window on the bottom edge, zoomed into the dialog over the page, or
+      popped out into a browser window of its own. Unset reads as
+      `window`, Gmail's. A phone's message is the page either way. */
+  readonly composeOpenMode = this.#storage.pairSignal(
+    `${PREFIX}compose-open-mode`,
+    oneOf<ComposeOpenMode>(['window', 'zoom', 'pop-out'], 'window'),
   );
 
   /** Whether long lines wrap in the HTML source — Alt+Z and the settings'

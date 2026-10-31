@@ -13,17 +13,31 @@
      angular-file-drop 1.2 this had to be done by keeping the zone painted
      *under* the panes, which broke the moment it was given a position. -->
 <!-- Home: the mailbox, one way — the page's only way out, in the sheet's
-     bar next to ⋮. -->
+     bar next to ⋮. A pop-out's way out is back in: its message into the
+     mailbox, in a window there. -->
 <ng-template #home>
-  <a
-    mat-icon-button
-    routerLink="/inbox"
-    [attr.aria-label]="'app.nav.mailbox' | translate"
-    [matTooltip]="'app.nav.mailbox' | translate"
-    matTooltipPosition="below"
-  >
-    <mat-icon>home</mat-icon>
-  </a>
+  @if (session() !== null) {
+    <button
+      mat-icon-button
+      type="button"
+      [attr.aria-label]="'composeWindow.popIn' | translate"
+      [matTooltip]="'composeWindow.popIn' | translate"
+      matTooltipPosition="below"
+      (click)="popIn()"
+    >
+      <mat-icon>move_to_inbox</mat-icon>
+    </button>
+  } @else {
+    <a
+      mat-icon-button
+      routerLink="/inbox"
+      [attr.aria-label]="'app.nav.mailbox' | translate"
+      [matTooltip]="'app.nav.mailbox' | translate"
+      matTooltipPosition="below"
+    >
+      <mat-icon>home</mat-icon>
+    </a>
+  }
 </ng-template>
 
 <div
@@ -73,11 +87,12 @@
       mobile-message-form
       #phoneSheet
       [paperIsland]="phoneSheet.editorScheme()"
-      [newMessage]="welcome"
-      initialFocus="body"
+      [newMessage]="welcome()"
+      [initialFocus]="initialFocus()"
       keepDraft
       sendButton="icon"
       (sent)="sent()"
+      (discarded)="discarded()"
     >
       <ng-container ngProjectAs="[exit]" [ngTemplateOutlet]="home" />
     </div>
@@ -86,8 +101,8 @@
       message-form
       #deskSheet
       [paperIsland]="deskSheet.editorScheme()"
-      [newMessage]="welcome"
-      initialFocus="body"
+      [newMessage]="welcome()"
+      [initialFocus]="initialFocus()"
       keepDraft
       layout="document"
       fields="material"
@@ -98,6 +113,7 @@
       [codePortal]="codePortal()"
       [codeEditor]="sourcePane().editor()"
       (sent)="sent()"
+      (discarded)="discarded()"
     >
       <ng-container ngProjectAs="[exit]" [ngTemplateOutlet]="home" />
     </div>

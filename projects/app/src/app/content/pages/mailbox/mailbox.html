@@ -27,7 +27,7 @@
       class="mailbox-aside__compose"
       [attr.aria-label]="'app.compose' | translate"
       [title]="'app.compose' | translate"
-      (click)="compose()"
+      (click)="compose($event)"
     >
       <mat-icon>edit</mat-icon>
       <span class="mailbox-aside__compose-label">{{ 'app.compose' | translate }}</span>
@@ -221,7 +221,7 @@
   type="button"
   class="mailbox-fab"
   [attr.aria-label]="'app.compose' | translate"
-  (click)="compose()"
+  (click)="compose($event)"
 >
   <mat-icon>edit</mat-icon>
 </button>
