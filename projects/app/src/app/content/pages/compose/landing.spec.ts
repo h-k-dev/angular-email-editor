@@ -17,16 +17,12 @@ describe('Landing', () => {
     root = fixture.nativeElement as HTMLElement;
   });
 
-  it('puts a bar over the composer with home to the mailbox, and nothing else', () => {
-    const bar = root.querySelector('.landing-bar')!;
-    expect(bar.querySelector('a[aria-label="Mailbox"]')?.getAttribute('href')).toBe('/inbox');
-    expect(bar.querySelectorAll('a, button')).toHaveLength(1);
+  it('is the composer alone, no header — home beside ⋮ in the sheet\'s bar', () => {
+    expect(root.querySelector('header:not(.writer-bar)')).toBeNull();
     expect(root.querySelector('app-compose [message-form]')).not.toBeNull();
-  });
-
-  it('stands the bar on the sheet\'s paper: the same island scheme', () => {
-    const bar = root.querySelector('.landing-bar')!;
-    const sheet = root.querySelector('[message-form]')!;
-    expect(bar.getAttribute('data-paper-scheme')).toBe(sheet.getAttribute('data-paper-scheme'));
+    // Home sits just before ⋮ — the page's one way out.
+    const home = root.querySelector('.writer-bar a[aria-label="Mailbox"]')!;
+    expect(home.getAttribute('href')).toBe('/inbox');
+    expect(home.nextElementSibling?.querySelector('[aria-label="More options"]')).not.toBeNull();
   });
 });

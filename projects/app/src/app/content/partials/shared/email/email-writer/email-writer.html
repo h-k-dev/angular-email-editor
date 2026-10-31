@@ -8,21 +8,38 @@
      greying out. Pressing it again is harmless: the form ignores a submit
      while one is running, whichever gesture it comes from. -->
 <ng-template #send>
-  <button
-    matButton="filled"
-    type="submit"
-    class="writer-bar__send"
-    matTooltip="Send (Ctrl+Enter)"
-    [matTooltipPosition]="tooltipPosition()"
-    [attr.aria-label]="submitting() ? 'Sending' : 'Send'"
-    [showProgress]="submitting()"
-  >
-    Send
-    <!-- The spinner's size: Material sizes only the svg, and the element
-         keeps its diameter as an inline size — left at the default 100px
-         it hangs out of the bar. -->
-    <mat-progress-spinner progressIndicator mode="indeterminate" [diameter]="20" />
-  </button>
+  @if (sendButton() === 'icon') {
+    <!-- Or as a glyph (`sendButton="icon"`): one icon button among the bar's,
+         drawn exactly as they are. -->
+    <button
+      mat-icon-button
+      type="submit"
+      class="writer-bar__send"
+      matTooltip="Send (Ctrl+Enter)"
+      [matTooltipPosition]="tooltipPosition()"
+      [attr.aria-label]="submitting() ? 'Sending' : 'Send'"
+      [showProgress]="submitting()"
+    >
+      <mat-icon>send</mat-icon>
+      <mat-progress-spinner progressIndicator mode="indeterminate" [diameter]="20" />
+    </button>
+  } @else {
+    <button
+      matButton="filled"
+      type="submit"
+      class="writer-bar__send writer-bar__send--filled"
+      matTooltip="Send (Ctrl+Enter)"
+      [matTooltipPosition]="tooltipPosition()"
+      [attr.aria-label]="submitting() ? 'Sending' : 'Send'"
+      [showProgress]="submitting()"
+    >
+      Send
+      <!-- The spinner's size: Material sizes only the svg, and the element
+           keeps its diameter as an inline size — left at the default 100px
+           it hangs out of the bar. -->
+      <mat-progress-spinner progressIndicator mode="indeterminate" [diameter]="20" />
+    </button>
+  }
 </ng-template>
 
 <!-- The host's view controls, beside Send — away from the actions that do
@@ -43,19 +60,19 @@
 <ng-template #bar>
   @if (barOnTop()) {
     <ng-container [ngTemplateOutlet]="actions" />
-    <span class="writer-bar__spacer"></span>
+    <span class="writer-bar__spacer" data-marquee-room></span>
     <ng-container [ngTemplateOutlet]="leading" />
     <ng-container [ngTemplateOutlet]="send" />
   } @else {
     <ng-container [ngTemplateOutlet]="send" />
     <ng-container [ngTemplateOutlet]="leading" />
-    <span class="writer-bar__spacer"></span>
+    <span class="writer-bar__spacer" data-marquee-room></span>
     <ng-container [ngTemplateOutlet]="actions" />
   }
 </ng-template>
 
 @if (barOnTop()) {
-  <header class="writer-bar">
+  <header class="writer-bar" data-marquee-room>
     <ng-container [ngTemplateOutlet]="bar" />
   </header>
 }
@@ -70,7 +87,7 @@
 <ng-content />
 
 @if (!barOnTop()) {
-  <footer class="writer-bar">
+  <footer class="writer-bar" data-marquee-room>
     <ng-container [ngTemplateOutlet]="bar" />
   </footer>
 }

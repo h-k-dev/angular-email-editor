@@ -1,16 +1,4 @@
-<!-- The bar: home to the mailbox, and nothing else — the settings and
-     Compose are the mailbox's. Slim, and on the composer's paper (an island
-     in the sheet's Appearance), so the page reads as one document from the
-     top edge down. A desk's only: on a phone the sheet is the screen. -->
-<header class="landing-bar" [paperIsland]="page.scheme()">
-  <a
-    matIconButton
-    routerLink="/inbox"
-    [attr.aria-label]="'app.nav.mailbox' | translate"
-    [title]="'app.nav.mailbox' | translate"
-  >
-    <mat-icon>home</mat-icon>
-  </a>
-</header>
-
-<app-compose #page class="landing-page" />
+<!-- The composer, and nothing over it: no header — the room above the
+     sheet's bar is the writer's own (landing.scss), so a marquee starts
+     there too. -->
+<app-compose />

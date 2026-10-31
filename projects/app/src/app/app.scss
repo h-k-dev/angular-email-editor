@@ -18,29 +18,8 @@
   min-block-size: 100dvh;
 }
 
-// The floating Compose: a phone's (below). Fixed to the viewport, however
-// far the document is scrolled, and up by the keyboard's cover, so it rides
-// above the keys — and clear of the composer's toolbar, the 40px bar on
-// the phone's foot (formatting-toolbar.scss), which it must never cover.
-.app-fab {
-  display: none;
-  position: fixed;
-  inset-inline-end: 16px;
-  inset-block-end: calc(40px + 16px + var(--keyboard-inset, 0px));
-  // Over the page, under an open compose window (compose-window.scss).
-  z-index: 3;
-}
-
 // The page, as tall as it is. Never a scroller: the document is (a frame
 // page scrolls inside itself, above).
 .app-main {
   flex: 1 1 auto;
-}
-
-// Narrow screens: Compose leaves the pages' chrome for the floating button
-// at the screen's lower right — a mail app's phone client, where a thumb is.
-@media (max-width: 600px) {
-  .app-fab {
-    display: inline-flex;
-  }
 }

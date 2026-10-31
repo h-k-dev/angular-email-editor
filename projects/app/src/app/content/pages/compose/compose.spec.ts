@@ -1,4 +1,5 @@
 import { signal } from '@angular/core';
+import { provideRouter } from '@angular/router';
 import { TextSelection } from 'prosemirror-state';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { emailPlainText, plainTextHTML } from '@h-k-dev/angular-email-editor';
@@ -110,7 +111,7 @@ describe('Compose', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [Compose],
-      providers: [{ provide: EMAIL_SEND_LATENCY, useValue: 0 }],
+      providers: [provideRouter([]), { provide: EMAIL_SEND_LATENCY, useValue: 0 }],
     }).compileComponents();
 
     fixture = TestBed.createComponent(Compose);
@@ -718,46 +719,6 @@ describe('Compose', () => {
     await fixture.whenStable();
     expect(dialog()).toBeNull();
     expect(pane.value()).not.toContain('href=');
-  });
-
-  it('detach shows the HTML source beside the editor; it and the View switch each other', async () => {
-    const root = fixture.nativeElement as HTMLElement;
-    // The pane's home is the page wrapper, which is also the .eml import
-    // dropzone (compose.html) — not the component host.
-    const page = root.querySelector('.compose__page') as HTMLElement;
-    const editor = root.querySelector('.email-compose__editor') as HTMLElement;
-    const code = root.querySelector('.email-compose__code') as HTMLElement;
-    const source = root.querySelector('section[html-email-compose]') as HTMLElement;
-    const detach = root.querySelector('[aria-label="Detach HTML source"]') as HTMLButtonElement;
-    const quote = root.querySelector(
-      '.formatting-toolbar [aria-label="Quote"]',
-    ) as HTMLButtonElement;
-
-    detach.click();
-    await fixture.whenStable();
-    expect(root.classList.contains('compose--detached')).toBe(true);
-    expect(source.hidden).toBe(false);
-    expect(source.parentElement).toBe(page); // its own column, not the slot
-    expect(editor.hidden).toBe(false); // the editor stays, and stays the target
-    expect(quote.disabled).toBe(false);
-    expect(detach.getAttribute('aria-pressed')).toBe('true');
-
-    // Choosing HTML switches views rather than stacking them.
-    await chooseView(fixture, 'HTML');
-    expect(root.classList.contains('compose--detached')).toBe(false);
-    expect(code.contains(source)).toBe(true);
-    expect(detach.getAttribute('aria-pressed')).toBe('false');
-
-    detach.click();
-    await fixture.whenStable();
-    expect(code.contains(source)).toBe(false);
-    expect(root.classList.contains('compose--detached')).toBe(true);
-
-    // Pressing the active one again hides the source.
-    detach.click();
-    await fixture.whenStable();
-    expect(root.classList.contains('compose--detached')).toBe(false);
-    expect(source.hidden).toBe(true);
   });
 
   it('Send submits the one form: held and explained while the envelope is incomplete, delivered once it is', async () => {
@@ -1444,33 +1405,20 @@ describe('Compose', () => {
     expect(problem()).toContain('bounce@example.com was rejected');
   });
 
-  it('the preview is a detachable pane too — hidden by default, docked to the left', async () => {
+  it('docks nothing beside the sheet: no preview, no detached source — the zoomed window on the page', async () => {
     const root = fixture.nativeElement as HTMLElement;
-    const preview = root.querySelector('section[email-preview]') as HTMLElement;
-    const composer = root.querySelector('section[email-compose]') as HTMLElement;
-    const toggle = root.querySelector('.writer-bar [aria-label="Preview"]') as HTMLButtonElement;
-    // The page's controls, not the editor's: the formatting toolbar holds
-    // formatting alone — no view toggles.
-    const toolbar = root.querySelector('.formatting-toolbar') as HTMLElement;
+    expect(root.querySelector('section[email-preview]')).toBeNull();
     for (const label of ['Preview', 'Detach HTML source']) {
-      expect(toolbar.querySelector(`[aria-label="${label}"]`)).toBeNull();
+      expect(root.querySelector(`.writer-bar [aria-label="${label}"]`)).toBeNull();
     }
-
-    expect(preview.hidden).toBe(true);
-    expect(toggle.getAttribute('aria-pressed')).toBe('false');
-
-    toggle.click();
-    await fixture.whenStable();
-    expect(preview.hidden).toBe(false);
-    expect(root.classList.contains('compose--preview')).toBe(true);
-    // To the left: before the composer, in DOM as on screen.
-    expect(
-      preview.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-
-    toggle.click();
-    await fixture.whenStable();
-    expect(preview.hidden).toBe(true);
+    // The source is there only for code view, hidden until it is chosen.
+    const source = root.querySelector('section[html-email-compose]') as HTMLElement;
+    expect(source.hidden).toBe(true);
+    expect(viewOffered(component)).toBe(true);
+    // Send is one of the bar's icon buttons, drawn as they are.
+    const send = root.querySelector('.writer-bar__send') as HTMLElement;
+    expect(send.classList).toContain('mat-mdc-icon-button');
+    expect(send.getAttribute('aria-label')).toBe('Send');
   });
 });
 
@@ -1492,7 +1440,7 @@ describe('Compose answering a message', () => {
     localStorage.setItem(DRAFT_KEY, serializeDraft(draft)!);
     await TestBed.configureTestingModule({
       imports: [Compose],
-      providers: [{ provide: EMAIL_SEND_LATENCY, useValue: 0 }],
+      providers: [provideRouter([]), { provide: EMAIL_SEND_LATENCY, useValue: 0 }],
     }).compileComponents();
     const fixture = TestBed.createComponent(Compose);
     await fixture.whenStable();
@@ -1515,53 +1463,7 @@ describe('Compose answering a message', () => {
   });
 });
 
-describe('Compose below the docking breakpoint', () => {
-  it('drops the pane toggles from the writer bar and collapses a docked pane', async () => {
-    const narrow = signal(false);
-    await TestBed.configureTestingModule({
-      imports: [Compose],
-      providers: [
-        {
-          provide: Viewport,
-          useValue: {
-            narrow: narrow.asReadonly(),
-            compact: signal(false).asReadonly(),
-            touch: signal(false).asReadonly(),
-            floatingScrollbars: signal(true).asReadonly(),
-          },
-        },
-      ],
-    }).compileComponents();
-    const fixture = TestBed.createComponent(Compose);
-    await fixture.whenStable();
-    const root = fixture.nativeElement as HTMLElement;
-    const btn = (label: string) =>
-      root.querySelector(`[aria-label="${label}"]`) as HTMLButtonElement | null;
-
-    // Wide: dock the preview and the source.
-    btn('Preview')!.click();
-    btn('Detach HTML source')!.click();
-    await fixture.whenStable();
-    expect(root.classList.contains('compose--detached')).toBe(true);
-    expect(root.classList.contains('compose--preview')).toBe(true);
-
-    // Narrow: the options are gone, the docked panes collapse — code view
-    // (in place) stays.
-    narrow.set(true);
-    await fixture.whenStable();
-    expect(btn('Preview')).toBeNull();
-    expect(btn('Detach HTML source')).toBeNull();
-    expect(viewOffered(fixture.componentInstance)).toBe(true);
-    expect(root.classList.contains('compose--detached')).toBe(false);
-    expect(root.classList.contains('compose--preview')).toBe(false);
-
-    // Wide again: the options return; nothing re-docks by itself.
-    narrow.set(false);
-    await fixture.whenStable();
-    expect(btn('Preview')).not.toBeNull();
-    expect(root.classList.contains('compose--preview')).toBe(false);
-  });
-
+describe('Compose on a phone and a desk', () => {
   /** The page, opened at a phone's width or a desk's, and the switch to
       move the screen across the breakpoint afterwards. */
   async function openAt(compactAtOpen: boolean) {
@@ -1569,6 +1471,7 @@ describe('Compose below the docking breakpoint', () => {
     await TestBed.configureTestingModule({
       imports: [Compose],
       providers: [
+        provideRouter([]),
         {
           provide: Viewport,
           useValue: {
@@ -1599,6 +1502,10 @@ describe('Compose below the docking breakpoint', () => {
     expect(root.querySelector('.writer-bar')?.tagName).toBe('HEADER');
     expect(root.querySelector('form[email-writer]')?.getAttribute('data-scroll')).toBe('sheet');
     expect(root.querySelector('section[email-compose]')?.getAttribute('data-scroll')).toBe('host');
+    // The desk's bar, drawn the same: Send an icon button, home beside ⋮.
+    expect(root.querySelector('.writer-bar__send')?.classList).toContain('mat-mdc-icon-button');
+    const home = root.querySelector('.writer-bar a[aria-label="Mailbox"]');
+    expect(home?.nextElementSibling?.tagName.toLowerCase()).toBe('message-menu');
     // The suggestion menu is docked over the toolbar, not by the caret.
     const menu = root.querySelector('[email-suggestion-menu]');
     expect(menu?.closest('.email-compose__dock')).not.toBeNull();
@@ -1651,6 +1558,7 @@ describe('Compose drafts', () => {
     await TestBed.configureTestingModule({
       imports: [Compose],
       providers: [
+        provideRouter([]),
         { provide: EMAIL_SEND_LATENCY, useValue: 0 },
         { provide: DRAFT_SAVE_DELAY, useValue: saveDelay },
       ],

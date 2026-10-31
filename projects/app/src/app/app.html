@@ -1,20 +1,6 @@
 <!-- The routed page, and nothing else: each page draws its own chrome —
-     the landing its top bar, the mailbox its aside — on the whole
-     viewport. -->
+     the landing its top bar, the mailbox its aside and a phone's floating
+     Compose — on the whole viewport. -->
 <main class="app-main">
   <router-outlet />
 </main>
-
-<!-- Compose on a phone: a floating action button at the screen's lower
-     right, the pencil alone, over whatever page is open — the way a mail
-     app's phone client starts a message. The pages' own Compose is away
-     there; an open window covers this one. -->
-<button
-  matFab
-  type="button"
-  class="app-fab"
-  [attr.aria-label]="'app.compose' | translate"
-  (click)="compose()"
->
-  <mat-icon>edit</mat-icon>
-</button>

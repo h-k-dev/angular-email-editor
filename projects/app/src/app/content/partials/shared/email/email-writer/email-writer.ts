@@ -15,6 +15,10 @@ import { ScrollOwner } from '../../../../../core/directives/scroll-owner/scroll-
 /** Where the writer's bar sits: closing the sheet, or heading it. */
 export type WriterBarPosition = 'top' | 'bottom';
 
+/** How Send is drawn: a filled button with the word, or an icon button
+    like the bar's others. */
+export type WriterSend = 'filled' | 'icon';
+
 /** What scrolls: the body alone, under the envelope held in place — or the
     whole sheet, so the bar and the envelope scroll away above the text. */
 export type WriterScroll = 'body' | 'sheet';
@@ -78,6 +82,11 @@ export class EmailWriter {
   /** A compact bar, for a pointer: every button 32px. Off, the bar keeps
       the app's 40/48px, for a finger. */
   readonly dense = input(false, { transform: booleanAttribute });
+
+  /** How Send is drawn: `filled` — the word, the one thing on the bar that
+      stands out — or `icon` — a send glyph, an icon button exactly like
+      the bar's others (the composer page's). */
+  readonly sendButton = input<WriterSend>('filled');
 
   /** What scrolls: `body` — the text alone, under the bar and the envelope
       held in place — or `sheet` — everything, so the bar sticks on top and

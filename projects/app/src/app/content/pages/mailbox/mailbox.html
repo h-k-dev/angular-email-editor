@@ -210,3 +210,18 @@
 <div class="mailbox-main">
   <router-outlet />
 </div>
+
+<!-- Compose on a phone: a floating action button at the screen's lower
+     right, the pencil alone, over whatever mailbox page is open — the way a
+     mail app's phone client starts a message. The aside's Compose is away
+     there; an open window covers this one. The mailbox's alone: the landing
+     is a message already. -->
+<button
+  matFab
+  type="button"
+  class="mailbox-fab"
+  [attr.aria-label]="'app.compose' | translate"
+  (click)="compose()"
+>
+  <mat-icon>edit</mat-icon>
+</button>

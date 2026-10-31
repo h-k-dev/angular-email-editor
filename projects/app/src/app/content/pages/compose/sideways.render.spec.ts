@@ -7,6 +7,7 @@
  * which stay where the column puts them. Downwards only the toolbar holds
  * (the foot): the bar and the envelope go up with the text.
  */
+import { provideRouter } from '@angular/router';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { page } from 'vitest/browser';
@@ -35,7 +36,7 @@ describe('Compose sideways (render)', () => {
     await page.viewport(1200, 800);
     TestBed.configureTestingModule({
       imports: [Compose],
-      providers: [{ provide: EMAIL_SEND_LATENCY, useValue: 0 }],
+      providers: [provideRouter([]), { provide: EMAIL_SEND_LATENCY, useValue: 0 }],
     });
     fixture = TestBed.createComponent(Compose);
     host().style.cssText = 'display: flex; flex-direction: column; position: fixed; inset: 0';

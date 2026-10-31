@@ -1,7 +1,7 @@
 import { Component, Signal, WritableSignal, computed, inject } from '@angular/core';
 
 // Angular Material
-import { MatButton, MatIconButton } from '@angular/material/button';
+import { MatButton, MatFabButton, MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 
 import { NgTemplateOutlet } from '@angular/common';
@@ -99,6 +99,7 @@ const pageLinks = (base: string, pages: readonly DocPageLink[]): MailboxLink[] =
     TranslatePipe,
     MatIcon,
     MatButton,
+    MatFabButton,
     MatIconButton,
     RouterLink,
     RouterLinkActive,

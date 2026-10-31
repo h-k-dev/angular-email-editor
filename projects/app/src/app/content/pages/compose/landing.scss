@@ -1,31 +1,17 @@
 @use '../../../../styles/breakpoints' as bp;
 
-// A frame (app.scss): the bar, and the composer filling what it leaves — a
-// stretched flex item's size is definite, so the composer's `height: 100%`
-// resolves against it.
+// A frame (app.scss), the composer filling it. Its only chrome is the
+// sheet's bar: above it, twelve spacing units of room — the writer's own
+// top padding (`--writer-padding-start`), so it is the sheet's paper and a
+// marquee starts in it like anywhere else on the sheet. A phone has none:
+// the sheet is the screen, its bar at the top edge.
 :host {
-  display: flex;
-  flex-direction: column;
+  display: block;
   block-size: var(--app-frame);
   min-block-size: 0;
-}
-
-// Slim: the 40px home button and 4px round it. The paper's colour — the
-// island's, as the writer under it reads it — so bar and sheet are one.
-.landing-bar {
-  flex: none;
-  display: flex;
-  align-items: center;
-  block-size: 48px;
-  padding-inline: 4px;
-  background: var(--email-paper, var(--mat-sys-surface-bright));
+  --writer-padding-start: calc(var(--mat-sys-spacing) * 12); // 48px
 
   @include bp.phone {
-    display: none;
+    --writer-padding-start: 0px;
   }
-}
-
-.landing-page {
-  flex: 1 1 auto;
-  min-block-size: 0;
 }

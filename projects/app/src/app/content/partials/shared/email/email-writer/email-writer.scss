@@ -181,7 +181,9 @@
 // buttons, whose glyph sits inside their state layer; a filled button has
 // no such margin, so it takes the glyph's inset itself — on whichever edge
 // it sits: the start at the foot, the end heading the sheet (mirrored).
-.writer-bar__send {
+// Drawn as a glyph (`sendButton="icon"`) it is one of the icon buttons, and
+// takes none of this.
+.writer-bar__send--filled {
   @include mat.button-overrides(
     (
       filled-container-height: 32px,

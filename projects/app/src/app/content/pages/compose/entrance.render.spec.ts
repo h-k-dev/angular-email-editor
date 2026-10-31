@@ -4,6 +4,7 @@
  * addressed, with the caret already in the text — handed in by the
  * editor's host as the editor mounts — so the first keystroke writes.
  */
+import { provideRouter } from '@angular/router';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { Compose } from './compose';
@@ -18,7 +19,7 @@ describe('Compose entrance (render)', () => {
     localStorage.clear();
     TestBed.configureTestingModule({
       imports: [Compose],
-      providers: [{ provide: EMAIL_SEND_LATENCY, useValue: 0 }],
+      providers: [provideRouter([]), { provide: EMAIL_SEND_LATENCY, useValue: 0 }],
     });
     fixture = TestBed.createComponent(Compose);
     host().style.cssText = 'display: block; inline-size: 700px; block-size: 700px';

@@ -58,6 +58,7 @@ import {
   SourceView,
 } from '../email-compose/email-compose';
 import { releaseEditingSurface } from '../is-typing';
+import type { WriterSend } from '../email-writer/email-writer';
 import { Paper } from '../../../../../core/theme/paper';
 import { I18n } from '../../../../../core/translations/i18n';
 import { AttachmentRef, AttachmentUploads } from '../../../../../core/email/attachment-uploads';
@@ -230,6 +231,10 @@ export abstract class MessageSheet {
   /** How the envelope rows frame their controls (`EnvelopeRows.fields`):
       bare on the page, Material form fields in a compose window. */
   readonly fields = input<'plain' | 'material'>('plain');
+
+  /** How the writer's bar draws Send (`WriterSend`), on either sheet: the
+      filled word, or an icon button like the bar's others (the page's). */
+  readonly sendButton = input<WriterSend>('filled');
 
   /** The message — one model, owned here as a real host would own it
       (seeded from an account, a reply's headers, a draft). Every row on the

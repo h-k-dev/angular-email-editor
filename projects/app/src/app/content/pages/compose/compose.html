@@ -12,6 +12,20 @@
      regardless of what that zone does with the drop. Before
      angular-file-drop 1.2 this had to be done by keeping the zone painted
      *under* the panes, which broke the moment it was given a position. -->
+<!-- Home: the mailbox, one way — the page's only way out, in the sheet's
+     bar next to ⋮. -->
+<ng-template #home>
+  <a
+    mat-icon-button
+    routerLink="/inbox"
+    [attr.aria-label]="'app.nav.mailbox' | translate"
+    [matTooltip]="'app.nav.mailbox' | translate"
+    matTooltipPosition="below"
+  >
+    <mat-icon>home</mat-icon>
+  </a>
+</ng-template>
+
 <div
   class="compose__page"
   dropZone
@@ -33,40 +47,27 @@
     [active]="emlZone.isDragOver()"
   ></div>
 
-  <!-- The preview, docked to the left when the writer bar's preview button is on. -->
-  <section
-    email-preview
-    [hidden]="!previewOpen()"
-    [active]="previewOpen()"
-    [html]="previewHtml()"
-    [original]="sheet()?.original() ?? null"
-    aria-label="Email preview"
-  ></section>
   <!-- The message: the sheet every message in the app is written on (the
-     compose windows hold one each). This page keeps it as the draft and
-     docks the panes around it; the writer inside is the *attachment* zone,
-     selfOnly, so a drop on the message is never this page's import.
-     The page adds only its views to the writer's bar: the preview docked
-     to the sheet's left, the HTML source in the editor's place (code view,
-     Summernote's </>), the source docked to its right — the buttons in the
-     same order as the panes on screen. They change what shows, not the
-     message, so they are neither formatting (the composer's toolbar) nor
-     actions (beside Send). Only where a second pane fits: below the
-     docking breakpoint they go, and a docked pane folds (compose.ts).
+     compose windows hold one each), laid out as the zoomed window lays it
+     out — a document (`layout`): the bar heading it, a centred column, paper
+     edge to edge — with its rows as a window draws them (`fields`) and Send
+     an icon button like the bar's others (`sendButton`, the phone's too). Nothing docks beside
+     it. This page keeps it as the draft; the writer inside is
+     the *attachment* zone, selfOnly, so a drop on the message is never this
+     page's import.
      The sheet is a paper island in its own Appearance, as every compose
-     window is (paper-island.ts): bar, rows, text and their menus one paper;
-     the desk round it — the panes, the status strip — keeps the app's.
+     window is (paper-island.ts): bar, rows, text and their menus one paper.
      Opened on a phone, the page writes on the phone's sheet instead
-     (`mobile`, chosen once): the screen, no panes to dock. The desk is
-     where a layout is shaped (`mode="design"`: its blocks take their
-     gestures); the phone's sheet, like every compose window, writes.
-     The desk's sheet is a document (`layout`): the zoomed compose window's
-     very layout, on the whole page — the bar heading it, a centred column,
-     paper edge to edge between the panes — with its rows as a window draws
-     them (`fields`). A new message here comes addressed (`newMessage`,
-     the page's welcome) and opens with the caret in the text, so the page
-     is one keystroke from a message. No strip of counts under it: what a send or an import
-     did is said the way a window says it, in a snackbar. -->
+     (`mobile`, chosen once): the screen. The desk is where a layout is
+     shaped (`mode="design"`: its blocks take their gestures); the phone's
+     sheet, like every compose window, writes. Its HTML source shows in the
+     editor's place (`sourceViews`: the settings' View).
+     The page's one way out is home, to the mailbox — in the sheet's bar
+     next to ⋮, on a desk and a phone alike.
+     A new message here comes addressed (`newMessage`, the page's welcome)
+     and opens with the caret in the text, so the page is one keystroke from
+     a message. What a send or an import did is said the way a window says
+     it, in a snackbar. -->
   @if (mobile) {
     <div
       mobile-message-form
@@ -75,8 +76,11 @@
       [newMessage]="welcome"
       initialFocus="body"
       keepDraft
+      sendButton="icon"
       (sent)="sent()"
-    ></div>
+    >
+      <ng-container ngProjectAs="[exit]" [ngTemplateOutlet]="home" />
+    </div>
   } @else {
     <div
       message-form
@@ -87,6 +91,7 @@
       keepDraft
       layout="document"
       fields="material"
+      sendButton="icon"
       mode="design"
       [(sourceView)]="sourceView"
       sourceViews
@@ -94,47 +99,19 @@
       [codeEditor]="sourcePane().editor()"
       (sent)="sent()"
     >
-      @if (!viewport.narrow()) {
-        <span leading class="writer-panes" role="group" aria-label="Views">
-          <button
-            mat-icon-button
-            type="button"
-            aria-label="Preview"
-            title="Show the preview beside the editor"
-            [attr.aria-pressed]="previewOpen()"
-            (click)="previewOpen.set(!previewOpen())"
-          >
-            <mat-icon>dock_to_left</mat-icon>
-          </button>
-          <!-- Code view is the ⋮ menu's View (Editor / HTML), the sheet's:
-             marks and history keep working on the source (its kit mirrors
-             every mark command, so the toolbar routes to whichever editor
-             shows); block commands have no source-side twin and lock. Detach
-             pressed while in code view moves the source back out. -->
-          <button
-            mat-icon-button
-            type="button"
-            aria-label="Detach HTML source"
-            title="Show the HTML source beside the editor"
-            [attr.aria-pressed]="sourceView() === 'detached'"
-            (click)="toggleDetached()"
-          >
-            <mat-icon>dock_to_right</mat-icon>
-          </button>
-        </span>
-      }
+      <ng-container ngProjectAs="[exit]" [ngTemplateOutlet]="home" />
     </div>
   }
-  <!-- The HTML source pane. Its home is this right column (the detached view);
+  <!-- The HTML source pane: hidden here, its only view the editor's place —
      in code view a DOM portal moves the very same node into the composer's
-     editing surface and back — the editor inside is never re-created, so
-     undo history and lint carry across. Hidden by default. -->
+     editing surface and back, so the editor inside is never re-created and
+     undo history and lint carry across. -->
   <section
     html-email-compose
     #sourceEl
     class="email-scroll"
-    [hidden]="sourceView() === 'hidden'"
-    [active]="sourceView() !== 'hidden'"
+    [hidden]="sourceView() !== 'code'"
+    [active]="sourceView() === 'code'"
     [html]="html()"
     (htmlChange)="onSourceHtml($event)"
     aria-label="Email HTML source"

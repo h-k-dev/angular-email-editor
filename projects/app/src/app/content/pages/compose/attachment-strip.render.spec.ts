@@ -5,6 +5,7 @@
  * never past the end, never first the wrong way — and the strip never
  * reaches past the sheet's sides.
  */
+import { provideRouter } from '@angular/router';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { Compose } from './compose';
@@ -34,7 +35,7 @@ describe('Attachment strip (render)', () => {
   beforeEach(async () => {
     TestBed.configureTestingModule({
       imports: [Compose],
-      providers: [{ provide: EMAIL_SEND_LATENCY, useValue: 0 }],
+      providers: [provideRouter([]), { provide: EMAIL_SEND_LATENCY, useValue: 0 }],
     });
     fixture = TestBed.createComponent(Compose);
     host().style.cssText = 'display: block; inline-size: 700px; block-size: 700px';

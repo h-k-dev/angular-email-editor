@@ -1,6 +1,6 @@
 // The host is only a box for the page to fill. The layout lives on `.compose__page`
 // below, which is also the import dropzone: the zone has to *contain* the
-// panes for `selfOnly` to route drops to the writer's attachment zone, and a
+// sheet for `selfOnly` to route drops to the writer's attachment zone, and a
 // grid container cannot have a wrapper between it and its items.
 :host {
   display: block;
@@ -8,8 +8,8 @@
 }
 
 // The page, and the import zone: drop an .eml anywhere on it and the message
-// is rendered into the editor. It wraps everything, so the panes and the
-// room round them all import — and `selfOnly`
+// is rendered into the editor. It wraps the sheet, so the page round it
+// imports — and `selfOnly`
 // (angular-file-drop ≥ 1.2) is what keeps it out of the writer, where
 // a dropped file is an attachment instead.
 //
@@ -19,23 +19,10 @@
 // a drag landing inside a nested zone is never this one's — and holds however
 // the two are stacked.
 .compose__page {
+  // One track: the sheet is a document, the whole page edge to edge with
+  // its column centred — the zoomed window's layout, on the page.
   display: grid;
-  // The writer's natural width: 600px is the *sheet*, insets included — not
-  // the text column. The text's scrollbar floats over it (`floatingScrollbar`
-  // on the editing surface) and adds nothing. Declared, not measured: the
-  // text column is fluid, so an auto track would size the column to
-  // whatever happens to be typed.
-  --compose-writer-width: 600px;
-
-  // Three tracks — a flank, the writer's width, a flank — that the panes
-  // dock into: the phone-width-first preview (ledger: 320px first) into the
-  // left flank, hugging the sheet, the HTML source into the right one. The
-  // sheet is a document (`layout`): it takes every track no pane holds, so
-  // with both away it is the whole page, edge to edge, its column centred;
-  // a pane opening takes its flank and the column stays centred in what is
-  // left. minmax(0, …) on the flanks: a flank never grows for its content —
-  // the content overflows it instead.
-  grid-template-columns: minmax(0, 1fr) minmax(0, var(--compose-writer-width)) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
 
   height: 100%;
@@ -43,13 +30,12 @@
   // The containing block for the import hint, which overlays the page.
   position: relative;
   // No margin of its own: the paper runs to the page's edges, as the zoomed
-  // window's does to its frame's. No background either: the panes stand on
-  // the shell's surface, the sheet is the paper.
+  // window's does to its frame's. No background either: the sheet is the
+  // paper.
 }
 
-// The panes, and the message's sheet.
-section,
-[message-form] {
+[message-form],
+[mobile-message-form] {
   min-width: 0;
   min-height: 0;
 }
@@ -62,67 +48,8 @@ section,
   --drop-hint-radius: var(--mat-sys-corner-large, 16px);
 }
 
-// Explicit columns: a hidden pane is display:none, and auto-placement would
-// otherwise slide the composer into the empty flank. Scoped to the page's
-// own children: the source pane leaves the page for the composer's code
-// slot (a grid too), and a placement that followed it there would make
-// that slot three columns wide with the source in the last.
-.compose__page > section[email-preview] {
-  grid-column: 1;
-}
-
-// At the full-width breakpoint and below the flanks go: one column, the
-// phone's sheet the whole of it.
-:host(.compose--compact) .compose__page {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-// The sheet: every track the panes leave it.
-[message-form],
-[mobile-message-form] {
-  grid-column: 1 / -1;
-}
-
-:host(.compose--preview) [message-form] {
-  grid-column-start: 2;
-}
-
-:host(.compose--detached) [message-form] {
-  grid-column-end: 3;
-}
-
-.compose__page > section[html-email-compose] {
-  grid-column: 3;
-}
-
-// A pane keeps the page's inset from everything round it — the sheet, the
-// page's edges. The source fills its flank; the preview hugs the sheet
-// instead of centring in its own. Both panes are hidden by default, and hidden means
-// gone from the grid: each pane's own :host display rule would otherwise
-// outrank the UA [hidden] rule and leave it occupying its column, invisible
-// only in name.
-.compose__page > section[email-preview],
-.compose__page > section[html-email-compose] {
-  margin: var(--mat-sys-inner-spacing, 16px);
-}
-
-.compose__page > section[email-preview] {
-  justify-self: end;
-}
-
-section[email-preview][hidden] {
-  display: none;
-}
-
+// Hidden means gone from the grid: the pane's own :host display rule would
+// otherwise outrank the UA [hidden] rule and leave it a row of the page.
 section[html-email-compose][hidden] {
   display: none;
-}
-
-// The page's view toggles in the writer's bar (after the sheet's formatting switch): one item of the bar,
-// spaced inside the way the bar spaces its own — 8px, which keeps the 48px
-// touch targets apart. Pressed toggles are styled app-wide (styles.scss).
-.writer-panes {
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }

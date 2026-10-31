@@ -196,6 +196,13 @@ describe('Mailbox', () => {
       expect(foot.querySelector('theme-toggle button')).not.toBeNull();
     });
 
+    it("carries a phone's floating Compose — the mailbox's own, not the app's", () => {
+      const fab = root.querySelector('.mailbox-fab') as HTMLButtonElement;
+      expect(fab.getAttribute('aria-label')).toBe('Compose');
+      fab.click();
+      expect(opened).toBe(1);
+    });
+
     it('folds to the rail and back, beside the page', async () => {
       expect(host().hasAttribute('data-collapsed')).toBe(false);
       expect(toggle().getAttribute('aria-expanded')).toBe('true');

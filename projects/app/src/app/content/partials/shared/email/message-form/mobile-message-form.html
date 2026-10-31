@@ -11,6 +11,7 @@
   emailAddressDragGroup
   [formRoot]="envelope"
   bar="top"
+  [sendButton]="sendButton()"
   scrollOwner
   aria-label="Email writer"
   dropZone
@@ -53,6 +54,8 @@
   <!-- Beside Send, at the bar's end: ⋮ (Settings… and the View, opening
        down, lined up with the end), the frame's leading controls, Attach. -->
   <ng-container ngProjectAs="[leading]">
+    <!-- The frame's way out (`exit` — the page's home), next to ⋮. -->
+    <ng-content select="[exit]" />
     <message-menu side="below" align="end" />
     <ng-content select="[leading]" />
     <!-- Attach, and the strip's toggle as its second half — split for good,

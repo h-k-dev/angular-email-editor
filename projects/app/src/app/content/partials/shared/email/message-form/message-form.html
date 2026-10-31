@@ -36,6 +36,7 @@
   [scrollOwner]="layout() === 'document'"
   [formRoot]="envelope"
   [bar]="bar()"
+  [sendButton]="sendButton()"
   dense
   aria-label="Email writer"
   dropZone
@@ -135,7 +136,8 @@
     </hk-split-button>
   </ng-template>
   <!-- The frame's own controls: its leading ones (the page's views), its
-       actions. -->
+       actions, and its way out (`exit` — the page's home), next to ⋮. -->
+  <ng-template #frameExit><ng-content select="[exit]" /></ng-template>
   <ng-template #frameLeading><ng-content select="[leading]" /></ng-template>
   <ng-template #frameActions><ng-content select="[actions]" /></ng-template>
   <!-- The message's settings and its View (both sheets'), core's way: one
@@ -186,9 +188,11 @@
     </button>
   </ng-template>
 
-  <!-- Beside Send: formatting, Attach, the frame's leading controls, ⋮. -->
+  <!-- Beside Send: formatting, Attach, the frame's leading controls, ⋮,
+       the frame's way out. -->
   <ng-container ngProjectAs="[leading]">
     @if (mirrored()) {
+      <ng-container [ngTemplateOutlet]="frameExit" />
       <ng-container [ngTemplateOutlet]="settings" />
       <ng-container [ngTemplateOutlet]="frameLeading" />
       <ng-container [ngTemplateOutlet]="attach" />
@@ -198,6 +202,7 @@
       <ng-container [ngTemplateOutlet]="attach" />
       <ng-container [ngTemplateOutlet]="frameLeading" />
       <ng-container [ngTemplateOutlet]="settings" />
+      <ng-container [ngTemplateOutlet]="frameExit" />
     }
   </ng-container>
 

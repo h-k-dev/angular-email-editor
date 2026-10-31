@@ -386,3 +386,24 @@
     grid-column: 1;
   }
 }
+
+// The floating Compose: a phone's (below). Fixed to the viewport, however
+// far the document is scrolled, and up by the keyboard's cover, so it rides
+// above the keys — and clear of a composer's toolbar, the 40px bar on the
+// phone's foot (formatting-toolbar.scss), which it must never cover.
+.mailbox-fab {
+  display: none;
+  position: fixed;
+  inset-inline-end: 16px;
+  inset-block-end: calc(40px + 16px + var(--keyboard-inset, 0px));
+  // Over the page, under an open compose window (compose-window.scss).
+  z-index: 3;
+}
+
+// Narrow screens: Compose leaves the aside for the floating button at the
+// screen's lower right — a mail app's phone client, where a thumb is.
+@media (max-width: 600px) {
+  .mailbox-fab {
+    display: inline-flex;
+  }
+}
