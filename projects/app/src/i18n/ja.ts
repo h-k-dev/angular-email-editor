@@ -208,6 +208,8 @@ export default {
     close: '閉じる',
     unsaved: '未保存の変更',
     formatting: '書式オプション',
+    panes: 'パネル',
+    editing: '編集',
     phone: 'スマートフォンプレビュー',
     phoneSplit: 'ライトとダークの境界',
     details: 'メッセージの詳細',

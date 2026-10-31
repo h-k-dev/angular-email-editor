@@ -209,6 +209,8 @@ export default {
     close: 'Schließen',
     unsaved: 'Nicht gespeichert',
     formatting: 'Formatierungsoptionen',
+    panes: 'Bereiche',
+    editing: 'Bearbeiten',
     phone: 'Handyvorschau',
     phoneSplit: 'Trenner zwischen hell und dunkel',
     details: 'Nachrichtendetails',

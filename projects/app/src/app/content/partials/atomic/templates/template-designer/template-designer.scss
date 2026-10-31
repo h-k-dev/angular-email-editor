@@ -37,6 +37,18 @@ $preview-min: 448px;
   );
 }
 
+// The modules (`glassGroup`) stand apart from each other and from what
+// follows them: the bar's own 2px and 6px more, 8px between two capsules.
+// The last one keeps the room after it itself — what follows may draw no
+// box of its own to keep it (the ⋮, `display: contents`).
+.designer-bar > [glassGroup] + [glassGroup] {
+  margin-inline-start: 6px;
+}
+
+.designer-bar > [glassGroup]:not(:has(+ [glassGroup])) {
+  margin-inline-end: 6px;
+}
+
 .designer-bar__title {
   display: flex;
   align-items: baseline;

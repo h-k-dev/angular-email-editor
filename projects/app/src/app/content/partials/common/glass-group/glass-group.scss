@@ -1,0 +1,35 @@
+// A module of macOS's Control Center: a capsule of frosted surface around
+// its buttons — a faint fill of the ink over whatever is behind, that
+// blurred and its colour lifted, a hairline round it and light catching its
+// top edge — so it reads as a piece of glass lying on the page, not a card.
+// The buttons keep their own looks; the capsule's corner is theirs, a step
+// out.
+:host {
+  // Light on the top edge, as on a pane tilted toward it, and the hairline
+  // round the pane: the edge both finishes share.
+  --_glass-edge:
+    inset 0 1px 0 light-dark(rgb(255 255 255 / 70%), rgb(255 255 255 / 8%)),
+    inset 0 0 0 1px light-dark(rgb(0 0 0 / 6%), rgb(255 255 255 / 7%));
+
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--mat-sys-corner-full, 9999px);
+  background-color: color-mix(in oklch, var(--mat-sys-on-surface) 5%, transparent);
+  box-shadow:
+    var(--_glass-edge),
+    // Lying just above the page.
+    0 1px 2px light-dark(rgb(0 0 0 / 6%), rgb(0 0 0 / 30%));
+
+  @supports (backdrop-filter: blur(1px)) {
+    backdrop-filter: blur(20px) saturate(1.8);
+  }
+}
+
+// The outline alone: the same capsule and edge, no fill, no blur, no lift.
+:host([data-variant='outline']) {
+  background-color: transparent;
+  box-shadow: var(--_glass-edge);
+  backdrop-filter: none;
+}

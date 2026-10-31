@@ -24,76 +24,100 @@
 
   <span class="designer-bar__spacer"></span>
 
-  <!-- The email light or dark, at a press: its other side, at once. -->
-  <paper-toggle />
+  <!-- The email light or dark, at a press: its other side, at once — a
+       button by itself, in the modules' outline. -->
+  <span glassGroup="outline">
+    <paper-toggle />
+  </span>
 
-  <!-- The details' panel, folded away or back — the right aside's toggle. -->
-  <button
-    matIconButton
-    type="button"
-    aria-controls="designer-details"
-    [attr.aria-label]="'designer.details' | translate"
-    [attr.aria-expanded]="detailsOpen()"
-    [matTooltip]="'designer.details' | translate"
-    matTooltipPosition="below"
-    (click)="detailsOpen.set(!detailsOpen())"
-  >
-    <mat-icon>{{ detailsOpen() ? 'right_panel_close' : 'right_panel_open' }}</mat-icon>
-  </button>
+  <!-- What lies beside the canvas, one module of toggles (a Control
+       Center's, `glassGroup`): the phone's preview and the details. -->
+  <div glassGroup [attr.aria-label]="'designer.panes' | translate">
+    <!-- The phone's preview, beside the canvas or put away. -->
+    <button
+      matIconButton
+      type="button"
+      [attr.aria-label]="'designer.phone' | translate"
+      [matTooltip]="'designer.phone' | translate"
+      matTooltipPosition="below"
+      [attr.aria-pressed]="phoneOpen()"
+      (click)="phoneOpen.set(!phoneOpen())"
+    >
+      <mat-icon>smartphone</mat-icon>
+    </button>
 
-  <!-- The editor or its HTML, in the editor's place: the design's source,
-       Summernote's </>. The ⋮'s View says the same. -->
-  <button
-    matIconButton
-    type="button"
-    disabledInteractive
-    [disabled]="!viewOffered()"
-    [attr.aria-label]="'designer.source' | translate"
-    [matTooltip]="'designer.source' | translate"
-    matTooltipPosition="below"
-    [attr.aria-pressed]="editorView() === 'html'"
-    (click)="toggleSource()"
-  >
-    <mat-icon>code</mat-icon>
-  </button>
+    <!-- The details' panel, folded away or back — the right aside's toggle. -->
+    <button
+      matIconButton
+      type="button"
+      aria-controls="designer-details"
+      [attr.aria-label]="'designer.details' | translate"
+      [attr.aria-expanded]="detailsOpen()"
+      [matTooltip]="'designer.details' | translate"
+      matTooltipPosition="below"
+      (click)="detailsOpen.set(!detailsOpen())"
+    >
+      <mat-icon>{{ detailsOpen() ? 'right_panel_close' : 'right_panel_open' }}</mat-icon>
+    </button>
+  </div>
 
-  <!-- The formatting toolbar, shown or put away — the writer bar's switch,
-     its preference shared (Gmail's formatting options). -->
-  <button
-    matIconButton
-    type="button"
-    disabledInteractive
-    [disabled]="plainText()"
-    [attr.aria-label]="'designer.formatting' | translate"
-    [matTooltip]="'designer.formatting' | translate"
-    matTooltipPosition="below"
-    [attr.aria-pressed]="formattingOpen()"
-    (click)="formattingOpen.set(!formattingOpen())"
-  >
-    <mat-icon>text_format</mat-icon>
-  </button>
+  <!-- How the email is worked on, a second module: its source, the
+       formatting toolbar, its layout. -->
+  <div glassGroup [attr.aria-label]="'designer.editing' | translate">
+    <!-- The editor or its HTML, in the editor's place: the design's source,
+         Summernote's </>. The ⋮'s View says the same. -->
+    <button
+      matIconButton
+      type="button"
+      disabledInteractive
+      [disabled]="!viewOffered()"
+      [attr.aria-label]="'designer.source' | translate"
+      [matTooltip]="'designer.source' | translate"
+      matTooltipPosition="below"
+      [attr.aria-pressed]="editorView() === 'html'"
+      (click)="toggleSource()"
+    >
+      <mat-icon>code</mat-icon>
+    </button>
 
-  <!-- The page's layout — none, or a centred column — in a panel under its
-       button, over the canvas: the email stays in sight while it is picked.
-       Every pick is a step of the editor's. The kinds as swatches, a picture
-       of each; a kind's own settings under them while it is the kind. -->
-  <button
-    matIconButton
-    type="button"
-    cdkOverlayOrigin
-    #layoutOrigin="cdkOverlayOrigin"
-    disabledInteractive
-    [disabled]="plainText()"
-    aria-haspopup="dialog"
-    [attr.aria-expanded]="layoutOpen()"
-    [attr.aria-controls]="layoutOpen() ? 'designer-layout' : null"
-    [attr.aria-label]="'designer.layout.title' | translate"
-    [matTooltip]="'designer.layout.title' | translate"
-    matTooltipPosition="below"
-    (click)="layoutOpen.set(!layoutOpen())"
-  >
-    <mat-icon>view_quilt</mat-icon>
-  </button>
+    <!-- The formatting toolbar, shown or put away — the writer bar's switch,
+         its preference shared (Gmail's formatting options). -->
+    <button
+      matIconButton
+      type="button"
+      disabledInteractive
+      [disabled]="plainText()"
+      [attr.aria-label]="'designer.formatting' | translate"
+      [matTooltip]="'designer.formatting' | translate"
+      matTooltipPosition="below"
+      [attr.aria-pressed]="formattingOpen()"
+      (click)="formattingOpen.set(!formattingOpen())"
+    >
+      <mat-icon>text_format</mat-icon>
+    </button>
+
+    <!-- The page's layout — none, or a centred column — in a panel under its
+         button, over the canvas: the email stays in sight while it is picked.
+         Every pick is a step of the editor's. The kinds as swatches, a picture
+         of each; a kind's own settings under them while it is the kind. -->
+    <button
+      matIconButton
+      type="button"
+      cdkOverlayOrigin
+      #layoutOrigin="cdkOverlayOrigin"
+      disabledInteractive
+      [disabled]="plainText()"
+      aria-haspopup="dialog"
+      [attr.aria-expanded]="layoutOpen()"
+      [attr.aria-controls]="layoutOpen() ? 'designer-layout' : null"
+      [attr.aria-label]="'designer.layout.title' | translate"
+      [matTooltip]="'designer.layout.title' | translate"
+      matTooltipPosition="below"
+      (click)="layoutOpen.set(!layoutOpen())"
+    >
+      <mat-icon>view_quilt</mat-icon>
+    </button>
+  </div>
   <ng-template
     cdkConnectedOverlay
     [cdkConnectedOverlayOrigin]="layoutOrigin"
@@ -217,17 +241,6 @@
     </section>
   </ng-template>
 
-  <button
-    matIconButton
-    type="button"
-    [attr.aria-label]="'designer.phone' | translate"
-    [matTooltip]="'designer.phone' | translate"
-    matTooltipPosition="below"
-    [attr.aria-pressed]="phoneOpen()"
-    (click)="phoneOpen.set(!phoneOpen())"
-  >
-    <mat-icon>smartphone</mat-icon>
-  </button>
   <message-menu side="below" align="end" />
   <button
     matIconButton

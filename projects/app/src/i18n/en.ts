@@ -212,6 +212,8 @@ export default {
     close: 'Close',
     unsaved: 'Unsaved changes',
     formatting: 'Formatting options',
+    panes: 'Panels',
+    editing: 'Editing',
     phone: 'Phone preview',
     phoneSplit: 'Light and dark divider',
     details: 'Message details',

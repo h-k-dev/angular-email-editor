@@ -69,6 +69,7 @@ import {
   Preferences,
 } from '../../../../../core/storages/preferences';
 import { Badge } from '../../../common/badge/badge';
+import { GlassGroup } from '../../../common/glass-group/glass-group';
 import { PageHeader } from '../../../common/page-header/page-header';
 import { PaperToggle } from '../../../common/paper-toggle/paper-toggle';
 import { PhoneFrame } from '../../../common/phone-frame/phone-frame';
@@ -163,6 +164,7 @@ function sameMessage(a: Envelope, b: Envelope): boolean {
     MatIcon,
     MatProgressSpinner,
     MatTooltip,
+    GlassGroup,
     PaperToggle,
     AngularFileDrop,
     AttachmentChips,
