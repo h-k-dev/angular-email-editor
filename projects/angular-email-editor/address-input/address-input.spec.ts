@@ -581,26 +581,36 @@ describe('AddressInput', () => {
     expect(host.addresses()).toEqual([]);
   });
 
-  it('caps at max and hides the entry once full', async () => {
+  it('caps at max, keeping what the cap turned away in the input, refused', async () => {
     host.max.set(1);
     await fixture.whenStable();
     type(part.input(), 'me@example.com you@example.com');
     key(part.input(), 'Enter');
     await fixture.whenStable();
     expect(host.addresses()).toEqual(['me@example.com']);
-    expect(part.entry().hidden).toBe(true);
     expect(part.field().getAttribute('data-full')).toBe('true');
+    expect(part.input().value).toBe('you@example.com');
+    expect(part.input().hasAttribute('data-refused')).toBe(true);
+  });
 
-    // Full, the input is hidden: a click on the field focuses the chip's
-    // remove button instead, and the field turns into chips.
-    const button = part.chips()[0].querySelector<HTMLButtonElement>('[data-slot=remove]')!;
-    part.field().click();
-    await fixture.whenStable();
-    expect(document.activeElement).toBe(button);
-    expect(part.field().getAttribute('data-focused')).toBe('true');
-    button.click();
+  it('a full field is a field like any other: the input stays, takes the caret, the × no Tab stop', async () => {
+    host.max.set(1);
+    host.addresses.set(['me@example.com']);
     await fixture.whenStable();
     expect(part.entry().hidden).toBe(false);
+
+    part.field().click();
+    await fixture.whenStable();
+    expect(document.activeElement).toBe(part.input());
+    const button = part.chips()[0].querySelector<HTMLButtonElement>('[data-slot=remove]')!;
+    expect(button.tabIndex).toBe(-1);
+
+    // A duplicate is still dropped, not kept as refused.
+    type(part.input(), 'me@example.com');
+    key(part.input(), 'Enter');
+    await fixture.whenStable();
+    expect(part.input().value).toBe('');
+    expect(part.input().hasAttribute('data-refused')).toBe(false);
   });
 
   it('locks while disabled: input disabled, chips not removable, host says so', async () => {
@@ -655,7 +665,7 @@ describe('AddressInput in a signal form', () => {
     host.model.update((m) => ({ ...m, from: ['me@example.com'] }));
     await fixture.whenStable();
     expect(from.chips().length).toBe(1);
-    expect(from.entry().hidden).toBe(true);
+    expect(from.field().getAttribute('data-full')).toBe('true');
   });
 
   it('starts invalid but quiet: the state shows once the row is touched, and no message ever', async () => {
@@ -780,6 +790,40 @@ describe('AddressInput label slot', () => {
     expect(cc.field().querySelector('[data-slot=label]')!.textContent!.trim()).toBe('Cc');
     expect(cc.input().getAttribute('aria-labelledby')).toBeNull();
     expect(cc.input().getAttribute('aria-label')).toBe('Copy to');
+  });
+
+  it('shows the label always by default, or only while focused — still naming the input', async () => {
+    const fixture = TestBed.createComponent(FocusLabelledHost);
+    await fixture.whenStable();
+    const [always, focused] = [...fixture.nativeElement.querySelectorAll('[data-slot=label]')];
+    expect(always.getAttribute('data-visible')).toBe('always');
+    expect(focused.getAttribute('data-visible')).toBe('focused');
+    const to = parts(fixture.nativeElement.querySelectorAll('[email-address-input]')[1]);
+    expect(to.input().getAttribute('aria-labelledby')).toBe(focused.id);
+  });
+});
+
+/** A label shown only while focused, and a flush control. */
+@Component({
+  imports: [AddressInput, AddressInputLabel],
+  template: `
+    <div email-address-input><ng-template emailAddressLabel>From</ng-template></div>
+    <div email-address-input><ng-template emailAddressLabel="focused">To</ng-template></div>
+    <div email-address-input flush aria-label="Cc" [value]="copies"></div>
+  `,
+})
+class FocusLabelledHost {
+  readonly copies = ['ada@example.com'];
+}
+
+describe('AddressInput flush', () => {
+  it('says so on the host and hands it to every chip, only when asked', async () => {
+    const fixture = TestBed.createComponent(FocusLabelledHost);
+    await fixture.whenStable();
+    const hosts = [...fixture.nativeElement.querySelectorAll('[email-address-input]')];
+    expect(hosts.map((host) => host.hasAttribute('data-flush'))).toEqual([false, false, true]);
+    const chip = hosts[2].querySelector('[email-address-chip]');
+    expect(chip.hasAttribute('data-flush')).toBe(true);
   });
 });
 

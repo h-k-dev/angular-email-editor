@@ -8,7 +8,7 @@
        wrap under it. Hidden from assistive tech as text — it names the
        text input instead, through aria-labelledby. -->
   @if (labelSlot(); as slot) {
-    <li data-slot="label" aria-hidden="true" [id]="labelId">
+    <li data-slot="label" aria-hidden="true" [id]="labelId" [attr.data-visible]="slot.visible()">
       <ng-container [ngTemplateOutlet]="slot.template" />
     </li>
   }
@@ -19,9 +19,10 @@
       [address]="address"
       [removable]="!locked()"
       [inline]="!focused()"
+      [flush]="flush()"
       [draggable]="canDrag()"
       [aria-current]="active() === $index"
-      [removeTabbable]="closed()"
+      [removeTabbable]="false"
       [removeLabel]="removeLabel()"
       [removeTemplate]="removeSlot()?.template ?? null"
       [invalidLabel]="invalidLabel()"
@@ -47,10 +48,11 @@
     ></li>
   }
   <!-- The entry is a list item too, so the chips and the typing sit in one
-       wrapping row — always after the last chip. Hidden once the field is full (From takes one address)
-       with nothing to fix: the chips say everything, and a second address
-       would only be refused. -->
-  <li data-slot="entry" [hidden]="closed()">
+       wrapping row — always after the last chip. Kept when the field is
+       full (From takes one address): it is where the caret and Tab land,
+       as in any other field, and an address typed past the cap is refused
+       there, left in it like a typo. -->
+  <li data-slot="entry">
     <input
       #field
       data-slot="input"

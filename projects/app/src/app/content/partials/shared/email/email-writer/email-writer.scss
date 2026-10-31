@@ -83,10 +83,6 @@
   // Downwards the envelope goes up with the text, as ever.
   container-type: inline-size;
   --_writer-offset: max(0px, (100cqi - var(--writer-column, 100cqi)) / 2);
-  // What text scrolls under is paper from edge to edge, not the column
-  // alone: the column's own box keeps its place, its paper spread out to
-  // both sides (a shadow, clipped to its own height).
-  --_writer-band: 0 0 0 100vmax var(--email-paper, var(--mat-sys-surface-bright));
 
   // Sideways only: downwards the envelope goes up with the text.
   > .writer-envelope {
@@ -102,9 +98,13 @@
     inset-inline-start: var(--_writer-offset);
     block-size: calc(var(--writer-bar-size) + var(--writer-padding-start, 8px));
     padding-block-start: var(--writer-padding-start, 8px);
-    background-color: var(--email-paper, var(--mat-sys-surface-bright));
-    box-shadow: var(--_writer-band);
-    clip-path: inset(0 -100vmax);
+    // What text scrolls under is paper from edge to edge, not the column
+    // alone: the bar's box keeps its place, its paper painted out to both
+    // sides (a border image's outset, sideways only) — painted, never laid
+    // out, and nothing clipped: a button's focus ring at the bar's edge
+    // shows whole.
+    border-image: conic-gradient(var(--email-paper, var(--mat-sys-surface-bright)) 0 0) fill 0 / 0 /
+      0 100vmax;
   }
 
   > footer.writer-bar {

@@ -1,0 +1,46 @@
+// The gutter: Notion's block handles, as a place — a box in the margin
+// before a row (an envelope row; later an editor block), shown while the
+// pointer is over the row. Notion draws its handles in one overlay over the
+// page, the handle's end 10px off the block and its top on the block's
+// first line, fading in over 200ms; this is that box, without the handles,
+// on our own fade (the theme's transition, as a menu row's):
+// what it holds is the host's (a row's label), and it takes no gesture —
+// a press in the margin still starts the marquee there.
+//
+// The host is the positioned box, and says where its text starts
+// (`--gutter-anchor`, from its own start edge): the gutter ends a gap
+// (`--gutter-gap`, Notion's 10px on our 4px grid) before it, on the first
+// line (`--gutter-top`, the host's block padding). Logical sides, so a
+// right-to-left page hangs it on the right.
+
+/// The gutter box, hidden: wear `revealed` on whatever shows it.
+@mixin gutter {
+  position: absolute;
+  inset-block-start: var(--gutter-top, 8px);
+  inset-inline-end: calc(100% - var(--gutter-anchor, 0px) + var(--gutter-gap, 12px));
+  display: flex;
+  align-items: center;
+  block-size: 24px;
+  white-space: nowrap;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+  letter-spacing: var(--mat-sys-body-medium-tracking);
+  line-height: 24px;
+  pointer-events: none;
+  user-select: none;
+  opacity: 0;
+  visibility: hidden;
+  --_gutter-duration: var(--mat-sys-transition-duration, 150ms);
+  --_gutter-curve: var(--mat-sys-transition-timing-function, cubic-bezier(0.4, 0, 0.2, 1));
+  // Out as it came in, the visibility flipping only once the fade is done.
+  transition:
+    opacity var(--_gutter-duration) var(--_gutter-curve),
+    visibility 0s linear var(--_gutter-duration);
+}
+
+/// The gutter shown.
+@mixin revealed {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity var(--_gutter-duration) var(--_gutter-curve);
+}

@@ -1,3 +1,5 @@
+@use '../../../../../../../styles/gutter';
+
 // A box for the frame to size: the page's grid column, a window's body. The
 // writer fills it.
 :host {
@@ -65,6 +67,29 @@ section[email-compose] {
   // The hairline is painted, not laid out: the row is exactly 40px.
   box-shadow: inset 0 -1px var(--mat-sys-outline-variant);
   cursor: text;
+  // The gutter's box hangs off the row.
+  position: relative;
+}
+
+// The row's label in the margin (`labelGutter`), on the row's first line,
+// its end a gap before the text — which starts the row's inset in, in
+// either frame. Always there, or under the pointer and on the row being
+// written in (`hover`, Notion's). A companion row's (Cc, Bcc, Preview)
+// shows with its group — the recipients, the subject — under the pointer
+// or focus, filled or not: an open companion is one the writer is in.
+.writer-gutter {
+  @include gutter.gutter;
+  --gutter-anchor: var(--mat-sys-inner-spacing, 16px);
+  // A focused row's pills reach a chip's padding past the text into the
+  // inset (the address input's `flush`): the gutter keeps its 12px from
+  // their edge.
+  --gutter-gap: calc(12px + var(--email-address-chip-padding-start, 8px));
+}
+
+:host([data-label-gutter='always']) .writer-gutter,
+:host([data-label-gutter='hover']) .writer-field:is(:hover, :focus-within) > .writer-gutter,
+.writer-group:is(:hover, :focus-within) .writer-gutter--companion {
+  @include gutter.revealed;
 }
 
 .writer-field__label {
@@ -115,8 +140,9 @@ section[email-compose] {
   }
 }
 
-// The recipients group only groups focus; it adds no box of its own.
-.writer-recipients {
+// A group of rows — the recipients, the subject with its snippet — only
+// groups focus and the pointer; it adds no box of its own.
+.writer-group {
   display: contents;
 }
 

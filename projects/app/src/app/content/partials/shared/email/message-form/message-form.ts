@@ -33,12 +33,13 @@ import { OverflowRow } from '../../../common/overflow-row/overflow-row';
 import { ActionTrigger } from '@h-k-dev/angular-email-editor/actions';
 import { TranslatePipe } from '@ngx-translate/core';
 
+import { Viewport } from '../../../../../core/layout/viewport';
 import { Preferences } from '../../../../../core/storages/preferences';
 import { DropHint } from '../../../common/drop-hint/drop-hint';
 import { EmailCompose } from '../email-compose/email-compose';
 import { EmailWriter } from '../email-writer/email-writer';
 import { MarqueeStart } from '../paper-island';
-import { EnvelopeRows } from './envelope-rows/envelope-rows';
+import { EnvelopeRows, LabelGutter } from './envelope-rows/envelope-rows';
 import { MessageMenu } from './message-menu/message-menu';
 import { MessageSheet } from './message-sheet';
 
@@ -115,6 +116,19 @@ export class MessageForm extends MessageSheet {
   protected readonly mirrored = computed(() => this.bar() === 'top');
 
   protected readonly barAtTop = this.mirrored;
+
+  /** How a document's envelope shows its labels in the gutter
+      (`EnvelopeRows.labelGutter`): under the pointer, and on the row focus
+      is in (`hover`, Notion's) — or `always`. */
+  readonly labelGutter = input<LabelGutter>('hover');
+
+  /** The envelope's gutter, for a document on a desk only — a wide screen,
+      whose margin beside the column has room for a label, and a pointer.
+      Anywhere else none of it renders, and the rows keep their labels. */
+  readonly #narrow = inject(Viewport).narrow;
+  protected readonly envelopeGutter = computed(() =>
+    this.layout() === 'document' && !this.#narrow() && !this.touch() ? this.labelGutter() : null,
+  );
 
   override readonly toolbarSwitch = true;
 

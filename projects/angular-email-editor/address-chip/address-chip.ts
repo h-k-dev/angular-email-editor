@@ -105,6 +105,7 @@ function copyWithCommand(text: string): boolean {
     '[attr.data-pending]': 'pending() || null',
     '[attr.aria-disabled]': 'ariaDisabled() || null',
     '[attr.data-inline]': 'inline() || null',
+    '[attr.data-flush]': 'flush() || null',
     '[attr.aria-current]': 'ariaCurrent() || null',
     '[attr.data-copied]': 'justCopied() || null',
     '[attr.draggable]': 'draggable() && !touching() ? "true" : null',
@@ -133,6 +134,13 @@ export class AddressChip {
       turn back into chips when it does. The address input sets it while it
       is not focused. Reflected as `data-inline`. */
   readonly inline = input(false, { transform: booleanAttribute });
+
+  /** Hang the pill's start padding outside the chip: no start padding of
+      its own, the surface reaching that far out before its box — so the
+      address starts where the box does, where its line of text stood, and
+      nothing laid out moves between text and pill. The list keeps the room
+      (the address input's `flush`). Reflected as `data-flush`. */
+  readonly flush = input(false, { transform: booleanAttribute });
 
   /** The list's highlight is on this chip: the one the arrow keys reached,
       or a click picked, while the caret stays in the list's input. An input

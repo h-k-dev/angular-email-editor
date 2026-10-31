@@ -244,7 +244,8 @@
   touch-action: none;
 }
 
-// The quarter hour under the pointer: where a press would mark from.
+// The quarter hour under the pointer: where a press would mark from, in
+// the hour lines' own ink.
 .time-grid__hover {
   position: absolute;
   inset-block-start: calc(var(--top) * var(--hour) / 60);
@@ -253,7 +254,7 @@
   block-size: 2px;
   translate: 0 -1px;
   border-radius: 1px;
-  background: color-mix(in oklch, var(--mat-sys-on-surface) 55%, transparent);
+  background: var(--_line);
   pointer-events: none;
 }
 

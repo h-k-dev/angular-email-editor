@@ -23,25 +23,40 @@
   [emailKeepFocusExcept]="rowControls"
   (click)="fromField()?.focus()"
 >
+  <!-- The gutter (`labelGutter`): the row's label in the margin before it
+       — always, or while the pointer is over the row — a picture, for the
+       eye. The row then draws no label of its own: the control is named by
+       its `aria-label`, and its addresses keep one edge (`flush`). -->
+  @if (gutterRows()?.from) {
+    <span class="writer-gutter" aria-hidden="true">From</span>
+  }
   @if (material()) {
     <mat-form-field class="writer-field__form-field" subscriptSizing="dynamic">
       <div
         email-address-input
         emailMatFormField
         #fromField
+        [flush]="gutter()"
+        [aria-label]="gutter() ? 'From' : null"
         limit="1"
         placeholder="you@example.com"
         [formField]="form().from"
         (savedModelChange)="rowSaved.emit({ row: 'from', value: $event })"
       >
-        <ng-template emailAddressLabel><span class="writer-field__label">From</span></ng-template>
+        @if (!gutter()) {
+          <ng-template emailAddressLabel><span class="writer-field__label">From</span></ng-template>
+        }
       </div>
     </mat-form-field>
   } @else {
-    <label class="writer-field__label" [for]="fromField.id">From</label>
+    @if (!gutter()) {
+      <label class="writer-field__label" [for]="fromField.id">From</label>
+    }
     <div
       email-address-input
       #fromField
+      [flush]="gutter()"
+      [aria-label]="gutter() ? 'From' : null"
       limit="1"
       placeholder="you@example.com"
       [formField]="form().from"
@@ -55,7 +70,7 @@
      it moves between them. Focus arriving in any of them opens them
      again. -->
 <div
-  class="writer-recipients"
+  class="writer-group writer-recipients"
   [class.writer-recipients--merged]="recipientsMerged()"
   (focusin)="recipientsActive.set(true)"
   (focusout)="leaveRecipients($event)"
@@ -72,6 +87,9 @@
       [emailKeepFocusExcept]="rowControls"
       (click)="toField()?.focus()"
     >
+      @if (gutterRows()?.to) {
+        <span class="writer-gutter">To</span>
+      }
       <span class="writer-summary__line">
         @for (group of groups; track group.label) {
           @if (group.label !== 'To') {
@@ -99,6 +117,9 @@
     [emailKeepFocusExcept]="rowControls"
     (click)="toField()?.focus()"
   >
+    @if (gutterRows()?.to) {
+      <span class="writer-gutter" aria-hidden="true">To</span>
+    }
     <!-- Gmail's Cc and Bcc: text buttons drawn at the row's end (CSS order),
          shown only while focus is in To, Cc or Bcc, each opening its row and
          stepping aside. They come before the
@@ -141,25 +162,29 @@
           email-address-input
           emailMatFormField
           #toField
+          [flush]="gutter()"
+          [aria-label]="gutter() ? 'To' : null"
           [attr.cdkFocusInitial]="initialFocus() === 'to' ? '' : null"
           placeholder="Recipients"
           [formField]="form().to"
           (savedModelChange)="rowSaved.emit({ row: 'to', value: $event })"
         >
-          <ng-template emailAddressLabel
-            ><span class="writer-field__label" [class.writer-field__label--on-focus]="toLabel() === 'on-focus'"
-              >To</span
-            ></ng-template
-          >
+          @if (!gutter()) {
+            <ng-template [emailAddressLabel]="toLabel() === 'on-focus' ? 'focused' : 'always'"
+              ><span class="writer-field__label">To</span></ng-template
+            >
+          }
         </div>
       </mat-form-field>
     } @else {
-      <label
-        class="writer-field__label"
-        [class.writer-field__label--on-focus]="toLabel() === 'on-focus'"
-        [for]="toField.id"
-        >To</label
-      >
+      @if (!gutter()) {
+        <label
+          class="writer-field__label"
+          [class.writer-field__label--on-focus]="toLabel() === 'on-focus'"
+          [for]="toField.id"
+          >To</label
+        >
+      }
       @if (!showCc() || !showBcc()) {
         <span class="writer-field__actions writer-field__actions--copy">
           <ng-container [ngTemplateOutlet]="copyButtons" />
@@ -168,6 +193,8 @@
       <div
         email-address-input
         #toField
+        [flush]="gutter()"
+        [aria-label]="gutter() ? 'To' : null"
         [attr.cdkFocusInitial]="initialFocus() === 'to' ? '' : null"
         placeholder="Recipients"
         [formField]="form().to"
@@ -184,25 +211,39 @@
       [emailKeepFocusExcept]="rowControls"
       (click)="ccField()?.focus()"
     >
+      <!-- A companion row's gutter (envelope-rows.scss): shown while its
+           group — the recipients — has the pointer or focus, the only time
+           the row is not merged away. -->
+      @if (gutter()) {
+        <span class="writer-gutter writer-gutter--companion" aria-hidden="true">Cc</span>
+      }
       @if (material()) {
         <mat-form-field class="writer-field__form-field" subscriptSizing="dynamic">
           <div
             email-address-input
             emailMatFormField
             #ccField
+            [flush]="gutter()"
+            [aria-label]="gutter() ? 'Cc' : null"
             [formField]="form().cc"
             (savedModelChange)="rowSaved.emit({ row: 'cc', value: $event })"
           >
-            <ng-template emailAddressLabel
-              ><span class="writer-field__label">Cc</span></ng-template
-            >
+            @if (!gutter()) {
+              <ng-template emailAddressLabel
+                ><span class="writer-field__label">Cc</span></ng-template
+              >
+            }
           </div>
         </mat-form-field>
       } @else {
-        <label class="writer-field__label" [for]="ccField.id">Cc</label>
+        @if (!gutter()) {
+          <label class="writer-field__label" [for]="ccField.id">Cc</label>
+        }
         <div
           email-address-input
           #ccField
+          [flush]="gutter()"
+          [aria-label]="gutter() ? 'Cc' : null"
           [formField]="form().cc"
           (savedModelChange)="rowSaved.emit({ row: 'cc', value: $event })"
         ></div>
@@ -218,25 +259,39 @@
       [emailKeepFocusExcept]="rowControls"
       (click)="bccField()?.focus()"
     >
+      <!-- A companion row's gutter (envelope-rows.scss): shown while its
+           group — the recipients — has the pointer or focus, the only time
+           the row is not merged away. -->
+      @if (gutter()) {
+        <span class="writer-gutter writer-gutter--companion" aria-hidden="true">Bcc</span>
+      }
       @if (material()) {
         <mat-form-field class="writer-field__form-field" subscriptSizing="dynamic">
           <div
             email-address-input
             emailMatFormField
             #bccField
+            [flush]="gutter()"
+            [aria-label]="gutter() ? 'Bcc' : null"
             [formField]="form().bcc"
             (savedModelChange)="rowSaved.emit({ row: 'bcc', value: $event })"
           >
-            <ng-template emailAddressLabel
-              ><span class="writer-field__label">Bcc</span></ng-template
-            >
+            @if (!gutter()) {
+              <ng-template emailAddressLabel
+                ><span class="writer-field__label">Bcc</span></ng-template
+              >
+            }
           </div>
         </mat-form-field>
       } @else {
-        <label class="writer-field__label" [for]="bccField.id">Bcc</label>
+        @if (!gutter()) {
+          <label class="writer-field__label" [for]="bccField.id">Bcc</label>
+        }
         <div
           email-address-input
           #bccField
+          [flush]="gutter()"
+          [aria-label]="gutter() ? 'Bcc' : null"
           [formField]="form().bcc"
           (savedModelChange)="rowSaved.emit({ row: 'bcc', value: $event })"
         ></div>
@@ -245,38 +300,61 @@
   }
 </div>
 
-<!-- Every row is the same shape: a row that forwards its clicks, a
+<!-- Subject and its snippet, one group for the pointer and for focus:
+     Preview's gutter shows with either (envelope-rows.scss). -->
+<div class="writer-group">
+  <!-- Every row is the same shape: a row that forwards its clicks, a
      label naming the control by id, the control — but Subject, which, as
      Gmail's, is named by its placeholder alone. -->
-<div
-  class="writer-field"
-  emailKeepFocus
-  [class.writer-field--material]="material()"
-  [emailKeepFocusExcept]="rowControls"
-  (click)="subjectField().nativeElement.focus()"
->
-  <!-- Preview text opens the way Cc and Bcc do: a text button at the
+  <div
+    class="writer-field"
+    emailKeepFocus
+    [class.writer-field--material]="material()"
+    [emailKeepFocusExcept]="rowControls"
+    (click)="subjectField().nativeElement.focus()"
+  >
+    @if (gutterRows()?.subject) {
+      <span class="writer-gutter" aria-hidden="true">Subject</span>
+    }
+    <!-- Preview text opens the way Cc and Bcc do: a text button at the
        row's end that steps aside while its row is shown. Unlike theirs it
        comes *after* its control in the source, so Tab runs To, Subject,
        Preview — the subject first, the snippet as its follow-up. -->
-  <!-- Not for plain text: the snippet is a part of the HTML document. -->
-  <ng-template #previewButton>
-    @if (!plainText()) {
-      <button
-        type="button"
-        class="writer-field__action"
-        title="Text shown after the subject in the inbox"
-        emailKeepFocus
-        (click)="openPreview(); $event.stopPropagation()"
-      >
-        Preview
-      </button>
-    }
-  </ng-template>
-  @if (material()) {
-    <mat-form-field class="writer-field__form-field" subscriptSizing="dynamic">
+    <!-- Not for plain text: the snippet is a part of the HTML document. -->
+    <ng-template #previewButton>
+      @if (!plainText()) {
+        <button
+          type="button"
+          class="writer-field__action"
+          title="Text shown after the subject in the inbox"
+          emailKeepFocus
+          (click)="openPreview(); $event.stopPropagation()"
+        >
+          Preview
+        </button>
+      }
+    </ng-template>
+    @if (material()) {
+      <mat-form-field class="writer-field__form-field" subscriptSizing="dynamic">
+        <input
+          matInput
+          #subjectField
+          class="writer-field__input"
+          type="text"
+          autocomplete="off"
+          placeholder="Subject"
+          aria-label="Subject"
+          [formField]="form().subject"
+          (change)="subjectSaved.emit(form().subject().value())"
+        />
+        @if (!showPreview()) {
+          <span matSuffix class="writer-field__actions">
+            <ng-container [ngTemplateOutlet]="previewButton" />
+          </span>
+        }
+      </mat-form-field>
+    } @else {
       <input
-        matInput
         #subjectField
         class="writer-field__input"
         type="text"
@@ -287,65 +365,58 @@
         (change)="subjectSaved.emit(form().subject().value())"
       />
       @if (!showPreview()) {
-        <span matSuffix class="writer-field__actions">
+        <span class="writer-field__actions">
           <ng-container [ngTemplateOutlet]="previewButton" />
         </span>
       }
-    </mat-form-field>
-  } @else {
-    <input
-      #subjectField
-      class="writer-field__input"
-      type="text"
-      autocomplete="off"
-      placeholder="Subject"
-      aria-label="Subject"
-      [formField]="form().subject"
-      (change)="subjectSaved.emit(form().subject().value())"
-    />
-    @if (!showPreview()) {
-      <span class="writer-field__actions">
-        <ng-container [ngTemplateOutlet]="previewButton" />
-      </span>
     }
-  }
-</div>
-<!-- The inbox snippet: lives only while open or filled, and folds when
+  </div>
+  <!-- The inbox snippet: lives only while open or filled, and folds when
      left empty. -->
-@if (showPreview()) {
-  <div
-    class="writer-field"
-    emailKeepFocus
-    [class.writer-field--material]="material()"
-    [emailKeepFocusExcept]="rowControls"
-    (click)="previewField()?.nativeElement?.focus()"
-    (focusout)="leavePreview()"
-  >
-    @if (material()) {
-      <mat-form-field class="writer-field__form-field" subscriptSizing="dynamic">
-        <label matPrefix class="writer-field__label" [for]="previewId">Preview</label>
+  @if (showPreview()) {
+    <div
+      class="writer-field"
+      emailKeepFocus
+      [class.writer-field--material]="material()"
+      [emailKeepFocusExcept]="rowControls"
+      (click)="previewField()?.nativeElement?.focus()"
+      (focusout)="leavePreview()"
+    >
+      @if (gutter()) {
+        <span class="writer-gutter writer-gutter--companion" aria-hidden="true">Preview</span>
+      }
+      @if (material()) {
+        <mat-form-field class="writer-field__form-field" subscriptSizing="dynamic">
+          @if (!gutter()) {
+            <label matPrefix class="writer-field__label" [for]="previewId">Preview</label>
+          }
+          <input
+            matInput
+            #previewField
+            class="writer-field__input"
+            type="text"
+            autocomplete="off"
+            placeholder="Shown after the subject in the inbox"
+            [id]="previewId"
+            [attr.aria-label]="gutter() ? 'Preview' : null"
+            [formField]="form().previewText"
+          />
+        </mat-form-field>
+      } @else {
+        @if (!gutter()) {
+          <label class="writer-field__label" [for]="previewId">Preview</label>
+        }
         <input
-          matInput
           #previewField
           class="writer-field__input"
           type="text"
           autocomplete="off"
           placeholder="Shown after the subject in the inbox"
           [id]="previewId"
+          [attr.aria-label]="gutter() ? 'Preview' : null"
           [formField]="form().previewText"
         />
-      </mat-form-field>
-    } @else {
-      <label class="writer-field__label" [for]="previewId">Preview</label>
-      <input
-        #previewField
-        class="writer-field__input"
-        type="text"
-        autocomplete="off"
-        placeholder="Shown after the subject in the inbox"
-        [id]="previewId"
-        [formField]="form().previewText"
-      />
-    }
-  </div>
-}
+      }
+    </div>
+  }
+</div>

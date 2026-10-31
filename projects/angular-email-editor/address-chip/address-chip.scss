@@ -65,7 +65,9 @@
 
 // ── surface: painted, not laid out ──────────────────────────────────────
 // A filled chip: surface-container-high, a step above the row it sits on,
-// so it reads as a chip without a border.
+// ringed in the outline ink — a muted text's, the placeholder's — as one
+// quiet line: on a dark paper the fill is all but the row's own, and
+// without its edge the pill reads as loose text with a × after it.
 :host::before {
   content: '';
   position: absolute;
@@ -78,7 +80,8 @@
     --email-address-chip-background,
     var(--mat-sys-surface-container-high, light-dark(#e8eaed, #3c4043))
   );
-  border: 1px solid var(--email-address-chip-border-color, transparent);
+  border: 1px solid
+    var(--email-address-chip-border-color, var(--mat-sys-outline, light-dark(#747775, #8e918f)));
   border-radius: var(--email-address-chip-corner, var(--mat-sys-corner-full, 12px));
 }
 
@@ -103,7 +106,7 @@
   );
   border-color: var(
     --email-address-chip-invalid-border-color,
-    var(--email-address-chip-border-color, transparent)
+    var(--email-address-chip-border-color, var(--mat-sys-outline, light-dark(#747775, #8e918f)))
   );
 }
 
@@ -152,6 +155,29 @@
       var(--mat-sys-surface, light-dark(#ffffff, #1f1f1f))
     )
   );
+}
+
+// ── flush: the start padding hung outside ───────────────────────────────
+// No start padding of the chip's own: the surface reaches that far out
+// before the box instead, painted, so the address starts where the box
+// does — where its line of text stood. The ring of a current chip goes
+// round the surface it is about, not the box.
+:host([data-flush]) {
+  padding-inline-start: 0;
+}
+
+:host([data-flush])::before {
+  inset-inline-start: calc(-1 * var(--email-address-chip-padding-start, 8px));
+}
+
+:host([data-flush][aria-current='true']) {
+  outline: none;
+}
+
+:host([data-flush][aria-current='true'])::before {
+  outline: 2px solid
+    var(--email-address-chip-focus-ring, var(--mat-sys-primary, light-dark(#0b57d0, #a8c7fa)));
+  outline-offset: 1px;
 }
 
 // ── inline: the address as text in a line ───────────────────────────────

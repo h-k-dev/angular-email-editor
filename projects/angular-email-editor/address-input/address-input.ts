@@ -62,8 +62,8 @@ let clipboardEntry: string | null = null;
  * free typing after them. Enter, comma, semicolon or a paste commits what
  * was typed — a comma or semicolon inside a quoted name or angle brackets is
  * just typed, and no key commits while an IME is composing; Backspace on the empty input takes the chip before the caret
- * back for editing; `limit` caps the count (From takes one) and hides the
- * input once reached.
+ * back for editing; `limit` caps the count (From takes one) — an address
+ * past it is refused, left in the input like a typo.
  *
  * **Only an address becomes a chip while typing.** Enter, comma, semicolon,
  * Tab and a paste commit the addresses in what was typed and leave the rest —
@@ -101,8 +101,8 @@ let clipboardEntry: string | null = null;
  * being done with the typing: an address in the input becomes a chip first,
  * as Enter would make it. The highlight is
  * `aria-activedescendant` on the input and `aria-current` on the chip, and the
- * chips' remove buttons stay out of the tab order — Tab lands on the input —
- * except when the field is full and has no input to land on.
+ * chips' remove buttons stay out of the tab order — Tab lands on the input,
+ * a full field's too: past `limit` an address is refused, left in the input.
  *
  * A display name is kept — `Ada Lovelace <ada@example.com>` is one chip
  * that shows "Ada Lovelace" — and the value stays `string[]` in header
@@ -179,7 +179,8 @@ let clipboardEntry: string | null = null;
  *
  * **State on the host.** `aria-disabled` while disabled; `data-invalid`
  * while invalid and touched; `data-full` once `limit` is reached;
- * `data-focused` while focus is anywhere in the control. The text input
+ * `data-focused` while focus is anywhere in the control; `data-flush` when
+ * `flush`. The text input
  * carries `data-refused` while it holds text a commit left behind.
  *
  * No Material, no icon font, no headless library. It holds the list it
@@ -196,6 +197,7 @@ let clipboardEntry: string | null = null;
     '[attr.data-full]': 'full() || null',
     '[attr.data-focused]': 'focused() || null',
     '[attr.data-dropping]': 'dropping() || null',
+    '[attr.data-flush]': 'flush() || null',
     '(pointerdown)': 'onPointerdown($event)',
     '(mousedown)': 'keepCaret($event)',
     '(click)': 'focus()',
@@ -241,8 +243,9 @@ export class AddressInput implements FormValueControl<string[]> {
     this.#frameIds.set(ids);
   }
 
-  /** Most addresses the field takes; the input hides once reached. Named
-      `limit`, not `max`: the form contract keeps that name for the `max` rule. */
+  /** Most addresses the field takes; past it an address is refused, left in
+      the input. Named `limit`, not `max`: the form contract keeps that name
+      for the `max` rule. */
   readonly limit = input(Infinity, { transform: numberAttribute });
 
   /** Prefix for each chip's remove button — "Remove ada@example.com". */
@@ -262,6 +265,15 @@ export class AddressInput implements FormValueControl<string[]> {
       for a row that only shows; a disabled or read-only input never takes
       part either way. */
   readonly allowDrag = input(true, { transform: booleanAttribute });
+
+  /** The addresses keep one start edge, text or chips: each pill hangs its
+      start padding outside its box (the chip's `flush`), so its text stands
+      where the line of text stood and nothing laid out moves — not the
+      addresses, not the entry and its placeholder. The first pill's surface
+      reaches past the control's start, into the row's inset, which must have
+      the room. For a control whose label is outside it (or none);
+      `data-flush` on the host. */
+  readonly flush = input(false, { transform: booleanAttribute });
 
   // ── the form contract: pushed in by the field directive ───────────────
 
@@ -396,11 +408,6 @@ export class AddressInput implements FormValueControl<string[]> {
       lands before. */
   readonly #draftStart = computed(() => this.value().length - this.#trailingMalformed().length);
 
-  /** Full, and nothing in it to fix: the input hides — the chips say
-      everything. A full list ending in a typo keeps it, so focus can hand
-      the typo back. */
-  protected readonly closed = computed(() => this.full() && !this.#trailingMalformed().length);
-
   /** Nothing may change: disabled or read-only. Chips lose their remove
       button, the input is out of play. */
   protected readonly locked = computed(() => this.disabled() || this.readonly());
@@ -491,18 +498,11 @@ export class AddressInput implements FormValueControl<string[]> {
   }
 
   /** Puts the caret in the input — the whole control is the field, and a
-      host's label row may forward its own clicks here. A full field has no
-      input to put it in: focus goes to the last chip's remove control. */
+      host's label row may forward its own clicks here. A full field too:
+      its input stays, the caret's place as in any other. */
   focus(): void {
     if (this.locked()) return;
-    if (!this.closed()) {
-      this.field().nativeElement.focus();
-      return;
-    }
-    const controls = this.#host.nativeElement.querySelectorAll<HTMLElement>(
-      '[data-slot=trailing] :is(button, [href], input, [tabindex]:not([tabindex="-1"]))',
-    );
-    controls[controls.length - 1]?.focus();
+    this.field().nativeElement.focus();
   }
 
   /** A press anywhere on the control is the input's from that moment: it
@@ -519,7 +519,7 @@ export class AddressInput implements FormValueControl<string[]> {
       this.canDrag() &&
       !!target.closest?.('[email-address-chip]') &&
       !target.closest('[data-slot=trailing]');
-    if (target === input || this.locked() || this.closed()) return;
+    if (target === input || this.locked()) return;
     input.focus();
   }
 
@@ -697,7 +697,12 @@ export class AddressInput implements FormValueControl<string[]> {
         y < r.top || (y <= r.bottom && (rtl ? x > r.left + r.width / 2 : x < r.left + r.width / 2)),
     );
     if (index < 0) index = rects.length;
-    const start = (r: DOMRect) => (rtl ? r.right : r.left);
+    // A flush chip's surface starts before its box (`flush`): the places
+    // are measured off what is seen.
+    const hang = chips[0]
+      ? Math.max(0, -parseFloat(getComputedStyle(chips[0], '::before').insetInlineStart) || 0)
+      : 0;
+    const start = (r: DOMRect) => (rtl ? r.right + hang : r.left - hang);
     const end = (r: DOMRect) => (rtl ? r.left : r.right);
     // At a line's start or end the line stands a gap off the entry, as Gmail's does.
     const out = rtl ? 4 : -4;
@@ -1025,11 +1030,18 @@ export class AddressInput implements FormValueControl<string[]> {
     if (!this.#focused()) this.savedModelChange.emit(this.value());
   }
 
-  /** Commits the addresses in a run and leaves the rest in the input. */
+  /** Commits the addresses in a run and leaves the rest in the input: a
+      typo, and an address the cap turned away (`limit`) — refused, as a
+      typo is. A duplicate is dropped. */
   #settle(input: HTMLInputElement, raw: string): void {
     const tokens = this.#rules.split(raw);
-    this.#insert(tokens.filter((token) => this.#accepts(token)));
-    this.#write(input, tokens.filter((token) => !this.#accepts(token)).join(', '));
+    const added = this.#insert(tokens.filter((token) => this.#accepts(token)));
+    const listed = new Set(this.value().map(this.#key));
+    const left = tokens.filter(
+      (token) =>
+        !this.#accepts(token) || (!added.includes(token) && !listed.has(this.#key(token))),
+    );
+    this.#write(input, left.join(', '));
     this.refused.set(!!input.value);
   }
 

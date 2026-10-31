@@ -6,6 +6,7 @@ import {
   // Signals
   afterNextRender,
   computed,
+  effect,
   inject,
   input,
   output,
@@ -27,6 +28,7 @@ import { AddressInput, AddressInputLabel } from '@h-k-dev/angular-email-editor/a
 import { KeepFocus } from '@h-k-dev/angular-email-editor/focus';
 import { AddressFormField } from '@h-k-dev/angular-email-editor/material';
 
+import { ScrollOwner } from '../../../../../../core/directives/scroll-owner/scroll-owner';
 import { Envelope } from '../../../../../../core/email/envelope';
 
 /** Tells the rows on one page apart: Preview needs an id of its own for
@@ -35,6 +37,14 @@ let nextRowsId = 0;
 
 /** The rows that hold addresses. */
 export type AddressRow = 'from' | 'to' | 'cc' | 'bcc';
+
+/** How the envelope's gutter shows its labels (`EnvelopeRows.labelGutter`):
+    `always`, or `hover` — Notion's, under the pointer (or focus) only. */
+export type LabelGutter = 'always' | 'hover';
+
+/** The margin a gutter needs beside the rows, px: the longest label
+    ("Preview") and its gap off the text, with air. */
+const GUTTER_ROOM = 80;
 
 /**
  * The envelope rows of one message, Gmail's: From, To with Cc and Bcc,
@@ -67,6 +77,7 @@ export type AddressRow = 'from' | 'to' | 'cc' | 'bcc';
   styleUrl: './envelope-rows.scss',
   host: {
     '[attr.data-fields]': 'fields()',
+    '[attr.data-label-gutter]': 'gutterMode()',
   },
 })
 export class EnvelopeRows {
@@ -106,6 +117,37 @@ export class EnvelopeRows {
       read row by row). */
   readonly toLabel = input<'on-focus' | 'always'>('on-focus');
 
+  /** Notion's gutter, for a document on a desk (`MessageForm.labelGutter`):
+      every row wears its label in the margin before it instead of in it —
+      `always` there, or shown while the pointer is over the row or focus
+      is in it (`hover`, Notion's handles). The rows then draw no label:
+      each control is named by its `aria-label`, and the address controls
+      keep one edge, text or chips (`flush`). Cc, Bcc and Preview are
+      companions: theirs shows with their group — the recipients, the
+      subject — under the pointer or focus. `null`, nothing of it.
+      Asked for, it is drawn only while the margin has the room
+      (`GUTTER_ROOM`); without, the rows keep their labels, as a sheet's. */
+  readonly labelGutter = input<LabelGutter | null>(null);
+
+  /** The room beside the rows, px: the narrower margin between them and the
+      edges of the scroller they sit in — measured only while a gutter is
+      asked for. */
+  readonly #room = signal(0);
+
+  /** The gutter as drawn: asked for, and with the room for it. */
+  protected readonly gutterMode = computed(() =>
+    this.#room() >= GUTTER_ROOM ? this.labelGutter() : null,
+  );
+  protected readonly gutter = computed(() => this.gutterMode() !== null);
+
+  /** Which rows show a gutter: only a filled one — an empty row says what
+      it is with its placeholder ("Recipients", "Subject"). */
+  protected readonly gutterRows = computed(() => {
+    if (!this.gutter()) return null;
+    const { from, to, subject } = this.value();
+    return { from: from.length > 0, to: to.length > 0, subject: subject.trim().length > 0 };
+  });
+
   /** Whether the recipients merge into one line at rest, Gmail's (a
       message being written) — or stay a row each, labelled, however full
       (a template's details: a narrow pane, where a merged line is too
@@ -114,6 +156,23 @@ export class EnvelopeRows {
 
   /** The message as the rows read it. */
   protected readonly value = computed(() => this.form()().value());
+
+  constructor() {
+    const host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+    const scroller = inject(ScrollOwner, { optional: true })?.element;
+    effect((onCleanup) => {
+      if (!this.labelGutter() || !scroller || typeof ResizeObserver === 'undefined') return;
+      // The rows keep to the column's middle: the scroller's width is all
+      // that moves them.
+      const observer = new ResizeObserver(() => {
+        const rows = host.getBoundingClientRect();
+        const around = scroller.getBoundingClientRect();
+        this.#room.set(Math.min(rows.left - around.left, around.right - rows.right));
+      });
+      observer.observe(scroller);
+      onCleanup(() => observer.disconnect());
+    });
+  }
 
   protected readonly previewId = `message-preview-${nextRowsId++}`;
 
