@@ -69,8 +69,21 @@ export default {
     },
     language: '言語',
     compose: '作成',
-    theme: { light: 'ライトモードに切り替え', dark: 'ダークモードに切り替え' },
     paper: { light: 'メールをライトで表示', dark: 'メールをダークで表示' },
+    settings: {
+      open: '設定',
+      title: '設定',
+      close: '設定を閉じる',
+      sections: { label: '設定のセクション', appearance: '外観', language: '言語' },
+      theme: {
+        label: 'テーマ',
+        hint: 'アプリをライトまたはダークに。システムに合わせると、その切り替えにも追従します',
+        system: 'システム',
+        light: 'ライト',
+        dark: 'ダーク',
+      },
+      language: { label: '言語', hint: 'アプリの表示言語' },
+    },
   },
   docs: { onThisPage: 'このページの内容', trail: '現在地' },
   components: {

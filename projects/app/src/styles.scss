@@ -236,35 +236,38 @@ html {
   --email-column-max: 720px;
 }
 
-/* A dialog — the composer's settings, and whatever dialog comes next: one
- * fixed size, Notion's and Slack's settings, so the box never jumps with
- * what it holds and a group added later fits the same frame, scrolling. Centred with
- * the outer spacing round it while that fits; the whole screen at the
- * compact width (`FULL_WIDTH_MAX_WIDTH`, services/viewport.ts — the
- * writer goes full width there too), square-cornered. Set here, once:
- * a dialog reads these and nothing else for its frame. */
+/* The app's dialog frames — global pane classes, set by `largeDialog()` /
+ * `fullscreenDialog()` (core/layout/dialogs.ts) and read by nothing else.
+ * Material draws the surface, in the app's bright surface.
+ *
+ * `.dialog-large`: Notion's settings' frame — 90% of the width, the height
+ * less 50px a side, so the box never jumps with what it holds and a group
+ * added later fits the same frame, scrolling inside; centred, the
+ * whole screen at the compact width (`FULL_WIDTH_MAX_WIDTH`,
+ * core/layout/viewport.ts — the writer goes full width there too),
+ * square-cornered and flat.
+ *
+ * `.dialog-fullscreen`: the screen itself, at every width — no corners, no
+ * lift, nothing round it to lift off (the template designer). */
 html {
-  --dialog-width: min(640px, calc(100vw - 2 * var(--mat-sys-outer-spacing)));
-  --dialog-height: min(640px, calc(100dvh - 2 * var(--mat-sys-outer-spacing)));
   --dialog-radius: var(--mat-sys-corner-extra-large);
+  // Notion's settings: 90% of the width up to 1512px, the height less
+  // 50px above and below.
+  --dialog-large-width: min(90vw, 1512px);
+  --dialog-large-height: calc(100dvh - 100px);
 }
 
 @media (max-width: 768px) {
   html {
-    --dialog-width: 100vw;
-    --dialog-height: 100dvh;
     --dialog-radius: 0;
+    --dialog-large-width: 100vw;
+    --dialog-large-height: 100dvh;
   }
 }
 
-/* The composer's settings (message-settings.ts), a MatDialog: Notion's
- * frame rather than the global 640, room for its aside and a page that
- * reads like one — the tokens' whole screen at the compact width. Material
- * draws the surface, in the app's bright surface and the dialog radius.
- * Global: the pane is the overlay's. */
-.message-settings-pane {
-  inline-size: min(1100px, calc(100vw - 96px));
-  block-size: min(720px, calc(100dvh - 96px));
+.dialog-large {
+  inline-size: var(--dialog-large-width);
+  block-size: var(--dialog-large-height);
   @include mat.dialog-overrides(
     (
       container-color: var(--mat-sys-surface-bright),
@@ -277,8 +280,6 @@ html {
   );
 
   @media (max-width: 768px) {
-    inline-size: var(--dialog-width);
-    block-size: var(--dialog-height);
     @include mat.dialog-overrides(
       (
         container-elevation-shadow: none,
@@ -287,9 +288,9 @@ html {
   }
 }
 
-// The template designer (openTemplateDesigner): the screen itself — no
-// corners, no lift, nothing round it to lift off.
-.template-designer-pane {
+.dialog-fullscreen {
+  inline-size: 100vw;
+  block-size: 100svh;
   @include mat.dialog-overrides(
     (
       container-color: var(--mat-sys-surface-bright),
@@ -297,6 +298,15 @@ html {
       container-elevation-shadow: none,
     )
   );
+}
+
+/* Every dialog's backdrop, where the GPU paints it (`provideDialogDefaults`,
+ * core/layout/dialogs.ts): the page behind a small blur, over the stock
+ * dim — the overlay's own class sits beside this one and keeps its colour
+ * and fade. */
+.dialog-backdrop-blur {
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
 }
 
 /* ProseMirror creates its editable DOM at runtime, outside Angular's emulated

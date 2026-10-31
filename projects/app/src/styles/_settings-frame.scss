@@ -1,0 +1,335 @@
+@use '@angular/material' as mat;
+@use '@h-k-dev/angular-email-editor/styles/scroll';
+
+// The settings frame — the composer's (message-settings) and the app's
+// (app-settings): one look, included by each dialog's own styles, whose
+// template stamps the same `settings__*` parts.
+
+// A settings dialog, Notion's and Linear's: a roomy frame of its own
+// (`.dialog-large`, styles.scss: the whole screen at the compact width) —
+// a tinted aside down the start, the title over its sections, and the open
+// section's page beside it, scrolling inside: a heading over rounded cards
+// of rows, each row a word and its hint at the start and its control at
+// the end. At the compact width the title and close head the screen, the
+// aside a row of tabs under them.
+
+// The compact width, where the frame is the whole screen
+// (`Viewport.compact`, `FULL_WIDTH_MAX_WIDTH`).
+$compact: 768px;
+
+@mixin frame {
+  // The host is the frame's grid: the aside's column (its title over its
+  // tabs) and the page beside it, the full height. The header and the tabs' container give
+  // their children to the grid. The dialog's surface, its size and its way
+  // in and out are Material's (`.dialog-large`, styles.scss).
+  :host {
+    --settings-aside: 240px;
+    // The system's spacing step, short: every room below is a multiple.
+    --space: var(--mat-sys-spacing, 4px);
+
+    position: relative;
+    display: grid;
+    grid-template:
+      'title main' auto
+      'nav main' 1fr
+      / var(--settings-aside) minmax(0, 1fr);
+    block-size: 100%;
+    box-sizing: border-box;
+    color: var(--mat-sys-on-surface);
+    overflow: hidden;
+
+    // The aside's tint, under its title and its tabs alike.
+    &::before {
+      content: '';
+      grid-area: 1 / 1 / -1 / 2;
+      background: color-mix(in srgb, var(--mat-sys-on-surface) 3%, var(--mat-sys-surface-bright));
+      border-inline-end: 1px solid var(--mat-sys-outline-variant);
+    }
+  }
+
+  .settings__header,
+  .settings__body {
+    display: contents;
+  }
+
+  .settings__title {
+    z-index: 1;
+    grid-area: title;
+    margin: 0;
+    padding-block: calc(var(--space) * 5) calc(var(--space) * 2);
+    padding-inline: calc(var(--space) * 5);
+    color: var(--mat-sys-on-surface-variant);
+    font: var(--mat-sys-title-small);
+  }
+
+  // In the corner, over the page: a quiet close, 28px with a 32px target
+  // (the wide toolbar's), the app's icon size.
+  .settings__close {
+    position: absolute;
+    z-index: 2;
+    inset-block-start: calc(var(--space) * 4);
+    inset-inline-end: calc(var(--space) * 4);
+    @include mat.icon-button-overrides(
+      (
+        state-layer-size: 28px,
+        touch-target-size: 32px,
+      )
+    );
+  }
+
+  .settings__nav {
+    z-index: 1;
+    display: flex;
+    grid-area: nav;
+    flex-direction: column;
+    gap: 1px;
+    min-block-size: 0;
+    margin: 0;
+    padding-block: 0 calc(var(--space) * 4);
+    padding-inline: calc(var(--space) * 3);
+    list-style: none;
+    overflow-y: auto;
+  }
+
+  // A section: its icon and its word, quiet; the open one a soft fill.
+  .settings__tab {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: calc(var(--space) * 2.5);
+    min-block-size: 32px;
+    box-sizing: border-box;
+    padding-inline: calc(var(--space) * 2.5);
+    border-radius: var(--mat-sys-corner-small, 6px);
+    color: var(--mat-sys-on-surface-variant);
+    font: var(--mat-sys-body-medium);
+    font-weight: 500;
+    cursor: pointer;
+    user-select: none;
+    outline: none;
+    transition:
+      background-color 120ms ease-out,
+      color 120ms ease-out;
+
+    // A real pointer's: a tap would leave it stuck on the tab it left.
+    @media (hover: hover) {
+      &:hover {
+        background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent);
+        color: var(--mat-sys-on-surface);
+      }
+    }
+
+    &:focus-visible {
+      box-shadow: inset 0 0 0 2px var(--mat-sys-primary);
+    }
+
+    &[aria-selected='true'] {
+      background: color-mix(in srgb, var(--mat-sys-on-surface) 9%, transparent);
+      color: var(--mat-sys-on-surface);
+    }
+  }
+
+  .settings__tab-icon {
+    flex: none;
+    inline-size: 18px;
+    block-size: 18px;
+    font-size: 18px;
+  }
+
+  .settings__tab-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  // Notion's room round the page: 36 / 60 / 44. The scrollbar's gutter is
+  // kept on both edges, so the page sits in the exact middle whether it
+  // scrolls or not (one gutter would push it 8px off).
+  .settings__main {
+    --email-scroll-gutter: stable both-edges;
+
+    grid-area: main;
+    min-block-size: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-block: calc(var(--space) * 9) calc(var(--space) * 11);
+    padding-inline: calc(var(--space) * 15);
+  }
+
+  // Both scrollers wear the scroll look — one include for the two.
+  .settings__nav,
+  .settings__main {
+    @include scroll.scroll;
+  }
+
+  // A page renders once opened and stays; the closed ones are inert (the
+  // tab panel's doing) and out of sight. A page reads at Notion's 800px,
+  // never the frame's width, centred in the room beside the aside.
+  .settings__page {
+    max-inline-size: 800px;
+    margin-inline: auto;
+
+    &[inert] {
+      display: none;
+    }
+  }
+
+  // The page's heading: words alone, no line under them.
+  .settings__page-title {
+    margin-block: 0 calc(var(--space) * 6);
+    color: var(--mat-sys-on-surface);
+    font: var(--mat-sys-title-large);
+    // 500: a weight the app loads (a 600 is a smeared faux bold).
+    font-weight: 500;
+  }
+
+  .settings__card {
+    background: var(--mat-sys-surface-container-low);
+    border-radius: var(--mat-sys-corner-large, 10px);
+    box-shadow: var(--mat-sys-ring-shadow);
+  }
+
+  .settings__card--apart {
+    margin-block-start: calc(var(--space) * 8);
+  }
+
+  // A control too wide to leave its words room (a language pill on a
+  // phone) wraps under them, at the row's end.
+  .settings__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: calc(var(--space) * 2) calc(var(--space) * 6);
+    min-block-size: 64px;
+    box-sizing: border-box;
+    padding-block: calc(var(--space) * 3.5);
+    padding-inline: calc(var(--space) * 5);
+
+    & + & {
+      border-block-start: 1px solid var(--mat-sys-outline-variant);
+    }
+  }
+
+  .settings__text {
+    display: flex;
+    flex: 1 1 12rem;
+    flex-direction: column;
+    gap: 2px;
+    min-inline-size: 0;
+  }
+
+  .settings__label {
+    color: var(--mat-sys-on-surface);
+    font: var(--mat-sys-body-large);
+    font-weight: 500;
+  }
+
+  .settings__hint,
+  .settings__note {
+    color: var(--mat-sys-on-surface-variant);
+    font: var(--mat-sys-body-medium);
+  }
+
+  .settings__note {
+    margin-block: calc(var(--space) * 3) 0;
+    margin-inline: calc(var(--space) * 5);
+  }
+
+  // 28px items in a 36px track: the thumb keeps 4px of air from the
+  // track's edge instead of touching it.
+  .settings__toggle {
+    --hk-tgb-size: 28px;
+    --hk-tgb-inset: 4px;
+
+    flex: none;
+    margin-inline-start: auto;
+  }
+
+  .settings__switch {
+    flex: none;
+    margin-inline-start: auto;
+  }
+
+  // A row that cannot apply (the Layout of a plain-text message): there,
+  // dimmed with its control, never hidden.
+  .settings__row[data-disabled] .settings__label {
+    color: color-mix(in srgb, var(--mat-sys-on-surface) 38%, transparent);
+  }
+
+  // A phone: the frame is the screen (`.dialog-large`'s doing); the title — the
+  // desktop's small label — and close head it, clear of the notch, the aside a row of tabs under them —
+  // sideways when they outgrow the screen — and the page's last row clear of
+  // the home bar.
+  @media (max-width: $compact) {
+    :host {
+      grid-template:
+        'title close' auto
+        'nav nav' auto
+        'main main' 1fr
+        / minmax(0, 1fr) auto;
+
+      &::before {
+        content: none;
+      }
+    }
+
+    .settings__title {
+      align-self: center;
+      padding-block: calc(env(safe-area-inset-top) + var(--space) * 2) var(--space);
+      padding-inline: var(--mat-sys-mobile-edge, 20px) 0;
+    }
+
+    // Back in the flow, but still positioned: the button's ripple, focus
+    // ring and touch target are absolute layers, and `static` let them
+    // spread over the whole panel — every tap was a press on close.
+    .settings__close {
+      position: relative;
+      inset: auto;
+      grid-area: close;
+      align-self: center;
+      margin-inline-end: calc(var(--space) * 4);
+    }
+
+    // The tabs' row: the overflow row scrolls it sideways, its bar hidden,
+    // paddles over the edges in the dialog's surface.
+    .settings__nav-row {
+      --overflow-row-surface: var(--mat-sys-surface-bright);
+
+      grid-area: nav;
+      padding-block: var(--space);
+    }
+
+    // The list rides in it, the edge's room inside so the first and last tab
+    // scroll clear of the screen's edge; it no longer scrolls itself.
+    .settings__nav {
+      flex-direction: row;
+      gap: var(--space);
+      padding-block: 0;
+      padding-inline: var(--mat-sys-mobile-edge, 20px);
+      overflow: visible;
+    }
+
+    .settings__tab {
+      gap: calc(var(--space) * 2);
+      min-block-size: 36px;
+      padding-inline: calc(var(--space) * 3);
+      border-radius: var(--mat-sys-corner-full, 999px);
+    }
+
+    .settings__main {
+      padding-block: calc(var(--space) * 5)
+        calc(env(safe-area-inset-bottom) + var(--mat-sys-outer-spacing, 24px));
+      padding-inline: var(--mat-sys-inner-spacing, 16px);
+    }
+
+    // The selected tab names the page already.
+    .settings__page-title {
+      display: none;
+    }
+
+    .settings__row {
+      column-gap: var(--mat-sys-inner-spacing, 16px);
+      padding-inline: var(--mat-sys-inner-spacing, 16px);
+    }
+  }
+}

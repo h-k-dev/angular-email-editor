@@ -1,0 +1,4 @@
+@use '../../../../../../styles/settings-frame';
+
+// The composer's settings' frame, one look for both (styles/_settings-frame.scss).
+@include settings-frame.frame;

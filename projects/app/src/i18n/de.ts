@@ -70,8 +70,21 @@ export default {
     },
     language: 'Sprache',
     compose: 'Verfassen',
-    theme: { light: 'Zum hellen Design wechseln', dark: 'Zum dunklen Design wechseln' },
     paper: { light: 'E-Mail hell anzeigen', dark: 'E-Mail dunkel anzeigen' },
+    settings: {
+      open: 'Einstellungen',
+      title: 'Einstellungen',
+      close: 'Einstellungen schließen',
+      sections: { label: 'Bereiche der Einstellungen', appearance: 'Darstellung', language: 'Sprache' },
+      theme: {
+        label: 'Design',
+        hint: 'Die App hell oder dunkel – oder wie das System, auch wenn es wechselt',
+        system: 'System',
+        light: 'Hell',
+        dark: 'Dunkel',
+      },
+      language: { label: 'Sprache', hint: 'Die Sprache der App' },
+    },
   },
   docs: { onThisPage: 'Auf dieser Seite', trail: 'Wo Sie sind' },
   components: {

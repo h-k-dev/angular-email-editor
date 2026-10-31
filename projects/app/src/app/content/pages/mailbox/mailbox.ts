@@ -1,4 +1,12 @@
-import { Component, Signal, WritableSignal, computed, inject } from '@angular/core';
+import {
+  Component,
+  Injector,
+  Signal,
+  WritableSignal,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 
 // Angular Material
 import { MatButton, MatFabButton, MatIconButton } from '@angular/material/button';
@@ -17,7 +25,10 @@ import { MailboxAside } from '../../partials/atomic/mailbox/mailbox-aside';
 import { MailboxOpener } from '../../partials/atomic/mailbox/mailbox-opener';
 import { LanguageMenu } from '../../partials/common/language-menu/language-menu';
 import { PAGE_HEADER_LEAD } from '../../partials/common/page-header/page-header';
-import { ThemeToggle } from '../../partials/common/theme-toggle/theme-toggle';
+import {
+  AppSettingsSection,
+  openAppSettings,
+} from '../../partials/shared/dialogs/app-settings/app-settings';
 import { HoverCard } from '../../partials/common/hover-card/hover-card';
 import { DocPageLink } from '../../partials/common/doc-page/doc';
 import {
@@ -105,7 +116,6 @@ const pageLinks = (base: string, pages: readonly DocPageLink[]): MailboxLink[] =
     RouterLinkActive,
     RouterOutlet,
     LanguageMenu,
-    ThemeToggle,
     MenuTrigger,
     ToolbarMenu,
     HoverCard,
@@ -128,6 +138,11 @@ export class Mailbox {
   /** The inbox's unread, as it goes down. */
   readonly #unread = computed(() => this.#mailbox.unread().size);
   readonly #aside = inject(MailboxAside);
+  readonly #injector = inject(Injector);
+
+  /** The settings dialog's open section, kept from one opening to the
+      next. */
+  readonly #settingsSection = signal<AppSettingsSection | undefined>('appearance');
 
   /** A rail icon's name, in a hover card beside it: after the pointer has
       rested a moment (a pass over the rail shows nothing), gone the moment
@@ -155,6 +170,12 @@ export class Mailbox {
   protected compose(event: MouseEvent): void {
     this.went();
     this.#composeWindows.compose({ popOut: event.shiftKey });
+  }
+
+  /** The foot's settings button: the app's settings, over the page. */
+  protected openSettings(): void {
+    this.went();
+    openAppSettings(this.#injector, { section: this.#settingsSection });
   }
 
   /** A place was picked (or Compose pressed): an aside lying over the page

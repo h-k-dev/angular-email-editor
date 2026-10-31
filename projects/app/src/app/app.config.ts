@@ -6,6 +6,7 @@ import { provideRouter, withComponentInputBinding, withInMemoryScrolling } from 
 import { provideI18n } from '../i18n/loader';
 
 import { routes } from './app.routes';
+import { provideDialogDefaults } from './core/layout/dialogs';
 import { PageScroller } from './core/router/page-scroller';
 import { Preferences } from './core/storages/preferences';
 import { provideCustomSwatches } from '@h-k-dev/angular-email-editor/swatches';
@@ -29,6 +30,10 @@ export const appConfig: ApplicationConfig = {
     // The colours a user picked outside the palette, kept with their
     // preferences: offered again as swatches in every picker.
     provideCustomSwatches(() => inject(Preferences).customSwatches),
+    // Every dialog: the page behind it blurred where the GPU paints it,
+    // the stock backdrop where it has none. `{ blur: false }` turns the
+    // blur off everywhere.
+    provideDialogDefaults(),
     // Every tooltip waits a moment before it shows: a pointer passing over a
     // row of buttons on its way elsewhere raises none. Hiding stays
     // Material's.

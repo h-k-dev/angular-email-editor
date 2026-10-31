@@ -1,4 +1,4 @@
-import { DOCUMENT, Service, inject } from '@angular/core';
+import { DOCUMENT, Service, computed, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { Observable, distinctUntilChanged, fromEvent, map, merge, of, startWith } from 'rxjs';
@@ -35,6 +35,7 @@ const TOUCH = '(hover: none) and (pointer: coarse)';
 @Service()
 export class Viewport {
   readonly #breakpoints = inject(BreakpointObserver);
+  readonly #document = inject(DOCUMENT);
 
   /** Narrower than {@link DOCKING_MIN_WIDTH}. */
   readonly narrow = toSignal(
@@ -52,10 +53,9 @@ export class Viewport {
       tablet, at any width. Not {@link compact}: a narrow desktop window
       still has a mouse. Where the platform's own touch scrolling stands in
       for what a mouse needs drawn (paddles, drag to scroll). */
-  readonly touch = toSignal(
-    this.#breakpoints.observe(TOUCH).pipe(map((state) => state.matches)),
-    { initialValue: this.#breakpoints.isMatched(TOUCH) },
-  );
+  readonly touch = toSignal(this.#breakpoints.observe(TOUCH).pipe(map((state) => state.matches)), {
+    initialValue: this.#breakpoints.isMatched(TOUCH),
+  });
 
   /** How much of the layout viewport the virtual keyboard covers, in px — 0
       on desktop, and 0 wherever the browser already shrinks the layout
@@ -63,7 +63,7 @@ export class Viewport {
       see index.html). iOS never does: there the visual viewport shrinks while
       the layout viewport stays, and this is the difference. The shell takes
       it off its height, so bottom-anchored chrome rides up above the keys. */
-  readonly keyboardInset = toSignal(keyboardInset(inject(DOCUMENT).defaultView), {
+  readonly keyboardInset = toSignal(keyboardInset(this.#document.defaultView), {
     initialValue: 0,
   });
 
@@ -74,9 +74,29 @@ export class Viewport {
       leaves the platform's bar alone. Measured, never sniffed: an unstyled
       probe's scrollbar, watched — a Mac set to follow its pointing device
       turns classic the moment a mouse is plugged in. */
-  readonly floatingScrollbars = toSignal(floatingScrollbars(inject(DOCUMENT)), {
+  readonly floatingScrollbars = toSignal(floatingScrollbars(this.#document), {
     requireSync: true,
   });
+
+  /** This browser draws on a real GPU: a WebGL context that refuses a
+      software renderer (`failIfMajorPerformanceCaveat`). Where it has none,
+      a blur over the page is painted by the CPU on every frame — the
+      effects that cost that much fall back to their plain look. Asked the
+      first time it is read, once; the context is let go again at once. */
+  readonly gpu = computed(() => hasGpu(this.#document));
+}
+
+function hasGpu(document: Document): boolean {
+  try {
+    const canvas = document.createElement('canvas');
+    const options: WebGLContextAttributes = { failIfMajorPerformanceCaveat: true };
+    const gl = canvas.getContext('webgl2', options) ?? canvas.getContext('webgl', options);
+    if (!gl) return false;
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function floatingScrollbars(document: Document): Observable<boolean> {

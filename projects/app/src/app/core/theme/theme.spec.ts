@@ -10,12 +10,12 @@ describe('Theme', () => {
     expect(theme.scheme()).toBe('light');
   });
 
-  it('the toggle chooses a scheme of its own, and this browser keeps it', () => {
+  it('a scheme of its own, kept by this browser — the system again removes it', () => {
     const theme = TestBed.inject(Theme);
-    theme.toggle();
+    theme.choose('dark');
     expect(theme.scheme()).toBe('dark');
     expect(localStorage.getItem(KEY)).toBe('dark');
-    theme.toggle();
+    theme.choose('light');
     expect(theme.preference()).toBe('light');
     expect(localStorage.getItem(KEY)).toBe('light');
 

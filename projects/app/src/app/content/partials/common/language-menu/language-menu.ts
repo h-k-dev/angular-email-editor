@@ -17,7 +17,7 @@ import {
 
 /** A language in its own words — a name is never translated: whoever looks
     for their language looks for it as they write it. */
-const NAMES: Record<AppLanguage, string> = {
+export const LANGUAGE_NAMES: Record<AppLanguage, string> = {
   en: 'English',
   ja: '日本語',
   de: 'Deutsch',
@@ -44,12 +44,12 @@ export class LanguageMenu {
   readonly align = input<'start' | 'end'>('end');
 
   /** The language in use, in its own words — the button's name. */
-  protected readonly current = computed(() => NAMES[this.i18n.lang()]);
+  protected readonly current = computed(() => LANGUAGE_NAMES[this.i18n.lang()]);
 
   protected readonly items = computed<ToolbarMenuItem<AppLanguage>[]>(() =>
     this.i18n.languages.map((language) => ({
       value: language,
-      label: NAMES[language],
+      label: LANGUAGE_NAMES[language],
       kind: 'radio',
       checked: language === this.i18n.lang(),
     })),

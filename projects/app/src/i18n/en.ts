@@ -73,8 +73,21 @@ export default {
     },
     language: 'Language',
     compose: 'Compose',
-    theme: { light: 'Switch to light mode', dark: 'Switch to dark mode' },
     paper: { light: 'Show the email light', dark: 'Show the email dark' },
+    settings: {
+      open: 'Settings',
+      title: 'Settings',
+      close: 'Close settings',
+      sections: { label: 'Settings sections', appearance: 'Appearance', language: 'Language' },
+      theme: {
+        label: 'Theme',
+        hint: 'The app light or dark — or as your system is, following it as it changes',
+        system: 'System',
+        light: 'Light',
+        dark: 'Dark',
+      },
+      language: { label: 'Language', hint: 'The words the app speaks' },
+    },
   },
   docs: { onThisPage: 'On this page', trail: 'Where you are' },
   components: {

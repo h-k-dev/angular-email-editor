@@ -23,6 +23,7 @@ import {
 } from '@h-k-dev/angular-email-editor/toggle-button-group';
 import { TranslatePipe } from '@ngx-translate/core';
 
+import { largeDialog } from '../../../../../../core/layout/dialogs';
 import { Preferences } from '../../../../../../core/storages/preferences';
 import { OverflowRow } from '../../../../common/overflow-row/overflow-row';
 import { Viewport } from '../../../../../../core/layout/viewport';
@@ -49,10 +50,9 @@ export interface MessageSettingsData {
 
 /**
  * Opens the settings of the sheet `injector` sits on — it reads and sets
- * that sheet through DI, whichever it is. One fixed size (the
- * `.message-settings-pane`, styles.scss), the whole screen at the compact
- * width; Escape and a press on the backdrop close it, focus goes back to
- * where it was.
+ * that sheet through DI, whichever it is. A large dialog (`largeDialog`),
+ * the whole screen at the compact width; Escape and a press on the
+ * backdrop close it, focus goes back to where it was.
  */
 export function openMessageSettings(
   injector: Injector,
@@ -64,9 +64,7 @@ export function openMessageSettings(
     ariaLabelledBy: `${id}-title`,
     injector,
     data,
-    panelClass: 'message-settings-pane',
-    // The pane's own size, never Material's 80vw cap.
-    maxWidth: 'none',
+    ...largeDialog('message-settings-pane'),
   });
 }
 
@@ -82,7 +80,8 @@ export function openMessageSettings(
  * switch for every one of them — the Open mode, window, zoom or pop-out, and the
  * formatting toolbar). What cannot
  * apply stands disabled, never hidden. The email's settings only: the
- * app's own — its theme, its language — stay in the app's top bar.
+ * app's own — its theme, its language — are the app's settings'
+ * (`AppSettings`), in the same frame.
  *
  * Two kinds of setting, told apart on the page: the {@link Preferences}
  * the email reads, which this browser keeps for every composer and every

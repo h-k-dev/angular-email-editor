@@ -10,9 +10,8 @@ import { Paper } from '../../../../core/theme/paper';
 
 /**
  * The email's light or dark (the `Paper` service — the settings' Theme),
- * ThemeToggle's sibling for the paper: one icon button, showing the paper
- * a press switches to. In a bar over an email — the designer's — to see the
- * other side of it at once.
+ * as one icon button, showing the paper a press switches to. In a bar
+ * over an email — the designer's — to see the other side of it at once.
  */
 @Component({
   selector: 'paper-toggle',

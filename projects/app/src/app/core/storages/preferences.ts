@@ -67,7 +67,8 @@ export const DESIGNER_DETAILS_PUSH_MIN = 1200;
 /**
  * What the user chose, as two-way signals that survive a reload and reach
  * every tab of the app. The app's own — its theme and language — are
- * written by the top bar; the email's by the settings dialog's pages (an
+ * written by the app's settings (`AppSettings`) and the mailbox foot's
+ * language button; the email's by the composer's settings dialog's pages (an
  * email's settings only, never the app's) and the controls they mirror
  * (the writer bar's formatting button, Alt+Z in the source).
  *
@@ -83,15 +84,15 @@ export const DESIGNER_DETAILS_PUSH_MIN = 1200;
 export class Preferences {
   readonly #storage = inject(LocalStorage);
 
-  /** The app's theme — the top bar's toggle. Unset reads as `system`:
+  /** The app's theme — the app settings' Theme. Unset reads as `system`:
       the OS's light or dark, as it changes. */
   readonly theme = this.#storage.pairSignal(
     `${PREFIX}theme`,
     oneOf<ThemePreference>(['light', 'dark', 'system'], 'system'),
   );
 
-  /** The language the app speaks — the top bar's picker. Unset reads as
-      English, the code's own words. */
+  /** The language the app speaks — the app settings' Language, the foot's
+      picker. Unset reads as English, the code's own words. */
   readonly language = this.#storage.pairSignal(`${PREFIX}language`, oneOf(LANGUAGES, 'en'));
 
   /** How the editor looks — the settings' Theme, the same in every

@@ -188,12 +188,27 @@
     </ng-template>
   </ng-template>
 
-  <!-- The app's settings: its language and its light or dark, two plain
-       icon buttons. The menu opens up from the foot, lined up with its
-       start. -->
+  <!-- The app's settings, plain icon buttons: the settings dialog first
+       (its light or dark among them), and its language at the end — the
+       menu opens up from the foot, lined up with that end (with its start
+       on the rail, where the buttons stack). -->
   <footer class="mailbox-aside__foot">
-    <div language-menu side="above" align="start"></div>
-    <theme-toggle />
+    <button
+      matIconButton
+      type="button"
+      class="mailbox-aside__settings"
+      [attr.aria-label]="'app.settings.open' | translate"
+      [title]="'app.settings.open' | translate"
+      (click)="openSettings()"
+    >
+      <mat-icon>settings</mat-icon>
+    </button>
+    <span class="mailbox-aside__spacer" aria-hidden="true"></span>
+    <div
+      language-menu
+      side="above"
+      [align]="collapsed() ? 'start' : 'end'"
+    ></div>
   </footer>
 </aside>
 

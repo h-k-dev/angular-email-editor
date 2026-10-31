@@ -5,10 +5,11 @@ import { Preferences, ThemePreference } from '../storages/preferences';
 /** The app's light or dark. */
 export type ThemeScheme = 'light' | 'dark';
 
-/** The app's theme, app-wide: the shell's top-bar toggle chooses it, and whatever follows the app (an editor set to
+/** The app's theme, app-wide: the app settings' Theme (System, Light,
+    Dark) chooses it, and whatever follows the app (an editor set to
     `auto`) reads it. The choice is a {@link Preferences} one — this browser
-    keeps it, in every tab. `system`, the default, is the OS's light or dark,
-    followed as it changes; the toggle picks a scheme of the app's own. */
+    keeps it, in every tab. `system`, the default, is the OS's light or
+    dark, followed as it changes. */
 @Service()
 export class Theme {
   readonly #document = inject(DOCUMENT);
@@ -35,12 +36,6 @@ export class Theme {
       query.addEventListener('change', onChange);
       inject(DestroyRef).onDestroy(() => query.removeEventListener('change', onChange));
     }
-  }
-
-  /** Light to dark and back — the top bar's toggle: a scheme of the app's
-      own from then on, whatever the system does. */
-  toggle(): void {
-    this.choose(this.scheme() === 'light' ? 'dark' : 'light');
   }
 
   /** Chooses the theme, as one view transition where the browser has them

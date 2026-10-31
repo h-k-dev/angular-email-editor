@@ -948,7 +948,7 @@ describe('Compose', () => {
     // The email's theme only — the app's stays in its top bar.
     expect(dialog.textContent).not.toContain('Language');
     // The editor follows the app's theme while it is Auto…
-    TestBed.inject(Theme).toggle();
+    TestBed.inject(Theme).choose('dark');
     await fixture.whenStable();
     expect(sheet.editorScheme()).toBe('dark');
     // …and keeps a theme of its own once it has one.

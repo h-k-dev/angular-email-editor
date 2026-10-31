@@ -1,0 +1,133 @@
+<!-- The app's settings: the content of the dialog the mailbox foot's
+     settings button opens (MatDialog — its frame, backdrop, Escape and
+     focus are the overlay's; its size is .dialog-large's, styles.scss). The
+     host is the frame's grid, the composer's settings' parts and look. -->
+<header class="settings__header">
+  <h2 class="settings__title" [id]="titleId">{{ 'app.settings.title' | translate }}</h2>
+  <!-- mat-dialog-close owns the button's type and aria-label (its
+       inputs): bound through it, never as attributes it would clear. -->
+  <button
+    mat-icon-button
+    mat-dialog-close
+    class="settings__close"
+    [aria-label]="'app.settings.close' | translate"
+    [title]="'app.settings.close' | translate"
+  >
+    <mat-icon>close</mat-icon>
+  </button>
+</header>
+
+<!-- The aside: one tab per section, its page beside it — a row of tabs
+     over the page at the compact width, in an overflow row. A page renders
+     when it is first opened and stays once it has. -->
+<div ngTabs class="settings__body">
+  <!-- One list for both: Aria's parts find each other through DI, which
+       follows where this is declared, not where it is stamped. -->
+  <ng-template #tabList>
+    <ul
+      ngTabList
+      class="settings__nav"
+      selectionMode="follow"
+      [orientation]="viewport.compact() ? 'horizontal' : 'vertical'"
+      [(selectedTab)]="section"
+      [attr.aria-label]="'app.settings.sections.label' | translate"
+    >
+      @for (item of sections; track item.id) {
+        <li ngTab class="settings__tab" [value]="item.id">
+          <mat-icon class="settings__tab-icon" aria-hidden="true">{{ item.icon }}</mat-icon>
+          <span class="settings__tab-label">{{ item.label | translate }}</span>
+        </li>
+      }
+    </ul>
+  </ng-template>
+  @if (viewport.compact()) {
+    <overflow-row
+      class="settings__nav-row"
+      [paddles]="!viewport.touch()"
+      [dragScroll]="!viewport.touch()"
+    >
+      <ng-container [ngTemplateOutlet]="tabList" />
+    </overflow-row>
+  } @else {
+    <ng-container [ngTemplateOutlet]="tabList" />
+  }
+
+  <div class="settings__main">
+    <!-- Appearance: the app's theme — System (the default: the OS's light
+         or dark, followed as it changes) as a pill of words, Light and Dark
+         as round icons. -->
+    <section ngTabPanel value="appearance" [preserveContent]="true" class="settings__page">
+      <ng-template ngTabContent>
+        <h3 class="settings__page-title">{{ 'app.settings.sections.appearance' | translate }}</h3>
+        <div class="settings__card">
+          <div class="settings__row">
+            <div class="settings__text">
+              <span class="settings__label" [id]="themeLabelId">{{
+                'app.settings.theme.label' | translate
+              }}</span>
+              <span class="settings__hint">{{ 'app.settings.theme.hint' | translate }}</span>
+            </div>
+            <hk-tgb
+              class="settings__toggle"
+              data-setting="theme"
+              [attr.aria-labelledby]="themeLabelId"
+              [value]="theme.preference()"
+              (valueChange)="theme.choose($event)"
+            >
+              <button hkTgbText value="system">
+                {{ 'app.settings.theme.system' | translate }}
+              </button>
+              <button
+                hkTgbIcon
+                value="light"
+                [attr.aria-label]="'app.settings.theme.light' | translate"
+                [title]="'app.settings.theme.light' | translate"
+              >
+                <mat-icon inline>light_mode</mat-icon>
+              </button>
+              <button
+                hkTgbIcon
+                value="dark"
+                [attr.aria-label]="'app.settings.theme.dark' | translate"
+                [title]="'app.settings.theme.dark' | translate"
+              >
+                <mat-icon inline>dark_mode</mat-icon>
+              </button>
+            </hk-tgb>
+          </div>
+        </div>
+      </ng-template>
+    </section>
+
+    <!-- Language: each in its own words, never translated — whoever looks
+         for their language looks for it as they write it. -->
+    <section ngTabPanel value="language" [preserveContent]="true" class="settings__page">
+      <ng-template ngTabContent>
+        <h3 class="settings__page-title">{{ 'app.settings.sections.language' | translate }}</h3>
+        <div class="settings__card">
+          <div class="settings__row">
+            <div class="settings__text">
+              <span class="settings__label" [id]="languageLabelId">{{
+                'app.settings.language.label' | translate
+              }}</span>
+              <span class="settings__hint">{{ 'app.settings.language.hint' | translate }}</span>
+            </div>
+            <hk-tgb
+              class="settings__toggle"
+              data-setting="language"
+              [attr.aria-labelledby]="languageLabelId"
+              [value]="i18n.lang()"
+              (valueChange)="i18n.use($event)"
+            >
+              @for (language of i18n.languages; track language) {
+                <button hkTgbText [value]="language" [attr.lang]="language">
+                  {{ languageNames[language] }}
+                </button>
+              }
+            </hk-tgb>
+          </div>
+        </div>
+      </ng-template>
+    </section>
+  </div>
+</div>

@@ -150,8 +150,8 @@
   }
 }
 
-// The settings, at the foot: two icon buttons side by side — stacked on
-// the rail.
+// The settings, at the foot: icon buttons side by side, the settings
+// dialog's first and the language at the far end — stacked on the rail.
 .mailbox-aside__foot {
   flex: none;
   display: flex;
@@ -161,6 +161,16 @@
 
   :host([data-collapsed]) & {
     flex-direction: column;
+  }
+}
+
+// What pushes the language to the end (its menu keeps no box to push:
+// `display: contents`) — nothing to push on the rail.
+.mailbox-aside__spacer {
+  flex: 1 1 auto;
+
+  :host([data-collapsed]) & {
+    display: none;
   }
 }
 

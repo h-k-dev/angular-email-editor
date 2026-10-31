@@ -3,6 +3,7 @@ import { Injector } from '@angular/core';
 // Angular Material
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 
+import { fullscreenDialog } from '../../../../../core/layout/dialogs';
 import type { EmailTemplate } from '../../../../../core/email/templates';
 import type { TemplateDesigner } from './template-designer';
 
@@ -25,17 +26,8 @@ export async function openTemplateDesigner(
   return injector.get(MatDialog).open<TemplateDesigner, TemplateDesignerData>(TemplateDesigner, {
     injector,
     data: { template },
-    panelClass: 'template-designer-pane',
     ariaLabel: template.name,
-    // The screen, never Material's 80vw cap — and there at once: a whole
-    // screen growing out of the middle, or shrinking back into it, is
-    // motion for nothing.
-    enterAnimationDuration: 0,
-    exitAnimationDuration: 0,
-    width: '100vw',
-    height: '100svh',
-    maxWidth: 'none',
-    maxHeight: 'none',
+    ...fullscreenDialog(),
     // The back button is the designer's own (its `BackButton` guard): the
     // dialog must not also close on the popstate, nor on the one its guard
     // makes taking its entry back out as it closes.

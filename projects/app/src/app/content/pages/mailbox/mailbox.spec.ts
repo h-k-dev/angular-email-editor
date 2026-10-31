@@ -193,7 +193,7 @@ describe('Mailbox', () => {
       expect(opened).toBe(1);
       const foot = root.querySelector('.mailbox-aside__foot')!;
       expect(foot.querySelector('[aria-label^="Language"]')).not.toBeNull();
-      expect(foot.querySelector('theme-toggle button')).not.toBeNull();
+      expect(foot.querySelector('[aria-label="Settings"]')).not.toBeNull();
     });
 
     it("carries a phone's floating Compose — the mailbox's own, not the app's", () => {
