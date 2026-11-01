@@ -1,4 +1,4 @@
-import { Component, Injector, inject } from '@angular/core';
+import { Component, DestroyRef, Injector, inject } from '@angular/core';
 import { MatIconRegistry } from '@angular/material/icon';
 import { RouterOutlet } from '@angular/router';
 import { Theme } from './core/theme/theme';
@@ -36,8 +36,12 @@ export class App {
 
     // Every tab hears the pop-outs from the start: whichever page it shows,
     // it may be the one a pop-out hands its message back to. A chunk of its
-    // own, so the shell's stays the outlet.
+    // own, so the shell's stays the outlet. The chunk may land after the
+    // shell is gone (a test's teardown) — then there is no one to hear.
     const injector = inject(Injector);
-    void import('./core/email/pop-outs').then(({ PopOuts }) => injector.get(PopOuts));
+    const destroyRef = inject(DestroyRef);
+    void import('./core/email/pop-outs').then(({ PopOuts }) => {
+      if (!destroyRef.destroyed) injector.get(PopOuts);
+    });
   }
 }
