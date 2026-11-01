@@ -390,6 +390,7 @@
     <div
       class="designer-divider designer-divider--preview"
       [(splitHandle)]="previewWidth"
+      (pointerdown)="holdSource()"
       [splitTarget]="desk"
       splitProperty="--designer-preview-width"
       [splitMin]="previewMin"
@@ -402,6 +403,7 @@
     <div
       class="designer-divider designer-divider--details"
       [(splitHandle)]="detailsWidth"
+      (pointerdown)="holdSource()"
       [splitTarget]="desk"
       splitProperty="--designer-details-width"
       splitEdge="end"
@@ -454,8 +456,11 @@
       [active]="editorView() === 'html'"
       [html]="html()"
       (htmlChange)="html.set($event)"
+      [extensions]="sourceTools"
       aria-label="Email HTML source"
-    ></section>
+    >
+      <div source-search></div>
+    </section>
   </main>
 
   <!-- The details, the pane on the right: the envelope — the message's

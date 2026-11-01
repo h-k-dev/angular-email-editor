@@ -151,3 +151,16 @@ describe('html-language — interpolation highlighting', () => {
     host.remove();
   });
 });
+
+describe('html-language — copy', () => {
+  it('copies lines as the source they are — one newline between them, never a blank line', () => {
+    const host = document.createElement('div');
+    const editor = createEditor({ parent: host, extensions: htmlSourceExtensions });
+    editor.setText(['<div>', '  <p>x</p>', '</div>'].join('\n'));
+    const { view } = editor;
+    const slice = view.state.doc.slice(0, view.state.doc.content.size);
+    const text = view.someProp('clipboardTextSerializer', (serialize) => serialize(slice, view));
+    expect(text).toBe(['<div>', '  <p>x</p>', '</div>'].join('\n'));
+    editor.destroy();
+  });
+});

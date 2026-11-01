@@ -2334,6 +2334,138 @@ section[html-email-compose][data-wrap='off'] .aee-editor {
   text-decoration-skip-ink: none;
 }
 
+/* The source pane's opt-in tools (createSourceGutter, createSourceFolding,
+ * createTagMatching, createSourceSearch — the designer's): the library puts
+ * classes on the editor and its lines, these draw them. Nothing here
+ * applies to a pane without them.
+ *
+ * Each line is drawn only while on screen (`content-visibility: auto`): a
+ * resize re-wraps the lines in view, not all of a 900-line template — the
+ * rest keep their last height. So everything a line shows stands inside its
+ * own box (containment clips the rest): the gutter is the line's own start
+ * padding, its number (`data-line`, never a counter — containment scopes
+ * counters) and its fold chevron stand in it, its band covers it. */
+.aee-source-gutter {
+  --aee-gutter-numbers: calc(var(--aee-line-digits, 2) * 1ch);
+  --aee-gutter: calc(var(--aee-gutter-numbers) + 28px);
+  --aee-source-band: color-mix(in oklch, var(--mat-sys-on-surface) 4%, transparent);
+
+  > .aee-code-line {
+    position: relative;
+    content-visibility: auto;
+    contain-intrinsic-block-size: auto 1lh;
+    // Indent guides: a hairline at every two columns of the line's own
+    // indentation (CodeLineIndent's --aee-line-indent) — VS Code's — from
+    // where the code starts, past the gutter.
+    background-image: repeating-linear-gradient(
+      to right,
+      color-mix(in oklch, var(--mat-sys-outline-variant) 70%, transparent) 0 1px,
+      transparent 1px 2ch
+    );
+    background-position: var(--aee-gutter) 0;
+    background-size: calc(var(--aee-line-indent, 0) * 1ch) 100%;
+    background-repeat: no-repeat;
+
+    &::before {
+      content: attr(data-line);
+      position: absolute;
+      inset-inline-start: 0;
+      inline-size: var(--aee-gutter-numbers);
+      text-align: end;
+      text-indent: 0;
+      color: color-mix(in oklch, var(--mat-sys-on-surface-variant) 55%, transparent);
+      pointer-events: none;
+      user-select: none;
+    }
+  }
+
+  // The caret's line: its number lit; the band, gutter and all, only while
+  // the source has focus.
+  > .aee-code-line--active::before {
+    color: var(--mat-sys-on-surface);
+  }
+
+  &.ProseMirror-focused > .aee-code-line--active {
+    background-color: var(--aee-source-band);
+  }
+
+  // Fold chevrons: down where a fold can start, shown while the pointer is
+  // over the source; right on a folded line, always.
+  > .aee-code-line:is(.aee-code-line--foldable, .aee-code-line--folded)::after {
+    content: '';
+    position: absolute;
+    inset-inline-start: calc(var(--aee-gutter) - 17px);
+    inset-block-start: calc(0.5lh - 4px);
+    inline-size: 5px;
+    block-size: 5px;
+    border-inline-end: 1.5px solid var(--mat-sys-on-surface-variant);
+    border-block-end: 1.5px solid var(--mat-sys-on-surface-variant);
+    rotate: 45deg;
+    opacity: 0;
+    cursor: pointer;
+    transition: opacity 120ms ease-out;
+  }
+
+  &:hover > .aee-code-line--foldable::after {
+    opacity: 1;
+  }
+
+  // As specific as the chevron's own rule (its `:is()` counts a class).
+  > .aee-code-line.aee-code-line--folded::after {
+    inset-block-start: calc(0.5lh - 3px);
+    rotate: -45deg;
+    opacity: 1;
+  }
+}
+
+// The gutter as each line's start padding — under word wrap, before the
+// hanging indent (the wrap rule above, which this outranks).
+section[html-email-compose] .aee-source-gutter > .aee-code-line {
+  padding-inline-start: var(--aee-gutter);
+}
+
+section[html-email-compose]:not([data-wrap='off']) .aee-source-gutter > .aee-code-line {
+  padding-inline-start: calc(var(--aee-gutter) + var(--aee-line-indent, 0) * 1ch);
+}
+
+/* Folded: the lines between hide; `⋯` after the first unfolds them. */
+.aee-code-line--hidden {
+  display: none;
+}
+
+.aee-fold-placeholder {
+  margin-inline-start: 1ch;
+  padding-inline: 6px;
+  border-radius: var(--mat-sys-corner-extra-small);
+  background: color-mix(in oklch, var(--mat-sys-primary) 14%, transparent);
+  color: var(--mat-sys-primary);
+  text-indent: 0;
+  cursor: pointer;
+  user-select: none;
+
+  &:hover {
+    background: color-mix(in oklch, var(--mat-sys-primary) 24%, transparent);
+  }
+}
+
+/* The tag the caret is on, and its partner. */
+.aee-tag-match {
+  border-radius: 2px;
+  background: color-mix(in oklch, var(--mat-sys-primary) 16%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--mat-sys-primary) 35%, transparent);
+}
+
+/* Search: every match washed, the selected one stronger and ringed. */
+.aee-search-match {
+  border-radius: 2px;
+  background: var(--mat-sys-aee-search-match, light-dark(#fde29399, #b8860b55));
+}
+
+.aee-search-match--current {
+  background: var(--mat-sys-aee-search-current, light-dark(#f9ab00aa, #f9ab0088));
+  box-shadow: 0 0 0 1px var(--mat-sys-aee-search-current-ring, #f9ab00);
+}
+
 // The library's scrollbar as a class, for a template's scroller (the
 // composer's editor pane, the source pane); a component's own stylesheet
 // includes the mixin instead. See @h-k-dev/angular-email-editor/styles/_scroll.scss.

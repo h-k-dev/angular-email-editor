@@ -213,9 +213,8 @@ $preview-min: 448px;
 // hang into, nothing round it — the text sits on the paper. 720px, or as
 // wide as the email will go (a fixed-width table: its min-content) — the
 // canvas then scrolling it sideways from the column's start. The HTML
-// source in its place keeps the column's 720px at most — its lines are
-// formatted at 80 columns, which fit — centred, narrower only with the
-// pane.
+// source in its place takes the whole canvas (code reads wide, and its
+// gutter wants the room).
 .designer-paper {
   grid-column: email;
   inline-size: var(--email-column-max);
@@ -232,11 +231,17 @@ $preview-min: 448px;
 
   :host([data-view='html']) & {
     grid-column: 1 / -1;
-    justify-self: center;
     inline-size: 100%;
     min-inline-size: 0;
-    max-inline-size: var(--email-column-max);
   }
+}
+
+// While a divider is dragged, the source holds the width it had (set as
+// the drag starts, `holdSource`, its border box): it re-wraps once, on
+// release, not on every frame.
+.designer-body[data-resizing] section[html-email-compose] {
+  box-sizing: border-box;
+  inline-size: var(--designer-source-held, auto);
 }
 
 // The HTML source waits here, out of sight, while the editor shows: it is

@@ -1,0 +1,131 @@
+@use '@angular/material' as mat;
+@use '../../../../../../styles/menu' as menu;
+
+// A zero-height strip stuck to the source pane's top: the bar hangs from
+// its end corner over the code, which scrolls on under it — never a row of
+// its own that pushes the lines down. Stuck at the start too, so a pane
+// scrolled sideways (word wrap off) keeps it in view.
+:host {
+  position: sticky;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  z-index: 3;
+  display: flex;
+  justify-content: flex-end;
+  // The bar its own height, overflowing the strip — not stretched to 0.
+  align-items: flex-start;
+  block-size: 0;
+}
+
+:host([hidden]) {
+  display: none;
+}
+
+// The app's one floating look (the menus'), one line of 28px buttons —
+// VS Code's widget in the app's own clothes.
+.source-search__bar {
+  @include menu.panel;
+  @include mat.icon-button-overrides(
+    (
+      icon-size: 18px,
+      state-layer-size: 28px,
+      touch-target-size: 28px,
+    )
+  );
+
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 2px;
+  min-inline-size: 0;
+  max-inline-size: calc(100% - 12px);
+  margin-block-start: 6px;
+  padding: 4px;
+}
+
+.source-search__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-inline-size: 0;
+}
+
+.source-search__row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+// The field: the input and its three flags in one rounded box.
+.source-search__field {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  inline-size: 260px;
+  min-inline-size: 0;
+  block-size: 28px;
+  padding-inline: 8px 2px;
+  border-radius: var(--mat-sys-corner-small);
+  background: color-mix(in oklch, var(--mat-sys-on-surface) 6%, transparent);
+  box-sizing: border-box;
+
+  &:focus-within {
+    box-shadow: inset 0 0 0 1px var(--mat-sys-primary);
+  }
+
+  &[data-invalid] {
+    box-shadow: inset 0 0 0 1px var(--mat-sys-error);
+  }
+
+  input {
+    flex: 1;
+    min-inline-size: 0;
+    border: 0;
+    padding: 0;
+    background: none;
+    color: inherit;
+    font:
+      13px / 1 ui-monospace,
+      'Cascadia Code',
+      Consolas,
+      monospace;
+    outline: 0;
+
+    &::placeholder {
+      color: var(--mat-sys-on-surface-variant);
+      font-family: var(--mat-sys-body-medium-font);
+    }
+  }
+}
+
+// Aa, ab, .*: small toggles inside the field, lit while on.
+.source-search__flag {
+  --mat-icon-size: 16px;
+
+  display: grid;
+  place-items: center;
+  inline-size: 22px;
+  block-size: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--mat-sys-corner-extra-small);
+  background: none;
+  color: var(--mat-sys-on-surface-variant);
+  cursor: pointer;
+
+  &:hover {
+    background: color-mix(in oklch, var(--mat-sys-on-surface) 8%, transparent);
+  }
+
+  &[aria-pressed='true'] {
+    color: var(--mat-sys-primary);
+    background: color-mix(in oklch, var(--mat-sys-primary) 16%, transparent);
+  }
+}
+
+.source-search__count {
+  min-inline-size: 72px;
+  padding-inline: 6px;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-small);
+  white-space: nowrap;
+}

@@ -343,6 +343,14 @@ export const createHtmlLanguage = (options: HtmlLanguageOptions = {}): Functiona
           };
         },
         props: {
+          // Code, not prose: no spellcheck squiggles under attribute names,
+          // no autocorrect or capitalisation rewriting what was typed.
+          attributes: { spellcheck: 'false', autocorrect: 'off', autocapitalize: 'off' },
+          // Copied as the source it is: one newline between lines. The
+          // default parts blocks with a blank line — each code line is one —
+          // so a paste into another editor came out double-spaced.
+          clipboardTextSerializer: (slice) =>
+            slice.content.textBetween(0, slice.content.size, '\n'),
           decorations: (state) => key.getState(state)?.decorations,
           handleTextInput: handleTagTyping,
           handlePaste: (view, event) => {

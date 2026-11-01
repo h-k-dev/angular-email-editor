@@ -44,6 +44,12 @@ import {
   PAGE_WIDTH_MIN,
 } from '@h-k-dev/angular-email-editor';
 import { atRest, pageLayoutModel } from '@h-k-dev/angular-email-editor/actions';
+import {
+  createSourceFolding,
+  createSourceGutter,
+  createSourceKeys,
+  createTagMatching,
+} from '@h-k-dev/angular-email-editor/source-tools';
 import { FieldKeys } from '@h-k-dev/angular-email-editor/keyboard';
 import {
   EMAIL_CUSTOM_SWATCHES,
@@ -80,6 +86,7 @@ import { SplitHandle } from '../../../common/split-handle/split-handle';
 import { EmailCompose } from '../../../shared/email/email-compose/email-compose';
 import { ColorPalette } from '../../../shared/email/email-compose/formatting-toolbar/color-palette/color-palette';
 import { HtmlEmailCompose } from '../../../shared/email/html-email-compose/html-email-compose';
+import { SourceSearch } from '../../../shared/email/source-search/source-search';
 import {
   AddressRow,
   EnvelopeRows,
@@ -175,6 +182,7 @@ function sameMessage(a: Envelope, b: Envelope): boolean {
     AttachmentChipIcon,
     EmailCompose,
     HtmlEmailCompose,
+    SourceSearch,
     EnvelopeRows,
     MessageMenu,
     MarqueeStart,
@@ -449,6 +457,25 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
   protected measureDesk(): void {
     this.#deskWidth.set(this.desk().nativeElement.clientWidth);
   }
+
+  /** A divider grabbed: the source keeps the width it has until the drag
+      ends (the desk's `data-resizing`) — re-wrapping a long template on
+      every frame of a drag is what made it lag; it wraps once, on release. */
+  protected holdSource(): void {
+    const width = this.sourceEl().nativeElement.getBoundingClientRect().width;
+    this.desk().nativeElement.style.setProperty('--designer-source-held', `${width}px`);
+  }
+
+  /** The source pane as a developer's editor — the designer is where HTML
+      is written by hand: line numbers and the caret's line, folding, the
+      matching tag, VS Code's line keys (and the search bar, projected).
+      Opt-in: the composer's source pane stays lean without them. */
+  protected readonly sourceTools = [
+    createSourceGutter(),
+    createSourceFolding(),
+    createTagMatching(),
+    createSourceKeys(),
+  ];
 
   /** The HTML source, and its node for the code-view portal. */
   protected readonly sourcePane = viewChild.required(HtmlEmailCompose);

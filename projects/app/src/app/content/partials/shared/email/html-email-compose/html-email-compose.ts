@@ -5,6 +5,7 @@ import {
 
   // Signals
   computed,
+  contentChildren,
   debounced,
   effect,
   input,
@@ -48,6 +49,13 @@ const SOURCE_CODEC: EditorCodec = {
   canonical: false,
 };
 
+/** A tool projected into the pane that brings its own extension — the
+ *  search bar. The pane gathers them as it mounts; a screen without one
+ *  bundles none. */
+export abstract class SourceTool {
+  abstract readonly extension: Extension;
+}
+
 @Component({
   selector: 'section[html-email-compose]',
   imports: [FloatingScrollbar, EmailEditor],
@@ -81,6 +89,14 @@ export class HtmlEmailCompose {
       Shown again, the editor catches up and lints itself. */
   active = input(true);
 
+  /** Opt-in tools for the kit — the gutter, folding, search (with a
+      projected `div[source-search]`)… Read once, as the editor mounts; a
+      screen that passes none never bundles them. */
+  extensions = input<readonly Extension[]>([]);
+
+  /** Projected tools: their extensions join the kit with {@link extensions}. */
+  private readonly tools = contentChildren(SourceTool);
+
   menu = viewChild.required<ElementRef<HTMLElement>>('menu');
   completions = signal<AutocompleteState | undefined>(undefined);
 
@@ -106,6 +122,9 @@ export class HtmlEmailCompose {
       element: this.menu().nativeElement,
       onChange: (state) => this.completions.set(state),
     }),
+    // Last: the kit's own keys (the autocomplete's Escape) win.
+    ...this.extensions(),
+    ...this.tools().map((tool) => tool.extension),
   ];
 
   /** `html` once typing in the email editor rests — the hidden pane's lint. */

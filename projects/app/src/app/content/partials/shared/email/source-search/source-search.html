@@ -1,0 +1,141 @@
+<!-- VS Code's find widget: the replace row folds out under the find row. -->
+<div class="source-search__bar">
+  <button
+    matIconButton
+    type="button"
+    class="source-search__expand"
+    [attr.aria-expanded]="state().replace"
+    [attr.aria-label]="'sourceSearch.toggleReplace' | translate"
+    [matTooltip]="'sourceSearch.toggleReplace' | translate"
+    (click)="toggleReplace()"
+  >
+    <mat-icon>{{ state().replace ? 'expand_more' : 'chevron_right' }}</mat-icon>
+  </button>
+
+  <div class="source-search__rows">
+    <div class="source-search__row">
+      <div class="source-search__field" [attr.data-invalid]="state().error ? '' : null">
+        <input
+          #find
+          type="text"
+          spellcheck="false"
+          autocomplete="off"
+          [placeholder]="'sourceSearch.find' | translate"
+          [attr.aria-label]="'sourceSearch.find' | translate"
+          [attr.aria-invalid]="!!state().error"
+          [title]="state().error ?? ''"
+          [value]="state().query.text"
+          (input)="setText(find.value)"
+        />
+        <button
+          type="button"
+          class="source-search__flag"
+          [attr.aria-pressed]="!!state().query.caseSensitive"
+          [attr.aria-label]="'sourceSearch.matchCase' | translate"
+          [matTooltip]="'sourceSearch.matchCase' | translate"
+          (click)="toggle('caseSensitive')"
+        >
+          <mat-icon>match_case</mat-icon>
+        </button>
+        <button
+          type="button"
+          class="source-search__flag"
+          [attr.aria-pressed]="!!state().query.wholeWord"
+          [attr.aria-label]="'sourceSearch.wholeWord' | translate"
+          [matTooltip]="'sourceSearch.wholeWord' | translate"
+          (click)="toggle('wholeWord')"
+        >
+          <mat-icon>match_word</mat-icon>
+        </button>
+        <button
+          type="button"
+          class="source-search__flag"
+          [attr.aria-pressed]="!!state().query.regexp"
+          [attr.aria-label]="'sourceSearch.regexp' | translate"
+          [matTooltip]="'sourceSearch.regexp' | translate"
+          (click)="toggle('regexp')"
+        >
+          <mat-icon>regular_expression</mat-icon>
+        </button>
+      </div>
+
+      <output class="source-search__count" aria-live="polite">
+        @if (state().count) {
+          {{
+            'sourceSearch.position'
+              | translate: { current: state().current + 1 || '?', count: state().count }
+          }}
+        } @else if (state().query.text) {
+          {{ 'sourceSearch.noResults' | translate }}
+        }
+      </output>
+
+      <button
+        matIconButton
+        type="button"
+        [disabled]="!state().count"
+        [attr.aria-label]="'sourceSearch.previous' | translate"
+        [matTooltip]="'sourceSearch.previous' | translate"
+        (click)="previous()"
+      >
+        <mat-icon>arrow_upward</mat-icon>
+      </button>
+      <button
+        matIconButton
+        type="button"
+        [disabled]="!state().count"
+        [attr.aria-label]="'sourceSearch.next' | translate"
+        [matTooltip]="'sourceSearch.next' | translate"
+        (click)="next()"
+      >
+        <mat-icon>arrow_downward</mat-icon>
+      </button>
+      <button
+        matIconButton
+        type="button"
+        [attr.aria-label]="'sourceSearch.close' | translate"
+        [matTooltip]="'sourceSearch.close' | translate"
+        (click)="close()"
+      >
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
+    @if (state().replace) {
+      <div class="source-search__row">
+        <div class="source-search__field">
+          <input
+            #replace
+            type="text"
+            spellcheck="false"
+            autocomplete="off"
+            [placeholder]="'sourceSearch.replace' | translate"
+            [attr.aria-label]="'sourceSearch.replace' | translate"
+            [value]="replacement()"
+            (input)="replacement.set(replace.value)"
+          />
+        </div>
+        <button
+          matIconButton
+          type="button"
+          [disabled]="!state().count"
+          [attr.aria-label]="'sourceSearch.replaceOne' | translate"
+          [matTooltip]="'sourceSearch.replaceOne' | translate"
+          (click)="replaceOne()"
+        >
+          <mat-icon>find_replace</mat-icon>
+        </button>
+        <button
+          matIconButton
+          type="button"
+          [disabled]="!state().count"
+          [attr.aria-label]="'sourceSearch.replaceAll' | translate"
+          [matTooltip]="'sourceSearch.replaceAll' | translate"
+          (click)="replaceAll()"
+        >
+          <mat-icon>done_all</mat-icon>
+        </button>
+      </div>
+    }
+  </div>
+</div>
