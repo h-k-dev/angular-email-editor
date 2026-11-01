@@ -3,19 +3,26 @@
 @use '../../../../../../styles/split-handle';
 
 // The designer fills the dialog, which fills the screen: the bar, then the
-// desk under it — one paper, edge to edge, as the zoomed window's document
-// is: bar, canvas, phone and details all lie on it, with no surface of their
-// own. The whole of it is a paper island (`data-paper-scheme`).
+// desk under it. Hyprland's: the editor is the one window, on the paper
+// itself; the bar, the phone and the details are the chrome round it, the
+// paper a shade down (`--designer-chrome`) — the wallpaper the window
+// stands on. The whole of it is a paper island (`data-paper-scheme`).
 // The editor's least and the preview's, px — DESIGNER_EDITOR_MIN and
 // DESIGNER_PREVIEW_MIN (core/storages/preferences.ts): change them together.
 $editor-min: 720px;
 $preview-min: 448px;
 
 :host {
+  --designer-chrome: color-mix(
+    in oklch,
+    var(--email-paper, var(--mat-sys-surface-bright)),
+    black 7%
+  );
+
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   block-size: 100%;
-  background: var(--email-paper, var(--mat-sys-surface-bright));
+  background: var(--designer-chrome);
   color: var(--mat-sys-on-surface);
 }
 
@@ -134,12 +141,14 @@ $preview-min: 448px;
   @include split-handle.handle;
 }
 
+// Each in the gap between its pane and the editor's window (8px, the
+// handle's width).
 .designer-divider--preview {
-  inset-inline-start: calc(var(--_preview) - 4px);
+  inset-inline-start: var(--_preview);
 }
 
 .designer-divider--details {
-  inset-inline-start: calc(100% - var(--_details) - 4px);
+  inset-inline-start: calc(100% - var(--_details) - 8px);
 }
 
 // The preview: the phone, dead centre of its pane, as tall as the desk lets
@@ -199,6 +208,11 @@ $preview-min: 448px;
 // ways: the editor grows with the email, at least the canvas tall, and the
 // canvas scrolls it, its toolbar stuck to the canvas's foot. The email's
 // column stands in the middle, as wide as the paper (below).
+//
+// A window, Hyprland's: 8px off the desk's edges and the side panes, its
+// corners large, a hairline round it — the same whether the work is in it
+// or not. The design and its HTML source swap inside it, so the window
+// stays put when the view changes.
 .designer-canvas {
   // Its width, for the editor's foot (`100cqi`, below).
   container-type: inline-size;
@@ -207,6 +221,11 @@ $preview-min: 448px;
   grid-template-columns: [start] 1fr [email] auto [end] 1fr;
   min-inline-size: 0;
   min-block-size: 0;
+  margin: 8px;
+  border: 1px solid color-mix(in oklch, var(--mat-sys-outline-variant) 80%, transparent);
+  border-radius: var(--mat-sys-corner-large);
+  background: var(--email-paper, var(--mat-sys-surface-bright));
+  box-shadow: var(--mat-sys-level1);
 }
 
 // The editor: the email's measure and the inset its layout blocks' grips
@@ -268,7 +287,7 @@ $preview-min: 448px;
   overflow-y: auto;
   padding-block: 12px;
   font-size: 0.8125rem;
-  background: var(--email-paper, var(--mat-sys-surface-bright));
+  background: var(--designer-chrome);
 
   // Its own `display` would beat the `hidden` attribute (the bar's toggle).
   &[hidden] {
@@ -276,20 +295,19 @@ $preview-min: 448px;
   }
 }
 
-// Short of a wide desk (`DESIGNER_DETAILS_PUSH_MIN`): floating over the
-// editor's end, a Mac's sidebar — the desk's whole height, 8px off its
-// edges, lifted off the email only just (the lowest elevation), its
-// corners round.
+// Short of a wide desk (`DESIGNER_DETAILS_PUSH_MIN`): over the editor's
+// end, flush with the desk's edge and its whole height — the paper the
+// bar stands on, lifted off the editor's window only just (the lowest
+// elevation). Only the editor is a window.
 :host([data-details='over']) .designer-details {
   // The whole desk its box, not the details' track (no width while they
   // float): an absolute grid child's containing block is its grid area.
   grid-area: auto;
   position: absolute;
   z-index: 2;
-  inset-block: 8px;
-  inset-inline-end: 8px;
-  inline-size: max(300px, min(var(--designer-details-width), 100% - 16px));
-  border-radius: var(--mat-sys-corner-large);
+  inset-block: 0;
+  inset-inline-end: 0;
+  inline-size: max(300px, min(var(--designer-details-width), 100%));
   box-shadow: var(--mat-sys-level1);
 }
 
