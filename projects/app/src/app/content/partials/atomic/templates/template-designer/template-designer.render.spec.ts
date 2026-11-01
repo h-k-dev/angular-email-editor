@@ -1,9 +1,10 @@
 /**
  * The template designer's desk, in real Chromium — `npm run test:render`
  * (jsdom has no layout): three panes, VS Code's — the preview, the editor,
- * the details — the sides dragged by their dividers, the editor never under
- * 720px; a side the desk is too narrow for floats over the editor; an email
- * wider than its column is scrolled by the editor pane, both ways, alone.
+ * the details — the sides dragged by their dividers, the editor a window
+ * 8px off the desk that never holds less than the email's 720px; a side the
+ * desk is too narrow for floats over the editor; an email wider than its
+ * column is scrolled by the editor pane, both ways, alone.
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
@@ -130,46 +131,41 @@ describe('TemplateDesigner desk (render)', () => {
     expect(rows.slice(0, 4)).toEqual(['From', 'To', 'Cc', 'Bcc']);
   });
 
-  it('keeps the HTML source to the column’s 720px, centred in the editor, whatever the pane', async () => {
+  it('gives the HTML source the editor’s whole window, whatever the pane', async () => {
     await open(1600);
     fixture.componentInstance['toggleSource']();
-    const middle = (selector: string) => {
-      const box = el(selector).getBoundingClientRect();
-      return (box.left + box.right) / 2;
-    };
+    const canvas = el('.designer-canvas');
     await vi.waitFor(async () => {
       await settle();
       expect(host().getAttribute('data-view')).toBe('html');
-      expect(width('section[html-email-compose]')).toBe(720);
+      expect(width('section[html-email-compose]')).toBe(canvas.clientWidth);
     });
-    expect(middle('section[html-email-compose]')).toBeCloseTo(middle('.designer-canvas'), 0);
 
-    // Folded details: a wider pane, the source as it was, still centred.
+    // Folded details: a wider window, the source as wide as it.
     fixture.componentInstance['detailsOpen'].set(false);
     await settle();
     expect(width('.designer-canvas')).toBeGreaterThan(1000);
-    expect(width('section[html-email-compose]')).toBe(720);
-    expect(middle('section[html-email-compose]')).toBeCloseTo(middle('.designer-canvas'), 0);
+    expect(width('section[html-email-compose]')).toBe(canvas.clientWidth);
     // Nothing to scroll sideways: the code wraps in its own measure.
-    const canvas = el('.designer-canvas');
     expect(canvas.scrollWidth).toBe(canvas.clientWidth);
   });
 
-  it('never lets a divider take the editor under 720px', async () => {
+  it('never lets a divider take the editor’s window under the email’s 720px', async () => {
     await open(1600);
     fixture.componentInstance['phoneOpen'].set(true);
     await settle();
     expect(host().getAttribute('data-preview')).toBe('docked');
 
+    // The column and the window's hairline either side.
     key(el('.designer-divider--details'), 'End');
     await settle();
-    expect(width('.designer-canvas')).toBe(720);
+    expect(width('.designer-canvas')).toBe(720 + 2);
 
     key(el('.designer-divider--details'), 'Home');
     await settle();
     key(el('.designer-divider--preview'), 'End');
     await settle();
-    expect(width('.designer-canvas')).toBe(720);
+    expect(width('.designer-canvas')).toBe(720 + 2);
     expect(width('.designer-details')).toBe(320);
   });
 
@@ -199,22 +195,23 @@ describe('TemplateDesigner desk (render)', () => {
     }
   });
 
-  it('floats the details over the editor short of a wide desk, a Mac’s sidebar, raised off the email', async () => {
-    // Room for the details beside the editor's 720px — but short of 1200.
+  it('floats the details over the editor short of a wide desk, flush with its edge, raised off the email', async () => {
+    // Room for the details beside the editor's least — but short of 1200.
     await open(1100);
     expect(host().getAttribute('data-details')).toBe('over');
-    // The email keeps the desk's whole width: nothing pushed aside.
-    expect(width('.designer-canvas')).toBe(1100);
+    // The window keeps the desk's whole width, 8px off its edges: nothing
+    // pushed aside.
+    expect(width('.designer-canvas')).toBe(1100 - 16);
     const details = getComputedStyle(el('.designer-details'));
     expect(details.position).toBe('absolute');
     expect(details.boxShadow).not.toBe('none');
     // As wide as they were dragged — the desk is their box, not their track
-    // — and its whole height, 8px off the edges.
+    // — and its whole height, flush with its edges.
     expect(width('.designer-details')).toBe(420);
     const desk = el('.designer-body').getBoundingClientRect();
     const panel = el('.designer-details').getBoundingClientRect();
     expect([panel.top - desk.top, desk.bottom - panel.bottom, desk.right - panel.right]).toEqual([
-      8, 8, 8,
+      0, 0, 0,
     ]);
     expect(host().querySelector('.designer-divider--details')).toBeNull();
   });
@@ -223,7 +220,7 @@ describe('TemplateDesigner desk (render)', () => {
     await open(1000);
     expect(host().getAttribute('data-details')).toBe('over');
     expect(getComputedStyle(el('.designer-details')).position).toBe('absolute');
-    expect(width('.designer-canvas')).toBe(1000);
+    expect(width('.designer-canvas')).toBe(1000 - 16);
     expect(host().querySelector('.designer-divider')).toBeNull();
   });
 });

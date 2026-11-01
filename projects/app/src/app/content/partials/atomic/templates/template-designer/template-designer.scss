@@ -9,7 +9,9 @@
 // stands on. The whole of it is a paper island (`data-paper-scheme`).
 // The editor's least and the preview's, px — DESIGNER_EDITOR_MIN and
 // DESIGNER_PREVIEW_MIN (core/storages/preferences.ts): change them together.
-$editor-min: 720px;
+// The editor's is the email's 720px column inside its window (the canvas's
+// 8px margin and hairline border, each side).
+$editor-min: 720px + 2 * 8px + 2 * 1px;
 $preview-min: 448px;
 
 :host {
