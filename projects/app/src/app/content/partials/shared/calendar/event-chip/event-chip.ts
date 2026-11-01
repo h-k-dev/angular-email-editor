@@ -30,8 +30,10 @@ export type EventChipShape = 'block' | 'bar' | 'item';
  * Laid out by its container (position, size); it draws only itself. A
  * new event being marked out wears `mark` — Notion's selection: the
  * colour at an eighth, flat and square, its times in it; one being dragged
- * `lifted`. Nothing springs or pops: it is where the pointer says, at
- * once.
+ * `lifted`. The one being written — its card open — is `current`, said
+ * as `aria-current="true"` and styled from it: Notion's selected event, a
+ * solid fill of its colour. Nothing springs or pops: it is where the
+ * pointer says, at once.
  */
 @Component({
   selector: '[calendarEventChip]',
@@ -55,6 +57,7 @@ export type EventChipShape = 'block' | 'bar' | 'item';
     '[attr.data-shape]': 'shape()',
     '[class.event-chip--mark]': 'mark()',
     '[class.event-chip--lifted]': 'lifted()',
+    '[attr.aria-current]': 'current() ? "true" : null',
     '[class.event-chip--cut-before]': 'cutBefore()',
     '[class.event-chip--cut-after]': 'cutAfter()',
     '[style.--event-color]': 'color()',
@@ -73,6 +76,8 @@ export class EventChip {
   readonly untitled = input('');
   readonly mark = input(false, { transform: booleanAttribute });
   readonly lifted = input(false, { transform: booleanAttribute });
+  /** The event whose card is open: the one being written. */
+  readonly current = input(false, { transform: booleanAttribute });
   /** A bar that began before the run it is in, or goes on after it: its
       end is cut square. */
   readonly cutBefore = input(false, { transform: booleanAttribute });

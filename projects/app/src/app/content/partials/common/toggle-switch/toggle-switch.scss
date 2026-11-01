@@ -1,0 +1,68 @@
+// The track: every state read off `aria-checked`, the attribute assistive
+// tech is told it by. A ring only for the keyboard.
+:host {
+  --_width: var(--toggle-switch-width, 28px);
+  --_height: var(--toggle-switch-height, 16px);
+  --_inset: var(--toggle-switch-inset, 2px);
+  --_knob: calc(var(--_height) - 2 * var(--_inset));
+
+  position: relative;
+  display: inline-block;
+  flex: none;
+  inline-size: var(--_width);
+  block-size: var(--_height);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: calc(var(--_height) / 2);
+  background: color-mix(in oklch, var(--mat-sys-on-surface) 28%, transparent);
+  cursor: pointer;
+  transition: background-color 120ms ease-out;
+
+  &:hover {
+    background: color-mix(in oklch, var(--mat-sys-on-surface) 36%, transparent);
+  }
+
+  &[aria-checked='true'] {
+    background: var(--mat-sys-primary);
+
+    &:hover {
+      background: color-mix(in oklch, var(--mat-sys-primary) 88%, var(--mat-sys-on-surface));
+    }
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    opacity: 0.38;
+    cursor: default;
+  }
+}
+
+// The knob: at the start when off, slid to the end when on.
+.toggle-switch__knob {
+  position: absolute;
+  inset-block-start: var(--_inset);
+  inset-inline-start: var(--_inset);
+  inline-size: var(--_knob);
+  block-size: var(--_knob);
+  border-radius: 50%;
+  background: var(--mat-sys-surface-bright);
+  transition: translate 120ms ease-out;
+
+  :host([aria-checked='true']) & {
+    background: var(--mat-sys-on-primary);
+    translate: calc(var(--_width) - var(--_knob) - 2 * var(--_inset)) 0;
+  }
+
+  :host-context([dir='rtl']) :host([aria-checked='true']) & {
+    translate: calc(-1 * (var(--_width) - var(--_knob) - 2 * var(--_inset))) 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}

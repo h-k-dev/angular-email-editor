@@ -1,0 +1,54 @@
+<span class="zone-picker__offset" aria-hidden="true">{{ current().offset }}</span>
+<input
+  #field
+  ngCombobox
+  #combobox="ngCombobox"
+  quietField
+  class="zone-picker__field"
+  type="text"
+  autocomplete="off"
+  spellcheck="false"
+  [attr.aria-label]="label() + ': ' + current().offset + ' ' + current().place"
+  [value]="query()"
+  (valueChange)="query.set($event)"
+  [expanded]="expanded()"
+  (expandedChange)="setExpanded($event)"
+  (focus)="focused($event)"
+  (click)="setExpanded(true)"
+/>
+
+<!-- The list hangs under the field, in an overlay of its own over the
+     card; it closes by the combobox (Escape, focus gone), never by the
+     overlay's own Escape. -->
+<ng-template ngComboboxPopup [combobox]="combobox">
+  <ng-template
+    cdkConnectedOverlay
+    [cdkConnectedOverlayOrigin]="field"
+    [cdkConnectedOverlayOpen]="expanded()"
+    [cdkConnectedOverlayDisableClose]="true"
+    [cdkConnectedOverlayPush]="true"
+    [cdkConnectedOverlayViewportMargin]="8"
+  >
+    <div
+      ngComboboxWidget
+      ngListbox
+      #list="ngListbox"
+      class="zone-picker__list"
+      animate.enter="menu-enter"
+      focusMode="activedescendant"
+      selectionMode="explicit"
+      [attr.aria-label]="label()"
+      [activeDescendant]="list.activeDescendant()"
+      [value]="selected()"
+      (valueChange)="picked($event)"
+    >
+      @for (one of shown(); track one.id) {
+        <div ngOption class="zone-picker__option" [value]="one.id" [label]="one.place">
+          <span class="zone-picker__option-offset">{{ one.offset }}</span>
+          <span class="zone-picker__option-place">{{ one.place }}</span>
+          <span class="zone-picker__option-region">{{ one.region }}</span>
+        </div>
+      }
+    </div>
+  </ng-template>
+</ng-template>

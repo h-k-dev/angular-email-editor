@@ -14,8 +14,8 @@
   box-sizing: border-box;
 }
 
+// No cursor of its own while dragging (user): the pointer as it is.
 :host(.month-grid--dragging) {
-  cursor: grabbing;
   user-select: none;
 }
 

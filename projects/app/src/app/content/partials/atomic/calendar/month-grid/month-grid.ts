@@ -26,7 +26,15 @@ import {
 import { CalendarFormat } from '../../../../../core/calendar/calendar-format';
 import { placeInLanes } from '../../../../../core/calendar/calendar-layout';
 import { EventChip } from '../../../shared/calendar/event-chip/event-chip';
-import { DRAG_THRESHOLD, GridCreate, GridOpen, boxOf, GridSlot, headOf } from '../calendar-grid';
+import {
+  DRAG_THRESHOLD,
+  DoublePress,
+  GridCreate,
+  GridOpen,
+  boxOf,
+  GridSlot,
+  headOf,
+} from '../calendar-grid';
 
 /** A row's sizes, px: the date's line, and a lane (22 + 2 apart). */
 const DATE_LINE = 28;
@@ -57,9 +65,10 @@ interface Drag {
  * rest behind "+2 more" (which opens the day). Days of the months either
  * side are faint, today's date a filled circle.
  *
- * Press a day and it holds a new all-day event (`create`) — drag sideways,
- * or down a week, and the mark runs over every day between, Notion's; the
- * card opens by its first day. Press its date
+ * Double-press a day and it holds a new all-day event (`create`) — or drag
+ * sideways, or down a week, and the mark runs over every day between,
+ * Notion's; the card opens by its first day. A press alone makes nothing
+ * (`dismiss`). Press its date
  * and that day opens alone (`dayOpen`); press an event and it opens
  * (`open`); carry one to another day and it moves there, its time kept
  * (`change`).
@@ -91,6 +100,12 @@ export class MonthGrid {
   readonly month = input<IsoDay | null>(null);
   readonly events = input.required<readonly CalendarEvent[]>();
   readonly draft = input<EventEdit | null>(null);
+  /** The event pressed last — selected, its card open or not. */
+  readonly selected = input<string | null>(null);
+  /** The event whose chip is `current` (`aria-current`): the stored one
+      being written, else the one selected. Never the mark — a new event's
+      room, drawn as itself. */
+  protected readonly currentId = computed(() => this.draft()?.id ?? this.selected());
   readonly today = input.required<IsoDay>();
   readonly untitled = input('');
 
@@ -98,6 +113,11 @@ export class MonthGrid {
   readonly open = output<GridOpen>();
   readonly change = output<CalendarEvent>();
   readonly dayOpen = output<IsoDay>();
+  /** A day's empty room pressed once, without a drag: nothing made — what
+      is open closes. */
+  readonly dismiss = output<void>();
+
+  readonly #presses = new DoublePress();
 
   /** How many lanes a week's row has room for. */
   readonly #lanes = signal(3);
@@ -196,6 +216,10 @@ export class MonthGrid {
       there — that day, or every day the drag goes over. */
   protected pressDay(event: PointerEvent, day: IsoDay): void {
     if (event.button !== 0 || event.target !== event.currentTarget) return;
+    this.#markFrom(event, day, event.currentTarget as Element);
+  }
+
+  #markFrom(event: PointerEvent, day: IsoDay, element: Element): void {
     if (event.pointerType !== 'touch') {
       this.#host.setPointerCapture(event.pointerId);
       event.preventDefault();
@@ -210,20 +234,22 @@ export class MonthGrid {
       from: day,
       stored: mark,
       preview: mark,
-      element: event.currentTarget as Element,
+      element,
     });
   }
 
   protected pressEvent(event: PointerEvent, shown: CalendarEvent, day: IsoDay): void {
-    // A holiday (read-only) opens on its click; it never moves.
-    if (
-      event.button !== 0 ||
-      event.pointerType === 'touch' ||
-      shown.id === DRAFT_ID ||
-      shown.readonly
-    ) {
+    if (event.button !== 0) return;
+    // The mark is room still being chosen: a press in it marks out anew
+    // from the day under the pointer, as a press on that day's room would.
+    if (shown.id === DRAFT_ID) {
+      const under = this.#dayAt(event) ?? day;
+      const cell = this.#host.querySelector(`.month-grid__cell[data-day="${under}"]`);
+      if (cell) this.#markFrom(event, under, cell);
       return;
     }
+    // A holiday (read-only) opens on its click; it never moves.
+    if (event.pointerType === 'touch' || shown.readonly) return;
     const stored = this.events().find((one) => one.id === shown.id);
     if (!stored) return;
     // The day it was picked up on: the one under the pointer.
@@ -285,6 +311,12 @@ export class MonthGrid {
     this.#swallowClick = true;
     setTimeout(() => (this.#swallowClick = false));
     if (drag.kind === 'days') {
+      // Made by a drag let go, or a double press; a press alone only
+      // closes what is open.
+      if (!drag.moved && !this.#presses.second(drag.from, event.timeStamp)) {
+        this.dismiss.emit();
+        return;
+      }
       // The card opens by the mark's first day.
       const { id: _, ...draft } = drag.preview;
       const first = this.#host.querySelector(

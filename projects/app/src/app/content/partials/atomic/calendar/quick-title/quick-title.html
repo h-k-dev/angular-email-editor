@@ -1,0 +1,13 @@
+<!-- A form for Enter: the title is its only field. -->
+<form class="quick-title" (submit)="submit($event)">
+  <input
+    #title
+    class="quick-title__field"
+    type="text"
+    autocomplete="off"
+    [value]="value().title"
+    [placeholder]="'calendar.addTitle' | translate"
+    [attr.aria-label]="'calendar.title' | translate"
+    (input)="typed($event)"
+  />
+</form>

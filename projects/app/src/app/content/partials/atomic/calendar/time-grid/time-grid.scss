@@ -20,8 +20,8 @@
   block-size: 100%;
 }
 
+// No cursor of its own while dragging (user): the pointer as it is.
 :host(.time-grid--dragging) {
-  cursor: grabbing;
   user-select: none;
 }
 
@@ -143,10 +143,16 @@
   @include scroll.scroll;
 }
 
+// Room under midnight, blank (the lines are the columns'): the last hours
+// scroll up clear of the new event's title, which stands over the foot of
+// the surface (the page's `calendar-quick-title`). Padding on the content,
+// not the scroller: a scroller's own end padding is not scrolled to
+// everywhere. The columns keep their 24 hours — the pointer maths is theirs.
 .time-grid__body {
   display: grid;
   grid-template-columns: var(--_gutter) minmax(0, 1fr);
   block-size: calc(24 * var(--hour));
+  padding-block-end: 192px;
 }
 
 // The hours' labels, each centred on its line.

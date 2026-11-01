@@ -38,8 +38,8 @@ export function isoMoment(date: DateTime): IsoMoment {
 
 /** `value` read by `format` — only where it writes back the same: Luxon
     takes `24:00` for the next midnight, and the calendar does not. */
-function strict(value: string | null | undefined, format: string): DateTime | null {
-  const date = DateTime.fromFormat(value ?? '', format);
+function strict(value: string | null | undefined, format: string, zone?: string): DateTime | null {
+  const date = DateTime.fromFormat(value ?? '', format, { zone });
   return date.isValid && date.toFormat(format) === value ? date : null;
 }
 
@@ -49,9 +49,11 @@ export function parseDay(value: string | null | undefined): DateTime | null {
   return strict(value, DAY_FORMAT);
 }
 
-/** The moment a string names — or null for anything that is not one. */
-export function parseMoment(value: string | null | undefined): DateTime | null {
-  return strict(value, MOMENT_FORMAT);
+/** The moment a string names — or null for anything that is not one. Read
+    in the browser's zone, or in `zone` (an IANA name): an event written in
+    a zone of its own. */
+export function parseMoment(value: string | null | undefined, zone?: string): DateTime | null {
+  return strict(value, MOMENT_FORMAT, zone);
 }
 
 /** The first day of `date`'s week. */

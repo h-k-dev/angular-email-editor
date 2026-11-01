@@ -79,7 +79,12 @@
        are chunks of their own, fetched the moment one is shown (@defer on
        immediate — not on idle: a view asked for is wanted now) — a week
        never pays for them. -->
-  <div class="calendar-surface" (contextmenu)="contextMenu($event)">
+  <div
+    class="calendar-surface"
+    cdkOverlayOrigin
+    #surface="cdkOverlayOrigin"
+    (contextmenu)="contextMenu($event)"
+  >
     @if (page().layout === 'weeks') {
       @defer (on immediate) {
         <calendar-month-grid
@@ -87,10 +92,12 @@
           [month]="page().month"
           [events]="events()"
           [draft]="edit()"
+          [selected]="selectedId()"
           [today]="today()"
           [untitled]="untitled()"
           (create)="created($event)"
           (open)="opened($event)"
+          (dismiss)="dismissed()"
           (change)="changed($event)"
           (dayOpen)="openDay($event)"
         />
@@ -120,6 +127,7 @@
         [days]="page().days"
         [events]="events()"
         [draft]="edit()"
+        [selected]="selectedId()"
         [today]="today()"
         [now]="now()"
         [untitled]="untitled()"
@@ -127,6 +135,7 @@
         (create)="created($event)"
         (draftChange)="draftMoved($event)"
         (open)="opened($event)"
+        (dismiss)="dismissed()"
         (change)="changed($event)"
         (dayOpen)="openDay($event)"
       />
@@ -144,6 +153,7 @@
 ></span>
 
 <ng-template
+  #card
   cdkConnectedOverlay
   [cdkConnectedOverlayOrigin]="origin"
   [cdkConnectedOverlayOpen]="cardOpen()"
@@ -152,7 +162,7 @@
   [cdkConnectedOverlayViewportMargin]="8"
   (overlayOutsideClick)="outside($event)"
   (overlayKeydown)="cardKey($event)"
-  (detach)="closeCard()"
+  (detach)="cardDetached()"
 >
   <section
     class="calendar-card"
@@ -160,18 +170,17 @@
     animate.enter="motion-enter"
     animate.leave="motion-leave"
     [style.--card-tint]="cardTint()"
-    [attr.aria-label]="(edit() ? 'calendar.editing' : 'calendar.event') | translate"
+    [attr.aria-label]="(cardContent().edit ? 'calendar.editing' : 'calendar.event') | translate"
   >
-    @if (edit(); as value) {
+    @if (cardContent().edit; as value) {
       <calendar-event-editor
         [value]="value"
         (valueChange)="edit.set($event)"
-        [stored]="editingStored()"
         (save)="saved($event)"
         (remove)="removed()"
         (close)="closeCard()"
       />
-    } @else if (shown(); as event) {
+    } @else if (cardContent().shown; as event) {
       <calendar-event-summary [event]="event" [untitled]="untitled()" [swatch]="false">
         <div eventSummaryActions class="calendar-card__actions">
           <!-- The colour at the card's head, as the editor has it — and
@@ -179,11 +188,11 @@
           <calendar-color-marker
             class="calendar-card__marker"
             [color]="event.color"
-            [readonly]="shownReadonly()"
+            [readonly]="!!event.readonly"
             (picked)="recolor($event)"
           />
           <!-- A holiday is the holidays calendar's: read, never written. -->
-          @if (!shownReadonly()) {
+          @if (!event.readonly) {
             <button
               matIconButton
               type="button"
@@ -217,6 +226,35 @@
       </calendar-event-summary>
     }
   </section>
+</ng-template>
+
+<!-- A new event marked on the grid: its title only, at the foot of the
+     surface, in the middle — on the grid's own ground, nothing round it.
+     No motion at all, coming or going (user): it is simply there — and a
+     box still leaving as the next opens would stand beside it in the
+     pane, placing it off centre. -->
+<ng-template
+  cdkConnectedOverlay
+  [cdkConnectedOverlayOrigin]="surface"
+  [cdkConnectedOverlayOpen]="quickOpen()"
+  [cdkConnectedOverlayPositions]="quickPositions"
+  (overlayOutsideClick)="outside($event)"
+  (overlayKeydown)="cardKey($event)"
+  (detach)="quickDetached()"
+>
+  @if (edit(); as value) {
+    <section
+      class="calendar-quick"
+      role="dialog"
+      [attr.aria-label]="'calendar.new' | translate"
+    >
+      <calendar-quick-title
+        [value]="value"
+        (valueChange)="edit.set($event)"
+        (save)="saved($event)"
+      />
+    </section>
+  }
 </ng-template>
 
 <!-- The context menu, Angular Aria's recipe: a hidden trigger stood where

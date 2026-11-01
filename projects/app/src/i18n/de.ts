@@ -155,6 +155,7 @@ export default {
     new: 'Neuer Termin',
     jump: 'Zu einem Tag springen',
     allDay: 'Ganztägig',
+    timeZone: 'Zeitzone',
     more: '{{count}} weitere',
     untitled: '(Kein Titel)',
     event: 'Termin',

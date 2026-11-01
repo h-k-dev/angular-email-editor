@@ -1,0 +1,28 @@
+// No surface of its own: the page lays it on the grid's ground (calendar
+// .scss) in the middle of the surface; the title starts at its start.
+:host {
+  display: block;
+}
+
+.quick-title {
+  margin: 0;
+}
+
+// Large words, from the start; no border, no ring — the caret and the
+// placeholder are all there is to see.
+.quick-title__field {
+  display: block;
+  inline-size: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-title-large);
+  text-align: start;
+
+  &::placeholder {
+    color: color-mix(in oklch, var(--mat-sys-on-surface) 46%, transparent);
+  }
+}

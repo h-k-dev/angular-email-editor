@@ -1,9 +1,18 @@
 <!-- One signal form: Save is its submit, so is Enter in the title. -->
 <form class="event-editor" [formRoot]="editor" novalidate>
   <header class="event-editor__bar">
-    <!-- The event's colour, the menu to change it (the card that shows
-         the event has the same one). -->
-    <calendar-color-marker [color]="colorId()" (picked)="pickColor($event)" />
+    <!-- Delete on the start, close on the end. A new event never kept is
+         let go; a kept one deleted, with a moment to take it back. -->
+    <button
+      matIconButton
+      type="button"
+      class="event-editor__delete"
+      [attr.aria-label]="'calendar.delete' | translate"
+      [matTooltip]="'calendar.delete' | translate"
+      (click)="remove.emit()"
+    >
+      <mat-icon>delete</mat-icon>
+    </button>
     <button
       matIconButton
       type="button"
@@ -16,122 +25,218 @@
     </button>
   </header>
 
-  <!-- The card in three parts — the bar, the fields, the foot — one gap
-       apart (the form's), so the title stands as far from the bar as Save
-       from the fields. -->
-  <div class="event-editor__body">
-    <input
-      #title
-      quietField
-      class="event-editor__title"
-      type="text"
-      autocomplete="off"
-      [formField]="editor.title"
-      [placeholder]="'calendar.addTitle' | translate"
-      [attr.aria-label]="'calendar.title' | translate"
-    />
+  <!-- The fields, their height run across every row brought out or put
+       away ([heightSwitch]: the band's rows, the place, the note). -->
+  <div class="event-editor__motion" [heightSwitch]="look()">
+    <!-- Two columns: the fields, and under close a column of their own
+         kept for the card's actions — Save at its foot. -->
+    <div class="event-editor__body">
+      <div class="event-editor__fields">
+        <input
+          #title
+          class="event-editor__title"
+          type="text"
+          autocomplete="off"
+          [formField]="editor.title"
+          [placeholder]="'calendar.addTitle' | translate"
+          [attr.aria-label]="'calendar.title' | translate"
+        />
 
-    <!-- When: the start, the end — days and, unless all day, times. -->
-    <div class="event-editor__row">
-      <mat-icon class="event-editor__icon" aria-hidden="true">schedule</mat-icon>
-      <div class="event-editor__when">
-        <div class="event-editor__moment">
-          <span class="event-editor__label">{{ 'calendar.starts' | translate }}</span>
-          <!-- The day on the app's own calendar (the mini month), not the
+        <!-- When: the start, the end — days and, unless all day, times; under
+         them Notion's band of what else a time can be. -->
+        <div class="event-editor__row">
+          <mat-icon class="event-editor__icon" aria-hidden="true">schedule</mat-icon>
+          <div class="event-editor__when">
+            <div class="event-editor__moment">
+              <span class="event-editor__label">{{ 'calendar.starts' | translate }}</span>
+              <!-- The day on the app's own calendar (the mini month), not the
                browser's: `date-field`, a signal-forms control. -->
-          <date-field
-            class="event-editor__field"
-            [formField]="editor.startDay"
-            [fieldLabel]="'calendar.starts' | translate"
-          />
-          @if (!allDay()) {
-            <input
-              quietField
-              class="event-editor__field"
-              type="time"
-              step="900"
-              [formField]="editor.startTime"
-              [attr.aria-label]="'calendar.startTime' | translate"
-            />
-          }
+              <date-field
+                class="event-editor__field"
+                [formField]="editor.startDay"
+                [fieldLabel]="'calendar.starts' | translate"
+              />
+              @if (!allDay()) {
+                <input
+                  quietField
+                  class="event-editor__field"
+                  type="time"
+                  step="900"
+                  [formField]="editor.startTime"
+                  [attr.aria-label]="'calendar.startTime' | translate"
+                />
+              }
+            </div>
+            <div class="event-editor__moment">
+              <span class="event-editor__label">{{ 'calendar.ends' | translate }}</span>
+              <date-field
+                class="event-editor__field"
+                [formField]="editor.endDay"
+                [fieldLabel]="'calendar.ends' | translate"
+              />
+              @if (!allDay()) {
+                <input
+                  quietField
+                  class="event-editor__field"
+                  type="time"
+                  step="900"
+                  [formField]="editor.endTime"
+                  [attr.aria-label]="'calendar.endTime' | translate"
+                  [attr.aria-invalid]="endRefused() ? true : null"
+                />
+              }
+            </div>
+            @if (endRefused()) {
+              <p class="event-editor__error" role="alert">
+                {{ 'calendar.endsBeforeStart' | translate }}
+              </p>
+            }
+            <!-- Notion's band: one quiet button, its words what it brings out —
+             all day and the zone, both rows at once. -->
+            @if (!whenRows()) {
+              <!-- Its name said whole ("All day, Time zone"): the two words sit
+               apart by a gap only, which a reader would run together. -->
+              <button
+                type="button"
+                class="event-editor__more"
+                [attr.aria-label]="
+                  ('calendar.allDay' | translate) + ', ' + ('calendar.timeZone' | translate)
+                "
+                (click)="showWhenRows()"
+              >
+                <span aria-hidden="true">{{ 'calendar.allDay' | translate }}</span>
+                <span aria-hidden="true">{{ 'calendar.timeZone' | translate }}</span>
+              </button>
+            }
+          </div>
         </div>
-        <div class="event-editor__moment">
-          <span class="event-editor__label">{{ 'calendar.ends' | translate }}</span>
-          <date-field
-            class="event-editor__field"
-            [formField]="editor.endDay"
-            [fieldLabel]="'calendar.ends' | translate"
-          />
+
+        <!-- The rows the band brings out — out from the start for an event
+         already all day, or in a zone of its own: all day, its switch
+         standing in the icon column; and, for a timed event, the zone it
+         is in — the offset quiet, then the place. -->
+        @if (whenRows()) {
+          <!-- A label round the switch: a press on the words turns it too. -->
+          <label class="event-editor__row event-editor__row--line event-editor__all-day">
+            <button toggleSwitch class="event-editor__switch" [formField]="editor.allDay"></button>
+            <span>{{ 'calendar.allDay' | translate }}</span>
+          </label>
           @if (!allDay()) {
-            <input
-              quietField
-              class="event-editor__field"
-              type="time"
-              step="900"
-              [formField]="editor.endTime"
-              [attr.aria-label]="'calendar.endTime' | translate"
-              [attr.aria-invalid]="endRefused() ? true : null"
-            />
+            <div class="event-editor__row event-editor__row--line">
+              <mat-icon class="event-editor__icon" aria-hidden="true">public</mat-icon>
+              <calendar-zone-picker
+                [zone]="timeZone()"
+                (zoneChange)="pickZone($event)"
+                [at]="startsAt()"
+                [label]="'calendar.timeZone' | translate"
+              />
+            </div>
           }
-        </div>
-        @if (endRefused()) {
-          <p class="event-editor__error" role="alert">
-            {{ 'calendar.endsBeforeStart' | translate }}
-          </p>
         }
-        <label class="event-editor__check">
-          <input type="checkbox" [formField]="editor.allDay" (change)="allDayChanged()" />
-          {{ 'calendar.allDay' | translate }}
-        </label>
+
+        <!-- Their buttons, a row of their own at the start: each brings out its
+           own section under the row, and goes from the row while it is out.
+           The row stays, empty too — nothing above the sections moves — and
+           each button keeps its own slot: the note's never takes the
+           place's. -->
+        <div class="event-editor__tools">
+          @if (!placeShown()) {
+            <button
+              matIconButton
+              type="button"
+              class="event-editor__tool event-editor__tool--place"
+              [attr.aria-label]="'calendar.addLocation' | translate"
+              [matTooltip]="'calendar.addLocation' | translate"
+              (click)="showPlace()"
+            >
+              <mat-icon>location_on</mat-icon>
+            </button>
+          }
+          @if (!noteShown()) {
+            <button
+              matIconButton
+              type="button"
+              class="event-editor__tool event-editor__tool--note"
+              [attr.aria-label]="'calendar.addDescription' | translate"
+              [matTooltip]="'calendar.addDescription' | translate"
+              (click)="showNote()"
+            >
+              <mat-icon>notes</mat-icon>
+            </button>
+          }
+        </div>
+
+        <!-- The place and the note, under their buttons' row, one under the
+           other in the order they were brought out (held from the start
+           first): out once their button is pressed, or when they hold
+           something; left empty, put away again. -->
+        @for (section of sections(); track section) {
+          @if (section === 'place') {
+            <label class="event-editor__row">
+              <mat-icon class="event-editor__icon" aria-hidden="true">location_on</mat-icon>
+              <!-- While the place is typed in, the pointer resting on it brings
+                 a card with the way to it on Google Maps. -->
+              <input
+                #place
+                quietField
+                class="event-editor__line"
+                type="text"
+                autocomplete="off"
+                [formField]="editor.location"
+                [placeholder]="'calendar.addLocation' | translate"
+                [hoverCard]="placeCard"
+                [hoverCardDisabled]="placeCardOff()"
+                (focus)="placeTyping.set(true)"
+                (blur)="placeLeft()"
+              />
+            </label>
+          } @else {
+            <label class="event-editor__row">
+              <mat-icon class="event-editor__icon" aria-hidden="true">notes</mat-icon>
+              <textarea
+                #note
+                quietField
+                class="event-editor__line event-editor__note"
+                rows="2"
+                [formField]="editor.description"
+                [placeholder]="'calendar.addDescription' | translate"
+                (blur)="noteLeft()"
+              ></textarea>
+            </label>
+          }
+        }
+
+        <ng-template #placeCard>
+          <a
+            class="event-editor__maps"
+            [href]="mapsLink()"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <mat-icon class="event-editor__maps-icon" aria-hidden="true">map</mat-icon>
+            <span class="event-editor__maps-label">{{ 'calendar.openInMaps' | translate }}</span>
+            <mat-icon class="event-editor__maps-out" aria-hidden="true">open_in_new</mat-icon>
+          </a>
+        </ng-template>
+      </div>
+      <div class="event-editor__actions">
+        <!-- Save, and under it the event's colour, the menu to change it
+             (the card that shows the event has the same one). -->
+        <button
+          matIconButton
+          type="submit"
+          class="event-editor__save"
+          [attr.aria-label]="'calendar.save' | translate"
+          [matTooltip]="'calendar.save' | translate"
+        >
+          <mat-icon>check</mat-icon>
+        </button>
+        <calendar-color-marker
+          class="event-editor__color"
+          [color]="colorId()"
+          (picked)="pickColor($event)"
+        />
       </div>
     </div>
-
-    <label class="event-editor__row">
-      <mat-icon class="event-editor__icon" aria-hidden="true">location_on</mat-icon>
-      <!-- While the place is typed in, the pointer resting on it brings
-           a card with the way to it on Google Maps. -->
-      <input
-        quietField
-        class="event-editor__line"
-        type="text"
-        autocomplete="off"
-        [formField]="editor.location"
-        [placeholder]="'calendar.addLocation' | translate"
-        [hoverCard]="placeCard"
-        [hoverCardDisabled]="placeCardOff()"
-        (focus)="placeTyping.set(true)"
-        (blur)="placeTyping.set(false)"
-      />
-    </label>
-
-    <ng-template #placeCard>
-      <a class="event-editor__maps" [href]="mapsLink()" target="_blank" rel="noopener noreferrer">
-        <mat-icon class="event-editor__maps-icon" aria-hidden="true">map</mat-icon>
-        <span class="event-editor__maps-label">{{ 'calendar.openInMaps' | translate }}</span>
-        <mat-icon class="event-editor__maps-out" aria-hidden="true">open_in_new</mat-icon>
-      </a>
-    </ng-template>
-
-    <label class="event-editor__row">
-      <mat-icon class="event-editor__icon" aria-hidden="true">notes</mat-icon>
-      <textarea
-        quietField
-        class="event-editor__line event-editor__note"
-        rows="2"
-        [formField]="editor.description"
-        [placeholder]="'calendar.addDescription' | translate"
-      ></textarea>
-    </label>
   </div>
-
-  <footer class="event-editor__foot">
-    @if (stored()) {
-      <button matButton type="button" class="event-editor__delete" (click)="remove.emit()">
-        {{ 'calendar.delete' | translate }}
-      </button>
-    }
-    <button matButton="filled" type="submit" class="event-editor__save">
-      {{ 'calendar.save' | translate }}
-    </button>
-  </footer>
 </form>

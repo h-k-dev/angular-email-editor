@@ -76,6 +76,7 @@ import {
   headOf,
 } from '../../../partials/atomic/calendar/calendar-grid';
 import { EventEditor } from '../../../partials/atomic/calendar/event-editor/event-editor';
+import { QuickTitle } from '../../../partials/atomic/calendar/quick-title/quick-title';
 import { MonthGrid } from '../../../partials/atomic/calendar/month-grid/month-grid';
 import { ScheduleList } from '../../../partials/atomic/calendar/schedule-list/schedule-list';
 import { TimeGrid } from '../../../partials/atomic/calendar/time-grid/time-grid';
@@ -89,8 +90,14 @@ import {
   ToolbarMenuItem,
 } from '../../../partials/shared/email/email-compose/formatting-toolbar/toolbar-menu/toolbar-menu';
 
+/** What the card holds: an event being written, or one shown. */
+interface CardContent {
+  edit: EventEdit | null;
+  shown: CalendarEvent | null;
+}
+
 /** What the context menu does — to an event, or at a slot. */
-type EventAction = 'cut' | 'copy' | 'duplicate' | 'delete' | 'create' | 'paste';
+type EventAction = 'edit' | 'cut' | 'copy' | 'duplicate' | 'delete' | 'create' | 'paste';
 
 const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent);
 
@@ -104,17 +111,20 @@ const withMod = (key: string) => ({
 /** An event's content, without what makes it that one: its id, and a
     holiday's being read-only — what a copy or a duplicate is made of. */
 function contentOf(event: CalendarEvent): CalendarEventDraft {
-  const { title, start, end, allDay, color, location, description } = event;
-  return { title, start, end, allDay, color, location, description };
+  const { title, start, end, allDay, color, location, description, timeZone } = event;
+  return { title, start, end, allDay, color, location, description, timeZone };
 }
 
-/** Where the card's colour dot stands across it, from its start: the
-    card's inset (16px, calendar.scss — its lines are rings, taking no
-    room) and the dot's half (12px, the colour marker — set flush on the
-    inset). The card stands that far before the event's colour mark
-    (`headOf` starts there: a block's stripe at 4px, a month item's dot at
-    12px), dot over colour, px. */
+/** Where the card's own mark stands across it, from its start — the card
+    stands that far before the event's colour mark (`headOf` starts there:
+    a block's stripe at 4px, a month item's dot at 12px), mark over colour,
+    px. The card's lines are rings, taking no room.
+    Showing an event, its colour dot: the summary's 16px inset and the
+    dot's half (12px, the colour marker — set flush on the inset). */
 const CARD_DOT = 16 + 6;
+/** Writing one, its Delete: the editor bar's 6px inset and the button's
+    half (its 28px state layer). */
+const CARD_DELETE = 6 + 14;
 /** How far the card stands out past the event's end, where it lines up
     with that instead (near the screen's end), px. */
 const CARD_SHIFT = 16;
@@ -127,21 +137,22 @@ const CARD_OVERLAP = HEAD_ROOM;
 const CARD_CLEAR = 4;
 
 /**
- * The card under its event, hung from its head (`headOf`): its own colour
- * dot right under the event's colour (`CARD_DOT`), and over the head's
+ * The card under its event, hung from its head (`headOf`): its own mark —
+ * the colour dot, or the editor's Delete — right under the event's colour
+ * (`mark`: `CARD_DOT`, `CARD_DELETE`), and over the head's
  * bottom a little (`lap`) — a short event mostly in view, the card
  * plainly its own.
  * Near the screen's end it lines up with the event's end instead; with no
  * room under it, over it, rising out of it (`motion-above`).
  */
-function cardPositions(lap: number): ConnectedPosition[] {
+function cardPositions(lap: number, mark: number): ConnectedPosition[] {
   return [
     {
       originX: 'start',
       originY: 'bottom',
       overlayX: 'start',
       overlayY: 'top',
-      offsetX: -CARD_DOT,
+      offsetX: -mark,
       offsetY: -lap,
     },
     {
@@ -157,7 +168,7 @@ function cardPositions(lap: number): ConnectedPosition[] {
       originY: 'top',
       overlayX: 'start',
       overlayY: 'bottom',
-      offsetX: -CARD_DOT,
+      offsetX: -mark,
       offsetY: lap,
       panelClass: 'motion-above',
     },
@@ -175,8 +186,21 @@ function cardPositions(lap: number): ConnectedPosition[] {
 
 /** The shown event's card over its edge; the one writing an event clear of
     its foot. */
-const SHOWN_CARD = cardPositions(CARD_OVERLAP);
-const WRITING_CARD = cardPositions(-CARD_CLEAR);
+const SHOWN_CARD = cardPositions(CARD_OVERLAP, CARD_DOT);
+const WRITING_CARD = cardPositions(-CARD_CLEAR, CARD_DELETE);
+
+/** A new event's title: at the surface's foot, in the middle, this far up
+    off it, px. */
+const QUICK_GAP = 128;
+const QUICK_POSITIONS: ConnectedPosition[] = [
+  {
+    originX: 'center',
+    originY: 'bottom',
+    overlayX: 'center',
+    overlayY: 'bottom',
+    offsetY: -QUICK_GAP,
+  },
+];
 
 /** Google Calendar's views, in its menu's order, each with its key — the
     custom one (X) at its remembered length. */
@@ -240,6 +264,7 @@ const TICK = 30_000;
     YearGrid,
     ScheduleList,
     EventEditor,
+    QuickTitle,
     EventSummary,
     ColorMarker,
   ],
@@ -436,20 +461,34 @@ export class CalendarPage {
   protected readonly shownReadonly = computed(() => !!this.shown()?.readonly);
   /** Where the card stands beside: the event's box, or the room marked. */
   protected readonly anchor = signal<AnchorRect | null>(null);
-  protected readonly cardOpen = computed(() => !!this.edit() || !!this.shown());
+  /** Whether the event being written was marked on the grid: its title
+      alone, at the surface's foot (`QuickTitle`), not the card. */
+  readonly #quick = signal(false);
+  protected readonly quickOpen = computed(() => !!this.edit() && this.#quick());
+  protected readonly quickPositions = QUICK_POSITIONS;
+  protected readonly cardOpen = computed(() => (!!this.edit() && !this.#quick()) || !!this.shown());
+  /** What the card holds: the event written in it (not one named at the
+      foot) or the event shown — held as it stood while the card leaves,
+      so it goes as it was instead of turning into what replaced it. */
+  protected readonly cardContent = linkedSignal<CardContent, CardContent>({
+    source: () => ({ edit: this.#quick() ? null : this.edit(), shown: this.shown() }),
+    computation: (now, previous) => (now.edit || now.shown || !previous ? now : previous.value),
+  });
   /** The card's tint: the colour of the event in it — its marker's, as it
       is being chosen. */
   protected readonly cardTint = computed(() => {
-    const color = this.edit()?.color ?? this.shown()?.color;
+    const { edit, shown } = this.cardContent();
+    const color = edit?.color ?? shown?.color;
     return color ? EVENT_COLOR_VALUES[color] : null;
   });
-  protected readonly cardPositions = computed(() => (this.edit() ? WRITING_CARD : SHOWN_CARD));
-  protected readonly editingStored = computed(() => !!this.edit()?.id);
-
+  protected readonly cardPositions = computed(() =>
+    this.cardContent().edit ? WRITING_CARD : SHOWN_CARD,
+  );
   /** What an event without a title says: "(No title)". */
   protected readonly untitled = computed(() => this.#i18n.t('calendar.untitled'));
 
-  private readonly card = viewChild.required(CdkConnectedOverlay);
+  private readonly card = viewChild.required('card', { read: CdkConnectedOverlay });
+  private readonly quickTitle = viewChild(QuickTitle);
 
   constructor() {
     const tick = setInterval(() => this.now.set(DateTime.now()), TICK);
@@ -525,13 +564,14 @@ export class CalendarPage {
 
   // ─── Events ─────────────────────────────────────────────────────────
 
-  /** Time marked out in a grid: a card to write the event in. One open
-      already gives way to it — the next mark is a press away, Notion's. */
-  /** Room marked for a new event: its card, first where the grid says
-      the mark stands, then on the mark's head once it is drawn. */
+  /** Room marked for a new event on the grid: its title alone, at the
+      surface's foot (`QuickTitle`) — the card stays for the rest. One open
+      already gives way to it, the title taking focus back; the next mark
+      is a press away, Notion's. */
   protected created({ draft, rect }: GridCreate): void {
-    this.#write(draft, rect);
-    this.#anchorOn(DRAFT_ID);
+    this.selectedId.set(null);
+    this.#write(draft, rect, true);
+    afterNextRender(() => this.quickTitle()?.focus(), { injector: this.#injector });
   }
 
   /** The open mark dragged or stretched: the event takes its times, the
@@ -556,16 +596,44 @@ export class CalendarPage {
     this.#write(draftAt(start), rect);
   }
 
-  #write(draft: CalendarEventDraft, rect: AnchorRect): void {
+  #write(draft: CalendarEventDraft, rect: AnchorRect, quick = false): void {
     this.#shownId.set(null);
+    this.#quick.set(quick);
     this.anchor.set(rect);
     this.edit.set(draft);
   }
 
-  protected opened({ id, rect }: GridOpen): void {
-    this.edit.set(null);
-    this.anchor.set(rect);
-    this.#shownId.set(id);
+  /** The event pressed last — selected (`aria-current` on its chip),
+      whether or not its card is open. */
+  protected readonly selectedId = signal<string | null>(null);
+
+  /** An event pressed: selected — no card any more, whatever is open
+      closes. It is written from its menu's Edit (`#editEvent`). */
+  protected opened({ id }: GridOpen): void {
+    this.closeCard();
+    this.selectedId.set(id);
+  }
+
+  /** Empty room pressed once: what is open closes, nothing stays
+      selected. */
+  protected dismissed(): void {
+    this.closeCard();
+    this.selectedId.set(null);
+  }
+
+  /** The menu's Edit: the event written in the card, hung from its head
+      (the card stands clear of its foot, `WRITING_CARD`). */
+  #editEvent(event: CalendarEvent): void {
+    const chip = [...this.#host.querySelectorAll<HTMLElement>('[data-event-id]')].find(
+      (one) => one.dataset['eventId'] === event.id,
+    );
+    // The editor takes focus; the menu must not hand it back to the event.
+    this.#menuReturn = null;
+    this.#shownId.set(null);
+    this.#quick.set(false);
+    if (chip) this.anchor.set(headOf(chip));
+    this.selectedId.set(event.id);
+    this.edit.set({ ...event });
   }
 
   /** The card's Edit: the shown event, written. */
@@ -573,6 +641,7 @@ export class CalendarPage {
     const event = this.shown();
     if (!event || event.readonly) return;
     this.#shownId.set(null);
+    this.#quick.set(false);
     this.edit.set({ ...event });
   }
 
@@ -618,6 +687,8 @@ export class CalendarPage {
     );
   }
 
+  /** Saved — the card's Save (or Enter in its title), or Enter in the
+      title at the foot (`QuickTitle`): stored, and the card gone. */
   protected saved(edit: EventEdit): void {
     if (edit.id) this.#store.save(edit as CalendarEvent);
     else this.#store.create(edit);
@@ -635,6 +706,7 @@ export class CalendarPage {
       take it back; its card goes with it. */
   #remove(id: string, said: string): void {
     if (this.#shownId() === id || this.edit()?.id === id) this.closeCard();
+    if (this.selectedId() === id) this.selectedId.set(null);
     const gone = this.#store.remove(id);
     if (!gone) return;
     this.#snackBar
@@ -658,8 +730,8 @@ export class CalendarPage {
   private readonly timeGrid = viewChild(TimeGrid);
   private readonly monthGrid = viewChild(MonthGrid);
 
-  /** The menu's rows: an event's four (a holiday's own can be copied and
-      duplicated, not cut or deleted), or a slot's: a new event there, and
+  /** The menu's rows: an event's five (a holiday's own can be copied and
+      duplicated, not edited, cut or deleted), or a slot's: a new event there, and
       the copied one pasted there — there once something is copied. */
   protected readonly menuItems = computed<ToolbarMenuItem<EventAction>[]>(() => {
     const about = this.#menuFor();
@@ -679,12 +751,14 @@ export class CalendarPage {
     }
     const fixed = !!about.event.readonly;
     return [
+      { value: 'edit', label: t('calendar.edit'), icon: 'edit', disabled: fixed },
       {
         value: 'cut',
         label: t('calendar.cut'),
         icon: 'content_cut',
         ...withMod('X'),
         disabled: fixed,
+        separated: true,
       },
       { value: 'copy', label: t('calendar.copy'), icon: 'content_copy', ...withMod('C') },
       { value: 'duplicate', label: t('calendar.duplicate'), icon: 'library_add', ...withMod('D') },
@@ -700,16 +774,21 @@ export class CalendarPage {
     ];
   });
 
-  /** A right-click in the views: on an event, its menu; on an empty slot
-      a new event there, or what was copied pasted there — anywhere else
-      (the heads, the corner), the browser's. */
+  /** A right-click in the views: on an event, its menu (and it selected);
+      on an empty slot a new event there, or what was copied pasted there —
+      on the mark too, the room still being chosen, let go first: the slot
+      under it is empty room. Anywhere else (the heads, the corner), the
+      browser's. */
   protected contextMenu(event: MouseEvent): void {
     const at = { x: event.clientX, y: event.clientY };
     const chip = (event.target as Element).closest<HTMLElement>('[data-event-id]');
-    if (chip) {
+    if (chip?.dataset['eventId'] === DRAFT_ID) {
+      this.closeCard();
+    } else if (chip) {
       const pressed = this.#eventById(chip.dataset['eventId'] ?? '');
       if (!pressed) return;
       event.preventDefault();
+      this.selectedId.set(pressed.id);
       return this.#openMenu(at, { event: pressed }, chip);
     }
     const slot = this.timeGrid()?.slotAt(event) ?? this.monthGrid()?.slotAt(event);
@@ -745,7 +824,8 @@ export class CalendarPage {
     this.#act(action, about.event);
   }
 
-  /** Does `action` to an event — a holiday is never cut or deleted. */
+  /** Does `action` to an event — a holiday is never edited, cut or
+      deleted. */
   #act(action: EventAction, event: CalendarEvent): void {
     if (action === 'copy') return this.#copy(event);
     if (action === 'duplicate') {
@@ -753,7 +833,9 @@ export class CalendarPage {
       return;
     }
     if (event.readonly) return;
-    if (action === 'cut') {
+    if (action === 'edit') {
+      this.#editEvent(event);
+    } else if (action === 'cut') {
       this.#copy(event);
       this.#remove(event.id, 'calendar.cutDone');
     } else if (action === 'delete') {
@@ -775,8 +857,7 @@ export class CalendarPage {
 
   /** A new event at a slot: an hour from the quarter in the hours — the
       whole day on the all-day band or a month's day, as a press there
-      makes. Its card stands at the pointer until the mark is drawn, then
-      hangs from the mark as every card hangs from its event (`created`). */
+      makes — named as one marked there is (`created`). */
   #createAt(slot: GridSlot): void {
     const day = parseDay(slot.day);
     if (!day) return;
@@ -865,9 +946,23 @@ export class CalendarPage {
     return false;
   }
 
+  /** The card closed without Save — Escape, a press away, its ×: what it
+      held is let go; the stored event stays as it was. */
   protected closeCard(): void {
     this.edit.set(null);
+    this.#quick.set(false);
     this.#shownId.set(null);
+  }
+
+  /** An overlay taken down: closed only if it went by itself. Closed
+      because the other one took over — the card for a title at the foot,
+      or back — it closes nothing: that would drop what replaced it. */
+  protected cardDetached(): void {
+    if (this.cardOpen()) this.closeCard();
+  }
+
+  protected quickDetached(): void {
+    if (this.quickOpen()) this.closeCard();
   }
 
   /** A press outside the card closes it — but not one in a grid, which
@@ -898,7 +993,13 @@ export class CalendarPage {
       return;
     }
     if (event.ctrlKey || event.metaKey || event.altKey) return;
-    if (this.cardOpen()) {
+    // Escape with nothing open lets go of the selected event.
+    if (event.key === 'Escape' && !this.cardOpen() && !this.quickOpen() && this.selectedId()) {
+      event.preventDefault();
+      this.selectedId.set(null);
+      return;
+    }
+    if (this.cardOpen() || this.quickOpen()) {
       if (
         (event.key === 'Delete' || event.key === 'Backspace') &&
         this.shown() &&

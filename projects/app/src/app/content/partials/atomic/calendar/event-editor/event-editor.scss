@@ -7,47 +7,146 @@
   display: block;
 }
 
-// Three parts — the bar, the fields, the foot — 24px apart: the one gap
-// that sets both the title's distance from the bar and Save's from the
-// fields. The fields, among themselves, 12px.
+// Two parts — the bar, the fields; no foot (it keeps itself). The card has
+// no padding of its own: each part keeps its inset — 16px at the start,
+// where the colour dot, the title and the icons stand.
 .event-editor {
   display: flex;
   flex-direction: column;
-  gap: 24px;
 }
 
-.event-editor__body {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.event-editor__bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-// Close: a toolbar's icon button, Material's own layout, its state layer
-// out to the card's padding.
+// The bar: 40px, delete and close its mirror image — the card's one
+// button size (28px state layer, 20px glyph), each 6px in from its corner:
+// centred on the actions' column under it (close), on the icon column's
+// edge the event's stripe stands under (delete).
 .event-editor__bar {
   @include mat.icon-button-overrides(
     (
       icon-size: 20px,
-      state-layer-size: 32px,
+      state-layer-size: 28px,
+      touch-target-size: 28px,
+    )
+  );
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  block-size: 40px;
+  padding-inline: 6px;
+  box-sizing: border-box;
+}
+
+// The fields' box, its height run across a row brought out or put away
+// ([heightSwitch]); clipped only while it runs.
+.event-editor__motion {
+  box-sizing: border-box;
+
+  &[data-height-switch] {
+    overflow: clip;
+  }
+}
+
+// The place and note buttons: a row of their own at the start, over the
+// sections they bring out — a 28px state layer on a 32px target, its glyph
+// the rows' own 20px. The first centred on the icon column (20px, so
+// pulled back 4px): its glyph exactly where its section's icon stands
+// once it is out.
+.event-editor__tools {
+  @include mat.icon-button-overrides(
+    (
+      icon-size: 20px,
+      state-layer-size: 28px,
       touch-target-size: 32px,
     )
   );
+
+  // A slot each, the place's first: a button gone leaves its slot empty,
+  // and the row keeps its height with none in it.
+  display: grid;
+  grid-template-columns: repeat(2, 28px);
+  align-items: center;
+  min-block-size: 28px;
+  margin: -4px 0 -4px -4px;
 }
 
-.event-editor__close {
-  margin-inline-end: -8px;
+.event-editor__tool--place {
+  grid-column: 1;
 }
 
-// The title, Notion's: large words.
+.event-editor__tool--note {
+  grid-column: 2;
+}
+
+// Under the bar, two columns: the fields, and the actions' — 32px, its
+// middle under close's (20px in: 4px to the column, half of it), kept for
+// the card's buttons.
+.event-editor__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 32px;
+  column-gap: 4px;
+  padding: 4px 4px 16px 16px;
+}
+
+// The fields, among themselves, 12px.
+.event-editor__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-inline-size: 0;
+}
+
+// The actions' column: everything in it centred on it, as close is above
+// — Save in close's geometry (28px state layer, 20px glyph), the colour
+// (a 28px box of its own) under it at the column's foot.
+.event-editor__actions {
+  @include mat.icon-button-overrides(
+    (
+      icon-size: 20px,
+      state-layer-size: 28px,
+      touch-target-size: 28px,
+    )
+  );
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  // On the fields' rows: the colour level with the last one (the place
+  // and note buttons' row, which hangs 4px out of its box both ways), Save
+  // level with the row over it.
+  gap: 8px;
+  margin-block-end: -4px;
+}
+
+// The colour marker pulls its 28px box 8px back (its own stylesheet, for a
+// dot flush on a start inset): given back here, so the box itself is the
+// one centred.
+.event-editor__color {
+  margin-inline-start: 8px;
+}
+
+.event-editor__save {
+  --mat-icon-button-icon-color: var(--mat-sys-primary);
+}
+
+// The title, Notion's: large words, starting on the line the fields'
+// words do ("Starts", "Ends" — past the icon column and its gap). A plain
+// field: no ring, no wash, under the pointer or in focus — the caret is
+// all there is.
 .event-editor__title {
-  margin-inline: -6px;
+  display: block;
+  inline-size: calc(100% - 32px);
+  margin: 0 0 0 32px;
+  padding: 4px 0;
+  border: 0;
+  outline: none;
+  background: none;
+  color: var(--mat-sys-on-surface);
   font: var(--mat-sys-title-large);
+
+  &::placeholder {
+    color: color-mix(in oklch, var(--mat-sys-on-surface) 46%, transparent);
+  }
 }
 
 .event-editor__row {
@@ -94,20 +193,57 @@
   font: var(--mat-sys-label-medium);
 }
 
-.event-editor__check {
-  display: inline-flex;
+// Notion's one-line rows under the times — all day, the zone: centred on
+// the icon column, a line of body text.
+.event-editor__row--line {
   align-items: center;
-  gap: 8px;
-  inline-size: fit-content;
-  padding-block: 2px;
+  min-block-size: 24px;
+}
+
+// Notion's band under the times: one ghost button — no fill at rest, its
+// words quiet labels of what it brings out; the ink's wash and full ink
+// only under the pointer or keyboard focus. Pulled out by the quiet
+// fields' inset, so the first word lines up with the dates.
+.event-editor__more {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 16px;
+  min-block-size: 28px;
+  margin: 4px 0 0 -6px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--mat-sys-corner-small);
+  background: none;
+  color: color-mix(in oklch, var(--mat-sys-on-surface) 46%, transparent);
+  font: var(--mat-sys-body-medium);
+  text-align: start;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background: color-mix(in oklch, var(--mat-sys-on-surface) 6%, transparent);
+    color: var(--mat-sys-on-surface);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: -2px;
+  }
+}
+
+// All day: the whole row is the switch's label — a press on the words
+// turns it. The switch (`toggleSwitch`, common) the icon column's width,
+// 20 x 12, centred in it.
+.event-editor__all-day {
   color: var(--mat-sys-on-surface);
   font: var(--mat-sys-body-medium);
   cursor: pointer;
+}
 
-  input {
-    margin: 0;
-    accent-color: var(--mat-sys-primary);
-  }
+.event-editor__switch {
+  --toggle-switch-width: 20px;
+  --toggle-switch-height: 12px;
 }
 
 .event-editor__line {
@@ -165,15 +301,4 @@
   min-block-size: 2lh;
   max-block-size: 8lh;
   resize: vertical;
-}
-
-.event-editor__foot {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.event-editor__delete {
-  margin-inline-end: auto;
-  --mat-button-text-label-text-color: var(--mat-sys-error);
 }

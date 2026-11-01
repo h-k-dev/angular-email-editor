@@ -63,6 +63,11 @@ export interface CalendarEvent {
   color: EventColor;
   location: string;
   description: string;
+  /** The zone it is written in, an IANA name (`America/New_York`): its
+      times say the hour there, while `start` and `end` stay the browser's
+      own, as every view shows them. None: the browser's zone. Timed events
+      only. */
+  timeZone?: string;
   /** A subscribed calendar's (holidays): shown and opened, never moved,
       written or deleted — and never stored. */
   readonly?: boolean;

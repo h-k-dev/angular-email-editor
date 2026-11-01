@@ -1,7 +1,7 @@
 import { AnchorRect } from '@h-k-dev/angular-email-editor/anchor';
 
 import { IsoDay } from '../../../../core/calendar/calendar-dates';
-import { CalendarEventDraft } from '../../../../core/calendar/calendar-event';
+import { CalendarEventDraft, DRAFT_ID } from '../../../../core/calendar/calendar-event';
 
 /**
  * What the calendar's grids tell the page — the day's hours and the month
@@ -30,6 +30,35 @@ export interface GridSlot {
 
 /** How far a press travels before it is a drag, px. */
 export const DRAG_THRESHOLD = 4;
+
+/** A press on a grid's own empty room — or on the mark, the room still
+    being chosen: a press there marks out anew, as on the room under it. */
+export function pressedEmptyOrMark(event: Event): boolean {
+  const target = event.target as Element;
+  return target === event.currentTarget || !!target.closest?.(`[data-event-id="${DRAFT_ID}"]`);
+}
+
+/** How soon a second press counts as a double press, ms. */
+const DOUBLE_PRESS = 500;
+
+/**
+ * Presses on empty room that did not move: a new event is made only by a
+ * drag let go, or by two presses on the same place (`key` — a quarter, a
+ * day) soon after each other — a press alone makes nothing. Its own
+ * double click, not the browser's: the grids hold the pointer, and a
+ * finger's taps count too.
+ */
+export class DoublePress {
+  #last: { key: string; at: number } | null = null;
+
+  /** Whether this press, at `key`, is the second of two. */
+  second(key: string, at: number): boolean {
+    const last = this.#last;
+    const double = !!last && last.key === key && at - last.at <= DOUBLE_PRESS;
+    this.#last = double ? null : { key, at };
+    return double;
+  }
+}
 
 /** The room a head keeps under its words (`headOf`): what a card hung
     from it may come up over — the event's body, never its words. */

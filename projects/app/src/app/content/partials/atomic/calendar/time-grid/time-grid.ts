@@ -40,7 +40,16 @@ import {
 import { CalendarFormat } from '../../../../../core/calendar/calendar-format';
 import { laneCount, placeInDay, placeInLanes } from '../../../../../core/calendar/calendar-layout';
 import { EventChip } from '../../../shared/calendar/event-chip/event-chip';
-import { DRAG_THRESHOLD, GridCreate, GridOpen, GridSlot, boxOf, headOf } from '../calendar-grid';
+import {
+  DRAG_THRESHOLD,
+  DoublePress,
+  GridCreate,
+  pressedEmptyOrMark,
+  GridOpen,
+  GridSlot,
+  boxOf,
+  headOf,
+} from '../calendar-grid';
 
 /** An hour's height, px — the one size the grid's minutes are multiplied
     by (set on the host as `--hour`). */
@@ -81,10 +90,12 @@ interface Drag {
  * selection, the colour at an eighth, its times in it; drag sideways and
  * it runs on across the days between, shown in each (and in the band,
  * whole days); let go and it is a
- * new event's room (`create`), with the box to open its card beside. The
- * mark stays while the card is open, and is itself a thing to drag: move
- * it, stretch its foot (`draftChange`). A press anywhere else marks out
- * the next one at once. Press an event and it opens (`open`); drag it —
+ * new event's room (`create`), with the box to open its card beside — so is
+ * a double press, an hour from its quarter; a press alone makes nothing
+ * (`dismiss`). The mark stays while the card is open: its foot stretches
+ * it (`draftChange`), a press in it marks out anew. A drag
+ * anywhere else marks out the next one at once. Press an event and it
+ * opens (`open`); drag it —
  * across days too — and it moves, drag its foot and it stretches
  * (`change`). Everything in quarter hours, where the pointer is, at once:
  * no motion.
@@ -110,6 +121,12 @@ export class TimeGrid {
   readonly events = input.required<readonly CalendarEvent[]>();
   /** The event being written, shown where it will be. */
   readonly draft = input<EventEdit | null>(null);
+  /** The event pressed last — selected, its card open or not. */
+  readonly selected = input<string | null>(null);
+  /** The event whose chip is `current` (`aria-current`): the stored one
+      being written, else the one selected. Never the mark — a new event's
+      room, drawn as itself. */
+  protected readonly currentId = computed(() => this.draft()?.id ?? this.selected());
   readonly today = input.required<IsoDay>();
   readonly now = input.required<DateTime>();
   readonly untitled = input('');
@@ -124,8 +141,12 @@ export class TimeGrid {
   readonly draftChange = output<GridCreate>();
   /** A day's head was pressed: that day, alone. */
   readonly dayOpen = output<IsoDay>();
+  /** Empty room pressed once, without a drag: nothing made — what is open
+      closes. */
+  readonly dismiss = output<void>();
 
   protected readonly hourHeight = HOUR_HEIGHT;
+  readonly #presses = new DoublePress();
 
   protected readonly scroller = viewChild.required<ElementRef<HTMLElement>>('scroller');
   protected readonly columnsEl = viewChild.required<ElementRef<HTMLElement>>('dayColumns');
@@ -340,14 +361,14 @@ export class TimeGrid {
 
   /** A press on an empty hour: a new event's mark begins at its quarter. */
   protected pressHours(event: PointerEvent): void {
-    if (event.button !== 0 || event.target !== event.currentTarget) return;
+    if (event.button !== 0 || !pressedEmptyOrMark(event)) return;
     const { day, minute } = this.#at(event);
     const anchor = Math.min(DAY_MINUTES - SNAP, Math.floor(minute / SNAP) * SNAP);
     this.#begin(event, {
       kind: 'mark',
       anchor,
       day,
-      // A press alone marks Notion's default: an hour from the quarter.
+      // A double press marks Notion's default: an hour from the quarter.
       preview: editAsEvent(
         draftAt(this.#moment(day, anchor), {
           minutes: Math.min(DEFAULT_EVENT_MINUTES, DAY_MINUTES - anchor),
@@ -365,9 +386,12 @@ export class TimeGrid {
     return this.events().find((one) => one.id === shown.id) ?? null;
   }
 
-  /** A press on an event (or the mark): a press opens it, a drag moves it. */
+  /** A press on an event: a press opens it, a drag moves it. (On the mark,
+      the hours' own press marks out anew.) */
   protected pressEvent(event: PointerEvent, shown: CalendarEvent): void {
-    if (event.button !== 0 || event.pointerType === 'touch') return;
+    // The mark is room still being chosen: a press in it marks out anew
+    // (the hours', the band's own press), it is not picked up.
+    if (event.button !== 0 || event.pointerType === 'touch' || shown.id === DRAFT_ID) return;
     const source = this.#source(shown);
     // A holiday opens on its click; it never moves.
     if (!source || source.readonly) return;
@@ -430,9 +454,11 @@ export class TimeGrid {
     this.#drag.set({ ...drag, moved, preview: this.#previewAt(drag, day, minute) });
   }
 
-  #hoverAt(event: PointerEvent): void {
-    const over = (event.target as Element).closest('.time-grid__day');
-    if (!over || event.target !== over) return this.#hover.set(null);
+  /** The line on the quarter under the pointer — over an empty stretch of
+      a day (`under`, the event's target unless told), none over an event. */
+  #hoverAt(event: PointerEvent, under = event.target as Element | null): void {
+    const over = under?.closest('.time-grid__day');
+    if (!over || under !== over) return this.#hover.set(null);
     const { day, minute } = this.#at(event);
     const quarter = Math.min(DAY_MINUTES - SNAP, Math.floor(minute / SNAP) * SNAP);
     const hover = this.#hover();
@@ -486,15 +512,24 @@ export class TimeGrid {
     // click is spent.
     this.#swallowClick = true;
     setTimeout(() => (this.#swallowClick = false));
-    if (event.pointerType === 'mouse') this.#hoverAt(event);
+    // The line back where the pointer is let go. Held, the pointer's
+    // target is the columns themselves — what is under it is asked for.
+    if (event.pointerType === 'mouse') {
+      const doc = this.columnsEl().nativeElement.ownerDocument;
+      this.#hoverAt(event, doc.elementFromPoint(event.clientX, event.clientY));
+    }
 
     const { id, ...draft } = drag.preview;
-    if (drag.kind === 'mark') {
-      this.create.emit({ draft, rect: this.#markHead(drag) });
-      return;
-    }
-    if (drag.kind === 'days') {
-      this.create.emit({ draft, rect: this.#bandBox(drag.preview) });
+    if (drag.kind === 'mark' || drag.kind === 'days') {
+      // Made by a drag let go, or a double press; a press alone only
+      // closes what is open.
+      const at = `${drag.kind}:${drag.day}:${drag.anchor}`;
+      if (!drag.moved && !this.#presses.second(at, event.timeStamp)) {
+        this.dismiss.emit();
+        return;
+      }
+      const rect = drag.kind === 'mark' ? this.#markHead(drag) : this.#bandBox(drag.preview);
+      this.create.emit({ draft, rect });
       return;
     }
     if (id === DRAFT_ID) {
@@ -534,7 +569,7 @@ export class TimeGrid {
 
   /** A press on the band: an all-day event that day. */
   protected pressBand(event: PointerEvent): void {
-    if (event.button !== 0 || event.target !== event.currentTarget) return;
+    if (event.button !== 0 || !pressedEmptyOrMark(event)) return;
     // The band's days line up with the hours' columns: the same tracks.
     const { day } = this.#at(event);
     if (event.pointerType !== 'touch') {

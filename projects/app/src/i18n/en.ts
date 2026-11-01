@@ -158,6 +158,7 @@ export default {
     new: 'New event',
     jump: 'Jump to a day',
     allDay: 'All day',
+    timeZone: 'Time zone',
     more: '{{count}} more',
     untitled: '(No title)',
     event: 'Event',

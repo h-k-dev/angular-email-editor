@@ -71,16 +71,29 @@ describe('CalendarPage — the events’ context menu', () => {
 
   afterEach(() => localStorage.removeItem(KEY));
 
-  it('opens on an event with a right-click: cut, copy, duplicate, delete — each with its keys', async () => {
+  it('opens on an event with a right-click: edit, cut, copy, duplicate, delete — each with its keys', async () => {
     await rightClick(chip());
     expect(items().map(({ text }) => text.replace(/\s+/g, ' ').trim())).toEqual([
+      expect.stringContaining('Edit'),
       expect.stringContaining('Cut'),
       expect.stringContaining('Copy'),
       expect.stringContaining('Duplicate'),
       expect.stringContaining('Delete'),
     ]);
-    const copy = items()[1].item;
+    const copy = items()[2].item;
     expect(copy.getAttribute('aria-keyshortcuts')).toMatch(/^(Meta|Control)\+C$/);
+  });
+
+  it('opens no card on a press — Edit in the menu writes the event in the card', async () => {
+    chip().dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await settle();
+    expect(document.querySelector('.calendar-card')).toBeNull();
+
+    await rightClick(chip());
+    await pick('Edit');
+    const editor = document.querySelector('.calendar-card calendar-event-editor');
+    expect(editor).not.toBeNull();
+    expect(editor!.querySelector<HTMLInputElement>('input')!.value).toBe('Coffee');
   });
 
   it('duplicates an event where it is', async () => {
@@ -118,9 +131,112 @@ describe('CalendarPage — the events’ context menu', () => {
     ]);
 
     await pick('New event');
-    // The card opens on the new event, an hour from the slot's quarter.
-    const card = document.querySelector('.calendar-card calendar-event-editor');
-    expect(card).not.toBeNull();
+    // The new event's title opens, as for one marked on the grid — not
+    // the card.
+    expect(document.querySelector('.calendar-quick calendar-quick-title')).not.toBeNull();
+    expect(document.querySelector('.calendar-card')).toBeNull();
+    expect(stored()).toHaveLength(1);
+  });
+
+  it('stores an edited event on Save only — not as it is typed or turned, nor on close', async () => {
+    await rightClick(chip());
+    await pick('Edit');
+    let card = document.querySelector('.calendar-card calendar-event-editor')!;
+    let title = card.querySelector<HTMLInputElement>('.event-editor__title')!;
+    title.value = 'Tea';
+    title.dispatchEvent(new Event('input', { bubbles: true }));
+    title.blur();
+    await settle();
+    card.querySelector<HTMLButtonElement>('.event-editor__more')!.click();
+    await settle();
+    card.querySelector<HTMLButtonElement>('button[toggleSwitch]')!.click();
+    await settle();
+    // Typed, left, turned: nothing stored yet.
+    expect(stored()[0]).toMatchObject({ title: 'Coffee', allDay: false });
+
+    // Closed without Save: let go.
+    await press(document.activeElement!, 'Escape');
+    expect(stored()[0]).toMatchObject({ title: 'Coffee', allDay: false });
+
+    // Save: stored, and the card gone.
+    await rightClick(chip());
+    await pick('Edit');
+    card = document.querySelector('.calendar-card calendar-event-editor')!;
+    title = card.querySelector<HTMLInputElement>('.event-editor__title')!;
+    title.value = 'Tea';
+    title.dispatchEvent(new Event('input', { bubbles: true }));
+    card.querySelector<HTMLButtonElement>('.event-editor__save')!.click();
+    await settle();
+    expect(stored()[0].title).toBe('Tea');
+    expect(document.querySelector('.calendar-card')).toBeNull();
+  });
+
+  it('says which event is being written — aria-current on its chip; selected still once its card is closed', async () => {
+    expect(chip().getAttribute('aria-current')).toBeNull();
+    await rightClick(chip());
+    await pick('Edit');
+    expect(chip().getAttribute('aria-current')).toBe('true');
+
+    // Escape closes the card; the event stays selected — a second lets go.
+    await press(document.activeElement!, 'Escape');
+    expect(document.querySelector('.calendar-card')).toBeNull();
+    expect(chip().getAttribute('aria-current')).toBe('true');
+    await press(document.body, 'Escape');
+    expect(chip().getAttribute('aria-current')).toBeNull();
+  });
+
+  it('selects an event on a click — aria-current, no card — and lets go on Escape', async () => {
+    chip().dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await settle();
+    expect(chip().getAttribute('aria-current')).toBe('true');
+    expect(document.querySelector('.calendar-card')).toBeNull();
+
+    await press(document.body, 'Escape');
+    expect(chip().getAttribute('aria-current')).toBeNull();
+  });
+
+  it('lets go of the pending mark on a right-click there, and offers the slot under it', async () => {
+    // A new event written in the card: its mark is drawn in the hours.
+    await press(document.body, 'c');
+    const mark = root.querySelector('[data-event-id="draft"]')!;
+    expect(mark).not.toBeNull();
+
+    await rightClick(mark);
+    expect(root.querySelector('[data-event-id="draft"]')).toBeNull();
+    expect(document.querySelector('.calendar-card')).toBeNull();
+    expect(items().map(({ text }) => text)).toEqual([
+      expect.stringContaining('New event'),
+      expect.stringContaining('Paste'),
+    ]);
+  });
+
+  it('deletes from the bar: a kept event goes, a new one is let go unkept', async () => {
+    const deleteButton = () =>
+      document.querySelector<HTMLButtonElement>('.calendar-card .event-editor__delete')!;
+
+    // A new event, typed in but never left: Delete lets it go.
+    await press(document.body, 'c');
+    const title = document.querySelector<HTMLInputElement>('.calendar-card .event-editor__title')!;
+    title.value = 'Draft';
+    title.dispatchEvent(new Event('input', { bubbles: true }));
+    deleteButton().click();
+    await settle();
+    expect(document.querySelector('.calendar-card')).toBeNull();
+    expect(stored().map((event) => event.id)).toEqual(['coffee']);
+
+    // A kept one: deleted.
+    await rightClick(chip());
+    await pick('Edit');
+    deleteButton().click();
+    await settle();
+    expect(stored()).toEqual([]);
+  });
+
+  it('leaves nothing behind for a new event opened and closed untouched', async () => {
+    await press(document.body, 'c');
+    expect(document.querySelector('.calendar-card calendar-event-editor')).not.toBeNull();
+    await press(document.activeElement!, 'Escape');
+    expect(document.querySelector('.calendar-card')).toBeNull();
     expect(stored()).toHaveLength(1);
   });
 
@@ -144,7 +260,7 @@ describe('CalendarPage — the events’ context menu', () => {
   it('opens the menu under the focused event with Shift+F10, and hands focus back after', async () => {
     chip().focus();
     await press(chip(), 'F10', { shiftKey: true });
-    expect(items()).toHaveLength(4);
+    expect(items()).toHaveLength(5);
 
     await press(document.activeElement!, 'Escape');
     expect(document.activeElement).toBe(chip());

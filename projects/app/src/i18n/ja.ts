@@ -154,6 +154,7 @@ export default {
     new: '新しい予定',
     jump: '日付へ移動',
     allDay: '終日',
+    timeZone: 'タイムゾーン',
     more: '他 {{count}} 件',
     untitled: '（タイトルなし）',
     event: '予定',
