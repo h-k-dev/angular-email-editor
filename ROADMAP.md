@@ -50,12 +50,16 @@ HTML is allowed to be.
 
 ## Principles (opinionated on purpose)
 
-1. **The schema is law.** The email ProseMirror schema defines the entire
-   vocabulary: which tags, which marks, which inline styles. Anything outside
-   it does not survive — not as a bug, as the contract.
-2. **Parsing is repair.** Broken or foreign markup is never rejected; it is
-   parsed, normalized, and re-serialized into canonical form. The linter tells
-   you _what_ would change, the round-trip _makes_ it change.
+1. **The source is law.** HTML is kept exactly as it is used (2026-11-01:
+   one parse, no repair). Our own blocks claim markup only where they would
+   re-emit it identically; everything else is kept verbatim. Only executable
+   content is refused.
+2. **Unknown is marked, never changed.** What the library does not know yet
+   — markup no block models, tags/attributes/CSS outside the email
+   vocabulary — is marked in the editor (`UnknownMarkup`) and noted by the
+   lint. Conversions a recognised pattern allows are *offered* (a suggestion
+   the author takes, one undo step), never run on parse. The vocabulary grows
+   one piece at a time.
 3. **Canonical output is deterministic.** Same document → byte-identical
    HTML: zero formatting whitespace, `<div>` lines (never `<p>` margins),
    `<div><br></div>` empty lines, inline styles only, stable attribute order.
@@ -1106,6 +1110,19 @@ Known trade-offs, accepted for now:
   *attributes* are filtered by the vocabulary.
 - **Import and reply still repair.** An `.eml` body is email HTML, so the
   email parse is the natural next step for `importedDocument` — one argument.
+
+**Superseded (2026-11-01): one parse, keep all.** A studied `.eml` came out
+of the designer different from the inbox (the import seed repaired it). The
+rule since: never auto-repair anything. `repair` and `email` are gone —
+`ParseMode`, `parseMode`, `ParseOptions`, `SourceOptions`, the import
+pipeline (`import-html.ts`) and the vocabulary filter
+(`applyEmailVocabulary`) with them; `preserve` semantics are the only parse.
+Seeds keep the inbound HTML verbatim (`importLoss` counts only what is
+refused). The Summernote corrections are offered (`storedMistakes`,
+`fixStoredMistakes`); an unmarked hand-coded page of rows is offered as a
+page by the page grip (`authored-page.ts`), no longer lifted on parse.
+Unknown markup is marked (`UnknownMarkup`). An `<iframe>` the parse refuses
+leaves a link to what it played (the refusal's own step, `embeds.ts`).
 - Outlook fidelity of kept markup is by construction (verbatim); only
   browser rendering is measured.
 

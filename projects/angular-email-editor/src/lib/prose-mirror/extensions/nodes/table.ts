@@ -573,9 +573,7 @@ export const Table = defineNode({
     toDOM: (node) => [
       'table',
       {
-        ...(node.attrs['layout']
-          ? { ...markerAttrs('table'), role: 'presentation' }
-          : {}),
+        ...(node.attrs['layout'] ? { ...markerAttrs('table'), role: 'presentation' } : {}),
         style: tableStyle(
           node.attrs['width'] as number,
           node.attrs['offset'] as number,
@@ -591,11 +589,7 @@ export const Table = defineNode({
     setTableStyle: (pos: number, style: TableStyle): Command => setTableStyle(pos, style),
     /** The default shape and kind are the ones /table inserts — three rows
         by three, bordered (see `TableKind`). */
-    insertTable: (
-      rows = TABLE_ROWS,
-      cols = TABLE_COLUMNS,
-      kind: TableKind = 'bordered',
-    ): Command =>
+    insertTable: (rows = TABLE_ROWS, cols = TABLE_COLUMNS, kind: TableKind = 'bordered'): Command =>
       insertTableFocused(schema, rows, cols, kind),
     // Selection-relative structure edits, straight from the library: each one
     // understands merged cells and multi-cell selections for free. The
@@ -733,9 +727,9 @@ export const Table = defineNode({
     // stays off: a selected table node has no affordance in our UI, and it
     // would swallow keystrokes that should reach the cells.
     tableEditing({ allowTableNodeSelection: false }),
-    // Parsing is repair, and this is the table half of it: real mail is full
-    // of ragged rows and overlapping spans, which `fixTables` normalizes into
-    // a rectangle. Covers everything that reaches the editor as a transaction
+    // A table must be a rectangle to be edited at all: real mail is full of
+    // ragged rows and overlapping spans, which `fixTables` normalizes into
+    // one. Covers everything that reaches the editor as a transaction
     // — paste, drops, `setContent`, an import landing on the html signal —
     // while `repairTables` covers the pure parse path (see `html.ts`).
     // `unifyCellPresets` rides the same pass: cells that structural edits add
@@ -789,8 +783,43 @@ export const Table = defineNode({
  */
 export function repairTables(doc: Node, schema: Schema): Node {
   if (!schema.nodes['table']) return doc;
-  const repair = fixTables(EditorState.create({ doc, schema }));
-  return repair ? repair.doc : doc;
+  const state = EditorState.create({ doc: withoutDisagreeingWidths(doc, schema), schema });
+  const repair = fixTables(state);
+  return repair ? repair.doc : state.doc;
+}
+
+/**
+ * A table whose cells say widths that disagree down a column (one cell
+ * `width: 50%` over two columns, the cells under it none) would have them
+ * spread by `fixTables` — every cell given its column's width, a width no
+ * author wrote. Widths are the column's to the table model, the markup's to
+ * the email: such a table's cells carry no model width, and each cell's
+ * authored width is written as it was (authored.ts). A resize then starts
+ * from even columns.
+ */
+function withoutDisagreeingWidths(doc: Node, schema: Schema): Node {
+  const state = EditorState.create({ doc, schema });
+  const tr = state.tr;
+  doc.descendants((node, pos) => {
+    if (node.type.spec['tableRole'] !== 'table') return true;
+    const problems = TableMap.get(node).problems ?? [];
+    if (!problems.some((problem) => problem.type === 'colwidth mismatch')) return true;
+    node.descendants((cell, rel) => {
+      const role = cell.type.spec['tableRole'];
+      if (role === 'table') return false;
+      if ((role === 'cell' || role === 'header_cell') && cell.attrs['colwidth'] != null) {
+        const html = cell.attrs['html'] as { parsed?: Record<string, unknown> } | null;
+        tr.setNodeMarkup(pos + 1 + rel, null, {
+          ...cell.attrs,
+          colwidth: null,
+          html: html?.parsed ? { ...html, parsed: { ...html.parsed, colwidth: null } } : html,
+        });
+      }
+      return true;
+    });
+    return true;
+  });
+  return tr.docChanged ? tr.doc : doc;
 }
 
 /** Sets (or clears) the `background` attr of the cell the cursor is in — or of
@@ -803,12 +832,7 @@ export function setCellBackground(color: string | null): Command {
 /** Inserts a table and drops the cursor into its first cell. The table is
     located after insertion (rather than by fragile nodeSize math) and
     `cellStart` resolves the exact text position inside cell (0, 0). */
-function insertTableFocused(
-  schema: Schema,
-  rows: number,
-  cols: number,
-  kind: TableKind,
-): Command {
+function insertTableFocused(schema: Schema, rows: number, cols: number, kind: TableKind): Command {
   return (state, dispatch) => {
     // Asked, not told: answer before building anything — a toolbar asks on
     // every transaction.

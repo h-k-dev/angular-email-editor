@@ -1,9 +1,10 @@
 /**
  * The email vocabulary: every tag, attribute and CSS property that at least
- * one of the floor clients — **Apple Mail, Outlook, Gmail** — applies. This is
- * what the default `email` parse mode recognizes and keeps *exactly as
- * authored*; it is the reason MJML's output survives untouched, because MJML
- * emits nothing a floor client ignores.
+ * one of the floor clients — **Apple Mail, Outlook, Gmail** — applies: what
+ * the library *knows*. It never filters: the parse keeps every tag,
+ * attribute and property as written (html.ts); what falls outside this list
+ * is marked in the editor as not known yet (unknown-markup.ts) and noted by
+ * the source lint — the list to grow, slowly, as each one is understood.
  *
  * Curation rule: grounded in caniemail's feature list (a feature supported by
  * any one of the three clients is usable), plus Outlook's own dialect
@@ -11,15 +12,12 @@
  * presentational HTML every email toolchain still relies on (`bgcolor`,
  * `cellpadding`, `align`, …). Anything outside — framework attributes
  * (`ng-*`, `v-*`), `data-*`, typos, invented CSS properties, custom elements —
- * is dropped by the `email` parse and kept only in `preserve` mode, which is
- * the opt-in for special needs.
+ * is not known yet.
  *
  * Deliberately static: filtering by what the *running* browser knows
  * (`CSS.supports`, `in style`) would make canonical output depend on the
  * engine — and no browser knows `mso-*`.
  */
-
-import { REFUSED_TAGS } from './html-tags';
 
 /** Tags applied by at least one floor client. */
 export const EMAIL_TAGS = new Set([
@@ -634,53 +632,14 @@ export function declarationProperty(declaration: string): string | null {
   return declaration.slice(0, colon).trim().toLowerCase();
 }
 
-/**
- * A style attribute with every declaration outside the email vocabulary
- * removed. **Byte-identical when nothing is dropped** — the kept declarations
- * keep their exact text and separators, so authored styles round-trip as
- * written. Returns the dropped property names alongside.
- */
-export function filterEmailStyle(style: string): { style: string; dropped: string[] } {
-  const parts = splitDeclarations(style);
-  const dropped: string[] = [];
-  const kept = parts.filter((part) => {
+/** The properties of a style attribute outside the email vocabulary — what
+    the editor marks as not known yet (unknown-markup.ts). The style itself
+    is never changed. */
+export function unknownDeclarations(style: string): string[] {
+  const unknown: string[] = [];
+  for (const part of splitDeclarations(style)) {
     const property = declarationProperty(part);
-    if (property === null || isEmailCssProperty(property)) return true;
-    dropped.push(property);
-    return false;
-  });
-  if (!dropped.length) return { style, dropped };
-  return {
-    style: kept
-      .join(';')
-      .replace(/^\s*;\s*/, '')
-      .trim(),
-    dropped,
-  };
-}
-
-/**
- * Applies the email vocabulary to a throwaway DOM, in place: elements
- * outside it are unwrapped (their content stays, as the repair parse does) —
- * except executable ones, which go with their content, never leaking it as
- * text — attributes outside it are removed, style declarations outside it
- * are removed. Comments and text are untouched. Runs before the `email` parse.
- */
-export function applyEmailVocabulary(root: Element): void {
-  // Deepest first, so an unwrap never skips a descendant.
-  const elements = Array.from(root.querySelectorAll('*')).reverse();
-  for (const element of [...elements, root]) {
-    const tag = element.tagName.toLowerCase();
-    for (const { name, value } of Array.from(element.attributes)) {
-      if (!isEmailAttribute(name, tag)) {
-        element.removeAttribute(name);
-      } else if (name === 'style') {
-        const filtered = filterEmailStyle(value);
-        if (filtered.dropped.length) element.setAttribute('style', filtered.style);
-      }
-    }
-    if (element === root) continue;
-    if (REFUSED_TAGS.has(tag)) element.remove();
-    else if (!isEmailTag(tag)) element.replaceWith(...Array.from(element.childNodes));
+    if (property !== null && !isEmailCssProperty(property)) unknown.push(property);
   }
+  return unknown;
 }

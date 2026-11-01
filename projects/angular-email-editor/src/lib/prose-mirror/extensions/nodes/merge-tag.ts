@@ -123,17 +123,36 @@ export interface MergeTagRange {
   expr: string;
 }
 
-/** The tokens of one textblock, from its text alone. A non-text inline node
-    (an image, a hard break) counts as a separator: a token never spans one. */
-function textblockTags(textblock: Node, base: number): MergeTagRange[] {
+/** The tokens of one textblock, from its text. A non-text inline node (an
+    image, a hard break) counts as a separator: a token never spans one.
+    Nor does a change of formatting: `<b>{{ first</b>Name }}` is no token —
+    a bold `{{ first` and a plain `Name }}`, text as written; only a token
+    one formatting covers whole (`<b>{{ firstName }}</b>`) is a merge tag.
+    `pills` (the editor's own edit, a mark put on part of a pill) also
+    counts a token the pill mark still covers whole, whatever else it
+    carries. */
+function textblockTags(textblock: Node, base: number, pills = false): MergeTagRange[] {
   let text = '';
-  textblock.forEach((child) => {
+  const runs: { from: number; to: number; marks: readonly Mark[] }[] = [];
+  textblock.forEach((child, offset) => {
     text += child.isText ? (child.text ?? '') : '\n'.repeat(child.nodeSize);
+    if (child.isText) runs.push({ from: offset, to: offset + child.nodeSize, marks: child.marks });
   });
+  /** Whether `[from, to)` is drawn in one formatting (the pill mark aside),
+      or — `pills` — is a pill whole. */
+  const whole = (from: number, to: number): boolean => {
+    const inside = runs.filter((run) => run.from < to && run.to > from);
+    const formatting = (marks: readonly Mark[]) =>
+      marks.filter((mark) => mark.type.name !== 'mergeTag');
+    const first = formatting(inside[0]?.marks ?? []);
+    if (inside.every((run) => Mark.sameSet(formatting(run.marks), first))) return true;
+    return pills && inside.every((run) => run.marks.some((mark) => mark.type.name === 'mergeTag'));
+  };
   const tags: MergeTagRange[] = [];
   SCAN.lastIndex = 0;
   for (let match; (match = SCAN.exec(text));) {
     if (!isMergeTagExpression(match[1])) continue;
+    if (!whole(match.index, match.index + match[0].length)) continue;
     tags.push({
       from: base + match.index,
       to: base + match.index + match[0].length,
@@ -143,13 +162,17 @@ function textblockTags(textblock: Node, base: number): MergeTagRange[] {
   return tags;
 }
 
-/** Every token in the document, in document order — derived from the text,
-    which is the only truth about them. */
+/** Every token in the document, in document order — derived from the text
+    and how it is drawn, which are the only truth about them. */
 export function mergeTagRanges(doc: Node): MergeTagRange[] {
+  return rangesOf(doc, false);
+}
+
+function rangesOf(doc: Node, pills: boolean): MergeTagRange[] {
   const tags: MergeTagRange[] = [];
   doc.descendants((node, pos) => {
     if (!node.isTextblock) return true;
-    tags.push(...textblockTags(node, pos + 1));
+    tags.push(...textblockTags(node, pos + 1, pills));
     return false;
   });
   return tags;
@@ -290,8 +313,9 @@ function coverTokens(tr: Transform, type: MarkType): boolean {
   return changed;
 }
 
-/** Invariant 2a: a mark added or removed over *part* of a token by a
-    transaction's steps is widened to the whole token. */
+/** Invariant 2a: a mark added or removed over *part* of a pill by a
+    transaction's steps is widened to the whole pill — an edit in the
+    editor, never a parse: a token stored split is no pill (textblockTags). */
 function widenMarkSteps(tr: Transform, applied: Transaction, later: Transaction[]): boolean {
   let changed = false;
   let tags: MergeTagRange[] | null = null;
@@ -307,7 +331,9 @@ function widenMarkSteps(tr: Transform, applied: Transaction, later: Transaction[
     // …and through what this repair already did (the padding moves text).
     from = tr.mapping.map(from, 1);
     to = tr.mapping.map(to, -1);
-    tags ??= mergeTagRanges(tr.doc);
+    // The pills as they stood: a mark just put on part of one has split its
+    // formatting, and it is still the pill the author meant to format.
+    tags ??= rangesOf(tr.doc, true);
     for (const tag of tags) {
       if (tag.from >= to || tag.to <= from) continue;
       if (step instanceof AddMarkStep) {
@@ -320,29 +346,6 @@ function widenMarkSteps(tr: Transform, applied: Transaction, later: Transaction[
       changed = true;
     }
   });
-  return changed;
-}
-
-/** Invariant 2b: a token that is partially formatted (a paste, the source
-    pane, an import) is repaired to whole — whatever any part of it carries,
-    all of it carries. Only ever widens, so it cannot fight a removal. */
-function wholeMarksOnTokens(tr: Transform, type: MarkType): boolean {
-  let changed = false;
-  for (const tag of mergeTagRanges(tr.doc)) {
-    const present = new Map<MarkType, Mark>();
-    tr.doc.nodesBetween(tag.from, tag.to, (node) => {
-      if (node.isText) {
-        for (const mark of node.marks) {
-          if (mark.type !== type && !present.has(mark.type)) present.set(mark.type, mark);
-        }
-      }
-    });
-    for (const mark of present.values()) {
-      if (wholeRangeHasMark(tr.doc, tag.from, tag.to, mark)) continue;
-      tr.addMark(tag.from, tag.to, mark);
-      changed = true;
-    }
-  }
   return changed;
 }
 
@@ -376,8 +379,10 @@ function applyStoredMarksToToken(
 }
 
 /**
- * Applies both invariants to a parsed document — the token half of "parsing
- * is repair", run by `parseHTML` right after the table repair. A schema
+ * Reads the tokens of a parsed document as pills — run by `parseHTML` right
+ * after the tables. A token one formatting covers whole becomes a pill, its
+ * padding the canonical `{{ expr }}` (the email carries the same text); one
+ * split by formatting stays the text it is, never widened to whole. A schema
  * without the mark (the HTML source editor) passes straight through.
  */
 export function promoteMergeTags(doc: Node, schema: Schema): Node {
@@ -386,7 +391,6 @@ export function promoteMergeTags(doc: Node, schema: Schema): Node {
   const tr = new Transform(doc);
   padTokens(tr);
   coverTokens(tr, type);
-  wholeMarksOnTokens(tr, type);
   return tr.doc;
 }
 
@@ -428,12 +432,12 @@ export const MergeTag = defineMark({
           changed = applyStoredMarksToToken(tr, state, applied) || changed;
         });
         if (transactions.some((applied) => applied.docChanged)) {
-          changed = padTokens(tr, state.selection.head) || changed;
-          changed = coverTokens(tr, type) || changed;
+          // Widened first: a pill just formatted in part is still a pill.
           transactions.forEach((applied, i) => {
             changed = widenMarkSteps(tr, applied, transactions.slice(i + 1)) || changed;
           });
-          changed = wholeMarksOnTokens(tr, type) || changed;
+          changed = padTokens(tr, state.selection.head) || changed;
+          changed = coverTokens(tr, type) || changed;
         }
         return changed ? tr : null;
       },

@@ -9,13 +9,18 @@
  * Intact is not "as Summernote wrote it". Summernote stores things that are
  * wrong in a mail client — a `mailto://` link, `http://` glued onto a
  * placeholder, a bordered table whose borders were Bootstrap CSS, Word's
- * `<o:p>` — and ours is there to correct them. So each file is judged twice:
+ * `<o:p>` — and ours offers to correct them: never on its own (the parse
+ * keeps the stored HTML as written), always as the author's choice (the
+ * stored-mistakes card, `fixStoredMistakes`). So each file is judged as it
+ * opens and as the author fixes it:
  *
- * - **kept** — the text, the placeholders, the link targets, the images
- *   and the formatting each character carries, read off our output the way
- *   a mail client reads it (parse5, the HTML parser, so markup a client
- *   would re-nest counts as what it becomes);
- * - **corrected** — none of Summernote's known mistakes survive.
+ * - **opened** — exactly as stored, a second open changing nothing, and
+ *   the fix offered for every mistake it holds;
+ * - **kept** — once fixed: the text, the placeholders, the link targets,
+ *   the images and the formatting each character carries, read off our
+ *   output the way a mail client reads it (parse5, the HTML parser, so
+ *   markup a client would re-nest counts as what it becomes);
+ * - **corrected** — once fixed, none of Summernote's known mistakes survive.
  *
  * What we do not get right yet is listed in `KNOWN`, each with its reason,
  * and runs as `it.fails`: the suite stays green, and the day one is fixed it
@@ -25,9 +30,11 @@
  * customer data) and run through the same checks with no `KNOWN` list.
  */
 import { parseFragment } from 'parse5';
+import { EditorState } from 'prosemirror-state';
 import { createSchema } from './schema';
 import { parseHTML, serializeToHTML } from './html';
 import { emailExtensions } from './extensions/kits';
+import { fixStoredMistakes, storedMistakes } from './corrections';
 
 const fs = (globalThis as any).process.getBuiltinModule('fs');
 const DIR = 'projects/angular-email-editor/src/lib/prose-mirror/fixtures/summernote/';
@@ -35,7 +42,14 @@ const DIR = 'projects/angular-email-editor/src/lib/prose-mirror/fixtures/summern
 const schema = createSchema(emailExtensions);
 
 /** What the composer does with a stored body: the editor's own parse. */
-const open = (html: string): string => serializeToHTML(parseHTML(html, schema, { mode: 'email' }), schema);
+const open = (html: string): string => serializeToHTML(parseHTML(html, schema), schema);
+
+/** …and what it is once the author takes the stored-mistakes card's fix. */
+const fixed = (html: string): string => {
+  let state = EditorState.create({ doc: parseHTML(html, schema) });
+  fixStoredMistakes(state, (tr) => (state = state.apply(tr)));
+  return serializeToHTML(state.doc, schema);
+};
 
 // ── reading HTML the way a mail client does ─────────────────────────────
 
@@ -55,8 +69,26 @@ function* walk(node: HtmlNode): Generator<HtmlNode> {
 }
 
 const BLOCKS = new Set([
-  'div', 'p', 'li', 'ul', 'ol', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre',
-  'table', 'tbody', 'tr', 'td', 'th', 'hr', 'br',
+  'div',
+  'p',
+  'li',
+  'ul',
+  'ol',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'blockquote',
+  'pre',
+  'table',
+  'tbody',
+  'tr',
+  'td',
+  'th',
+  'hr',
+  'br',
 ]);
 const INLINES = new Set(['span', 'b', 'strong', 'i', 'em', 'u', 's', 'strike', 'del', 'font', 'a']);
 
@@ -83,7 +115,9 @@ function words(html: string, embeds: string[] = []): string[] {
     if (BLOCKS.has(node.nodeName)) text += '\n';
   };
   visit(tree(html));
-  return tight(text.replace(/\u00a0/g, ' ')).split(/\s+/).filter(Boolean);
+  return tight(text.replace(/\u00a0/g, ' '))
+    .split(/\s+/)
+    .filter(Boolean);
 }
 
 /** Every `{{…}}`, in text and in attribute values, as written. */
@@ -96,8 +130,10 @@ function placeholders(html: string): string[] {
   return found;
 }
 
-const links = (html: string) => [...walk(tree(html))].filter((n) => n.nodeName === 'a').map((n) => attr(n, 'href'));
-const images = (html: string) => [...walk(tree(html))].filter((n) => n.nodeName === 'img').map((n) => attr(n, 'src'));
+const links = (html: string) =>
+  [...walk(tree(html))].filter((n) => n.nodeName === 'a').map((n) => attr(n, 'href'));
+const images = (html: string) =>
+  [...walk(tree(html))].filter((n) => n.nodeName === 'img').map((n) => attr(n, 'src'));
 
 /** Embedded players (Summernote's video button): a client shows none, so
     the intent — "watch this" — must survive as a link to the same address. */
@@ -113,31 +149,55 @@ const linked = (html: string) => links(html).map(video);
 /** A link target as its author meant it — Summernote's scheme quirks undone
     (the "corrected" checks prove they are; here they must not count as loss). */
 const meant = (href: string | undefined) =>
-  (href ?? '').replace(/^(mailto|tel):\/\//i, '$1:').replace(/^https?:\/\/(\{\{[^{}]*\}\})$/i, '$1');
-
+  (href ?? '')
+    .replace(/^(mailto|tel):\/\//i, '$1:')
+    .replace(/^https?:\/\/(\{\{[^{}]*\}\})$/i, '$1');
 
 /** A style attribute as text — never through a CSSOM (jsdom's misreads). */
 function declarations(style: string | undefined): Map<string, string> {
   const map = new Map<string, string>();
   for (const part of (style ?? '').split(';')) {
     const at = part.indexOf(':');
-    if (at > 0) map.set(part.slice(0, at).trim().toLowerCase(), part.slice(at + 1).trim().toLowerCase());
+    if (at > 0)
+      map.set(
+        part.slice(0, at).trim().toLowerCase(),
+        part
+          .slice(at + 1)
+          .trim()
+          .toLowerCase(),
+      );
   }
   return map;
 }
 
-const NAMED: Record<string, string> = { gray: '#808080', grey: '#808080', red: '#ff0000', blue: '#0000ff' };
+const NAMED: Record<string, string> = {
+  gray: '#808080',
+  grey: '#808080',
+  red: '#ff0000',
+  blue: '#0000ff',
+};
 
 function color(value: string): string {
   const rgb = value.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-  if (rgb) return '#' + rgb.slice(1, 4).map((n) => (+n).toString(16).padStart(2, '0')).join('');
+  if (rgb)
+    return (
+      '#' +
+      rgb
+        .slice(1, 4)
+        .map((n) => (+n).toString(16).padStart(2, '0'))
+        .join('')
+    );
   const short = value.match(/^#([0-9a-f])([0-9a-f])([0-9a-f])$/);
   if (short) return `#${short[1]}${short[1]}${short[2]}${short[2]}${short[3]}${short[3]}`;
   return NAMED[value] ?? value;
 }
 
 /** The first family, unquoted — the one a client with the font shows. */
-const family = (value: string) => value.split(',')[0].trim().replace(/^["']|["']$/g, '');
+const family = (value: string) =>
+  value
+    .split(',')[0]
+    .trim()
+    .replace(/^["']|["']$/g, '');
 
 function px(value: string): string {
   const m = value.match(/^([\d.]+)(px|pt)$/);
@@ -156,7 +216,8 @@ function lookOf(node: HtmlNode, inherited: Look, depth: { list: number }): Look 
   if (name === 'u') look['underline'] = 'yes';
   if (name === 's' || name === 'strike' || name === 'del') look['strike'] = 'yes';
   if (name === 'a') look['link'] = meant(attr(node, 'href'));
-  if (name === 'font' && attr(node, 'color')) look['color'] = color(attr(node, 'color')!.toLowerCase());
+  if (name === 'font' && attr(node, 'color'))
+    look['color'] = color(attr(node, 'color')!.toLowerCase());
   if (/^h[1-6]$/.test(name)) look['heading'] = name;
   if (name === 'blockquote') look['quote'] = 'yes';
   if (name === 'pre') look['mono'] = 'yes';
@@ -175,7 +236,8 @@ function lookOf(node: HtmlNode, inherited: Look, depth: { list: number }): Look 
   if (style.get('background-color')) look['background'] = color(style.get('background-color')!);
   if (style.get('font-family')) look['font'] = family(style.get('font-family')!);
   if (style.get('font-size')) look['size'] = px(style.get('font-size')!);
-  if (style.get('text-align') && style.get('text-align') !== 'left') look['align'] = style.get('text-align')!;
+  if (style.get('text-align') && style.get('text-align') !== 'left')
+    look['align'] = style.get('text-align')!;
   if (style.get('margin-left') && BLOCKS.has(name)) look['indent'] = px(style.get('margin-left')!);
   return look;
 }
@@ -189,7 +251,10 @@ function runs(html: string, embeds: string[] = []): [string, string][] {
     if (node.nodeName === '#text') {
       const text = tight(node.value!.replace(/\u00a0/g, ' ')).replace(/\s+/g, '');
       if (!text) return;
-      const key = Object.entries(look).sort().map(([k, v]) => `${k}=${v}`).join(' ');
+      const key = Object.entries(look)
+        .sort()
+        .map(([k, v]) => `${k}=${v}`)
+        .join(' ');
       const last = out[out.length - 1];
       if (last && last[1] === key) last[0] += text;
       else out.push([text, key]);
@@ -209,7 +274,8 @@ function runs(html: string, embeds: string[] = []): [string, string][] {
 const MISTAKES: Record<string, (html: string) => string[]> = {
   /** `checkLinkUrl` prefixes a bare address with `mailto://` — no client
       reads that as the address. */
-  'mailto:// links': (html) => links(html).filter((href) => /^mailto:\/\//i.test(href ?? '')) as string[],
+  'mailto:// links': (html) =>
+    links(html).filter((href) => /^mailto:\/\//i.test(href ?? '')) as string[],
   /** …and a bare placeholder with `http://`, which breaks the link the
       placeholder resolves to. */
   'scheme glued onto a placeholder': (html) =>
@@ -251,12 +317,13 @@ const MISTAKES: Record<string, (html: string) => string[]> = {
 /** `file → check → why`. Each runs as `it.fails` until fixed. */
 const KNOWN: Record<string, Record<string, string>> = {};
 
-
 // ── the suite ───────────────────────────────────────────────────────────
 
 const read = (path: string) => fs.readFileSync(path, 'utf8') as string;
 const htmlIn = (dir: string): string[] =>
-  fs.existsSync(dir) ? (fs.readdirSync(dir) as string[]).filter((f) => f.endsWith('.html')).sort() : [];
+  fs.existsSync(dir)
+    ? (fs.readdirSync(dir) as string[]).filter((f) => f.endsWith('.html')).sort()
+    : [];
 
 function corpus(title: string, dir: string, known: Record<string, Record<string, string>>) {
   if (!htmlIn(dir).length) return;
@@ -264,18 +331,30 @@ function corpus(title: string, dir: string, known: Record<string, Record<string,
     for (const file of htmlIn(dir)) {
       describe(file, () => {
         const source = read(dir + file);
-        const opened = open(source);
+        const stored = open(source);
+        const opened = fixed(source);
         const check = (name: string, body: () => void) => {
           const why = known[file]?.[name];
           if (why) it.fails(`${name} — KNOWN: ${why}`, body);
           else it(name, body);
         };
 
-        check('opens and saves as itself the second time', () => expect(open(opened)).toBe(opened));
+        check('opens as stored and saves as itself the second time', () =>
+          expect(open(stored)).toBe(stored),
+        );
+        check('offers the fix for every mistake it holds', () => {
+          const holds = Object.values(MISTAKES).some((mistakes) => mistakes(stored).length);
+          if (holds) expect(storedMistakes(stored)).not.toEqual([]);
+        });
+        check('fixed, saves as itself the second time', () => expect(open(opened)).toBe(opened));
         check('kept: text', () => expect(words(opened, media(source))).toEqual(words(source)));
-        check('kept: placeholders', () => expect(placeholders(opened).map(tight)).toEqual(placeholders(source).map(tight)));
+        check('kept: placeholders', () =>
+          expect(placeholders(opened).map(tight)).toEqual(placeholders(source).map(tight)),
+        );
         check('kept: link targets', () =>
-          expect(links(opened).filter((href) => !media(source).includes(video(href)))).toEqual(links(source).map(meant)),
+          expect(links(opened).filter((href) => !media(source).includes(video(href)))).toEqual(
+            links(source).map(meant),
+          ),
         );
         check('kept: images', () => expect(images(opened)).toEqual(images(source)));
         check('kept: embedded media as a link', () =>
@@ -285,7 +364,6 @@ function corpus(title: string, dir: string, known: Record<string, Record<string,
         for (const [name, mistakes] of Object.entries(MISTAKES)) {
           check(name, () => expect(mistakes(opened)).toEqual([]));
         }
-
       });
     }
   });
@@ -298,25 +376,43 @@ describe('Summernote corpus', () => {
     // Mutation checks: each mistake detector and each "kept" reading must
     // notice the loss it exists for.
     expect(MISTAKES['mailto:// links']('<a href="mailto://a@b.de">x</a>')).toHaveLength(1);
-    expect(MISTAKES['scheme glued onto a placeholder']('<a href="http://{{x}}">x</a>')).toHaveLength(1);
+    expect(
+      MISTAKES['scheme glued onto a placeholder']('<a href="http://{{x}}">x</a>'),
+    ).toHaveLength(1);
     expect(MISTAKES['Office markup']('<p class="MsoNormal">x<o:p></o:p></p>')).toHaveLength(2);
-    expect(MISTAKES['block inside an inline or a <p>']('<span><div>x</div></span>')).toEqual(['div in span']);
-    expect(MISTAKES['block inside an inline or a <p>']('<div><span>x</span></div><p>y</p>')).toEqual([]);
-    expect(MISTAKES['borders that were Bootstrap CSS']('<table class="table table-bordered"></table>')).toHaveLength(1);
-    expect(runs('<p><span style="color:red"><div>x</div></span></p>')).not.toEqual(runs('<span style="color:red">x</span>'));
-    expect(runs('<font color="#FF0000">x</font>')).toEqual(runs('<span style="color: rgb(255, 0, 0)">x</span>'));
+    expect(MISTAKES['block inside an inline or a <p>']('<span><div>x</div></span>')).toEqual([
+      'div in span',
+    ]);
+    expect(
+      MISTAKES['block inside an inline or a <p>']('<div><span>x</span></div><p>y</p>'),
+    ).toEqual([]);
+    expect(
+      MISTAKES['borders that were Bootstrap CSS']('<table class="table table-bordered"></table>'),
+    ).toHaveLength(1);
+    expect(runs('<p><span style="color:red"><div>x</div></span></p>')).not.toEqual(
+      runs('<span style="color:red">x</span>'),
+    );
+    expect(runs('<font color="#FF0000">x</font>')).toEqual(
+      runs('<span style="color: rgb(255, 0, 0)">x</span>'),
+    );
     expect(runs('<b>x</b>')).not.toEqual(runs('x'));
-    expect(runs('<span style="font-size: 12pt">x</span>')).toEqual(runs('<span style="font-size:16px">x</span>'));
+    expect(runs('<span style="font-size: 12pt">x</span>')).toEqual(
+      runs('<span style="font-size:16px">x</span>'),
+    );
     expect(words('<div>a</div><div>b</div>')).toEqual(['a', 'b']);
     expect(words('<div>{{ a }}</div>')).toEqual(words('<div>{{a}}</div>'));
-    expect(media('<iframe src="//www.youtube.com/embed/x"></iframe>')).toEqual(linked('<a href="https://www.youtube.com/embed/x">v</a>'));
+    expect(media('<iframe src="//www.youtube.com/embed/x"></iframe>')).toEqual(
+      linked('<a href="https://www.youtube.com/embed/x">v</a>'),
+    );
     expect(media('<div></div>')).toEqual([]);
-    expect(linked('<a href="https://www.youtube.com/watch?v=x">v</a>')).toEqual(media('<iframe src="//www.youtube.com/embed/x"></iframe>'));
+    expect(linked('<a href="https://www.youtube.com/watch?v=x">v</a>')).toEqual(
+      media('<iframe src="//www.youtube.com/embed/x"></iframe>'),
+    );
     expect(meant('mailto://a@b.de')).toBe('mailto:a@b.de');
     expect(meant('http://{{link}}')).toBe('{{link}}');
     expect(meant('http://{{host}}/path')).toBe('http://{{host}}/path');
   });
 
-  corpus('generated from Summernote 0.9.1 with core\'s patches', DIR, KNOWN);
+  corpus("generated from Summernote 0.9.1 with core's patches", DIR, KNOWN);
   corpus('exported from production (private/)', `${DIR}private/`, {});
 });

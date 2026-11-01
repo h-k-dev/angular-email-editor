@@ -309,7 +309,6 @@ export class Mailbox {
           links: this.#utilityLinks,
           menu: this.#menu('app.nav.utilities', this.#utilityLinks),
         },
-        { kind: 'link', path: '/render', icon: 'compare', key: 'app.nav.render' },
       ],
     },
   ];

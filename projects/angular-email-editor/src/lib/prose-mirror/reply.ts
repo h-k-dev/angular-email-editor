@@ -6,10 +6,10 @@ import {
   isMailbox,
 } from '@h-k-dev/angular-email-editor/address';
 import { createSchema } from './schema';
-import { ParseOptions, parseHTML, serializeToHTML } from './html';
+import { parseHTML, serializeToHTML } from './html';
 import { withQuoted } from './extensions/quoted-history';
 import { emailExtensions } from './extensions/kits';
-import { ruleScope } from './parse-mode';
+import { REFUSED_TAGS } from './html-tags';
 
 /**
  * The inbound message a reply or forward is built from. Everything here is
@@ -221,7 +221,10 @@ const getSchema = () => (seedSchema ??= createSchema(emailExtensions));
  */
 export function replyQuote(inbound: InboundMessage, options?: ComposeSeedOptions): string {
   const schema = getSchema();
-  return serializeToHTML(schema.nodes['doc'].create(null, replyBlocks(inbound, schema, options)), schema);
+  return serializeToHTML(
+    schema.nodes['doc'].create(null, replyBlocks(inbound, schema, options)),
+    schema,
+  );
 }
 
 /**
@@ -236,7 +239,11 @@ export function replyDocument(inbound: InboundMessage, options?: ComposeSeedOpti
   return serializeToHTML(schema.nodes['doc'].create(null, blocks), schema);
 }
 
-function replyBlocks(inbound: InboundMessage, schema: Schema, options?: ComposeSeedOptions): Node[] {
+function replyBlocks(
+  inbound: InboundMessage,
+  schema: Schema,
+  options?: ComposeSeedOptions,
+): Node[] {
   const blocks: Node[] = [];
   const attribution = attributionLine(inbound, options);
   if (attribution) blocks.push(textParagraph(schema, attribution));
@@ -255,7 +262,10 @@ function replyBlocks(inbound: InboundMessage, schema: Schema, options?: ComposeS
  */
 export function forwardQuote(inbound: InboundMessage, options?: ComposeSeedOptions): string {
   const schema = getSchema();
-  return serializeToHTML(schema.nodes['doc'].create(null, forwardBlocks(inbound, schema, options)), schema);
+  return serializeToHTML(
+    schema.nodes['doc'].create(null, forwardBlocks(inbound, schema, options)),
+    schema,
+  );
 }
 
 /** The forward as one document — an empty line, then {@link forwardQuote}'s
@@ -266,7 +276,11 @@ export function forwardDocument(inbound: InboundMessage, options?: ComposeSeedOp
   return serializeToHTML(schema.nodes['doc'].create(null, blocks), schema);
 }
 
-function forwardBlocks(inbound: InboundMessage, schema: Schema, options?: ComposeSeedOptions): Node[] {
+function forwardBlocks(
+  inbound: InboundMessage,
+  schema: Schema,
+  options?: ComposeSeedOptions,
+): Node[] {
   const labels = labelsOf(options);
   const blocks: Node[] = [textParagraph(schema, labels.forwarded)];
   const header: Array<[string, string | undefined]> = [
@@ -291,10 +305,10 @@ function forwardBlocks(inbound: InboundMessage, schema: Schema, options?: Compos
  * for a host that holds the two as strings (a preview, its own send). A
  * whole document keeps its head; the history lands at the end of its body.
  */
-export function withQuotedHistory(html: string, quoted: string | null, options?: ParseOptions): string {
+export function withQuotedHistory(html: string, quoted: string | null): string {
   if (!quoted) return html;
   const schema = getSchema();
-  const body = parseHTML(html, schema, { mode: 'email', ...options });
+  const body = parseHTML(html, schema);
   const doc = withQuoted(body.type.create({ ...body.attrs, quoted }, body.content));
   return serializeToHTML(doc, schema);
 }
@@ -416,7 +430,9 @@ const FORWARD_PREFIXES = ['fwd', 'fw', 'wg'];
     starts with. */
 function prefixed(subject = '', prefix: string, family: readonly string[]): string {
   const own = prefix.trim().replace(/:$/, '').trim();
-  const words = [...family, own].filter(Boolean).map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const words = [...family, own]
+    .filter(Boolean)
+    .map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
   const pattern = new RegExp(`^(?:${words.join('|')})\\s*(?:\\[\\d+\\])?\\s*:\\s*`, 'i');
   let rest = subject.trim();
   while (pattern.test(rest)) rest = rest.replace(pattern, '');
@@ -425,27 +441,32 @@ function prefixed(subject = '', prefix: string, family: readonly string[]): stri
 
 /**
  * The imported message as the document itself — the `.eml`-drop / paste law:
- * the body parses through the email schema (full strip, which doubles as
- * sanitization) and *becomes* the document; nothing else of the message
- * survives into it. Pair with `parseEml`:
- * `html.set(importedDocument(parseEml(raw)))`.
+ * the body is read by the one parse, exactly as it was sent — a whole
+ * document keeps its head, its styles and its markup — and *becomes* the
+ * document; only executable content is refused. Nothing else of the message
+ * survives into it. Pair with `toInboundMessage`:
+ * `html.set(importedDocument(toInboundMessage(parsed)))`.
  */
 export function importedDocument(inbound: InboundMessage): string {
   const schema = getSchema();
-  const blocks = inboundBlocks(inbound, schema);
-  const doc = schema.nodes['doc'].create(null, blocks.childCount ? blocks : emptyParagraph(schema));
-  return serializeToHTML(doc, schema);
+  const doc = inbound.html
+    ? parseHTML(inbound.html, schema)
+    : schema.topNodeType.create(null, inboundBlocks(inbound, schema));
+  return serializeToHTML(
+    doc.childCount ? doc : doc.type.create(doc.attrs, emptyParagraph(schema)),
+    schema,
+  );
 }
 
 /**
  * What an import will lose — the *legibility of loss* half of the import law.
- * The parse itself never reports (it just repairs); this walks the inbound
- * HTML against the schema's own parse vocabulary and says what won't survive,
- * so the host can tell the user instead of losing content silently.
+ * The parse keeps everything as it was sent but executable content; this
+ * says what of that a message held, so the host can tell the user instead of
+ * losing it silently.
  */
 export interface ImportLoss {
-  /** Elements whose tag the schema has no parse rule for — the element is
-      removed on parse (its text content may still survive, unwrapped). */
+  /** Elements the parse refuses (`<script>`, `<iframe>`, `<svg>`, …) —
+      removed with what they hold. */
   removedElements: number;
   /** The distinct removed tags, most frequent first. */
   removedTags: string[];
@@ -457,12 +478,11 @@ export interface ImportLoss {
 /** Computes the {@link ImportLoss} for an inbound message — pure, derived
     from the same HTML `importedDocument` consumes:
     `const loss = importLoss(inbound)` alongside the import, then surface it
-    ("3 elements outside the schema removed (o:p, font)…"). */
+    ("2 elements refused (script, iframe)…"). */
 export function importLoss(inbound: InboundMessage): ImportLoss {
   const none: ImportLoss = { removedElements: 0, removedTags: [], inlineImages: 0 };
   if (!inbound.html) return none;
 
-  const known = schemaTags(getSchema());
   const dom = new DOMParser().parseFromString(inbound.html, 'text/html');
   const removedByTag = new Map<string, number>();
   let removedElements = 0;
@@ -476,7 +496,7 @@ export function importLoss(inbound: InboundMessage): ImportLoss {
     ) {
       inlineImages++;
     }
-    if (!known.has(tag)) {
+    if (REFUSED_TAGS.has(tag)) {
       removedElements++;
       removedByTag.set(tag, (removedByTag.get(tag) ?? 0) + 1);
     }
@@ -486,34 +506,15 @@ export function importLoss(inbound: InboundMessage): ImportLoss {
   return { removedElements, removedTags, inlineImages };
 }
 
-/** Tags with a parse rule somewhere in the schema — the vocabulary of the
-    repair-mode parse the import runs. tbody & friends have no rule of their
-    own, but the parser walks through them and our serializer emits `<tbody>`,
-    so they are structure, not loss. Preserve-only rules (which would claim
-    any tag) and refusals (which drop a tag on purpose) are not vocabulary. */
-let knownTags: Set<string> | undefined;
-function schemaTags(schema: Schema): Set<string> {
-  if (knownTags) return knownTags;
-  const tags = new Set<string>(['tbody', 'thead', 'tfoot']);
-  const collect = (parseDOM: unknown) => {
-    for (const rule of (parseDOM as Array<{ tag?: string; ignore?: boolean }>) ?? []) {
-      if (rule.ignore || ruleScope(rule as never) === 'authored') continue;
-      const tag = rule.tag?.split(/[\s\[.:,>]/)[0]?.toLowerCase();
-      if (tag) tags.add(tag);
-    }
-  };
-  for (const type of Object.values(schema.nodes)) collect(type.spec.parseDOM);
-  for (const type of Object.values(schema.marks)) collect(type.spec.parseDOM);
-  knownTags = tags;
-  return tags;
-}
-
 /** The labels' attribution for what is known — degrading gracefully when
     data is partial, empty when there is none (the quote then stands on its
     own). */
 function attributionLine(inbound: InboundMessage, options?: ComposeSeedOptions): string | null {
   const date = inbound.date === undefined ? undefined : formatDate(inbound.date, options);
-  return labelsOf(options).attribution({ from: inbound.from || undefined, date: date || undefined });
+  return labelsOf(options).attribution({
+    from: inbound.from || undefined,
+    date: date || undefined,
+  });
 }
 
 function formatDate(date: Date | string, options?: ComposeSeedOptions): string {
@@ -524,8 +525,9 @@ function formatDate(date: Date | string, options?: ComposeSeedOptions): string {
   }).format(date);
 }
 
-/** The inbound body as schema blocks: HTML parses through the schema (the
-    paste law — foreign markup is repaired, unsafe markup dies); plain text
+/** The inbound body as schema blocks: HTML through the one parse (kept as
+    it was sent; unsafe markup dies; a whole document's head stays behind —
+    a quote is part of a body); plain text
     becomes one paragraph per line, empty lines included. */
 function inboundBlocks(inbound: InboundMessage, schema: Schema): Fragment {
   if (inbound.html) return parseHTML(inbound.html, schema).content;

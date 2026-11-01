@@ -62,16 +62,18 @@ describe('quoted history', () => {
     expect(editor.getQuoted()).toBe(QUOTE);
     editor.setText('plain');
     expect(editor.getQuoted()).toBe(QUOTE);
-    editor.exec(replaceHTML('<!doctype html><html><head></head><body><div>An .eml</div></body></html>'));
+    editor.exec(
+      replaceHTML('<!doctype html><html><head></head><body><div>An .eml</div></body></html>'),
+    );
     expect(editor.getQuoted()).toBe(QUOTE);
     expect(box()).not.toBeNull();
   });
 
-  it('keeps only what the schema keeps: foreign and unsafe markup is gone', () => {
-    editor.setQuoted('<blockquote class="gmail_quote"><p onclick="x()">Hi</p><script>x()</script></blockquote>');
-    expect(editor.getQuoted()).toBe(
-      '<blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div>Hi</div></blockquote>',
+  it('keeps the history as it was sent: only what is unsafe is gone', () => {
+    editor.setQuoted(
+      '<blockquote class="gmail_quote"><p onclick="x()">Hi</p><script>x()</script></blockquote>',
     );
+    expect(editor.getQuoted()).toBe('<blockquote class="gmail_quote"><p>Hi</p></blockquote>');
   });
 
   it('⋯ shows it and folds it again; nothing of it enters the body', () => {
@@ -138,7 +140,12 @@ describe('quoted history', () => {
     mount([
       ...emailExtensions.filter((extension) => extension.name !== 'quotedHistory'),
       createQuotedHistory({
-        labels: { show: 'Zitat zeigen', hide: 'Zitat ausblenden', edit: 'Zitat bearbeiten', remove: 'Zitat entfernen' },
+        labels: {
+          show: 'Zitat zeigen',
+          hide: 'Zitat ausblenden',
+          edit: 'Zitat bearbeiten',
+          remove: 'Zitat entfernen',
+        },
       }),
     ]);
     expect(button('fold')!.getAttribute('aria-label')).toBe('Zitat zeigen');

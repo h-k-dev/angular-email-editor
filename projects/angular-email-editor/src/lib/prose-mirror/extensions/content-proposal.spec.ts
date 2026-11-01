@@ -26,7 +26,6 @@ describe('createContentProposal / proposeContent', () => {
       parent: host,
       extensions: richTextExtensions,
       content,
-      parseMode: 'repair',
     });
     const out = other.getHTML();
     other.destroy();
@@ -64,8 +63,6 @@ describe('createContentProposal / proposeContent', () => {
         createContentProposal({ onChange: (state) => changes.push(state) }),
       ],
       content: ORIGINAL,
-      // Proposals land as canonical blocks; this suite compares against them.
-      parseMode: 'repair',
     });
     editor.view.dispatch(
       editor.state.tr.setSelection(TextSelection.create(editor.state.doc, end())),
@@ -92,11 +89,8 @@ describe('createContentProposal / proposeContent', () => {
     expect(changes.at(-1)).toEqual({ range: { from: end(), to: end() }, streaming: true });
     writer.write(' Bitte');
     writer.write(' <strong>lesen Sie</strong> das.');
-    expect(html()).toBe(
-      canon(
-        '<p>We met last week. Bitte <strong style="font-weight: bold;">lesen Sie</strong> das.</p>',
-      ),
-    );
+    // The proposal's markup is kept as written.
+    expect(html()).toBe(canon('<p>We met last week. Bitte <strong>lesen Sie</strong> das.</p>'));
     expect(proposed()).toBeGreaterThan(0);
     expect(proposalRange(editor.state)).toEqual({ from: 18, to: end() });
     finish();
@@ -177,7 +171,8 @@ describe('createContentProposal / proposeContent', () => {
     await run.done;
     expect(proposed()).toBeGreaterThan(0);
     acceptProposal(editor.view);
-    expect(html()).toBe(canon('<p>Hallo,</p><ul><li><p>eins</p></li><li><p>zwei</p></li></ul>'));
+    // Exactly what loading the same email would make of it.
+    expect(html()).toBe(canon('<p>Hallo,</p><ul><li>eins</li><li>zwei</li></ul>'));
     expect(editor.exec(undo)).toBe(true);
     expect(html()).toBe(canon('<p></p>'));
   });

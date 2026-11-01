@@ -7,14 +7,7 @@ import { unsetMark } from './unset.utils';
 export const Underline = defineMark({
   name: 'underline',
   spec: {
-    parseDOM: [
-      { tag: 'u' },
-      {
-        style: 'text-decoration',
-        consuming: false,
-        getAttrs: (style) => (style.includes('underline') ? {} : false),
-      },
-    ],
+    parseDOM: [{ tag: 'u' }],
     toDOM: () => ['u', { style: 'text-decoration: underline;' }, 0],
   },
   commands: ({ schema }) => ({

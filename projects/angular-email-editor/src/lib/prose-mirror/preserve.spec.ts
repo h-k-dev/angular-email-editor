@@ -10,11 +10,10 @@ import { MJML_WORLDLY_HTML } from './fixtures/mjml-worldly';
 import { GOLDEN_HTML } from './fixtures/golden';
 
 const schema = createSchema(emailExtensions);
-const preserve = (html: string) =>
-  serializeToHTML(parseHTML(html, schema, { mode: 'preserve' }), schema);
-const repair = (html: string) => serializeToHTML(parseHTML(html, schema), schema);
-const email = (html: string) => serializeToHTML(parseHTML(html, schema, { mode: 'email' }), schema);
-const emailDoc = (html: string) => parseHTML(html, schema, { mode: 'email' });
+/** The one parse, out again — called by what each test shows of it. */
+const email = (html: string) => serializeToHTML(parseHTML(html, schema), schema);
+const preserve = email;
+const emailDoc = (html: string) => parseHTML(html, schema);
 
 /**
  * A rendering-relevant outline of markup: every element with its attributes
@@ -69,7 +68,7 @@ function outline(html: string): string[] {
   return events;
 }
 
-describe('email parse — the MJML target', () => {
+describe('the parse — the MJML target', () => {
   const canonical = email(MJML_WORLDLY_HTML);
 
   it('keeps the whole document envelope: doctype, html attributes, body attributes', () => {
@@ -152,15 +151,10 @@ describe('email parse — the MJML target', () => {
     );
   });
 
-  it('drops nothing: MJML emits only what floor clients apply, so email mode == preserve mode', () => {
-    expect(canonical).toBe(
-      serializeToHTML(parseHTML(MJML_WORLDLY_HTML, schema, { mode: 'preserve' }), schema),
+  it('knows all of it: MJML emits only what floor clients apply — nothing is "not known yet"', () => {
+    expect(lintHTML(MJML_WORLDLY_HTML).some((d) => d.message.includes('not known yet'))).toBe(
+      false,
     );
-    expect(
-      lintHTML(MJML_WORLDLY_HTML, undefined, { mode: 'email' }).some((d) =>
-        d.message.includes('dropped on parse'),
-      ),
-    ).toBe(false);
   });
 
   it('parses into the composer’s own nodes — lines, images, tables, buttons, links — not opaque markup', () => {
@@ -214,7 +208,7 @@ describe('email parse — the MJML target', () => {
   });
 
   it('formats as a document, and formatting is presentation only', () => {
-    const format = (html: string) => formatHTML(html, undefined, undefined, { mode: 'email' });
+    const format = (html: string) => formatHTML(html);
     const formatted = format(MJML_WORLDLY_HTML);
     expect(formatted.split('\n').slice(0, 4)).toEqual([
       '<!doctype html>',
@@ -232,7 +226,7 @@ describe('email parse — the MJML target', () => {
   });
 
   it('lints clean of errors — the envelope, comments and conditionals are all legal', () => {
-    const diagnostics = lintHTML(MJML_WORLDLY_HTML, undefined, { mode: 'email' });
+    const diagnostics = lintHTML(MJML_WORLDLY_HTML);
     expect(diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
     expect(diagnostics.some((d) => d.message.includes('<html>'))).toBe(false);
     expect(diagnostics.some((d) => d.message.includes('<style>'))).toBe(false);
@@ -241,7 +235,7 @@ describe('email parse — the MJML target', () => {
   it('round-trips through the editor: setContent → getHTML is the canonical document', () => {
     const parent = document.createElement('div');
     document.body.appendChild(parent);
-    const editor = createEditor({ parent, extensions: emailExtensions, parseMode: 'email' });
+    const editor = createEditor({ parent, extensions: emailExtensions });
     editor.setContent(MJML_WORLDLY_HTML);
     expect(editor.getHTML()).toBe(canonical);
     expect(editor.state.doc.attrs['envelope']).not.toBeNull();
@@ -258,27 +252,20 @@ describe('email parse — the MJML target', () => {
   });
 
   it('scopes the head styles to the editor and hoists imports for the visual pane', () => {
-    const doc = parseHTML(MJML_WORLDLY_HTML, schema, { mode: 'preserve' });
+    const doc = parseHTML(MJML_WORLDLY_HTML, schema);
     const css = scopedDocumentCss(doc, 'aee-doc-1');
     const lines = css.split('\n');
     expect(lines[0]).toBe(
       '@import url("https://fonts.googleapis.com/css?family=Ubuntu:300,400,500,700");',
     );
+    // The head's own unquoted `@import`, its URL quoted in the editor's copy.
     expect(lines[1]).toBe(
-      '@import url(https://fonts.googleapis.com/css?family=Ubuntu:300,400,500,700);',
+      '@import url("https://fonts.googleapis.com/css?family=Ubuntu:300,400,500,700");',
     );
     expect(lines[2]).toBe('@scope (.aee-doc-1) {');
     expect(css).toContain('@media screen and (min-width:480px) {\n');
     expect(css).toContain('.mj-column-per-50 {');
     expect(css.endsWith('\n}')).toBe(true);
-  });
-
-  it('repair mode still imports the same input into canonical blocks', () => {
-    const repaired = repair(MJML_WORLDLY_HTML);
-    expect(repaired.startsWith('<!doctype')).toBe(false);
-    expect(repaired).not.toContain('[if mso | IE]');
-    expect(repaired).not.toContain('mj-column');
-    expect(repaired).toContain('BOOK NOW');
   });
 });
 
@@ -320,7 +307,7 @@ describe('preserving parse — foreign markup in general', () => {
     );
   });
 
-  it('still refuses what must never be emitted, in either mode', () => {
+  it('still refuses what must never be emitted', () => {
     const hostile =
       '<div onclick="x()" class="k">a</div><script>evil()</script>' +
       '<a href="javascript:alert(1)">l</a><img src="javascript:x" alt="i">' +
@@ -331,7 +318,7 @@ describe('preserving parse — foreign markup in general', () => {
     expect(kept).not.toContain('javascript:');
     expect(kept).not.toContain('iframe');
     expect(kept).toContain('class="k"');
-    expect(repair(hostile)).not.toContain('evil()');
+    expect(kept).not.toContain('evil()');
   });
 
   it('nests generic inline elements outermost-first, as authored', () => {
@@ -357,10 +344,10 @@ describe('preserving parse — foreign markup in general', () => {
   });
 });
 
-describe('the composer’s own output parses back as itself, in every mode', () => {
-  const nodeTypes = (html: string, mode: 'email' | 'preserve' | 'repair') => {
+describe('the composer’s own output parses back as itself', () => {
+  const nodeTypes = (html: string) => {
     const names: string[] = [];
-    parseHTML(html, schema, { mode }).descendants((node) => {
+    parseHTML(html, schema).descendants((node) => {
       names.push(node.type.name);
       return true;
     });
@@ -370,8 +357,8 @@ describe('the composer’s own output parses back as itself, in every mode', () 
   for (const html of GOLDEN_HTML) {
     it(`is identity, into the same nodes, on: ${html.slice(0, 60)}`, () => {
       expect(email(html)).toBe(html);
-      expect(preserve(html)).toBe(html);
-      expect(nodeTypes(html, 'email')).toEqual(nodeTypes(html, 'repair'));
+      // Into our own nodes: nothing of it is kept as foreign markup.
+      expect(nodeTypes(html).filter((name) => name.startsWith('html'))).toEqual([]);
     });
   }
 
@@ -386,7 +373,7 @@ describe('the composer’s own output parses back as itself, in every mode', () 
     expect(out).toContain('<!--[if mso]>');
 
     const names: string[] = [];
-    parseHTML(out, schema, { mode: 'email' }).descendants((node) => {
+    parseHTML(out, schema).descendants((node) => {
       names.push(node.type.name);
       return true;
     });
@@ -399,7 +386,7 @@ describe('the composer’s own output parses back as itself, in every mode', () 
     const table = GOLDEN_HTML.find((html) => html.startsWith('<table'))!;
     const mixed = table.replace('<tr>', '<tr class="x">');
     expect(email(mixed)).toBe(mixed);
-    const doc = parseHTML(mixed, schema, { mode: 'email' });
+    const doc = parseHTML(mixed, schema);
     expect(doc.child(0).type.name).toBe('table');
     expect(doc.child(0).attrs['html']).toBeNull();
     expect(doc.child(0).child(0).attrs['html'].path).toEqual([
@@ -408,25 +395,12 @@ describe('the composer’s own output parses back as itself, in every mode', () 
   });
 
   it('marks stay lenient: a decorated <b> is still bold', () => {
-    const doc = parseHTML('<div><b class="x">bold</b></div>', schema, { mode: 'preserve' });
+    const doc = parseHTML('<div><b class="x">bold</b></div>', schema);
     expect(
       doc
         .child(0)
         .child(0)
         .marks.map((m) => m.type.name),
     ).toEqual(['bold']);
-  });
-
-  it('the clipboard parser repairs — pasted class soup does not survive', () => {
-    const clipboard = createDOMParser(schema, 'repair');
-    const dom = new DOMParser().parseFromString(
-      '<div class="MsoNormal"><b>x</b></div>',
-      'text/html',
-    );
-    const doc = clipboard.parse(dom.body);
-    expect(doc.child(0).type.name).toBe('paragraph');
-    expect(serializeToHTML(doc, schema)).toBe(
-      '<div><strong style="font-weight: bold;">x</strong></div>',
-    );
   });
 });

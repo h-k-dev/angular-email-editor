@@ -28,6 +28,8 @@ import { Strike } from './marks/strike';
 import { TextStyle } from './marks/text-style';
 import { History } from './history';
 import { LayoutGuides } from './layout-guides';
+import { UnknownMarkup } from './unknown-markup';
+import { TrailingBreakLine } from './trailing-break-line';
 import { LayoutInteraction } from './layout-interaction';
 import { Gapcursor } from './gapcursor';
 import { ClickBelow } from './click-below';
@@ -98,6 +100,11 @@ const withParagraph = (paragraph: NodeExtension): Extension[] => [
   History,
   // One editor-only outline mechanism for every layout block (table, columns).
   LayoutGuides,
+  // What the library does not know yet, marked where it stands (editor only).
+  UnknownMarkup,
+  // The caret's line when it ends in a line break (the host hides the empty
+  // line ProseMirror draws after one everywhere else, as a client does).
+  TrailingBreakLine,
   // Their grips, drags, pills and menus, on or off by type (`setLayoutInteraction`).
   LayoutInteraction,
   NoTextDrag,
@@ -110,10 +117,9 @@ const withParagraph = (paragraph: NodeExtension): Extension[] => [
   BaseKeymap,
   PasteHygiene,
   ClearFormatting,
-  // The structural family: authored layout markup kept verbatim in the
-  // `email` and `preserve` modes (the source pane, `setContent`, a paste);
-  // inert in `repair` mode (seeds). Last, so the canonical nodes stay the
-  // defaults of every group.
+  // The structural family: authored markup kept verbatim (the parse, the
+  // source pane, `setContent`, a paste, the seeds). Last, so the canonical
+  // nodes stay the defaults of every group.
   ...preserveExtensions,
 ];
 

@@ -18,7 +18,6 @@ export default {
       styling: 'スタイル',
       components: 'コンポーネント',
       utilities: 'ユーティリティ',
-      render: 'レンダリング',
       mailbox: 'メールボックス',
       designer: 'デザイナー',
       developers: '開発者向け',
@@ -235,6 +234,10 @@ export default {
     saved: 'テンプレートを保存しました',
     saveFailed: 'テンプレートを保存できませんでした',
     noSubject: '（件名なし）',
+    study: {
+      zone: 'メールをデザインとして開く',
+      hint: '.eml をここにドロップ、選択、またはここを選んで貼り付け（Ctrl+V）。生のテキストも可。元に戻すとデザインが戻ります。',
+    },
     add: '追加',
     layout: {
       title: 'レイアウト',
@@ -420,6 +423,17 @@ export default {
     },
   },
   editor: {
+    mistakes: {
+      title: '別のエディターが保存した誤り',
+      fix: 'すべて修正',
+      dismiss: '今はしない',
+      'link-scheme': 'スキームが壊れたリンク（{{count}}）',
+      video: 'メールで再生されない動画をリンクに（{{count}}）',
+      'office-mark': 'Word の段落記号（{{count}}）',
+      'office-class': '定義のない Word のクラス（{{count}}）',
+      'bootstrap-borders': 'Bootstrap の表の罫線を書き出す（{{count}}）',
+      'inline-around-blocks': 'ブロック全体を囲む書式を内側へ（{{count}}）',
+    },
     placeholder: {
       line: '入力するか、/ でコマンドを表示',
       heading: '見出し{{level}}',

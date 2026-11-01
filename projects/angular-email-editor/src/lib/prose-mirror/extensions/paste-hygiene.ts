@@ -11,9 +11,9 @@ import { createDOMParser } from '../preserve';
 const STRIP_TAGS = new Set(['style', 'script', 'xml', 'meta', 'link', 'title', 'iframe']);
 
 /**
- * Pre-parse cleanup for pasted HTML. Deliberately minimal: the parse keeps
- * the markup as authored and drops what no client applies — this only
- * removes what would otherwise *leak through* it:
+ * Pre-parse cleanup for pasted HTML — the clipboard's, never the email's.
+ * Deliberately minimal: the parse keeps the markup as it is used; this only
+ * removes what the clipboard adds and would otherwise *leak through* it:
  *
  * - `<style>`/`<script>`/… subtrees (their text content would survive),
  * - Word's namespaced tags (`<o:p>`, `<w:sdt>`, `<v:shape>`, …),
@@ -81,22 +81,26 @@ function pasted(view: EditorView, slice: Slice): Slice {
  */
 export const PasteHygiene = defineExtension({
   name: 'pasteHygiene',
-  plugins: ({ schema, parseMode = 'email' }) => [
+  plugins: ({ schema }) => [
     new Plugin({
       key: new PluginKey('pasteHygiene'),
       props: {
         transformPastedHTML: sanitizePastedHTML,
-        clipboardParser: createDOMParser(schema, parseMode),
+        clipboardParser: createDOMParser(schema),
         handlePaste(view, event) {
           const html = event.clipboardData?.getData('text/html');
           if (!html || html.includes('data-pm-slice')) return false;
-          const doc = parseHTML(sanitizePastedHTML(html), schema, { mode: parseMode });
+          const doc = parseHTML(sanitizePastedHTML(html), schema);
           const { state } = view;
           const layout = doc.attrs['pageLayout'];
           const tr =
             layout && takesWholeDocument(state)
               ? state.tr
-                  .replaceWith(0, state.doc.content.size, pasted(view, new Slice(doc.content, 0, 0)).content)
+                  .replaceWith(
+                    0,
+                    state.doc.content.size,
+                    pasted(view, new Slice(doc.content, 0, 0)).content,
+                  )
                   .setDocAttribute('pageLayout', layout)
               : state.tr.replaceSelection(pasted(view, Slice.maxOpen(doc.content)));
           view.dispatch(tr.scrollIntoView().setMeta('paste', true).setMeta('uiEvent', 'paste'));

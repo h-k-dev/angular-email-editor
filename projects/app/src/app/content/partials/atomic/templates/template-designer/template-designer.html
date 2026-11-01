@@ -140,14 +140,16 @@
       [attr.aria-label]="'designer.layout.title' | translate"
     >
       <p class="designer-block__empty">{{ 'designer.layout.hint' | translate }}</p>
-      <div class="designer-layout__kinds" role="radiogroup" [attr.aria-label]="'designer.layout.kind' | translate">
+      <div
+        class="designer-layout__kinds"
+        role="radiogroup"
+        [attr.aria-label]="'designer.layout.kind' | translate"
+      >
         @for (kind of layoutKinds; track kind) {
           <label class="designer-layout__kind">
             <input type="radio" [value]="kind" [formField]="page.kind" />
             <span class="designer-layout__swatch" [attr.data-kind]="kind" aria-hidden="true">
-              <span class="designer-layout__column">
-                <span></span><span></span><span></span>
-              </span>
+              <span class="designer-layout__column"> <span></span><span></span><span></span> </span>
             </span>
             {{ 'designer.layout.' + kind | translate }}
           </label>
@@ -193,7 +195,9 @@
              its own (the column's cellpadding in the email). -->
         @if (page.kind().value() === 'table') {
           <label class="designer-layout__row">
-            <span class="designer-layout__label">{{ 'designer.layout.rowPadding' | translate }}</span>
+            <span class="designer-layout__label">{{
+              'designer.layout.rowPadding' | translate
+            }}</span>
             <span class="designer-layout__field">
               <input
                 type="number"
@@ -487,10 +491,45 @@
         </ul>
       }
       <!-- The drop zone, drawn: a dashed box that is the picker's button. -->
-      <button type="button" class="designer-files__zone" (click)="zone.openFilePicker($event)">
+      <button type="button" class="designer-zone" (click)="zone.openFilePicker($event)">
         <mat-icon aria-hidden="true">attach_file</mat-icon>
         {{ 'designer.addAttachments' | translate }}
       </button>
+    </div>
+
+    <!-- An email to study: one received, brought in as the inbox brings
+         one in — dropped here, pasted while the zone has the focus (the
+         file, or its raw text: Show original), or picked — and made this
+         design: its body, its subject, its files. Undo puts the design
+         back; Revert, the template as saved. -->
+    <div
+      class="designer-study"
+      messageImport
+      messageImportPaste="host"
+      #study="messageImport"
+      [attr.data-drag-over]="study.dragging() || null"
+      (messageImport)="studyEmail($event)"
+    >
+      <button
+        type="button"
+        class="designer-zone"
+        aria-describedby="designer-study-hint"
+        [attr.aria-busy]="studying() || null"
+        (click)="studyPicker.click()"
+      >
+        <mat-icon aria-hidden="true">drafts</mat-icon>
+        {{ 'designer.study.zone' | translate }}
+      </button>
+      <p id="designer-study-hint" class="designer-study__hint">
+        {{ 'designer.study.hint' | translate }}
+      </p>
+      <input
+        #studyPicker
+        type="file"
+        hidden
+        accept=".eml,message/rfc822"
+        (change)="studyPicked(studyPicker)"
+      />
     </div>
   </aside>
 </div>

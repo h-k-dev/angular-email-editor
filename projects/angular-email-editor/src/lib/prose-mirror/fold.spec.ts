@@ -15,11 +15,12 @@ const schema = createSchema(emailExtensions);
     jsdom wraps: no window, so thousands of parses cost the same each — a
     jsdom DOMParser keeps every document it made, and slows with each. */
 const dom = (html: string): string =>
-  [false, true].map((scriptingEnabled) => serialize(parse(html, { scriptingEnabled }))).join('\n—\n');
+  [false, true]
+    .map((scriptingEnabled) => serialize(parse(html, { scriptingEnabled })))
+    .join('\n—\n');
 
 /** Our own reading of the markup — what the editor would make of it. */
-const ours = (html: string) =>
-  serializeToHTML(parseHTML(html, schema, { mode: 'preserve' }), schema);
+const ours = (html: string) => serializeToHTML(parseHTML(html, schema), schema);
 
 const octets = (line: string) => new TextEncoder().encode(line).length;
 
@@ -96,7 +97,7 @@ describe('foldHTML', () => {
     const folded = expectSafe(html.repeat(10), 30);
     expect(folded).toContain('title="a > b = c &quot; d"');
     expect(folded).toContain('href="https://x.io/a b"');
-    expect(folded).toContain('data-q=\'single " quote > here\'');
+    expect(folded).toContain("data-q='single \" quote > here'");
     expect(folded).toMatch(/width=600\sheight=20\salt="x"/);
   });
 
@@ -112,7 +113,8 @@ describe('foldHTML', () => {
   it('never touches a comment — Outlook’s conditional comments above all', () => {
     const conditional =
       '<!--[if mso | IE]><table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width:600px;" width="600"><tr><td style="line-height:0px;font-size:0px;"><![endif]-->';
-    const revealed = '<!--[if !mso]><!--><meta http-equiv="X-UA-Compatible" content="IE=edge"><!--<![endif]-->';
+    const revealed =
+      '<!--[if !mso]><!--><meta http-equiv="X-UA-Compatible" content="IE=edge"><!--<![endif]-->';
     const html = `<div class="a b">${conditional}${revealed}<!-- a "quoted" > comment <td a="1" b="2"> -->x</div>`;
     const folded = expectSafe(html.repeat(5), 40);
     expect(folded).toContain(conditional);
@@ -159,7 +161,10 @@ describe('foldHTML', () => {
       // never wrongly.
       '<html><body><?xml version="1.0" encoding="utf-8"?><div title="t u"><![CDATA[ a > b <c d="e f"> ]]></div><p class="a b">x</p></body></html>';
     const folded = expectSafe(html, 10);
-    expect(unbroken(folded).split('\n')[0]).toBe(html.slice(0, html.indexOf('<html>')) + '<html><body><?xml version="1.0" encoding="utf-8"?><div');
+    expect(unbroken(folded).split('\n')[0]).toBe(
+      html.slice(0, html.indexOf('<html>')) +
+        '<html><body><?xml version="1.0" encoding="utf-8"?><div',
+    );
     expect(folded).toContain('<![CDATA[ a > b <c d="e f"> ]]>');
     expect(unbroken(folded)).toContain('<p\nclass="a b">');
   });
@@ -262,10 +267,9 @@ describe('foldHTML', () => {
     // value alone is wider — a value is never folded.
     for (const line of folded.split('\n')) {
       if (octets(line) <= 120) continue;
-      expect(
-        line.includes('<!--') || line.includes('{') || /="[^"]{80,}"/.test(line),
-        line,
-      ).toBe(true);
+      expect(line.includes('<!--') || line.includes('{') || /="[^"]{80,}"/.test(line), line).toBe(
+        true,
+      );
     }
     expect(folded.split('\n').length).toBeGreaterThan(50);
     expect(ours(folded)).toBe(ours(minified));
@@ -283,8 +287,35 @@ describe('foldHTML', () => {
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
     const pick = <T>(items: readonly T[]): T => items[Math.floor(random() * items.length)];
-    const names = ['div', 'td', 'TABLE', 'a', 'img', 'span', 'p', 'pre', 'style', 'title', 'textarea', 'br', 'svg', 'x-y'];
-    const values = ['', 'a b', 'x>y', "it's", 'say "hi"', 'a=b', ' lead', 'tail ', '<b>', 'ü 東', '\t'];
+    const names = [
+      'div',
+      'td',
+      'TABLE',
+      'a',
+      'img',
+      'span',
+      'p',
+      'pre',
+      'style',
+      'title',
+      'textarea',
+      'br',
+      'svg',
+      'x-y',
+    ];
+    const values = [
+      '',
+      'a b',
+      'x>y',
+      "it's",
+      'say "hi"',
+      'a=b',
+      ' lead',
+      'tail ',
+      '<b>',
+      'ü 東',
+      '\t',
+    ];
     const spaces = [' ', '  ', '\t', ' \t ', '\n'];
     const attribute = () => {
       const name = pick(['class', 'style', 'data-x', 'ALT', 'width', 'href']);
@@ -309,16 +340,37 @@ describe('foldHTML', () => {
     };
     const piece = (depth: number): string => {
       const roll = random();
-      if (roll < 0.25) return pick(['text with  spaces ', 'a < b ', '1 > 0 ', '&amp; ', 'ü東 ', '<3 ', '</ x> ']);
-      if (roll < 0.33) return pick(['<!-- c "q" > <td a="1 2"> -->', '<!--[if mso]><td a="1 2"><![endif]-->', '<!---->', '<!-->', '<!--[if !mso]><!-->']);
-      if (roll < 0.36) return pick(['<!doctype html>', '<?pi a b?>', '<![CDATA[ x <y z="1 2"> ]]>']);
-      if (roll < 0.40) return pick(['<svg><path d="a b"/><g class="x y"><circle r="1"/></g></svg>', '<br/>', '<br />', '<img src=x/>', '<p/>']);
+      if (roll < 0.25)
+        return pick(['text with  spaces ', 'a < b ', '1 > 0 ', '&amp; ', 'ü東 ', '<3 ', '</ x> ']);
+      if (roll < 0.33)
+        return pick([
+          '<!-- c "q" > <td a="1 2"> -->',
+          '<!--[if mso]><td a="1 2"><![endif]-->',
+          '<!---->',
+          '<!-->',
+          '<!--[if !mso]><!-->',
+        ]);
+      if (roll < 0.36)
+        return pick(['<!doctype html>', '<?pi a b?>', '<![CDATA[ x <y z="1 2"> ]]>']);
+      if (roll < 0.4)
+        return pick([
+          '<svg><path d="a b"/><g class="x y"><circle r="1"/></g></svg>',
+          '<br/>',
+          '<br />',
+          '<img src=x/>',
+          '<p/>',
+        ]);
       const name = pick(names);
-      const attrs = Array.from({ length: Math.floor(random() * 4) }, () => pick(spaces) + attribute()).join('');
+      const attrs = Array.from(
+        { length: Math.floor(random() * 4) },
+        () => pick(spaces) + attribute(),
+      ).join('');
       const open = `<${name}${attrs}${pick(['', ' ', ' /', '\t'])}>`;
       if (name === 'br' || name === 'img') return open;
       const inner =
-        depth > 3 ? 'leaf' : Array.from({ length: 1 + Math.floor(random() * 3) }, () => piece(depth + 1)).join('');
+        depth > 3
+          ? 'leaf'
+          : Array.from({ length: 1 + Math.floor(random() * 3) }, () => piece(depth + 1)).join('');
       return `${open}${inner}</${name}${pick(['', ' '])}>`;
     };
     const runs = 3000;

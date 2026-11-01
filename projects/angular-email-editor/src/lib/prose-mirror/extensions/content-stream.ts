@@ -1,12 +1,8 @@
-import {
-  Fragment,
-  Node as ProseMirrorNode,
-  DOMParser as ProseMirrorDOMParser,
-  Slice,
-} from 'prosemirror-model';
+import { Fragment, Node as ProseMirrorNode, Slice } from 'prosemirror-model';
 import { EditorState, Plugin, PluginKey, Transaction } from 'prosemirror-state';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import { FunctionalExtension, defineExtension } from '../extension';
+import { createDOMParser } from '../preserve';
 
 /** Where a stream is writing: what it has written so far. */
 export interface ContentStreamRange {
@@ -160,10 +156,11 @@ export const streamingRange = (state: EditorState): ContentStreamRange | null =>
 
 /** An HTML fragment as an *open* slice: its first line joins the line it is
     written into, the way typed text would. A tag cut off at the buffer's
-    end — `<stro` — is left out until the rest of it arrives. */
+    end — `<stro` — is left out until the rest of it arrives. Read by the
+    one parse, as everything else that brings HTML in. */
 function parseFragment(html: string, state: EditorState): Slice {
   const dom = new window.DOMParser().parseFromString(html.replace(/<[^>]*$/, ''), 'text/html');
-  return ProseMirrorDOMParser.fromSchema(state.schema).parseSlice(dom.body);
+  return createDOMParser(state.schema).parseSlice(dom.body);
 }
 
 /** What a reveal counts through: each character of text, each inline leaf

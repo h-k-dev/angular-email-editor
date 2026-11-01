@@ -88,7 +88,6 @@ describe('createAiWriter', () => {
         parent: host,
         extensions: emailExtensions,
         content: email,
-        parseMode: 'repair',
       });
       expect(streamed.getHTML()).toBe(whole.getHTML());
       const gaps = (html: string) => html.split('<div><br></div>').length - 1;

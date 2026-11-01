@@ -1,9 +1,6 @@
-import { emailBackgroundPalette, fillTextColor, isFillTextColor } from './dual-contrast';
+import { emailBackgroundPalette, fillTextColor } from './dual-contrast';
 import { isSafeColor, toEmailSafeColor } from './extensions/marks/text-style';
-import { pageRowStyle } from './extensions/nodes/page-row';
 import { SECTION_CONTENT_MAX, SECTION_INSET } from './extensions/nodes/section';
-import { parsePadding } from './extensions/nodes/table';
-import { inlinePadding } from './inline-style';
 import { layoutMarker, markedAs, unmark } from './layout-marker';
 
 /**
@@ -399,8 +396,9 @@ function sectionInner(section: HTMLElement): HTMLElement | null {
  * body exactly as it was serialized before {@link wrapPageLayout}. Null
  * when the body has no page of its own.
  *
- * A body with no marked page may still be a page of rows written by hand
- * (the `table` kind, unmarked): it is lifted as one ({@link rowsPage}).
+ * A body with no marked page is read as it stands: a page of rows written
+ * by hand (unmarked) is kept as authored and offered as a page of ours by
+ * the page grip (authored-page.ts), never lifted on parse.
  *
  * A marked page edited by hand may hold more than the one cell we send —
  * rows of ours copied straight into the page table, beside the column
@@ -414,7 +412,7 @@ export function liftPageLayout(root: Element): PageLayout | null {
   const pages = Array.from(root.querySelectorAll('table')).filter(
     (table) => markedAs(table) === 'page',
   );
-  if (!pages.length) return rowsPage(root);
+  if (!pages.length) return null;
   let layout: PageLayout | null = null;
   for (const page of pages) {
     if (strayCells(page).length) {
@@ -427,139 +425,10 @@ export function liftPageLayout(root: Element): PageLayout | null {
   return layout;
 }
 
-/**
- * The hand-coded page, unmarked: the body nothing but a 100% table whose one
- * cell holds one table of a fixed width (320–800px) — the column — every
- * row of it a single cell, and a fill on the page or on the column. Each
- * row becomes a row of ours (`pageRow`) with the cell's fill and padding,
- * and its words in a block carrying the text styles the column and the
- * cell gave them. Anything less exact — a row of two cells, a column of no fixed
- * width, a second block beside the page — is no page, and reads as before.
- */
-function rowsPage(root: Element): PageLayout | null {
-  const outer = soleChild(root);
-  const page = outer && soleTable(outer);
-  if (!page || markedAs(page) || page.rows.length !== 1 || page.rows[0].cells.length !== 1) {
-    return null;
-  }
-  const cell = page.rows[0].cells[0];
-  const inside = meaningful(cell);
-  const column = inside.length === 1 ? inside[0] : null;
-  if (!(column instanceof HTMLTableElement) || markedAs(column)) return null;
-  const width = fixedWidth(column);
-  if (width === null || width < PAGE_WIDTH_MIN || width > PAGE_WIDTH_MAX) return null;
-  const rows = Array.from(column.rows);
-  if (!rows.length || rows.some((row) => row.cells.length !== 1)) return null;
-  const background = fillOf(cell) ?? fillOf(page);
-  const columnBackground = fillOf(column);
-  if (!background && !columnBackground) return null;
-  const spacing = inlinePadding(cell)?.[0];
-  const inherited = textStyles(column);
-  // The plain wrappers round the page go with it: the page is the body.
-  outer!.replaceWith(...rows.map((row) => rowOfCell(row.cells[0], inherited)));
-  return normalizePageLayout({
-    kind: 'table',
-    width,
-    background,
-    columnBackground,
-    spacing: spacing ? parseFloat(spacing) || 0 : 0,
-    rowPadding: cellPadding(column),
-  });
-}
-
 /** A table's `cellpadding`, px — 0 where it says none (a hand-coded email
     writes `0`; a browser's own default, 1px, is no room anyone asked for). */
-function cellPadding(table: HTMLTableElement): number {
+export function cellPadding(table: HTMLTableElement): number {
   return parseFloat(table.getAttribute('cellpadding') ?? '') || 0;
-}
-
-/** An element's one child that says something — null for none or more. */
-function soleChild(el: Element): Element | null {
-  const inside = meaningful(el);
-  return inside.length === 1 && inside[0] instanceof Element ? inside[0] : null;
-}
-
-/** The table `el` is, or holds through plain wrappers (a `div`, a
-    `center`) and nothing else — null for anything more. */
-function soleTable(el: Element | null): HTMLTableElement | null {
-  while (el && /^(DIV|CENTER)$/.test(el.tagName)) el = soleChild(el);
-  return el instanceof HTMLTableElement ? el : null;
-}
-
-/** An element's children that say something: elements and words — no
-    comment, no white space. */
-function meaningful(el: Element): ChildNode[] {
-  return Array.from(el.childNodes).filter(
-    (node) => node.nodeType === 1 || (node.nodeType === 3 && !!node.textContent?.trim()),
-  );
-}
-
-/** A table's fixed width, px — its `max-width`, its `width` attribute, its
-    styled width — or null for one as wide as its room. */
-function fixedWidth(table: HTMLTableElement): number | null {
-  const px = (value: string | null) => {
-    const m = /^\s*(\d+(?:\.\d+)?)(?:px)?\s*$/i.exec(value ?? '');
-    return m ? Number(m[1]) : null;
-  };
-  return px(table.style.maxWidth) ?? px(table.getAttribute('width')) ?? px(table.style.width);
-}
-
-/** The text styles a row's words take from where they stand. */
-const TEXT_STYLES = [
-  'font-family',
-  'font-size',
-  'font-weight',
-  'font-style',
-  'line-height',
-  'letter-spacing',
-  'color',
-  'text-align',
-] as const;
-
-function textStyles(el: HTMLElement): Map<string, string> {
-  const styles = new Map<string, string>();
-  for (const property of TEXT_STYLES) {
-    const value = el.style.getPropertyValue(property);
-    if (value) styles.set(property, value);
-  }
-  // A fill's paired text colour is the fill's, not the words': the band
-  // (or the column) writes it again, and a dark paper re-pairs it.
-  const fill = fillOf(el);
-  if (fill && isFillTextColor(styles.get('color'), fill)) styles.delete('color');
-  const align = el.getAttribute('align');
-  if (align && !styles.has('text-align') && /^(left|center|right|justify)$/i.test(align)) {
-    styles.set('text-align', align.toLowerCase());
-  }
-  return styles;
-}
-
-/** A hand-coded row as a row of ours (`pageRow`, as it emits): the cell's
-    fill and padding, its words in a block with the text styles the column
-    and the cell gave them. */
-function rowOfCell(cell: HTMLTableCellElement, inherited: Map<string, string>): HTMLElement {
-  const doc = cell.ownerDocument;
-  const row = doc.createElement('div');
-  row.className = layoutMarker('page-row');
-  // Through the CSSOM, as the row's own emit is printed — so the row reads
-  // as one of ours, not as markup to keep verbatim. A cell with no padding
-  // of its own takes the column's (`cellpadding`, the page's rowPadding).
-  const style = pageRowStyle({
-    background: fillOf(cell),
-    color: null,
-    padding: parsePadding(cell),
-  });
-  if (style) row.style.cssText = style;
-  const styles = new Map([...inherited, ...textStyles(cell)]);
-  const words = Array.from(cell.childNodes);
-  if (!styles.size) {
-    row.append(...words);
-    return row;
-  }
-  const block = doc.createElement('div');
-  for (const [property, value] of styles) block.style.setProperty(property, value);
-  block.append(...words);
-  row.append(block);
-  return row;
 }
 
 /** Whether a page stands at the body's own level: nothing round it but

@@ -17,11 +17,6 @@ export const Strike = defineMark({
       {
         tag: 'strike',
       },
-      {
-        style: 'text-decoration',
-        consuming: false,
-        getAttrs: (style) => ((style as string).includes('line-through') ? {} : false),
-      },
     ],
     toDOM: () => ['s', { style: 'text-decoration: line-through;' }, 0],
   },

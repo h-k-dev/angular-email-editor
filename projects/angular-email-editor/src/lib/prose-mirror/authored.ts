@@ -1,7 +1,7 @@
 /**
  * Authored markup on the composer's own nodes and marks.
  *
- * In the `email` parse mode every node and mark the schema knows recognizes
+ * In the parse every node and mark the schema knows recognizes
  * the markup its parse rule accepts — MJML's styled `<div>` is a paragraph, a
  * hand-written `<table>` a table, `<b class="x">` bold — while the element's
  * tag and attributes ride along **exactly as authored** in an `html` attr.

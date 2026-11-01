@@ -19,7 +19,6 @@ export default {
       styling: 'Gestaltung',
       components: 'Komponenten',
       utilities: 'Hilfsmittel',
-      render: 'Darstellung',
       mailbox: 'Postfach',
       designer: 'Designer',
       developers: 'Entwickler',
@@ -75,7 +74,11 @@ export default {
       open: 'Einstellungen',
       title: 'Einstellungen',
       close: 'Einstellungen schließen',
-      sections: { label: 'Bereiche der Einstellungen', appearance: 'Darstellung', language: 'Sprache' },
+      sections: {
+        label: 'Bereiche der Einstellungen',
+        appearance: 'Darstellung',
+        language: 'Sprache',
+      },
       theme: {
         label: 'Design',
         hint: 'Die App hell oder dunkel – oder wie das System, auch wenn es wechselt',
@@ -238,6 +241,10 @@ export default {
     saveFailed: 'Die Vorlage konnte nicht gespeichert werden',
     noSubject: '(kein Betreff)',
     addAttachments: 'Anhänge hinzufügen',
+    study: {
+      zone: 'E-Mail als Design öffnen',
+      hint: 'Eine .eml hier ablegen, auswählen oder dies markieren und einfügen (Strg+V), auch als Rohtext. Rückgängig holt das Design zurück.',
+    },
     layout: {
       title: 'Layout',
       kind: 'Seitenlayout',
@@ -424,6 +431,17 @@ export default {
     },
   },
   editor: {
+    mistakes: {
+      title: 'Fehler aus einem anderen Editor',
+      fix: 'Alle beheben',
+      dismiss: 'Nicht jetzt',
+      'link-scheme': 'Links mit fehlerhaftem Schema ({{count}})',
+      video: 'Videos, die kein Postfach abspielt, als Links ({{count}})',
+      'office-mark': 'Word-Absatzmarken ({{count}})',
+      'office-class': 'Word-Klassen ohne Definition ({{count}})',
+      'bootstrap-borders': 'Tabellenrahmen aus Bootstrap, ausgeschrieben ({{count}})',
+      'inline-around-blocks': 'Formatierung um ganze Blöcke, nach innen verschoben ({{count}})',
+    },
     placeholder: {
       line: 'Schreiben Sie etwas oder tippen Sie / für Befehle',
       heading: 'Überschrift {{level}}',

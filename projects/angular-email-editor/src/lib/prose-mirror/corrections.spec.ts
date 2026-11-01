@@ -1,14 +1,20 @@
 import {
   correctStoredMistakes,
   dropDeadOfficeClasses,
-  embedsAsLinks,
   inlineBootstrapTableBorders,
   lowerInlinesAroundBlocks,
   repairLinkSchemes,
   unwrapOfficeParagraphMarks,
+  fixStoredMistakes,
+  storedMistakes,
   videoPage,
 } from './corrections';
+import { refusedEmbedsAsLinks } from './embeds';
 import { parseDocument } from './envelope';
+import { createEditor } from './editor';
+import { emailExtensions } from './extensions/kits';
+import { parseHTML, serializeToHTML } from './html';
+import { createSchema } from './schema';
 
 const body = (html: string) => parseDocument(html).body;
 const after = (html: string, correct: (root: HTMLElement) => void) => {
@@ -25,13 +31,15 @@ const afterDocument = (html: string, correct: (dom: Document) => void) => {
 describe('corrections', () => {
   describe('link schemes', () => {
     it('reads mailto:// and tel:// as the scheme a client knows', () => {
-      expect(after('<a href="mailto://a@b.de">a</a><a href="TEL://+4930">t</a>', repairLinkSchemes)).toBe(
-        '<a href="mailto:a@b.de">a</a><a href="tel:+4930">t</a>',
-      );
+      expect(
+        after('<a href="mailto://a@b.de">a</a><a href="TEL://+4930">t</a>', repairLinkSchemes),
+      ).toBe('<a href="mailto:a@b.de">a</a><a href="tel:+4930">t</a>');
     });
 
     it('takes http:// off a link that is one placeholder', () => {
-      expect(after('<a href="http://{{portal.link}}">p</a>', repairLinkSchemes)).toBe('<a href="{{portal.link}}">p</a>');
+      expect(after('<a href="http://{{portal.link}}">p</a>', repairLinkSchemes)).toBe(
+        '<a href="{{portal.link}}">p</a>',
+      );
     });
 
     it('leaves links that already say what they mean', () => {
@@ -44,19 +52,28 @@ describe('corrections', () => {
 
   describe('embeds', () => {
     it('names the page a viewer opens', () => {
-      expect(videoPage('//www.youtube.com/embed/dQw4w9WgXcQ')).toBe('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+      expect(videoPage('//www.youtube.com/embed/dQw4w9WgXcQ')).toBe(
+        'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      );
       expect(videoPage('https://player.vimeo.com/video/123?h=1')).toBe('https://vimeo.com/123');
-      expect(videoPage('https://cdn.example.com/clip.mp4')).toBe('https://cdn.example.com/clip.mp4');
-    });
-
-    it('turns a player into a link to its page, titled when it has one', () => {
-      expect(after('<div>a<iframe src="//www.youtube.com/embed/x1" title="Intro"></iframe></div>', embedsAsLinks)).toBe(
-        '<div>a<a href="https://www.youtube.com/watch?v=x1">Intro</a></div>',
+      expect(videoPage('https://cdn.example.com/clip.mp4')).toBe(
+        'https://cdn.example.com/clip.mp4',
       );
     });
 
+    it('turns a player into a link to its page, titled when it has one', () => {
+      expect(
+        after(
+          '<div>a<iframe src="//www.youtube.com/embed/x1" title="Intro"></iframe></div>',
+          refusedEmbedsAsLinks,
+        ),
+      ).toBe('<div>a<a href="https://www.youtube.com/watch?v=x1">Intro</a></div>');
+    });
+
     it('drops a player with no web address to link', () => {
-      expect(after('<div>a<iframe src="about:blank"></iframe></div>', embedsAsLinks)).toBe('<div>a</div>');
+      expect(after('<div>a<iframe src="about:blank"></iframe></div>', refusedEmbedsAsLinks)).toBe(
+        '<div>a</div>',
+      );
     });
   });
 
@@ -73,9 +90,12 @@ describe('corrections', () => {
     });
 
     it('drops Mso classes no stylesheet defines, keeping the others', () => {
-      expect(afterDocument('<p class="MsoNormal note">x</p><p class="MsoListParagraph">y</p>', dropDeadOfficeClasses)).toBe(
-        '<p class="note">x</p><p>y</p>',
-      );
+      expect(
+        afterDocument(
+          '<p class="MsoNormal note">x</p><p class="MsoListParagraph">y</p>',
+          dropDeadOfficeClasses,
+        ),
+      ).toBe('<p class="note">x</p><p>y</p>');
     });
 
     it('keeps an Mso class the document styles', () => {
@@ -88,13 +108,16 @@ describe('corrections', () => {
   describe('Bootstrap tables', () => {
     it('writes the borders inline and drops the dead classes', () => {
       expect(
-        afterDocument('<table class="table table-bordered"><tbody><tr><td>a</td></tr></tbody></table>', inlineBootstrapTableBorders),
+        afterDocument(
+          '<table class="table table-bordered"><tbody><tr><td>a</td></tr></tbody></table>',
+          inlineBootstrapTableBorders,
+        ),
       ).toBe(
         '<table style="width: 100%; border-collapse: collapse;"><tbody><tr><td style="border: 1px solid #dee2e6; padding: 8px;">a</td></tr></tbody></table>',
       );
     });
 
-    it('lets the author\'s own declarations win and keeps other classes', () => {
+    it("lets the author's own declarations win and keeps other classes", () => {
       expect(
         afterDocument(
           '<table class="table table-bordered x" style="width: 50%"><tbody><tr><td style="padding: 2px">a</td></tr></tbody></table>',
@@ -105,7 +128,7 @@ describe('corrections', () => {
       );
     });
 
-    it('borders only its own cells, not a nested table\'s', () => {
+    it("borders only its own cells, not a nested table's", () => {
       const out = afterDocument(
         '<table class="table-bordered"><tbody><tr><td><table><tbody><tr><td>in</td></tr></tbody></table></td></tr></tbody></table>',
         inlineBootstrapTableBorders,
@@ -124,21 +147,28 @@ describe('corrections', () => {
 
   describe('inline around blocks', () => {
     it('pushes the inline into each block and around each inline run', () => {
-      expect(after('<div><font color="#888">--<br><div>a</div>b</font></div>', lowerInlinesAroundBlocks)).toBe(
+      expect(
+        after('<div><font color="#888">--<br><div>a</div>b</font></div>', lowerInlinesAroundBlocks),
+      ).toBe(
         '<div><font color="#888">--<br></font><div><font color="#888">a</font></div><font color="#888">b</font></div>',
       );
     });
 
     it('hands it on down through a block of blocks', () => {
-      expect(after('<span style="color:red"><div><div>a</div><div>b</div></div></span>', lowerInlinesAroundBlocks)).toBe(
+      expect(
+        after(
+          '<span style="color:red"><div><div>a</div><div>b</div></div></span>',
+          lowerInlinesAroundBlocks,
+        ),
+      ).toBe(
         '<div><div><span style="color:red">a</span></div><div><span style="color:red">b</span></div></div>',
       );
     });
 
     it('lowers nested inlines, inner first', () => {
-      expect(after('<b><span style="color:red"><div>a</div></span></b>', lowerInlinesAroundBlocks)).toBe(
-        '<div><b><span style="color:red">a</span></b></div>',
-      );
+      expect(
+        after('<b><span style="color:red"><div>a</div></span></b>', lowerInlinesAroundBlocks),
+      ).toBe('<div><b><span style="color:red">a</span></b></div>');
     });
 
     it('gives an empty block or a rule nothing to wrap', () => {
@@ -156,6 +186,61 @@ describe('corrections', () => {
       '<p class="MsoNormal"><b><span style="color:red">x<o:p></o:p></span></b></p><a href="mailto://a@b.de">m</a>',
     );
     correctStoredMistakes(dom);
-    expect(dom.body.innerHTML).toBe('<p><b><span style="color:red">x</span></b></p><a href="mailto:a@b.de">m</a>');
+    expect(dom.body.innerHTML).toBe(
+      '<p><b><span style="color:red">x</span></b></p><a href="mailto:a@b.de">m</a>',
+    );
+  });
+});
+
+describe('stored mistakes — found, offered, never fixed on their own', () => {
+  const schema = createSchema(emailExtensions);
+  const STORED = '<div><a href="mailto://a@b.de">mail</a></div><p>x<o:p></o:p></p>';
+
+  it('the parse keeps them as written', () => {
+    const doc = parseHTML(STORED, schema);
+    expect(serializeToHTML(doc, schema)).toContain('mailto://a@b.de');
+    expect(serializeToHTML(doc, schema)).toContain('<o:p>');
+  });
+
+  it('says what a document holds — off a copy, the document untouched', () => {
+    const doc = parseHTML(STORED, schema);
+    const before = serializeToHTML(doc, schema);
+    expect(storedMistakes(doc)).toEqual([
+      { kind: 'link-scheme', count: 1 },
+      { kind: 'office-mark', count: 1 },
+    ]);
+    expect(storedMistakes(before)).toEqual(storedMistakes(doc));
+    expect(serializeToHTML(doc, schema)).toBe(before);
+  });
+
+  it('finds none in an email that holds none', () => {
+    expect(storedMistakes('<div>fine <a href="mailto:a@b.de">mail</a></div>')).toEqual([]);
+  });
+
+  it('fixes them all as one undo step', () => {
+    const host = document.createElement('div');
+    const editor = createEditor({ parent: host, extensions: emailExtensions, content: STORED });
+    const before = editor.getHTML();
+    expect(editor.exec(fixStoredMistakes)).toBe(true);
+    expect(editor.getHTML()).toContain('href="mailto:a@b.de"');
+    expect(editor.getHTML()).not.toContain('o:p');
+    expect(storedMistakes(editor.state.doc)).toEqual([]);
+    expect(editor.exec(fixStoredMistakes)).toBe(false);
+    editor.commands['undo']();
+    expect(editor.getHTML()).toBe(before);
+    editor.destroy();
+  });
+
+  it('keeps a whole document’s head as it was', () => {
+    const html =
+      '<!DOCTYPE html><html><head><style>.MsoNormal{margin:0}</style></head><body><p class="MsoNormal">x<o:p></o:p></p></body></html>';
+    const host = document.createElement('div');
+    const editor = createEditor({ parent: host, extensions: emailExtensions, content: html });
+    editor.exec(fixStoredMistakes);
+    expect(editor.getHTML()).toContain('.MsoNormal{margin:0}');
+    // The class is defined by the head: not dead, kept.
+    expect(editor.getHTML()).toContain('class="MsoNormal"');
+    expect(editor.getHTML()).not.toContain('o:p');
+    editor.destroy();
   });
 });

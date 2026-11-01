@@ -1,16 +1,6 @@
 import { DOMOutputSpec, DOMSerializer, Node, Schema, Slice } from 'prosemirror-model';
 import { Command, Selection } from 'prosemirror-state';
 import { repairTables } from './extensions/nodes/table';
-import {
-  dropHidden,
-  dropZeroSizedWhitespace,
-  explicitHeaderCells,
-  inheritTextStyles,
-  inlineStyles,
-  noteOwnWidths,
-  unwrapLayoutTables,
-} from './import-html';
-import { normalizeInlineStyles } from './inline-style';
 import { promoteMergeTags } from './extensions/nodes/merge-tag';
 import { bareButtons } from './extensions/nodes/button';
 import { outlookColumns } from './extensions/nodes/columns';
@@ -21,13 +11,11 @@ import {
   readEnvelope,
   serializeDocument,
 } from './envelope';
-import { ParseMode } from './parse-mode';
 import { createDOMParser, materializeComments, realizeComments, trimInlineBoxes } from './preserve';
-import { applyEmailVocabulary } from './email-vocabulary';
-import { correctStoredMistakes } from './corrections';
 import { CONTENT_ATTRS } from './extensions/nodes/document';
 import { PageLayout, liftPageLayout, normalizePageLayout, wrapPageLayout } from './page-layout';
 import { stripCustomColorStamps } from './custom-colors';
+import { refusedEmbedsAsLinks } from './embeds';
 
 const serializerCache = new WeakMap<Schema, DOMSerializer>();
 
@@ -101,92 +89,51 @@ export function serializeToHTML(doc: Node, schema: Schema): string {
   return envelope ? serializeDocument(envelope, body) : body;
 }
 
-export interface ParseOptions {
-  /** `repair` (this function's default — canonical form), `email` (the
-      editor's default — the email vocabulary, kept exactly as authored) or
-      `preserve` (anything but executable content). See {@link ParseMode}. */
-  mode?: ParseMode;
-}
-
 /**
- * Parses an HTML string into a document conforming to the schema.
+ * Parses an HTML string into a document conforming to the schema — the
+ * one parse: the HTML is kept exactly as it is used. Nothing is repaired,
+ * rewritten or dropped for being unfamiliar; only executable content is
+ * refused (`<script>`, `<iframe>`, …, event handlers, script URLs — see
+ * preserve.ts).
  *
- * - `repair` (the default here; seeds, templates): parsing is repair
- *   (principle 2). A builder's export leans on its stylesheet, on wrapper
- *   tables and on hiding what a client cannot show; the canonical schema
- *   reads none of those, so the import pipeline (import-html.ts) folds,
- *   unwraps and drops them first.
- * - `email` (the editor's default) and `preserve`: the markup is kept as
- *   authored — comments survive as nodes, a document envelope (`<!doctype>`,
- *   `<html>`, `<head>`, `<body>` attributes) lands on the document node's
- *   `envelope` attribute, and `email` first corrects what another editor
- *   stored wrongly (corrections.ts: `mailto://`, Word's `<o:p>`, Bootstrap
- *   borders, an inline around blocks, a video embed) and then drops whatever
- *   no floor client applies (email-vocabulary.ts).
+ * - Our own canonical shapes parse into their rich nodes — a node claims an
+ *   element only if it would re-emit it identically (preserve.ts) — so
+ *   everything the composer made stays editable.
+ * - Everything else is kept verbatim in the generic nodes: tag, attributes,
+ *   styles. Markup the library does not know yet is *marked* in the editor
+ *   (unknown-markup.ts), never changed.
+ * - Comments survive as nodes; a document envelope (`<!doctype>`, `<html>`,
+ *   `<head>`, `<body>` attributes) lands on the document node's `envelope`
+ *   attribute; our own page layout (its markers) on `pageLayout`.
  *
- * Every mode then shares the structural repairs. Tables are where foreign
- * markup breaks the rules hardest: real mail arrives with rows of unequal
- * length and spans that reach past the grid, and `repairTables` normalizes
- * the composer's own tables so every pure consumer of the parser —
- * `importedDocument`, `replyDocument`, the source pane's round trip — sees
- * the same rectangle the editor would. `{{path}}` tokens in running text
- * become `mergeTag` pills (`promoteMergeTags`): the serialized email carries
- * the raw Handlebars-flavoured text, and parse restores the structured form.
- * Button atoms lose marks the parser painted from their own `font-weight`
- * (`bareButtons`) — the box is already bold.
+ * What a canonical node needs to stay itself is still kept: `repairTables`
+ * makes the composer's own tables rectangles (a ragged row padded), so
+ * every pure consumer of the parser — `importedDocument`, `replyDocument`,
+ * the source pane's round trip — sees what the editor would; `{{path}}`
+ * tokens in running text become `mergeTag` pills (`promoteMergeTags`) —
+ * the email carries the raw text either way; button atoms carry no marks
+ * of their own (`bareButtons`).
  *
- * In every mode the page comes off first (`liftPageLayout`): the body's
- * page layout lands on the document node's `pageLayout` attribute, and the
- * blocks it wrapped read as they would without it.
+ * A known mistake another editor stored (corrections.ts) is never fixed
+ * here: it is offered (`storedMistakes`, `fixStoredMistakes`).
  */
-export function parseHTML(html: string, schema: Schema, options: ParseOptions = {}): Node {
-  const mode = options.mode ?? 'repair';
-  const parser = createDOMParser(schema, mode);
-  let parsed: Node;
-
-  if (mode === 'repair') {
-    const dom = new window.DOMParser().parseFromString(html, 'text/html');
-    // An older email's custom-colour stamps off first: dark is never
-    // declared any more (dark-rendering.ts).
-    stripCustomColorStamps(dom.body);
-    const layout = liftPageLayout(dom.body);
-    // First: what an engine's CSSOM might misread is rewritten so every
-    // engine reads it alike (a `background` shorthand, a box's longhand
-    // after its shorthand) — the import must come out the same wherever
-    // it runs.
-    normalizeInlineStyles(dom.body);
-    noteOwnWidths(dom.body);
-    inlineStyles(dom);
-    // A `<th>`'s bold and centring, said on the cell before it reads as one
-    // (after the stylesheet's say, which may already speak for it).
-    explicitHeaderCells(dom.body);
-    dropHidden(dom.body);
-    dropZeroSizedWhitespace(dom.body);
-    unwrapLayoutTables(dom.body);
-    // `<a> home </a>`: a client drops a box's edge spaces, and left in they
-    // would collapse into the link beside them, joining a navbar's items.
-    trimInlineBoxes(dom.body);
-    inheritTextStyles(dom.body);
-    const topNode = documentNode(schema, null, layout);
-    parsed = parser.parse(dom.body, topNode ? { topNode } : undefined);
-  } else {
-    const dom = parseDocument(html);
-    stripCustomColorStamps(dom.body);
-    const layout = liftPageLayout(dom.body);
-    if (mode === 'email') {
-      // Before the vocabulary: an embed becomes a link before it is refused.
-      correctStoredMistakes(dom);
-      applyEmailVocabulary(dom.documentElement);
-    }
-    materializeComments(dom.body);
-    trimInlineBoxes(dom.body);
-    const topNode = documentNode(
-      schema,
-      hasDocumentEnvelope(html) ? readEnvelope(dom) : null,
-      layout,
-    );
-    parsed = parser.parse(dom.body, topNode ? { topNode } : undefined);
-  }
+export function parseHTML(html: string, schema: Schema): Node {
+  const dom = parseDocument(html);
+  // An older email's custom-colour stamps off: dark is never declared any
+  // more (dark-rendering.ts) — our own marker, not the author's markup.
+  stripCustomColorStamps(dom.body);
+  // A frame the parse refuses (preserve.ts) leaves a link to what it
+  // played where it stood: the refusal, not a correction.
+  refusedEmbedsAsLinks(dom.body);
+  const layout = liftPageLayout(dom.body);
+  materializeComments(dom.body);
+  trimInlineBoxes(dom.body);
+  const topNode = documentNode(
+    schema,
+    hasDocumentEnvelope(html) ? readEnvelope(dom) : null,
+    layout,
+  );
+  const parsed = createDOMParser(schema).parse(dom.body, topNode ? { topNode } : undefined);
   return bareButtons(promoteMergeTags(repairTables(parsed, schema), schema), schema);
 }
 
@@ -212,9 +159,9 @@ function documentNode(
  * dropped into an empty paragraph takes its place.
  */
 export const insertHTML =
-  (html: string, options?: ParseOptions): Command =>
+  (html: string): Command =>
   (state, dispatch) => {
-    const doc = parseHTML(html, state.schema, options);
+    const doc = parseHTML(html, state.schema);
     dispatch?.(state.tr.replaceSelection(new Slice(doc.content, 0, 0)).scrollIntoView());
     return true;
   };
@@ -229,29 +176,27 @@ export const insertHTML =
  * promoted on the way in; the caret lands after it.
  */
 export const insertSnippet =
-  (html: string, options?: ParseOptions): Command =>
+  (html: string): Command =>
   (state, dispatch) => {
-    const { content } = parseHTML(html, state.schema, options);
+    const { content } = parseHTML(html, state.schema);
     // Nothing to put in: no content at all, or the one empty line a parse
     // of nothing makes.
     const only = content.childCount === 1 ? content.firstChild! : null;
     if (!content.size || (only?.isTextblock && !only.content.size)) return false;
     const openStart = content.firstChild!.isTextblock ? 1 : 0;
     const openEnd = content.lastChild!.isTextblock ? 1 : 0;
-    dispatch?.(
-      state.tr.replaceSelection(new Slice(content, openStart, openEnd)).scrollIntoView(),
-    );
+    dispatch?.(state.tr.replaceSelection(new Slice(content, openStart, openEnd)).scrollIntoView());
     return true;
   };
 
 /** A command that puts `html` in the whole document's place — an example
     loaded over what is written, as one undoable change; the caret lands at
-    its end. A whole document parsed in the `email` or `preserve` mode brings
+    its end. A whole document brings
     its envelope along, and a body in its page its page layout. */
 export const replaceHTML =
-  (html: string, options?: ParseOptions): Command =>
+  (html: string): Command =>
   (state, dispatch) => {
-    const doc = parseHTML(html, state.schema, options);
+    const doc = parseHTML(html, state.schema);
     if (dispatch) {
       const tr = state.tr.replaceWith(0, state.doc.content.size, doc.content);
       for (const name of CONTENT_ATTRS) {

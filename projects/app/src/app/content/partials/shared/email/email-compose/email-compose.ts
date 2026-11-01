@@ -13,6 +13,7 @@ import {
   computed,
   effect,
   input,
+  linkedSignal,
   model,
   output,
   signal,
@@ -102,7 +103,10 @@ import {
   PlaceholderText,
   LAYOUT_INTERACTIVE,
   LayoutInteractivity,
+  fixStoredMistakes,
+  storedMistakes,
 } from '@h-k-dev/angular-email-editor';
+import { atRest } from '@h-k-dev/angular-email-editor/actions';
 import { EditorKit, EmailEditor } from '@h-k-dev/angular-email-editor/editor';
 import {
   SuggestionMenu,
@@ -192,6 +196,9 @@ export type ComposeKit = BodyFormat | 'snippet';
     // (floating-foot.ts).
     '[style.--email-compose-foot-room.px]': 'foot().room()',
     '[attr.data-scroll]': 'scroll()',
+    // A design desk shows what the library does not know yet (styles.scss,
+    // `.aee-unknown`).
+    '[attr.data-design]': 'design() || null',
     '(focus)': 'onHostFocus()',
   },
   templateUrl: './email-compose.html',
@@ -294,6 +301,33 @@ export class EmailCompose implements FormValueControl<string> {
   /** The body as the editor first published it — its canonical form — once
       mounted; null before. "Unsaved" is `value() !== baseline()`. */
   readonly baseline = computed(() => this.body().baseline());
+
+  /** Mistakes another editor stored in the email (Summernote's `mailto://`,
+      Word's `<o:p>`, …) — found as typing rests, never fixed on their own:
+      the card above the text offers the fix. None in plain text. */
+  readonly #mistakesSource = atRest(() => (this.format() === 'html' ? this.value() : ''));
+  protected readonly mistakes = computed(() => {
+    const html = this.#mistakesSource.value() ?? '';
+    return html ? storedMistakes(html) : [];
+  });
+
+  /** The card put away — until another email is loaded (a new baseline). */
+  protected readonly mistakesDismissed = linkedSignal({
+    source: () => this.baseline(),
+    computation: () => false,
+  });
+
+  /** What the card lists: each kind and how many, in the app's words. */
+  protected readonly mistakesSummary = computed(() =>
+    this.mistakes()
+      .map(({ kind, count }) => this.i18n.t(`editor.mistakes.${kind}`, { count }))
+      .join(' · '),
+  );
+
+  /** Fixes them all — one undo step. */
+  protected fixMistakes(): void {
+    this.editor()?.exec(fixStoredMistakes);
+  }
 
   /** Puts `html` in the body even while it is being typed in, as one undo
       step — a Revert — and publishes what the editor made of it. */
@@ -815,11 +849,7 @@ export class EmailCompose implements FormValueControl<string> {
           i18n: this.i18n.suggestionLabel,
           items: (ctx: ExtensionContext) =>
             bySection(
-              [
-                ...extensionSuggestions(ctx),
-                ...this.#colorRows(ctx),
-                ...groups,
-              ].filter(keep),
+              [...extensionSuggestions(ctx), ...this.#colorRows(ctx), ...groups].filter(keep),
               SLASH_SECTIONS,
             ),
           // The sections' headings, in the language in use — the

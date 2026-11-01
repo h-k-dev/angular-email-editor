@@ -152,9 +152,7 @@ describe('ChatBasedSuggestion', () => {
     await feed(' <strong>lesen');
     await feed(' Sie</strong> das.');
     // In the text, where it will stand — as a proposal.
-    expect(html()).toBe(
-      '<div>We met last week. Bitte <strong style="font-weight: bold;">lesen Sie</strong> das.</div>',
-    );
+    expect(html()).toBe('<div>We met last week. Bitte <strong>lesen Sie</strong> das.</div>');
     expect(isProposing(host.editor.state)).toBe(true);
     expect(proposedText()).toBe(' Bitte lesen Sie das.');
     // Not yet: the assistant is still writing. Discard is always there.

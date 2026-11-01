@@ -62,7 +62,7 @@ export const API_SECTIONS: readonly ApiSection[] = [
       {
         id: 'editor-options',
         name: 'EditorOptions',
-        signature: '{ parent, extensions, content?, quoted?, parseMode?, attributes?, onUpdate? }',
+        signature: '{ parent, extensions, content?, quoted?, attributes?, onUpdate? }',
         summary: 'What `createEditor` takes.',
         notes: [
           'parent: where the editable mounts',
@@ -299,21 +299,30 @@ export const API_SECTIONS: readonly ApiSection[] = [
       {
         id: 'parse-html',
         name: 'parseHTML · serializeToHTML',
-        signature:
-          "(html, schema, options?: { mode?: 'repair' | 'email' | 'preserve' }) => Node · (doc, schema) => string",
-        summary: 'The document in and out of the schema — the round trip both panes share.',
+        signature: '(html, schema) => Node · (doc, schema) => string',
+        summary:
+          'The document in and out of the schema — the round trip both panes share. The one parse: the HTML is kept as it is used; only executable content is refused.',
       },
       {
-        id: 'inline-styles',
-        name: 'inlineStyles · dropHidden · unwrapLayoutTables · inheritTextStyles',
-        signature: '(doc: Document, viewportWidth?) => void · (root) => void',
+        id: 'unknown-markup',
+        name: 'UnknownMarkup · unknownMarkup',
+        signature: 'Extension · (doc) => UnknownMarkupEntry[]',
         summary:
-          'What `parseHTML` runs on a whole document before the schema sees it — so an MJML export arrives as clean sections and columns.',
+          'What the library does not know yet, marked in the editor — never in the email: markup kept as written that no block models, and tags, attributes or styles outside the email vocabulary.',
         notes: [
-          'inlineStyles: the <style> sheet folded in, media queries answered at 600px',
-          'dropHidden: display:none removed',
-          'unwrapLayoutTables: builders’ one-cell tables taken out',
-          'inheritTextStyles: a wrapper’s colour, size, face, alignment onto its blocks',
+          'kept: only the verbatim fallback holds it — "Kept as written: <div class=…>"',
+          'unknown: outside the vocabulary — "Not known yet: style foo-bar"',
+          'decorations: .aee-unknown, data-aee-unknown, title; the host owns the pixels',
+        ],
+      },
+      {
+        id: 'stored-mistakes',
+        name: 'storedMistakes · fixStoredMistakes',
+        signature: '(doc | html) => StoredMistake[] · Command',
+        summary:
+          'Mistakes another editor stored (Summernote, Word) — found, never fixed on their own; the fix is the author’s, one undo step.',
+        notes: [
+          'kinds: link-scheme, video, office-mark, office-class, bootstrap-borders, inline-around-blocks',
         ],
       },
       {
@@ -378,8 +387,9 @@ export const API_SECTIONS: readonly ApiSection[] = [
       {
         id: 'lint-html',
         name: 'scanHTML · lintHTML',
-        signature: '(source) => HtmlScan · (source, scan?, options?) => HtmlDiagnostic[]',
-        summary: 'Tokenizes the source, then reports what will not survive a mail client.',
+        signature: '(source) => HtmlScan · (source, scan?) => HtmlDiagnostic[]',
+        summary:
+          'Tokenizes the source, then reports what is broken and what is not known yet — kept as written, never dropped.',
       },
       {
         id: 'html-diagnostic',
@@ -466,8 +476,10 @@ export const API_SECTIONS: readonly ApiSection[] = [
         name: 'importedDocument · importLoss',
         signature: '(inbound) => string · (inbound) => ImportLoss',
         summary:
-          'The message itself as the document — what a dropped `.eml` becomes — and what that import drops.',
-        notes: ['importLoss: { removedElements, removedTags, inlineImages } — show it to the user'],
+          'The message itself as the document, exactly as it was sent — what a dropped `.eml` becomes — and what the parse refused of it.',
+        notes: [
+          'importLoss: { removedElements (refused: script, iframe, …), removedTags, inlineImages } — show it to the user',
+        ],
       },
     ],
   },

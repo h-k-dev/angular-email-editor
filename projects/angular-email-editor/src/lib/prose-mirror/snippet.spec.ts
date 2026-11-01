@@ -20,7 +20,17 @@ describe('snippetExtensions', () => {
 
   it('knows words and their formatting, and nothing a message is laid out with', () => {
     const { nodes, marks } = editor.state.schema;
-    for (const name of ['heading', 'blockquote', 'table', 'columns', 'section', 'image', 'button', 'divider', 'spacer']) {
+    for (const name of [
+      'heading',
+      'blockquote',
+      'table',
+      'columns',
+      'section',
+      'image',
+      'button',
+      'divider',
+      'spacer',
+    ]) {
       expect(nodes[name], name).toBeUndefined();
     }
     for (const name of ['paragraph', 'hardBreak', 'bulletList', 'orderedList', 'listItem']) {
@@ -44,7 +54,9 @@ describe('snippetExtensions', () => {
   });
 
   it('publishes HTML the email kit reads as it is', () => {
-    editor.setContent('<div>Kind regards,</div><div><em>{{ company.name }}</em> · <a href="https://example.com">example.com</a></div>');
+    editor.setContent(
+      '<div>Kind regards,</div><div><em>{{ company.name }}</em> · <a href="https://example.com">example.com</a></div>',
+    );
     const snippet = editor.getHTML();
     const mail = createEditor({ parent: host, extensions: emailExtensions });
     mail.setContent(snippet);
@@ -79,7 +91,8 @@ describe('insertSnippet', () => {
   it('drops a one-line snippet into the line, as words typed at the caret', () => {
     caretIn('Dear |, thanks');
     editor.exec(insertSnippet('<div><strong>{{firstName}}</strong></div>'));
-    expect(editor.getHTML()).toBe('<div>Dear <strong style="font-weight: bold;">{{ firstName }}</strong>, thanks</div>');
+    // The `<strong>` stays as written; the merge tag takes its spaced form.
+    expect(editor.getHTML()).toBe('<div>Dear <strong>{{ firstName }}</strong>, thanks</div>');
   });
 
   it('joins a snippet of lines to the text either side of the caret', () => {

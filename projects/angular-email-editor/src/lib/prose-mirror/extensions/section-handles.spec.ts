@@ -35,7 +35,6 @@ describe('section handles', () => {
         createSectionHandles({ onOpen: (target) => opened.push(target), label: () => 'Band' }),
       ],
       content: `<div>before</div>${BAND}`,
-      parseMode: 'preserve',
     });
   });
 

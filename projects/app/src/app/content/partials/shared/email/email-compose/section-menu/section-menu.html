@@ -215,7 +215,25 @@
       <!-- Left of the menu, never in it (no row of its: the arrows pass it
          by, Tab reaches its button) — a suggestion, which the author takes
          or leaves; nothing converts on its own. -->
-      @if (pageSuggested()) {
+      @if (pageSuggested()?.shape === 'rows-page') {
+        <aside class="section-menu__suggestion" aria-labelledby="section-menu-suggestion">
+          <strong id="section-menu-suggestion">A page written by hand</strong>
+          <p>
+            This table is a page of rows in a {{ pageWidth() }}px column, coded by hand. It is kept
+            as written; as a page of ours, its rows become rows you can edit, the column and its
+            colours the page's layout.
+          </p>
+          @if (rowsAvailable()) {
+            <button
+              type="button"
+              class="section-menu__button section-menu__button--primary"
+              (click)="convertPageToRows()"
+            >
+              <span>Convert to page of rows</span>
+            </button>
+          }
+        </aside>
+      } @else if (pageSuggested()) {
         <aside class="section-menu__suggestion" aria-labelledby="section-menu-suggestion">
           <strong id="section-menu-suggestion">Rows outside the page's column</strong>
           <p>

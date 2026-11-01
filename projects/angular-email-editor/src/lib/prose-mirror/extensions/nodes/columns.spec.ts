@@ -15,6 +15,14 @@ import {
 
 const schema = createSchema(emailExtensions);
 const canonical = (html: string) => serializeToHTML(parseHTML(html, schema), schema);
+/** The attrs of every column the parse made of `html`, in order. */
+const columnsOf = (html: string) => {
+  const columns: Record<string, unknown>[] = [];
+  parseHTML(html, schema).descendants((node) => {
+    if (node.type.name === 'column') columns.push(node.attrs);
+  });
+  return columns;
+};
 
 const COL = (max: number) =>
   `display: inline-block; width: 100%; max-width: ${max}px; vertical-align: top; ` +
@@ -39,11 +47,8 @@ describe('outlookColumns — the hybrid’s Outlook half', () => {
     );
     expect(out).toContain('</div><!--[if mso]></td></tr></table><![endif]--></div>');
     // The round trip: the comments go on parse, the block writes them again.
-    // (in the editor's own parse — the default `email` mode keeps the
-    // authored `<p>` beside the block).
-    expect(serializeToHTML(parseHTML(out, editor.schema, { mode: 'email' }), editor.schema)).toBe(
-      out,
-    );
+    // (The authored `<p>` stays beside the block, as written.)
+    expect(serializeToHTML(parseHTML(out, editor.schema), editor.schema)).toBe(out);
     editor.destroy();
     host.remove();
   });
@@ -55,18 +60,22 @@ describe('columns serialization', () => {
     expect(canonical(once)).toBe(once);
   });
 
-  it('reads a column’s vertical alignment as written — a builder’s baseline is the top', () => {
+  it('reads a column’s vertical alignment as written — a builder’s baseline is the top, and stays as written', () => {
     const at = (align: string) =>
-      canonical(TWO_COLS.replace('vertical-align: top;', `vertical-align: ${align};`));
-    expect(at('bottom')).toContain('max-width: 300px; vertical-align: bottom;');
-    expect(at('baseline')).not.toContain('baseline');
+      TWO_COLS.replace('vertical-align: top;', `vertical-align: ${align};`);
+    expect(columnsOf(at('bottom'))[0]['valign']).toBe('bottom');
+    expect(canonical(at('bottom'))).toContain('max-width: 300px; vertical-align: bottom;');
+    expect(columnsOf(at('baseline'))[0]['valign']).toBe('top');
+    expect(canonical(at('baseline'))).toContain(
+      `<div style="${COL(300).replace('top', 'baseline')}"><div>a</div></div>`,
+    );
   });
 
   it('emits a fluid container and inline-block columns', () => {
     const html = canonical(TWO_COLS);
     expect(html).toContain('width: 100%; max-width: 600px;'); // container
     expect(html).toContain('display: inline-block');
-    expect(html).toContain('max-width: 300px'); // authored cap kept as-is: parsing is repair, not opinion
+    expect(html).toContain('max-width: 300px'); // authored cap kept as-is
     expect(html).toContain('box-sizing: border-box');
     expect(html).toContain('<div>a</div>'); // column content, borderless div line
   });
@@ -80,15 +89,28 @@ describe('columns serialization', () => {
     // (`cellpadding` on the Outlook table is the table's, not a padding.)
     expect(canonical(TWO_COLS)).not.toMatch(/padding[-:]/);
 
-    // Authored padding (legacy longhand pair included) canonicalizes to one
-    // shorthand, round-trips — and the linter tells the truth about it:
-    // Outlook's Word engine ignores padding outside table cells.
-    const padded = TWO_COLS.replace(
+    // Authored padding (legacy longhand pair included) reads as the column's
+    // padding and stays as written, a round-trip fixpoint.
+    const longhands = TWO_COLS.replace(
       /box-sizing: border-box;/g,
       'box-sizing: border-box; padding-left: 8px; padding-right: 8px;',
     );
+    expect(columnsOf(longhands).map((column) => column['padding'])).toEqual(['0px 8px', '0px 8px']);
+    const kept = canonical(longhands);
+    expect(kept).toContain(
+      `<div style="${COL(300)} padding-left: 8px; padding-right: 8px;"><div>a</div></div>`,
+    );
+    expect(canonical(kept)).toBe(kept);
+
+    // And the linter tells the truth about it: Outlook's Word engine ignores
+    // padding outside table cells.
+    const padded = TWO_COLS.replace(
+      /box-sizing: border-box;/g,
+      'box-sizing: border-box; padding: 0 8px;',
+    );
+    expect(columnsOf(padded).map((column) => column['padding'])).toEqual(['0px 8px', '0px 8px']);
     const once = canonical(padded);
-    expect(once).toContain('box-sizing: border-box; padding: 0px 8px;');
+    expect(once).toContain(`<div style="${COL(300)} padding: 0 8px;"><div>b</div></div>`);
     expect(canonical(once)).toBe(once);
     const warnings = lintHTML(once);
     expect(warnings.every((w) => w.severity === 'warning')).toBe(true);
@@ -96,7 +118,7 @@ describe('columns serialization', () => {
   });
 
   it('keeps an authored left alignment — left carries no declaration', () => {
-    // TWO_COLS has no margins: parsing is repair, not opinion, so it stays left.
+    // TWO_COLS has no margins, so it stays left.
     const html = canonical(TWO_COLS);
     expect(html).not.toContain('margin-left');
     expect(canonical(html)).toBe(html);
@@ -347,7 +369,6 @@ describe('columns editing', () => {
       parent: document.body,
       extensions: emailExtensions,
       content: html,
-      parseMode: 'preserve',
     });
     expect(kept.getHTML()).toBe(html);
     kept.state.doc.descendants((node) => {

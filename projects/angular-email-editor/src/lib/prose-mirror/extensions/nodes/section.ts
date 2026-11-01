@@ -4,7 +4,7 @@ import { defineNode } from '../../extension';
 import { emailBackgroundPalette, fillTextColor } from '../../dual-contrast';
 import { isSafeColor, toEmailSafeColor } from '../marks/text-style';
 import { parsePadding } from './table';
-import { holdsBlock, holdsColumn, isPadded } from '../../import-html';
+import { holdsBlock, holdsColumn, isPadded } from './section-shape';
 import { inlinePadding, paddingOf, paddingSides } from '../../inline-style';
 import { layoutMarker, markedAs } from '../../layout-marker';
 import { pendingImageSource } from './image';

@@ -5,17 +5,16 @@ import { lintHTML } from './html-source';
 import { emailExtensions } from './extensions/kits';
 import { createEditor } from './editor';
 import {
-  filterEmailStyle,
   isEmailAttribute,
   isEmailCssProperty,
   isEmailTag,
   splitDeclarations,
+  unknownDeclarations,
 } from './email-vocabulary';
 
 const schema = createSchema(emailExtensions);
-const email = (html: string) => serializeToHTML(parseHTML(html, schema, { mode: 'email' }), schema);
-const preserve = (html: string) =>
-  serializeToHTML(parseHTML(html, schema, { mode: 'preserve' }), schema);
+const email = (html: string) => serializeToHTML(parseHTML(html, schema), schema);
+const preserve = (html: string) => serializeToHTML(parseHTML(html, schema), schema);
 
 describe('the email vocabulary — what Apple Mail, Outlook or Gmail applies', () => {
   it('knows the tags MJML and table templates are built from', () => {
@@ -79,53 +78,11 @@ describe('the email vocabulary — what Apple Mail, Outlook or Gmail applies', (
     ]);
   });
 
-  it('filters a style byte-identically when nothing is dropped', () => {
+  it('names the properties it does not know yet — the style itself untouched', () => {
     const mjml =
       'border:none;border-radius:3px;cursor:auto;mso-padding-alt:10px 25px;background:#bd8714;';
-    expect(filterEmailStyle(mjml)).toEqual({ style: mjml, dropped: [] });
-    expect(filterEmailStyle('color: red; colr: blue; font-size: 12px')).toEqual({
-      style: 'color: red; font-size: 12px',
-      dropped: ['colr'],
-    });
-  });
-});
-
-describe('email parse — drops what no floor client applies; preserve keeps it', () => {
-  it('drops unknown attributes and CSS, keeps the rest exactly as written', () => {
-    const source =
-      '<div class="k" data-id="7" ng-click="go()" style="color:red;colr:blue;--brand:#f00">x</div>';
-    expect(email(source)).toBe('<div class="k" style="color:red;--brand:#f00">x</div>');
-    expect(preserve(source)).toBe(
-      '<div class="k" data-id="7" ng-click="go()" style="color:red;colr:blue;--brand:#f00">x</div>',
-    );
-  });
-
-  it('unwraps custom elements, keeping their content', () => {
-    const source = '<my-card class="c"><div style="color:red">in</div></my-card>';
-    expect(email(source)).toBe('<div style="color:red">in</div>');
-    expect(preserve(source)).toBe(source);
-  });
-
-  it('never leaks executable content as text, in any mode', () => {
-    const source = '<div>a</div><script>evil()</script><my-x><script>worse()</script>b</my-x>';
-    for (const html of [email(source), preserve(source)]) {
-      expect(html).not.toContain('evil');
-      expect(html).not.toContain('worse');
-    }
-  });
-
-  it('keeps data URIs whole', () => {
-    const source = '<div style="background:url(data:image/png;base64,AAAA);padding:4px">x</div>';
-    expect(email(source)).toBe(source);
-  });
-
-  it('applies the vocabulary to the envelope too', () => {
-    const source =
-      '<!doctype html><html lang="en" data-app="1"><head><title>t</title></head>' +
-      '<body style="margin:0" v-cloak><div>x</div></body></html>';
-    const html = email(source);
-    expect(html).toContain('<html lang="en">');
-    expect(html).toContain('<body style="margin:0">');
+    expect(unknownDeclarations(mjml)).toEqual([]);
+    expect(unknownDeclarations('color: red; colr: blue; font-size: 12px')).toEqual(['colr']);
   });
 });
 
@@ -134,9 +91,6 @@ describe('authored markup on the composer’s own nodes', () => {
     const doc = parseHTML(
       '<div>plain</div><p class="lead">lead</p><h2 style="color:red">t</h2>',
       schema,
-      {
-        mode: 'email',
-      },
     );
     expect(doc.child(0).attrs['html']).toBeNull();
     expect(doc.child(1).type.name).toBe('paragraph');
@@ -153,7 +107,6 @@ describe('authored markup on the composer’s own nodes', () => {
       '<table><tr><td style="width:105px"><img src="a.png" alt="logo" height="auto"></td></tr></table>' +
         '<div>Hi <img src="s.png" alt=":)"> there</div>',
       schema,
-      { mode: 'email' },
     );
     const images: unknown[] = [];
     doc.descendants((node) => {
@@ -196,7 +149,7 @@ describe('editing authored lines', () => {
   const mount = (html: string) => {
     const parent = document.createElement('div');
     document.body.appendChild(parent);
-    const editor = createEditor({ parent, extensions: emailExtensions, parseMode: 'email' });
+    const editor = createEditor({ parent, extensions: emailExtensions });
     editor.setContent(html);
     return {
       editor,
@@ -275,47 +228,6 @@ describe('editing authored lines', () => {
       '<div style="font-size:11px"><strong style="font-weight: bold;">make</strong> bold</div>',
     );
     done();
-  });
-});
-
-describe('lint names exactly what the email parse drops', () => {
-  it('warns on tags, attributes and CSS properties outside the vocabulary', () => {
-    const messages = lintHTML(
-      '<my-card><div data-id="1" style="colr: red; color: red">x</div></my-card>',
-      undefined,
-      { mode: 'email' },
-    ).map((d) => d.message);
-    expect(messages).toEqual([
-      expect.stringContaining("<my-card> isn't applied by Apple Mail, Outlook or Gmail"),
-      expect.stringContaining('"data-id" isn\'t applied'),
-      expect.stringContaining('"colr" isn\'t applied'),
-    ]);
-  });
-
-  it('accepts what MJML-class markup uses', () => {
-    const source =
-      '<table align="center" border="0" cellpadding="0" bgcolor="#fff" role="presentation">' +
-      '<tr><td style="mso-line-height-rule:exactly;-webkit-text-size-adjust:100%">' +
-      '<input type="checkbox" id="m" style="display:none"><label for="m">x</label></td></tr></table>';
-    expect(
-      lintHTML(source, undefined, { mode: 'email' }).filter((d) =>
-        d.message.includes('dropped on parse'),
-      ),
-    ).toEqual([]);
-  });
-
-  it('accepts comments and conditionals, and the document envelope, as content', () => {
-    const source =
-      '<!doctype html><html lang="en"><head><title></title><meta charset="utf-8">' +
-      '<style>p { margin: 0 }</style></head><body><!-- note --><div>a</div>' +
-      '<!--[if mso]>ghost<![endif]--></body></html>';
-    expect(lintHTML(source, undefined, { mode: 'email' })).toEqual([]);
-  });
-
-  it('repair mode keeps its own lint: comments dropped, tags outside the safe set flagged', () => {
-    const messages = lintHTML('<!-- note --><video></video>').map((d) => d.message);
-    expect(messages.some((m) => m.includes('drops them'))).toBe(true);
-    expect(messages.some((m) => m.includes('not email-safe'))).toBe(true);
   });
 });
 

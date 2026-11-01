@@ -12,7 +12,11 @@ import { TYPING_REST, createHtmlLanguage } from './html-language';
 function paste(view: EditorView, text: string): void {
   const event = new Event('paste', { bubbles: true, cancelable: true });
   Object.defineProperty(event, 'clipboardData', {
-    value: { getData: (type: string) => (type === 'text/plain' ? text : ''), types: ['text/plain'], files: [] },
+    value: {
+      getData: (type: string) => (type === 'text/plain' ? text : ''),
+      types: ['text/plain'],
+      files: [],
+    },
   });
   view.dom.dispatchEvent(event);
 }
@@ -39,7 +43,7 @@ describe('html-language — format on paste', () => {
   it('formats a paste that is the whole document; one undo gives the paste back as it was', () => {
     const editor = mount();
     paste(editor.view, PASTED);
-    expect(editor.getText()).toBe(formatHTML(PASTED, undefined, undefined, { mode: 'email' }));
+    expect(editor.getText()).toBe(formatHTML(PASTED));
     expect(editor.getText()).toContain('    max-width:600px;\n');
 
     editor.exec(undo);

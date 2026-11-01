@@ -72,14 +72,36 @@ describe('merge-tag serialization', () => {
 
   it('keeps marks across the round trip — a bold token stays bold', () => {
     const bold = '<div><b>Hi {{ firstName }}</b></div>';
-    const once = canonical(bold);
-    expect(once).toContain('>Hi {{ firstName }}</strong>');
-    expect(canonical(once)).toBe(once);
+    const doc = parseHTML(bold, schema);
+    expect(tokens(doc)).toBe(1);
+    expect(marked(doc)).toBe(true);
+    let boldText = '';
+    doc.descendants((node) => {
+      if (node.isText && schema.marks['bold'].isInSet(node.marks)) boldText += node.text;
+    });
+    expect(boldText).toBe('Hi {{ firstName }}');
+    expect(canonical(bold)).toBe(bold);
   });
 
-  it('repairs a partially formatted token to whole — formatting is all-or-nothing', () => {
-    expect(canonical('<div><b>{{ first</b>Name }} x</div>')).toBe(
-      '<div><strong style="font-weight: bold;">{{ firstName }}</strong> x</div>',
+  it('a token split by formatting is no merge tag — text as written, never widened', () => {
+    const split = '<div><b>{{ first</b>Name }} x</div>';
+    expect(canonical(split)).toBe(split);
+    const doc = parseHTML(split, schema);
+    let pills = 0;
+    doc.descendants((node) => {
+      if (node.isText && node.marks.some((mark) => mark.type.name === 'mergeTag')) pills++;
+    });
+    expect(pills).toBe(0);
+    expect(mergeTagRanges(doc)).toEqual([]);
+    // Not respaced either: `{{first` stays as typed.
+    expect(canonical('<div><b>{{first</b>Name}}</div>')).toBe('<div><b>{{first</b>Name}}</div>');
+  });
+
+  it('a token one formatting covers whole is a merge tag — bold as a whole', () => {
+    const doc = parseHTML('<div><b>{{ firstName }}</b> x</div>', schema);
+    expect(mergeTagRanges(doc).map((tag) => tag.expr)).toEqual([' firstName ']);
+    expect(canonical('<div><b>{{ firstName }}</b> x</div>')).toBe(
+      '<div><b>{{ firstName }}</b> x</div>',
     );
   });
 

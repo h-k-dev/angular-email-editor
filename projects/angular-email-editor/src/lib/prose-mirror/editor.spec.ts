@@ -23,10 +23,9 @@ describe('createEditor', () => {
     editor = createEditor({
       parent: host,
       extensions: richTextExtensions,
-      content: '<p>Hello world</p>',
-      // This suite asserts the kit's canonical output: parse as the import
-      // does (the default `email` mode would keep the authored `<p>`).
-      parseMode: 'repair',
+      // The kit's own line, so the commands below edit canonical blocks (a
+      // bare authored `<p>` would be kept as written).
+      content: '<p dir="auto">Hello world</p>',
       attributes: { role: 'textbox' },
       onUpdate: (e) => updates.push(e.getHTML()),
     });
@@ -43,14 +42,15 @@ describe('createEditor', () => {
   });
 
   it('inserts an HTML fragment at the cursor, blocks taking an empty paragraph’s place', () => {
-    editor.setContent('<p>Hello world</p><p></p>');
+    editor.setContent('<p dir="auto">Hello world</p><p dir="auto"></p>');
     const end = editor.state.doc.content.size - 1;
     editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, end)));
 
     editor.exec(insertHTML('<h1>Welcome</h1><p>Hi {{name}}</p>'));
-    // The merge tag came in as a pill: its canonical form is spaced.
+    // The fragment's markup is kept as written; the merge tag came in as a
+    // pill, and its canonical form is spaced.
     expect(editor.getHTML()).toBe(
-      '<p dir="auto">Hello world</p><h1 style="margin: 20px 0px 4px; font-size: 24px;">Welcome</h1><p dir="auto">Hi {{ name }}</p>',
+      '<p dir="auto">Hello world</p><h1>Welcome</h1><p>Hi {{ name }}</p>',
     );
   });
 
@@ -110,7 +110,7 @@ describe('createEditor', () => {
     editor.commands['toggleBold']();
 
     // ... then an external sync appends a paragraph (diff at the end only).
-    editor.setContent(editor.getHTML() + '<p>Appended</p>');
+    editor.setContent(editor.getHTML() + '<p dir="auto">Appended</p>');
 
     // Undo reverts the local bold; the externally synced content stays.
     expect(editor.commands['undo']()).toBe(true);

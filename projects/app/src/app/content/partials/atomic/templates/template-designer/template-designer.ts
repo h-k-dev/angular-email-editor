@@ -16,7 +16,6 @@ import {
   viewChild,
 } from '@angular/core';
 
-
 // Angular CDK
 import { CdkOverlayOrigin, type ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
 import { DomPortal } from '@angular/cdk/portal';
@@ -58,7 +57,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 
 import { BLANK, Envelope } from '../../../../../core/email/envelope';
 import { BackButton } from '../../../../../core/router/back-button';
-import { DIALECT_NAMES, EmailTemplate, Templates } from '../../../../../core/email/templates';
+import { EmailTemplate, Templates } from '../../../../../core/email/templates';
 import {
   DESIGNER_DETAILS_MAX,
   DESIGNER_DETAILS_MIN,
@@ -70,6 +69,7 @@ import {
 } from '../../../../../core/storages/preferences';
 import { Badge } from '../../../common/badge/badge';
 import { GlassGroup } from '../../../common/glass-group/glass-group';
+import { MessageImport } from '../../../common/message-import/message-import';
 import { PageHeader } from '../../../common/page-header/page-header';
 import { PaperToggle } from '../../../common/paper-toggle/paper-toggle';
 import { PhoneFrame } from '../../../common/phone-frame/phone-frame';
@@ -129,7 +129,8 @@ function sameMessage(a: Envelope, b: Envelope): boolean {
  *   toolbar always there.
  * - On the right, the message's rows — From, To, Cc, Bcc, Subject,
  *   Preview — straight away, and its attachments under them, dropped or
- *   picked on one zone.
+ *   picked on one zone. Under those, an email to study: an `.eml` (or its
+ *   raw text) dropped, pasted or picked there becomes the design.
  * - The layout is the email's page (the library's `PageLayout`): none, or
  *   a centred column of a width on a page colour, the column's own colour
  *   over it — set only here, a step of the editor's, so undo takes it back.
@@ -167,6 +168,7 @@ function sameMessage(a: Envelope, b: Envelope): boolean {
     GlassGroup,
     PaperToggle,
     AngularFileDrop,
+    MessageImport,
     AttachmentChips,
     AttachmentChip,
     AttachmentChipIcon,
@@ -225,8 +227,8 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
       writes over. */
   readonly #template = signal(inject<TemplateDesignerData>(MAT_DIALOG_DATA).template);
   protected readonly name = computed(() => this.#template().name);
-  /** Its category tag: the dialect its tokens are written in. */
-  protected readonly tag = computed(() => DIALECT_NAMES[this.#template().dialect]);
+  /** Its category tag: its dialect, or its set's name (MJML). */
+  protected readonly tag = computed(() => this.#template().tag);
 
   /** A template was stored — the gallery redraws its card. */
   readonly saved = output<EmailTemplate>();
@@ -239,7 +241,8 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
   readonly #clean = linkedSignal<string | null, Envelope | null>({
     source: () => this.emailPane().baseline(),
     computation: (baseline, previous) =>
-      previous?.value ?? (baseline === null ? null : { ...untracked(this.message), html: baseline }),
+      previous?.value ??
+      (baseline === null ? null : { ...untracked(this.message), html: baseline }),
   });
 
   /** Anything changed since the last save. */
@@ -281,7 +284,8 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
   protected readonly detailsDocked = computed(
     () =>
       this.detailsOpen() &&
-      this.#deskWidth() >= Math.max(DESIGNER_DETAILS_PUSH_MIN, DESIGNER_EDITOR_MIN + DESIGNER_DETAILS_MIN),
+      this.#deskWidth() >=
+        Math.max(DESIGNER_DETAILS_PUSH_MIN, DESIGNER_EDITOR_MIN + DESIGNER_DETAILS_MIN),
   );
 
   /** The preview as a pane of its own: open, where the desk holds it at
@@ -291,7 +295,9 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
     () =>
       this.phoneOpen() &&
       this.#deskWidth() >=
-        DESIGNER_EDITOR_MIN + DESIGNER_PREVIEW_MIN + (this.detailsDocked() ? DESIGNER_DETAILS_MIN : 0),
+        DESIGNER_EDITOR_MIN +
+          DESIGNER_PREVIEW_MIN +
+          (this.detailsDocked() ? DESIGNER_DETAILS_MIN : 0),
   );
 
   /** What each divider leaves the rest, px: the editor's least, and the
@@ -547,6 +553,30 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
   #noteCustom(color: string): void {
     if (isPaletteColor(this.#palette, color, 'background')) return;
     rememberSwatch(this.#customSwatches, color, 'background');
+  }
+
+  /** An email being read into the design. */
+  protected readonly studying = signal(false);
+
+  /** An email to study, brought in on its zone — dropped, pasted or
+      picked: made this design, its body, subject and files (one undo step;
+      Revert still goes back to the template as saved). Says what came in. */
+  protected async studyEmail(file: File): Promise<void> {
+    if (this.studying()) return;
+    this.studying.set(true);
+    try {
+      this.#snack.open(await this.importEml(file, 'design'), undefined, { duration: 4000 });
+    } finally {
+      this.studying.set(false);
+    }
+  }
+
+  /** The zone's picker: the file chosen, then the picker emptied so the
+      same file can be picked again. */
+  protected studyPicked(picker: HTMLInputElement): void {
+    const file = picker.files?.[0];
+    picker.value = '';
+    if (file) void this.studyEmail(file);
   }
 
   /** Closes the designer — the close button's, unsaved changes and all:

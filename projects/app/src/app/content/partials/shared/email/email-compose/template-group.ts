@@ -11,11 +11,7 @@ import {
 } from '@h-k-dev/angular-email-editor';
 
 import { Filter, escapeLike } from '../../../../../core/email/loopback-filter';
-import {
-  EmailTemplate,
-  TemplateEnvelope,
-  Templates,
-} from '../../../../../core/email/templates';
+import { EmailTemplate, TemplateEnvelope, Templates } from '../../../../../core/email/templates';
 
 /** Rows a page asks for — a little more than the menu shows at once, so
     the list scrolls before the next page is fetched. */
@@ -60,9 +56,9 @@ export function createTemplateSource(templates: Templates): SuggestionSource<Tem
     map: (row) => ({
       id: row.id,
       title: row.name,
-      keywords: [row.dialect],
+      keywords: [row.tag],
       icon: 'article',
-      command: replaceHTML(row.html, { mode: 'email' }),
+      command: replaceHTML(row.html),
       envelope: row.envelope,
     }),
     pageSize: TEMPLATE_PAGE_SIZE,

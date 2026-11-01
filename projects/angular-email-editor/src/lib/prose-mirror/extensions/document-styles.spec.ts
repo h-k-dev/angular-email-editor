@@ -1,6 +1,8 @@
 import { createEditor, Editor } from '../editor';
 import { emailExtensions } from './kits';
-import { BODY_BOX_PREFIX, DOCUMENT_CLASS } from './document-styles';
+import { parseHTML } from '../html';
+import { createSchema } from '../schema';
+import { BODY_BOX_PREFIX, DOCUMENT_CLASS, scopedDocumentCss } from './document-styles';
 
 describe('document styles', () => {
   let host: HTMLElement;
@@ -52,6 +54,24 @@ describe('document styles', () => {
     mount(page(`style="background-image: url('data:image/png;base64,AAAA'); padding: 0"`));
     expect(root().backgroundImage).toContain('data:image/png;base64,AAAA');
     expect(box('padding')).toBe('0');
+  });
+
+  it('hoists an @import whole, a semicolon in its URL and all — the rules after it stand', () => {
+    const font =
+      '@import url(https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap);';
+    // Parsed, not mounted: jsdom's CSSOM cannot read an unquoted URL holding
+    // a `;` (a browser can).
+    const doc = parseHTML(
+      '<!doctype html><html><head><style>' +
+        `${font}\n@media only screen and (min-width:480px) { .mj-column-per-55 { width:55% !important; } }` +
+        '</style></head><body><div>hi</div></body></html>',
+      createSchema(emailExtensions),
+    );
+    const css = scopedDocumentCss(doc, 'x');
+    // Whole, its URL quoted (the same to a browser; readable to every parser).
+    const quoted = font.replace('url(', 'url("').replace(');', '");');
+    expect(css.startsWith(`${quoted}\n@scope (.x) {`)).toBe(true);
+    expect(css).toContain('.mj-column-per-55 { width:55% !important; }');
   });
 
   it('sets nothing on a plain message', () => {

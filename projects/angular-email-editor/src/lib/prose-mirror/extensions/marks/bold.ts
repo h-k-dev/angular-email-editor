@@ -42,21 +42,6 @@ export const Bold = defineMark({
           return null;
         },
       },
-      {
-        style: 'font-weight=normal',
-        clearMark: (mark) => mark.type.name === 'bold',
-      },
-      {
-        style: 'font-weight=400',
-        clearMark: (mark) => mark.type.name === 'bold',
-      },
-      {
-        style: 'font-weight',
-        // Cast value to string and use 'i' flag for case-insensitivity. From
-        // 600: a 500 is a medium, which a face without one (Arial, every
-        // email-safe stack) draws as its regular.
-        getAttrs: (value) => (/^(bold(er)?|[6-9]\d{2,})$/i.test(value as string) ? null : false),
-      },
     ],
     toDOM: () => ['strong', { style: 'font-weight: bold;' }, 0],
   },

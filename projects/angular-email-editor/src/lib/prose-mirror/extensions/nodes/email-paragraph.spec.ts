@@ -14,17 +14,18 @@ describe('email paragraph line height', () => {
     }
   });
 
-  it('leaves the client its own: `normal`, and nothing else measurable', () => {
-    expect(canonical('<div style="line-height: normal;">x</div>')).toBe('<div>x</div>');
+  it('leaves the client its own: `normal` reads as no line height, and is kept as written', () => {
+    const html = '<div style="line-height: normal;">x</div>';
+    expect(parseHTML(html, schema).child(0).attrs['lineHeight']).toBeNull();
+    expect(canonical(html)).toBe(html);
   });
 
-  it('takes a line height a builder’s wrapping div declares, down onto its lines', () => {
-    const out = canonical(
-      '<div style="line-height: 30px; color: #ff0000;"><p>one</p><p>two</p></div>',
-    );
-    expect(out.match(/line-height: 30px;/g)).toHaveLength(2);
-    // Never onto the words: a span reads no line height.
-    expect(out).not.toMatch(/<span[^>]*line-height/);
+  it('leaves a line height a builder’s wrapping div declares on the wrapper — never written down onto its lines', () => {
+    const html = '<div style="line-height: 30px; color: #ff0000;"><p>one</p><p>two</p></div>';
+    const wrapper = parseHTML(html, schema).child(0);
+    expect(wrapper.childCount).toBe(2);
+    wrapper.forEach((line) => expect(line.attrs['lineHeight']).toBeNull());
+    expect(canonical(html)).toBe(html);
   });
 });
 

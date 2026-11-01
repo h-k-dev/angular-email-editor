@@ -7,9 +7,7 @@ import { SPACER_MAX, SPACER_MIN, snapSpacerHeight, spacerOfBand } from './spacer
 import { centeredPageLayout, tablePageLayout } from '../../page-layout';
 
 const schema = createSchema(emailExtensions);
-type Mode = 'repair' | 'email' | 'preserve';
-const canonical = (html: string, mode: Mode = 'repair') =>
-  serializeToHTML(parseHTML(html, schema, { mode }), schema);
+const canonical = (html: string) => serializeToHTML(parseHTML(html, schema), schema);
 
 const SPACER = (height: number) =>
   `<div class="aee-layout-spacer" style="height: ${height}px; line-height: ${height}px; font-size: 1px; mso-line-height-rule: exactly;">&nbsp;</div>`;
@@ -42,26 +40,47 @@ describe('spacer', () => {
     expect(editor.getHTML()).toContain(SPACER(24));
   });
 
-  it('comes back as itself, in every parse mode', () => {
+  it('comes back as itself', () => {
     const html = `<div>a</div>${SPACER(32)}<div>b</div>`;
-    for (const mode of ['repair', 'email', 'preserve'] as const) {
-      expect(canonical(html, mode)).toBe(html);
-    }
+    const doc = parseHTML(html, schema);
+    expect(doc.child(1).type.name).toBe('spacer');
+    expect(doc.child(1).attrs['height']).toBe(32);
+    expect(canonical(html)).toBe(html);
   });
 
-  it('reads MJML’s spacer, and a builder’s blank px-high div, as a spacer — its height as written', () => {
-    expect(canonical('<div style="height:20px;line-height:20px;">&#8202;</div>')).toBe(SPACER(20));
-    expect(canonical('<div style="height: 30px"></div>')).toBe(SPACER(30));
+  it('claims a px-high div only as a spacer writes it — one no-break space; MJML’s stays as written', () => {
+    const ours = '<div style="height:20px;line-height:20px;">&nbsp;</div>';
+    const doc = parseHTML(ours, schema);
+    expect(doc.child(0).type.name).toBe('spacer');
+    expect(doc.child(0).attrs['height']).toBe(20);
+    expect(canonical(ours)).toBe(ours);
+    // MJML's holds a hair space, which no spacer writes: kept as the div it is.
+    const mjml = '<div style="height:20px;line-height:20px;">&#8202;</div>';
+    const hairSpace = String.fromCharCode(0x200a);
+    expect(parseHTML(mjml, schema).child(0).type.name).not.toBe('spacer');
+    expect(canonical(mjml)).toBe(`<div style="height:20px;line-height:20px;">${hairSpace}</div>`);
+    // A blank px-high div is not one: it stays the div it is.
+    expect(parseHTML('<div style="height: 30px"></div>', schema).child(0).type.name).not.toBe(
+      'spacer',
+    );
+    expect(canonical('<div style="height: 30px"></div>')).toBe('<div style="height: 30px"></div>');
     // Words, or a line break, make a line, never a spacer.
-    expect(canonical('<div style="height: 30px">a</div>')).not.toContain('aee-layout-spacer');
+    expect(canonical('<div style="height: 30px">a</div>')).toBe(
+      '<div style="height: 30px">a</div>',
+    );
     expect(canonical('<div><br></div>')).not.toContain('aee-layout-spacer');
   });
 
-  it('reads its marker first: marked, a spacer even without a height (the default)', () => {
-    expect(canonical('<div class="aee-layout-spacer">&nbsp;</div>')).toBe(SPACER(24));
-    expect(canonical('<div class="x_aee-layout-spacer" style="height: 48px;">&nbsp;</div>')).toBe(
-      SPACER(48),
-    );
+  it('reads its marker first: marked, a spacer even without a height (the default) — as written', () => {
+    for (const [html, height] of [
+      ['<div class="aee-layout-spacer">&nbsp;</div>', 24],
+      ['<div class="x_aee-layout-spacer" style="height: 48px;">&nbsp;</div>', 48],
+    ] as const) {
+      const doc = parseHTML(html, schema);
+      expect(doc.child(0).type.name).toBe('spacer');
+      expect(doc.child(0).attrs['height']).toBe(height);
+      expect(canonical(html)).toBe(html);
+    }
   });
 
   it('snaps a set height to 4px steps between 4 and 160px', () => {
@@ -117,15 +136,13 @@ describe('spacer', () => {
         editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, spacerPos())),
       );
 
-    it('is the same one div with its background-color — and reads back, in every parse', () => {
+    it('is the same one div with its background-color — and reads back', () => {
       editor.commands['insertSpacer'](96);
       select();
       expect(editor.commands['setSpacerBackground']('#EFE9E1')).toBe(true);
       const out = editor.getHTML();
       expect(out).toContain(STRIP(96, '#efe9e1'));
-      for (const mode of ['repair', 'email', 'preserve'] as const) {
-        expect(canonical(out, mode)).toBe(out);
-      }
+      expect(canonical(out)).toBe(out);
       // The editor paints it as sent.
       const view = host.querySelector<HTMLElement>('.aee-spacer')!;
       expect(view.style.backgroundColor).toBe('rgb(239, 233, 225)');
@@ -170,7 +187,7 @@ describe('spacer', () => {
         'aee-layout-spacer',
         'aee-layout-page-run',
       ]);
-      const doc = parseHTML(out, schema, { mode: 'preserve' });
+      const doc = parseHTML(out, schema);
       const names: string[] = [];
       doc.forEach((node) => names.push(node.type.name));
       expect(names).toEqual(['paragraph', 'spacer', 'paragraph']);

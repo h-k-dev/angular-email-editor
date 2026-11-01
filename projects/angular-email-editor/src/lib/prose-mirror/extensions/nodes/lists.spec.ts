@@ -31,20 +31,31 @@ describe('list spacing', () => {
     }
   });
 
-  it('reads a flush list — its top margin said, and zero — as layout; a bare one as spaced', () => {
-    expect(roundTrip('<ul style="margin:0"><li><div>a</div></li></ul>')).toBe(
-      `<ul ${MARKED} style="${FLUSH}"><li><div>a</div></li></ul>`,
-    );
-    expect(roundTrip('<ul><li><div>a</div></li></ul>')).toBe(`<ul style="${SPACED}"><li><div>a</div></li></ul>`);
-    expect(roundTrip('<ol style="margin-bottom: 0"><li><div>a</div></li></ol>')).toBe(
-      `<ol style="${SPACED}"><li><div>a</div></li></ol>`,
-    );
+  it('reads a flush list — its top margin said, and zero — as layout; a bare one as spaced — each as written', () => {
+    for (const [html, layout] of [
+      ['<ul style="margin:0"><li><div>a</div></li></ul>', true],
+      ['<ul><li><div>a</div></li></ul>', false],
+      ['<ol style="margin-bottom: 0"><li><div>a</div></li></ol>', false],
+    ] as const) {
+      const list = parseHTML(html, schema).child(0);
+      expect(list.type.name).toMatch(/^(bullet|ordered)List$/);
+      expect(list.attrs['layout']).toBe(layout);
+      expect(roundTrip(html)).toBe(html);
+    }
   });
 
   it('a nested list is always flush: it belongs to its item’s line', () => {
-    expect(roundTrip('<ul><li><div>a</div><ol><li><div>b</div></li></ol></li></ul>')).toBe(
-      `<ul style="${SPACED}"><li><div>a</div><ol ${MARKED} style="${FLUSH}"><li><div>b</div></li></ol></li></ul>`,
-    );
+    const html = '<ul><li><div>a</div><ol><li><div>b</div></li></ol></li></ul>';
+    const outer = parseHTML(html, schema).child(0);
+    const nested = outer.child(0).child(1);
+    expect(outer.attrs['layout']).toBe(false);
+    expect(nested.type.name).toBe('orderedList');
+    expect(nested.attrs['layout']).toBe(true);
+    expect(roundTrip(html)).toBe(html);
+    // Ours writes the nested one flush, marked.
+    const ours = `<ul style="${SPACED}"><li><div>a</div><ol ${MARKED} style="${FLUSH}"><li><div>b</div></li></ol></li></ul>`;
+    expect(parseHTML(ours, schema).child(0).child(0).child(1).attrs['layout']).toBe(true);
+    expect(roundTrip(ours)).toBe(ours);
   });
 
   describe('in the editor', () => {

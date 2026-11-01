@@ -75,7 +75,7 @@ describe('Mailbox', () => {
   describe('on a desk', () => {
     beforeEach(() => start(false));
 
-    it('lays the mail and the calendar down the aside, the templates under them, then the developers: each reference a group of its pages, Render beside them', () => {
+    it('lays the mail and the calendar down the aside, the templates under them, then the developers: each reference a group of its pages', () => {
       const labels = [...root.querySelectorAll('.mailbox-link__label')].map((el) =>
         el.textContent?.trim(),
       );
@@ -85,7 +85,7 @@ describe('Mailbox', () => {
       expect(link('Calendar').getAttribute('href')).toBe('/calendar');
       expect(labels).toContain('Editor');
       expect(labels).toContain('Theming');
-      expect(labels.at(-1)).toBe('Render');
+      expect(labels).not.toContain('Render');
       expect(heading('Developers')).toBeDefined();
       expect(group('API')).toBeDefined();
       expect(group('Styling')).toBeDefined();
@@ -97,8 +97,6 @@ describe('Mailbox', () => {
       // The utilities share the path, under a group of their own.
       expect(link('Keep focus').closest('.mailbox-group')).toBe(group('Utilities').parentElement);
       expect(link('Keep focus').getAttribute('href')).toBe('/components/focus');
-      // Render is on the first level, beside the groups — not in one.
-      expect(link('Render').closest('.mailbox-group')).toBeNull();
       expect(link('Addresses').closest('.mailbox-group')).toBe(group('API').parentElement);
       expect(root.querySelector('.mailbox-link[href="/"]')).toBeNull();
       expect(link('Templates').getAttribute('href')).toBe('/templates');

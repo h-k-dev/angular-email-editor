@@ -53,17 +53,15 @@ describe('html-source linter', () => {
     expect(lintHTML('<br></br>')[0].message).toContain('void element');
   });
 
-  it('warns on tags outside the email-safe set', () => {
-    const diagnostics = lintHTML('<video></video>');
+  it('notes a tag the library does not know yet — kept as written', () => {
+    const diagnostics = lintHTML('<x-card></x-card>');
     expect(diagnostics[0]).toMatchObject({ severity: 'warning' });
-    expect(diagnostics[0].message).toContain('not email-safe');
+    expect(diagnostics[0].message).toContain('not known yet — kept as written');
+    expect(lintHTML('<center>x</center>')).toEqual([]);
   });
 
-  it('announces that comments will not survive the parse — loud, never silent', () => {
-    const diagnostics = lintHTML('<div>a</div><!-- ghost -->');
-    expect(diagnostics).toHaveLength(1);
-    expect(diagnostics[0]).toMatchObject({ severity: 'warning' });
-    expect(diagnostics[0].message).toContain('drops them');
+  it('lets a comment be — content, kept as written', () => {
+    expect(lintHTML('<div>a</div><!-- note -->')).toEqual([]);
   });
 
   it('lets a conditional comment be — Outlook’s own content, not a note', () => {
@@ -252,7 +250,7 @@ describe('html-source linter', () => {
         return Reflect.get(target, property, receiver);
       },
     });
-    lintHTML(source, { ...scan, tokens }, { mode: 'email' });
+    lintHTML(source, { ...scan, tokens });
     expect(reads).toBeLessThan(scan.tokens.length * 20);
   });
 });
@@ -268,16 +266,17 @@ describe('html-source formatter — merge tags', () => {
 });
 
 describe('html-source formatter — a whole document', () => {
-  it('keeps the stylesheet, from the head too, its CSS as written', () => {
+  it('formats it whole — the head, its stylesheet with its CSS as written, then the body', () => {
     const source =
       '<html><head><style type="text/css">@media only screen and (min-width:480px) { .mj-column-per-50 { width: 50% !important; max-width: 50%; } }\n a > b { color: red }</style></head>' +
       '<body><div style="margin:0 auto;max-width:600px"><div class="mj-column-per-50" style="display:inline-block;width:100%"><p>x</p></div></div></body></html>';
     const formatted = formatHTML(source);
-    expect(formatted.startsWith('<style type="text/css">\n  @media only screen')).toBe(true);
+    expect(formatted.startsWith('<html>\n  <head>\n    <style type="text/css">')).toBe(true);
     // Not escaped, not re-wrapped: the parse reads the same rules after.
     expect(formatted).toContain('a > b { color: red }');
     expect(formatted).toContain('width: 50% !important');
-    expect(formatted.indexOf('</style>')).toBeLessThan(formatted.indexOf('<div'));
+    expect(formatted.indexOf('</head>')).toBeLessThan(formatted.indexOf('<body>'));
+    expect(formatted.endsWith('  </body>\n</html>')).toBe(true);
     expect(formatHTML(formatted)).toBe(formatted);
   });
 });
@@ -378,6 +377,8 @@ describe('html-source formatter — 80 characters', () => {
     expect(canonicalEmail(formatted)).toBe(canonicalEmail(glued));
   });
 
+  // Each declaration keeps its own separator (`; `): the break is whitespace
+  // the parse reads back as the style it was.
   it('prints a wide style attribute as embedded CSS, one declaration per line, like Prettier', () => {
     const columns =
       '<div style="width: 100%; max-width: 600px;">' +
@@ -389,10 +390,10 @@ describe('html-source formatter — 80 characters', () => {
         '<div style="width: 100%; max-width: 600px;">',
         '  <div',
         '    style="',
-        '      display: inline-block;',
-        '      width: 100%;',
-        '      max-width: 280px;',
-        '      vertical-align: top;',
+        '      display: inline-block; ',
+        '      width: 100%; ',
+        '      max-width: 280px; ',
+        '      vertical-align: top; ',
         '      box-sizing: border-box;',
         '    "',
         '  >',
@@ -405,7 +406,7 @@ describe('html-source formatter — 80 characters', () => {
     expect(canonicalEmail(formatHTML(columns))).toBe(canonicalEmail(columns));
 
     // The button: a wide-style anchor whose label lands on its own line — and
-    // whose parse collapses it back (parsing is repair). Canonical wraps a
+    // whose parse reads it back as written. Canonical wraps a
     // lone button in a div: the node is inline, like an image.
     const button =
       '<a href="https://x.io" style="display: inline-block; background-color: rgb(26, 115, 232); color: rgb(255, 255, 255); font-weight: bold; text-decoration: none; white-space: nowrap; border-width: 14px 28px; border-style: solid; border-color: rgb(26, 115, 232);">Shop now</a>';
@@ -414,14 +415,14 @@ describe('html-source formatter — 80 characters', () => {
       '<a',
       '  href="https://x.io"',
       '  style="',
-      '    display: inline-block;',
-      '    background-color: rgb(26, 115, 232);',
-      '    color: rgb(255, 255, 255);',
-      '    font-weight: bold;',
-      '    text-decoration: none;',
-      '    white-space: nowrap;',
-      '    border-width: 14px 28px;',
-      '    border-style: solid;',
+      '    display: inline-block; ',
+      '    background-color: rgb(26, 115, 232); ',
+      '    color: rgb(255, 255, 255); ',
+      '    font-weight: bold; ',
+      '    text-decoration: none; ',
+      '    white-space: nowrap; ',
+      '    border-width: 14px 28px; ',
+      '    border-style: solid; ',
       '    border-color: rgb(26, 115, 232);',
       '  "',
       '>',
@@ -437,9 +438,11 @@ describe('html-source formatter — 80 characters', () => {
     // before; the word stays whole and overflows instead (the pane scrolls).
     const glued =
       '<div>Simply created on <strong style="font-weight: bold;"><a href="http://www.mailjet.com" target="_blank" rel="noopener noreferrer" style="color:#ffffff">Mailjet Passport</a></strong></div>';
-    const formatted = formatHTML(glued, '  ', 80, { mode: 'email' });
+    const formatted = formatHTML(glued, '  ', 80);
     expect(formatted).not.toMatch(/<strong\s*\n/);
-    expect(formatted).toContain('<strong style="font-weight: bold;"><a href="http://www.mailjet.com"');
+    expect(formatted).toContain(
+      '<strong style="font-weight: bold;"><a href="http://www.mailjet.com"',
+    );
     expect(canonicalEmail(formatted)).toBe(canonicalEmail(glued));
 
     // A block's open tag with a single long attribute: kept on its line.
@@ -448,7 +451,7 @@ describe('html-source formatter — 80 characters', () => {
 
     // A lone style that *can* shrink still breaks — at its declarations.
     const td = `${'<div>'.repeat(8)}<div style="direction:ltr;font-size:0px;padding:20px 0;text-align:center;"><img src="a.png"></div>${'</div>'.repeat(8)}`;
-    expect(formatHTML(td, '  ', 80, { mode: 'email' })).toContain(
+    expect(formatHTML(td, '  ', 80)).toContain(
       [
         '                <div',
         '                  style="',

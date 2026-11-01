@@ -538,6 +538,22 @@ html {
   }
 }
 
+/* A whole document (a compiled template, envelope and all) is exactly as
+ * tall as its content, and starts where its content does: no editorial room
+ * above it, no lines of the editor's own under it, no stretch to the
+ * canvas. The body's colour (on this root, DocumentStyles) ends with the
+ * email, as a thumbnail draws it; below is the paper, where a click still
+ * starts a line (ClickBelow). Only the floating foot's room stays, where
+ * the foot floats over the text. */
+.email-compose__editor > .aee-editor.aee-document {
+  min-height: 0;
+  padding-block: 0 var(--email-compose-foot-room, 0px);
+}
+
+section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor.aee-document {
+  padding-block-end: 0;
+}
+
 // Where the host scrolls (the designer's canvas), the foot's room is the
 // host's.
 section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor.aee-page-layout {
@@ -1098,6 +1114,49 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor.
 .aee-editor .aee-table-wrap--authored {
   padding: 0;
   margin-inline: 0;
+}
+
+/* A line ending in a line break (`…?<br>`): a client draws no empty line
+ * after it; ProseMirror's own break after it (`ProseMirror-trailingBreak`)
+ * would. Hidden — the email as a client draws it — but on the caret's line
+ * (the lib's TrailingBreakLine), where the empty line is where it stands. */
+.aee-editor br + br.ProseMirror-trailingBreak {
+  display: none;
+}
+
+.aee-editor .aee-caret-break-line > br + br.ProseMirror-trailingBreak {
+  display: inline;
+}
+
+/* What the library does not know yet (the lib's UnknownMarkup): markup kept
+ * as written that no block of ours models, and tags, attributes or styles
+ * outside the email vocabulary. Shown on a design desk only — the designer
+ * is where an email is studied; the writer stays quiet. An outline, never a
+ * border: marking moves nothing. The label is the element's title. Never in
+ * the email.
+ *
+ * Kept as written is most of a builder's email (MJML is nearly all of it):
+ * nothing at rest, so the email looks exactly as written — the innermost
+ * one under the pointer only. Not known yet is rare and wants seeing:
+ * faint at rest, plain under the pointer. */
+[email-compose][data-design] .aee-editor .aee-unknown {
+  outline: 1px dotted transparent;
+  outline-offset: -1px;
+  transition: outline-color 150ms ease;
+}
+
+[email-compose][data-design]
+  .aee-editor
+  .aee-unknown[data-aee-unknown='kept']:hover:not(:has(.aee-unknown:hover)) {
+  outline-color: var(--mat-sys-outline);
+}
+
+[email-compose][data-design] .aee-editor .aee-unknown[data-aee-unknown='unknown'] {
+  outline-color: color-mix(in srgb, var(--mat-sys-tertiary) 45%, transparent);
+
+  &:hover {
+    outline-color: var(--mat-sys-tertiary);
+  }
 }
 
 /* The composer's paper (`EmailCompose.colorScheme`): the editing surface

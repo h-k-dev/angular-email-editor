@@ -9,10 +9,8 @@ import { isMarked, layoutMarker, markedAs, withoutMarkers } from './layout-marke
 import { createSchema } from './schema';
 
 const schema = createSchema(emailExtensions);
-type Mode = 'repair' | 'email' | 'preserve';
-const parse = (html: string, mode: Mode = 'repair') => parseHTML(html, schema, { mode });
-const canonical = (html: string, mode: Mode = 'repair') =>
-  serializeToHTML(parse(html, mode), schema);
+const parse = (html: string) => parseHTML(html, schema);
+const canonical = (html: string) => serializeToHTML(parse(html), schema);
 const element = (html: string): Element => {
   const host = document.createElement('div');
   host.innerHTML = html;
@@ -83,50 +81,51 @@ describe('layout markers', () => {
     });
 
     it('a heading or a list only in its layout variant', () => {
-      expect(canonical('<h2 style="margin: 0">t</h2>')).toContain('<h2 class="aee-layout-heading"');
-      expect(canonical('<h2>t</h2>')).not.toContain('aee-layout');
-      expect(canonical('<ul style="margin: 0"><li><div>a</div></li></ul>')).toContain(
+      const { heading, bulletList, listItem, paragraph } = schema.nodes;
+      const write = (node: Node) => serializeToHTML(schema.topNodeType.create(null, node), schema);
+      const item = () => listItem.create(null, paragraph.create(null, schema.text('a')));
+      expect(write(heading.create({ level: 2, layout: true }, schema.text('t')))).toContain(
+        '<h2 class="aee-layout-heading"',
+      );
+      expect(write(heading.create({ level: 2 }, schema.text('t')))).not.toContain('aee-layout');
+      expect(write(bulletList.create({ layout: true }, item()))).toContain(
         '<ul class="aee-layout-list"',
       );
-      expect(canonical('<ol><li><div>a</div></li></ol>')).not.toContain('aee-layout');
+      expect(write(bulletList.create(null, item()))).not.toContain('aee-layout');
+      // Someone else's flush heading is no layout heading of ours: as written.
+      expect(canonical('<h2 style="margin: 0">t</h2>')).toBe('<h2 style="margin: 0">t</h2>');
     });
   });
 
   describe('parsing — the marker wins over the shape', () => {
-    for (const mode of ['repair', 'email', 'preserve'] as const) {
-      describe(`in ${mode} mode`, () => {
-        it('a marked heading or list is a layout one, whatever its margin', () => {
-          expect(
-            first(parse('<h2 class="aee-layout-heading">t</h2>', mode), 'heading').attrs['layout'],
-          ).toBe(true);
-          expect(
-            first(
-              parse('<ul class="aee-layout-list"><li><div>a</div></li></ul>', mode),
-              'bulletList',
-            ).attrs['layout'],
-          ).toBe(true);
-        });
+    it('a marked heading or list is a layout one, whatever its margin', () => {
+      expect(first(parse('<h2 class="aee-layout-heading">t</h2>'), 'heading').attrs['layout']).toBe(
+        true,
+      );
+      expect(
+        first(parse('<ul class="aee-layout-list"><li><div>a</div></li></ul>'), 'bulletList').attrs[
+          'layout'
+        ],
+      ).toBe(true);
+    });
 
-        it('a marked table is a layout table, lines and room or not', () => {
-          const html =
-            '<table class="aee-layout-table" style="margin-top: 16px; margin-bottom: 16px;"><tbody><tr>' +
-            '<td style="border: 1px solid rgb(218, 220, 224);">a</td><td>b</td></tr></tbody></table>';
-          expect(tableKind(first(parse(html, mode), 'table'))).toBe('layout');
-        });
+    it('a marked table is a layout table, lines and room or not', () => {
+      const html =
+        '<table class="aee-layout-table" style="margin-top: 16px; margin-bottom: 16px;"><tbody><tr>' +
+        '<td style="border: 1px solid rgb(218, 220, 224);">a</td><td>b</td></tr></tbody></table>';
+      expect(tableKind(first(parse(html), 'table'))).toBe('layout');
+    });
 
-        it('our own marked output comes back as itself', () => {
-          editorOutputs().forEach((html) => expect(canonical(html, mode)).toBe(html));
-        });
-      });
-    }
+    it('our own marked output comes back as itself', () => {
+      editorOutputs().forEach((html) => expect(canonical(html)).toBe(html));
+    });
 
-    it('a marked band is a section even bare — no fill, no image, no padding', () => {
+    it('a marked band that is not our band’s markup is kept as written, never rewritten into one', () => {
       const bare =
         '<table class="aee-layout-section" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width: 100%; border-collapse: collapse;"><tbody><tr>' +
         '<td><div><div>band</div></div></td></tr></tbody></table>';
-      expect(first(parse(bare), 'section')).toBeTruthy();
-      // Unmarked, the same bare band is a table, as it always was.
-      expect(first(parse(bare.replace(' class="aee-layout-section"', '')), 'section')).toBeNull();
+      expect(first(parse(bare), 'section')).toBeNull();
+      expect(canonical(bare)).toBe(bare);
     });
 
     it('a marked column is one without the inline-block it would need unmarked', () => {
@@ -140,14 +139,15 @@ describe('layout markers', () => {
       const html =
         '<table class="aee-layout-table" role="presentation"><tbody><tr><td bgcolor="#f1f3f4"><div>a</div></td></tr></tbody></table>';
       expect(first(parse(html), 'section')).toBeNull();
-      expect(tableKind(first(parse(html), 'table'))).toBe('layout');
+      // Not our table's markup either: kept as written.
+      expect(canonical(html)).toBe(html);
     });
 
-    it('markup from before the markers is still exactly ours in preserve mode — and comes out marked', () => {
+    it('markup from before the markers is still exactly ours — and comes out marked', () => {
       const legacy =
         '<div style="width: 100%; max-width: 600px;">' +
         `<div style="${COLUMN}"><div>a</div></div><div style="${COLUMN}"><div>b</div></div></div>`;
-      const doc = parse(legacy, 'preserve');
+      const doc = parse(legacy);
       const columns = first(doc, 'columns');
       expect(columns).toBeTruthy();
       // Recognised exactly, not kept as authored markup beside the node.
@@ -162,7 +162,7 @@ describe('layout markers', () => {
     it('a client’s renamed marker is no difference either: the block is exactly ours', () => {
       const ours = editorOutputs()[0];
       const renamed = ours.replace('class="aee-layout-section"', 'class="x_aee-layout-section"');
-      const section = first(parse(renamed, 'preserve'), 'section');
+      const section = first(parse(renamed), 'section');
       expect(section).toBeTruthy();
       expect(section.attrs['html'] ?? null).toBeNull();
     });

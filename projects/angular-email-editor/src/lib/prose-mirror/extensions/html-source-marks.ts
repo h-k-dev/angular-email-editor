@@ -10,7 +10,6 @@ import {
 } from '../extension';
 import { createSchema } from '../schema';
 import { parseHTML, serializeToHTML } from '../html';
-import { ParseMode } from '../parse-mode';
 import { entitySpans, formatHTML, scanHTML } from '../html-source';
 import { createOffsetMapper, docText, textOffsetAt } from './html-language';
 
@@ -23,10 +22,6 @@ export interface SourceMarksOptions {
   /** The rich-text extension set whose schema defines the mark semantics —
       pass the same kit the visual editor runs so both sides toggle alike. */
   extensions: Extension[];
-  /** The parse mode of the visual editor this source pane mirrors. Default
-      `email`, the editor's own default; pass the visual editor's mode when it
-      chose another, so a toggle never drops markup the visual side keeps. */
-  parseMode?: ParseMode;
 }
 
 /**
@@ -37,15 +32,13 @@ export interface SourceMarksOptions {
  * with the re-serialized, formatted result. Toggling therefore behaves
  * exactly like the visual editor — it *is* the visual editor's command.
  *
- * Side effect by design: the command pipeline canonicalizes, so running one
- * also repairs and formats the document, like Shift-Alt-F does.
+ * Side effect by design: the command pipeline re-serializes, so running one
+ * also formats the document, like Shift-Alt-F does — the markup itself is
+ * kept as written (the one parse).
  */
-export const createSourceMarks = ({
-  extensions,
-  parseMode = 'email',
-}: SourceMarksOptions): FunctionalExtension => {
+export const createSourceMarks = ({ extensions }: SourceMarksOptions): FunctionalExtension => {
   const schema = createSchema(extensions);
-  const ctx: ExtensionContext = { schema, extensions, parseMode };
+  const ctx: ExtensionContext = { schema, extensions };
 
   const keymap: Record<string, Command> = {};
   const commands: Record<string, CommandFactory> = {};
@@ -58,16 +51,16 @@ export const createSourceMarks = ({
     for (const action of extension.actions?.(ctx) ?? []) {
       actions.push({
         ...action,
-        command: throughRichSchema(schema, action.command, parseMode),
+        command: throughRichSchema(schema, action.command),
         isActive: undefined,
         isEnabled: () => true,
       });
     }
     for (const [key, command] of Object.entries(extension.keymap?.(ctx) ?? {})) {
-      keymap[key] = throughRichSchema(schema, command, parseMode);
+      keymap[key] = throughRichSchema(schema, command);
     }
     for (const [name, factory] of Object.entries(extension.commands?.(ctx) ?? {})) {
-      commands[name] = (...args) => throughRichSchema(schema, factory(...args), parseMode);
+      commands[name] = (...args) => throughRichSchema(schema, factory(...args));
     }
   }
 
@@ -80,7 +73,7 @@ export const createSourceMarks = ({
 };
 
 /** Wraps a rich-schema command so it can run against source-editor state. */
-function throughRichSchema(schema: Schema, richCommand: Command, mode: ParseMode): Command {
+function throughRichSchema(schema: Schema, richCommand: Command): Command {
   return (state, dispatch) => {
     const lineType = state.schema.nodes['codeLine'];
     if (!lineType || state.selection.empty) return false;
@@ -99,7 +92,7 @@ function throughRichSchema(schema: Schema, richCommand: Command, mode: ParseMode
       source.slice(0, a) + MARK_START + source.slice(a, b) + MARK_END + source.slice(b);
     // The source is law here too: a toggle inside foreign markup must leave
     // that markup alone — only the mark changes.
-    let rich = EditorState.create({ doc: parseHTML(marked, schema, { mode }) });
+    let rich = EditorState.create({ doc: parseHTML(marked, schema) });
     const p1 = findChar(rich.doc, MARK_START);
     const p2 = findChar(rich.doc, MARK_END);
     if (p1 < 0 || p2 <= p1) return false;
@@ -117,7 +110,7 @@ function throughRichSchema(schema: Schema, richCommand: Command, mode: ParseMode
       const { from, to } = rich.selection;
       rich = rich.apply(rich.tr.insertText(MARK_END, to).insertText(MARK_START, from));
     }
-    const formatted = formatHTML(serializeToHTML(rich.doc, schema), undefined, undefined, { mode });
+    const formatted = formatHTML(serializeToHTML(rich.doc, schema));
     const start = formatted.indexOf(MARK_START);
     const end = formatted.indexOf(MARK_END);
     const cleaned = formatted.replace(MARK_START, '').replace(MARK_END, '');

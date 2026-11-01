@@ -18,35 +18,32 @@ const canonical = (html: string) => serializeToHTML(parseHTML(html, schema), sch
 /** A press on a `+` pill released in place: its click (a drag is the
     render spec's). */
 const tap = (pill: HTMLElement) => {
-  pill.dispatchEvent(new PointerEvent('pointerdown', { button: 0, bubbles: true, cancelable: true }));
+  pill.dispatchEvent(
+    new PointerEvent('pointerdown', { button: 0, bubbles: true, cancelable: true }),
+  );
   window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
 };
 
 describe('column width serialization', () => {
-  it('parses a percentage width and round-trips it as a fixpoint', () => {
-    const html = canonical(
-      '<table><tbody><tr><td style="width: 40%">a</td><td>b</td></tr></tbody></table>',
-    );
-    expect(html).toContain('width: 40%;');
+  it('reads a percentage width as the column’s, kept as written — a fixpoint', () => {
+    const html = '<table><tbody><tr><td style="width: 40%">a</td><td>b</td></tr></tbody></table>';
+    expect(columnWidths(parseHTML(html, schema).firstChild!)).toEqual([40, null]);
     expect(canonical(html)).toBe(html);
   });
 
-  it('drops pixel widths on parse — percentages are the only unit', () => {
-    const html = canonical(
-      '<table><tbody><tr><td style="width: 120px">a</td><td width="200">b</td></tr></tbody></table>',
-    );
-    expect(html).not.toContain('width: 120');
-    expect(html).not.toContain('width: 200');
-    expect(html).not.toContain('width="200"');
+  it('keeps pixel widths as written, never as a column’s — percentages are the only unit', () => {
+    const html =
+      '<table><tbody><tr><td style="width: 120px">a</td><td width="200">b</td></tr></tbody></table>';
+    expect(columnWidths(parseHTML(html, schema).firstChild!)).toEqual([null, null]);
+    expect(canonical(html)).toBe(html);
   });
 
-  it('a span carries the summed width and round-trips stably', () => {
-    const once = canonical(
+  it('a span keeps its width as written — never spread onto the cells under it', () => {
+    const html =
       '<table><tbody><tr><td colspan="2" style="width: 50%">w</td><td>c</td></tr>' +
-        '<tr><td>a</td><td>b</td><td>c</td></tr></tbody></table>',
-    );
-    expect(once).toContain('colspan="2"');
-    expect(once).toContain('width: 50%;');
+      '<tr><td>a</td><td>b</td><td>c</td></tr></tbody></table>';
+    const once = canonical(html);
+    expect(once).toBe(html);
     expect(canonical(once)).toBe(once);
   });
 });
@@ -235,19 +232,15 @@ describe('column resize', () => {
     expect([...edges].map((edge) => edge.style.left).sort()).toEqual(['15%', '85%']);
   });
 
-  it('a pixel table width parses to full fluid width — repair, not respect', () => {
-    const html = canonical(
-      '<table style="width: 600px"><tbody><tr><td>a</td></tr></tbody></table>',
-    );
-    expect(html).toContain('width: 100%; table-layout: fixed');
+  it('a pixel table width is kept as written — to the model, the table is full width', () => {
+    const html = '<table style="width: 600px"><tbody><tr><td>a</td></tr></tbody></table>';
+    expect(parseHTML(html, schema).firstChild!.attrs['width']).toBe(100);
     expect(canonical(html)).toBe(html);
   });
 
-  it('a percentage table width round-trips as a fixpoint', () => {
-    const html = canonical('<table style="width: 70%"><tbody><tr><td>a</td></tr></tbody></table>');
-    expect(html).toContain(
-      '<table style="width: 70%; table-layout: fixed; border-collapse: collapse;"',
-    );
+  it('a percentage table width is the table’s, kept as written — a fixpoint', () => {
+    const html = '<table style="width: 70%"><tbody><tr><td>a</td></tr></tbody></table>';
+    expect(parseHTML(html, schema).firstChild!.attrs['width']).toBe(70);
     expect(canonical(html)).toBe(html);
   });
 

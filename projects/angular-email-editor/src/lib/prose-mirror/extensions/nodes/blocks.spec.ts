@@ -1,5 +1,6 @@
 import { NodeSelection, TextSelection } from 'prosemirror-state';
 import { undo } from 'prosemirror-history';
+import { Mark, Node as PMNode } from 'prosemirror-model';
 import { createSchema } from '../../schema';
 import { parseHTML, serializeToHTML } from '../../html';
 import { lintHTML } from '../../html-source';
@@ -11,6 +12,22 @@ import { createButtonEdit, selectedButton } from './button';
 
 const schema = createSchema(emailExtensions);
 const roundTrip = (html: string) => serializeToHTML(parseHTML(html, schema), schema);
+/** The first node of `type` the parse made of `html`. */
+const parsedNode = (html: string, type: string) => {
+  let found: PMNode | null = null;
+  parseHTML(html, schema).descendants((node) => {
+    if (!found && node.type.name === type) found = node;
+  });
+  return found as PMNode | null;
+};
+/** The first link mark the parse made of `html`. */
+const parsedLink = (html: string) => {
+  let found: Mark | null = null;
+  parseHTML(html, schema).descendants((node) => {
+    found ??= node.marks.find((mark) => mark.type.name === 'link') ?? null;
+  });
+  return found as Mark | null;
+};
 
 const DIVIDER =
   '<hr style="height: 1px; width: 100%; background-color: rgb(224, 224, 224); ' +
@@ -21,8 +38,9 @@ const BUTTON_STYLE =
   'border-color: rgb(26, 115, 232);';
 
 describe('divider block', () => {
-  it('round-trips to a full-width rule', () => {
-    expect(roundTrip('<hr>')).toBe(DIVIDER);
+  it('reads a bare <hr> as a divider, kept as written; ours is a full-width rule', () => {
+    expect(parsedNode('<hr>', 'divider')).not.toBeNull();
+    expect(roundTrip('<hr>')).toBe('<hr>');
     expect(roundTrip(DIVIDER)).toBe(DIVIDER);
   });
 
@@ -61,13 +79,15 @@ describe('button', () => {
   });
 
   it('is distinct from a plain link — no display:inline-block, stays a link', () => {
-    const link = roundTrip('<div><a href="https://x.io">plain</a></div>');
-    expect(link).toBe(
-      '<div><a href="https://x.io" target="_blank" rel="noopener noreferrer">plain</a></div>',
-    );
-    // And an inline-block anchor is NOT read as a link inside a paragraph:
-    // both carry target and rel now, but only a link is a bare anchor.
-    const button = roundTrip(`<a href="https://x.io" style="${BUTTON_STYLE}">CTA</a>`);
+    const plain = '<div><a href="https://x.io">plain</a></div>';
+    expect(parsedLink(plain)?.attrs['href']).toBe('https://x.io');
+    expect(parsedNode(plain, 'button')).toBeNull();
+    expect(roundTrip(plain)).toBe(plain);
+    // And an inline-block anchor is NOT read as a link inside a paragraph.
+    const cta = `<a href="https://x.io" style="${BUTTON_STYLE}">CTA</a>`;
+    expect(parsedNode(cta, 'button')?.attrs['label']).toBe('CTA');
+    expect(parsedLink(cta)).toBeNull();
+    const button = roundTrip(cta);
     expect(button).toContain(`style="${BUTTON_STYLE}">CTA</a>`);
     expect(button).not.toContain('rel="noopener noreferrer">');
   });
@@ -75,58 +95,58 @@ describe('button', () => {
   it('is a box, not a layout: an inline-block anchor with no fill or border stays a link', () => {
     // MJML's navbar link — inline-block for the row it stands in, a padding
     // for the spacing, and neither a fill nor a border.
-    const out = roundTrip(
-      '<div><a href="https://x.io" style="display: inline-block; color: #000000; padding: 0 35px; text-decoration: none;">home</a></div>',
-    );
-    // A link — its colour kept, on a span inside (the import's inheritance),
-    // and its nav item's room and bare face kept on the link itself.
-    expect(out).toContain(
-      'rel="noopener noreferrer" style="display: inline-block; padding: 0px 35px; text-decoration: none;"><span style="color: rgb(0, 0, 0);">home</span></a>',
-    );
-    expect(out).not.toContain('background-color: rgb(26, 115, 232)');
-    // A fill alone makes the box (in that fill, with the text it pairs); a
-    // border alone makes it too (the default blue, no fill said).
-    expect(
-      roundTrip(
-        '<a href="https://x.io" style="display: inline-block; background-color: #333">Go</a>',
-      ),
-    ).toContain(
-      'style="display: inline-block; background-color: rgb(51, 51, 51); color: rgb(255, 255, 255); font-weight: bold; text-decoration: none; white-space: nowrap; border-width: 14px 28px; border-style: solid; border-color: rgb(51, 51, 51);">Go</a>',
-    );
-    expect(
-      roundTrip(
-        '<a href="https://x.io" style="display: inline-block; border: 2px solid #333">Go</a>',
-      ),
-    ).toContain(`style="${BUTTON_STYLE}">Go</a>`);
+    const nav =
+      '<div><a href="https://x.io" style="display: inline-block; color: #000000; padding: 0 35px; text-decoration: none;">home</a></div>';
+    // A link, its nav item's room and bare face read — and kept as written.
+    expect(parsedNode(nav, 'button')).toBeNull();
+    expect(parsedLink(nav)?.attrs).toMatchObject({
+      href: 'https://x.io',
+      decoration: 'none',
+      spacing: '0px 35px',
+    });
+    expect(roundTrip(nav)).toBe(nav);
+    // A fill alone makes the box (in that fill); a border alone makes it too
+    // (the default blue, no fill said). Both stay as written.
+    const filled =
+      '<a href="https://x.io" style="display: inline-block; background-color: #333">Go</a>';
+    expect(parsedNode(filled, 'button')?.attrs['background']).toBe('#333333');
+    expect(roundTrip(filled)).toBe(`<div>${filled}</div>`);
+    const bordered =
+      '<a href="https://x.io" style="display: inline-block; border: 2px solid #333">Go</a>';
+    expect(parsedNode(bordered, 'button')?.attrs['background']).toBeNull();
+    expect(roundTrip(bordered)).toBe(`<div>${bordered}</div>`);
     // `border: none` is no border.
-    expect(
-      roundTrip('<a href="https://x.io" style="display: inline-block; border: none">Go</a>'),
-    ).not.toContain('background-color: rgb(26, 115, 232)');
+    const bare = '<a href="https://x.io" style="display: inline-block; border: none">Go</a>';
+    expect(parsedNode(bare, 'button')).toBeNull();
+    expect(parsedLink(bare)?.attrs['href']).toBe('https://x.io');
   });
 
-  it('keeps a builder’s fill: the box stays ours, in that colour, with the text the fill pairs', () => {
-    const out = roundTrip(
-      '<div><a href="https://x.io" style="display: inline-block; background: #bd8714; color: #FFFFFF; padding: 10px 25px; border-radius: 3px;">Book</a></div>',
-    );
-    expect(out).toContain(
-      'style="display: inline-block; background-color: rgb(189, 135, 20); color: rgb(255, 255, 255); font-weight: bold; text-decoration: none; white-space: nowrap; border-width: 14px 28px; border-style: solid; border-color: rgb(189, 135, 20);">Book</a>',
-    );
-    expect(roundTrip(out)).toBe(out);
+  it('reads a builder’s fill: the box is ours, in that colour, with the text colour it pairs — kept as written', () => {
+    const builder =
+      '<div><a href="https://x.io" style="display: inline-block; background: #bd8714; color: #FFFFFF; padding: 10px 25px; border-radius: 3px;">Book</a></div>';
+    expect(parsedNode(builder, 'button')?.attrs).toMatchObject({
+      label: 'Book',
+      background: '#bd8714',
+      color: '#ffffff',
+    });
+    expect(roundTrip(builder)).toBe(builder);
     // Our own blue is the default — not carried as a fill.
     expect(
-      roundTrip(`<div><a href="https://x.io" style="${BUTTON_STYLE}">CTA</a></div>`),
-    ).toContain(`style="${BUTTON_STYLE}">CTA</a>`);
+      parsedNode(`<div><a href="https://x.io" style="${BUTTON_STYLE}">CTA</a></div>`, 'button')
+        ?.attrs['background'],
+    ).toBeNull();
   });
 
-  it('refuses a script URL — the button is dropped, as the link mark drops it', () => {
-    const out = roundTrip(
-      `<div><a href="javascript:alert(1)" style="${BUTTON_STYLE}">Go</a></div>`,
-    );
-    // No anchor at all: neither a button nor a link. The words stay, with
-    // what the parser reads off any styled inline (its bold).
+  it('refuses a script URL — no button, and the anchor keeps no href', () => {
+    const html = `<div><a href="javascript:alert(1)" style="${BUTTON_STYLE}">Go</a></div>`;
+    // Neither a button nor a link: the element stays as written, its script
+    // URL refused — an inert anchor around the words.
+    expect(parsedNode(html, 'button')).toBeNull();
+    expect(parsedLink(html)).toBeNull();
+    const out = roundTrip(html);
     expect(out).not.toContain('javascript:');
-    expect(out).not.toContain('<a');
-    expect(out).toContain('Go');
+    expect(out).not.toContain('href');
+    expect(out).toBe(`<div><a style="${BUTTON_STYLE}">Go</a></div>`);
   });
 
   it('flattens the label to plain text (atom reads textContent)', () => {
@@ -144,14 +164,17 @@ describe('button', () => {
       'font-weight: bold;',
       'font-weight: 400; font-style: oblique;',
     );
-    const out = roundTrip(`<a href="https://x.io" style="${plain}">Go</a>`);
-    expect(out).toContain('font-weight: normal; font-style: italic;');
+    const html = `<a href="https://x.io" style="${plain}">Go</a>`;
+    expect(parsedNode(html, 'button')?.attrs).toMatchObject({ bold: false, italic: true });
+    // Read, not rewritten: the box stays as written, no marks inside it.
+    const out = roundTrip(html);
+    expect(out).toBe(`<div>${html}</div>`);
     expect(out).not.toContain('<strong');
     expect(out).not.toContain('<em');
     const unsaid = BUTTON_STYLE.replace('font-weight: bold; ', '');
-    expect(roundTrip(`<a href="https://x.io" style="${unsaid}">Go</a>`)).toContain(
-      `style="${BUTTON_STYLE}"`,
-    );
+    expect(
+      parsedNode(`<a href="https://x.io" style="${unsaid}">Go</a>`, 'button')?.attrs,
+    ).toMatchObject({ bold: true, italic: false });
   });
 
   it('produces lint-clean output', () => {
@@ -514,7 +537,7 @@ describe('button', () => {
       expect(html).toContain('<td');
       expect(html).not.toContain('</table><a');
       // The editor's own round trip: its default (`email`) parse.
-      expect(serializeToHTML(parseHTML(html, schema, { mode: 'email' }), schema)).toBe(html);
+      expect(serializeToHTML(parseHTML(html, schema), schema)).toBe(html);
     } finally {
       editor.destroy();
       host.remove();

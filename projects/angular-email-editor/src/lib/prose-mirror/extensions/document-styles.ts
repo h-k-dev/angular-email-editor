@@ -130,15 +130,30 @@ function stylesheets(doc: Node): Sheet[] {
   return sheets;
 }
 
+/** An `@import` or `@charset` statement, through to its own `;` — strings
+    and `url(…)` read whole. */
+const IMPORT_STATEMENT =
+  /@(?:import|charset)\b(?:[^;"'(]|"[^"]*"|'[^']*'|\((?:[^)"']|"[^"]*"|'[^']*')*\))*;/g;
+
 /** One stylesheet text: hoisted imports, then everything else under `@scope`. */
 export function scopedDocumentCss(doc: Node, scope: string): string {
   const imports: string[] = [];
   const scoped: string[] = [];
   for (const sheet of stylesheets(doc)) {
     let css = sheet.css;
-    // `@import`/`@charset` must precede every other rule of a stylesheet.
-    css = css.replace(/@(?:import|charset)\b[^;]*;/g, (statement) => {
-      imports.push(sheet.media ? statement.replace(/;$/, ` ${sheet.media};`) : statement);
+    // `@import`/`@charset` must precede every other rule of a stylesheet. A
+    // statement ends at the first `;` outside a string and a `url(…)` — a
+    // Google Fonts URL holds them (`wght@0,100..900;1,100..900`), and cut
+    // there, its unclosed `url(` swallowed every rule after it.
+    css = css.replace(IMPORT_STATEMENT, (statement) => {
+      // An unquoted URL holding a `;` is CSS, but not every engine's parser
+      // reads it (jsdom's does not): quoted, it says the same to all. The
+      // editor's copy of the sheet only — the email keeps its text.
+      const quoted = statement.replace(
+        /url\(\s*([^"'()\s][^()]*?)\s*\)/g,
+        (_, url: string) => `url("${url.replace(/"/g, '%22')}")`,
+      );
+      imports.push(sheet.media ? quoted.replace(/;$/, ` ${sheet.media};`) : quoted);
       return '';
     });
     if (!css.trim()) continue;

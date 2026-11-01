@@ -507,7 +507,9 @@ export abstract class MessageSheet {
 
   /** The toggle's tooltip: what a press does now. */
   readonly attachmentToggleHint = computed(() =>
-    this.i18n.t(this.attachmentsHidden() ? 'composer.attachments.show' : 'composer.attachments.hide'),
+    this.i18n.t(
+      this.attachmentsHidden() ? 'composer.attachments.show' : 'composer.attachments.hide',
+    ),
   );
 
   /** The toggle beside Attach: the strip put away, or back. It stays where
@@ -644,8 +646,9 @@ export abstract class MessageSheet {
     // it before the message can go.
     const told = new Set<string>();
     effect(() => {
-      const failed = this.message()
-        .attachments.filter((attachment) => this.uploads.status(attachment.key)() === 'failed');
+      const failed = this.message().attachments.filter(
+        (attachment) => this.uploads.status(attachment.key)() === 'failed',
+      );
       const now = new Set(failed.map((attachment) => attachment.key));
       for (const key of told) if (!now.has(key)) told.delete(key);
       const fresh = failed.filter((attachment) => !told.has(attachment.key));
@@ -757,8 +760,15 @@ export abstract class MessageSheet {
    * lazy-imported so the parser costs nothing until the first drop. A File
    * is a Blob, so it goes to the parser as raw bytes (correct charsets, no
    * lossy .text() step).
+   *
+   * The body comes in exactly as it was sent (`importedDocument`: the one
+   * parse, head and all) — as the inbox shows it.
+   *
+   * `as: 'design'` — an email studied as a template (the designer's): its
+   * subject comes along, and the body goes in as one undo step, so the
+   * design it replaced is a Ctrl+Z away.
    */
-  async importEml(dropped: File): Promise<string> {
+  async importEml(dropped: File, as: 'message' | 'design' = 'message'): Promise<string> {
     try {
       const { default: PostalMime } = await import('postal-mime');
       const parsed = await PostalMime.parse(dropped);
@@ -794,21 +804,27 @@ export abstract class MessageSheet {
       for (const attachment of this.message().attachments) this.uploads.cancel(attachment.key);
       this.message.update((m) => ({ ...m, attachments: [] }));
       this.attach(attached);
-      // A drop must import immediately: release editor focus first (the
-      // pane's blur catch-up would apply it eventually anyway — this makes
-      // "eventually" be "now").
-      (document.activeElement as HTMLElement | null)?.blur?.();
-      this.html.set(importedDocument(inbound));
+      if (as === 'design') {
+        const subject = inbound.subject?.trim();
+        if (subject) this.message.update((m) => ({ ...m, subject }));
+        this.emailPane().replace(importedDocument(inbound));
+      } else {
+        // A drop must import immediately: release editor focus first (the
+        // pane's blur catch-up would apply it eventually anyway — this makes
+        // "eventually" be "now").
+        (document.activeElement as HTMLElement | null)?.blur?.();
+        this.html.set(importedDocument(inbound));
+      }
 
-      // Legibility of loss: say what the import dropped instead of losing it
-      // silently — schema-side loss from the library, MIME-side from the parser.
+      // Legibility of loss: say what the import refused instead of losing it
+      // silently — executable content from the library, MIME-side from the parser.
       const loss = importLoss(inbound);
       const attachments = parsed.attachments?.length ?? 0;
       const notes = [`Imported ${dropped.name}${inbound.subject ? ` — “${inbound.subject}”` : ''}`];
       if (loss.removedElements) {
         notes.push(
-          `${loss.removedElements} element${loss.removedElements === 1 ? '' : 's'} outside the ` +
-            `schema removed (${loss.removedTags.slice(0, 3).join(', ')})`,
+          `${loss.removedElements} element${loss.removedElements === 1 ? '' : 's'} refused ` +
+            `(${loss.removedTags.slice(0, 3).join(', ')})`,
         );
       }
       if (loss.inlineImages) {
@@ -851,9 +867,7 @@ export abstract class MessageSheet {
         inlineImages: html ? intent.inlineImages : [],
         // No `lang`: the app's language is the reader's UI, not the
         // message's — the article's `dir="auto"` still reads the text.
-        document: html
-          ? emailDocument(intent.html, { title: subject, previewText })
-          : null,
+        document: html ? emailDocument(intent.html, { title: subject, previewText }) : null,
         from,
         to,
         cc,

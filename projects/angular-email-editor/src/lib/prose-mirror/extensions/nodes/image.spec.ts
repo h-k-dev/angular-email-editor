@@ -62,26 +62,46 @@ describe('image node', () => {
     document.elementFromPoint = () => null;
   });
 
-  it('serializes hybrid sizing: width attribute for Outlook, fluid style for the rest', () => {
-    expect(roundTrip('<img src="x.png" alt="chart" width="400">')).toBe(
-      '<div><img src="x.png" alt="chart" width="400" style="width: 100%; max-width: 400px; height: auto;"></div>',
+  /** The composer's own rendering of an image it creates. */
+  const created = (attrs: ImageAttrs) =>
+    serializeToHTML(
+      schema.node('doc', null, [
+        schema.node('paragraph', null, [schema.nodes['image'].create(attrs)]),
+      ]),
+      schema,
     );
+  /** The image node the parse made of `html`. */
+  const parsedImage = (html: string) => {
+    let image: ImageAttrs | null = null;
+    parseHTML(html, schema).descendants((node) => {
+      if (node.type.name === 'image') image = node.attrs as ImageAttrs;
+    });
+    return image as ImageAttrs | null;
+  };
+
+  it('serializes hybrid sizing: width attribute for Outlook, fluid style for the rest', () => {
+    const canonical =
+      '<div><img src="x.png" alt="chart" width="400" style="width: 100%; max-width: 400px; height: auto;"></div>';
+    expect(created({ src: 'x.png', alt: 'chart', width: 400 })).toBe(canonical);
+    expect(roundTrip(canonical)).toBe(canonical);
   });
 
   it('falls back to fluid max-width when the width is unknown', () => {
-    expect(roundTrip('<img src="x.png" alt="chart">')).toBe(
+    expect(created({ src: 'x.png', alt: 'chart' })).toBe(
       '<div><img src="x.png" alt="chart" style="max-width: 100%; height: auto;"></div>',
     );
   });
 
-  it('caps parsed widths at the email maximum', () => {
-    expect(roundTrip('<img src="x.png" alt="wide" width="1200">')).toContain('width="600"');
+  it('caps parsed widths at the email maximum in the model; the authored width stays as written', () => {
+    const html = '<img src="x.png" alt="wide" width="1200">';
+    expect(parsedImage(html)?.width).toBe(600);
+    expect(roundTrip(html)).toBe(`<div>${html}</div>`);
   });
 
-  it('reads width from styles and drops float on the floor', () => {
-    expect(roundTrip('<img src="x.png" alt="a" style="float:left;width:300px">')).toBe(
-      '<div><img src="x.png" alt="a" width="300" style="width: 100%; max-width: 300px; height: auto;"></div>',
-    );
+  it('reads width from styles; an authored float stays as written', () => {
+    const html = '<img src="x.png" alt="a" style="float:left;width:300px">';
+    expect(parsedImage(html)).toMatchObject({ src: 'x.png', alt: 'a', width: 300 });
+    expect(roundTrip(html)).toBe(`<div>${html}</div>`);
   });
 
   it('is inline — Gmail’s model: it lives in the text line, so the caret can stand beside it', () => {
@@ -91,7 +111,7 @@ describe('image node', () => {
     expect(roundTrip(line)).toBe(line);
     // A bare image at the top level wraps into a line of its own, Gmail-style.
     expect(roundTrip('<div>a</div><img src="x.png" alt="b"><div>c</div>')).toBe(
-      '<div>a</div><div><img src="x.png" alt="b" style="max-width: 100%; height: auto;"></div><div>c</div>',
+      '<div>a</div><div><img src="x.png" alt="b"></div><div>c</div>',
     );
   });
 
@@ -189,9 +209,9 @@ describe('image node', () => {
       const editor = createEditor({
         parent: host,
         extensions: emailExtensions,
-        content: '<div>hello <img src="x.png" alt="dot"> world</div>',
-        // The image's canonical hybrid sizing is what these assert.
-        parseMode: 'repair',
+        // Canonical markup: the image's own hybrid sizing is what these assert.
+        content:
+          '<div>hello <img src="x.png" alt="dot" style="max-width: 100%; height: auto;"> world</div>',
       });
       return { editor, unmount: () => (editor.destroy(), host.remove()) };
     };
@@ -386,9 +406,9 @@ describe('image node', () => {
       const editor = createEditor({
         parent: host,
         extensions: emailExtensions,
-        content: '<div>hello <img src="x.png" alt="dot"> world</div>',
-        // The image's canonical hybrid sizing is what these assert.
-        parseMode: 'repair',
+        // Canonical markup: the image's own hybrid sizing is what these assert.
+        content:
+          '<div>hello <img src="x.png" alt="dot" style="max-width: 100%; height: auto;"> world</div>',
       });
       editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, 7)));
       const wrapper = editor.view.nodeDOM(7) as HTMLElement;
@@ -499,23 +519,26 @@ describe('image node', () => {
     const mount = (content: string) => {
       const host = document.createElement('div');
       document.body.appendChild(host);
-      // The frame's canonical sizing is what these assert.
+      // Canonical markup where the frame's own sizing is asserted.
       const editor = createEditor({
         parent: host,
         extensions: emailExtensions,
         content,
-        parseMode: 'repair',
       });
       return { editor, unmount: () => (editor.destroy(), host.remove()) };
     };
 
     it('round-trips as an <img> without src, keeping its frame; an empty src is the same thing', () => {
-      expect(roundTrip('<img width="320">')).toBe(
-        '<div><img width="320" style="width: 100%; max-width: 320px; height: auto;"></div>',
-      );
-      expect(roundTrip('<img src="" alt="hero" width="320">')).toBe(
-        '<div><img alt="hero" width="320" style="width: 100%; max-width: 320px; height: auto;"></div>',
-      );
+      const canonical =
+        '<div><img width="320" style="width: 100%; max-width: 320px; height: auto;"></div>';
+      expect(created({ src: null, width: 320 })).toBe(canonical);
+      expect(roundTrip(canonical)).toBe(canonical);
+      // Authored placeholders read as placeholders, and stay as written.
+      expect(parsedImage('<img width="320">')).toMatchObject({ src: null, width: 320 });
+      expect(roundTrip('<img width="320">')).toBe('<div><img width="320"></div>');
+      const empty = '<img src="" alt="hero" width="320">';
+      expect(parsedImage(empty)).toMatchObject({ src: null, alt: 'hero', width: 320 });
+      expect(roundTrip(empty)).toBe(`<div>${empty}</div>`);
     });
 
     it('the slash item inserts a placeholder at the phone width, inline at the caret', () => {
@@ -531,7 +554,9 @@ describe('image node', () => {
     });
 
     it('renders as a dashed frame with the resize pads, and becomes the image once filled', () => {
-      const { editor, unmount } = mount('<div><img width="320"></div>');
+      const { editor, unmount } = mount(
+        '<div><img width="320" style="width: 100%; max-width: 320px; height: auto;"></div>',
+      );
       const wrapper = editor.view.nodeDOM(1) as HTMLElement;
       expect(wrapper.classList.contains('aee-image--placeholder')).toBe(true);
       expect(wrapper.querySelector('.aee-image__placeholder')).not.toBeNull();
@@ -748,9 +773,11 @@ describe('image node', () => {
   });
 
   it('refuses script URLs on parse — same rule as the link mark', () => {
-    // The node dies; what remains is the canonical empty document.
-    expect(roundTrip('<img src="javascript:evil()" alt="x">')).toBe('<div><br></div>');
-    expect(roundTrip('<img src=" JavaScript:evil()">')).toBe('<div><br></div>');
+    // The image node dies; the element stays as written, the script URL refused.
+    expect(parsedImage('<img src="javascript:evil()" alt="x">')).toBeNull();
+    expect(roundTrip('<img src="javascript:evil()" alt="x">')).toBe('<div><img alt="x"></div>');
+    expect(parsedImage('<img src=" JavaScript:evil()">')).toBeNull();
+    expect(roundTrip('<img src=" JavaScript:evil()">')).toBe('<div><img></div>');
     // Legitimate schemes still parse.
     expect(roundTrip('<img src="data:image/png;base64,AAAA" alt="ok">')).toContain(
       'data:image/png',
@@ -765,18 +792,18 @@ describe('image sources: the host’s rules', () => {
   /** jsdom never loads a picture: measuring one fails at once (no width)
       instead of waiting for a load that never comes. */
   const measureNothing = () =>
-    vi
-      .spyOn(HTMLImageElement.prototype, 'src', 'set')
-      .mockImplementation(function (this: HTMLImageElement) {
-        queueMicrotask(() => this.onerror?.(new Event('error')));
-      });
+    vi.spyOn(HTMLImageElement.prototype, 'src', 'set').mockImplementation(function (
+      this: HTMLImageElement,
+    ) {
+      queueMicrotask(() => this.onerror?.(new Event('error')));
+    });
   const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
   const mount = (options: ImageSourceOptions, content = '<div>x</div>') => {
     const host = document.createElement('div');
     document.body.appendChild(host);
     const extensions = [...emailExtensions, createImageSources(options)];
-    const editor = createEditor({ parent: host, extensions, content, parseMode: 'repair' });
+    const editor = createEditor({ parent: host, extensions, content });
     const enabled = (id: string) =>
       isActionEnabled(
         extensionActions({ schema: editor.schema, extensions }).find((action) => action.id === id)!,
@@ -810,7 +837,10 @@ describe('image sources: the host’s rules', () => {
       '<div>a<img src="https://example.com/a.png">b<img src="data:image/png;base64,AAAA">' +
       'c<img src="http://example.com/c.png"><img src="{{ logo }}"></div>';
     const event = Object.assign(new Event('paste'), {
-      clipboardData: { getData: (type: string) => (type === 'text/html' ? html : ''), types: ['text/html'] },
+      clipboardData: {
+        getData: (type: string) => (type === 'text/html' ? html : ''),
+        types: ['text/html'],
+      },
     }) as unknown as ClipboardEvent;
     editor.view.pasteHTML(html, event);
     const out = editor.getHTML();
@@ -835,7 +865,11 @@ describe('image sources: the host’s rules', () => {
       data: Record<string, string> = {},
     ) => {
       const event = {
-        dataTransfer: { files, types: ['Files', ...Object.keys(data)], getData: (type: string) => data[type] ?? '' },
+        dataTransfer: {
+          files,
+          types: ['Files', ...Object.keys(data)],
+          getData: (type: string) => data[type] ?? '',
+        },
         preventDefault: vi.fn(),
         clientX: 0,
         clientY: 0,
@@ -866,7 +900,9 @@ describe('image sources: the host’s rules', () => {
         accept: https,
         onRefused: (r) => refused.push(r),
       });
-      const web = { 'text/html': '<meta charset="utf-8"><img src="https://example.com/cat.png" alt="cat">' };
+      const web = {
+        'text/html': '<meta charset="utf-8"><img src="https://example.com/cat.png" alt="cat">',
+      };
       expect(drop(editor, [png], web)).toEqual({ claimed: true, prevented: 1 });
       await settle();
       expect(editor.getHTML()).toContain('src="https://example.com/cat.png"');
@@ -893,8 +929,12 @@ describe('image sources: the host’s rules', () => {
     const refused: ImageRefusal[] = [];
     const { editor, unmount } = mount({ files: false, onRefused: (r) => refused.push(r) });
     const paste = (types: string[]) => {
-      const event = { clipboardData: { files: [png], types, getData: () => '' } } as unknown as ClipboardEvent;
-      return editor.view.someProp('handlePaste', (f) => f(editor.view, event, editor.state.doc.slice(0, 0)));
+      const event = {
+        clipboardData: { files: [png], types, getData: () => '' },
+      } as unknown as ClipboardEvent;
+      return editor.view.someProp('handlePaste', (f) =>
+        f(editor.view, event, editor.state.doc.slice(0, 0)),
+      );
     };
     expect(paste(['Files'])).toBeFalsy();
     expect(refused).toEqual([{ reason: 'file', files: [png] }]);
@@ -905,14 +945,21 @@ describe('image sources: the host’s rules', () => {
 
   it('without files or a way to choose, /image and Replace image are off; choose turns them on', () => {
     const off = mount({ files: false }, '<div>a<img src="https://example.com/a.png">b</div>');
-    off.editor.view.dispatch(off.editor.state.tr.setSelection(NodeSelection.create(off.editor.state.doc, 2)));
+    off.editor.view.dispatch(
+      off.editor.state.tr.setSelection(NodeSelection.create(off.editor.state.doc, 2)),
+    );
     expect(off.enabled('image')).toBe(false);
     expect(off.enabled('replace-image')).toBe(false);
     expect(off.enabled('remove-image')).toBe(true);
     off.unmount();
 
-    const on = mount({ files: false, choose: async () => null }, '<div>a<img src="https://example.com/a.png">b</div>');
-    on.editor.view.dispatch(on.editor.state.tr.setSelection(NodeSelection.create(on.editor.state.doc, 2)));
+    const on = mount(
+      { files: false, choose: async () => null },
+      '<div>a<img src="https://example.com/a.png">b</div>',
+    );
+    on.editor.view.dispatch(
+      on.editor.state.tr.setSelection(NodeSelection.create(on.editor.state.doc, 2)),
+    );
     expect(on.enabled('image')).toBe(true);
     expect(on.enabled('replace-image')).toBe(true);
     on.unmount();
@@ -922,7 +969,11 @@ describe('image sources: the host’s rules', () => {
     const measured = measureNothing();
     const picker = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => {});
     const requests: ImageSourceRequest[] = [];
-    const answers = ['https://example.com/new.png', 'https://example.com/filled.png', 'http://example.com/no.png'];
+    const answers = [
+      'https://example.com/new.png',
+      'https://example.com/filled.png',
+      'http://example.com/no.png',
+    ];
     const refused: ImageRefusal[] = [];
     const { editor, unmount } = mount(
       {
@@ -934,13 +985,17 @@ describe('image sources: the host’s rules', () => {
         },
         onRefused: (r) => refused.push(r),
       },
-      '<div>a<img alt="frame" width="320">b</div>',
+      '<div>a<img alt="frame" width="320" style="width: 100%; max-width: 320px; height: auto;">b</div>',
     );
 
     // `/image`: at the caret.
     editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1)));
     const actions = extensionActions({ schema: editor.schema, extensions: emailExtensions });
-    actions.find((action) => action.id === 'image')!.command!(editor.state, editor.view.dispatch, editor.view);
+    actions.find((action) => action.id === 'image')!.command!(
+      editor.state,
+      editor.view.dispatch,
+      editor.view,
+    );
     await settle();
     expect(editor.getHTML()).toContain('src="https://example.com/new.png"');
 
@@ -948,7 +1003,9 @@ describe('image sources: the host’s rules', () => {
     const frame = editor.view.dom.querySelector('.aee-image__placeholder') as HTMLElement;
     frame.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     await settle();
-    expect(editor.getHTML()).toContain('src="https://example.com/filled.png" alt="frame" width="320"');
+    expect(editor.getHTML()).toContain(
+      'src="https://example.com/filled.png" alt="frame" width="320"',
+    );
 
     // Replace: an address the rules turn away changes nothing, and is told.
     const before = editor.getHTML();
@@ -956,8 +1013,14 @@ describe('image sources: the host’s rules', () => {
     editor.state.doc.descendants((node, pos) => {
       if (node.attrs['src'] === 'https://example.com/filled.png') filledPos = pos;
     });
-    editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, filledPos)));
-    actions.find((action) => action.id === 'replace-image')!.command!(editor.state, editor.view.dispatch, editor.view);
+    editor.view.dispatch(
+      editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, filledPos)),
+    );
+    actions.find((action) => action.id === 'replace-image')!.command!(
+      editor.state,
+      editor.view.dispatch,
+      editor.view,
+    );
     await settle();
     expect(editor.getHTML()).toBe(before);
 

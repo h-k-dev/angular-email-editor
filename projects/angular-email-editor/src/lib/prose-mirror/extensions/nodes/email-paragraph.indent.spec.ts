@@ -24,7 +24,13 @@ describe('email paragraph indent', () => {
       '<div style="text-align: center; margin-left: 80px">both</div><div style="margin-left: 0px">flat</div>',
       schema,
     );
+    expect(doc.child(1).attrs['indent']).toBe(0);
+    // A written 0px margin stays as written; the line that has none writes none.
     expect(serializeToHTML(doc, schema)).toBe(
+      '<div style="text-align: center; margin-left: 80px;">both</div><div style="margin-left: 0px">flat</div>',
+    );
+    const flat = schema.nodes['paragraph'].create({ indent: 0 }, schema.text('flat'));
+    expect(serializeToHTML(doc.copy(doc.content.replaceChild(1, flat)), schema)).toBe(
       '<div style="text-align: center; margin-left: 80px;">both</div><div>flat</div>',
     );
   });
@@ -136,7 +142,7 @@ describe('indent and outdent commands', () => {
 });
 
 describe('email paragraph spacing', () => {
-  it('reads a builder’s padding, or a margin that is more than an indent, as the line’s box — emitted as margin, a fixpoint', () => {
+  it('reads a builder’s padding, or a margin that is more than an indent, as the line’s box — each as written, a fixpoint', () => {
     const doc = parseHTML(
       '<div style="padding: 10px 25px">padded</div>' +
         '<div style="margin: 0px 25px 20px">margined</div>' +
@@ -149,7 +155,7 @@ describe('email paragraph spacing', () => {
     expect(doc.child(2).attrs['indent']).toBe(1);
     const out = serializeToHTML(doc, schema);
     expect(out).toBe(
-      '<div style="margin: 10px 25px;">padded</div>' +
+      '<div style="padding: 10px 25px">padded</div>' +
         '<div style="margin: 0px 25px 20px;">margined</div>' +
         '<div style="margin-left: 40px;">indented</div>',
     );

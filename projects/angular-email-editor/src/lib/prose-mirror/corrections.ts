@@ -1,12 +1,15 @@
 /**
- * Mistakes other editors store, corrected on the way in.
+ * Mistakes other editors store — found, and offered as a fix the author
+ * takes; never corrected on their own.
  *
- * The `email` parse keeps authored markup as written — right for a builder's
- * template, wrong for what a WYSIWYG editor saved on the author's behalf.
- * Summernote (and the Word or Gmail markup pasted into it) stores shapes that
- * look fine in that editor and break in a mail client. Each correction here
- * repairs one such shape toward what the author saw, and is correct for any
- * input — it never fires on markup that already means what it shows:
+ * The parse keeps markup as written (html.ts) — right for a builder's
+ * template, and for what a WYSIWYG editor saved on the author's behalf too:
+ * the author decides. Summernote (and the Word or Gmail markup pasted into
+ * it) stores shapes that look fine in that editor and break in a mail
+ * client. Each correction here moves one such shape toward what the author
+ * saw, and is correct for any input — it never fires on markup that already
+ * means what it shows. {@link storedMistakes} says what a document holds;
+ * {@link fixStoredMistakes} applies them all, one undo step:
  *
  * - `mailto://a@b.de`, `tel://+49…` — Summernote's `checkLinkUrl` writes the
  *   scheme with slashes; no client reads the address after them.
@@ -23,85 +26,135 @@
  * - An inline element wrapped around blocks (`<font color><div>…</div></font>`,
  *   `<span style><div>…</div></span>`) — a client re-nests it and the blocks
  *   lose the formatting. The inline is pushed down into each block.
- * - A video embed (`<iframe>`, `<video>`) — no client plays one, and the
- *   vocabulary drops it. The intent, "watch this", stays as a link.
+ * - A `<video>` — no client plays one. The intent, "watch this", becomes a
+ *   link to its page.
  *
- * Runs in the `email` parse only: `preserve` keeps the source as law, and
- * `repair` rewrites everything into canonical form anyway.
+ * An `<iframe>` is another matter: the parse refuses it (executable
+ * content), so it can never be offered afterwards. What it played stays as a
+ * link where it stood — the refusal's own step ({@link refusedEmbedsAsLinks},
+ * html.ts), not a correction.
  */
+import { Node as DocNode } from 'prosemirror-model';
+import { Command, Selection } from 'prosemirror-state';
 import { declarationProperty, splitDeclarations } from './email-vocabulary';
+import { parseDocument } from './envelope';
+import { parseHTML, serializeToHTML } from './html';
+import { videosAsLinks } from './embeds';
 
-/** Applies every correction to a parsed document, in place. */
-export function correctStoredMistakes(dom: Document): void {
-  const root = dom.body;
-  embedsAsLinks(root);
-  repairLinkSchemes(root);
-  unwrapOfficeParagraphMarks(root);
-  dropDeadOfficeClasses(dom);
-  inlineBootstrapTableBorders(dom);
-  lowerInlinesAroundBlocks(root);
+export { videoPage } from './embeds';
+
+/** A kind of stored mistake ({@link storedMistakes}). */
+export type StoredMistakeKind =
+  | 'link-scheme'
+  | 'video'
+  | 'office-mark'
+  | 'office-class'
+  | 'bootstrap-borders'
+  | 'inline-around-blocks';
+
+/** One kind a document holds, and how many times. */
+export interface StoredMistake {
+  kind: StoredMistakeKind;
+  count: number;
 }
+
+/** Applies every correction to a throwaway document, in place, and says
+    what it changed — kinds that changed nothing left out. */
+export function correctStoredMistakes(dom: Document): StoredMistake[] {
+  const root = dom.body;
+  const counts: [StoredMistakeKind, number][] = [
+    ['video', videosAsLinks(root)],
+    ['link-scheme', repairLinkSchemes(root)],
+    ['office-mark', unwrapOfficeParagraphMarks(root)],
+    ['office-class', dropDeadOfficeClasses(dom)],
+    ['bootstrap-borders', inlineBootstrapTableBorders(dom)],
+    ['inline-around-blocks', lowerInlinesAroundBlocks(root)],
+  ];
+  return counts.filter(([, count]) => count > 0).map(([kind, count]) => ({ kind, count }));
+}
+
+/** The stored mistakes a document holds — or an email, as HTML — read off
+    a copy, the document untouched. Empty for none. */
+export function storedMistakes(email: DocNode | string): StoredMistake[] {
+  const html = typeof email === 'string' ? email : serializeToHTML(email, email.type.schema);
+  return correctStoredMistakes(parseDocument(html));
+}
+
+/** Fixes every stored mistake in the document ({@link storedMistakes}) — its
+    body read again from the corrected email, one undo step; the head (the
+    envelope) as it was, nothing in it corrected. False where there is
+    none. */
+export const fixStoredMistakes: Command = (state, dispatch) => {
+  const { schema } = state;
+  const dom = parseDocument(serializeToHTML(state.doc, schema));
+  if (!correctStoredMistakes(dom).length) return false;
+  if (dispatch) {
+    // The body alone (in its page, which the parse lifts again).
+    const doc = parseHTML(dom.body.innerHTML, schema);
+    const tr = state.tr.replaceWith(0, state.doc.content.size, doc.content);
+    const layout = doc.attrs['pageLayout'] ?? null;
+    if (
+      'pageLayout' in state.doc.attrs &&
+      JSON.stringify(state.doc.attrs['pageLayout'] ?? null) !== JSON.stringify(layout)
+    ) {
+      tr.setDocAttribute('pageLayout', layout);
+    }
+    dispatch(tr.setSelection(Selection.atStart(tr.doc)).scrollIntoView());
+  }
+  return true;
+};
 
 // ── links ───────────────────────────────────────────────────────────────
 
 /** `mailto://` and `tel://` back to the scheme a client reads; `http://` off
-    a link that is one placeholder and nothing else. */
-export function repairLinkSchemes(root: ParentNode): void {
+    a link that is one placeholder and nothing else. Returns how many. */
+export function repairLinkSchemes(root: ParentNode): number {
+  let count = 0;
   for (const link of Array.from(root.querySelectorAll('a[href]'))) {
     const href = link.getAttribute('href')!;
     const repaired = href
       .replace(/^\s*(mailto|tel):\/\//i, (_, scheme: string) => `${scheme.toLowerCase()}:`)
       .replace(/^\s*https?:\/\/(\{\{[^{}]*\}\})\s*$/i, '$1');
-    if (repaired !== href) link.setAttribute('href', repaired);
-  }
-}
-
-/** The page a viewer opens for an embedded player's address. */
-export function videoPage(src: string): string {
-  const url = src.trim().replace(/^\/\//, 'https://');
-  const youtube = /^https?:\/\/(?:www\.)?youtube(?:-nocookie)?\.com\/embed\/([\w-]+)/i.exec(url);
-  if (youtube) return `https://www.youtube.com/watch?v=${youtube[1]}`;
-  const vimeo = /^https?:\/\/player\.vimeo\.com\/video\/(\d+)/i.exec(url);
-  if (vimeo) return `https://vimeo.com/${vimeo[1]}`;
-  return url;
-}
-
-/** Each embedded player becomes a link to its page, where it stood. */
-export function embedsAsLinks(root: ParentNode): void {
-  for (const embed of Array.from(root.querySelectorAll('iframe[src], video[src]'))) {
-    const page = videoPage(embed.getAttribute('src')!);
-    if (!/^https?:\/\//i.test(page)) {
-      embed.remove();
-      continue;
+    if (repaired !== href) {
+      link.setAttribute('href', repaired);
+      count++;
     }
-    const link = embed.ownerDocument.createElement('a');
-    link.setAttribute('href', page);
-    link.textContent = embed.getAttribute('title')?.trim() || page;
-    embed.replaceWith(link);
   }
+  return count;
 }
 
 // ── Word ────────────────────────────────────────────────────────────────
 
-/** `<o:p>` replaced by what it holds (an `&nbsp;` keeps an empty line). */
-export function unwrapOfficeParagraphMarks(root: ParentNode): void {
+/** `<o:p>` replaced by what it holds (an `&nbsp;` keeps an empty line).
+    Returns how many. */
+export function unwrapOfficeParagraphMarks(root: ParentNode): number {
+  let count = 0;
   for (const mark of Array.from(root.querySelectorAll('*')).reverse()) {
-    if (mark.tagName.toLowerCase() === 'o:p') mark.replaceWith(...Array.from(mark.childNodes));
+    if (mark.tagName.toLowerCase() !== 'o:p') continue;
+    mark.replaceWith(...Array.from(mark.childNodes));
+    count++;
   }
+  return count;
 }
 
-/** `Mso…` class names no `<style>` in the document mentions. */
-export function dropDeadOfficeClasses(dom: Document): void {
+/** `Mso…` class names no `<style>` in the document mentions. Returns how
+    many elements lost one. */
+export function dropDeadOfficeClasses(dom: Document): number {
   const css = Array.from(dom.querySelectorAll('style'))
     .map((style) => style.textContent ?? '')
     .join('\n');
+  let count = 0;
   for (const element of Array.from(dom.body.querySelectorAll('[class]'))) {
     const names = element.getAttribute('class')!.split(/\s+/).filter(Boolean);
-    const kept = names.filter((name) => !/^Mso/.test(name) || new RegExp(`\\.${name}\\b`).test(css));
+    const kept = names.filter(
+      (name) => !/^Mso/.test(name) || new RegExp(`\\.${name}\\b`).test(css),
+    );
     if (kept.length === names.length) continue;
     if (kept.length) element.setAttribute('class', kept.join(' '));
     else element.removeAttribute('class');
+    count++;
   }
+  return count;
 }
 
 // ── Bootstrap ───────────────────────────────────────────────────────────
@@ -111,14 +164,16 @@ const BORDERED_TABLE = ['width: 100%', 'border-collapse: collapse'];
 const BORDERED_CELL = ['border: 1px solid #dee2e6', 'padding: 8px'];
 
 /** Bordered tables whose borders came from a class no stylesheet here
-    defines get them inline; declarations the author wrote win. */
-export function inlineBootstrapTableBorders(dom: Document): void {
+    defines get them inline; declarations the author wrote win. Returns how
+    many tables. */
+export function inlineBootstrapTableBorders(dom: Document): number {
   const css = Array.from(dom.querySelectorAll('style'))
     .map((style) => style.textContent ?? '')
     .join('\n');
-  if (/\.table-bordered\b/.test(css)) return;
+  if (/\.table-bordered\b/.test(css)) return 0;
 
-  for (const table of Array.from(dom.body.querySelectorAll('table.table-bordered'))) {
+  const tables = Array.from(dom.body.querySelectorAll('table.table-bordered'));
+  for (const table of tables) {
     addDeclarations(table, BORDERED_TABLE);
     for (const cell of Array.from(table.querySelectorAll('td, th'))) {
       if (cell.closest('table') === table) addDeclarations(cell, BORDERED_CELL);
@@ -130,6 +185,7 @@ export function inlineBootstrapTableBorders(dom: Document): void {
     if (kept.length) table.setAttribute('class', kept.join(' '));
     else table.removeAttribute('class');
   }
+  return tables.length;
 }
 
 /** Appends declarations an element's style text does not set yet — as text,
@@ -147,28 +203,76 @@ function addDeclarations(element: Element, declarations: string[]): void {
 
 /** Phrasing elements that carry formatting a block inside them would lose. */
 const FORMATTING = new Set([
-  'a', 'b', 'strong', 'i', 'em', 'u', 's', 'strike', 'del', 'ins', 'font', 'span', 'sub', 'sup', 'small', 'big',
+  'a',
+  'b',
+  'strong',
+  'i',
+  'em',
+  'u',
+  's',
+  'strike',
+  'del',
+  'ins',
+  'font',
+  'span',
+  'sub',
+  'sup',
+  'small',
+  'big',
 ]);
 
 const BLOCK = new Set([
-  'address', 'article', 'aside', 'blockquote', 'center', 'dd', 'div', 'dl', 'dt', 'figure', 'footer', 'form',
-  'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hr', 'li', 'main', 'nav', 'ol', 'p', 'pre', 'section', 'table', 'ul',
+  'address',
+  'article',
+  'aside',
+  'blockquote',
+  'center',
+  'dd',
+  'div',
+  'dl',
+  'dt',
+  'figure',
+  'footer',
+  'form',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'header',
+  'hr',
+  'li',
+  'main',
+  'nav',
+  'ol',
+  'p',
+  'pre',
+  'section',
+  'table',
+  'ul',
 ]);
 
-const isBlock = (node: Node) => node.nodeType === 1 && BLOCK.has((node as Element).tagName.toLowerCase());
+const isBlock = (node: Node) =>
+  node.nodeType === 1 && BLOCK.has((node as Element).tagName.toLowerCase());
 
 /**
  * `<font color><div>a</div>b</font>` → `<div><font color>a</font></div><font color>b</font>`.
  * Each run of inline children keeps a copy of the wrapper; each block gets
  * one inside it, around its own content — recursively, so a block of blocks
- * hands it on down. An `<hr>` or an empty block takes none.
+ * hands it on down. An `<hr>` or an empty block takes none. Returns how many
+ * wrappers were lowered.
  */
-export function lowerInlinesAroundBlocks(root: ParentNode): void {
+export function lowerInlinesAroundBlocks(root: ParentNode): number {
+  let count = 0;
   // Deepest first: an inner wrapper lowered hands its blocks to the outer one.
   for (const element of Array.from(root.querySelectorAll('*')).reverse()) {
     if (!element.isConnected || !FORMATTING.has(element.tagName.toLowerCase())) continue;
-    if (Array.from(element.childNodes).some(isBlock)) lower(element);
+    if (!Array.from(element.childNodes).some(isBlock)) continue;
+    lower(element);
+    count++;
   }
+  return count;
 }
 
 function lower(wrapper: Element): void {

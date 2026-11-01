@@ -49,7 +49,7 @@ export function createSnippetSource(snippets: Snippets): SuggestionSource<Sugges
       title: row.name,
       detail: preview(row.html),
       icon: 'short_text',
-      command: insertSnippet(row.html, { mode: 'email' }),
+      command: insertSnippet(row.html),
     }),
     pageSize: TEMPLATE_PAGE_SIZE,
   });

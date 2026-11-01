@@ -559,7 +559,7 @@ class TableView {
       'style',
       tableStyle(tableWidth, offset, node.attrs['spacing'] as number | null),
     );
-    // An authored table (a template's, parsed in the `email` mode) shows its
+    // An authored table (a template's, as written) shows its
     // own attributes, as the email does — see authored.ts.
     applyAuthoredAttributes(this.#table, node, 0);
     applyAuthoredAttributes(this.contentDOM, node, 1);

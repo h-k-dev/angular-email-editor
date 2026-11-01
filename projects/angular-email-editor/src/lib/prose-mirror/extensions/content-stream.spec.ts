@@ -114,10 +114,11 @@ describe('createContentStream / streamContent', () => {
       // (The space before the next word arrives with the next word.)
       expect(text()).toBe('We met last week. Please');
       writer.write('ong>read');
-      expect(html()).toContain('<strong style="font-weight: bold;">read</strong>');
+      // The `<strong>` lands as written.
+      expect(html()).toContain('<strong>read</strong>');
       writer.write(' this</strong> today.');
       expect(text()).toBe('We met last week. Please read this today.');
-      expect(html()).toContain('<strong style="font-weight: bold;">read this</strong>');
+      expect(html()).toContain('<strong>read this</strong>');
       finish();
     });
 

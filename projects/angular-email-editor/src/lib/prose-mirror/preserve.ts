@@ -1,11 +1,11 @@
 /**
- * The preserving parse — "the source is law".
+ * The parse — "the source is law".
  *
  * MJML-class tooling emits markup our canonical vocabulary never will: nested
  * layout tables with `align`/`cellpadding`/`bgcolor`, classed `div`s driven by
  * head media queries, Outlook conditional comments, `<input>` hamburger
- * toggles. Repairing all that into canonical form destroys the template, so in
- * `preserve` mode foreign markup is kept **verbatim** — tag and every
+ * toggles. Repairing all that into canonical form destroys the template, so
+ * foreign markup is kept **verbatim** — tag and every
  * attribute — through a small family of generic nodes:
  *
  * - {@link HtmlElement} — a block container (`<div>`, `<table>`, `<tr>`, …
@@ -21,19 +21,19 @@
  *   `<label>`, …) that no canonical mark claims.
  *
  * Our own canonical shapes keep parsing into their rich nodes, so everything
- * the composer produced stays editable and the golden corpus is an identity in
- * both modes. The discriminator is general, not per node: a canonical node
- * rule claims an element in `preserve` mode only if that node would **re-emit
+ * the composer produced stays editable and the golden corpus is an identity. The discriminator is general, not per node: a canonical node
+ * rule claims an element only if that node would **re-emit
  * the element's opening tag identically** (same tag, same attributes, styles
  * compared declaration-wise) and its structural children are canonical too.
  * Anything else is foreign and preserved. A preserved subtree stays preserved
  * (a canonical `<tr>` inside a foreign table would have nowhere to live).
  *
- * `repair` mode is unchanged: these rules do not take part, unknown markup
- * dies in the parse as before — the reply/import seeds keep that law.
+ * This is the library's only parse: nothing is repaired, rewritten or
+ * dropped for being unfamiliar — what the library does not know yet is
+ * marked in the editor (unknown-markup.ts), never changed.
  *
- * Safety holds in both modes: `script`/`iframe`/… are refused outright, event
- * handler attributes drop, and script URLs drop with the attribute.
+ * Safety holds: `script`/`iframe`/… are refused outright, event handler
+ * attributes drop, and script URLs drop with the attribute.
  */
 import {
   Attrs,
@@ -56,7 +56,6 @@ export type { AttributePairs } from './verbatim';
 export { verbatimElement } from './verbatim';
 import { isSafeUrl } from './safe-url';
 import { Command } from 'prosemirror-state';
-import { ParseMode, RuleScope, ruleForScope, ruleScope, scopeOf } from './parse-mode';
 import { defineExtension } from './extension';
 import {
   INLINE_TAGS,
@@ -64,6 +63,7 @@ import {
   TABLE_SECTION_TAGS,
   VOID_TAGS,
   isBlockLevel,
+  isPhrasingTag,
 } from './html-tags';
 
 /** Placeholder element the comment pre-pass turns DOM comments into:
@@ -186,7 +186,7 @@ const tagOf = (element: Element): string => element.tagName.toLowerCase();
 export function isBlockish(element: Element): boolean {
   const tag = tagOf(element);
   if (tag === COMMENT_TAG) return false;
-  if (INLINE_TAGS.has(tag)) return hasBlockChildren(element);
+  if (isPhrasingTag(tag)) return hasBlockChildren(element);
   return isBlockLevel(tag);
 }
 
@@ -208,7 +208,7 @@ function inBlockContext(element: Element): boolean {
 /** A tag the generic block nodes may represent. */
 function isGenericBlockTag(tag: string): boolean {
   return (
-    !INLINE_TAGS.has(tag) &&
+    !isPhrasingTag(tag) &&
     !VOID_TAGS.has(tag) &&
     !REFUSED_TAGS.has(tag) &&
     tag !== 'style' &&
@@ -281,8 +281,16 @@ export function realizeComments(root: Element): void {
   }
 }
 
+/** Marks a rule as the preserve family's — the verbatim fallback, which
+    the parser never makes strict (`createDOMParser`). */
+const PRESERVE_RULE_KEY = 'aeePreserve';
+
 const preserveRule = (rule: TagParseRule): TagParseRule =>
-  ruleForScope('authored', { priority: FALLBACK_PRIORITY, ...rule });
+  Object.assign({ priority: FALLBACK_PRIORITY }, rule, { [PRESERVE_RULE_KEY]: true });
+
+/** A rule of the preserve family. */
+export const isPreserveRule = (rule: ParseRule): boolean =>
+  (rule as unknown as Record<string, unknown>)[PRESERVE_RULE_KEY] === true;
 
 /** A foreign block container — anything holding block-level children. */
 export const HtmlElement = defineNode({
@@ -300,7 +308,7 @@ export const HtmlElement = defineNode({
         priority: STRUCTURAL_PRIORITY,
         getAttrs: (element) => {
           const tag = tagOf(element);
-          if (!INLINE_TAGS.has(tag) || REFUSED_TAGS.has(tag)) return false;
+          if (!isPhrasingTag(tag) || REFUSED_TAGS.has(tag)) return false;
           return hasBlockChildren(element) ? claimAs('htmlElement')(element) : false;
         },
       }),
@@ -345,9 +353,17 @@ export const HtmlTextElement = defineNode({
   },
 });
 
+/** An element HTML does not define, empty (Word's `<o:p></o:p>`): no text
+    for a mark to hold, so an atom keeps it where it stood. */
+const isEmptyUndefined = (element: Element): boolean => {
+  const tag = tagOf(element);
+  return !INLINE_TAGS.has(tag) && isPhrasingTag(tag) && !element.childNodes.length;
+};
+
 const voidAttrs = (element: Element, inline: boolean): Attrs | false => {
   const tag = tagOf(element);
-  if (!VOID_TAGS.has(tag) || REFUSED_TAGS.has(tag)) return false;
+  const empty = isEmptyUndefined(element);
+  if (!(VOID_TAGS.has(tag) || empty) || REFUSED_TAGS.has(tag)) return false;
   if (inBlockContext(element) === inline) return false;
   return claimAs(inline ? 'htmlVoid' : 'htmlVoidBlock')(element);
 };
@@ -424,8 +440,7 @@ export const HtmlCommentInline = defineNode({
  * A `<style>` in the body, text kept raw (whitespace-normalized). Hidden in
  * the editor — a live `<style>` inside the editable DOM would restyle the host
  * app; the `DocumentStyles` extension applies it scoped, like the head's.
- * Also carries the refusals: executable content is never parsed, in any mode,
- * and a body `<style>` dies in repair mode (its text would leak otherwise).
+ * Also carries the refusals: executable content is never parsed.
  */
 export const HtmlRaw = defineNode({
   name: 'htmlRaw',
@@ -437,7 +452,6 @@ export const HtmlRaw = defineNode({
     attrs: { attrs: { default: [] as AttributePairs }, text: { default: '' } },
     parseDOM: [
       ...[...REFUSED_TAGS].map((tag): TagParseRule => ({ tag, ignore: true })),
-      ruleForScope('repair', { tag: 'style', ignore: true }),
       preserveRule({
         tag: 'style',
         getAttrs: (element) => ({
@@ -469,7 +483,9 @@ export const HtmlInline = defineMark({
         tag: '*',
         getAttrs: (element) => {
           const tag = tagOf(element);
-          if (!INLINE_TAGS.has(tag) || hasBlockChildren(element)) return false;
+          if (!isPhrasingTag(tag) || hasBlockChildren(element)) return false;
+          // Empty, it holds no text a mark could carry: the atom keeps it.
+          if (isEmptyUndefined(element)) return false;
           return { tag, attrs: preservedAttributes(element) };
         },
       }),
@@ -502,7 +518,7 @@ export const AuthoredEnter = defineExtension({
 });
 
 /** The whole family, in schema order: block nodes, then inline atoms, then
-    the mark. Both kits include it; the mode decides whether it takes part. */
+    the mark. Both kits include it. */
 export const preserveExtensions = [
   HtmlElement,
   HtmlTextElement,
@@ -514,7 +530,7 @@ export const preserveExtensions = [
   HtmlInline,
 ];
 
-// --- The mode-aware parser ---------------------------------------------------
+// --- The parser ---------------------------------------------------
 
 /** Style declarations as a sorted, whitespace-normalized list, so `a:b;c:d`
     and `c: d; a: b;` compare equal — order and spacing never render. */
@@ -574,7 +590,7 @@ function* structuralChildren(element: Element): Iterable<Element> {
   for (const child of Array.from(element.children)) {
     const tag = tagOf(child);
     if (TABLE_SECTION_TAGS.has(tag)) yield* structuralChildren(child);
-    else if (!INLINE_TAGS.has(tag) && tag !== COMMENT_TAG) yield child;
+    else if (!isPhrasingTag(tag) && tag !== COMMENT_TAG) yield child;
   }
 }
 
@@ -820,7 +836,7 @@ function recognizeMark(schema: Schema, rule: TagParseRule): TagParseRule {
 /** Every parse rule of the schema, marks before nodes, sorted by priority
     (stable), each tagged with the node or mark it produces — what ProseMirror
     itself builds for `DOMParser.fromSchema`, rebuilt here from the public
-    specs so it can be filtered and wrapped per mode. */
+    specs so it can be filtered and wrapped. */
 function schemaParseRules(schema: Schema): ParseRule[] {
   const rules: ParseRule[] = [];
   const priorityOf = (rule: ParseRule) => rule.priority ?? 50;
@@ -844,32 +860,24 @@ function schemaParseRules(schema: Schema): ParseRule[] {
   return rules;
 }
 
-const parserCache = new WeakMap<Schema, Partial<Record<RuleScope, ProseMirrorDOMParser>>>();
+const parserCache = new WeakMap<Schema, ProseMirrorDOMParser>();
 
 /**
- * The schema's parser for a mode. `repair` is the plain schema parser minus
- * the authored rules. `email` and `preserve` share one parser (they differ
- * only in the vocabulary filter applied before it runs): it drops style
- * rules (they would mark authored text up — `font-weight: bold` on an
- * authored `<div>` must stay a style, not become a `<strong>`), lets the
- * nodes that carry authored markup claim theirs, strictifies every other
- * canonical node rule, and lets the preserve family take the rest.
+ * The schema's parser — the one parse. It takes tag rules only (a style
+ * rule would mark authored text up — `font-weight: bold` on an authored
+ * `<div>` must stay a style, not become a `<strong>`), lets the nodes that
+ * carry authored markup claim theirs, strictifies every other canonical
+ * node rule, and lets the preserve family take the rest. A schema without
+ * the preserve family (a bare test schema) parses with its own rules.
  */
-export function createDOMParser(schema: Schema, mode: ParseMode): ProseMirrorDOMParser {
-  const scope = scopeOf(mode);
-  let byScope = parserCache.get(schema);
-  if (!byScope) parserCache.set(schema, (byScope = {}));
-  const cached = byScope[scope];
+export function createDOMParser(schema: Schema): ProseMirrorDOMParser {
+  const cached = parserCache.get(schema);
   if (cached) return cached;
 
-  const all = schemaParseRules(schema).filter((rule) => {
-    const restricted = ruleScope(rule);
-    if (restricted && restricted !== scope) return false;
-    return scope === 'repair' || 'tag' in rule;
-  });
+  const all = schemaParseRules(schema).filter((rule) => 'tag' in rule);
 
   let rules: ParseRule[] = all;
-  if (scope === 'authored' && schema.nodes[HtmlElement.name]) {
+  if (schema.nodes[HtmlElement.name]) {
     const recognized: TagParseRule[] = [];
     const typeOf: TypeOf = (element, parent) => {
       for (const rule of recognized) {
@@ -882,7 +890,7 @@ export function createDOMParser(schema: Schema, mode: ParseMode): ProseMirrorDOM
     rules = all.map((rule) => {
       const tagRule = rule as TagParseRule;
       // The preserve family is the fallback, verbatim by construction.
-      if (ruleScope(rule)) return rule;
+      if (isPreserveRule(rule)) return rule;
       if (tagRule.mark && tagRule.tag) return recognizeMark(schema, tagRule);
       if (!tagRule.node || !tagRule.tag || tagRule.ignore) return rule;
       const made = recognize(schema, tagRule, typeOf);
@@ -892,6 +900,6 @@ export function createDOMParser(schema: Schema, mode: ParseMode): ProseMirrorDOM
   }
 
   const parser = new ProseMirrorDOMParser(schema, rules);
-  byScope[scope] = parser;
+  parserCache.set(schema, parser);
   return parser;
 }

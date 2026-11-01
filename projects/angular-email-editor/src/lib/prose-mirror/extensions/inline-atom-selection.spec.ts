@@ -211,10 +211,11 @@ describe('inline atoms: an image or a button selected like a character', () => {
   });
 
   describe('a pasted button is as bare as a loaded one', () => {
-    it('strips the bold the parser paints around it', () => {
+    it('strips a bold the pasted run wraps around it', () => {
       const { editor, unmount } = mount('<div>x</div>');
       const dom = document.createElement('div');
-      dom.innerHTML = `<div>Click ${BUTTON} here</div>`;
+      // The button's own `font-weight` paints no mark; a bold run around it does.
+      dom.innerHTML = `<div>Click <strong style="font-weight: bold;">${BUTTON}</strong> here</div>`;
       const parsed = DOMParser.fromSchema(editor.schema).parseSlice(dom);
       const find = (slice: typeof parsed) => {
         let found: { marks: number } | null = null;

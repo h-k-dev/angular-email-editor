@@ -45,7 +45,7 @@ describe('I18n', () => {
       expect(i18n.t('editor.menu.empty')).toBe('Keine Treffer');
       expect(i18n.t('editor.menu.results.other', { count: 5 })).toBe('5 Treffer');
       // A key German does not say reads as English; one nobody says, as itself.
-      expect(i18n.t('render.view')).toBe('View');
+      expect(i18n.t('editor.fonts.serif')).toBe('Serif');
       expect(i18n.lookup('no.such.key')).toBeUndefined();
     });
 

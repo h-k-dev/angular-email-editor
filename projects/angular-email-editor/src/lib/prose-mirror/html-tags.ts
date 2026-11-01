@@ -71,7 +71,7 @@ export const TABLE_SECTION_TAGS = new Set(['tbody', 'thead', 'tfoot']);
     warning — just the envelope MJML-class tooling emits. */
 export const DOCUMENT_TAGS = new Set(['html', 'head', 'body', 'title', 'meta', 'link', 'style']);
 
-/** Never preserved, in any mode: executable or embedding content has no
+/** Never preserved: executable or embedding content has no
     place in an email and the parse refuses it outright. */
 export const REFUSED_TAGS = new Set([
   'applet',
@@ -88,8 +88,17 @@ export const REFUSED_TAGS = new Set([
   'template',
 ]);
 
+/** Whether a tag lays out inline: a phrasing tag, or one HTML does not
+    define — a custom element (`<x-card>`) or a namespaced one (Word's
+    `<o:p>`, VML's `<v:rect>`), which a browser draws inline unless it holds
+    blocks. Never read as a block of its own: the line around it stays a line. */
+export function isPhrasingTag(tag: string): boolean {
+  // `aee-`: the parse's own placeholders (a comment's), never markup.
+  return INLINE_TAGS.has(tag) || (/[:-]/.test(tag) && !tag.startsWith('aee-'));
+}
+
 /** Whether an element takes part in block layout among its siblings —
     everything that is neither phrasing content nor an inline void. */
 export function isBlockLevel(tag: string): boolean {
-  return !INLINE_TAGS.has(tag) && !INLINE_VOID_TAGS.has(tag);
+  return !isPhrasingTag(tag) && !INLINE_VOID_TAGS.has(tag);
 }

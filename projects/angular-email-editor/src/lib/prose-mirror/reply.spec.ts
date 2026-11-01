@@ -43,7 +43,7 @@ describe('replyDocument', () => {
     expect(lintHTML(html)).toEqual([]);
   });
 
-  it('parses the inbound body through the schema — foreign markup is repaired, unsafe dies', () => {
+  it('quotes the inbound body as it was sent — only what is unsafe dies', () => {
     const html = replyDocument({
       html:
         '<p class="MsoNormal">Word text</p>' +
@@ -52,14 +52,13 @@ describe('replyDocument', () => {
       from: 'Attacker',
     });
     expect(html).toContain(
-      '<blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div>Word text</div></blockquote>',
+      '<blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><p class="MsoNormal">Word text</p><img></blockquote>',
     );
     expect(html).not.toContain('script');
     expect(html).not.toContain('javascript:');
-    expect(html).not.toContain('class=');
   });
 
-  it("absorbs Gmail's own quote markup — classes drop, nesting survives", () => {
+  it("keeps Gmail's own quote markup as written — inside ours, nesting and all", () => {
     const html = replyDocument({
       html:
         '<div dir="ltr">Sure!</div>' +
@@ -68,9 +67,10 @@ describe('replyDocument', () => {
       from: 'Jane',
     });
     expect(html).toContain(
-      '<blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div>Sure!</div><blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div>Original</div></blockquote></blockquote>',
+      '<blockquote style="margin: 0px; padding-left: 12px; border-left: 2px solid rgb(224, 224, 224);"><div dir="ltr">Sure!</div>' +
+        '<blockquote class="gmail_quote" style="margin:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex">' +
+        '<div>Original</div></blockquote></blockquote>',
     );
-    expect(html).not.toContain('gmail_quote');
     expect(canonical(html)).toBe(html);
   });
 
@@ -155,18 +155,21 @@ describe('toInboundMessage', () => {
   it('takes a group as its members, as a parser hands it over (RFC 5322 §3.4)', () => {
     const inbound = toInboundMessage({
       to: [
-        { name: 'Team', group: [{ address: 'a@example.com' }, { name: 'Bo', address: 'b@example.com' }] },
+        {
+          name: 'Team',
+          group: [{ address: 'a@example.com' }, { name: 'Bo', address: 'b@example.com' }],
+        },
         { name: 'undisclosed-recipients', group: [] },
       ],
     });
     expect(inbound.to).toBe('a@example.com, Bo <b@example.com>');
   });
 
-  it('composes end-to-end: parsed email → imported document, schema-sanitized', () => {
+  it('composes end-to-end: parsed email → imported document, as sent, unsafe refused', () => {
     const html = importedDocument(
       toInboundMessage({ html: '<p class="MsoNormal">Report.</p><script>x()</script>' }),
     );
-    expect(html).toBe('<div>Report.</div>');
+    expect(html).toBe('<p class="MsoNormal">Report.</p>');
     expect(canonical(html)).toBe(html);
   });
 });
@@ -184,15 +187,15 @@ describe('importedDocument', () => {
 });
 
 describe('importLoss', () => {
-  it('counts elements outside the schema vocabulary, most frequent tag first', () => {
+  it('counts what the parse refuses, most frequent tag first — what it keeps is no loss', () => {
     const loss = importLoss({
       html:
         '<p class="MsoNormal"><o:p></o:p></p><center>a</center><center>b</center>' +
-        '<script>x()</script>' +
+        '<script>x()</script><iframe src="https://x"></iframe><script>y()</script>' +
         '<div>kept</div>',
     });
-    expect(loss.removedElements).toBe(4);
-    expect(loss.removedTags).toEqual(['center', 'o:p', 'script']);
+    expect(loss.removedElements).toBe(3);
+    expect(loss.removedTags).toEqual(['script', 'iframe']);
     expect(loss.inlineImages).toBe(0);
   });
 
@@ -381,12 +384,17 @@ describe('replyEnvelope', () => {
   });
 
   it('reads the headers by the host’s address rule when it is given one', () => {
-    const rules = { ...defaultAddressRules, isValid: (address: string) => address.endsWith('.com') };
+    const rules = {
+      ...defaultAddressRules,
+      isValid: (address: string) => address.endsWith('.com'),
+    };
     expect(replyEnvelope(MESSAGE, 'reply-all', { self, addressRules: rules }).cc).toEqual([
       '"Miller, Bob" <bob@ext.com>',
       'carol@ext.com',
     ]);
-    expect(replyEnvelope({ from: 'Hong <hong@iusta.io>' }, 'reply', { addressRules: rules }).to).toEqual([]);
+    expect(
+      replyEnvelope({ from: 'Hong <hong@iusta.io>' }, 'reply', { addressRules: rules }).to,
+    ).toEqual([]);
   });
 
   it('a forward addresses nobody yet and says Fwd:', () => {
@@ -457,9 +465,9 @@ const GERMAN: ComposeSeedLabels = {
 
 describe('replyDocument labels', () => {
   it('words the attribution with the host’s function, from what is known', () => {
-    expect(replyDocument({ text: 'x', from: 'Jane', date: '12.08.2026' }, { labels: GERMAN })).toContain(
-      '<div>Am 12.08.2026 schrieb Jane:</div>',
-    );
+    expect(
+      replyDocument({ text: 'x', from: 'Jane', date: '12.08.2026' }, { labels: GERMAN }),
+    ).toContain('<div>Am 12.08.2026 schrieb Jane:</div>');
     expect(replyDocument({ text: 'x', from: 'Jane' }, { labels: GERMAN })).toContain(
       '<div>Jane schrieb:</div>',
     );

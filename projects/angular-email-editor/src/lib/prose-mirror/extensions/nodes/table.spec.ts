@@ -7,6 +7,7 @@ import { parseHTML, serializeToHTML } from '../../html';
 import { lintHTML } from '../../html-source';
 import { emailExtensions } from '../kits';
 import { isActionEnabled } from '../../extension';
+import { authoredMarkupOf } from '../../authored';
 import { EmailParagraph } from './email-paragraph';
 import {
   TABLE_BORDER_COLOR,
@@ -22,6 +23,24 @@ import {
 
 const schema = createSchema(emailExtensions);
 const canonical = (html: string) => serializeToHTML(parseHTML(html, schema), schema);
+/** The first table the parse made of `html`. */
+const parsedTable = (html: string): Node => {
+  let table: Node | null = null;
+  parseHTML(html, schema).descendants((node) => {
+    if (!table && node.type.name === 'table') table = node;
+  });
+  return table!;
+};
+/** The attrs of every cell the parse made of `html`, in document order. */
+const cellsOf = (html: string) => {
+  const cells: Record<string, unknown>[] = [];
+  parsedTable(html).descendants((node) => {
+    if (node.type.name === 'tableCell') cells.push(node.attrs);
+  });
+  return cells;
+};
+/** The composer's own cell style. */
+const CELL = 'vertical-align: top; overflow-wrap: break-word;';
 
 describe('table serialization', () => {
   const SAMPLE =
@@ -33,14 +52,18 @@ describe('table serialization', () => {
   });
 
   it('serializes a borderless content table with a tbody — data, so no presentation role', () => {
-    const html = canonical(SAMPLE);
-    expect(html).toContain(
-      '<table style="width: 100%; table-layout: fixed; border-collapse: collapse;">',
-    );
-    expect(html).toContain('<tbody>');
+    const html =
+      '<table style="width: 100%; table-layout: fixed; border-collapse: collapse;"><tbody>' +
+      `<tr><td style="${CELL}">a</td><td style="${CELL}">b</td></tr>` +
+      `<tr><td style="${CELL}">c</td><td style="${CELL}">d</td></tr></tbody></table>`;
+    // The composer's own rendering: claimed as ours, no authored markup kept.
+    expect(authoredMarkupOf(parsedTable(html))).toBeNull();
+    expect(canonical(html)).toBe(html);
     // Borderless: grid lines are editor-only, never in the email itself.
-    expect(html).toContain('<td style="vertical-align: top; overflow-wrap: break-word;">a</td>');
     expect(html).not.toContain('border:');
+    // A bare authored table is a table too — kept as written.
+    expect(parsedTable(SAMPLE).childCount).toBe(2);
+    expect(canonical(SAMPLE)).toBe(SAMPLE);
   });
 
   it('round-trips a table with empty cells without growing phantom cells', () => {
@@ -63,14 +86,20 @@ describe('table serialization', () => {
     const merged =
       '<table><tbody><tr><td colspan="2">wide</td></tr>' +
       '<tr><td rowspan="2">tall</td><td>b</td></tr><tr><td>c</td></tr></tbody></table>';
-    const once = canonical(merged);
-    expect(once).toContain(
-      '<td colspan="2" style="vertical-align: top; overflow-wrap: break-word;">wide',
-    );
-    expect(once).toContain(
-      '<td rowspan="2" style="vertical-align: top; overflow-wrap: break-word;">tall',
-    );
-    expect(canonical(once)).toBe(once);
+    expect(cellsOf(merged).map(({ colspan, rowspan }) => [colspan, rowspan])).toEqual([
+      [2, 1],
+      [1, 2],
+      [1, 1],
+      [1, 1],
+    ]);
+    expect(canonical(merged)).toBe(merged);
+    // The composer's own rendering of a merged cell: the spans, then its style.
+    const ours =
+      '<table style="width: 100%; table-layout: fixed; border-collapse: collapse;"><tbody>' +
+      `<tr><td colspan="2" style="${CELL}">wide</td></tr>` +
+      `<tr><td rowspan="2" style="${CELL}">tall</td><td style="${CELL}">b</td></tr>` +
+      `<tr><td style="${CELL}">c</td></tr></tbody></table>`;
+    expect(canonical(ours)).toBe(ours);
   });
 
   it('repairs a ragged table on parse — short rows are padded to the grid', () => {
@@ -91,59 +120,58 @@ describe('table serialization', () => {
     expect(canonical(once)).toBe(once);
   });
 
-  it('parses a th as an ordinary cell — an email table is presentational', () => {
+  it('reads a th as an ordinary cell — kept as written', () => {
     const withHeader =
       '<table><tbody><tr><th>h</th><th>i</th></tr><tr><td>a</td><td>b</td></tr></tbody></table>';
-    const once = canonical(withHeader);
-    expect(once).not.toContain('<th');
-    expect((once.match(/<td/g) || []).length).toBe(4);
+    expect(cellsOf(withHeader)).toHaveLength(4);
+    expect(schema.nodes['tableHeader']).toBeUndefined();
+    expect(canonical(withHeader)).toBe(withHeader);
   });
 
-  it('never emits colwidth or pixel widths — percentages are the only width', () => {
-    expect(canonical(SAMPLE)).not.toContain('colwidth');
-    expect(
-      canonical('<table><tbody><tr><td width="120">a</td></tr></tbody></table>'),
-    ).not.toContain('width="120"');
-  });
-
-  it('keeps authored cell padding — px only — and drops the rest', () => {
-    // Padding in the email is the author's (or a preset's) choice.
-    const padded = canonical(
-      '<table><tbody><tr><td style="padding: 4px 10px;">a</td></tr></tbody></table>',
+  it('never emits colwidth or pixel widths of its own — an authored width stays as written', () => {
+    const ours = canonical(
+      `<table style="width: 100%; table-layout: fixed; border-collapse: collapse;"><tbody><tr><td style="${CELL}">a</td></tr></tbody></table>`,
     );
-    expect(padded).toContain('<td style="padding: 4px 10px; vertical-align: top;');
+    expect(ours).not.toContain('colwidth');
+    expect(ours).not.toMatch(/\d+px/);
+    const px = '<table><tbody><tr><td width="120">a</td></tr></tbody></table>';
+    expect(canonical(px)).toBe(px);
+  });
+
+  it('reads authored cell padding — px only — and keeps it as written', () => {
+    // Padding in the email is the author's (or a preset's) choice.
+    const padded = '<table><tbody><tr><td style="padding: 4px 10px;">a</td></tr></tbody></table>';
+    expect(cellsOf(padded)[0]['padding']).toBe('4px 10px');
     expect(canonical(padded)).toBe(padded);
 
-    // Non-px padding is the responsiveness trap and repairs away.
-    const pct = canonical('<table><tbody><tr><td style="padding: 5%;">a</td></tr></tbody></table>');
-    expect(pct).not.toContain('padding');
+    // Non-px padding is the responsiveness trap: not read as a padding the
+    // schema sells — and still not rewritten.
+    const pct = '<table><tbody><tr><td style="padding: 5%;">a</td></tr></tbody></table>';
+    expect(cellsOf(pct)[0]['padding']).toBeNull();
+    expect(canonical(pct)).toBe(pct);
   });
 
-  it('keeps the alignment an imported cell was written with, style or legacy attribute', () => {
+  it('reads the alignment an imported cell was written with, style or legacy attribute', () => {
     const written =
       '<table><tbody><tr>' +
       '<td align="center" valign="middle">a</td>' +
       '<td style="text-align: right; vertical-align: bottom;">b</td>' +
       '<td align="justify">c</td>' +
       '</tr></tbody></table>';
-    const html = canonical(written);
-    // The legacy attributes are read and re-stated as the style every client
-    // honours; what the schema does not sell (justify) repairs to the default.
-    expect(html).toContain(
-      '<td style="vertical-align: middle; overflow-wrap: break-word; text-align: center;">a</td>',
-    );
-    expect(html).toContain(
-      '<td style="vertical-align: bottom; overflow-wrap: break-word; text-align: right;">b</td>',
-    );
-    expect(html).toContain('<td style="vertical-align: top; overflow-wrap: break-word;">c</td>');
-    expect(canonical(html)).toBe(html);
+    // The legacy attributes read like the style; what the schema does not
+    // sell (justify) reads as the default. The markup stays as written.
+    expect(cellsOf(written).map(({ align, valign }) => [align, valign])).toEqual([
+      ['center', 'middle'],
+      ['right', 'bottom'],
+      [null, 'top'],
+    ]);
+    expect(canonical(written)).toBe(written);
   });
 
-  it('keeps an authored cell border, normalized to 1px solid', () => {
-    const bordered = canonical(
-      '<table><tbody><tr><td style="border: 2px dashed rgb(1, 2, 3);">a</td></tr></tbody></table>',
-    );
-    expect(bordered).toContain('border: 1px solid rgb(1, 2, 3);');
+  it('reads an authored cell border’s colour — kept as written', () => {
+    const bordered =
+      '<table><tbody><tr><td style="border: 2px dashed rgb(1, 2, 3);">a</td></tr></tbody></table>';
+    expect(cellsOf(bordered)[0]['border']).toBe('rgb(1, 2, 3)');
     expect(canonical(bordered)).toBe(bordered);
   });
 
@@ -216,9 +244,10 @@ describe('table editing', () => {
     expect(editor.getHTML()).not.toContain('background-color');
   });
 
-  it('parses a legacy bgcolor attribute into the cell fill', () => {
-    const html = canonical('<table><tbody><tr><td bgcolor="#e6f4ea">x</td></tr></tbody></table>');
-    expect(html).toContain('background-color: rgb(230, 244, 234)');
+  it('parses a legacy bgcolor attribute into the cell fill, kept as written', () => {
+    const html = '<table><tbody><tr><td bgcolor="#e6f4ea">x</td></tr></tbody></table>';
+    expect(cellsOf(html)[0]['background']).toBe('#e6f4ea');
+    expect(canonical(html)).toBe(html);
   });
 
   it('refuses to delete the last row or column', () => {
@@ -320,15 +349,18 @@ describe('table editing', () => {
 
   it('parses the room off markup only as the same px above and below', () => {
     const table = (style: string) =>
-      canonical(`<table style="${style}"><tbody><tr><td>a</td></tr></tbody></table>`);
-    expect(table('margin-top: 10px; margin-bottom: 10px;')).toContain(
-      'margin-top: 10px; margin-bottom: 10px;',
-    );
-    expect(table('margin: 12px 0;')).toContain('margin-top: 12px; margin-bottom: 12px;');
+      `<table style="${style}"><tbody><tr><td>a</td></tr></tbody></table>`;
+    const spacing = (style: string) => parsedTable(table(style)).attrs['spacing'];
+    expect(spacing('margin-top: 10px; margin-bottom: 10px;')).toBe(10);
+    expect(spacing('margin: 12px 0;')).toBe(12);
     // One side only, or not px: not a look the schema sells.
-    expect(table('margin-top: 10px;')).not.toContain('margin');
-    expect(table('margin-top: 1em; margin-bottom: 1em;')).not.toContain('margin');
-    expect(table('margin: 0 auto;')).not.toContain('margin');
+    expect(spacing('margin-top: 10px;')).toBeNull();
+    expect(spacing('margin-top: 1em; margin-bottom: 1em;')).toBeNull();
+    expect(spacing('margin: 0 auto;')).toBeNull();
+    // Read or not, the markup stays as written.
+    for (const style of ['margin: 12px 0;', 'margin-top: 10px;', 'margin: 0 auto;']) {
+      expect(canonical(table(style))).toBe(table(style));
+    }
   });
 
   it('a borderless table has real padding and no lines, kept on new cells', () => {
@@ -945,8 +977,10 @@ describe('tableKind', () => {
       '<tr><td style="padding:8px 0;border-top:1px solid #e4dccf">Aktenzeichen</td><td style="padding:8px 0;border-top:1px solid #e4dccf">{{ x }}</td></tr>' +
       '</tbody></table>';
     expect(tableKind(firstTable(ruled))).toBe('layout');
-    // Its lines stay as written: layout says what it is, not how it looks.
-    expect(canonical(ruled)).toContain('border-top: 1px solid rgb(228, 220, 207);');
+    // Its lines are read, and stay as written: layout says what it is, not
+    // how it looks.
+    expect(cellsOf(ruled)[0]).toMatchObject({ border: 'rgb(228, 220, 207)', borderSides: 'top' });
+    expect(canonical(ruled)).toBe(ruled);
     expect(canonical(ruled)).not.toContain('border: 1px solid');
     // No role, no mark: content, whatever it looks like.
     expect(tableKind(firstTable(ruled.replace(' role="presentation"', '')))).toBe('bordered');

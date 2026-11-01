@@ -70,7 +70,7 @@ export interface EditorSetup {
 }
 
 /** The rest of `createEditor`'s options a host may give. */
-export type EditorSetupOptions = Pick<EditorOptions, 'attributes' | 'parseMode'>;
+export type EditorSetupOptions = Pick<EditorOptions, 'attributes'>;
 
 /** An editor someone holds — what a toolbar, a menu or a model next to it
     needs (`injectEditor`). */
@@ -155,12 +155,9 @@ export class EmailEditor implements FormValueControl<string>, EditorRef {
   /** How value and editor meet. Read as an editor mounts. */
   readonly codec = input<EditorCodec>(HTML_CODEC, { alias: 'emailEditorCodec' });
 
-  /** The rest of `createEditor`'s options — attributes, parse mode. Read as
+  /** The rest of `createEditor`'s options — its attributes. Read as
       an editor mounts. */
-  readonly options = input<Pick<EditorOptions, 'attributes' | 'parseMode'>>(
-    {},
-    { alias: 'emailEditorOptions' },
-  );
+  readonly options = input<EditorSetupOptions>({}, { alias: 'emailEditorOptions' });
 
   /** While true, a value from outside waits — a pane out of sight need not
       parse what nobody sees — and goes in as soon as it is false. The
@@ -308,7 +305,10 @@ export class EmailEditor implements FormValueControl<string>, EditorRef {
 
   #mount(): void {
     const kit = this.#kit();
-    if (!kit) throw new Error('[emailEditor]: no kit — bind [emailEditor]="kit" or call configure({ kit }).');
+    if (!kit)
+      throw new Error(
+        '[emailEditor]: no kit — bind [emailEditor]="kit" or call configure({ kit }).',
+      );
     const setup = this.#setup();
     const codec = setup.codec ?? this.codec();
     this.#mountedKit = kit;
@@ -316,7 +316,9 @@ export class EmailEditor implements FormValueControl<string>, EditorRef {
     this.#published = null;
     const extensions = typeof kit === 'function' ? kit() : kit;
     const editor = createEditor({
-      ...(typeof setup.options === 'function' ? setup.options() : (setup.options ?? this.options())),
+      ...(typeof setup.options === 'function'
+        ? setup.options()
+        : (setup.options ?? this.options())),
       parent: this.#host,
       extensions: [...extensions],
       onUpdate: (current) => {

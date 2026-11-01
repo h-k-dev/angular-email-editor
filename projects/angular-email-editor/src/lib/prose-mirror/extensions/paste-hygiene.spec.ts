@@ -125,13 +125,14 @@ describe('paste hygiene', () => {
       expect(paste(word)).toBe('<div>Hello <b>world</b></div>');
     });
 
-    it('Google Docs paste renders as copied: the normal-weight wrapper stays normal', () => {
+    it('Google Docs paste renders as copied: the bold span bold, the rest plain', () => {
       const gdocs =
         '<b style="font-weight:normal" id="docs-internal-guid-abc123">' +
         '<p dir="ltr"><span style="font-weight:700">bold</span> plain</p></b>';
+      // Pasted into the line, its wrappers open into it (as typing would);
+      // the words keep the styles they were drawn with.
       const pasted = paste(gdocs);
-      expect(pasted).toContain('<b style="font-weight:normal"');
-      expect(pasted).toContain('<span style="font-weight:700">bold</span> plain');
+      expect(pasted).toBe('<div><span style="font-weight:700">bold</span> plain</div>');
     });
   });
 });

@@ -32,6 +32,48 @@
   flex-direction: column;
 }
 
+// The stored-mistakes card: a suggestion, the grip menus' (section-menu's
+// card): over the text at its top end, never in the flow — the text does not
+// move for it.
+.email-compose__mistakes {
+  @include menu.panel;
+
+  position: absolute;
+  z-index: 2;
+  inset-block-start: 8px;
+  inset-inline-end: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  inline-size: min(280px, calc(100% - 16px));
+  box-sizing: border-box;
+  padding: 12px;
+  font: var(--mat-sys-body-medium);
+
+  p {
+    margin: 0;
+    color: var(--mat-sys-on-surface-variant, #555555);
+  }
+}
+
+.email-compose__mistakes-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.email-compose__mistakes-button {
+  @include menu.item;
+
+  border: none;
+  background: none;
+  font: inherit;
+
+  &--primary {
+    color: var(--mat-sys-primary, #0056b3);
+  }
+}
+
 // The surface's hint covers the text the foot leaves: a drop on the foot is
 // the writer's (an attachment), not the surface's.
 .email-compose__body > [drop-hint] {

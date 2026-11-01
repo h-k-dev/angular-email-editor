@@ -22,8 +22,6 @@ export const Italic = defineMark({
     parseDOM: [
       { tag: 'em' },
       { tag: 'i', getAttrs: (node) => (node.style.fontStyle !== 'normal' ? null : false) },
-      { style: 'font-style=normal', clearMark: (mark) => mark.type.name === 'italic' },
-      { style: 'font-style=italic' },
     ],
     toDOM: () => ['em', { style: 'font-style: italic;' }, 0],
   },

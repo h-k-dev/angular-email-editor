@@ -54,7 +54,6 @@ class Host {
           parent: this.surface().nativeElement,
           extensions: emailExtensions,
           content: '<p>before</p>',
-          parseMode: 'repair',
         }),
       ),
     );

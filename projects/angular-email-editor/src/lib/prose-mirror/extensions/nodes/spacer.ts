@@ -37,9 +37,8 @@ function spacerBackground(dom: HTMLElement): string | null {
   return raw && isSafeColor(raw) ? toEmailSafeColor(raw) : null;
 }
 
-/** Only blank text: spaces, a non-breaking one, MJML's hair space, the
-    zero-width ones. */
-const BLANK = /^[\s   ​ ﻿]*$/;
+/** What a spacer writes inside itself: one no-break space (`&nbsp;`). */
+const SPACER_TEXT = String.fromCharCode(0xa0);
 
 /** A px length, or null. */
 const px = (value: string | undefined): number | null => {
@@ -50,13 +49,14 @@ const px = (value: string | undefined): number | null => {
 /** The height a parsed spacer stands for: its `height`, else its
     `line-height` — or null where it is no spacer. Marked
     (`aee-layout-spacer`): a spacer, whatever else it holds. Unmarked: a
-    `div` with nothing but blank text and a px height — MJML's spacer, a
-    builder's. Its height is kept as written (parsing is repair, not
-    opinion); only a drag snaps. */
+    `div` with a px height holding exactly what a spacer writes — one
+    no-break space — so it is claimed only where it would come back as
+    written; anything else (MJML's hair space, a builder's blank) is kept
+    as authored. Its height is kept as written; only a drag snaps. */
 function spacerHeight(dom: HTMLElement): number | null {
   const kind = markedAs(dom);
   if (kind && kind !== 'spacer') return null;
-  if (!kind && (dom.children.length || !BLANK.test(dom.textContent ?? ''))) return null;
+  if (!kind && (dom.children.length || dom.textContent !== SPACER_TEXT)) return null;
   const declared = new Map(
     parseDeclarations(dom.getAttribute('style') ?? '').map(({ name, value }) => [name, value]),
   );

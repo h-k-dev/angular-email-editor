@@ -178,11 +178,15 @@ export class SectionMenu {
   });
   protected readonly spacerConvertLabel = convertLabel({ spacers: 1, sections: 0 });
 
-  /** The page of rows the author meant: offered while the document has no
-      page layout of its own; its column's width, for the card to say. */
-  protected readonly rowsAvailable = computed(
-    () => !!this.pageSuggested() && !this.#state()?.doc.attrs['pageLayout'],
-  );
+  /** The page of rows the author meant: offered where the conversion would
+      run — no page layout of the document's own yet, and a page written by
+      hand the whole body; its column's width, for the card to say. */
+  protected readonly rowsAvailable = computed(() => {
+    const state = this.#state();
+    const pos = this.target()?.sectionPos;
+    if (!this.pageSuggested() || !state || pos === undefined) return false;
+    return convertAuthoredPageToRows(pos)(state);
+  });
   protected readonly pageWidth = computed(() => this.pageSuggested()?.rows.layout.width ?? 0);
 
   /** The fill of the band the caret is in (or of the selected spacer), as

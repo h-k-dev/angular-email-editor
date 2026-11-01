@@ -54,8 +54,9 @@ export interface ExampleSet {
       `replyDocument`; `html` — the document itself, canonical email HTML
       with the tokens verbatim. */
   kind: 'reply' | 'html';
-  /** The templating dialect an `html` set's tokens are written in — what
-      makes it a template set, for the template store. */
+  /** The templating dialect an `html` set's tokens are written in — none
+      for documents without tokens (the MJML newsletters). Every `html` set
+      is a set of templates (`isTemplateSet`). */
   dialect?: 'angularjs' | 'handlebars';
   examples: ExampleEntry[];
 }
@@ -144,9 +145,9 @@ export class Examples {
 
   /** The catalogue's sets, in its order. */
   sets(): Promise<ExampleSet[]> {
-    return (this.#catalogue ??= this.#assets.file('index.json').then(
-      (text) => (JSON.parse(text) as ExampleCatalogue).sets,
-    ));
+    return (this.#catalogue ??= this.#assets
+      .file('index.json')
+      .then((text) => (JSON.parse(text) as ExampleCatalogue).sets));
   }
 
   /** The set with this key, if the catalogue has it. */

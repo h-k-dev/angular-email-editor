@@ -121,7 +121,10 @@ $preview-min: 448px;
 }
 
 :host([data-details='docked']) .designer-body {
-  --_details: max(0px, min(var(--designer-details-width), 100% - #{$editor-min} - var(--_preview-least)));
+  --_details: max(
+    0px,
+    min(var(--designer-details-width), 100% - #{$editor-min} - var(--_preview-least))
+  );
 }
 
 // The dividers: the inbox's — a vanishing line between two panes, lit once
@@ -306,11 +309,27 @@ $preview-min: 448px;
   }
 }
 
-// The drop zone, drawn: a dashed box the whole width, the picker's button —
-// an icon and its words in the middle, its edge in the outline's ink (the
-// outline-variant is all but the paper's own), brighter under the pointer,
-// in the primary while a file hangs over the block.
-.designer-files__zone {
+// The email to study: its zone, the files' own, and a line under it on the
+// ways in.
+.designer-study {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-inline: var(--mat-sys-inner-spacing, 16px);
+}
+
+.designer-study__hint {
+  margin: 0;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-small);
+}
+
+// A drop zone, drawn (the files', the email's): a dashed box the whole
+// width, the picker's button — an icon and its words in the middle, its
+// edge in the outline's ink (the outline-variant is all but the paper's
+// own), brighter under the pointer, in the primary while a file hangs over
+// the block.
+.designer-zone {
   --mat-icon-size: 20px;
 
   display: flex;

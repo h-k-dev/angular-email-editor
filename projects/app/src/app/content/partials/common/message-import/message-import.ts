@@ -1,4 +1,4 @@
-import { Directive, ElementRef, inject, output, signal } from '@angular/core';
+import { Directive, ElementRef, inject, input, output, signal } from '@angular/core';
 
 import { looksLikeRawMessage } from '../../../../core/email/mailbox/raw-message';
 
@@ -22,6 +22,8 @@ const isEditable = (target: EventTarget | null): boolean =>
  *     <div messageImport #drop="messageImport" (messageImport)="open($event)">
  *
  * `dragging` says while a file hangs over the host — for a drop hint.
+ * `messageImportPaste="host"` takes only a paste made inside the host (a
+ * focused zone of its own), where the page has other work for Ctrl+V.
  */
 @Directive({
   selector: '[messageImport]',
@@ -40,6 +42,10 @@ export class MessageImport {
   /** A message brought in: a dropped or pasted `.eml`, or pasted raw text
       as one. */
   readonly messageImport = output<File>();
+
+  /** Whose pastes are taken: the whole page's (the default), or only those
+      made inside the host. */
+  readonly messageImportPaste = input<'document' | 'host'>('document');
 
   /** A file hangs over the host. */
   readonly dragging = signal(false);
@@ -66,6 +72,11 @@ export class MessageImport {
 
   protected paste(event: ClipboardEvent): void {
     if (event.defaultPrevented || isEditable(event.target) || !event.clipboardData) return;
+    if (
+      this.messageImportPaste() === 'host' &&
+      !(event.target instanceof Node && this.#host.contains(event.target))
+    )
+      return;
     const files = [...event.clipboardData.files].filter(isMessageFile);
     if (files.length) {
       event.preventDefault();

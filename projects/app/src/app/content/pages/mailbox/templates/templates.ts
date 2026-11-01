@@ -10,7 +10,12 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { HueOf, tintOf } from '../../../partials/common/hue-of/hue-of';
 import { Examples, ExampleSet } from '../../../../core/email/examples';
 import { Filter, escapeLike } from '../../../../core/email/loopback-filter';
-import { DIALECT_NAMES, EmailTemplate, Templates } from '../../../../core/email/templates';
+import {
+  EmailTemplate,
+  Templates,
+  isTemplateSet,
+  templateTag,
+} from '../../../../core/email/templates';
 import { Viewport } from '../../../../core/layout/viewport';
 import { PageScroller } from '../../../../core/router/page-scroller';
 import { I18n } from '../../../../core/translations/i18n';
@@ -88,10 +93,10 @@ export class TemplateGallery {
   /** A touch screen scrolls the shelves with a finger: no paddles, no drag. */
   protected readonly touch = inject(Viewport).touch;
 
-  /** The sets the store's templates come from: the catalogue's with a
-      dialect. */
+  /** The sets the store's templates come from: the catalogue's documents
+      — every MJML example among them, so the feed is the render check too. */
   readonly #sets = resource({
-    loader: async () => (await this.#examples.sets()).filter((set) => set.dialect),
+    loader: async () => (await this.#examples.sets()).filter(isTemplateSet),
   });
 
   /** The set on the shelf, or null for every template. */
@@ -132,7 +137,7 @@ export class TemplateGallery {
         template,
         set: label,
         mergeTags: this.#mergeTagsOf(template),
-        dialect: DIALECT_NAMES[template.dialect],
+        dialect: template.tag,
       };
     });
     return cards;
@@ -165,7 +170,8 @@ export class TemplateGallery {
     (this.#sets.value() ?? []).map((set) => ({
       key: set.key,
       label: this.#setLabel(set),
-      dialect: set.dialect!,
+      dialect: set.dialect,
+      tag: templateTag(set),
     })),
   );
 

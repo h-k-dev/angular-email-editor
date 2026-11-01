@@ -9,8 +9,11 @@ import { Filter, applyFilter, respond } from './loopback-filter';
 export interface EmailTemplate {
   id: string;
   name: string;
-  /** The templating dialect its tokens are written in. */
-  dialect: 'angularjs' | 'handlebars';
+  /** The templating dialect its tokens are written in — none for a
+      template without tokens (an MJML newsletter). */
+  dialect?: 'angularjs' | 'handlebars';
+  /** Its category tag: its dialect's name, or its set's (`templateTag`). */
+  tag: string;
   /** The body, as canonical email HTML with the tokens verbatim. */
   html: string;
   /** The message round the body, as the designer last saved it — none on
@@ -20,10 +23,18 @@ export interface EmailTemplate {
 
 /** The dialects by name — a template's category tag; names, the same in
     every language. */
-export const DIALECT_NAMES: Record<EmailTemplate['dialect'], string> = {
+export const DIALECT_NAMES: Record<NonNullable<EmailTemplate['dialect']>, string> = {
   angularjs: 'AngularJS',
   handlebars: 'Handlebars',
 };
+
+/** A set of templates: every set of documents in the catalogue (`html`) —
+    the dialect ones, and the MJML newsletters. */
+export const isTemplateSet = (set: ExampleSet): boolean => set.kind === 'html';
+
+/** A set's category tag: its dialect's name, else its own short name. */
+export const templateTag = (set: ExampleSet): string =>
+  set.dialect ? DIALECT_NAMES[set.dialect] : set.short;
 
 /** A catalogue entry's envelope, whole: what it says, over a new message's
     rows. */
@@ -46,11 +57,12 @@ export interface TemplateEnvelope {
 }
 
 /** What a new template is made of: its name, and the set it joins — written
-    in that set's dialect. Its body and its rows start empty. */
+    in that set's dialect, under its tag. Its body and its rows start empty. */
 export interface TemplateDraft {
   name: string;
   set: string;
-  dialect: EmailTemplate['dialect'];
+  dialect?: EmailTemplate['dialect'];
+  tag: string;
 }
 
 /**
@@ -68,8 +80,8 @@ export interface TemplateDraft {
  *     firstValueFrom(this.#http.patch<EmailTemplate>(`/api/templates/${id}`, template))
  *     firstValueFrom(this.#http.post<EmailTemplate>('/api/templates', draft))
  *
- * Demo data: every example set written in a dialect (`Examples`), loaded
- * on the first find.
+ * Demo data: every set of documents in the catalogue (`Examples`) — the
+ * dialect ones and the MJML newsletters — loaded on the first find.
  */
 @Service()
 export class Templates {
@@ -78,10 +90,7 @@ export class Templates {
   #rows: Promise<EmailTemplate[]> | null = null;
   #next = 1;
 
-  async find(
-    filter: Filter<EmailTemplate> = {},
-    signal?: AbortSignal,
-  ): Promise<EmailTemplate[]> {
+  async find(filter: Filter<EmailTemplate> = {}, signal?: AbortSignal): Promise<EmailTemplate[]> {
     return respond(applyFilter(await this.#all(), filter), signal);
   }
 
@@ -103,7 +112,13 @@ export class Templates {
     let id: string;
     do id = `${draft.set}/template-${this.#next++}`;
     while (rows.some((row) => row.id === id));
-    const template: EmailTemplate = { id, name: draft.name, dialect: draft.dialect, html: '' };
+    const template: EmailTemplate = {
+      id,
+      name: draft.name,
+      dialect: draft.dialect,
+      tag: draft.tag,
+      html: '',
+    };
     const [stored] = await respond([template], signal);
     rows.push(structuredClone(stored));
     return stored;
@@ -114,7 +129,7 @@ export class Templates {
   }
 
   async #load(): Promise<EmailTemplate[]> {
-    const sets = (await this.#examples.sets()).filter((set) => set.dialect);
+    const sets = (await this.#examples.sets()).filter(isTemplateSet);
     const rows = await Promise.all(sets.map((set) => this.#rowsOf(set)));
     return rows.flat();
   }
@@ -124,7 +139,8 @@ export class Templates {
       set.examples.map(async (example) => ({
         id: exampleId(example),
         name: example.name,
-        dialect: set.dialect!,
+        dialect: set.dialect,
+        tag: templateTag(set),
         html: await this.#examples.document(set, example),
         envelope: example.envelope && envelopeOf(example.envelope),
       })),

@@ -83,23 +83,31 @@ describe('TemplateDesigner desk (render)', () => {
     expect(el('.designer-details').scrollWidth).toBe(el('.designer-details').clientWidth);
   });
 
-  it('opens the details on the rows, no heading, the files on a drop zone', async () => {
+  it('opens the details on the rows, no heading, the files on a drop zone, an email to study under them', async () => {
     await open(1600);
     expect(host().querySelectorAll('.designer-details h2')).toHaveLength(0);
     expect(el('.designer-details').firstElementChild!.hasAttribute('envelope-rows')).toBe(true);
-    expect(el('.designer-files__zone').tagName).toBe('BUTTON');
+    expect(el('.designer-files .designer-zone').tagName).toBe('BUTTON');
+    expect(el('.designer-study .designer-zone').tagName).toBe('BUTTON');
+    expect(el('.designer-study input[type="file"]').getAttribute('accept')).toBe(
+      '.eml,message/rfc822',
+    );
   });
 
   it('labels To as From is, at rest too, on the same lines', async () => {
     await open(1600);
-    const [from, to] = Array.from(host().querySelectorAll<HTMLElement>('.designer-details .writer-field'));
+    const [from, to] = Array.from(
+      host().querySelectorAll<HTMLElement>('.designer-details .writer-field'),
+    );
     const label = (row: HTMLElement) => row.querySelector<HTMLElement>('.writer-field__label')!;
     const control = (row: HTMLElement) => row.querySelector<HTMLElement>('[email-address-input]')!;
     expect(label(to).textContent!.trim()).toBe('To');
     expect(to.contains(document.activeElement)).toBe(false);
     expect(label(to).getBoundingClientRect().width).toBeGreaterThan(1);
     expect(label(to).getBoundingClientRect().left).toBe(label(from).getBoundingClientRect().left);
-    expect(control(to).getBoundingClientRect().left).toBe(control(from).getBoundingClientRect().left);
+    expect(control(to).getBoundingClientRect().left).toBe(
+      control(from).getBoundingClientRect().left,
+    );
   });
 
   it('keeps filled copies a row each, labelled — never merged into one line', async () => {
@@ -205,7 +213,9 @@ describe('TemplateDesigner desk (render)', () => {
     expect(width('.designer-details')).toBe(420);
     const desk = el('.designer-body').getBoundingClientRect();
     const panel = el('.designer-details').getBoundingClientRect();
-    expect([panel.top - desk.top, desk.bottom - panel.bottom, desk.right - panel.right]).toEqual([8, 8, 8]);
+    expect([panel.top - desk.top, desk.bottom - panel.bottom, desk.right - panel.right]).toEqual([
+      8, 8, 8,
+    ]);
     expect(host().querySelector('.designer-divider--details')).toBeNull();
   });
 

@@ -29,9 +29,9 @@ describe('page of rows', () => {
     '</td></tr></tbody></table>';
   const BODY = `<div>before</div>${BAND}<div>after</div>`;
 
-  const mount = (content: string, parseMode: 'repair' | 'preserve' | 'email' = 'preserve') => {
+  const mount = (content: string) => {
     editor?.destroy();
-    editor = createEditor({ parent: host, extensions: emailExtensions, content, parseMode });
+    editor = createEditor({ parent: host, extensions: emailExtensions, content });
   };
   const top = (doc: Node = editor.state.doc) => {
     const names: string[] = [];
@@ -57,45 +57,74 @@ describe('page of rows', () => {
   });
 
   describe('recognising the hand-coded page', () => {
-    for (const mode of ['repair', 'email', 'preserve'] as const) {
-      it(`lifts it as a page of rows in the ${mode} parse, each row a row of ours`, () => {
-        const doc = parseHTML(WELCOME, editor.schema, { mode });
-        expect(normalizePageLayout(doc.attrs['pageLayout'])).toEqual(
-          tablePageLayout({
-            width: 600,
-            background: '#eef2f7',
-            columnBackground: '#ffffff',
-            spacing: 32,
-            // Its column's `cellpadding="0"`: every row says its own.
-            rowPadding: 0,
-          }),
-        );
-        expect(top(doc)).toEqual(Array(6).fill('pageRow'));
-        const fills: (string | null)[] = [];
-        const paddings: string[] = [];
-        doc.forEach((row) => {
-          fills.push(row.attrs['background']);
-          paddings.push(row.attrs['padding']);
-        });
-        expect(fills).toEqual(['#1f3a5f', null, null, null, null, '#f1f3f4']);
-        // Each cell's own padding, all four sides.
-        expect(paddings).toEqual([
-          '24px',
-          '32px 32px 8px',
-          '8px 32px',
-          '8px 32px',
-          '24px 32px 32px',
-          '24px 32px',
-        ]);
-        // Rows of ours, as they emit — none kept as authored markup.
-        doc.forEach((row) => expect(row.attrs['html'] ?? null).toBeNull());
-        expect(doc.textContent).toContain('Welcome to');
-        expect(doc.child(4).firstChild!.firstChild!.type.name).toBe('button');
-      });
-    }
+    const WELCOME_ROWS = tablePageLayout({
+      width: 600,
+      background: '#eef2f7',
+      columnBackground: '#ffffff',
+      spacing: 32,
+      // Its column's `cellpadding="0"`: every row says its own.
+      rowPadding: 0,
+    });
 
-    it('sends it marked — and reads the marked form back as it sent it', () => {
+    /** The page grip's suggestion for the document's first block, or null. */
+    const suggested = () => authoredPageBands(editor.state.doc.child(0), editor.schema);
+
+    /** The hand-coded page, mounted and converted as the author asks. */
+    const converted = (html: string) => {
+      mount(html);
+      expect(editor.exec(convertAuthoredPageToRows(0))).toBe(true);
+    };
+
+    it('keeps it as written on parse — no page lifted, nothing converted', () => {
+      const doc = parseHTML(WELCOME, editor.schema);
+      expect(doc.attrs['pageLayout']).toBeNull();
+      expect(top(doc)).not.toContain('pageRow');
+      const html = serializeToHTML(doc, editor.schema);
+      expect(serializeToHTML(parseHTML(html, editor.schema), editor.schema)).toBe(html);
+    });
+
+    it('offers it as a page of rows — the page grip’s suggestion, never on its own', () => {
       mount(WELCOME);
+      const conversion = suggested()!;
+      expect(conversion.shape).toBe('rows-page');
+      // No same-pixels conversion: the rows were the author's column.
+      expect(conversion.html).toBeNull();
+      expect(conversion.rows.layout).toEqual(WELCOME_ROWS);
+      expect(top()).not.toContain('pageRow');
+    });
+
+    it('converted, each row a row of ours', () => {
+      converted(WELCOME);
+      const doc = editor.state.doc;
+      expect(normalizePageLayout(doc.attrs['pageLayout'])).toEqual(WELCOME_ROWS);
+      expect(top(doc)).toEqual(Array(6).fill('pageRow'));
+      const fills: (string | null)[] = [];
+      const paddings: string[] = [];
+      doc.forEach((row) => {
+        fills.push(row.attrs['background']);
+        paddings.push(row.attrs['padding']);
+      });
+      expect(fills).toEqual(['#1f3a5f', null, null, null, null, '#f1f3f4']);
+      // Each cell's own padding, all four sides.
+      expect(paddings).toEqual([
+        '24px',
+        '32px 32px 8px',
+        '8px 32px',
+        '8px 32px',
+        '24px 32px 32px',
+        '24px 32px',
+      ]);
+      // Rows of ours, as they emit — none kept as authored markup.
+      doc.forEach((row) => expect(row.attrs['html'] ?? null).toBeNull());
+      expect(doc.textContent).toContain('Welcome to');
+      expect(doc.child(4).firstChild!.firstChild!.type.name).toBe('button');
+      // One step: undone as one.
+      undo(editor.state, editor.view.dispatch);
+      expect(editor.state.doc.attrs['pageLayout']).toBeNull();
+    });
+
+    it('converted, sends it marked — and reads the marked form back as it sent it', () => {
+      converted(WELCOME);
       const html = editor.getHTML();
       expect(html.startsWith('<table class="aee-layout-page"')).toBe(true);
       const { column, cells } = rows(html);
@@ -103,20 +132,12 @@ describe('page of rows', () => {
       expect(column.style.maxWidth).toBe('600px');
       expect(cells.map((cell) => cell.className)).toEqual(Array(6).fill('aee-layout-page-row'));
       expect(cells[0].getAttribute('bgcolor')).toBe('#1f3a5f');
-      for (const mode of ['email', 'preserve'] as const) {
-        const doc = parseHTML(html, editor.schema, { mode });
-        expect(serializeToHTML(doc, editor.schema)).toBe(html);
-      }
-      // Repair writes the words its canonical way — and then holds still.
-      const repaired = serializeToHTML(parseHTML(html, editor.schema), editor.schema);
-      expect(rows(repaired).cells.map((cell) => cell.className)).toEqual(
-        Array(6).fill('aee-layout-page-row'),
-      );
-      expect(serializeToHTML(parseHTML(repaired, editor.schema), editor.schema)).toBe(repaired);
+      const doc = parseHTML(html, editor.schema);
+      expect(serializeToHTML(doc, editor.schema)).toBe(html);
     });
 
-    it("keeps the row's words and their styles in a block", () => {
-      mount(WELCOME);
+    it("converted, keeps the row's words and their styles in a block", () => {
+      converted(WELCOME);
       const { cells } = rows(editor.getHTML());
       const heading = cells[1].firstElementChild as HTMLElement;
       expect(heading.textContent).toContain('Welcome to');
@@ -149,16 +170,20 @@ describe('page of rows', () => {
       ['words beside the column', page(`Hi ${COLUMN}`)],
     ];
     for (const [name, html] of cases) {
-      it(`is no page for ${name}`, () => {
-        const doc = parseHTML(html, editor.schema, { mode: 'preserve' });
-        expect(doc.attrs['pageLayout']).toBeNull();
+      it(`makes no page of ${name}`, () => {
+        mount(html);
+        expect(editor.state.doc.attrs['pageLayout']).toBeNull();
+        editor.state.doc.forEach((_, pos) => {
+          expect(editor.exec(convertAuthoredPageToRows(pos))).toBe(false);
+        });
       });
     }
 
     it("takes the column's cellpadding as the page's row padding", () => {
       const column =
         '<table width="600" cellpadding="12"><tbody><tr><td>One</td></tr><tr><td style="padding: 4px;">Two</td></tr></tbody></table>';
-      const doc = parseHTML(page(column), editor.schema, { mode: 'preserve' });
+      converted(page(column));
+      const doc = editor.state.doc;
       expect((normalizePageLayout(doc.attrs['pageLayout']) as any).rowPadding).toBe(12);
       expect(doc.child(0).attrs['padding']).toBeNull();
       expect(doc.child(1).attrs['padding']).toBe('4px');
@@ -177,9 +202,9 @@ describe('page of rows', () => {
       '<tr><td class="aee-layout-page-row" style="padding: 20px 40px;"><div>Footer</div></td></tr>' +
       '<!--[if mso]></td></tr></table><![endif]-->' +
       '</tbody></table>';
-    for (const mode of ['repair', 'email', 'preserve'] as const) {
-      it(`reads a hand-edited page as authored markup in the ${mode} parse — no layout, nothing dropped, nothing converted`, () => {
-        const doc = parseHTML(STRAY, editor.schema, { mode });
+    {
+      it('reads a hand-edited page as authored markup — no layout, nothing dropped, nothing converted', () => {
+        const doc = parseHTML(STRAY, editor.schema);
         // Its rows were never in the 600px column: no page width is theirs.
         expect(doc.attrs['pageLayout']).toBeNull();
         // Recognised or not, never turned into bands or a strip: that is the
@@ -208,7 +233,7 @@ describe('page of rows', () => {
         const conversion = authoredPageBands(editor.state.doc.child(0), editor.schema)!;
         // What it makes, for the host to say: one strip, three bands.
         expect(conversion).toMatchObject({ spacers: 1, sections: 3 });
-        const html = conversion.html;
+        const html = conversion.html!;
         expect(html).toContain(
           '<div class="aee-layout-spacer" style="height: 96px; line-height: 96px; font-size: 1px; mso-line-height-rule: exactly; background-color: #efe9e1;">',
         );
@@ -261,7 +286,7 @@ describe('page of rows', () => {
         expect(rows(html).cells.map((cell) => cell.className)).toEqual(
           Array(3).fill('aee-layout-page-row'),
         );
-        expect(serializeToHTML(parseHTML(html, editor.schema, { mode: 'preserve' }), editor.schema)).toBe(html);
+        expect(serializeToHTML(parseHTML(html, editor.schema), editor.schema)).toBe(html);
         undo(editor.state, editor.view.dispatch);
         expect(editor.state.doc.attrs['pageLayout']).toBeNull();
         expect(top()).not.toContain('pageRow');
@@ -280,7 +305,10 @@ describe('page of rows', () => {
         });
         expect(editor.exec(convertAuthoredPage(pagePos()))).toBe(true);
         expect(top()).toEqual(['spacer', 'section', 'spacer', 'section', 'section', 'section']);
-        expect(editor.state.doc.child(0).attrs).toMatchObject({ height: 32, background: '#f6f3ee' });
+        expect(editor.state.doc.child(0).attrs).toMatchObject({
+          height: 32,
+          background: '#f6f3ee',
+        });
         expect(editor.state.doc.child(1).attrs).toMatchObject({
           background: '#f6f3ee',
           contentBackground: '#ffffff',
@@ -289,7 +317,7 @@ describe('page of rows', () => {
         expect(editor.state.doc.child(1).firstChild!.attrs['height']).toBe(32);
         // Ours from then on: it reads back as it was sent.
         const html = editor.getHTML();
-        expect(serializeToHTML(parseHTML(html, editor.schema, { mode: 'preserve' }), editor.schema)).toBe(html);
+        expect(serializeToHTML(parseHTML(html, editor.schema), editor.schema)).toBe(html);
       });
 
       it('suggests nothing for a table that is not the pattern', () => {
@@ -314,7 +342,8 @@ describe('page of rows', () => {
 
     it('takes the page as it is — through wrappers, round a column of the minimum width', () => {
       const html = `<div><center>${page(COLUMN.replace('width="600"', 'width="320"'))}</center></div>`;
-      const doc = parseHTML(html, editor.schema, { mode: 'preserve' });
+      converted(html);
+      const doc = editor.state.doc;
       expect(normalizePageLayout(doc.attrs['pageLayout'])?.kind).toBe('table');
       expect(normalizePageLayout(doc.attrs['pageLayout'])?.width).toBe(320);
       expect(top(doc)).toEqual(['pageRow', 'pageRow']);
@@ -440,7 +469,7 @@ describe('page of rows', () => {
       expect(cell.style.backgroundImage).toContain('https://example.com/hero.jpg');
       expect(cell.getAttribute('bgcolor')).toBe('#fce8e6');
       // Read back as it was sent.
-      const doc = parseHTML(html, editor.schema, { mode: 'preserve' });
+      const doc = parseHTML(html, editor.schema);
       expect(doc.child(0).attrs['image']).toBe('https://example.com/hero.jpg');
       expect(serializeToHTML(doc, editor.schema)).toBe(html);
       // Remove: a plain row, its words kept.
@@ -504,7 +533,7 @@ describe('page of rows', () => {
         'var(--aee-page-row-padding',
       );
       // And reads it back off the column.
-      const doc = parseHTML(editor.getHTML(), editor.schema, { mode: 'preserve' });
+      const doc = parseHTML(editor.getHTML(), editor.schema);
       expect((normalizePageLayout(doc.attrs['pageLayout']) as any).rowPadding).toBe(24);
       expect(doc.child(0).attrs['padding']).toBeNull();
     });
@@ -526,7 +555,7 @@ describe('page of rows', () => {
         Array(3).fill('aee-layout-page-row'),
       );
       expect(rows(html).cells[1].getAttribute('bgcolor')).toBe('#e8f0fe');
-      const doc = parseHTML(html, editor.schema, { mode: 'preserve' });
+      const doc = parseHTML(html, editor.schema);
       expect(doc.eq(editor.state.doc)).toBe(true);
     });
   });
@@ -541,7 +570,7 @@ describe('page of rows', () => {
       mount(fs.readFileSync(`${EXAMPLES}${file}`, 'utf8'));
       editor.commands['setPageLayout'](tablePageLayout({ width: 640 }));
       const html = editor.getHTML();
-      const doc = parseHTML(html, editor.schema, { mode: 'preserve' });
+      const doc = parseHTML(html, editor.schema);
       expect(normalizePageLayout(doc.attrs['pageLayout'])?.kind).toBe('table');
       expect(serializeToHTML(doc, editor.schema)).toBe(html);
     });

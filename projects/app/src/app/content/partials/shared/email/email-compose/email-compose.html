@@ -17,6 +17,31 @@
      the surface without scrolling with it — an overlay inside a scroll
      container covers only its first screen. -->
 <div class="email-compose__body">
+  <!-- Mistakes another editor stored (Summernote, Word): never fixed on
+       their own — a card over the text says what they are, and the author
+       fixes them all (one undo step) or puts the card away. -->
+  @if (mistakes().length && !mistakesDismissed()) {
+    <aside class="email-compose__mistakes" aria-labelledby="email-compose-mistakes">
+      <strong id="email-compose-mistakes">{{ 'editor.mistakes.title' | translate }}</strong>
+      <p>{{ mistakesSummary() }}</p>
+      <div class="email-compose__mistakes-actions">
+        <button
+          type="button"
+          class="email-compose__mistakes-button"
+          (click)="mistakesDismissed.set(true)"
+        >
+          {{ 'editor.mistakes.dismiss' | translate }}
+        </button>
+        <button
+          type="button"
+          class="email-compose__mistakes-button email-compose__mistakes-button--primary"
+          (click)="fixMistakes()"
+        >
+          {{ 'editor.mistakes.fix' | translate }}
+        </button>
+      </div>
+    </aside>
+  }
   <!-- The editing surface is the attachment dropzone (see `fileDrop`).
        clickable=false: a click on the paper must never open a file picker.
        data-color-scheme: the paper's own light or dark (`colorScheme`) —
@@ -98,7 +123,11 @@
        the dock is nothing, and the toolbar is the bar it always was.
        Switching the toolbar runs the dock's height from the one look to the
        other (`heightSwitch`, common/height-switch) — over its one child, which it measures. -->
-  <div class="email-compose__dock" [class.email-compose__dock--chat]="chat.open()" [heightSwitch]="toolbar()">
+  <div
+    class="email-compose__dock"
+    [class.email-compose__dock--chat]="chat.open()"
+    [heightSwitch]="toolbar()"
+  >
     <div class="email-compose__dock-content">
       <!-- The suggestion menu docked (`suggestions`, a phone's sheet): a band
            over the toolbar, on the keyboard, where there is no room by the

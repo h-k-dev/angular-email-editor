@@ -19,9 +19,9 @@ describe('page layout', () => {
   const BODY = `<div>before</div>${BAND}<div>after</div>`;
   const LAYOUT: PageLayout = centeredPageLayout();
 
-  const mount = (content: string, parseMode: 'repair' | 'preserve' | 'email' = 'preserve') => {
+  const mount = (content: string) => {
     editor?.destroy();
-    editor = createEditor({ parent: host, extensions: emailExtensions, content, parseMode });
+    editor = createEditor({ parent: host, extensions: emailExtensions, content });
   };
   const withLayout = (layout: PageLayout | null) => {
     editor.commands['setPageLayout'](layout);
@@ -87,7 +87,7 @@ describe('page layout', () => {
     const html = withLayout(centeredPageLayout({ width: 640 }));
     expect(html).toContain('max-width: 640px; margin-left: auto');
     expect(html).not.toContain('max-width: 600px');
-    const doc = parseHTML(html, editor.schema, { mode: 'preserve' });
+    const doc = parseHTML(html, editor.schema);
     expect(serializeToHTML(doc.type.create(null, doc.content), editor.schema)).toBe(BODY);
   });
 
@@ -99,7 +99,7 @@ describe('page layout', () => {
         columnBackground: null,
       });
       const html = withLayout(layout);
-      const doc = parseHTML(html, editor.schema, { mode });
+      const doc = parseHTML(html, editor.schema);
       expect(normalizePageLayout(doc.attrs['pageLayout'])).toEqual(layout);
       expect(serializeToHTML(doc, editor.schema)).toBe(html);
     });
@@ -123,7 +123,7 @@ describe('page layout', () => {
 
   it('unwraps a page inside the body (a quoted message) without taking its layout', () => {
     const inner = withLayout(LAYOUT);
-    const doc = parseHTML(`<blockquote>${inner}</blockquote>`, editor.schema, { mode: 'preserve' });
+    const doc = parseHTML(`<blockquote>${inner}</blockquote>`, editor.schema);
     expect(doc.attrs['pageLayout']).toBeNull();
     expect(serializeToHTML(doc, editor.schema)).not.toContain('aee-layout-page');
   });
@@ -136,7 +136,9 @@ describe('page layout', () => {
     expect(root.style.getPropertyValue('--aee-page-width')).toBe('600px');
     expect(root.style.getPropertyValue('--aee-page-background')).toBe('#f1f3f4');
     // Dark is drawn: the light fill as Dawn draws it.
-    expect(root.style.getPropertyValue('--aee-page-background-dark')).toBe(dawnDarkColor('#f1f3f4'));
+    expect(root.style.getPropertyValue('--aee-page-background-dark')).toBe(
+      dawnDarkColor('#f1f3f4'),
+    );
     expect(root.style.getPropertyValue('--aee-page-column')).toBe('#ffffff');
     withLayout(null);
     expect(root.classList).not.toContain(PAGE_LAYOUT_CLASS);
@@ -180,9 +182,7 @@ describe('page layout', () => {
 
   it('paints the body with the page colour in the email document', () => {
     const html = emailDocument(withLayout(LAYOUT));
-    expect(html).toMatch(
-      /<body style="[^"]*background-color: #f1f3f4;[^"]*" bgcolor="#f1f3f4">/,
-    );
+    expect(html).toMatch(/<body style="[^"]*background-color: #f1f3f4;[^"]*" bgcolor="#f1f3f4">/);
     expect(emailDocument(BODY)).toContain('<body style="margin: 0;');
   });
 
@@ -200,7 +200,7 @@ describe('page layout', () => {
     it(`round-trips ${file} in its page`, () => {
       mount(fs.readFileSync(`${EXAMPLES}${file}`, 'utf8'));
       const html = withLayout(centeredPageLayout({ width: 640 }));
-      const doc = parseHTML(html, editor.schema, { mode: 'preserve' });
+      const doc = parseHTML(html, editor.schema);
       expect(normalizePageLayout(doc.attrs['pageLayout'])?.width).toBe(640);
       expect(serializeToHTML(doc, editor.schema)).toBe(html);
     });

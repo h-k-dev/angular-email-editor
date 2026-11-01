@@ -43,27 +43,41 @@ describe('heading', () => {
     expect(roundTrip(LAYOUT_H2)).toBe(LAYOUT_H2);
   });
 
-  it('reads a flush heading — its top margin said, and zero — as layout; any other as spaced', () => {
-    expect(roundTrip('<h2 style="margin:0">Title</h2>')).toBe(LAYOUT_H2);
-    expect(roundTrip('<h2 style="margin-top: 0">Title</h2>')).toBe(LAYOUT_H2);
-    expect(roundTrip('<h2 style="margin: 0 0 12px">Title</h2>')).toBe(LAYOUT_H2);
-    // A bare heading had a client's default space above it, and keeps space.
-    expect(roundTrip('<h2>Title</h2>')).toBe(SPACED_H2);
-    expect(roundTrip('<h2 style="margin: 8px 0">Title</h2>')).toBe(SPACED_H2);
-    expect(roundTrip('<h2 style="margin-bottom: 0">Title</h2>')).toBe(SPACED_H2);
+  it('reads a flush heading — its top margin said, and zero — as layout; any other as spaced — each as written', () => {
+    for (const [html, layout] of [
+      ['<h2 style="margin:0">Title</h2>', true],
+      ['<h2 style="margin-top: 0">Title</h2>', true],
+      ['<h2 style="margin: 0 0 12px">Title</h2>', true],
+      // A bare heading had a client's default space above it, and keeps space.
+      ['<h2>Title</h2>', false],
+      ['<h2 style="margin: 8px 0">Title</h2>', false],
+      ['<h2 style="margin-bottom: 0">Title</h2>', false],
+    ] as const) {
+      const heading = parseHTML(html, schema).child(0);
+      expect(heading.type.name).toBe('heading');
+      expect(heading.attrs['level']).toBe(2);
+      expect(heading.attrs['layout']).toBe(layout);
+      expect(roundTrip(html)).toBe(html);
+    }
   });
 
   it('reads an alignment, written or legacy, and writes it after the scale', () => {
     const centred =
       '<h2 style="margin: 16px 0px 4px; font-size: 20px; text-align: center;">Title</h2>';
     expect(roundTrip(centred)).toBe(centred);
-    expect(roundTrip('<h2 align="right">Title</h2>')).toContain('text-align: right;');
-    // Left is the default: nothing written.
-    expect(roundTrip('<h2 style="text-align: left">Title</h2>')).toBe(SPACED_H2);
+    const legacy = '<h2 align="right">Title</h2>';
+    expect(parseHTML(legacy, schema).child(0).attrs['align']).toBe('right');
+    expect(roundTrip(legacy)).toBe(legacy);
+    // Left is the default: nothing read.
+    const left = '<h2 style="text-align: left">Title</h2>';
+    expect(parseHTML(left, schema).child(0).attrs['align']).toBeNull();
+    expect(roundTrip(left)).toBe(left);
   });
 
-  it('knows no h5 or h6: they come in as plain lines', () => {
-    expect(roundTrip('<h5>Five</h5><h6>Six</h6>')).toBe('<div>Five</div><div>Six</div>');
+  it('knows no h5 or h6: they stay the elements they are, never headings', () => {
+    const doc = parseHTML('<h5>Five</h5><h6>Six</h6>', schema);
+    expect([doc.child(0).type.name, doc.child(1).type.name]).not.toContain('heading');
+    expect(roundTrip('<h5>Five</h5><h6>Six</h6>')).toBe('<h5>Five</h5><h6>Six</h6>');
   });
 
   describe('in the editor', () => {

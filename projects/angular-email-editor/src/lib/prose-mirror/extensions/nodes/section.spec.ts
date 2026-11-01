@@ -11,6 +11,14 @@ describe('section', () => {
 
   const canonical = (html: string) =>
     serializeToHTML(parseHTML(html, editor.schema), editor.schema);
+  /** How many of our bands the markup parses into. */
+  const sectionsIn = (html: string) => {
+    let count = 0;
+    parseHTML(html, editor.schema).descendants((node) => {
+      if (node.type.name === 'section') count++;
+    });
+    return count;
+  };
   const OURS =
     '<table class="aee-layout-section" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width: 100%; border-collapse: collapse;"><tbody><tr>' +
     '<td bgcolor="#f1f3f4" style="padding: 20px 0px; background-color: rgb(241, 243, 244); color: rgb(32, 33, 36);">' +
@@ -20,13 +28,11 @@ describe('section', () => {
   beforeEach(() => {
     host = document.createElement('div');
     document.body.appendChild(host);
-    // The band's canonical emission is what this suite asserts (`canonical`
-    // parses as the import does), so the editor parses that way too.
+    // A line as the editor writes one, so what the commands leave is ours.
     editor = createEditor({
       parent: host,
       extensions: emailExtensions,
-      content: '<p>before</p>',
-      parseMode: 'repair',
+      content: '<div>before</div>',
     });
   });
 
@@ -200,7 +206,7 @@ describe('section', () => {
     expect(editor.getHTML()).toBe('<div>kept</div><div>before</div>');
   });
 
-  it('parses a builder’s section: MJML’s fill on the wrapping card, padding on the cell, columns inside', () => {
+  it('keeps a builder’s section as written: MJML’s fill on the wrapping card, padding on the cell, columns inside — never made a band', () => {
     const mjml =
       '<div style="background:#354552;background-color:#354552;margin:0px auto;max-width:600px;">' +
       '<table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:#354552;width:100%;"><tbody><tr>' +
@@ -208,17 +214,8 @@ describe('section', () => {
       '<div style="display:inline-block;vertical-align:top;width:100%;max-width:280px"><p>Left</p></div>' +
       '<div style="display:inline-block;vertical-align:top;width:100%;max-width:280px"><p>Right</p></div>' +
       '</td></tr></tbody></table></div>';
-    const out = canonical(mjml);
-    // MJML's fill sits on a card capped at 600px: the content column's,
-    // not the band's — a dark card on a page with no colour of its own.
-    expect(out).not.toContain('bgcolor=');
-    expect(out).toContain(
-      'padding: 20px 16px; box-sizing: border-box; background-color: rgb(53, 69, 82); color: rgb(255, 255, 255);',
-    );
-    // The padding rides inside the card, not on the band.
-    expect(out).toContain('<td><div style="max-width: 600px;');
-    expect(out.match(/max-width: 280px/g)).toHaveLength(2);
-    expect(canonical(out)).toBe(out);
+    expect(sectionsIn(mjml)).toBe(0);
+    expect(canonical(mjml)).toBe(mjml);
   });
 
   it('carries an image behind the band — attribute and CSS for Gmail, VML for Outlook, the fill beneath — and parses back as itself', () => {
@@ -272,35 +269,32 @@ describe('section', () => {
     expect(filled.style.backgroundImage).toContain('https://x.io/hero.jpg');
   });
 
-  it('an image band reads back as a band where comments are kept (preserve) — its own VML only; VML edited by hand stays as written', () => {
-    for (const parseMode of ['preserve', 'email'] as const)
-      for (const image of ['https://x.io/hero.jpg', '{{ company.bannerUrl }}']) {
-        editor.commands['insertSection']('#0b3d3f');
-        editor.commands['setSectionImage'](image);
-        const html = editor.getHTML();
-        const kept = createEditor({
-          parent: host,
-          extensions: emailExtensions,
-          content: html,
-          parseMode,
-        });
-        expect(kept.state.doc.child(0).type.name).toBe('section');
-        expect(kept.state.doc.child(0).attrs['image']).toBe(image);
-        expect(kept.getHTML()).toBe(html);
+  it('an image band reads back as a band, comments and all — its own VML only; VML edited by hand stays as written', () => {
+    for (const image of ['https://x.io/hero.jpg', '{{ company.bannerUrl }}']) {
+      editor.commands['insertSection']('#0b3d3f');
+      editor.commands['setSectionImage'](image);
+      const html = editor.getHTML();
+      const kept = createEditor({
+        parent: host,
+        extensions: emailExtensions,
+        content: html,
+      });
+      expect(kept.state.doc.child(0).type.name).toBe('section');
+      expect(kept.state.doc.child(0).attrs['image']).toBe(image);
+      expect(kept.getHTML()).toBe(html);
 
-        const edited = html.replace('type="frame"', 'type="tile"');
-        const verbatim = createEditor({
-          parent: host,
-          extensions: emailExtensions,
-          content: edited,
-          parseMode,
-        });
-        expect(verbatim.state.doc.child(0).type.name).not.toBe('section');
-        expect(verbatim.getHTML()).toBe(edited);
-        kept.destroy();
-        verbatim.destroy();
-        editor.commands['removeSection']();
-      }
+      const edited = html.replace('type="frame"', 'type="tile"');
+      const verbatim = createEditor({
+        parent: host,
+        extensions: emailExtensions,
+        content: edited,
+      });
+      expect(verbatim.state.doc.child(0).type.name).not.toBe('section');
+      expect(verbatim.getHTML()).toBe(edited);
+      kept.destroy();
+      verbatim.destroy();
+      editor.commands['removeSection']();
+    }
   });
 
   it('takes only an http(s) image: a script, a data URL or a file is refused, on the command and on parse', () => {
@@ -318,7 +312,7 @@ describe('section', () => {
     expect(refused).not.toContain('javascript');
   });
 
-  it('parses MJML’s hero: the image on the wrapping div and as the table’s background', () => {
+  it('keeps MJML’s hero as written: the image on the wrapping div and as the table’s background', () => {
     const mjml =
       '<div style="background:url(\'https://static.x.io/hero.jpg\') center top / cover no-repeat;background-position:center top;background-repeat:no-repeat;background-size:cover;margin:0px auto;max-width:600px;">' +
       '<div style="line-height:0;font-size:0;">' +
@@ -326,32 +320,27 @@ describe('section', () => {
       '<td style="direction:ltr;font-size:0px;padding:20px 0;text-align:center;">' +
       '<div style="display:inline-block;vertical-align:top;width:100%;max-width:600px"><p>Are you seascape?</p></div>' +
       '</td></tr></tbody></table></div></div>';
-    const out = canonical(mjml);
-    expect(out).toContain('background="https://static.x.io/hero.jpg"');
-    expect(out).toContain('<v:fill type="frame" src="https://static.x.io/hero.jpg" />');
-    // The shorthand's colour is transparent — no fill, not black.
-    expect(out).not.toContain('bgcolor=');
-    expect(out).not.toContain('background-color');
-    expect(out).toContain('Are you seascape?');
-    expect(canonical(out)).toBe(out);
+    expect(sectionsIn(mjml)).toBe(0);
+    expect(canonical(mjml)).toBe(mjml);
   });
 
-  it('is not a filled cell round one anchor — that is a button’s box, MJML’s', () => {
-    const out = canonical(
+  it('is not a filled cell round one anchor — that is a button’s box, MJML’s, kept as written', () => {
+    const cell =
       '<table border="0" cellpadding="0" cellspacing="0" role="presentation"><tbody><tr>' +
-        '<td align="center" bgcolor="#48b6bf" role="presentation" style="background:#48b6bf;border-radius:3px" valign="middle">' +
-        '<a href="https://x.io" style="display: inline-block; background: #48b6bf; color: #FFFFFF; padding: 10px 25px;">BOOK NOW</a>' +
-        '</td></tr></tbody></table>',
-    );
-    expect(out).not.toContain('max-width: 600px');
-    expect(out).not.toContain('bgcolor=');
-    expect(out).toContain('background-color: rgb(72, 182, 191);');
-    expect(out).toContain('>BOOK NOW</a>');
+      '<td align="center" bgcolor="#48b6bf" role="presentation" style="background:#48b6bf;border-radius:3px" valign="middle">' +
+      '<a href="https://x.io" style="display: inline-block; background: #48b6bf; color: #FFFFFF; padding: 10px 25px;">BOOK NOW</a>' +
+      '</td></tr></tbody></table>';
+    expect(sectionsIn(cell)).toBe(0);
+    // The anchor is read as the button it draws; the cell stays a cell.
+    const anchor = parseHTML(cell, editor.schema).child(0).child(0).child(0).child(0);
+    expect(anchor.type.name).toBe('button');
+    expect(anchor.attrs['background']).toBe('#48b6bf');
+    expect(canonical(cell)).toBe(cell);
   });
 
-  it('parses a builder’s card on a coloured page: the page as the band, the card as the content fill', () => {
-    const page =
-      '<html><body style="background-color:#d2eeff"><div role="article" style="background-color:#d2eeff">' +
+  it('keeps a builder’s card on a coloured page as written — never lifted into bands', () => {
+    const body =
+      '<div role="article" style="background-color:#d2eeff">' +
       '<div style="background:#ffffff;background-color:#ffffff;margin:0px auto;max-width:600px;">' +
       '<table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background:#ffffff;background-color:#ffffff;width:100%;"><tbody><tr>' +
       '<td style="direction:ltr;font-size:0px;padding:20px 0;text-align:center;">' +
@@ -361,18 +350,12 @@ describe('section', () => {
       '<table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;"><tbody><tr>' +
       '<td style="direction:ltr;font-size:0px;padding:20px 0;text-align:center;">' +
       '<div style="display:inline-block;vertical-align:top;width:100%;max-width:560px"><p>Bare</p></div>' +
-      '</td></tr></tbody></table></div></div></body></html>';
+      '</td></tr></tbody></table></div></div>';
+    const page = `<html><body style="background-color:#d2eeff">${body}</body></html>`;
+    expect(sectionsIn(page)).toBe(0);
+    // The body as written, inside the document's own shell.
     const out = canonical(page);
-    // The white card: the band is the page's blue, the column white — and
-    // the section's padding is the card's, inside its fill, not a blue gap
-    // above it.
-    expect(out).toContain(
-      '<td bgcolor="#d2eeff" style="background-color: rgb(210, 238, 255); color: rgb(32, 33, 36);"><div style="max-width: 600px; margin-left: auto; margin-right: auto; padding: 20px 16px; box-sizing: border-box; background-color: rgb(255, 255, 255); color: rgb(32, 33, 36);">',
-    );
-    // The section with no fill of its own: the page shows through — the
-    // band blue, the column bare.
-    expect(out.match(/bgcolor="#d2eeff"/g)).toHaveLength(2);
-    expect(out.match(/background-color: rgb\(255, 255, 255\)/g)).toHaveLength(1);
+    expect(out).toContain(`<body style="background-color:#d2eeff">${body}</body>`);
     expect(canonical(out)).toBe(out);
   });
 

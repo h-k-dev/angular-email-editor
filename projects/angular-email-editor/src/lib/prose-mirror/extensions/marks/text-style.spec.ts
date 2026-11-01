@@ -34,10 +34,11 @@ describe('textStyle text-transform', () => {
     const out = roundTrip('<div><span style="text-transform: uppercase">home</span></div>');
     expect(out).toBe('<div><span style="text-transform: uppercase;">home</span></div>');
     expect(roundTrip(out)).toBe(out);
-    // `none` is the words as written: no mark.
-    expect(roundTrip('<div><span style="text-transform: none">x</span></div>')).toBe(
-      '<div>x</div>',
-    );
+    // `none` is the words as written: no textStyle, the span kept as written.
+    const none = '<div><span style="text-transform: none">x</span></div>';
+    const text = parseHTML(none, schema).child(0).child(0);
+    expect(schema.marks['textStyle'].isInSet(text.marks)).toBeUndefined();
+    expect(roundTrip(none)).toBe(none);
   });
 
   it('sets and clears through the commands, and the uppercase action toggles', () => {
@@ -154,9 +155,14 @@ describe('textStyle font-family', () => {
     expect(parseFontFamily('Papyrus, fantasy')).toBe(null);
     // The old Serif stack — Georgia first — is Georgia.
     expect(parseFontFamily('Georgia, Times, serif')).toBe('Georgia, serif');
-    expect(
-      canonical('<div><span style="font-family: Montserrat, Helvetica, Arial;">hi</span></div>'),
-    ).toBe('<div><span style="font-family: Arial, Helvetica, sans-serif;">hi</span></div>');
+    // The model reads the curated stack; the email keeps the stack as written.
+    const authored =
+      '<div><span style="font-family: Montserrat, Helvetica, Arial;">hi</span></div>';
+    const style = schema.marks['textStyle'].isInSet(
+      parseHTML(authored, schema).child(0).child(0).marks,
+    );
+    expect(style?.attrs['fontFamily']).toBe('Arial, Helvetica, sans-serif');
+    expect(canonical(authored)).toBe(authored);
   });
 });
 
@@ -180,7 +186,7 @@ describe('textStyle attribute merging', () => {
 
   it('unsetFontFamily clears only the family, keeping the rest', () => {
     const doc = parseHTML(
-      '<div><span style="color: #1a73e8; font-family: Georgia, serif;">hello</span></div>',
+      '<div><span style="color: rgb(26, 115, 232); font-family: Georgia, serif;">hello</span></div>',
       schema,
     );
     let state = EditorState.create({
@@ -264,7 +270,7 @@ describe('textStyle background (highlight)', () => {
 
   it('unsetBackgroundColor clears only the fill', () => {
     const doc = parseHTML(
-      '<div><span style="color: #c5221f; background-color: #fef7e0;">hello</span></div>',
+      '<div><span style="color: rgb(197, 34, 31); background-color: rgb(254, 247, 224);">hello</span></div>',
       schema,
     );
     let state = EditorState.create({

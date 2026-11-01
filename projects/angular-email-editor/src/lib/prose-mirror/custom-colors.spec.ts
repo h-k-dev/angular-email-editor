@@ -10,9 +10,7 @@ describe('custom colours', () => {
   }).schema;
 
   it('are written like any colour: the light one, nothing marking them', () => {
-    const doc = parseHTML('<div><span style="color: #4a1d4f">picked</span></div>', schema, {
-      mode: 'preserve',
-    });
+    const doc = parseHTML('<div><span style="color: #4a1d4f">picked</span></div>', schema);
     const html = serializeToHTML(doc, schema);
     expect(html).toContain('color: #4a1d4f');
     expect(html).not.toContain('data-aee-');
@@ -23,7 +21,7 @@ describe('custom colours', () => {
       '<table><tbody><tr><td data-aee-fill="#efe9e1" style="background-color: #efe9e1;">' +
       '<span data-aee-color="#4a1d4f" style="color: #4a1d4f;">picked</span></td></tr></tbody></table>';
     for (const mode of ['repair', 'email', 'preserve'] as const) {
-      const html = serializeToHTML(parseHTML(older, schema, { mode }), schema);
+      const html = serializeToHTML(parseHTML(older, schema), schema);
       expect(html, mode).not.toContain('data-aee-');
       expect(html, mode).toMatch(/#4a1d4f|rgb\(74, 29, 79\)/);
     }

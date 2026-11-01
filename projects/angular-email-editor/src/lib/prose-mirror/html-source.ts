@@ -22,7 +22,6 @@ import {
   readEnvelope,
 } from './envelope';
 import { normalizeCommentText, normalizeCss } from './preserve';
-import { ParseMode } from './parse-mode';
 
 export { VOID_TAGS };
 
@@ -67,21 +66,17 @@ export const MIN_FONT_SIZE = 14;
     sideways. */
 export const MAX_UNBROKEN_RUN = 40;
 
-/** How the source is read: the parse mode of the visual editor it feeds.
-    `repair` (the default) lints and formats for the canonical import;
-    `email` and `preserve` for markup kept as authored — the document
-    envelope formats whole, a wide style breaks reversibly, comments are
-    content, and `email` warns on whatever the email vocabulary drops. */
-export interface SourceOptions {
-  mode?: ParseMode;
-}
-
 export interface HtmlDiagnostic {
   from: number;
   to: number;
   severity: 'error' | 'warning';
   message: string;
 }
+
+/** The note on markup outside the email vocabulary: the library does not
+    know it yet — it is kept exactly as written, never dropped. */
+const notKnownYet = (what: string): string =>
+  `${what} is not known yet — kept as written (no client is known to apply it)`;
 
 /** Tags the composer's own blocks are built from — the autocomplete's
     suggestions. What the parse *accepts* is wider: see `email-vocabulary.ts`. */
@@ -280,19 +275,11 @@ function attributeValue(source: string, scan: HtmlScan, tag: HtmlTag, name: stri
 }
 
 /** Balance-checks the tag stream: unclosed tags, stray closers, closed void
-    elements, and an error for a comment that never closes. What else is
-    flagged follows the parse mode (see {@link SourceOptions}): in `repair`,
-    tags outside the email-safe set and comments the schema drops; in
-    `email`, every tag, attribute and CSS property outside the email
-    vocabulary — exactly what that parse drops (the document envelope is
+    elements, and an error for a comment that never closes. Every tag,
+    attribute and CSS property outside the email vocabulary is noted as not
+    known yet — kept as written, never dropped (the document envelope is
     inside it: Gmail strips the head, and that is fine). */
-export function lintHTML(
-  source: string,
-  scan: HtmlScan = scanHTML(source),
-  options: SourceOptions = {},
-): HtmlDiagnostic[] {
-  const mode = options.mode ?? 'repair';
-  const vocabulary = mode === 'email';
+export function lintHTML(source: string, scan: HtmlScan = scanHTML(source)): HtmlDiagnostic[] {
   const diagnostics: HtmlDiagnostic[] = [];
   const stack: HtmlTag[] = [];
 
@@ -433,12 +420,12 @@ export function lintHTML(
 
       const leading = /^\s*/.exec(declaration)![0].length;
       const trimmed = declaration.trimEnd().length;
-      if (vocabulary && !isEmailCssProperty(property)) {
+      if (!isEmailCssProperty(property)) {
         diagnostics.push({
           from: declarationFrom + leading,
           to: declarationFrom + trimmed,
           severity: 'warning',
-          message: `"${property}" isn't applied by Apple Mail, Outlook or Gmail — dropped on parse (preserve mode keeps it)`,
+          message: notKnownYet(`"${property}"`),
         });
         continue;
       }
@@ -477,10 +464,10 @@ export function lintHTML(
     }
   }
 
-  // Attributes no floor client applies (`data-*`, framework bindings, typos):
-  // the email parse drops them, so say so where they are written.
+  // Attributes no floor client is known to apply (`data-*`, framework
+  // bindings, typos): kept as written, noted where they are written.
   let owner = 0;
-  for (const token of vocabulary ? scan.tokens : []) {
+  for (const token of scan.tokens) {
     if (token.type !== 'attributeName') continue;
     while (owner < scan.tags.length && scan.tags[owner].to <= token.from) owner++;
     const tag = scan.tags[owner];
@@ -491,7 +478,7 @@ export function lintHTML(
         from: token.from,
         to: token.to,
         severity: 'warning',
-        message: `"${name}" isn't applied by Apple Mail, Outlook or Gmail — dropped on parse (preserve mode keeps it)`,
+        message: notKnownYet(`"${name}"`),
       });
     }
   }
@@ -516,24 +503,12 @@ export function lintHTML(
     }
   }
 
-  // A comment that never closes swallows the rest of the document, in every
-  // mode. A closed one is content where the markup is kept as authored; in
-  // `repair` only a conditional comment is — Outlook's own content: the Word
-  // engine reads what stands inside `[if mso]`, and the columns block and
-  // the section's picture write one for it — any other the schema drops.
+  // A comment that never closes swallows the rest of the document. A closed
+  // one is content, kept as written.
   for (const token of scan.tokens) {
     if (token.type !== 'comment') continue;
     const comment = source.slice(token.from, token.to);
-    if (comment.endsWith('-->')) {
-      if (mode !== 'repair') continue;
-      if (/^<!--\[if\s/i.test(comment) || /^<!--<!\[endif\]-->$/i.test(comment)) continue;
-      diagnostics.push({
-        from: token.from,
-        to: token.to,
-        severity: 'warning',
-        message: 'Comments are not email content — the schema drops them on the next parse',
-      });
-    } else {
+    if (!comment.endsWith('-->')) {
       diagnostics.push({
         from: token.from,
         to: token.to,
@@ -563,19 +538,12 @@ export function lintHTML(
     }
 
     if (tag.kind === 'open') {
-      if (vocabulary && !isEmailTag(tag.name)) {
+      if (!isEmailTag(tag.name)) {
         diagnostics.push({
           from: tag.nameFrom,
           to: tag.nameTo,
           severity: 'warning',
-          message: `<${tag.name}> isn't applied by Apple Mail, Outlook or Gmail — dropped on parse (preserve mode keeps it)`,
-        });
-      } else if (mode === 'repair' && !EMAIL_SAFE_TAGS.has(tag.name)) {
-        diagnostics.push({
-          from: tag.nameFrom,
-          to: tag.nameTo,
-          severity: 'warning',
-          message: `<${tag.name}> is not email-safe — many mail clients strip it`,
+          message: notKnownYet(`<${tag.name}>`),
         });
       }
       if (!VOID_TAGS.has(tag.name) && !tag.selfClosing) stack.push(tag);
@@ -783,29 +751,9 @@ function room(pad: string, width: number): number {
   return Math.max(width, pad.length + Math.round(width * 0.75));
 }
 
-export function formatHTML(
-  html: string,
-  indent = '  ',
-  width = FORMAT_WIDTH,
-  options: SourceOptions = {},
-): string {
+export function formatHTML(html: string, indent = '  ', width = FORMAT_WIDTH): string {
   const lines: string[] = [];
-  if ((options.mode ?? 'repair') === 'repair') {
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    // A whole document's stylesheet — a builder's export leans on it, and the
-    // parse folds it in (`inlineStyles`) — comes first, then the body: the
-    // head has nothing else the email keeps. Formatting stays presentation
-    // only: what the parse read before, it reads after.
-    for (const style of Array.from(doc.head.querySelectorAll('style'))) {
-      formatNode(style, 0, lines, indent, width, false);
-    }
-    for (const child of Array.from(doc.body.childNodes)) {
-      formatNode(child, 0, lines, indent, width, false);
-    }
-    return lines.join('\n');
-  }
-
-  // Markup kept as authored: the whole document formats as one — the head in
+  // The whole document formats as one — the head in
   // exactly the canonical line form the parse stores (`canonicalHead`), so
   // the pretty source and the canonical document never disagree about it —
   // and a wide style breaks only where the parse can undo it.

@@ -16,13 +16,16 @@ engine, the behaviour and accessible building blocks.
 
 ## What you get
 
-- **Email-safe by construction** — markup is parsed into the email vocabulary and
-  re-emitted deterministically: inline styles, `<div>` lines, tables that render in
-  Outlook. Builder exports (MJML) keep their structure; pasted Word/Docs markup is cleaned.
-- **Corrects what other editors stored** — opening HTML saved by WYSIWYG editors such as
-  Summernote repairs `mailto://` links, `http://{{placeholder}}` links, Word's `<o:p>`,
-  Bootstrap-only table borders and formatting wrapped around block lines, without losing
-  the author's intent.
+- **Your HTML, kept as it is used** — one parse, no repair: every tag, attribute and
+  style comes back exactly as written (MJML's head and conditional comments included);
+  our own blocks are recognised where they would re-emit identically, and what the
+  library does not know yet is marked in the editor, never dropped. Only executable
+  content (`<script>`, `<iframe>`, event handlers, script URLs) is refused.
+- **Offers to fix what other editors stored** — HTML saved by WYSIWYG editors such as
+  Summernote is found to hold `mailto://` links, `http://{{placeholder}}` links, Word's
+  `<o:p>`, Bootstrap-only table borders or formatting wrapped around block lines
+  (`storedMistakes`); the author fixes them in one undo step (`fixStoredMistakes`) —
+  never on their own.
 - **Two editors, one document** — the visual composer and an HTML source pane
   (highlighting, lint, formatter) run the same commands over the same schema.
 - **Placeholders** — `{{ expression }}` tokens as merge-tag pills, an optional AngularJS

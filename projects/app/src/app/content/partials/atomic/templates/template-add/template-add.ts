@@ -27,11 +27,13 @@ import { TranslatePipe } from '@ngx-translate/core';
 
 import { EmailTemplate, Templates } from '../../../../../core/email/templates';
 
-/** A set a new template can join: its key, its name, its dialect. */
+/** A set a new template can join: its key, its name, its dialect (if it
+    has one) and its tag. */
 export interface TemplateAddSet {
   readonly key: string;
   readonly label: string;
-  readonly dialect: EmailTemplate['dialect'];
+  readonly dialect?: EmailTemplate['dialect'];
+  readonly tag: string;
 }
 
 /** What the dialog offers: the sets, and the one picked to start with. */
@@ -78,15 +80,17 @@ export class TemplateAdd {
   protected readonly addForm = form(
     this.#model,
     (p) => {
-      validate(p.name, ({ value }) => (value().trim() ? null : { kind: 'templates.add.nameMissing' }));
+      validate(p.name, ({ value }) =>
+        value().trim() ? null : { kind: 'templates.add.nameMissing' },
+      );
     },
     {
       name: 'template-add',
       submission: {
         action: async (field) => {
           const { name, set } = field().value();
-          const dialect = this.data.sets.find((entry) => entry.key === set)!.dialect;
-          this.#ref.close(await this.#templates.create({ name: name.trim(), set, dialect }));
+          const { dialect, tag } = this.data.sets.find((entry) => entry.key === set)!;
+          this.#ref.close(await this.#templates.create({ name: name.trim(), set, dialect, tag }));
           return undefined;
         },
         onInvalid: (field) => field().errorSummary()[0]?.fieldTree().focusBoundControl(),
@@ -104,11 +108,13 @@ export async function openTemplateAdd(
   injector: Injector,
   data: TemplateAddData,
 ): Promise<EmailTemplate | undefined> {
-  const ref = injector.get(MatDialog).open<TemplateAdd, TemplateAddData, EmailTemplate>(TemplateAdd, {
-    injector,
-    data,
-    width: '400px',
-    maxWidth: 'calc(100vw - 32px)',
-  });
+  const ref = injector
+    .get(MatDialog)
+    .open<TemplateAdd, TemplateAddData, EmailTemplate>(TemplateAdd, {
+      injector,
+      data,
+      width: '400px',
+      maxWidth: 'calc(100vw - 32px)',
+    });
   return new Promise((resolve) => ref.afterClosed().subscribe(resolve));
 }

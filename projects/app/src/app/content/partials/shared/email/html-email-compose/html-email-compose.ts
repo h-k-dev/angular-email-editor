@@ -28,7 +28,6 @@ import {
   formatHTML,
   htmlSourceExtensions,
   lintHTML,
-  SourceOptions,
   TYPING_REST,
 } from '@h-k-dev/angular-email-editor';
 import { EditorCodec, EmailEditor } from '@h-k-dev/angular-email-editor/editor';
@@ -40,16 +39,12 @@ import { FloatingScrollbar } from '../../../common/floating-scrollbar/floating-s
  * autocomplete), mounted by `[emailEditor]` on a box that lays out as the
  * host itself (`display: contents`) — beside it, the autocomplete listbox.
  */
-/** The source is read the way the visual editor parses it — the library's
-    default `email` mode: markup kept as authored, lint on what it drops. */
-const SOURCE: SourceOptions = { mode: 'email' };
-
 /** The source as text: what it is shown lands pretty-printed, and stands
     as given — the email editor's HTML is not sent back reformatted; only
     the user's own edits go out. */
 const SOURCE_CODEC: EditorCodec = {
   read: (editor) => editor.getText(),
-  write: (editor, html, options) => editor.setText(formatHTML(html, undefined, undefined, SOURCE), options),
+  write: (editor, html, options) => editor.setText(formatHTML(html), options),
   canonical: false,
 };
 
@@ -64,7 +59,6 @@ const SOURCE_CODEC: EditorCodec = {
   },
 })
 export class HtmlEmailCompose {
-
   /** Two-way bound by the parent composer. This editor publishes raw source
       text; the canonical form comes back once the email schema parsed it. */
   html = model('');
@@ -136,9 +130,7 @@ export class HtmlEmailCompose {
       this.#rest.value();
       untracked(() => {
         if (active) return;
-        this.diagnostics.set(
-          lintHTML(formatHTML(this.html(), undefined, undefined, SOURCE), undefined, SOURCE),
-        );
+        this.diagnostics.set(lintHTML(formatHTML(this.html())));
       });
     });
   }

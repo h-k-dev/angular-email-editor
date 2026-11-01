@@ -203,9 +203,9 @@ export const Button = defineNode({
           click: preventButtonNavigation,
           auxclick: preventButtonNavigation,
         },
-        // Pasted HTML is parsed like a document, and paints the same
-        // `<strong>` around every button (see `bareButtons`): stripped here
-        // too, so a pasted button is as bare as a loaded one.
+        // A button carries no marks of its own (see `bareButtons`): one a
+        // pasted run wraps round it is stripped here too, so a pasted
+        // button is as bare as a loaded one.
         transformPasted: (slice) =>
           new Slice(bareButtonsIn(slice.content), slice.openStart, slice.openEnd),
       },

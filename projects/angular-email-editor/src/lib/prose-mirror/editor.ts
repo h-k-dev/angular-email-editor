@@ -15,7 +15,6 @@ import { parseHTML, serializeToHTML } from './html';
 import { markAttrsOf, soleInlineAtom } from './extensions/inline-atoms';
 import { CONTENT_ATTRS } from './extensions/nodes/document';
 import { quotedHistory, setQuotedHistory } from './extensions/quoted-history';
-import { ParseMode } from './parse-mode';
 
 export interface EditorOptions {
   /** Element the editable view is mounted into. */
@@ -27,16 +26,6 @@ export interface EditorOptions {
       `forwardQuote`) — kept beside the body, never replaced with it. See
       `QuotedHistory`. */
   quoted?: string | null;
-  /** How `content` and `setContent` parse markup. Default `email`: every
-      tag, attribute and CSS property Apple Mail, Outlook or Gmail applies is
-      recognized — as the kit's own nodes and marks wherever their rules
-      accept it (a table is a table, `<b>` is bold) — and kept exactly as
-      authored (authored.ts); a whole document keeps its head and
-      conditional comments. `preserve` additionally keeps what no floor
-      client applies — the opt-in for special needs. `repair` rewrites into
-      canonical blocks through the import pipeline (import-html.ts). A paste
-      reads in the same mode (paste-hygiene.ts). */
-  parseMode?: ParseMode;
   /** DOM attributes for the editable element. */
   attributes?: Record<string, string>;
   /** Called after every transaction that changed the document. */
@@ -97,9 +86,11 @@ export interface Editor {
 
 export function createEditor(options: EditorOptions): Editor {
   const schema = createSchema(options.extensions);
-  const parseMode = options.parseMode ?? 'email';
-  const ctx: ExtensionContext = { schema, extensions: options.extensions, parseMode };
-  const parse = (html: string) => parseHTML(html, schema, { mode: parseMode });
+  const ctx: ExtensionContext = { schema, extensions: options.extensions };
+  // `content` and `setContent` read markup as it is used — the one parse
+  // (html.ts): the kit's own nodes and marks where they would re-emit it
+  // identically, verbatim everywhere else; a paste reads the same way.
+  const parse = (html: string) => parseHTML(html, schema);
 
   // Extension plugins run before all keymaps so interactive plugins (slash
   // menu, ...) can claim keys like Enter ahead of node bindings.

@@ -38,7 +38,7 @@ export function examplesGroup(examples: Examples): SuggestionGroup {
           if (dispatch) examples.loaded.set(quoted ? withQuotedHistory(html, quoted) : html);
           // Parsed as the editor parses (`email`): an example — a compiled
           // MJML template included — comes in exactly as written.
-          const load = replaceHTML(html, { mode: 'email' });
+          const load = replaceHTML(html);
           // A document example replaces the body and leaves any quoted
           // history as it is. A reply example is a new conversation: its
           // history comes with it, in the same step (`replyQuote` is

@@ -191,7 +191,7 @@ const finished = await run.done; // false when stopped (Escape, or run.stop())`,
 } from '@h-k-dev/angular-email-editor';
 
 const schema = createSchema(emailExtensions);
-const doc = parseHTML(rawHtml, schema, { mode: 'email' }); // 'repair' (default) | 'email' | 'preserve'
+const doc = parseHTML(rawHtml, schema); // kept as it is used; only scripts refused
 const canonical = serializeToHTML(doc, schema);`,
 
   'email-document': `import { emailDocument } from '@h-k-dev/angular-email-editor';
@@ -213,9 +213,9 @@ iframe.srcdoc = renderForClient(editor.getHTML(), client, { dark: true, pane: 'p
 
   'lint-html': `import { lintHTML } from '@h-k-dev/angular-email-editor';
 
-// (source, scan = scanHTML(source), options)
-// Tags outside EMAIL_SAFE_TAGS, unsupported CSS, tiny fonts, long unbroken runs.
-const diagnostics = lintHTML(source, undefined, { mode: 'email' });
+// (source, scan = scanHTML(source))
+// Broken tags, markup not known yet (kept as written), tiny fonts, long unbroken runs.
+const diagnostics = lintHTML(source);
 
 for (const { from, to, severity, message } of diagnostics) {
   console.warn(severity, from, to, message);

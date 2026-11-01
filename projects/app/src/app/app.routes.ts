@@ -115,10 +115,6 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./content/pages/mailbox/components/components').then((m) => m.Components),
       },
-      {
-        path: 'render',
-        loadComponent: () => import('./content/pages/mailbox/render/render').then((m) => m.Render),
-      },
     ],
   },
   // A component's playground alone, nothing of the app around it — for
