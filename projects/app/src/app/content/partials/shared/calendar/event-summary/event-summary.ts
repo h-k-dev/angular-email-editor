@@ -6,6 +6,7 @@ import { MatIcon } from '@angular/material/icon';
 import { CalendarEvent, EVENT_COLOR_VALUES } from '../../../../../core/calendar/calendar-event';
 import { CalendarFormat } from '../../../../../core/calendar/calendar-format';
 import { mapsUrl } from '../../../../../core/calendar/maps';
+import { NoteView } from '../../../common/note-editor/note-view';
 
 /**
  * An event, told: its colour and title, when it is, where, and what it
@@ -21,7 +22,7 @@ import { mapsUrl } from '../../../../../core/calendar/maps';
  */
 @Component({
   selector: 'calendar-event-summary',
-  imports: [MatIcon],
+  imports: [MatIcon, NoteView],
   template: `
     <ng-content select="[eventSummaryActions]" />
     <!-- The colour beside the title — unless the host shows it at the
@@ -56,7 +57,7 @@ import { mapsUrl } from '../../../../../core/calendar/maps';
     @if (event().description.trim(); as description) {
       <div class="event-summary__row">
         <mat-icon class="event-summary__icon" aria-hidden="true">notes</mat-icon>
-        <p class="event-summary__text event-summary__text--long">{{ description }}</p>
+        <note-view class="event-summary__text" [note]="description" />
       </div>
     }
   `,

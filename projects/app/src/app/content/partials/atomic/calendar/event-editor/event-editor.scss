@@ -291,14 +291,8 @@
   color: var(--mat-sys-on-surface-variant);
 }
 
-// The note grows with what is written, a line at a time: two lines at the
-// least, eight at the most, then it scrolls — in its own line height
-// (`lh`, the field's body-medium 20px), so the padding stays outside the
-// count (content-box). Where `field-sizing` is not known, `rows="2"` and
-// the vertical resize handle stand in.
+// The note's words level with its icon (4px down, as a field's padding
+// puts the place's).
 .event-editor__note {
-  field-sizing: content;
-  min-block-size: 2lh;
-  max-block-size: 8lh;
-  resize: vertical;
+  padding-block: 4px;
 }

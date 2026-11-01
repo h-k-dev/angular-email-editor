@@ -1,0 +1,57 @@
+// Unencapsulated — ProseMirror writes the words' elements — so every rule
+// goes by the editor's own `note-editor__*` classes.
+note-editor {
+  display: block;
+  color: var(--mat-sys-on-surface);
+}
+
+// The words in the body's type — written, and read (`note-view`, in the
+// colour around it); no border, no ring, no buttons — the caret and the
+// placeholder are all there is to see.
+.note-editor__text {
+  display: block;
+  min-block-size: 1lh;
+  outline: none;
+  font: var(--mat-sys-body-medium);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+
+  p {
+    margin: 0;
+  }
+
+  // Lists: the marker in a 24px gutter, nothing above or below — a note's
+  // lines run on as one text.
+  ul,
+  ol {
+    margin: 0;
+    padding-inline-start: 24px;
+  }
+
+  li::marker {
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  code {
+    padding: 1px 4px;
+    border-radius: var(--mat-sys-corner-extra-small);
+    background: color-mix(in oklch, var(--mat-sys-on-surface) 8%, transparent);
+    font-family: ui-monospace, 'Cascadia Code', Menlo, Consolas, monospace;
+    font-size: 0.9em;
+  }
+
+  a {
+    color: var(--mat-sys-primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  // The placeholder, on the empty first line.
+  .note-editor__empty::before {
+    content: attr(data-placeholder);
+    float: inline-start;
+    block-size: 0;
+    color: color-mix(in oklch, var(--mat-sys-on-surface) 46%, transparent);
+    pointer-events: none;
+  }
+}

@@ -8,6 +8,19 @@
   margin: 0;
 }
 
+.quick-title__motion {
+  box-sizing: border-box;
+
+  &[data-height-switch] {
+    overflow: clip;
+  }
+}
+
+// The description under the title, a line apart.
+.quick-title__note {
+  margin-block-start: 12px;
+}
+
 // Large words, from the start; no border, no ring — the caret and the
 // placeholder are all there is to see.
 .quick-title__field {

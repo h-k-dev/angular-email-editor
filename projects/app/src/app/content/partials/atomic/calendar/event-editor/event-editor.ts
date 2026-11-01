@@ -24,6 +24,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { mapsUrl } from '../../../../../core/calendar/maps';
 import { DateField } from '../../../common/date-field/date-field';
 import { HoverCard } from '../../../common/hover-card/hover-card';
+import { NoteEditor } from '../../../common/note-editor/note-editor';
 import { ColorMarker } from '../../../shared/calendar/color-marker/color-marker';
 import { QuietField } from '../../../common/quiet-field/quiet-field';
 import { ToggleSwitch } from '../../../common/toggle-switch/toggle-switch';
@@ -186,6 +187,7 @@ const sameEdit = (a: EventEdit, b: EventEdit): boolean =>
     MatIconButton,
     MatIcon,
     MatTooltip,
+    NoteEditor,
     QuietField,
     ToggleSwitch,
     TranslatePipe,
@@ -300,7 +302,7 @@ export class EventEditor {
     () => this.#opened().includes('place') || !!this.#fields().location.trim(),
   );
   protected readonly noteShown = computed(
-    () => this.#opened().includes('note') || !!this.#fields().description.trim(),
+    () => this.#opened().includes('note') || !!this.#fields().description,
   );
   /** The sections out, top down: the ones held from the start (place,
       then note), then each brought out under the last — added at the
@@ -319,7 +321,7 @@ export class EventEditor {
   );
 
   private readonly placeInput = viewChild<ElementRef<HTMLInputElement>>('place');
-  private readonly noteInput = viewChild<ElementRef<HTMLTextAreaElement>>('note');
+  private readonly noteEditor = viewChild(NoteEditor);
 
   /** A section's button: the section out at the bottom, to be typed in. */
   protected showPlace(): void {
@@ -329,7 +331,7 @@ export class EventEditor {
 
   protected showNote(): void {
     this.#open('note');
-    afterNextRender(() => this.noteInput()?.nativeElement.focus(), { injector: this.#injector });
+    afterNextRender(() => this.noteEditor()?.focus(), { injector: this.#injector });
   }
 
   /** Left empty: put away again, its button back in its slot. */
@@ -339,7 +341,13 @@ export class EventEditor {
   }
 
   protected noteLeft(): void {
-    if (!this.#fields().description.trim()) this.#close('note');
+    if (!this.#fields().description) this.#close('note');
+  }
+
+  /** Backspace in the empty note: put away, the caret back in the title. */
+  protected putNoteAway(): void {
+    this.#close('note');
+    this.titleInput().nativeElement.focus();
   }
 
   #open(section: Section): void {

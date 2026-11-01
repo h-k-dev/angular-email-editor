@@ -95,7 +95,7 @@ describe('EventEditor', () => {
     const place = () =>
       root.querySelector<HTMLInputElement>('input[placeholder="calendar.addLocation"]');
     expect(place()).toBeNull();
-    expect(root.querySelector('textarea')).toBeNull();
+    expect(root.querySelector('note-editor')).toBeNull();
 
     placeButton()!.click();
     await fixture.whenStable();
@@ -133,13 +133,13 @@ describe('EventEditor', () => {
     // The note first: the place's button stays in its own slot, alone.
     noteButton()!.click();
     await fixture.whenStable();
-    root.querySelector('textarea')!.value = 'Agenda';
-    root.querySelector('textarea')!.dispatchEvent(new Event('input', { bubbles: true }));
+    fixture.componentInstance.edit.update((edit) => ({ ...edit, description: 'Agenda' }));
+    await fixture.whenStable();
     tools.querySelector<HTMLButtonElement>('.event-editor__tool--place')!.click();
     await fixture.whenStable();
 
     // The place added under the note; the row still there, empty.
-    const note = root.querySelector('textarea')!;
+    const note = root.querySelector('note-editor')!;
     const place = root.querySelector('input[placeholder="calendar.addLocation"]')!;
     expect(note.compareDocumentPosition(place) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(root.querySelector('.event-editor__tools')).toBe(tools);

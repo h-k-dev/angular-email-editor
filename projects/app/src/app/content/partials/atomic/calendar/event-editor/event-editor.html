@@ -191,18 +191,17 @@
               />
             </label>
           } @else {
-            <label class="event-editor__row">
+            <div class="event-editor__row">
               <mat-icon class="event-editor__icon" aria-hidden="true">notes</mat-icon>
-              <textarea
-                #note
-                quietField
-                class="event-editor__line event-editor__note"
-                rows="2"
+              <note-editor
+                class="event-editor__note"
                 [formField]="editor.description"
                 [placeholder]="'calendar.addDescription' | translate"
-                (blur)="noteLeft()"
-              ></textarea>
-            </label>
+                [label]="'calendar.addDescription' | translate"
+                (focusout)="noteLeft()"
+                (putAway)="putNoteAway()"
+              />
+            </div>
           }
         }
 
