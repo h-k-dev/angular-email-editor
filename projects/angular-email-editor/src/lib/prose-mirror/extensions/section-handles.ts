@@ -200,7 +200,7 @@ export const createSectionHandles = (options: SectionHandlesOptions): Functional
             // height, so nothing moves) holding its grip, centred on the
             // page's top edge.
             state.doc.forEach((node, pos) => {
-              if (!authoredPageBands(node, state.schema)) return;
+              if (!authoredPageBands(node, state.schema, state.doc)) return;
               grips.push(
                 Decoration.widget(pos, (view) => pageGrip(view, pos), {
                   key: `page-grip-${pos}`,

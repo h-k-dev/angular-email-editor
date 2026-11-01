@@ -42,6 +42,8 @@ import {
   findSectionContext,
   authoredPageBands,
   convertAuthoredPage,
+  convertAuthoredPageToCentred,
+  convertAuthoredPageToStylesheet,
   convertAuthoredPageToRows,
   selectedSpacer,
   spacerOfBand,
@@ -156,7 +158,7 @@ export class SectionMenu {
   protected readonly removeLabels = {
     section: 'Remove section',
     spacer: 'Remove spacer',
-    page: 'Remove table',
+    page: 'Remove page',
   } as const;
 
   /** What the authored page whose grip opened the menu would be in our
@@ -167,7 +169,7 @@ export class SectionMenu {
     const pos = this.target()?.sectionPos;
     if (!this.page() || !state || pos === undefined) return null;
     const node = state.doc.nodeAt(pos);
-    return node ? authoredPageBands(node, state.schema) : null;
+    return node ? authoredPageBands(node, state.schema, state.doc) : null;
   });
 
   /** A conversion's button says what it makes: a spacer, sections, or
@@ -187,7 +189,30 @@ export class SectionMenu {
     if (!this.pageSuggested() || !state || pos === undefined) return false;
     return convertAuthoredPageToRows(pos)(state);
   });
-  protected readonly pageWidth = computed(() => this.pageSuggested()?.rows.layout.width ?? 0);
+  protected readonly pageWidth = computed(() => {
+    const conversion = this.pageSuggested();
+    return (conversion?.rows ?? conversion?.centred ?? conversion?.stylesheet)?.layout.width ?? 0;
+  });
+
+  /** The Stylesheet page a page drawn by its head stands for: offered where
+      the conversion would run (the whole body, no page layout yet). */
+  protected readonly stylesheetAvailable = computed(() => {
+    const state = this.#state();
+    const pos = this.target()?.sectionPos;
+    if (this.pageSuggested()?.shape !== 'stylesheet-page' || !state || pos === undefined)
+      return false;
+    return convertAuthoredPageToStylesheet(pos)(state);
+  });
+
+  /** The centred page a column written band by band stands for: offered
+      where the conversion would run (the whole body, no page layout yet). */
+  protected readonly centredAvailable = computed(() => {
+    const state = this.#state();
+    const pos = this.target()?.sectionPos;
+    if (this.pageSuggested()?.shape !== 'centred-bands' || !state || pos === undefined)
+      return false;
+    return convertAuthoredPageToCentred(pos)(state);
+  });
 
   /** The fill of the band the caret is in (or of the selected spacer), as
       lower-case hex — null for none: the colour list ticks it, a row of it
@@ -430,6 +455,22 @@ export class SectionMenu {
   protected convertPageToRows(): void {
     const pos = this.target()?.sectionPos;
     if (pos !== undefined) this.#commands.editor()?.exec(convertAuthoredPageToRows(pos));
+    this.#done();
+  }
+
+  /** The centred column written band by band, as a centred page of ours —
+      the same look, one step. */
+  protected convertPageToCentred(): void {
+    const pos = this.target()?.sectionPos;
+    if (pos !== undefined) this.#commands.editor()?.exec(convertAuthoredPageToCentred(pos));
+    this.#done();
+  }
+
+  /** The page drawn by its head, as a Stylesheet page of ours — the same
+      look, their wrapper kept, one step. */
+  protected convertPageToStylesheet(): void {
+    const pos = this.target()?.sectionPos;
+    if (pos !== undefined) this.#commands.editor()?.exec(convertAuthoredPageToStylesheet(pos));
     this.#done();
   }
 

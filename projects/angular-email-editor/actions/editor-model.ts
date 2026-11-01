@@ -4,6 +4,9 @@ import {
   COLUMNS_GAP_MAX,
   COLUMN_PADDING_MAX,
   Editor,
+  PAGE_COLUMN_INSET,
+  PAGE_PHONE_INSET,
+  PAGE_PHONE_MEDIA,
   PAGE_ROW_PADDING,
   PageLayout,
   PageLayoutKind,
@@ -21,6 +24,7 @@ import {
   setSectionBackground,
   setSectionPadding,
   setSectionWidth,
+  stylesheetPageLayout,
   tablePageLayout,
   toEmailSafeColor,
 } from '@h-k-dev/angular-email-editor';
@@ -240,6 +244,21 @@ export interface PageLayoutSettings {
   /** A page of rows' room round every row's blocks, px — kept, unused, by
       the other kinds. */
   rowPadding: number;
+  /** A centred or Stylesheet page's room round its runs of blocks, px —
+      kept, unused, by a page of rows. */
+  inset: number;
+  /** A Stylesheet page's room round its runs on a phone, px — kept, unused,
+      by the other kinds. */
+  phoneInset: number;
+  /** A Stylesheet page's room above and below the column on a phone, px —
+      kept, unused, by the other kinds. */
+  phoneSpacing: number;
+  /** What a Stylesheet page carries from an author's HTML — when their rule
+      calls it a phone, their table's spacing — kept through every edit of
+      the fields, never shown; ours for a new page. */
+  phoneMedia: string;
+  cellSpacing: number | null;
+  cellPadding: number | null;
   background: string | null;
   columnBackground: string | null;
 }
@@ -251,6 +270,12 @@ function settingsOf(layout: PageLayout | null): PageLayoutSettings {
     width,
     spacing,
     rowPadding: layout?.kind === 'table' ? layout.rowPadding : PAGE_ROW_PADDING,
+    inset: layout && layout.kind !== 'table' ? layout.inset : PAGE_COLUMN_INSET,
+    phoneInset: layout?.kind === 'stylesheet' ? layout.phoneInset : PAGE_PHONE_INSET,
+    phoneSpacing: layout?.kind === 'stylesheet' ? layout.phoneSpacing : 0,
+    phoneMedia: layout?.kind === 'stylesheet' ? layout.phoneMedia : PAGE_PHONE_MEDIA,
+    cellSpacing: layout?.kind === 'stylesheet' ? layout.cellSpacing : 0,
+    cellPadding: layout?.kind === 'stylesheet' ? layout.cellPadding : 0,
     background,
     columnBackground,
   };
@@ -269,14 +294,26 @@ export function pageLayoutModel(
 ): WritableSignal<PageLayoutSettings> {
   return editorModel(editor, {
     read: (state) => settingsOf(pageLayoutOf(state)),
-    write: ({ kind, rowPadding, ...frame }) =>
-      setPageLayout(
+    write: ({ kind, rowPadding, inset, phoneInset, phoneSpacing, ...rest }) => {
+      const { phoneMedia, cellSpacing, cellPadding, ...frame } = rest;
+      return setPageLayout(
         kind === 'none'
           ? null
           : kind === 'table'
             ? tablePageLayout({ ...frame, rowPadding })
-            : centeredPageLayout(frame),
-      ),
+            : kind === 'stylesheet'
+              ? stylesheetPageLayout({
+                  ...frame,
+                  inset,
+                  phoneInset,
+                  phoneSpacing,
+                  phoneMedia,
+                  cellSpacing,
+                  cellPadding,
+                })
+              : centeredPageLayout({ ...frame, inset }),
+      );
+    },
     initial: settingsOf(null),
     injector: options.injector,
   });

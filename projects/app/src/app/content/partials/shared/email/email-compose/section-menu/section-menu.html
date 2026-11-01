@@ -215,7 +215,42 @@
       <!-- Left of the menu, never in it (no row of its: the arrows pass it
          by, Tab reaches its button) — a suggestion, which the author takes
          or leaves; nothing converts on its own. -->
-      @if (pageSuggested()?.shape === 'rows-page') {
+      @if (pageSuggested()?.shape === 'centred-bands') {
+        <aside class="section-menu__suggestion" aria-labelledby="section-menu-suggestion">
+          <strong id="section-menu-suggestion">A centred column, band by band</strong>
+          <p>
+            Every band of this email centres itself in a {{ pageWidth() }}px column. As a centred
+            page of ours it looks the same, and the page's width and colours become yours to set.
+          </p>
+          @if (centredAvailable()) {
+            <button
+              type="button"
+              class="section-menu__button section-menu__button--primary"
+              (click)="convertPageToCentred()"
+            >
+              <span>Convert to centred page</span>
+            </button>
+          }
+        </aside>
+      } @else if (pageSuggested()?.shape === 'stylesheet-page') {
+        <aside class="section-menu__suggestion" aria-labelledby="section-menu-suggestion">
+          <strong id="section-menu-suggestion">A page drawn by its head</strong>
+          <p>
+            This email takes its {{ pageWidth() }}px column and its side room from a rule in its
+            head. As a Stylesheet page of ours it looks the same; the column, its room and a phone's
+            room become yours to set, and its wrapper stays as written.
+          </p>
+          @if (stylesheetAvailable()) {
+            <button
+              type="button"
+              class="section-menu__button section-menu__button--primary"
+              (click)="convertPageToStylesheet()"
+            >
+              <span>Convert to Stylesheet page</span>
+            </button>
+          }
+        </aside>
+      } @else if (pageSuggested()?.shape === 'rows-page') {
         <aside class="section-menu__suggestion" aria-labelledby="section-menu-suggestion">
           <strong id="section-menu-suggestion">A page written by hand</strong>
           <p>

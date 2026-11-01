@@ -37,6 +37,7 @@ import { AngularFileDrop } from '@h-k-dev/angular-file-drop';
 // Angular Email Editor
 import {
   InlineImages,
+  PAGE_INSET_MAX,
   PAGE_ROW_PADDING_MAX,
   PAGE_SPACING_MAX,
   PAGE_WIDTH_MAX,
@@ -356,7 +357,10 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
   }
 
   /** The page layouts, as the Layout tab's swatches offer them. */
-  protected readonly layoutKinds = ['none', 'centered', 'table'] as const;
+  protected readonly layoutKinds = ['none', 'centered', 'table', 'stylesheet'] as const;
+
+  /** A Stylesheet page's own fields, in the panel's order. */
+  protected readonly sheetFields = ['inset', 'phoneInset', 'phoneSpacing'] as const;
 
   /** The email's page layout, as its editor holds it (`pageLayoutModel`):
       every field a step of the editor's, so undo takes it back — the
@@ -371,7 +375,21 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
       max(page.spacing, PAGE_SPACING_MAX);
       min(page.rowPadding, 0);
       max(page.rowPadding, PAGE_ROW_PADDING_MAX);
-      for (const field of [page.width, page.spacing, page.rowPadding]) debounce(field, 'blur');
+      for (const field of [page.inset, page.phoneInset]) {
+        min(field, 0);
+        max(field, PAGE_INSET_MAX);
+      }
+      min(page.phoneSpacing, 0);
+      max(page.phoneSpacing, PAGE_SPACING_MAX);
+      for (const field of [
+        page.width,
+        page.spacing,
+        page.rowPadding,
+        page.inset,
+        page.phoneInset,
+        page.phoneSpacing,
+      ])
+        debounce(field, 'blur');
     },
   );
   /** The page's fills: the palette's, then the user's custom swatches. */

@@ -212,6 +212,29 @@
           </label>
         }
 
+        <!-- Stylesheet only: the runs' side room, and what a phone gets
+             instead (the head rule's @media). -->
+        @if (page.kind().value() === 'stylesheet') {
+          @for (field of sheetFields; track field) {
+            <label class="designer-layout__row">
+              <span class="designer-layout__label">{{
+                'designer.layout.' + field | translate
+              }}</span>
+              <span class="designer-layout__field">
+                <input
+                  type="number"
+                  inputmode="numeric"
+                  step="4"
+                  [formField]="page[field]"
+                  emailFieldKeys
+                  (emailFieldKeysDismissed)="closeLayout(layoutOrigin)"
+                />
+                px
+              </span>
+            </label>
+          }
+        }
+
         <div class="designer-layout__colors">
           <span class="designer-layout__label" id="designer-layout-page">{{
             'designer.layout.page' | translate

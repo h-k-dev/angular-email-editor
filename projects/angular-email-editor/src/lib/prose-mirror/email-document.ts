@@ -42,7 +42,9 @@ export interface EmailDocumentOptions {
  * whole width instead of its desktop cap (Dawn's `STACK_RULE`). A
  * client that strips the head (Gmail's app with a non-Google account)
  * keeps the cap — narrower, still whole — and loses nothing else, which is
- * the same rule the canonical HTML already keeps.
+ * the same rule the canonical HTML already keeps. The one exception is
+ * chosen: a Stylesheet page (page-layout.ts) is drawn by its head rule,
+ * which the sent head carries too.
  *
  * A body in its page (page-layout.ts) paints the `<body>` with the page's
  * colour too: webmail drops the body and keeps the page's 100% table; Apple
@@ -60,7 +62,10 @@ export interface EmailDocumentOptions {
  */
 export function emailDocument(html: string, options: EmailDocumentOptions = {}): string {
   const { lang, dir = 'auto', title, previewText } = options;
-  const stacked = sentBody(html);
+  // A Stylesheet page's rule, first in a body with no head of its own
+  // (html.ts), goes where a client reads it: the head.
+  const sheet = PAGE_SHEET.exec(html)?.[0] ?? '';
+  const stacked = sentBody(html.slice(sheet.length));
   const body = bodyFill(stacked);
   const langAttr = lang ? ` lang="${escapeAttribute(lang)}"` : '';
   const dirAttr = ` dir="${dir}"`;
@@ -75,6 +80,7 @@ export function emailDocument(html: string, options: EmailDocumentOptions = {}):
     `<title>${escapeText(title ?? '')}</title>` +
     OUTLOOK_SETTINGS +
     `<style type="text/css">${STACK_RULE}</style>` +
+    sheet +
     '</head>' +
     '<body' +
     ` style="${BODY_STYLE}${body.style}"${body.bgcolor}>` +
@@ -102,6 +108,9 @@ function bodyFill(html: string): { style: string; bgcolor: string } {
     bgcolor: ` bgcolor="${color}"`,
   };
 }
+
+/** A Stylesheet page's rule as `serializeToHTML` puts it first in a body. */
+const PAGE_SHEET = /^<style class="aee-layout-page-sheet">[^<]*<\/style>/;
 
 const OUTLOOK_SETTINGS =
   '<!--[if mso]><noscript><xml><o:OfficeDocumentSettings>' +

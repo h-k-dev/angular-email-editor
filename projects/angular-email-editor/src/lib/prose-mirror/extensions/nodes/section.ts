@@ -152,7 +152,11 @@ export const Section = defineNode({
           style: bandStyle(pending ? { ...attrs, image: null } : attrs),
           ...(pending && { 'data-pending-image': pending }),
         },
-        ['div', { class: 'aee-section__inner', style: innerStyle(attrs, editorCap) }, 0],
+        [
+          'div',
+          { class: 'aee-section__inner', style: innerStyle(attrs, editorCap, BAND_INSET_VAR) },
+          0,
+        ],
       ];
     },
     emitDOM: (node: { attrs: Record<string, any> }) => emitBand(node.attrs as SectionAttrs),
@@ -329,11 +333,13 @@ const innerStyle = (
     width = SECTION_CONTENT_MAX,
   }: Partial<SectionAttrs> = {},
   cap: (width: number) => string = emailCap,
+  defaultInset?: string,
 ): string => {
   // A card carries the section's padding itself, inside its fill — a
   // builder's card is padded within, and a page-coloured gap above a card
   // is no card. Its inset stays the same, on the same declaration.
-  const inset = `${room}px`;
+  const isDefault = !contentBackground && room === SECTION_INSET && width === SECTION_CONTENT_MAX;
+  const inset = isDefault && defaultInset ? `var(${defaultInset}, ${room}px)` : `${room}px`;
   const box =
     contentBackground && padding
       ? `padding: ${vertical(padding, 'top')} ${inset} ${vertical(padding, 'bottom')} ${inset};`
@@ -360,6 +366,12 @@ const editorCap = (width: number): string =>
   width === SECTION_CONTENT_MAX
     ? `var(--aee-page-width, ${width}px)`
     : `min(${width}px, var(--aee-page-width, ${width}px))`;
+
+/** The default band's inset as the editor draws it — the section's own,
+    unless the host says otherwise: a Stylesheet page (page-layout.ts) puts
+    that band's inner column on its runs' inset, phone included, and the
+    host draws it so. Editor only: the email says the inset itself. */
+export const BAND_INSET_VAR = '--aee-page-band-inset';
 
 /** One vertical side of a padding shorthand, as the CSSOM reads it. */
 function vertical(padding: string, side: 'top' | 'bottom'): string {

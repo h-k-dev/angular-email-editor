@@ -47,6 +47,37 @@ describe('unknown markup — what the library does not know yet, marked', () => 
     ]);
   });
 
+  it('knows border-radius: valid email HTML, kept on our own blocks, never marked', () => {
+    // No control sets it (Outlook draws corners square) — written by hand,
+    // it is known, kept as written, and the block stays the block.
+    const html =
+      '<table style="width: 100%; border-collapse: collapse;"><tbody><tr>' +
+      '<td style="border-radius: 12px; padding: 7px 9px;">a</td></tr></tbody></table>';
+    const doc = parseHTML(html, schema);
+    expect(doc.child(0).type.name).toBe('table');
+    expect(serializeToHTML(doc, schema)).toBe(html);
+    expect(found(html).filter((entry) => entry.kind === 'unknown')).toEqual([]);
+  });
+
+  it('knows every part of a hand-coded notification (the catalogue’s New device sign-in)', () => {
+    // Width from head CSS on a classed div, a rounded details table with
+    // 16px icons and id-carrying values: kept as written, nothing unknown.
+    const fs = (globalThis as any).process.getBuiltinModule('fs');
+    const html = fs.readFileSync('projects/app/public/examples/angularjs/new-sign-in.html', 'utf8');
+    const doc = parseHTML(html, schema);
+    expect(found(html).filter((entry) => entry.kind === 'unknown')).toEqual([]);
+    expect(found(html)).toContainEqual({
+      kind: 'kept',
+      label: 'Kept as written: <div class="ae-mail">',
+      inline: false,
+    });
+    const sent = serializeToHTML(doc, schema);
+    expect(sent).toContain('.ae-mail{text-align:left;line-height:1.5;max-width:600px;');
+    expect(sent).toContain('id="SignInAlert.details.location"');
+    expect(sent).toContain('border-radius: 10px; border-collapse: separate;');
+    expect(serializeToHTML(parseHTML(sent, schema), schema)).toBe(sent);
+  });
+
   it('never reaches the email', () => {
     const html = '<div class="notion-email"><div>words</div></div>';
     expect(serializeToHTML(parseHTML(html, schema), schema)).toBe(html);

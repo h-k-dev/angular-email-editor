@@ -4,7 +4,14 @@ import { PAGE_LAYOUT_CLASS, pageLayoutOf } from './extensions/page-layout';
 import { parseHTML, serializeToHTML } from './html';
 import { emailDocument } from './email-document';
 import { emailPlainText } from './plain-text';
-import { PageLayout, centeredPageLayout, normalizePageLayout } from './page-layout';
+import {
+  PageLayout,
+  centeredPageLayout,
+  normalizePageLayout,
+  pageLayoutSheet,
+  samePageLayout,
+  stylesheetPageLayout,
+} from './page-layout';
 import { dawnDarkColor } from '@h-k-dev/dawn';
 
 describe('page layout', () => {
@@ -158,7 +165,11 @@ describe('page layout', () => {
       background: null,
       columnBackground: '#fff',
       spacing: 0,
+      // The column's inset: its default when unsaid, on its grid when said.
+      inset: 16,
     });
+    expect(normalizePageLayout({ kind: 'centered', inset: 0 })).toMatchObject({ inset: 0 });
+    expect(normalizePageLayout({ kind: 'centered', inset: 30 })).toMatchObject({ inset: 32 });
     expect(normalizePageLayout({ kind: 'centered', width: 2000 })?.width).toBe(800);
     expect(normalizePageLayout({ kind: 'centered', spacing: 30 })?.spacing).toBe(32);
     expect(normalizePageLayout({ kind: 'centered', spacing: 500 })?.spacing).toBe(96);
@@ -208,5 +219,152 @@ describe('page layout', () => {
 
   it('leaves the plain text as it was', () => {
     expect(emailPlainText(withLayout(LAYOUT))).toBe(emailPlainText(BODY));
+  });
+
+  describe('Stylesheet — the page drawn by the head', () => {
+    const SHEET = stylesheetPageLayout({ background: '#ffffff', columnBackground: null });
+    const SHEET_RULE = `<style class="aee-layout-page-sheet">${pageLayoutSheet(SHEET)}</style>`;
+    const DOCUMENT =
+      '<!doctype html><html><head><style>.lead{font-size:18px}</style></head>' +
+      `<body>${BODY}</body></html>`;
+
+    const parts = (html: string) => {
+      const template = document.createElement('template');
+      template.innerHTML = html;
+      return template.content;
+    };
+
+    it('names the page in the body and says every value in one rule', () => {
+      const html = withLayout(SHEET);
+      const body = parts(html);
+      const [sheet, page] = Array.from(body.children) as [HTMLStyleElement, HTMLTableElement];
+      expect(sheet.outerHTML).toBe(SHEET_RULE);
+      expect(page.className).toBe('aee-layout-page');
+      expect(page.hasAttribute('style')).toBe(false);
+      const cell = page.rows[0].cells[0];
+      expect(cell.getAttribute('align')).toBe('center');
+      expect(cell.hasAttribute('bgcolor')).toBe(false);
+      expect(page.getAttribute('bgcolor')).toBe('#ffffff');
+      expect(cell.hasAttribute('style')).toBe(false);
+      const column = cell.firstElementChild as HTMLElement;
+      expect(column.outerHTML.startsWith('<div class="aee-layout-page-column">')).toBe(true);
+      expect(Array.from(column.children).map((child) => child.className)).toEqual([
+        'aee-layout-page-run',
+        'aee-layout-section',
+        'aee-layout-page-run',
+      ]);
+      expect(html).not.toContain('[if mso]');
+      expect(html).not.toContain('max-width: 600px');
+    });
+
+    it('puts a default band’s inner column on the runs’ class, one inset for all', () => {
+      const band = parts(withLayout(SHEET)).querySelector('.aee-layout-section td > div')!;
+      expect(band.outerHTML.startsWith('<div class="aee-layout-page-run"><div>band</div>')).toBe(
+        true,
+      );
+      expect(pageLayoutSheet(SHEET)).toBe(
+        '.aee-layout-page-column{max-width:600px;margin:32px auto;color:#202124;}' +
+          '.aee-layout-page-run{padding-left:32px;padding-right:32px}' +
+          '@media only screen and (max-width:479px){.aee-layout-page-column{margin:0px auto}' +
+          '.aee-layout-page-run{padding-left:16px;padding-right:16px}}',
+      );
+    });
+
+    it('round-trips: the rule read back as the layout, every block as it was', () => {
+      const layout = stylesheetPageLayout({
+        width: 560,
+        background: '#f1f3f4',
+        columnBackground: '#ffffff',
+        spacing: 24,
+        inset: 48,
+        phoneInset: 12,
+        phoneSpacing: 8,
+      });
+      const html = withLayout(layout);
+      const doc = parseHTML(html, editor.schema);
+      expect(normalizePageLayout(doc.attrs['pageLayout'])).toEqual(layout);
+      expect(serializeToHTML(doc, editor.schema)).toBe(html);
+      mount(html);
+      expect(withLayout(null)).toBe(BODY);
+    });
+
+    it('writes back what it carries from an author: their phone, their table’s spacing', () => {
+      const theirs = stylesheetPageLayout({
+        phoneMedia: 'only screen and (max-device-width:480px)',
+        cellSpacing: null,
+        cellPadding: null,
+      });
+      const html = withLayout(theirs);
+      const page = parts(html).querySelector('table.aee-layout-page')!;
+      expect(page.hasAttribute('cellspacing')).toBe(false);
+      expect(page.hasAttribute('cellpadding')).toBe(false);
+      expect(html).toContain('@media only screen and (max-device-width:480px){');
+      const doc = parseHTML(html, editor.schema);
+      expect(normalizePageLayout(doc.attrs['pageLayout'])).toEqual(theirs);
+      expect(serializeToHTML(doc, editor.schema)).toBe(html);
+      // A new page says ours.
+      expect(withLayout(SHEET)).toContain('cellpadding="0" cellspacing="0"');
+      // A condition that could end the rule is never written.
+      expect(stylesheetPageLayout({ phoneMedia: 'screen}body{display:none' }).phoneMedia).toBe(
+        'only screen and (max-width:479px)',
+      );
+    });
+
+    it('takes its rule off the head before the envelope is read, and puts it back', () => {
+      mount(DOCUMENT);
+      const before = editor.state.doc.attrs['envelope'];
+      const html = withLayout(SHEET);
+      expect(html).toContain(`font-size:18px`);
+      expect(html).toContain(`</style>\n${SHEET_RULE}\n</head>`);
+      expect(html.match(/aee-layout-page-sheet/g)).toHaveLength(1);
+      const doc = parseHTML(html, editor.schema);
+      expect(doc.attrs['envelope']).toEqual(before);
+      expect(normalizePageLayout(doc.attrs['pageLayout'])).toEqual(SHEET);
+      expect(serializeToHTML(doc, editor.schema)).toBe(html);
+    });
+
+    it('stays a Stylesheet page where a client dropped the rule — the defaults', () => {
+      const html = withLayout(SHEET).replace(SHEET_RULE, '');
+      const doc = parseHTML(html, editor.schema);
+      expect(normalizePageLayout(doc.attrs['pageLayout'])).toEqual(
+        stylesheetPageLayout({ background: '#ffffff', columnBackground: null }),
+      );
+      expect(serializeToHTML(doc, editor.schema)).toBe(withLayout(SHEET));
+    });
+
+    it('sends its rule in the email document’s head', () => {
+      const html = emailDocument(withLayout(SHEET));
+      const head = html.slice(0, html.indexOf('</head>'));
+      expect(head).toContain(SHEET_RULE);
+      expect(html.indexOf('aee-layout-page-sheet')).toBe(html.lastIndexOf('aee-layout-page-sheet'));
+      expect(html).toMatch(/<body style="[^"]*background-color: #ffffff;/);
+    });
+
+    it('normalises its own room: phone inset and room on the 4px grid, the defaults', () => {
+      expect(
+        normalizePageLayout({ kind: 'stylesheet', inset: 61, phoneInset: 99, phoneSpacing: -3 }),
+      ).toMatchObject({ kind: 'stylesheet', inset: 60, phoneInset: 64, phoneSpacing: 0 });
+      expect(normalizePageLayout({ kind: 'stylesheet' })).toMatchObject({
+        inset: 32,
+        phoneInset: 16,
+        phoneSpacing: 0,
+      });
+      expect(samePageLayout(SHEET, { ...SHEET, phoneInset: 20 })).toBe(false);
+      expect(samePageLayout(SHEET, stylesheetPageLayout(SHEET))).toBe(true);
+    });
+
+    it('leaves the plain text as it was', () => {
+      expect(emailPlainText(withLayout(SHEET))).toBe(emailPlainText(BODY));
+    });
+
+    for (const file of examples) {
+      it(`round-trips ${file} in a Stylesheet page`, () => {
+        mount(fs.readFileSync(`${EXAMPLES}${file}`, 'utf8'));
+        const html = withLayout(stylesheetPageLayout({ width: 640 }));
+        const doc = parseHTML(html, editor.schema);
+        expect(normalizePageLayout(doc.attrs['pageLayout'])?.kind).toBe('stylesheet');
+        expect(serializeToHTML(doc, editor.schema)).toBe(html);
+      });
+    }
   });
 });

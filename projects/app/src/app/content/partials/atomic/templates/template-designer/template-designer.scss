@@ -484,6 +484,30 @@ $preview-min: 448px;
     box-shadow: 0 0 0 1px var(--mat-sys-outline-variant);
   }
 
+  // Stylesheet: the centred card with its wider side room, and beside it
+  // the phone the head's rule also draws for.
+  [data-kind='stylesheet'] > & {
+    position: relative;
+    inline-size: 48%;
+    margin-inline-end: 16px;
+    padding: 8px 10px;
+    border-radius: var(--mat-sys-corner-extra-small);
+    background: var(--email-paper, var(--mat-sys-surface-bright));
+    box-shadow: 0 0 0 1px var(--mat-sys-outline-variant);
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset-inline-start: calc(100% + 6px);
+      inset-block-end: 0;
+      inline-size: 14px;
+      block-size: 26px;
+      border-radius: 3px;
+      background: var(--email-paper, var(--mat-sys-surface-bright));
+      box-shadow: 0 0 0 1px var(--mat-sys-outline-variant);
+    }
+  }
+
   // Rows: the same column cut across, every line in a row of its own, the
   // first one filled — a band.
   [data-kind='table'] > & {

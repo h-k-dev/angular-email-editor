@@ -13,7 +13,13 @@ import {
 } from './envelope';
 import { createDOMParser, materializeComments, realizeComments, trimInlineBoxes } from './preserve';
 import { CONTENT_ATTRS } from './extensions/nodes/document';
-import { PageLayout, liftPageLayout, normalizePageLayout, wrapPageLayout } from './page-layout';
+import {
+  PageLayout,
+  liftPageLayout,
+  normalizePageLayout,
+  pageLayoutSheetElement,
+  wrapPageLayout,
+} from './page-layout';
 import { stripCustomColorStamps } from './custom-colors';
 import { refusedEmbedsAsLinks } from './embeds';
 
@@ -86,7 +92,11 @@ export function serializeToHTML(doc: Node, schema: Schema): string {
   realizeComments(container);
   const body = container.innerHTML;
   const envelope = doc.attrs['envelope'] as DocumentEnvelope | null | undefined;
-  return envelope ? serializeDocument(envelope, body) : body;
+  // A Stylesheet page's rule: in the head, or first in a body with none.
+  const sheet = layout?.kind === 'stylesheet' ? pageLayoutSheetElement(layout) : '';
+  if (!envelope) return sheet + body;
+  const head = sheet ? [envelope.head, sheet].filter(Boolean).join('\n') : envelope.head;
+  return serializeDocument({ ...envelope, head }, body);
 }
 
 /**
@@ -125,7 +135,8 @@ export function parseHTML(html: string, schema: Schema): Node {
   // A frame the parse refuses (preserve.ts) leaves a link to what it
   // played where it stood: the refusal, not a correction.
   refusedEmbedsAsLinks(dom.body);
-  const layout = liftPageLayout(dom.body);
+  // Before the envelope is read: a Stylesheet page's rule leaves the head.
+  const layout = liftPageLayout(dom.body, dom.head);
   materializeComments(dom.body);
   trimInlineBoxes(dom.body);
   const topNode = documentNode(

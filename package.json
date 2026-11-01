@@ -4,6 +4,7 @@
   "scripts": {
     "ng": "ng",
     "start": "npm run build:lib && ng serve",
+    "stats": "ng build  --configuration production --stats-json",
     "build": "ng build",
     "build:lib": "ng build dawn && ng build angular-email-editor",
     "watch:lib": "ng build angular-email-editor --watch",

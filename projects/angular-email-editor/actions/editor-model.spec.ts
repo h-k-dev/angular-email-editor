@@ -10,6 +10,7 @@ import {
   emailExtensions,
   pageLayoutOf,
   sectionPaddingOf,
+  stylesheetPageLayout,
 } from '@h-k-dev/angular-email-editor';
 import { FieldKeys } from '@h-k-dev/angular-email-editor/keyboard';
 import {
@@ -137,15 +138,63 @@ describe('editorModel', () => {
       ...centeredPageLayout(),
       kind: 'none',
       rowPadding: PAGE_ROW_PADDING,
+      phoneInset: 16,
+      phoneSpacing: 0,
+      phoneMedia: 'only screen and (max-width:479px)',
+      cellSpacing: 0,
+      cellPadding: 0,
     });
     host.page.set({ ...host.page(), kind: 'centered' });
     expect(pageLayoutOf(editor.state)).toEqual(centeredPageLayout());
     host.page.set({ ...host.page(), width: 599 });
     expect(host.page().width).toBe(600);
+    // A page with no inset (a converted MJML page) keeps it as its width moves.
+    host.page.set({ ...host.page(), inset: 0 });
+    host.page.set({ ...host.page(), width: 560 });
+    expect(pageLayoutOf(editor.state)).toMatchObject({ kind: 'centered', width: 560, inset: 0 });
+    host.page.set({ ...host.page(), width: 600, inset: 16 });
     host.page.set({ ...host.page(), kind: 'table', rowPadding: 24 });
     expect(pageLayoutOf(editor.state)).toMatchObject({ kind: 'table', rowPadding: 24 });
     host.page.set({ ...host.page(), kind: 'none' });
     expect(pageLayoutOf(editor.state)).toBeNull();
+  });
+
+  it('pageLayoutModel: a Stylesheet page — its side room and a phone’s', () => {
+    host.page.set({
+      ...host.page(),
+      kind: 'stylesheet',
+      inset: 33,
+      phoneInset: 12,
+      phoneSpacing: 9,
+    });
+    expect(pageLayoutOf(editor.state)).toMatchObject({
+      kind: 'stylesheet',
+      inset: 32,
+      phoneInset: 12,
+      phoneSpacing: 8,
+    });
+    expect(host.page()).toMatchObject({ kind: 'stylesheet', inset: 32, phoneInset: 12 });
+    // What a page carries from an author's HTML outlives an edit of a field.
+    editor.commands['setPageLayout'](
+      stylesheetPageLayout({
+        phoneMedia: 'only screen and (max-device-width:480px)',
+        cellSpacing: null,
+        cellPadding: null,
+      }),
+    );
+    host.page.set({ ...host.page(), width: 640 });
+    expect(pageLayoutOf(editor.state)).toMatchObject({
+      width: 640,
+      phoneMedia: 'only screen and (max-device-width:480px)',
+      cellSpacing: null,
+      cellPadding: null,
+    });
+    // Into rows and back out: a page of rows keeps none of it, a centred
+    // page its side room.
+    host.page.set({ ...host.page(), kind: 'table' });
+    expect(pageLayoutOf(editor.state)?.kind).toBe('table');
+    host.page.set({ ...host.page(), kind: 'centered', inset: 24 });
+    expect(pageLayoutOf(editor.state)).toMatchObject({ kind: 'centered', inset: 24 });
   });
 
   it('stands under signal forms: a field commits once it is done with, and shows what was taken', async () => {

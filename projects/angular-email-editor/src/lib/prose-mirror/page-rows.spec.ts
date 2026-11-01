@@ -89,7 +89,7 @@ describe('page of rows', () => {
       expect(conversion.shape).toBe('rows-page');
       // No same-pixels conversion: the rows were the author's column.
       expect(conversion.html).toBeNull();
-      expect(conversion.rows.layout).toEqual(WELCOME_ROWS);
+      expect(conversion.rows!.layout).toEqual(WELCOME_ROWS);
       expect(top()).not.toContain('pageRow');
     });
 
@@ -298,7 +298,7 @@ describe('page of rows', () => {
         mount(fs.readFileSync(`${EXAMPLES}angularjs/rechnung.html`, 'utf8'));
         const conversion = authoredPageBands(editor.state.doc.child(0), editor.schema)!;
         expect(conversion).toMatchObject({ spacers: 2, sections: 4 });
-        expect(conversion.rows.layout).toMatchObject({
+        expect(conversion.rows!.layout).toMatchObject({
           background: '#f6f3ee',
           columnBackground: '#ffffff',
           spacing: 32,

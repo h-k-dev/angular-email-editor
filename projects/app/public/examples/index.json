@@ -73,6 +73,15 @@
           }
         },
         {
+          "name": "New device sign-in (head CSS, details table)",
+          "file": "angularjs/new-sign-in.html",
+          "envelope": {
+            "from": ["security@example.com"],
+            "subject": "New sign-in to your Analytical Engines account",
+            "previewText": "Firefox on Windows, Leipzig. Not you? Change your password."
+          }
+        },
+        {
           "name": "Order confirmation",
           "file": "angularjs/order-confirmation.html",
           "envelope": {

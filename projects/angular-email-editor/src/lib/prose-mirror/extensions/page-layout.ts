@@ -174,6 +174,8 @@ function bandOfRow(attrs: PageRowAttrs, page: string): Record<string, unknown> {
  *
  * - `--aee-page-width` — the column's width (`600px`);
  * - `--aee-page-spacing` — the page's room above and below the column (`32px`);
+ * - `--aee-page-inset` — on a centred page, the column's room round its runs
+ *   of blocks (`16px`);
  * - `--aee-page-row-padding` — on a page of rows, the room round a row's
  *   blocks where the row says none of its own (`16px`);
  * - `--aee-page-background`, `--aee-page-column` — the page's and the
@@ -215,6 +217,11 @@ export function createPageLayout(): FunctionalExtension {
 
 export const PageLayoutExtension = createPageLayout();
 
+/** A table's cell spacing and padding where it says none — what every
+    browser gives it. */
+const BROWSER_CELL_SPACING = 2;
+const BROWSER_CELL_PADDING = 1;
+
 function rootAttributes(layout: PageLayout | null): Record<string, string> {
   if (!layout) return {};
   // Dark is drawn, never chosen: the light fill as Dawn draws it.
@@ -224,6 +231,18 @@ function rootAttributes(layout: PageLayout | null): Record<string, string> {
     ['--aee-page-spacing', `${layout.spacing}px`],
   ];
   if (layout.kind === 'table') vars.push([PAGE_ROW_PADDING_VAR, `${layout.rowPadding}px`]);
+  if (layout.kind !== 'table') vars.push(['--aee-page-inset', `${layout.inset}px`]);
+  // What the head's rule gives a phone (page-layout.ts `pageLayoutSheet`) —
+  // the host draws it where the editor is phone-narrow.
+  if (layout.kind === 'stylesheet') {
+    vars.push(['--aee-page-phone-inset', `${layout.phoneInset}px`]);
+    vars.push(['--aee-page-phone-spacing', `${layout.phoneSpacing}px`]);
+    // The room the page table's cell spacing and padding leave round the
+    // column — a browser's own where an author's table said none.
+    const room =
+      (layout.cellSpacing ?? BROWSER_CELL_SPACING) + (layout.cellPadding ?? BROWSER_CELL_PADDING);
+    vars.push(['--aee-page-cell-room', `${room}px`]);
+  }
   if (layout.background) {
     vars.push(['--aee-page-background', layout.background]);
     vars.push(['--aee-page-background-dark', dark(layout.background)]);

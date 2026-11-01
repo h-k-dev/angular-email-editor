@@ -15,6 +15,8 @@ import { parseHTML, serializeToHTML } from './html';
 import { formatHTML } from './html-source';
 import { emailExtensions } from './extensions/kits';
 import { emailDocument } from './email-document';
+import { EditorState } from 'prosemirror-state';
+import { convertAuthoredPageToStylesheet } from './authored-page';
 
 import appointmentAlert from '../../../../app/public/examples/mjml/appointment-alert.html' with {
   loader: 'text',
@@ -34,8 +36,14 @@ import loyalClient from '../../../../app/public/examples/mjml/loyal-client.html'
 import nyaCart from '../../../../app/public/examples/mjml/nya-cart.html' with { loader: 'text' };
 import racoon from '../../../../app/public/examples/mjml/racoon.html' with { loader: 'text' };
 import worldly from '../../../../app/public/examples/mjml/worldly.html' with { loader: 'text' };
+// Not MJML: a hand-coded notification, its width from head CSS on a classed
+// div — the same check, a different way of writing an email.
+import newSignIn from '../../../../app/public/examples/angularjs/new-sign-in.html' with {
+  loader: 'text',
+};
 
 const EXAMPLES: Record<string, string> = {
+  'new-sign-in': newSignIn,
   'appointment-alert': appointmentAlert,
   arturia,
   austin,
@@ -61,6 +69,15 @@ const schema = createSchema(emailExtensions);
 function pasted(html: string): string {
   const source = formatHTML(html);
   return serializeToHTML(parseHTML(source, schema), schema);
+}
+
+/** A pasted page drawn by its head, converted as the page grip's card does
+    it ({@link convertAuthoredPageToStylesheet}) — the email it then sends. */
+function asStylesheetPage(html: string): string {
+  let state = EditorState.create({ doc: parseHTML(formatHTML(html), schema) });
+  const converted = convertAuthoredPageToStylesheet(0)(state, (tr) => (state = state.apply(tr)));
+  expect(converted).toBe(true);
+  return serializeToHTML(state.doc, schema);
 }
 
 interface Mark {
@@ -237,6 +254,20 @@ describe('MJML examples render as authored after a paste', () => {
     it(`${name} keeps its links, images and conditional comments`, () => {
       expect(markup(pasted(html))).toEqual(markup(html));
     });
+  }
+
+  // A page drawn by its head, turned into a Stylesheet page of ours (the
+  // page grip's card): the same email to the reader — what their HTML said
+  // carried (their table's spacing, left to the browser; a phone as their
+  // rule asks it, the device's width), at a phone's width too.
+  for (const width of [...WIDTHS, 1000]) {
+    it(
+      `new-sign-in as a Stylesheet page lays out the same at ${width}px`,
+      { timeout: 30_000 },
+      async () => {
+        expect(await layoutDifferences(newSignIn, asStylesheetPage(newSignIn), width)).toEqual([]);
+      },
+    );
   }
 
   // The harness itself: a stray <br> in Card's 30px divider moves the page by

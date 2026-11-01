@@ -2,6 +2,7 @@ import { emailBackgroundPalette, fillTextColor } from './dual-contrast';
 import { isSafeColor, toEmailSafeColor } from './extensions/marks/text-style';
 import { SECTION_CONTENT_MAX, SECTION_INSET } from './extensions/nodes/section';
 import { layoutMarker, markedAs, unmark } from './layout-marker';
+import { parseDeclarations } from './inline-style';
 
 /**
  * The page layout — how the whole email stands in the reader's window: the
@@ -47,14 +48,19 @@ import { layoutMarker, markedAs, unmark } from './layout-marker';
  * it does without a layout. A page inside the body (a quoted message that
  * had one) is unwrapped the same way, its layout dropped.
  */
-export type PageLayout = CenteredPageLayout | TablePageLayout;
+export type PageLayout = CenteredPageLayout | TablePageLayout | StylesheetPageLayout;
 
 /** The kinds a page layout comes in. */
-export const PAGE_LAYOUT_KINDS = ['centered', 'table'] as const;
+export const PAGE_LAYOUT_KINDS = ['centered', 'table', 'stylesheet'] as const;
 export type PageLayoutKind = (typeof PAGE_LAYOUT_KINDS)[number];
 
 export interface CenteredPageLayout extends PageFrame {
   readonly kind: 'centered';
+  /** The column's room round its runs of blocks (the text between bands),
+      px — 0 to {@link PAGE_INSET_MAX}, in 4px steps; {@link PAGE_COLUMN_INSET}
+      by default. 0 where the blocks bring their own (a converted MJML page:
+      every band its own padding). */
+  readonly inset: number;
 }
 
 /**
@@ -91,6 +97,82 @@ export interface TablePageLayout extends PageFrame {
       gives each cell without a padding of its own. */
   readonly rowPadding: number;
 }
+
+/**
+ * The third kind, `stylesheet`, is the centred page drawn by the head: the
+ * body carries class names only, every value lives in one rule in the
+ * document's `<head>` — the column's cap and room, the runs' inset, and what
+ * a phone gets instead (`@media`), which no inline style can say. Learned
+ * from Notion's mail (a centred cell, a classed div, the head's rule).
+ *
+ * **Head only.** Where a client drops the head (Gmail's app with another
+ * provider's account, some webmail) the column runs the window's width with
+ * no inset; Outlook on Windows ignores the cap as it does any `max-width`,
+ * and no ghost table stands in for it. Chosen knowingly (the user's call,
+ * 2026-11-01) for HTML the author can read.
+ *
+ * **Emit:** the page table (`bgcolor` its one value: an attribute, not a
+ * style) → a centred cell → the column div (`aee-layout-page-column`) and
+ * its runs (`aee-layout-page-run`), unstyled; the rule in
+ * `<style class="aee-layout-page-sheet">` ({@link pageLayoutSheet}) — in
+ * the envelope's head, or first in a body without one (`emailDocument`
+ * moves it to the head it sends). A band takes part: its inner column, when
+ * it is the default one (the page's cap, a section's inset), sheds its
+ * inline style for the run's class — text in a band and between bands
+ * share one inset, on a phone too.
+ *
+ * **Parse:** a page whose column is a div with no inline cap is this kind;
+ * its values come back from our own rule (the defaults where a client
+ * stripped it), the rule comes off the head before the envelope is read,
+ * and every band gets its inline inner style back.
+ *
+ * **New ours, theirs carried.** A new page says what we say: no spacing in
+ * the page table, a phone as the window's width ({@link PAGE_PHONE_MEDIA}).
+ * A page that came with the author's HTML (authored-page.ts) carries what
+ * theirs said — a table leaving the browser its default cell spacing, a
+ * phone as the device's width — so it lays out as it did.
+ */
+export interface StylesheetPageLayout extends PageFrame {
+  readonly kind: 'stylesheet';
+  /** The runs' room left and right, px — 0 to {@link PAGE_INSET_MAX}, in 4px
+      steps; {@link PAGE_SHEET_INSET} by default. */
+  readonly inset: number;
+  /** The runs' room left and right on a phone, px — the same bounds;
+      {@link PAGE_PHONE_INSET} by default. */
+  readonly phoneInset: number;
+  /** The room above and below the column on a phone, px — 0 to
+      {@link PAGE_SPACING_MAX}; none by default. */
+  readonly phoneSpacing: number;
+  /** When the head rule's phone values apply: an `@media` condition —
+      {@link PAGE_PHONE_MEDIA} by default, an author's own carried. */
+  readonly phoneMedia: string;
+  /** The page table's `cellspacing` and `cellpadding`, px — 0 by default;
+      null where the page leaves the browser its own (an author's table that
+      said none). */
+  readonly cellSpacing: number | null;
+  readonly cellPadding: number | null;
+}
+
+/** An `@media` condition we write back as it came: words, numbers, colons,
+    brackets and commas — no brace, no quote, nothing that ends a rule. */
+const MEDIA_CONDITION = /^[a-z0-9\s:().,-]{1,200}$/i;
+
+/** A new Stylesheet page's room round its runs. */
+export const PAGE_SHEET_INSET = 32;
+
+/** A new Stylesheet page's room round its runs on a phone: a section's. */
+export const PAGE_PHONE_INSET = SECTION_INSET;
+
+/** The widest screen the head rule treats as a phone — Dawn's `STACK_RULE`
+    breakpoint, so a page and its stacking columns turn together. */
+export const PAGE_PHONE_MAX = 479;
+
+/** A phone, as a new Stylesheet page's rule asks: the window up to
+    {@link PAGE_PHONE_MAX}px. */
+export const PAGE_PHONE_MEDIA = `only screen and (max-width:${PAGE_PHONE_MAX}px)`;
+
+/** The most cell spacing or padding a Stylesheet page's table carries. */
+const PAGE_CELL_MAX = 32;
 
 /** A new page of rows' room round its rows' blocks: the column's inset, so
     the text in a row stands where a free column's does. */
@@ -132,6 +214,9 @@ export const PAGE_SPACING = 32;
     the text in a column and in a band line up. */
 export const PAGE_COLUMN_INSET = SECTION_INSET;
 
+/** The most room round a centred column's runs. */
+export const PAGE_INSET_MAX = 64;
+
 /** A centred page: the palette's grey round a white column, 600px, with
     {@link PAGE_SPACING} above and below it — the newsletter's look — with
     any of it overridden. */
@@ -162,6 +247,25 @@ export function tablePageLayout(
   })! as TablePageLayout;
 }
 
+/** A Stylesheet page — the centred page's defaults, {@link PAGE_SHEET_INSET}
+    round its runs and {@link PAGE_PHONE_INSET} on a phone, with no room
+    above and below there — with any of it overridden. */
+export function stylesheetPageLayout(
+  layout: Partial<Omit<StylesheetPageLayout, 'kind'>> = {},
+): StylesheetPageLayout {
+  return normalizePageLayout({
+    ...centeredPageLayout(),
+    inset: PAGE_SHEET_INSET,
+    phoneInset: PAGE_PHONE_INSET,
+    phoneSpacing: 0,
+    phoneMedia: PAGE_PHONE_MEDIA,
+    cellSpacing: 0,
+    cellPadding: 0,
+    ...layout,
+    kind: 'stylesheet',
+  })! as StylesheetPageLayout;
+}
+
 /** A layout as the document may hold it — or null for anything that is not
     one. The width and the room snap to their 4px grid within their bounds
     (no room said is none); a colour that is not a safe one is dropped. */
@@ -181,9 +285,32 @@ export function normalizePageLayout(value: unknown): PageLayout | null {
     columnBackground: color(layout['columnBackground']),
     spacing,
   };
-  return kind === 'table'
-    ? { kind, ...frame, rowPadding: step(layout['rowPadding'], PAGE_ROW_PADDING_MAX) }
-    : { kind, ...frame };
+  if (kind === 'table') {
+    return { kind, ...frame, rowPadding: step(layout['rowPadding'], PAGE_ROW_PADDING_MAX) };
+  }
+  const room = (name: string, fallback: number, max: number) =>
+    layout[name] === undefined || layout[name] === null ? fallback : step(layout[name], max);
+  if (kind === 'stylesheet') {
+    // A table's spacing as it was said: whole px, or null for the
+    // browser's own; none said at all is ours, 0.
+    const cell = (name: string) => {
+      if (layout[name] === null) return null;
+      const n = Math.round(Number(layout[name] ?? 0));
+      return Number.isFinite(n) ? Math.min(PAGE_CELL_MAX, Math.max(0, n)) : 0;
+    };
+    const media = typeof layout['phoneMedia'] === 'string' ? layout['phoneMedia'].trim() : '';
+    return {
+      kind,
+      ...frame,
+      inset: room('inset', PAGE_SHEET_INSET, PAGE_INSET_MAX),
+      phoneInset: room('phoneInset', PAGE_PHONE_INSET, PAGE_INSET_MAX),
+      phoneSpacing: step(layout['phoneSpacing'], PAGE_SPACING_MAX),
+      phoneMedia: MEDIA_CONDITION.test(media) ? media : PAGE_PHONE_MEDIA,
+      cellSpacing: cell('cellSpacing'),
+      cellPadding: cell('cellPadding'),
+    };
+  }
+  return { kind, ...frame, inset: room('inset', PAGE_COLUMN_INSET, PAGE_INSET_MAX) };
 }
 
 /** A length on the 4px grid, 0 to `max` — none said is 0. */
@@ -201,7 +328,14 @@ export function samePageLayout(a: PageLayout | null, b: PageLayout | null): bool
     a.background === b.background &&
     a.columnBackground === b.columnBackground &&
     a.spacing === b.spacing &&
-    (a.kind !== 'table' || a.rowPadding === (b as TablePageLayout).rowPadding)
+    (a.kind !== 'table' || a.rowPadding === (b as TablePageLayout).rowPadding) &&
+    (a.kind === 'table' || a.inset === (b as CenteredPageLayout).inset) &&
+    (a.kind !== 'stylesheet' ||
+      (a.phoneInset === (b as StylesheetPageLayout).phoneInset &&
+        a.phoneSpacing === (b as StylesheetPageLayout).phoneSpacing &&
+        a.phoneMedia === (b as StylesheetPageLayout).phoneMedia &&
+        a.cellSpacing === (b as StylesheetPageLayout).cellSpacing &&
+        a.cellPadding === (b as StylesheetPageLayout).cellPadding))
   );
 }
 
@@ -233,8 +367,27 @@ export function wrapPageLayout(container: HTMLElement, layout: PageLayout): void
     cellspacing: '0',
     border: '0',
   });
-  table.style.cssText = 'width: 100%; border-collapse: collapse;';
   const cell = table.createTBody().insertRow().insertCell();
+  if (layout.kind === 'stylesheet') {
+    // Drawn by the head's rule: nothing inline but the page's colour, an
+    // attribute on the table — round its cell's spacing too, as an author's
+    // page table carries it — and the cell centres the column for a client
+    // that drops the rule's auto margins.
+    cell.setAttribute('align', 'center');
+    if (layout.background) table.setAttribute('bgcolor', layout.background);
+    // The table's spacing as the page says it — none said, the browser's.
+    for (const [name, value] of [
+      ['cellpadding', layout.cellPadding],
+      ['cellspacing', layout.cellSpacing],
+    ] as const) {
+      if (value === null) table.removeAttribute(name);
+      else table.setAttribute(name, String(value));
+    }
+    cell.append(sheetColumn(doc, container));
+    container.replaceChildren(table);
+    return;
+  }
+  table.style.cssText = 'width: 100%; border-collapse: collapse;';
   // The room above and below the column: the page cell's padding — the one
   // padding Outlook's Word engine honours, on a cell.
   const room = layout.spacing ? `padding: ${layout.spacing}px 0px;` : '';
@@ -261,8 +414,9 @@ function freeColumn(doc: Document, container: HTMLElement, layout: PageLayout): 
     (layout.columnBackground ? ` ${fillStyle(layout.columnBackground)}` : '');
 
   let run: ChildNode[] = [];
+  const inset = layout.kind === 'centered' ? layout.inset : PAGE_COLUMN_INSET;
   const flush = () => {
-    if (run.length) column.append(runOf(doc, run));
+    if (run.length) column.append(runOf(doc, run, inset));
     run = [];
   };
   for (const child of Array.from(container.childNodes)) {
@@ -283,6 +437,86 @@ function freeColumn(doc: Document, container: HTMLElement, layout: PageLayout): 
   }
   flush();
   return column;
+}
+
+/** The `stylesheet` column: a div with nothing inline — the head's rule
+    draws it ({@link pageLayoutSheet}) — the runs of blocks and the bands in
+    it, a default band's inner column on the runs' class. */
+function sheetColumn(doc: Document, container: HTMLElement): HTMLElement {
+  const column = doc.createElement('div');
+  column.className = layoutMarker('page-column');
+  let run: ChildNode[] = [];
+  const flush = () => {
+    if (!run.length) return;
+    const div = doc.createElement('div');
+    div.className = layoutMarker('page-run');
+    div.append(...run);
+    column.append(div);
+    run = [];
+  };
+  for (const child of Array.from(container.childNodes)) {
+    if (child instanceof HTMLElement && (isStrip(child) || markedAs(child) === 'section')) {
+      flush();
+      if (markedAs(child) === 'section') bandOnRun(child);
+      column.append(child);
+    } else {
+      run.push(child);
+    }
+  }
+  flush();
+  return column;
+}
+
+/** A default band's inner column as the email writes it: a section's cap
+    and inset, centred (section.ts `innerStyle`). */
+const BAND_INNER =
+  `max-width: ${SECTION_CONTENT_MAX}px; margin-left: auto; margin-right: auto; ` +
+  `padding-left: ${SECTION_INSET}px; padding-right: ${SECTION_INSET}px; box-sizing: border-box;`;
+
+/** A default band in a Stylesheet page: its inner column's inline style
+    traded for the runs' class — the column caps it, the rule insets it.
+    A band with a width, a card or an inset of its own keeps its style. */
+function bandOnRun(section: HTMLElement): void {
+  const inner = sectionInner(section);
+  if (!inner || inner.getAttribute('style') !== BAND_INNER || inner.hasAttribute('class')) return;
+  inner.removeAttribute('style');
+  inner.className = layoutMarker('page-run');
+}
+
+/** A band's inner column back from the runs' class to its inline style —
+    what the section node claims (section.ts `sectionContent`). */
+function bandOffRun(section: HTMLElement): void {
+  const inner = sectionInner(section);
+  if (!inner || markedAs(inner) !== 'page-run') return;
+  unmark(inner);
+  inner.setAttribute('style', BAND_INNER);
+}
+
+/**
+ * The head's rule a Stylesheet page is drawn by: the column's cap, its
+ * room above and below and its colour, the runs' inset — and on a phone
+ * (≤ {@link PAGE_PHONE_MAX}px) the room and the inset a phone gets. Every
+ * value the page has, in one place; the body only names it.
+ */
+export function pageLayoutSheet(layout: StylesheetPageLayout): string {
+  const column = `.${layoutMarker('page-column')}`;
+  const run = `.${layoutMarker('page-run')}`;
+  const ink = layout.columnBackground ?? layout.background;
+  const paint =
+    (layout.columnBackground ? `background-color:${layout.columnBackground};` : '') +
+    (ink ? `color:${fillTextColor(ink)};` : '');
+  const inset = (px: number) => `{padding-left:${px}px;padding-right:${px}px}`;
+  return (
+    `${column}{max-width:${layout.width}px;margin:${layout.spacing}px auto;${paint}}` +
+    `${run}${inset(layout.inset)}` +
+    `@media ${layout.phoneMedia}{` +
+    `${column}{margin:${layout.phoneSpacing}px auto}${run}${inset(layout.phoneInset)}}`
+  );
+}
+
+/** {@link pageLayoutSheet} in its `<style>`, marked as ours. */
+export function pageLayoutSheetElement(layout: StylesheetPageLayout): string {
+  return `<style class="${layoutMarker('page-sheet')}">${pageLayoutSheet(layout)}</style>`;
 }
 
 /** A strip: a spacer of ours with a fill. */
@@ -342,10 +576,10 @@ function rowsColumn(doc: Document, container: HTMLElement, layout: PageLayout): 
 }
 
 /** The blocks between two sections, with the column's inset round them. */
-function runOf(doc: Document, nodes: ChildNode[]): HTMLElement {
+function runOf(doc: Document, nodes: ChildNode[], inset: number): HTMLElement {
   const run = doc.createElement('div');
   run.className = layoutMarker('page-run');
-  run.style.cssText = `padding: ${PAGE_COLUMN_INSET}px;`;
+  run.style.cssText = `padding: ${inset}px;`;
   run.append(...nodes);
   return run;
 }
@@ -408,7 +642,7 @@ function sectionInner(section: HTMLElement): HTMLElement | null {
  * loses our markers ({@link unmarkPage}) — nothing dropped. Turning it
  * into bands is the author's call, never the parse's.
  */
-export function liftPageLayout(root: Element): PageLayout | null {
+export function liftPageLayout(root: Element, head: Element | null = null): PageLayout | null {
   const pages = Array.from(root.querySelectorAll('table')).filter(
     (table) => markedAs(table) === 'page',
   );
@@ -419,10 +653,69 @@ export function liftPageLayout(root: Element): PageLayout | null {
       unmarkPage(page);
       continue;
     }
-    if (!layout && outermost(page, root)) layout = readPage(page);
+    if (!layout && outermost(page, root)) {
+      layout = readPage(page);
+      // A Stylesheet page's values are its head rule's — which comes off
+      // with it, before the envelope is read (`head`).
+      if (layout.kind === 'stylesheet') layout = readSheet(layout, takeSheet(root, head), page);
+    }
     unwrapPage(page);
   }
   return layout;
+}
+
+/** Our page's head rule taken out — from the head, or the body's top level
+    (a body with no envelope carries it there) — its text, or '' where a
+    client dropped it. */
+function takeSheet(root: Element, head: Element | null): string {
+  const sheets = [...Array.from(head?.children ?? []), ...Array.from(root.children)].filter(
+    (el) => el.tagName === 'STYLE' && markedAs(el) === 'page-sheet',
+  );
+  sheets.forEach((sheet) => sheet.remove());
+  return sheets[0]?.textContent ?? '';
+}
+
+/** A Stylesheet page as its rule says it ({@link pageLayoutSheet}, read
+    back); what the rule does not say — all of it, where it was dropped —
+    the kind's defaults. The page's colour is the cell's attribute. */
+function readSheet(page: PageLayout, css: string, table: HTMLTableElement): PageLayout {
+  const at = css.search(/@media/i);
+  const media = /@media\s*([^{]*)\{/i.exec(css)?.[1].trim();
+  // The table's spacing: what it says, or null where it leaves the browser
+  // its own.
+  const spacingOf = (name: string) => {
+    const value = table.getAttribute(name);
+    return value === null ? null : parseFloat(value) || 0;
+  };
+  const [desk, phone] = at < 0 ? [css, ''] : [css.slice(0, at), css.slice(at)];
+  const rule = (part: string, kind: 'page-column' | 'page-run') => {
+    const found = new RegExp(`\\.(?:x_|m_-?\\d+)?${layoutMarker(kind)}\\s*\\{([^}]*)\\}`).exec(
+      part,
+    );
+    return new Map(
+      parseDeclarations(found?.[1] ?? '').map((d) => [d.name.toLowerCase(), d.value] as const),
+    );
+  };
+  const px = (value: string | undefined) => {
+    const n = parseFloat(value ?? '');
+    return Number.isFinite(n) ? n : undefined;
+  };
+  const column = rule(desk, 'page-column');
+  const said = {
+    width: px(column.get('max-width')),
+    spacing: px(column.get('margin')),
+    inset: px(rule(desk, 'page-run').get('padding-left')),
+    phoneInset: px(rule(phone, 'page-run').get('padding-left')),
+    phoneSpacing: px(rule(phone, 'page-column').get('margin')),
+  };
+  return stylesheetPageLayout({
+    ...Object.fromEntries(Object.entries(said).filter(([, value]) => value !== undefined)),
+    ...(media ? { phoneMedia: media } : {}),
+    background: page.background,
+    columnBackground: color(column.get('background-color') ?? ''),
+    cellSpacing: spacingOf('cellspacing'),
+    cellPadding: spacingOf('cellpadding'),
+  });
 }
 
 /** A table's `cellpadding`, px — 0 where it says none (a hand-coded email
@@ -445,14 +738,31 @@ function readPage(page: HTMLTableElement): PageLayout {
   const column = cell ? columnOf(cell) : null;
   const width = column ? parseFloat(column.style.maxWidth) : NaN;
   return normalizePageLayout({
-    // A column of rows is a table; the free column, a div.
-    kind: column instanceof HTMLTableElement ? 'table' : 'centered',
+    // A column of rows is a table; the free column, a div — capped inline,
+    // or by the head's rule (a Stylesheet page).
+    kind:
+      column instanceof HTMLTableElement
+        ? 'table'
+        : column && !column.style.maxWidth
+          ? 'stylesheet'
+          : 'centered',
     width: Number.isFinite(width) ? width : PAGE_WIDTH,
-    background: cell ? fillOf(cell) : null,
+    // The cell's colour — a Stylesheet page's on its table.
+    background: cell ? (fillOf(cell) ?? fillOf(page)) : null,
     columnBackground: column ? fillOf(column) : null,
     spacing: cell ? parseFloat(cell.style.paddingTop) || 0 : 0,
     rowPadding: column instanceof HTMLTableElement ? cellPadding(column) : 0,
+    inset: column && !(column instanceof HTMLTableElement) ? runInset(column) : undefined,
   })!;
+}
+
+/** The inset a free column's runs carry — the first run's padding; the
+    default where there is no run (bands alone). */
+function runInset(column: HTMLElement): number | undefined {
+  const run = Array.from(column.children).find((child) => markedAs(child) === 'page-run');
+  if (!(run instanceof HTMLElement)) return undefined;
+  const padding = parseFloat(run.style.paddingTop);
+  return Number.isFinite(padding) ? padding : undefined;
 }
 
 function pageCell(page: HTMLTableElement): HTMLTableCellElement | null {
@@ -475,7 +785,8 @@ function unmarkPage(page: HTMLTableElement): void {
   const column = cell ? columnOf(cell) : null;
   const runs = column ? Array.from(column.children) : [];
   for (const el of [page, column, ...runs, ...strayCells(page)]) {
-    if (el && markedAs(el)?.startsWith('page')) unmark(el);
+    if (el && el instanceof HTMLElement && markedAs(el) === 'section') bandOffRun(el);
+    else if (el && markedAs(el)?.startsWith('page')) unmark(el);
   }
 }
 
@@ -510,8 +821,11 @@ function unwrapPage(page: HTMLTableElement): void {
     if (child instanceof HTMLElement && markedAs(child) === 'page-run') {
       nodes.push(...Array.from(child.childNodes));
     } else {
-      if (child instanceof HTMLElement && markedAs(child) === 'section' && width) {
-        recapSection(child, width, SECTION_CONTENT_MAX);
+      if (child instanceof HTMLElement && markedAs(child) === 'section') {
+        // A centred page recapped the band; a Stylesheet page put its inner
+        // column on the runs' class.
+        if (width) recapSection(child, width, SECTION_CONTENT_MAX);
+        bandOffRun(child);
       }
       nodes.push(child);
     }
@@ -553,5 +867,6 @@ export function pageCellOf(body: ParentNode): HTMLTableCellElement | null {
 
 /** The page's colour, as its cell declares it — null for none. */
 export function pageFillOf(cell: HTMLElement): string | null {
-  return fillOf(cell);
+  const table = cell.closest('table');
+  return fillOf(cell) ?? (table ? fillOf(table) : null);
 }
