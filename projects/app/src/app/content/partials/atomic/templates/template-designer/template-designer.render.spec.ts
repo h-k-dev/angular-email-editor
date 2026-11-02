@@ -221,12 +221,21 @@ describe('TemplateDesigner desk (render)', () => {
     expect(canvas.right).toBeLessThanOrEqual(source.left);
     expect(canvas.width).toBeGreaterThanOrEqual(720);
 
-    // Narrower than all three at their least: the preview gives way first.
+    // Narrower than all three at their least: the source takes the editor's
+    // place, the phone keeps its pane, the envelope floats alone.
     await page.viewport(1600, 800);
     fixture.componentInstance['measureDesk']();
-    await settle();
-    expect(host().getAttribute('data-source')).toBe('docked');
-    expect(host().getAttribute('data-preview')).toBe('over');
+    await vi.waitFor(async () => {
+      await settle();
+      expect(host().getAttribute('data-view')).toBe('html');
+    });
+    expect(host().getAttribute('data-source')).toBeNull();
+    expect(host().getAttribute('data-preview')).toBe('docked');
+    expect(host().getAttribute('data-details')).toBe('over');
+    expect(host().querySelector('.designer-tabs')).toBeNull();
+    expect(el('.designer-phone').getBoundingClientRect().right).toBeLessThanOrEqual(
+      el('.designer-canvas').getBoundingClientRect().left,
+    );
   });
 
   it('puts the HTML source in the editor’s place where the desk is too narrow for both', async () => {
@@ -363,7 +372,8 @@ describe('TemplateDesigner desk (render)', () => {
   });
 
   it('never lets a divider take the editor’s window under the email’s 720px', async () => {
-    await open(1600);
+    // Wide enough for the details to push beside the phone's pane.
+    await open(1700);
     fixture.componentInstance['phoneOpen'].set(true);
     await settle();
     expect(host().getAttribute('data-preview')).toBe('docked');

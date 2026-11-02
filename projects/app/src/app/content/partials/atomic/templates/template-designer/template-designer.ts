@@ -316,10 +316,17 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
   protected readonly sourceMin = DESIGNER_SOURCE_MIN;
   protected readonly sourceMax = DESIGNER_SOURCE_MAX;
 
+  /** The desk's room once the phone is open, px: what the editor and the
+      right column share. */
+  readonly #deskBesidePhone = computed(
+    () => this.#deskWidth() - (this.phoneOpen() ? DESIGNER_PREVIEW_MIN : 0),
+  );
+
   /** Whether the desk holds the HTML source beside the editor, both at
-      their least — the preview gives way before it does. */
+      their least, and the phone open at its least — short of that, the
+      source takes the editor's place and the phone keeps its pane. */
   readonly #sourceFits = computed(
-    () => this.#deskWidth() >= DESIGNER_EDITOR_MIN + DESIGNER_SOURCE_MIN,
+    () => this.#deskBesidePhone() >= DESIGNER_EDITOR_MIN + DESIGNER_SOURCE_MIN,
   );
 
   /** The HTML source in the right column, under the details (`detached`):
@@ -340,14 +347,14 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
 
   /** The right column as a pane of its own, pushing the editor aside: the
       source's always (it docks only where it fits); the details' alone on
-      a wide desk (`DESIGNER_DETAILS_PUSH_MIN`). Narrower, the details float
-      over the editor's end — a Mac's sidebar — and the email keeps the
-      desk's width. */
+      a wide desk (`DESIGNER_DETAILS_PUSH_MIN`), the phone's pane aside.
+      Narrower, the details float over the editor's end — a Mac's sidebar —
+      and the email keeps the desk's width. */
   protected readonly detailsDocked = computed(
     () =>
       this.sourceDocked() ||
       (this.detailsOpen() &&
-        this.#deskWidth() >=
+        this.#deskBesidePhone() >=
           Math.max(DESIGNER_DETAILS_PUSH_MIN, DESIGNER_EDITOR_MIN + DESIGNER_DETAILS_MIN)),
   );
 
