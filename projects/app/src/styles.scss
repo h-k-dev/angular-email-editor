@@ -2275,6 +2275,16 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
   }
 }
 
+/* The source grows with its lines, never with its pane's box: an editor
+ * root's page sizing (`height: 100%`, above) pins it to a pane of a definite
+ * height — the designer's side panel — and the lines then overflow it, the
+ * pane's room under the last line (`padding-block-end`) left behind them. At
+ * least the pane tall, so a click under a short source still lands in it. */
+section[html-email-compose] .aee-editor {
+  height: auto;
+  min-height: 100%;
+}
+
 /* The source pane's word wrap — VS Code's, toggled by Alt+Z like there.
  *
  * On (the default): a line wider than the pane wraps at word boundaries —

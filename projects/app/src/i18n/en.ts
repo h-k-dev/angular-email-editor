@@ -232,6 +232,7 @@ export default {
     details: 'Message details',
     previewWidth: 'Preview width',
     detailsWidth: 'Details width',
+    sourceWidth: 'Source width',
     revert: 'Revert to saved',
     save: 'Save',
     saving: 'Saving…',

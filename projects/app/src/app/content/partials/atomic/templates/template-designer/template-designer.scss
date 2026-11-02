@@ -14,6 +14,8 @@
 // 8px margin, each side).
 $editor-min: 720px + 2 * 8px;
 $preview-min: 448px;
+// The right column's tabs: icons, a 32px tab with 6px round it.
+$tabs-rail: 44px;
 
 :host {
   // The import's drop hint fills the designer (`[drop-hint]`, absolute).
@@ -260,6 +262,9 @@ $preview-min: 448px;
     grid-column: 1 / -1;
     inline-size: 100%;
     min-inline-size: 0;
+    // Over the code, the toolbar spans the window — code reads wide, and
+    // more of its tools stand on the line before the ⋯ takes the rest.
+    --email-compose-foot-inset-inline: 0px;
   }
 }
 
@@ -271,35 +276,142 @@ $preview-min: 448px;
   inline-size: var(--designer-source-held, auto);
 }
 
-// The HTML source waits here, out of sight, while the editor shows: it is
-// only ever seen in the editor's place (the toggle moves it in) — the swap
-// is in place, never a pane beside the editor. Its own `display` would
-// beat the `hidden` attribute.
-.designer-canvas > section[html-email-compose][hidden] {
+// The HTML source, out of sight while it is not asked for. Its own
+// `display` would beat the `hidden` attribute.
+section[html-email-compose][hidden] {
   display: none;
 }
 
-// The details: an editor's aside, the pane on the right — the rows straight
-// away, the files under them — scrolling down on its own when they outgrow
-// the screen. Figma's compact 13px base its parts size against in em.
-// Every part inside starts 16px in.
+// The right column: one panel at a time — the envelope, the HTML source
+// while it stands beside the editor — and their tabs down its right edge
+// while there is more than one. Figma's compact 13px base its parts size
+// against in em.
 .designer-details {
-  @include scroll.scroll;
-
+  position: relative;
   grid-area: 1 / details;
   display: flex;
   flex-direction: column;
-  gap: 12px;
   box-sizing: border-box;
   min-inline-size: 0;
-  overflow-y: auto;
-  padding-block: 12px;
+  min-block-size: 0;
   font-size: 0.8125rem;
   background: var(--email-paper, var(--mat-sys-surface-bright));
 
-  // Its own `display` would beat the `hidden` attribute (the bar's toggle).
-  &[hidden] {
-    display: none;
+  // The tabs' room on the right: what they take while they are icons.
+  :host([data-tabbed]) & {
+    padding-inline-end: $tabs-rail;
+  }
+}
+
+// No panel to show: no column.
+:host([data-details='folded']) .designer-details {
+  display: none;
+}
+
+// The envelope: the rows straight away, the files under them — scrolling
+// down on its own when they outgrow the room. Every part inside starts
+// 16px in.
+.designer-envelope {
+  @include scroll.scroll;
+
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 12px;
+  min-block-size: 0;
+  overflow-y: auto;
+  padding-block: 12px;
+}
+
+// The source's panel: its window, the second one, Hyprland's — the
+// editor's corners, 8px off the desk's edges (the editor's own margin
+// parts the two; the tabs, the edge on their side), its own scroller.
+.designer-source {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-block-size: 0;
+  // While a divider is dragged the source holds its width (`holdSource`):
+  // what the narrowing column no longer has room for is cut here, never
+  // spilled into the desk — no scrollbar anywhere — until it re-wraps on
+  // release.
+  overflow: clip;
+
+  > section[html-email-compose] {
+    --html-email-compose-corner: var(--mat-sys-corner-large);
+
+    flex: 1 1 0;
+    min-block-size: 0;
+    margin: 8px 8px 8px 0;
+
+    :host([data-tabbed]) & {
+      margin-inline-end: 0;
+    }
+  }
+}
+
+// Their own `display` would beat the `hidden` attribute (the panel not
+// picked, or not there).
+.designer-envelope[hidden],
+.designer-source[hidden] {
+  display: none;
+}
+
+// The tabs: a browser's vertical tabs (Arc's, Edge's) down the column's
+// right edge — slim, icons only, the picked one on a soft fill; their words
+// in tooltips.
+.designer-tabs {
+  --mat-icon-size: 20px;
+
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  box-sizing: border-box;
+  inline-size: $tabs-rail;
+  padding-block: 8px;
+}
+
+.designer-tab {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 32px;
+  block-size: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--mat-sys-corner-medium);
+  background: transparent;
+  color: var(--mat-sys-on-surface-variant);
+  cursor: pointer;
+  outline: none;
+  transition:
+    background-color 120ms ease-out,
+    color 120ms ease-out;
+
+  @media (hover: hover) {
+    &:hover {
+      background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent);
+      color: var(--mat-sys-on-surface);
+    }
+  }
+
+  &:focus-visible {
+    box-shadow: inset 0 0 0 2px var(--mat-sys-primary);
+  }
+
+  &[aria-selected='true'] {
+    background: color-mix(in srgb, var(--mat-sys-on-surface) 9%, transparent);
+    color: var(--mat-sys-on-surface);
+  }
+
+  > mat-icon {
+    inline-size: var(--mat-icon-size);
+    block-size: var(--mat-icon-size);
+    font-size: var(--mat-icon-size);
   }
 }
 
@@ -316,7 +428,8 @@ $preview-min: 448px;
   inset-block: 0;
   inset-inline-end: 0;
   inline-size: max(300px, min(var(--designer-details-width), 100%));
-  border-inline-start: 1px solid color-mix(in oklch, var(--mat-sys-outline-variant) 80%, transparent);
+  border-inline-start: 1px solid
+    color-mix(in oklch, var(--mat-sys-outline-variant) 80%, transparent);
 }
 
 .designer-block__empty {

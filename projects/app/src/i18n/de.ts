@@ -233,6 +233,7 @@ export default {
     details: 'Nachrichtendetails',
     previewWidth: 'Breite der Vorschau',
     detailsWidth: 'Breite der Details',
+    sourceWidth: 'Breite des Quelltexts',
     revert: 'Auf Gespeichertes zurücksetzen',
     save: 'Speichern',
     saving: 'Wird gespeichert…',
@@ -245,7 +246,8 @@ export default {
       zone: 'E-Mail als Design öffnen',
       hint: 'Eine .eml auswählen – oder irgendwo im Designer ablegen oder einfügen (Strg+V), auch als Rohtext. Rückgängig holt das Design zurück.',
       dropHeading: 'Ablegen, um diese E-Mail als Design zu öffnen',
-      dropText: 'Inhalt, Betreff und Anhänge werden das Design – Rückgängig holt das Design zurück.',
+      dropText:
+        'Inhalt, Betreff und Anhänge werden das Design – Rückgängig holt das Design zurück.',
     },
     layout: {
       title: 'Layout',

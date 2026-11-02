@@ -46,26 +46,28 @@
       <mat-icon>smartphone</mat-icon>
     </button>
 
-    <!-- The details' panel, folded away or back — the right aside's toggle. -->
+    <!-- The details on the right, shown or put away — pressed while their
+         panel is there, as the phone's and the source's are. -->
     <button
       matIconButton
       type="button"
       aria-controls="designer-details"
       [attr.aria-label]="'designer.details' | translate"
-      [attr.aria-expanded]="detailsOpen()"
+      [attr.aria-pressed]="detailsOpen()"
       [matTooltip]="'designer.details' | translate"
       matTooltipPosition="below"
       (click)="detailsOpen.set(!detailsOpen())"
     >
-      <mat-icon>{{ detailsOpen() ? 'right_panel_close' : 'right_panel_open' }}</mat-icon>
+      <mat-icon>right_panel_open</mat-icon>
     </button>
   </div>
 
   <!-- How the email is worked on, a second module: its source, the
        formatting toolbar, its layout. -->
   <div glassGroup [attr.aria-label]="'designer.editing' | translate">
-    <!-- The editor or its HTML, in the editor's place: the design's source,
-         Summernote's </>. The ⋮'s View says the same. -->
+    <!-- The design's HTML, Summernote's </>: beside the editor, on the
+         right under the details — or in the editor's place, where the desk
+         is too narrow for both. The ⋮'s View says the same. -->
     <button
       matIconButton
       type="button"
@@ -74,7 +76,7 @@
       [attr.aria-label]="'designer.source' | translate"
       [matTooltip]="'designer.source' | translate"
       matTooltipPosition="below"
-      [attr.aria-pressed]="editorView() === 'html'"
+      [attr.aria-pressed]="sourceView() !== 'hidden'"
       (click)="toggleSource()"
     >
       <mat-icon>code</mat-icon>
@@ -337,15 +339,16 @@
 </header>
 
 <!-- The desk: three panes, an editor's (VS Code's) — the phone's preview,
-     the editor, the details — the sides as wide as their dividers were
-     dragged, the editor never under 720px; each side folded from the bar.
-     Where the desk is too narrow for a side at its least, it floats over
-     the editor instead (the preview first). -->
+     the editor, the right column (the details, the HTML under them) — the
+     sides as wide as their dividers were dragged, the editor never under
+     720px; each side folded from the bar. Where the desk is too narrow for
+     a side at its least, it floats over the editor instead (the preview
+     first), and the HTML takes the editor's place. -->
 <div
   class="designer-body"
   #desk
   [style.--designer-preview-width.px]="previewWidth()"
-  [style.--designer-details-width.px]="detailsWidth()"
+  [style.--designer-details-width.px]="asideWidth()"
 >
   <!-- The phone, centred in the preview pane: a mobile
        browser (Brave's bars) on the webmail, the message as the inbox shows
@@ -427,7 +430,23 @@
       [attr.aria-label]="'designer.previewWidth' | translate"
     ></div>
   }
-  @if (detailsDocked()) {
+  <!-- The right column's: its width with the source in it is kept apart
+       from the details' alone. -->
+  @if (sourceDocked()) {
+    <div
+      class="designer-divider designer-divider--details"
+      [(splitHandle)]="sourceWidth"
+      (pointerdown)="holdSource()"
+      [splitTarget]="desk"
+      splitProperty="--designer-details-width"
+      splitEdge="end"
+      [splitMin]="sourceMin"
+      [splitMax]="sourceMax"
+      [splitKeep]="detailsKeep()"
+      aria-controls="designer-details"
+      [attr.aria-label]="'designer.sourceWidth' | translate"
+    ></div>
+  } @else if (detailsDocked()) {
     <div
       class="designer-divider designer-divider--details"
       [(splitHandle)]="detailsWidth"
@@ -472,86 +491,136 @@
       [codeEditor]="sourcePane().editor()"
       aria-label="Email editor"
     ></section>
-
-    <!-- The HTML source: moved into the editor's place while the toggle
-         shows the HTML (a DomPortal — the same node, never re-created, so
-         its undo history and lint carry across); out of sight otherwise. -->
-    <section
-      html-email-compose
-      #sourceEl
-      class="email-scroll"
-      [hidden]="editorView() !== 'html'"
-      [active]="editorView() === 'html'"
-      [html]="html()"
-      (htmlChange)="html.set($event)"
-      [extensions]="sourceTools"
-      aria-label="Email HTML source"
-    >
-      <div source-search></div>
-    </section>
   </main>
 
-  <!-- The details, the pane on the right: the envelope — the message's
-       rows straight away, no heading over them (the pane says what it is),
-       its files under them. -->
+  <!-- The right column: its panels one at a time — the envelope (the
+       message's rows straight away, no heading over them, its files under
+       them) and the HTML source while it is beside the editor — and, while
+       there is more than one, their tabs down its right edge: a browser's
+       vertical tabs (Arc's, Edge's), as icons — their words in tooltips. -->
   <aside
     id="designer-details"
     class="designer-details"
-    [hidden]="!detailsOpen()"
     [attr.aria-label]="'designer.details' | translate"
   >
-    <!-- Every address row is stored as soon as it is left. -->
     <div
-      envelope-rows
-      [form]="envelope"
-      fields="material"
-      toLabel="always"
-      [mergeRecipients]="false"
-      [plainText]="plainText()"
-      (rowSaved)="saveRow($event)"
-    ></div>
-
-    <!-- The files: the chips, then the zone they are added on — a file
-         dropped anywhere here attaches, and a press on the zone picks one. -->
-    <div
-      class="designer-files"
-      dropZone
-      #zone="dropZone"
-      [clickable]="false"
-      [directory]="false"
-      [multiple]="true"
-      [attr.data-drag-over]="zone.isDragOver() || null"
-      (fileDrop)="onAttachmentDrop($event)"
+      id="designer-panel-envelope"
+      class="designer-envelope"
+      [attr.role]="tabbed() ? 'tabpanel' : null"
+      [attr.aria-labelledby]="tabbed() ? 'designer-tab-envelope' : null"
+      [hidden]="shownPanel() !== 'envelope'"
     >
-      @if (attachmentCount()) {
-        <!-- The chips, wrapping onto as many lines as they need. -->
-        <ul email-attachment-chips [formField]="envelope.attachments">
-          @for (attachment of envelope.attachments().value(); track attachment.key) {
-            <li
-              email-attachment-chip
-              [attachment]="attachment"
-              [status]="uploads.status(attachment.key)()"
-              [progress]="uploads.progress(attachment.key)()"
-              [isImage]="attachment.image"
-              [preview]="attachment.preview ?? null"
-              [failedLabel]="'composer.attachments.failed' | translate"
-              [retryLabel]="'composer.attachments.retry' | translate"
-              (removed)="attachmentRemoved(attachment)"
-              (retried)="uploads.retry(attachment.key)"
-            >
-              <mat-icon *emailAttachmentIcon="let kind = kind" inline>
-                {{ attachmentIcons[kind] }}
-              </mat-icon>
-            </li>
-          }
-        </ul>
-      }
-      <!-- The drop zone, drawn: a dashed box that is the picker's button. -->
-      <button type="button" class="designer-zone" (click)="zone.openFilePicker($event)">
-        <mat-icon aria-hidden="true">attach_file</mat-icon>
-        {{ 'designer.addAttachments' | translate }}
-      </button>
+      <!-- Every address row is stored as soon as it is left. -->
+      <div
+        envelope-rows
+        [form]="envelope"
+        fields="material"
+        toLabel="always"
+        [mergeRecipients]="false"
+        [plainText]="plainText()"
+        (rowSaved)="saveRow($event)"
+      ></div>
+
+      <!-- The files: the chips, then the zone they are added on — a file
+             dropped anywhere here attaches, and a press on the zone picks
+             one. -->
+      <div
+        class="designer-files"
+        dropZone
+        #zone="dropZone"
+        [clickable]="false"
+        [directory]="false"
+        [multiple]="true"
+        [attr.data-drag-over]="zone.isDragOver() || null"
+        (fileDrop)="onAttachmentDrop($event)"
+      >
+        @if (attachmentCount()) {
+          <!-- The chips, wrapping onto as many lines as they need. -->
+          <ul email-attachment-chips [formField]="envelope.attachments">
+            @for (attachment of envelope.attachments().value(); track attachment.key) {
+              <li
+                email-attachment-chip
+                [attachment]="attachment"
+                [status]="uploads.status(attachment.key)()"
+                [progress]="uploads.progress(attachment.key)()"
+                [isImage]="attachment.image"
+                [preview]="attachment.preview ?? null"
+                [failedLabel]="'composer.attachments.failed' | translate"
+                [retryLabel]="'composer.attachments.retry' | translate"
+                (removed)="attachmentRemoved(attachment)"
+                (retried)="uploads.retry(attachment.key)"
+              >
+                <mat-icon *emailAttachmentIcon="let kind = kind" inline>
+                  {{ attachmentIcons[kind] }}
+                </mat-icon>
+              </li>
+            }
+          </ul>
+        }
+        <!-- The drop zone, drawn: a dashed box that is the picker's button. -->
+        <button type="button" class="designer-zone" (click)="zone.openFilePicker($event)">
+          <mat-icon aria-hidden="true">attach_file</mat-icon>
+          {{ 'designer.addAttachments' | translate }}
+        </button>
+      </div>
     </div>
+
+    <!-- The HTML source's panel: the source here, beside the editor; moved
+         into the editor's place where the desk is too narrow for both (a
+         DomPortal — the same node, never re-created, so its undo history
+         and lint carry across); out of sight while it is not asked for. -->
+    <div
+      id="designer-panel-source"
+      class="designer-source"
+      [attr.role]="tabbed() ? 'tabpanel' : null"
+      [attr.aria-labelledby]="tabbed() ? 'designer-tab-source' : null"
+      [hidden]="shownPanel() !== 'source'"
+    >
+      <section
+        html-email-compose
+        #sourceEl
+        class="email-scroll"
+        [hidden]="!sourceShown()"
+        [active]="sourceShown()"
+        [html]="html()"
+        (htmlChange)="html.set($event)"
+        [extensions]="sourceTools"
+        aria-label="Email HTML source"
+      >
+        <div source-search></div>
+      </section>
+    </div>
+
+    <!-- The tabs: one per panel, selection following focus — the arrows,
+         Home and End move along them. -->
+    @if (tabbed()) {
+      <div
+        class="designer-tabs"
+        role="tablist"
+        aria-orientation="vertical"
+        [attr.aria-label]="'designer.panes' | translate"
+        (keydown)="tabKey($event)"
+      >
+        @for (tab of asideTabs(); track tab.id) {
+          @let selected = tab.id === asideTab();
+          <button
+            type="button"
+            role="tab"
+            class="designer-tab"
+            [id]="'designer-tab-' + tab.id"
+            [attr.aria-controls]="'designer-panel-' + tab.id"
+            [attr.aria-selected]="selected"
+            [attr.tabindex]="selected ? 0 : -1"
+            [attr.aria-label]="tab.label | translate"
+            [matTooltip]="tab.label | translate"
+            matTooltipPosition="before"
+            (click)="asideTab.set(tab.id)"
+          >
+            <mat-icon aria-hidden="true">{{ tab.icon }}</mat-icon>
+          </button>
+        }
+      </div>
+    }
   </aside>
 </div>
 

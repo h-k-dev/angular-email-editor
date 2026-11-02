@@ -60,6 +60,15 @@ export const DESIGNER_DETAILS_MIN = 320;
 export const DESIGNER_DETAILS_MAX = 1200;
 export const DESIGNER_DETAILS_DEFAULT = 420;
 
+/** How narrow the designer's right column may be dragged while the HTML
+    source stands in it under the details, px: about 60 characters of code
+    beside the gutter; its width until dragged, and a sanity bound. Below
+    the editor's least and this, the source takes the editor's place
+    instead. */
+export const DESIGNER_SOURCE_MIN = 480;
+export const DESIGNER_SOURCE_MAX = 1600;
+export const DESIGNER_SOURCE_DEFAULT = 640;
+
 /** From how wide a desk the designer's details push the editor aside, px —
     a pane of their own beside it. Narrower, they float over the editor's
     end, a Mac's sidebar: a small window keeps the email its whole width. */
@@ -186,6 +195,13 @@ export class Preferences {
   readonly designerDetailsWidth = this.#storage.pairSignal(
     `${PREFIX}designer-details-width`,
     wholeIn(DESIGNER_DETAILS_MIN, DESIGNER_DETAILS_MAX, DESIGNER_DETAILS_DEFAULT),
+  );
+
+  /** How wide the template designer's right column is while the HTML
+      source stands in it, px — its divider, dragged then. */
+  readonly designerSourceWidth = this.#storage.pairSignal(
+    `${PREFIX}designer-source-width`,
+    wholeIn(DESIGNER_SOURCE_MIN, DESIGNER_SOURCE_MAX, DESIGNER_SOURCE_DEFAULT),
   );
 
   /** How wide the snippets' list is, px — its divider, dragged. */

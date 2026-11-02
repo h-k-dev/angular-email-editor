@@ -384,7 +384,7 @@ export abstract class MessageSheet {
     if (format === 'text') {
       const text = emailPlainText(message.html);
       this.#beforePlain = { html: message.html, text };
-      if (this.sourceView() === 'code') this.sourceView.set('hidden');
+      if (this.sourceView() !== 'hidden') this.sourceView.set('hidden');
       this.message.set({ ...message, format, html: plainTextHTML(text) });
       return;
     }
