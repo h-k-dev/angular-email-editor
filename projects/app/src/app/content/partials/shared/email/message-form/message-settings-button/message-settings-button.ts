@@ -35,7 +35,7 @@ export class MessageSettingsButton {
   /** The settings while open — one at a time. */
   #settings: MatDialogRef<MessageSettings> | null = null;
   /** The settings' open section, kept from one opening to the next. */
-  readonly #section = signal<SettingsSection | undefined>('personalization');
+  readonly #section = signal<SettingsSection | undefined>('general');
 
   constructor() {
     // The settings go with the sheet they set.

@@ -384,7 +384,7 @@ export default {
       close: '設定を閉じる',
       sections: {
         label: '設定のセクション',
-        personalization: 'パーソナライズ',
+        general: '一般',
         designer: 'デザイナー',
         writer: 'ライター',
       },

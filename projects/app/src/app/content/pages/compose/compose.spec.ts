@@ -85,7 +85,7 @@ async function closeSettings(fixture: ComponentFixture<unknown>, dialog: HTMLEle
 async function openSection(
   fixture: ComponentFixture<unknown>,
   dialog: HTMLElement,
-  label: 'Personalization' | 'Designer' | 'Writer',
+  label: 'General' | 'Designer' | 'Writer',
 ): Promise<void> {
   [...dialog.querySelectorAll<HTMLElement>('[role="tab"]')]
     .find((tab) => tab.textContent?.includes(label))!

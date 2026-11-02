@@ -390,7 +390,7 @@ export default {
       close: 'Einstellungen schließen',
       sections: {
         label: 'Bereiche der Einstellungen',
-        personalization: 'Personalisierung',
+        general: 'Allgemein',
         designer: 'Designer',
         writer: 'Writer',
       },

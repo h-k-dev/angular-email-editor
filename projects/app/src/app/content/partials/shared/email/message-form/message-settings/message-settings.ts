@@ -35,7 +35,7 @@ let nextSettingsId = 0;
 
 /** The aside's sections, in order: one tab and one page each. */
 const SECTIONS = [
-  { id: 'personalization', icon: 'palette', label: 'composer.settings.sections.personalization' },
+  { id: 'general', icon: 'tune', label: 'composer.settings.sections.general' },
   { id: 'designer', icon: 'dashboard', label: 'composer.settings.sections.designer' },
   { id: 'writer', icon: 'edit_note', label: 'composer.settings.sections.writer' },
 ] as const;
@@ -75,7 +75,7 @@ export function openMessageSettings(
  * that scrolls inside, so
  * a setting added later fits the same frame. An aside of sections, each its own
  * page (Aria tabs — a row over the page at the compact width):
- * Personalization (the editor's theme), Designer (the HTML source's
+ * General (the editor's theme), Designer (the HTML source's
  * word wrap) and Writer (the message's Format, the Layout — whether the layout blocks take their gestures, one
  * switch for every one of them — the Open mode, window, zoom or pop-out, and the
  * formatting toolbar). What cannot
