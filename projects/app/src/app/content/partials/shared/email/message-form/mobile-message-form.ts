@@ -35,7 +35,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { EmailCompose } from '../email-compose/email-compose';
 import { EmailWriter } from '../email-writer/email-writer';
 import { EnvelopeRows } from './envelope-rows/envelope-rows';
-import { MessageMenu } from './message-menu/message-menu';
+import { MessageSettingsButton } from './message-settings-button/message-settings-button';
 import { MessageSheet } from './message-sheet';
 
 /**
@@ -65,7 +65,7 @@ import { MessageSheet } from './message-sheet';
     EmailWriter,
     EmailCompose,
     EnvelopeRows,
-    MessageMenu,
+    MessageSettingsButton,
     AddressDragGroup,
     AttachmentChips,
     OverflowRow,

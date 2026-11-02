@@ -53,8 +53,8 @@ const leaveText = async (fixture: ComponentFixture<Compose>): Promise<Element | 
 };
 
 /** Switches the sheet's View — the editor, or its HTML in the editor's
-    place (code view). No menu offers it any more (the ⋮ is Settings…
-    alone); the sheet's own switch is what a frame's </> calls. */
+    place (code view). No menu offers it (the bar's gear opens the
+    settings); the sheet's own switch is what a frame's </> calls. */
 async function chooseView(fixture: ComponentFixture<unknown>, view: 'Editor' | 'HTML') {
   const sheet = (fixture.componentInstance as any).sheet();
   if (!sheet.viewOffered()) throw new Error(`no ${view} view offered`);
@@ -62,21 +62,15 @@ async function chooseView(fixture: ComponentFixture<unknown>, view: 'Editor' | '
   await fixture.whenStable();
 }
 
-/** Opens the writer bar's settings dialog — Settings… in its ⋮ menu, as
-    core's Preferences… — and hands it back: a MatDialog, in the overlay
-    container on <body>, the one open. */
+/** Opens the writer bar's settings dialog — its gear, as core's
+    Preferences — and hands it back: a MatDialog, in the overlay container
+    on <body>, the one open. */
 async function openSettings(fixture: ComponentFixture<unknown>): Promise<HTMLElement> {
   const root = fixture.nativeElement as HTMLElement;
-  (root.querySelector('.writer-bar [aria-label="More options"]') as HTMLButtonElement).click();
-  await fixture.whenStable();
-  const item = [...document.querySelectorAll<HTMLElement>('.toolbar-menu [role="menuitem"]')].find(
-    (row) => row.textContent?.includes('Settings…'),
-  );
-  if (!item) throw new Error('no Settings… item in the ⋮ menu');
-  item.click();
+  (root.querySelector('.writer-bar [aria-label="Settings"]') as HTMLButtonElement).click();
   await fixture.whenStable();
   const dialog = document.querySelector<HTMLElement>('.message-settings-pane [role="dialog"]');
-  if (!dialog) throw new Error('Settings… opened no dialog');
+  if (!dialog) throw new Error('the gear opened no dialog');
   return dialog;
 }
 
@@ -99,7 +93,7 @@ async function openSection(
   await fixture.whenStable();
 }
 
-/** The writer bar's ⋮ menu offers its View row now. */
+/** The sheet offers its View now (the frame's </>). */
 function viewOffered(compose: Compose): boolean {
   return (compose as any).sheet().viewOffered();
 }
@@ -1502,10 +1496,10 @@ describe('Compose on a phone and a desk', () => {
     expect(root.querySelector('.writer-bar')?.tagName).toBe('HEADER');
     expect(root.querySelector('form[email-writer]')?.getAttribute('data-scroll')).toBe('sheet');
     expect(root.querySelector('section[email-compose]')?.getAttribute('data-scroll')).toBe('host');
-    // The desk's bar, drawn the same: Send an icon button, home beside ⋮.
+    // The desk's bar, drawn the same: Send an icon button, home beside the gear.
     expect(root.querySelector('.writer-bar__send')?.classList).toContain('mat-mdc-icon-button');
     const home = root.querySelector('.writer-bar a[aria-label="Mailbox"]');
-    expect(home?.nextElementSibling?.tagName.toLowerCase()).toBe('message-menu');
+    expect(home?.nextElementSibling?.tagName.toLowerCase()).toBe('message-settings-button');
     // The suggestion menu is docked over the toolbar, not by the caret.
     const menu = root.querySelector('[email-suggestion-menu]');
     expect(menu?.closest('.email-compose__dock')).not.toBeNull();

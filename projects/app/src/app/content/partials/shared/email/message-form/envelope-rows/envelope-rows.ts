@@ -162,14 +162,16 @@ export class EnvelopeRows {
     const scroller = inject(ScrollOwner, { optional: true })?.element;
     effect((onCleanup) => {
       if (!this.labelGutter() || !scroller || typeof ResizeObserver === 'undefined') return;
-      // The rows keep to the column's middle: the scroller's width is all
-      // that moves them.
+      // The rows keep to the column's middle: the scroller's width moves
+      // them, and their own, which settles after the first layout (the
+      // frame's column).
       const observer = new ResizeObserver(() => {
         const rows = host.getBoundingClientRect();
         const around = scroller.getBoundingClientRect();
         this.#room.set(Math.min(rows.left - around.left, around.right - rows.right));
       });
       observer.observe(scroller);
+      observer.observe(host);
       onCleanup(() => observer.disconnect());
     });
   }

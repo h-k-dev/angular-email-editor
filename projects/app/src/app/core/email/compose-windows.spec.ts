@@ -116,12 +116,8 @@ describe('ComposeWindows', () => {
     expect(editor().getAttribute('data-aee-static')).toBe('section columns table spacer');
 
     // The settings' switch overrides the mode's default, for this message.
-    // The settings dialog — Settings… in this window's ⋮ — is the overlay's.
-    frame.querySelector<HTMLButtonElement>('[aria-label="More options"]')!.click();
-    await settle();
-    [...document.querySelectorAll<HTMLElement>('.toolbar-menu [role="menuitem"]')]
-      .find((row) => row.textContent?.includes('Settings…'))!
-      .click();
+    // The settings dialog — this window's gear — is the overlay's.
+    frame.querySelector<HTMLButtonElement>('[aria-label="Settings"]')!.click();
     await settle();
     const dialog = document.querySelector<HTMLElement>('.message-settings-pane [role="dialog"]')!;
     expect(frame.contains(dialog)).toBe(false);

@@ -91,7 +91,7 @@ import {
   AddressRow,
   EnvelopeRows,
 } from '../../../shared/email/message-form/envelope-rows/envelope-rows';
-import { MessageMenu } from '../../../shared/email/message-form/message-menu/message-menu';
+import { MessageSettingsButton } from '../../../shared/email/message-form/message-settings-button/message-settings-button';
 import { MessageSheet } from '../../../shared/email/message-form/message-sheet';
 import {
   IslandMarquee,
@@ -184,7 +184,7 @@ function sameMessage(a: Envelope, b: Envelope): boolean {
     HtmlEmailCompose,
     SourceSearch,
     EnvelopeRows,
-    MessageMenu,
+    MessageSettingsButton,
     MarqueeStart,
     ScrollOwner,
     SplitHandle,
@@ -227,7 +227,7 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
       editor's marquee draws across it. */
   readonly element = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   readonly marquee = new IslandMarquee();
-  /** The island's paper: the message's Appearance (the ⋮ menu's). */
+  /** The island's paper: the message's Appearance (the settings'). */
   readonly scheme = computed(() => this.editorScheme());
 
   protected readonly barAtTop = signal(true).asReadonly();

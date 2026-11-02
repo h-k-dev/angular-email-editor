@@ -87,8 +87,9 @@ export function openMessageSettings(
  * the email reads, which this browser keeps for every composer and every
  * tab, and the message's own (Format, Layout), which start over with the
  * next message.
- * Opened by the ⋮'s Settings… (`MessageMenu`, which holds it) — core's
- * Preferences…: the ⋮ is the bar's one entry to the message's options. On
+ * Opened by the bar's gear (`MessageSettingsButton`, which holds it) —
+ * core's Preferences: the gear is the bar's one entry to the message's
+ * options. On
  * either sheet: it reads and sets the sheet it was opened from, whichever
  * that is, through DI.
  *

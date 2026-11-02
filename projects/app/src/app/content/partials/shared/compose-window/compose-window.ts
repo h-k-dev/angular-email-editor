@@ -177,7 +177,7 @@ export class ComposeWindowFrame implements PaperIsland {
       phone's (`ComposeWindow.sheet`), read as either. */
   protected readonly sheet = viewChild(MessageSheet);
 
-  /** The window is a paper island in its sheet's Appearance (the ⋮ menu's
+  /** The window is a paper island in its sheet's Appearance (the settings'
       Light, Dark or App) — title bar, writer bar, envelope rows and text
       one paper, and the menus opened from it too (paper-island.ts) — on the
       edge, zoomed, minimized or as a phone's page alike. */

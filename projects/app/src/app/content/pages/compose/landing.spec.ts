@@ -17,12 +17,12 @@ describe('Landing', () => {
     root = fixture.nativeElement as HTMLElement;
   });
 
-  it('is the composer alone, no header — home beside ⋮ in the sheet\'s bar', () => {
+  it('is the composer alone, no header — home beside the gear in the sheet\'s bar', () => {
     expect(root.querySelector('header:not(.writer-bar)')).toBeNull();
     expect(root.querySelector('app-compose [message-form]')).not.toBeNull();
-    // Home sits just before ⋮ — the page's one way out.
+    // Home sits just before the gear — the page's one way out.
     const home = root.querySelector('.writer-bar a[aria-label="Mailbox"]')!;
     expect(home.getAttribute('href')).toBe('/inbox');
-    expect(home.nextElementSibling?.querySelector('[aria-label="More options"]')).not.toBeNull();
+    expect(home.nextElementSibling?.querySelector('[aria-label="Settings"]')).not.toBeNull();
   });
 });

@@ -40,7 +40,7 @@ import { EmailCompose } from '../email-compose/email-compose';
 import { EmailWriter } from '../email-writer/email-writer';
 import { MarqueeStart } from '../paper-island';
 import { EnvelopeRows, LabelGutter } from './envelope-rows/envelope-rows';
-import { MessageMenu } from './message-menu/message-menu';
+import { MessageSettingsButton } from './message-settings-button/message-settings-button';
 import { MessageSheet } from './message-sheet';
 
 /** How a desktop sheet is laid out (`MessageForm.layout`). */
@@ -72,7 +72,7 @@ export type MessageLayout = 'sheet' | 'document';
     EmailWriter,
     EmailCompose,
     EnvelopeRows,
-    MessageMenu,
+    MessageSettingsButton,
     AddressDragGroup,
     AttachmentChips,
     OverflowRow,

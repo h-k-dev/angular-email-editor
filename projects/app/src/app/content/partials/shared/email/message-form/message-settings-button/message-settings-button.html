@@ -1,0 +1,14 @@
+<!-- The message's settings, at a press: a gear — the dialog opens at once
+     over the page and gives focus back here as it closes. Its tooltip
+     opens away from the sheet's edge (`side`: the sheet's call). -->
+<button
+  mat-icon-button
+  type="button"
+  [attr.aria-label]="'composer.settings.title' | translate"
+  [matTooltip]="'composer.settings.title' | translate"
+  [matTooltipPosition]="side()"
+  aria-haspopup="dialog"
+  (click)="open()"
+>
+  <mat-icon>settings</mat-icon>
+</button>

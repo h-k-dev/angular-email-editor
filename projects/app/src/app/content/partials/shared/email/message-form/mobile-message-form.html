@@ -51,12 +51,12 @@
     }
   </ng-container>
 
-  <!-- Beside Send, at the bar's end: ⋮ (Settings… and the View, opening
-       down, lined up with the end), the frame's leading controls, Attach. -->
+  <!-- Beside Send, at the bar's end: the gear (the settings, its tooltip
+       below), the frame's leading controls, Attach. -->
   <ng-container ngProjectAs="[leading]">
-    <!-- The frame's way out (`exit` — the page's home), next to ⋮. -->
+    <!-- The frame's way out (`exit` — the page's home), next to the gear. -->
     <ng-content select="[exit]" />
-    <message-menu side="below" align="end" />
+    <message-settings-button side="below" />
     <ng-content select="[leading]" />
     <!-- Attach, and the strip's toggle as its second half — split for good,
          so the bar never shifts. The toggle stays put and says whether the
