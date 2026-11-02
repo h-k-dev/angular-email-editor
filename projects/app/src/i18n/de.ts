@@ -394,7 +394,6 @@ export default {
         designer: 'Designer',
         writer: 'Writer',
       },
-      kept: 'Dieser Browser merkt sich diese – für jeden Editor und jeden Tab.',
       wrap: {
         label: 'Zeilenumbruch',
         hint: 'Lange Zeilen im HTML-Quelltext brechen unter ihrem Einzug um; aus, scrollt der Quelltext seitlich (Alt+Z)',

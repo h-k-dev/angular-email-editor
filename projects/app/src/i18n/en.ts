@@ -394,7 +394,6 @@ export default {
         designer: 'Designer',
         writer: 'Writer',
       },
-      kept: 'This browser keeps these, for every composer and every tab.',
       wrap: {
         label: 'Word wrap',
         hint: 'Long lines in the HTML source wrap under their own indent; off, the source scrolls sideways (Alt+Z)',

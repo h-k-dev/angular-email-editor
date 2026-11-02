@@ -83,7 +83,7 @@ export function openMessageSettings(
  * app's own — its theme, its language — are the app's settings'
  * (`AppSettings`), in the same frame.
  *
- * Two kinds of setting, told apart on the page: the {@link Preferences}
+ * Two kinds of setting: the {@link Preferences}
  * the email reads, which this browser keeps for every composer and every
  * tab, and the message's own (Format, Layout), which start over with the
  * next message.
