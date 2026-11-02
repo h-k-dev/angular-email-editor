@@ -14,6 +14,10 @@
   // the two shows no corner.
   border-radius: var(--html-email-compose-corner, var(--mat-sys-corner-medium));
   padding: var(--mat-sys-inner-spacing);
+  // Room under the last line, an editor's scroll past the end: it rides up
+  // to about the screen's middle, off the bottom edge, where it reads —
+  // whichever scrolls, the pane or what it grows in.
+  padding-block-end: max(var(--mat-sys-inner-spacing), 40svh);
 
   // The .aee-editor surface inside reads these (see styles.scss).
   --mat-sys-prose-mirror-font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;

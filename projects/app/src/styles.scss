@@ -565,9 +565,10 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor.
 /* …and the paper gives it room: the email stands off the surface's top and
  * bottom on paper, never in its own colour — its page grip, on its top
  * edge, clears what stands over the surface (the designer's bar), and its
- * last line sits off the surface's foot. */
+ * last line sits off the surface's foot: 24px, or the host's room under
+ * the last block (`--email-compose-end-room`, a design desk's generous). */
 .email-compose__editor:has(> .aee-editor.aee-document) {
-  padding-block: 24px;
+  padding-block: 24px max(24px, var(--email-compose-end-room, 0px));
 }
 
 // Where the host scrolls (the designer's canvas), the foot's room is the
@@ -2373,6 +2374,10 @@ section[html-email-compose][data-wrap='off'] .aee-editor {
       inline-size: var(--aee-gutter-numbers);
       text-align: end;
       text-indent: 0;
+      // One line, whatever the code line's wrapping: the box is the widest
+      // number's `ch`s exactly, and a fraction of a pixel over would put its
+      // last digit on a second line, clipped by the line's containment.
+      white-space: nowrap;
       color: color-mix(in oklch, var(--mat-sys-on-surface-variant) 55%, transparent);
       pointer-events: none;
       user-select: none;

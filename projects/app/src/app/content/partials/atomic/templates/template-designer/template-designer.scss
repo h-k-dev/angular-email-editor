@@ -4,27 +4,22 @@
 
 // The designer fills the dialog, which fills the screen: the bar, then the
 // desk under it. Hyprland's: the editor is the one window, on the paper
-// itself; the bar, the phone and the details are the chrome round it, the
-// paper a shade down (`--designer-chrome`) — the wallpaper the window
-// stands on. The whole of it is a paper island (`data-paper-scheme`).
+// itself; the bar, the phone and the details are the chrome round it, on
+// the same paper — no shade, no outline: the window is only its margin and
+// corners, set off where its view has a ground of its own (the HTML
+// source). The whole of it is a paper island (`data-paper-scheme`).
 // The editor's least and the preview's, px — DESIGNER_EDITOR_MIN and
 // DESIGNER_PREVIEW_MIN (core/storages/preferences.ts): change them together.
 // The editor's is the email's 720px column inside its window (the canvas's
-// 8px margin and hairline border, each side).
-$editor-min: 720px + 2 * 8px + 2 * 1px;
+// 8px margin, each side).
+$editor-min: 720px + 2 * 8px;
 $preview-min: 448px;
 
 :host {
-  --designer-chrome: color-mix(
-    in oklch,
-    var(--email-paper, var(--mat-sys-surface-bright)),
-    black 7%
-  );
-
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   block-size: 100%;
-  background: var(--designer-chrome);
+  background: var(--email-paper, var(--mat-sys-surface-bright));
   color: var(--mat-sys-on-surface);
 }
 
@@ -212,7 +207,7 @@ $preview-min: 448px;
 // column stands in the middle, as wide as the paper (below).
 //
 // A window, Hyprland's: 8px off the desk's edges and the side panes, its
-// corners large, a hairline round it — the same whether the work is in it
+// corners large — the same whether the work is in it
 // or not. The design and its HTML source swap inside it, so the window
 // stays put when the view changes.
 .designer-canvas {
@@ -224,10 +219,8 @@ $preview-min: 448px;
   min-inline-size: 0;
   min-block-size: 0;
   margin: 8px;
-  border: 1px solid color-mix(in oklch, var(--mat-sys-outline-variant) 80%, transparent);
   border-radius: var(--mat-sys-corner-large);
   background: var(--email-paper, var(--mat-sys-surface-bright));
-  box-shadow: var(--mat-sys-level1);
 }
 
 // The editor: the email's measure and the inset its layout blocks' grips
@@ -242,6 +235,10 @@ $preview-min: 448px;
   min-inline-size: min-content;
   min-block-size: 100%;
   --email-compose-surface-padding-block: 16px;
+  // Room under the email's last block — the composer's two lines, here a
+  // design desk's: the last block rides up to about the screen's middle,
+  // off the foot and the bottom edge, as the HTML source's last line does.
+  --email-compose-end-room: max(2lh, 40svh);
   // The formatting toolbar no wider than the editor pane, and centred in
   // it at the column's measure: it stays put while a wide email scrolls
   // under it. The foot is the pane's width or the paper's, whichever is
@@ -289,7 +286,7 @@ $preview-min: 448px;
   overflow-y: auto;
   padding-block: 12px;
   font-size: 0.8125rem;
-  background: var(--designer-chrome);
+  background: var(--email-paper, var(--mat-sys-surface-bright));
 
   // Its own `display` would beat the `hidden` attribute (the bar's toggle).
   &[hidden] {
@@ -299,8 +296,8 @@ $preview-min: 448px;
 
 // Short of a wide desk (`DESIGNER_DETAILS_PUSH_MIN`): over the editor's
 // end, flush with the desk's edge and its whole height — the paper the
-// bar stands on, lifted off the editor's window only just (the lowest
-// elevation). Only the editor is a window.
+// bar stands on, edged in a hairline: one paper and no shadow, so
+// the edge is what parts them. Only the editor is a window.
 :host([data-details='over']) .designer-details {
   // The whole desk its box, not the details' track (no width while they
   // float): an absolute grid child's containing block is its grid area.
@@ -310,7 +307,7 @@ $preview-min: 448px;
   inset-block: 0;
   inset-inline-end: 0;
   inline-size: max(300px, min(var(--designer-details-width), 100%));
-  box-shadow: var(--mat-sys-level1);
+  border-inline-start: 1px solid color-mix(in oklch, var(--mat-sys-outline-variant) 80%, transparent);
 }
 
 .designer-block__empty {

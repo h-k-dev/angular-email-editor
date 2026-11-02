@@ -42,9 +42,9 @@ export const SNIPPET_EDITOR_MIN = 640;
 
 /** What the template designer's editor keeps at least, px, however far
     either pane beside it is dragged: the email's 720px column inside its
-    window — 8px off each neighbour and a hairline each side — an email
+    window — 8px off each neighbour — an email
     wider than that scrolls in it. */
-export const DESIGNER_EDITOR_MIN = 720 + 2 * 8 + 2 * 1;
+export const DESIGNER_EDITOR_MIN = 720 + 2 * 8;
 
 /** How narrow the designer's preview may be dragged, px: the phone — its
     375px screen and 12px bezel either side — and 24px round it. How wide
