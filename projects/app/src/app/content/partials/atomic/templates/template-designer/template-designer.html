@@ -268,7 +268,7 @@
     </section>
   </ng-template>
 
-  <message-settings-button side="below" />
+  <!-- Revert: the design back as last saved. -->
   <button
     matIconButton
     type="button"
@@ -281,6 +281,34 @@
   >
     <mat-icon>undo</mat-icon>
   </button>
+
+  <!-- An email to study, between Revert and the gear: one received, opened
+       as this design — its body, its subject, its files; Undo puts the
+       design back, Revert the template as saved. A press picks an .eml; a
+       drop anywhere on the designer, or a paste (the file, or its raw text:
+       Show original), brings one in too (the designer's `messageImport`) —
+       in the primary while a file hangs over it. -->
+  <button
+    matIconButton
+    type="button"
+    [attr.aria-label]="'designer.study.zone' | translate"
+    [attr.aria-busy]="studying() || null"
+    [attr.data-drag-over]="import.dragging() || null"
+    [matTooltip]="'designer.study.hint' | translate"
+    matTooltipPosition="below"
+    (click)="studyPicker.click()"
+  >
+    <mat-icon>drafts</mat-icon>
+  </button>
+  <input
+    #studyPicker
+    type="file"
+    hidden
+    accept=".eml,message/rfc822"
+    (change)="studyPicked(studyPicker)"
+  />
+
+  <message-settings-button side="below" />
   <button
     matButton="filled"
     type="button"
@@ -524,40 +552,16 @@
         {{ 'designer.addAttachments' | translate }}
       </button>
     </div>
-
-    <!-- An email to study: one received, brought in as the inbox brings
-         one in — dropped here, pasted while the zone has the focus (the
-         file, or its raw text: Show original), or picked — and made this
-         design: its body, its subject, its files. Undo puts the design
-         back; Revert, the template as saved. -->
-    <div
-      class="designer-study"
-      messageImport
-      messageImportPaste="host"
-      #study="messageImport"
-      [attr.data-drag-over]="study.dragging() || null"
-      (messageImport)="studyEmail($event)"
-    >
-      <button
-        type="button"
-        class="designer-zone"
-        aria-describedby="designer-study-hint"
-        [attr.aria-busy]="studying() || null"
-        (click)="studyPicker.click()"
-      >
-        <mat-icon aria-hidden="true">drafts</mat-icon>
-        {{ 'designer.study.zone' | translate }}
-      </button>
-      <p id="designer-study-hint" class="designer-study__hint">
-        {{ 'designer.study.hint' | translate }}
-      </p>
-      <input
-        #studyPicker
-        type="file"
-        hidden
-        accept=".eml,message/rfc822"
-        (change)="studyPicked(studyPicker)"
-      />
-    </div>
   </aside>
 </div>
+
+<!-- The import hint: while a file hangs over the designer, what letting it
+     go does. Click-through, over the whole frame — last, so it paints over
+     the desk. -->
+<div
+  drop-hint
+  art="import"
+  [heading]="'designer.study.dropHeading' | translate"
+  [text]="'designer.study.dropText' | translate"
+  [active]="import.dragging()"
+></div>

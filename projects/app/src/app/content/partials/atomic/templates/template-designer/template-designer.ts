@@ -77,6 +77,7 @@ import {
 import { Badge } from '../../../common/badge/badge';
 import { GlassGroup } from '../../../common/glass-group/glass-group';
 import { MessageImport } from '../../../common/message-import/message-import';
+import { DropHint } from '../../../common/drop-hint/drop-hint';
 import { PageHeader } from '../../../common/page-header/page-header';
 import { PaperToggle } from '../../../common/paper-toggle/paper-toggle';
 import { PhoneFrame } from '../../../common/phone-frame/phone-frame';
@@ -176,7 +177,7 @@ function sameMessage(a: Envelope, b: Envelope): boolean {
     GlassGroup,
     PaperToggle,
     AngularFileDrop,
-    MessageImport,
+    DropHint,
     AttachmentChips,
     AttachmentChip,
     AttachmentChipIcon,
@@ -205,7 +206,11 @@ function sameMessage(a: Envelope, b: Envelope): boolean {
   ],
   templateUrl: './template-designer.html',
   styleUrl: './template-designer.scss',
+  // An .eml dropped anywhere on the designer, or pasted where no field takes
+  // the paste (the file, or its raw text), opens as the design.
+  hostDirectives: [{ directive: MessageImport, outputs: ['messageImport'] }],
   host: {
+    '(messageImport)': 'studyEmail($event)',
     '[attr.data-paper-scheme]': 'scheme()',
     '[attr.data-preview]': "phoneOpen() ? (previewDocked() ? 'docked' : 'over') : null",
     '[attr.data-details]': "detailsOpen() ? (detailsDocked() ? 'docked' : 'over') : 'folded'",
@@ -601,10 +606,14 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
   }
 
   /** An email being read into the design. */
+  /** The designer's import: a file hanging over it lights the button and
+      shows the drop hint. */
+  protected readonly import = inject(MessageImport);
+
   protected readonly studying = signal(false);
 
-  /** An email to study, brought in on its zone — dropped, pasted or
-      picked: made this design, its body, subject and files (one undo step;
+  /** An email to study, brought in — picked, dropped or pasted: made
+      this design, its body, subject and files (one undo step;
       Revert still goes back to the template as saved). Says what came in. */
   protected async studyEmail(file: File): Promise<void> {
     if (this.studying()) return;
@@ -616,7 +625,7 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
     }
   }
 
-  /** The zone's picker: the file chosen, then the picker emptied so the
+  /** The button's picker: the file chosen, then the picker emptied so the
       same file can be picked again. */
   protected studyPicked(picker: HTMLInputElement): void {
     const file = picker.files?.[0];

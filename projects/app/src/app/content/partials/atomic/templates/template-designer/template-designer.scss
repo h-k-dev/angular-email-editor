@@ -16,6 +16,8 @@ $editor-min: 720px + 2 * 8px;
 $preview-min: 448px;
 
 :host {
+  // The import's drop hint fills the designer (`[drop-hint]`, absolute).
+  position: relative;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   block-size: 100%;
@@ -51,6 +53,13 @@ $preview-min: 448px;
 
 .designer-bar > [glassGroup]:not(:has(+ [glassGroup])) {
   margin-inline-end: 6px;
+}
+
+// The email import, while a file hangs over the designer: its glyph in the
+// primary on the primary's wash — where letting go lands.
+.designer-bar [data-drag-over] {
+  --mat-icon-button-icon-color: var(--mat-sys-primary);
+  background: color-mix(in srgb, var(--mat-sys-primary) 12%, transparent);
 }
 
 .designer-bar__title {
@@ -333,20 +342,7 @@ $preview-min: 448px;
 
 // The email to study: its zone, the files' own, and a line under it on the
 // ways in.
-.designer-study {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding-inline: var(--mat-sys-inner-spacing, 16px);
-}
-
-.designer-study__hint {
-  margin: 0;
-  color: var(--mat-sys-on-surface-variant);
-  font: var(--mat-sys-body-small);
-}
-
-// A drop zone, drawn (the files', the email's): a dashed box the whole
+// A drop zone, drawn (the files'): a dashed box the whole
 // width, the picker's button — an icon and its words in the middle, its
 // edge in the outline's ink (the outline-variant is all but the paper's
 // own), brighter under the pointer, in the primary while a file hangs over

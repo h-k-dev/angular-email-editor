@@ -242,7 +242,9 @@ export default {
     addAttachments: 'Add attachments',
     study: {
       zone: 'Open an email as the design',
-      hint: 'Drop an .eml here, pick one, or select this and paste it (Ctrl+V), raw text too. Undo puts the design back.',
+      hint: 'Pick an .eml — or drop one anywhere on the designer, or paste it (Ctrl+V), raw text too. Undo puts the design back.',
+      dropHeading: 'Drop to open this email as the design',
+      dropText: 'Its body, subject and files become the design — Undo puts the design back.',
     },
     layout: {
       title: 'Layout',

@@ -84,15 +84,22 @@ describe('TemplateDesigner desk (render)', () => {
     expect(el('.designer-details').scrollWidth).toBe(el('.designer-details').clientWidth);
   });
 
-  it('opens the details on the rows, no heading, the files on a drop zone, an email to study under them', async () => {
+  it('opens the details on the rows, no heading, the files on a drop zone — the email to study in the bar', async () => {
     await open(1600);
     expect(host().querySelectorAll('.designer-details h2')).toHaveLength(0);
     expect(el('.designer-details').firstElementChild!.hasAttribute('envelope-rows')).toBe(true);
     expect(el('.designer-files .designer-zone').tagName).toBe('BUTTON');
-    expect(el('.designer-study .designer-zone').tagName).toBe('BUTTON');
-    expect(el('.designer-study input[type="file"]').getAttribute('accept')).toBe(
-      '.eml,message/rfc822',
-    );
+    // The email to study is the bar's, between Revert and the gear, its
+    // picker for an .eml.
+    const picker = el('.designer-bar > input[type="file"]');
+    expect(picker.getAttribute('accept')).toBe('.eml,message/rfc822');
+    const study = picker.previousElementSibling!;
+    expect(study.getAttribute('aria-label')).toBe('Open an email as the design');
+    expect(study.previousElementSibling!.getAttribute('aria-label')).toBe('Revert to saved');
+    expect(picker.nextElementSibling!.tagName.toLowerCase()).toBe('message-settings-button');
+    expect(
+      host().querySelector('.designer-details input[type="file"][accept=".eml,message/rfc822"]'),
+    ).toBeNull();
   });
 
   it('labels To as From is, at rest too, on the same lines', async () => {
@@ -156,16 +163,16 @@ describe('TemplateDesigner desk (render)', () => {
     await settle();
     expect(host().getAttribute('data-preview')).toBe('docked');
 
-    // The column and the window's hairline either side.
+    // The column alone: the window has no outline of its own.
     key(el('.designer-divider--details'), 'End');
     await settle();
-    expect(width('.designer-canvas')).toBe(720 + 2);
+    expect(width('.designer-canvas')).toBe(720);
 
     key(el('.designer-divider--details'), 'Home');
     await settle();
     key(el('.designer-divider--preview'), 'End');
     await settle();
-    expect(width('.designer-canvas')).toBe(720 + 2);
+    expect(width('.designer-canvas')).toBe(720);
     expect(width('.designer-details')).toBe(320);
   });
 
@@ -195,7 +202,7 @@ describe('TemplateDesigner desk (render)', () => {
     }
   });
 
-  it('floats the details over the editor short of a wide desk, flush with its edge, raised off the email', async () => {
+  it('floats the details over the editor short of a wide desk, flush with its edge, edged off the email', async () => {
     // Room for the details beside the editor's least — but short of 1200.
     await open(1100);
     expect(host().getAttribute('data-details')).toBe('over');
@@ -204,7 +211,9 @@ describe('TemplateDesigner desk (render)', () => {
     expect(width('.designer-canvas')).toBe(1100 - 16);
     const details = getComputedStyle(el('.designer-details'));
     expect(details.position).toBe('absolute');
-    expect(details.boxShadow).not.toBe('none');
+    // One paper: no shadow, a hairline where they meet the editor.
+    expect(details.boxShadow).toBe('none');
+    expect(details.borderInlineStartWidth).toBe('1px');
     // As wide as they were dragged — the desk is their box, not their track
     // — and its whole height, flush with its edges.
     expect(width('.designer-details')).toBe(420);

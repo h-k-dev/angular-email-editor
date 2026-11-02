@@ -243,7 +243,9 @@ export default {
     addAttachments: 'Anhänge hinzufügen',
     study: {
       zone: 'E-Mail als Design öffnen',
-      hint: 'Eine .eml hier ablegen, auswählen oder dies markieren und einfügen (Strg+V), auch als Rohtext. Rückgängig holt das Design zurück.',
+      hint: 'Eine .eml auswählen – oder irgendwo im Designer ablegen oder einfügen (Strg+V), auch als Rohtext. Rückgängig holt das Design zurück.',
+      dropHeading: 'Ablegen, um diese E-Mail als Design zu öffnen',
+      dropText: 'Inhalt, Betreff und Anhänge werden das Design – Rückgängig holt das Design zurück.',
     },
     layout: {
       title: 'Layout',
