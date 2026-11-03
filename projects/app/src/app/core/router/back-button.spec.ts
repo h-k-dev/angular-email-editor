@@ -6,11 +6,16 @@ import { BackButton } from './back-button';
  * The next traversal, landed: jsdom's is asynchronous, like a browser's,
  * and on a busy runner it can take far longer than any fixed wait — so the
  * `popstate` itself is waited for (and a task after it, past the service's
- * own handler and any traversal that sets off). A press with nothing to
- * traverse fires none: `limit` ends that wait, and only that one.
+ * own handler and any traversal that sets off). A press or a release is
+ * told which it is: one that `lands` waits for its `popstate` as long as
+ * it takes — the cap only ends a wait failing anyway (a full run, busy,
+ * took over 500ms; a wait cut short there leaked its landing into the next
+ * spec) — and one with nothing to traverse waits a beat for none to come.
  */
-const traversal = (limit = 500) =>
+const traversal = (lands: boolean) =>
   new Promise<void>((resolve) => {
+    // Under the spec's own 5s timeout: a wait that runs out fails here.
+    const limit = lands ? 3000 : 300;
     const done = () => {
       clearTimeout(timer);
       window.removeEventListener('popstate', landed);
@@ -21,23 +26,24 @@ const traversal = (limit = 500) =>
     window.addEventListener('popstate', landed, { once: true });
   });
 
-/** A back press, landed. */
-const pressBack = async () => {
-  const landed = traversal();
+/** A back press, landed — or, `lands` false, one with no entry to go back
+    to. */
+const pressBack = async (lands = true) => {
+  const landed = traversal(lands);
   history.back();
   await landed;
 };
 
 /** The forward button, the same way. */
-const pressForward = async () => {
-  const landed = traversal();
+const pressForward = async (lands = true) => {
+  const landed = traversal(lands);
   history.forward();
   await landed;
 };
 
-/** Whatever traversal is on its way (a guard released, taking its entry
-    with it), landed — or none came. */
-const settle = () => traversal();
+/** The traversal a release sets off (a guard taking its entry with it),
+    landed — or, `lands` false, none: a guard that lapses quietly. */
+const settle = (lands = true) => traversal(lands);
 
 describe('BackButton', () => {
   let back: BackButton;
@@ -66,7 +72,7 @@ describe('BackButton', () => {
     await pressForward();
     await pressBack();
     expect(dismiss).toHaveBeenCalledOnce();
-    await pressBack();
+    await pressBack(false);
     expect(dismiss).toHaveBeenCalledOnce();
   });
 
@@ -97,7 +103,7 @@ describe('BackButton', () => {
     await settle();
     expect(history.state?.__backGuard).toBeUndefined();
 
-    await pressBack();
+    await pressBack(false);
     expect(dismiss).not.toHaveBeenCalled();
   });
 
@@ -121,11 +127,12 @@ describe('BackButton', () => {
     // The older one closed by itself while the newer is still up: its entry
     // cannot go yet, and must close nothing when it does.
     releaseFirst();
-    await settle();
+    await settle(false);
 
     await pressBack();
     expect(second).toHaveBeenCalledOnce();
-    await settle();
+    // Its turn came and went: nothing traverses for it.
+    await settle(false);
     expect(first).not.toHaveBeenCalled();
   });
 
