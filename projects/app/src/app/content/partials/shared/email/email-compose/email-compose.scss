@@ -326,33 +326,32 @@
   }
 }
 
-.email-compose__suggestion-title {
+// The row's words, stacked: the name, and the detail under it where there
+// is one. The column takes the row's room; each line is cut on its own.
+.email-compose__suggestion-text {
+  display: flex;
   flex: 1;
+  flex-direction: column;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-
-  // With a detail beside it: the name at its own width, up to most of the
-  // row, and the detail in what is left (below).
-  &:has(+ .email-compose__suggestion-detail) {
-    flex: 0 1 auto;
-    max-width: 70%;
-  }
 }
 
-// A merge tag's token, beside its label — or a snippet's words, cut short
-// where the row ends; at the row's end either way.
+.email-compose__suggestion-title,
 .email-compose__suggestion-detail {
-  flex: 1 1 0;
-  min-width: 0;
-  text-align: end;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  padding-inline-start: 16px;
+}
+
+// A merge tag's token, under its label — the second line.
+.email-compose__suggestion-detail {
   color: var(--mat-sys-on-surface-variant, #777777);
   font: var(--mat-sys-body-small, inherit);
+}
+
+// A row of two lines: its glyph on the first, as an avatar on a list line
+// (the glyph and the name's line are both 20px).
+[email-suggestion-menu-item]:has(.email-compose__suggestion-detail) {
+  --email-suggestion-menu-item-align: flex-start;
 }
 
 // A group opens a second level: the chevron says so.

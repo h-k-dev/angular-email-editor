@@ -1,12 +1,14 @@
 // A row of a suggestion menu. The host fills it (an icon, a title); the row
 // only lays it out and paints the highlight — one, which the keyboard and
 // the pointer both move, so there is no hover paint to disagree with it. Tokens are the menu's (--email-suggestion-menu-item-*), so one
-// place themes the pair.
+// place themes the pair. Its content is centred down the row; a host whose
+// rows run to two lines puts it at their top (`-align: flex-start`), its
+// glyph beside the first.
 
 :host {
   display: flex;
   flex: none;
-  align-items: center;
+  align-items: var(--email-suggestion-menu-item-align, center);
   gap: var(--email-suggestion-menu-item-gap, 8px);
   min-height: var(--email-suggestion-menu-item-height, 32px);
   padding-block: var(--email-suggestion-menu-item-padding-block, 6px);
