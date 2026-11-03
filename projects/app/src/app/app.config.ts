@@ -7,6 +7,7 @@ import { provideI18n } from '../i18n/loader';
 
 import { routes } from './app.routes';
 import { provideDialogDefaults } from './core/layout/dialogs';
+import { provideEveryScroll } from './core/layout/scrolling';
 import { PageScroller } from './core/router/page-scroller';
 import { Preferences } from './core/storages/preferences';
 import { provideCustomSwatches } from '@h-k-dev/angular-email-editor/swatches';
@@ -34,6 +35,10 @@ export const appConfig: ApplicationConfig = {
     // the stock backdrop where it has none. `{ blur: false }` turns the
     // blur off everywhere.
     provideDialogDefaults(),
+    // Every overlay hears a scroll in any of the app's panes, not the
+    // window's alone: a menu closes as what it stands over scrolls, a
+    // popover keeps to its trigger.
+    provideEveryScroll(),
     // Every tooltip waits a moment before it shows: a pointer passing over a
     // row of buttons on its way elsewhere raises none. Hiding stays
     // Material's.

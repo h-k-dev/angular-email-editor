@@ -29,6 +29,7 @@ import {
   ConnectedPosition,
   FlexibleConnectedPositionStrategy,
   OverlayModule,
+  createCloseScrollStrategy,
 } from '@angular/cdk/overlay';
 
 import { Router, RouterLink } from '@angular/router';
@@ -188,6 +189,10 @@ export class ToolbarMenu<V> {
   private readonly rowBoxes = viewChildren<ElementRef<HTMLElement>>('rowBox');
 
   readonly #injector = inject(Injector);
+
+  /** The menu goes as what it stands over scrolls — any pane, not the
+      window alone (`EveryScrollDispatcher`); its own list scrolls in it. */
+  protected readonly closeOnScroll = createCloseScrollStrategy(this.#injector);
 
   protected readonly positions = computed<ConnectedPosition[]>(() => {
     // Over the trigger, its top-left on the trigger's: the checked item is
