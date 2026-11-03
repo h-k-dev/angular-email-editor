@@ -17,6 +17,8 @@ import { emailExtensions } from './extensions/kits';
 import { emailDocument } from './email-document';
 import { EditorState } from 'prosemirror-state';
 import { convertAuthoredPageToStylesheet } from './authored-page';
+import { convertAuthoredBands } from './authored-band';
+import { STACK_RULE, markStackingColumns } from '@h-k-dev/dawn';
 
 import appointmentAlert from '../../../../app/public/examples/mjml/appointment-alert.html' with {
   loader: 'text',
@@ -280,3 +282,86 @@ describe('MJML examples render as authored after a paste', () => {
 });
 
 // --- The builder import: the same email in our own blocks --------------------
+
+/** An example with every MJML band turned into our sections and columns
+    (`convertAuthoredBands`, the band grip's card) — as sent: our columns
+    with the phone's rule that stacks them full width (Dawn's
+    `STACK_RULE`, which every sent email and preview carries). */
+function asSections(html: string): string {
+  let state = EditorState.create({ doc: parseHTML(formatHTML(html), schema) });
+  const converted = convertAuthoredBands()(state, (tr) => (state = state.apply(tr)));
+  expect(converted).toBe(true);
+  return markStackingColumns(serializeToHTML(state.doc, schema)).replace(
+    '</head>',
+    `<style type="text/css">${STACK_RULE}</style></head>`,
+  );
+}
+
+/** How far the converted email strays: its height, and the most any text
+    or image moved — paired in order, each the same text or image. */
+async function drift(source: string, result: string, width: number) {
+  const [a, b] = await renderBoth(source, result, width);
+  try {
+    const docA = a.contentDocument!;
+    const docB = b.contentDocument!;
+    const marksA = marksOf(docA).filter((mark) => mark.kind !== 'box');
+    const marksB = marksOf(docB).filter((mark) => mark.kind !== 'box');
+    let move = 0;
+    marksA.forEach((mark, i) => {
+      const other = marksB[i];
+      if (other?.id === mark.id) {
+        move = Math.max(move, Math.abs(mark.x - other.x), Math.abs(mark.y - other.y));
+      }
+    });
+    const height = (doc: Document) => Math.round(doc.body.getBoundingClientRect().height);
+    return {
+      height: Math.abs(height(docB) - height(docA)),
+      move,
+      same: marksA.length === marksB.length && marksA.every((mark, i) => marksB[i]?.id === mark.id),
+    };
+  } finally {
+    a.remove();
+    b.remove();
+  }
+}
+
+/** Close, not always the same: our columns stand at MJML's own widths
+    (`columnCap`), floored to the pixel — a column of a third a pixel
+    narrower — and a column of ours says no `font-size` or `text-align` of
+    MJML's, which a few content cells lean on. Measured: Racoon, Austin and
+    Card exact; Food Delivery 3px at 600px and 20px on a phone, Arturia
+    18px on a phone. */
+const CLOSE: Record<number, { height: number; move: number }> = {
+  600: { height: 4, move: 4 },
+  375: { height: 24, move: 24 },
+};
+
+/** Emails that lay out exactly as written once converted: every word and
+    image where it was, the height the same. (Their painted boxes differ,
+    not their pixels: MJML paints a band's fill on its div and its table,
+    ours once, and our band's cell the colour round it.) */
+const EXACT = new Set([
+  'appointment-alert',
+  'austin',
+  'card',
+  'happy-new-year',
+  'loyal-client',
+  'nya-cart',
+  'racoon',
+]);
+
+describe('MJML examples as our own sections and columns, close to the original', () => {
+  for (const [name, html] of Object.entries(EXAMPLES)) {
+    if (name === 'new-sign-in') continue;
+    for (const width of WIDTHS) {
+      it(`${name} at ${width}px`, { timeout: 30_000 }, async () => {
+        const { height, move, same } = await drift(html, asSections(html), width);
+        // Every word and image, in the same order.
+        expect(same).toBe(true);
+        const close = EXACT.has(name) ? { height: 0, move: 0 } : CLOSE[width];
+        expect(height).toBeLessThanOrEqual(close.height);
+        expect(move).toBeLessThanOrEqual(close.move);
+      });
+    }
+  }
+});

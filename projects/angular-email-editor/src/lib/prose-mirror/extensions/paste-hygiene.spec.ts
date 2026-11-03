@@ -3,6 +3,7 @@ import { sanitizePastedHTML } from './paste-hygiene';
 import { createEditor, Editor } from '../editor';
 import { emailExtensions } from './kits';
 import { pageLayoutOf } from './page-layout';
+import { authoredPageBands } from '../authored-page';
 
 /** A page of rows as the editor sends it (page-layout.ts): marked, with
     authored text styles and a hand-built table in its rows. */
@@ -88,6 +89,16 @@ describe('paste hygiene', () => {
     });
   });
 
+  describe("the clipboard's own wrapper", () => {
+    it("takes off Google Docs' guid wrapper, and no other bold", () => {
+      expect(
+        sanitizePastedHTML(
+          '<b style="font-weight:normal" id="docs-internal-guid-abc"><p>a <b>b</b></p></b>',
+        ),
+      ).toBe('<p>a <b>b</b></p>');
+    });
+  });
+
   describe('a paste reads as a load', () => {
     it('an email pasted over the empty document is the email loaded: its page and its markup', () => {
       const pasted = paste(PAGE);
@@ -97,6 +108,31 @@ describe('paste hygiene', () => {
       expect(pageLayoutOf(editor.state)).toEqual(pageLayoutOf(loaded.state));
       expect(pasted).toContain('letter-spacing:-2px');
       expect(pasted).toContain('<td style="padding:8px 0;border-top:1px solid #e4dccf;width:40%">');
+      loaded.destroy();
+    });
+
+    it('an email pasted over the whole document keeps its outermost wrapper, as a load does', () => {
+      // MJML's: the body's `role="article"` div round its bands, its fill.
+      const mjml = (globalThis as any).process
+        .getBuiltinModule('fs')
+        .readFileSync('projects/app/public/examples/mjml/racoon.html', 'utf8') as string;
+      mount('<div>replace me</div>');
+      editor.view.dispatch(
+        editor.state.tr.setSelection(
+          TextSelection.create(editor.state.doc, 1, editor.state.doc.content.size - 1),
+        ),
+      );
+      paste(mjml);
+      const loaded = createEditor({
+        parent: host,
+        extensions: emailExtensions,
+        content: sanitizePastedHTML(mjml),
+      });
+      expect(editor.state.doc.toJSON()).toEqual(loaded.state.doc.toJSON());
+      const wrapper = editor.state.doc.firstChild!;
+      expect(wrapper.attrs['attrs']).toContainEqual(['role', 'article']);
+      // Whole, the centred column it is stays offered (authored-page.ts).
+      expect(authoredPageBands(wrapper, editor.state.schema)?.shape).toBe('centred-bands');
       loaded.destroy();
     });
 

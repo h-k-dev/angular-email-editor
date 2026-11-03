@@ -61,7 +61,7 @@
         (itemSelected)="pick($event)"
         (keydown.escape)="leave()"
       >
-        @if (!page()) {
+        @if (!authored()) {
           <div ngMenuItem class="section-menu__item" value="color" [submenu]="colorMenu">
             <mat-icon>format_color_fill</mat-icon>
             <span>Color</span>
@@ -202,7 +202,7 @@
           </div>
         }
 
-        @if (!page()) {
+        @if (!authored()) {
           <div class="section-menu__separator" role="separator"></div>
         }
 
@@ -223,13 +223,25 @@
             page of ours it looks the same, and the page's width and colours become yours to set.
           </p>
           @if (centredAvailable()) {
-            <button
-              type="button"
-              class="section-menu__button section-menu__button--primary"
-              (click)="convertPageToCentred()"
-            >
-              <span>Convert to centred page</span>
-            </button>
+            <div class="section-menu__suggestion-actions">
+              <button
+                type="button"
+                class="section-menu__button section-menu__button--primary"
+                (click)="convertPageToCentred()"
+              >
+                <span>Convert to centred page</span>
+              </button>
+              <!-- Its MJML bands as sections, in the same step. -->
+              @if (bandsConvertible()) {
+                <button
+                  type="button"
+                  class="section-menu__button"
+                  (click)="convertPageToCentred(true)"
+                >
+                  <span>Convert page and bands</span>
+                </button>
+              }
+            </div>
           }
         </aside>
       } @else if (pageSuggested()?.shape === 'stylesheet-page') {
@@ -267,6 +279,55 @@
               <span>Convert to page of rows</span>
             </button>
           }
+        </aside>
+      } @else if (bandSuggested(); as band) {
+        <!-- An MJML band: the section and columns it stands for, or every
+             band at once; corners or a class of its own keep it as
+             written, its columns still offered. -->
+        <aside class="section-menu__suggestion" aria-labelledby="section-menu-suggestion">
+          <strong id="section-menu-suggestion">A band compiled by MJML</strong>
+          @if (band.convertible) {
+            <p>
+              @if (band.columns.length > 1) {
+                As a section of ours with {{ band.columns.length }} columns in it, it looks the
+                same; its colour, its room and its columns become yours to set, their content as
+                written.
+              } @else {
+                As a section of ours it looks the same; its colour and its room become yours to set,
+                its content as written.
+              }
+            </p>
+          } @else {
+            <p>
+              Its corners or a class of its own are more than a section says, so the band stays as
+              written. Its {{ band.columns.length }} columns can be columns of ours, their content
+              as written.
+            </p>
+          }
+          <div class="section-menu__suggestion-actions">
+            @if (band.convertible) {
+              <button
+                type="button"
+                class="section-menu__button section-menu__button--primary"
+                (click)="convertBand()"
+              >
+                <span>{{ band.columns.length > 1 ? bandColumnsLabel : bandLabel }}</span>
+              </button>
+              @if (bandsConvertible() > 1) {
+                <button type="button" class="section-menu__button" (click)="convertAllBands()">
+                  <span>Convert all {{ bandsConvertible() }} bands</span>
+                </button>
+              }
+            } @else if (band.columnsConvertible) {
+              <button
+                type="button"
+                class="section-menu__button section-menu__button--primary"
+                (click)="convertBandColumns()"
+              >
+                <span>Convert to columns</span>
+              </button>
+            }
+          </div>
         </aside>
       } @else if (pageSuggested()) {
         <aside class="section-menu__suggestion" aria-labelledby="section-menu-suggestion">

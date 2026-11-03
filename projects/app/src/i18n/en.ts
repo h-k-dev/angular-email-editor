@@ -547,6 +547,9 @@ export default {
     page: {
       options: 'Page options',
     },
+    band: {
+      options: 'Band options',
+    },
     table: {
       cellOptions: 'Cell options',
       rowOptions: 'Row {{number}} options',

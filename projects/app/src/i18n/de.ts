@@ -595,6 +595,9 @@ export default {
     page: {
       options: 'Seitenoptionen',
     },
+    band: {
+      options: 'Bandoptionen',
+    },
     table: {
       cellOptions: 'Zellenoptionen',
       rowOptions: 'Optionen für Zeile {{number}}',

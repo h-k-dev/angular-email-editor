@@ -729,6 +729,7 @@ export class EmailCompose implements FormValueControl<string> {
         label: () => this.i18n.t('editor.section.options'),
         spacerLabel: () => this.i18n.t('editor.spacer.options'),
         pageLabel: () => this.i18n.t('editor.page.options'),
+        bandLabel: () => this.i18n.t('editor.band.options'),
       }),
       // The kit's commands under `/`, and the stores' groups: a template
       // takes the body's place, a snippet joins the line at the caret.

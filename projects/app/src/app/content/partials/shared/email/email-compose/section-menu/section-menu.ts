@@ -40,7 +40,12 @@ import {
   SectionHandleTarget,
   findBandContext,
   findSectionContext,
+  authoredBand,
+  authoredBandPositions,
   authoredPageBands,
+  convertAuthoredBand,
+  convertAuthoredBands,
+  convertAuthoredColumns,
   convertAuthoredPage,
   convertAuthoredPageToCentred,
   convertAuthoredPageToStylesheet,
@@ -92,12 +97,15 @@ type SectionAction = string;
  *
  * A spacer's grip opens the same menu cut to Color and Remove — a filled
  * spacer is a strip — acting on the selected spacer; an authored page's
- * grip (a page edited by hand, recognised) opens it cut to Remove.
+ * grip (a page edited by hand, recognised) and an MJML band's open it cut
+ * to Remove.
  * Suggestions hang left of the menu as a card, never a row of it, and
  * convert only when taken: beside a band that holds nothing but room, the
  * one filled spacer it stands for (`spacerOfBand`, `bandToSpacer`); beside
  * an authored page, the strip and bands it stands for (`authoredPageBands`,
- * `convertAuthoredPage`).
+ * `convertAuthoredPage`); beside an MJML band, the section and columns it
+ * stands for (`authoredBand`, `convertAuthoredBand`) — or every band at
+ * once (`convertAuthoredBands`).
  */
 @Component({
   selector: 'div[section-menu]',
@@ -145,20 +153,26 @@ export class SectionMenu {
   protected readonly open = computed(() => !!this.target());
 
   /** Whose grip opened it: a band's, a spacer's (cut to its fill and
-      Remove) or an authored page's (Remove, and the suggestion beside). */
+      Remove), an authored page's or an MJML band's (Remove, and the
+      suggestion beside). */
   protected readonly kind = computed(() => this.target()?.kind ?? 'section');
   protected readonly spacer = computed(() => this.kind() === 'spacer');
   protected readonly page = computed(() => this.kind() === 'page');
+  /** Markup kept as written — a page's or an MJML band's: its menu is
+      Remove alone. */
+  protected readonly authored = computed(() => this.page() || this.kind() === 'band');
 
   protected readonly labels = {
     section: 'Section options',
     spacer: 'Spacer options',
     page: 'Page options',
+    band: 'Band options',
   } as const;
   protected readonly removeLabels = {
     section: 'Remove section',
     spacer: 'Remove spacer',
     page: 'Remove page',
+    band: 'Remove band',
   } as const;
 
   /** What the authored page whose grip opened the menu would be in our
@@ -212,6 +226,30 @@ export class SectionMenu {
     if (this.pageSuggested()?.shape !== 'centred-bands' || !state || pos === undefined)
       return false;
     return convertAuthoredPageToCentred(pos)(state);
+  });
+
+  /** What the MJML band whose grip opened the menu would be in our blocks
+      — the card beside suggests it — or null where it is no longer one. */
+  protected readonly bandSuggested = computed(() => {
+    const state = this.#state();
+    const pos = this.target()?.sectionPos;
+    if (this.kind() !== 'band' || !state || pos === undefined) return null;
+    const node = state.doc.nodeAt(pos);
+    return node ? authoredBand(node) : null;
+  });
+
+  /** The band card's button says what the band makes. */
+  protected readonly bandLabel = 'Convert to section';
+  protected readonly bandColumnsLabel = 'Convert to section and columns';
+
+  /** How many MJML bands of the email convert — the cards offer them all
+      at once where there is more than one. */
+  protected readonly bandsConvertible = computed(() => {
+    const state = this.#state();
+    if (!this.open() || !state) return 0;
+    return authoredBandPositions(state.doc).filter(
+      (pos) => authoredBand(state.doc.nodeAt(pos)!)?.convertible,
+    ).length;
   });
 
   /** The fill of the band the caret is in (or of the selected spacer), as
@@ -387,7 +425,7 @@ export class SectionMenu {
             return true;
           });
           this.#done();
-        } else if (this.page()) {
+        } else if (this.authored()) {
           const pos = this.target()?.sectionPos;
           this.#commands.editor()?.exec((state, dispatch) => {
             const node = pos === undefined ? null : state.doc.nodeAt(pos);
@@ -459,10 +497,35 @@ export class SectionMenu {
   }
 
   /** The centred column written band by band, as a centred page of ours —
-      the same look, one step. */
-  protected convertPageToCentred(): void {
+      the same look, one step; with `bands`, MJML's bands as sections too. */
+  protected convertPageToCentred(bands = false): void {
     const pos = this.target()?.sectionPos;
-    if (pos !== undefined) this.#commands.editor()?.exec(convertAuthoredPageToCentred(pos));
+    if (pos !== undefined) {
+      this.#commands.editor()?.exec(convertAuthoredPageToCentred(pos, { bands }));
+    }
+    this.#done();
+  }
+
+  /** The band card's Convert: the MJML band becomes the section (and the
+      columns) it stands for — one undo step. */
+  protected convertBand(): void {
+    const pos = this.target()?.sectionPos;
+    if (pos !== undefined) this.#commands.editor()?.exec(convertAuthoredBand(pos));
+    this.#done();
+  }
+
+  /** The band card's Convert to columns: the band kept as written, its
+      columns ours. */
+  protected convertBandColumns(): void {
+    const pos = this.target()?.sectionPos;
+    if (pos !== undefined) this.#commands.editor()?.exec(convertAuthoredColumns(pos));
+    this.#done();
+  }
+
+  /** The band card's Convert all: every MJML band of the email that
+      converts, in one step. */
+  protected convertAllBands(): void {
+    this.#commands.editor()?.exec(convertAuthoredBands());
     this.#done();
   }
 

@@ -4,6 +4,7 @@ import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import { FunctionalExtension, defineExtension } from '../extension';
 import { GripFactory, sectionHandlesKey } from './handle-grips';
 import { authoredPageBands } from '../authored-page';
+import { authoredBandPositions } from '../authored-band';
 import { layoutInteractive } from './layout-interaction';
 import { isBandRow } from './nodes/page-row';
 import { findBandContext } from './nodes/section';
@@ -14,8 +15,9 @@ import { selectedSpacer } from './nodes/spacer';
 export interface SectionHandleTarget {
   /** A band's grip, or a spacer's — whose menu is its fill and Remove — or
       an authored page's (a page edited by hand, recognised:
-      `authoredPageBands`), whose menu suggests our blocks for it. */
-  kind: 'section' | 'spacer' | 'page';
+      `authoredPageBands`), or an MJML band's (`authoredBand`), whose
+      menus suggest our blocks for them. */
+  kind: 'section' | 'spacer' | 'page' | 'band';
   /** The band's (the spacer's) position in the document. Read it again
       before acting: the press put the caret in the band — or selected the
       spacer — so the caret-relative commands (`setSectionBackground`,
@@ -35,6 +37,8 @@ export interface SectionHandlesOptions {
   spacerLabel?: () => string;
   /** What an authored page's grip says, the same way. */
   pageLabel?: () => string;
+  /** What an MJML band's grip says, the same way. */
+  bandLabel?: () => string;
 }
 
 /**
@@ -115,15 +119,18 @@ export const createSectionHandles = (options: SectionHandlesOptions): Functional
   // before the page (the host's `.aee-page-anchor`). A press leaves the
   // caret where it is: the menu's suggestion acts on the page's position.
   const pageLabel = options.pageLabel ?? (() => 'Page options');
-  const pageGrip = (view: EditorView, pos: number): HTMLElement => {
+  // An MJML band's grip: the same anchor, just before the band.
+  const bandLabel = options.bandLabel ?? (() => 'Band options');
+  const pageGrip = (view: EditorView, pos: number, kind: 'page' | 'band'): HTMLElement => {
     const anchor = document.createElement('div');
     anchor.className = 'aee-page-anchor';
     anchor.contentEditable = 'false';
     const el = document.createElement('span');
-    el.className = 'aee-grip aee-grip--column aee-grip--page';
+    el.className = `aee-grip aee-grip--column aee-grip--${kind}`;
+    const label = kind === 'page' ? pageLabel() : bandLabel();
     el.setAttribute('role', 'button');
-    el.setAttribute('aria-label', pageLabel());
-    el.setAttribute('title', pageLabel());
+    el.setAttribute('aria-label', label);
+    el.setAttribute('title', label);
     el.setAttribute('aria-haspopup', 'menu');
     el.appendChild(document.createElement('i'));
     el.addEventListener('mousedown', (event) => {
@@ -138,7 +145,7 @@ export const createSectionHandles = (options: SectionHandlesOptions): Functional
       view.dom.addEventListener('focus', () => el.setAttribute('aria-expanded', 'false'), {
         once: true,
       });
-      options.onOpen({ kind: 'page', sectionPos: pos, boundingBox: el.getBoundingClientRect() });
+      options.onOpen({ kind, sectionPos: pos, boundingBox: el.getBoundingClientRect() });
     });
     anchor.appendChild(el);
     return anchor;
@@ -202,13 +209,24 @@ export const createSectionHandles = (options: SectionHandlesOptions): Functional
             state.doc.forEach((node, pos) => {
               if (!authoredPageBands(node, state.schema, state.doc)) return;
               grips.push(
-                Decoration.widget(pos, (view) => pageGrip(view, pos), {
+                Decoration.widget(pos, (view) => pageGrip(view, pos, 'page'), {
                   key: `page-grip-${pos}`,
                   side: -1,
                   ignoreSelection: true,
                 }),
               );
             });
+            // An MJML band, recognised (`authoredBand`): its grip the same
+            // way, just before the band, wherever it stands.
+            for (const pos of authoredBandPositions(state.doc)) {
+              grips.push(
+                Decoration.widget(pos, (view) => pageGrip(view, pos, 'band'), {
+                  key: `band-grip-${pos}`,
+                  side: -1,
+                  ignoreSelection: true,
+                }),
+              );
+            }
             return grips.length ? DecorationSet.create(state.doc, grips) : null;
           },
         },

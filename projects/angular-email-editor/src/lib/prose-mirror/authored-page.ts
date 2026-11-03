@@ -1,5 +1,6 @@
 import { Node, Schema } from 'prosemirror-model';
 import { Command } from 'prosemirror-state';
+import { convertBands } from './authored-band';
 import { isFillTextColor } from './dual-contrast';
 import { isSafeColor, toEmailSafeColor } from './extensions/marks/text-style';
 import { pageRowStyle } from './extensions/nodes/page-row';
@@ -165,10 +166,15 @@ export function convertAuthoredPageToRows(pos: number): Command {
     page of ours (`centred` of {@link authoredPageBands}): the document's
     page layout set to the bands' width on the wrapper's colour, and each
     band's own centring taken off — the page's column centres them now, so
-    they follow its width. Everything else stays as written. One step,
-    undone as one. False where the node is not the pattern, the document has
-    a page layout already, or anything stands beside it. */
-export function convertAuthoredPageToCentred(pos: number): Command {
+    they follow its width. Everything else stays as written — unless
+    `bands` asks for MJML's bands as sections too (`convertBands`,
+    authored-band.ts), in the same step. One step, undone as one. False
+    where the node is not the pattern, the document has a page layout
+    already, or anything stands beside it. */
+export function convertAuthoredPageToCentred(
+  pos: number,
+  { bands = false }: { bands?: boolean } = {},
+): Command {
   return (state, dispatch) => {
     const node = state.doc.nodeAt(pos);
     const conversion = node ? authoredPageBands(node, state.schema) : null;
@@ -186,7 +192,9 @@ export function convertAuthoredPageToCentred(pos: number): Command {
           .filter(([name, value]) => name !== 'style' || value.trim());
         tr.setNodeMarkup(pos + 1 + offset, null, { ...band.attrs, attrs });
       });
-      dispatch(tr.setDocAttribute('pageLayout', conversion.centred.layout).scrollIntoView());
+      tr.setDocAttribute('pageLayout', conversion.centred.layout);
+      if (bands) convertBands(tr);
+      dispatch(tr.scrollIntoView());
     }
     return true;
   };
@@ -837,8 +845,13 @@ function centredBands(root: Element): AuthoredPageConversion | null {
 }
 
 /** A band's own centring: a `<div>` of `max-width: Npx` with auto side
-    margins — N, or null. */
+    margins — N, or null. A band already turned into a section of ours
+    (authored-band.ts) centres its content column instead. */
 function centredWidth(el: HTMLElement): number | null {
+  if (el instanceof HTMLTableElement && markedAs(el) === 'section') {
+    const column = el.rows[0]?.cells[0]?.firstElementChild;
+    return column instanceof HTMLElement ? centredWidth(column) : null;
+  }
   if (el.tagName !== 'DIV') return null;
   const style = declared(el);
   const width = /^(\d+(?:\.\d+)?)px$/i.exec(style.get('max-width') ?? '');

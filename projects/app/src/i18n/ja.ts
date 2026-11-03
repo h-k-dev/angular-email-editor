@@ -579,6 +579,9 @@ export default {
     page: {
       options: 'ページのオプション',
     },
+    band: {
+      options: 'バンドのオプション',
+    },
     table: {
       cellOptions: 'セルのオプション',
       rowOptions: '{{number}}行目のオプション',

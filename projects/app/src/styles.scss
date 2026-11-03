@@ -516,8 +516,11 @@ html {
     padding-block-end: var(--_page-inset);
   }
 
-  // A band pulls out over the column's inset onto its edges.
-  > .aee-section {
+  // A band pulls out over the column's inset onto its edges — one inside a
+  // wrapper kept as written too (a converted MJML page's `role="article"`
+  // div), never over the column's.
+  > .aee-section,
+  [data-aee-unknown] > .aee-section {
     margin-inline: calc(-1 * var(--_page-inset));
   }
 
@@ -626,7 +629,8 @@ section[email-compose][data-scroll='host']
     padding-block-end: 0;
   }
 
-  > .aee-section {
+  > .aee-section,
+  [data-aee-unknown] > .aee-section {
     --aee-page-band-inset: var(--_page-inset);
   }
 
@@ -1662,14 +1666,15 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
 /* An authored page's grip (a page edited by hand, recognised —
  * createSectionHandles): a block of no height just before the page, the
  * grip centred on the page's top edge — revealed by the page under the
- * pointer, and while its menu is up. */
+ * pointer, and while its menu is up. An MJML band's grip (`authoredBand`)
+ * the same, on the band's top edge. */
 .aee-editor .aee-page-anchor {
   position: relative;
   block-size: 0;
 }
 
-.aee-editor .aee-page-anchor:is(:hover, :has(+ :hover)) > .aee-grip--page,
-.aee-editor .aee-grip--page[aria-expanded='true'] {
+.aee-editor .aee-page-anchor:is(:hover, :has(+ :hover)) > :is(.aee-grip--page, .aee-grip--band),
+.aee-editor :is(.aee-grip--page, .aee-grip--band)[aria-expanded='true'] {
   opacity: 1;
   pointer-events: auto;
 }

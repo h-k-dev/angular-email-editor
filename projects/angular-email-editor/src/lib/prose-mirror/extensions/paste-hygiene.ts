@@ -1,4 +1,4 @@
-import { Slice } from 'prosemirror-model';
+import { Fragment, Node, Slice } from 'prosemirror-model';
 import { EditorState, Plugin, PluginKey, Selection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { defineExtension } from '../extension';
@@ -21,9 +21,10 @@ const STRIP_TAGS = new Set(['style', 'script', 'xml', 'meta', 'link', 'title', '
  *   which would paste literal bullet characters into the text.
  *
  * The clipboard's own wrapping goes with it: a browser puts every copy in an
- * `<html>` of its own, which is no head the email asked for, and Windows'
+ * `<html>` of its own, which is no head the email asked for, Windows'
  * between `<!--StartFragment-->` and `<!--EndFragment-->`, which the email
- * would keep as comments.
+ * would keep as comments, and Google Docs' in a `<b id="docs-internal-guid-…">`
+ * round all of it, which the parse would keep as a wrapper of the words.
  */
 export function sanitizePastedHTML(html: string): string {
   const body = new DOMParser().parseFromString(html, 'text/html').body;
@@ -47,6 +48,9 @@ export function sanitizePastedHTML(html: string): string {
     if (/^(?:Start|End)Fragment$/.test(comment.data.trim())) fragmentMarks.push(comment);
   }
   for (const mark of fragmentMarks) mark.remove();
+  for (const wrapper of Array.from(body.querySelectorAll('b[id^="docs-internal-guid-"]'))) {
+    wrapper.replaceWith(...Array.from(wrapper.childNodes));
+  }
 
   return body.innerHTML;
 }
@@ -56,6 +60,30 @@ export function sanitizePastedHTML(html: string): string {
 function takesWholeDocument(state: EditorState): boolean {
   const { doc, selection } = state;
   return selection.from <= Selection.atStart(doc).from && selection.to >= Selection.atEnd(doc).to;
+}
+
+/** Markup kept as written (preserve.ts) that holds content of its own. */
+const KEPT = new Set(['htmlElement', 'htmlTextElement']);
+
+/** Pasted blocks, open at their edges as far as ours go — a pasted line's
+    words join the line at the caret — and never through markup kept as
+    written: opened, an element would lose its tag and every attribute of
+    it (an email's `role="article"` wrapper, its fill), and nothing the
+    parse keeps is dropped. */
+function openThroughOurs(content: Fragment): Slice {
+  const depth = (edge: (parent: Fragment) => Node | null) => {
+    let open = 0;
+    for (let node = edge(content); node; node = edge(node.content)) {
+      if (node.isLeaf || KEPT.has(node.type.name)) break;
+      open++;
+    }
+    return open;
+  };
+  return new Slice(
+    content,
+    depth((parent) => parent.firstChild),
+    depth((parent) => parent.lastChild),
+  );
 }
 
 /** What every paste goes through, parsed here or not: the plugins'
@@ -74,7 +102,10 @@ function pasted(view: EditorView, slice: Slice): Slice {
  * merge tags pills), and what is pasted in renders as what was copied.
  *
  * A page pasted over the whole document brings its layout along (as a
- * load does); pasted into the text, its blocks come without it.
+ * load does); pasted into the text, its blocks come without it. Either
+ * way a pasted line's words join the line at the caret, and markup kept as
+ * written comes whole — an email's outermost wrapper too
+ * (`openThroughOurs`).
  *
  * The editor's own copy carries its slice's open depths (`data-pm-slice`):
  * ProseMirror's paste reads those, through the same parser.
@@ -102,7 +133,7 @@ export const PasteHygiene = defineExtension({
                     pasted(view, new Slice(doc.content, 0, 0)).content,
                   )
                   .setDocAttribute('pageLayout', layout)
-              : state.tr.replaceSelection(pasted(view, Slice.maxOpen(doc.content)));
+              : state.tr.replaceSelection(pasted(view, openThroughOurs(doc.content)));
           view.dispatch(tr.scrollIntoView().setMeta('paste', true).setMeta('uiEvent', 'paste'));
           return true;
         },
