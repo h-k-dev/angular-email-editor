@@ -14,7 +14,8 @@ import {
   isPending,
 } from '@h-k-dev/angular-email-editor/address';
 
-/** The error kinds `addressList` reports, for a host that switches on them. */
+/** The error kinds `addressList` and `addressText` report, for a host that
+    switches on them. */
 export const ADDRESS_LIST_EMPTY = 'addressList.empty';
 export const ADDRESS_LIST_INVALID = 'addressList.invalid';
 export const ADDRESS_LIST_TOO_MANY = 'addressList.tooMany';
@@ -71,11 +72,49 @@ export function addressList<TPathKind extends PathKind = PathKind.Root>(
   path: SchemaPath<string[], SchemaPathRules.Supported, TPathKind>,
   options: AddressListOptions = {},
 ): void {
-  const { min = 1, max = Infinity } = options;
+  const judge = listJudge({ ...options, min: options.min ?? 1 });
+  validate(path, ({ value }) => judge(value()));
+}
+
+/**
+ * `addressList` for a field that keeps its addresses as ONE string — a plain
+ * text input, or a contact's `email` the backend stores as text: `Ada
+ * Lovelace <ada@x.io>`, or several, `Ada <ada@x.io>, bob@x.io`. The string
+ * is split by the rule's own `split` (so `,` `;` and line breaks separate,
+ * a comma inside a quoted name does not) and judged as the list.
+ *
+ * An empty string is an empty list, and `min` is 0 here unless told
+ * otherwise — clearing an optional field stays a clear. `max: 1` makes it a
+ * single-mailbox field that still takes a display name.
+ *
+ * ```ts
+ * const contact = form(model, (p) => {
+ *   addressText(p.email);
+ *   addressText(p.replyTo, { max: 1 });
+ * });
+ * ```
+ *
+ * Same errors as `addressList`: the `ADDRESS_LIST_*` kinds, the offenders
+ * named in the message.
+ */
+export function addressText<TPathKind extends PathKind = PathKind.Root>(
+  path: SchemaPath<string, SchemaPathRules.Supported, TPathKind>,
+  options: AddressListOptions = {},
+): void {
+  const rules = options.rules ?? rulesInForce();
+  const judge = listJudge({ ...options, min: options.min ?? 0, rules });
+  validate(path, ({ value }) => judge(rules.split(value() ?? '')));
+}
+
+/** The verdict both rules give a list, with their options settled once,
+    where the schema runs. */
+function listJudge(
+  options: AddressListOptions & { readonly min: number },
+): (addresses: readonly string[]) => ValidationError[] | null {
+  const { min, max = Infinity } = options;
   const messages = { ...MESSAGES, ...options.messages };
   const rules = options.rules ?? rulesInForce();
-  validate(path, ({ value }) => {
-    const addresses = value();
+  return (addresses) => {
     const errors: ValidationError[] = [];
     if (addresses.length < min) {
       errors.push({ kind: ADDRESS_LIST_EMPTY, message: messages.empty(min) });
@@ -90,7 +129,7 @@ export function addressList<TPathKind extends PathKind = PathKind.Root>(
       errors.push({ kind: ADDRESS_LIST_TOO_MANY, message: messages.tooMany(max) });
     }
     return errors.length ? errors : null;
-  });
+  };
 }
 
 /** The rule provided where the schema runs — the form's injection context,

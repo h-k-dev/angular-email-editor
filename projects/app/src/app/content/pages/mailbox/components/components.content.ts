@@ -22,7 +22,7 @@ export const COMPONENT_CONTENT: Readonly<Record<string, ComponentPage>> = {
   'address-input': {
     title: 'Address input',
     lede: 'A recipients field: chips for the addresses, one text input after the last. A signal-forms control over `string[]`, validated by `addressList`.',
-    exports: ['AddressInput', 'addressList', 'AddressInputLabel', 'AddressDragGroup'],
+    exports: ['AddressInput', 'addressList', 'addressText', 'AddressInputLabel', 'AddressDragGroup'],
     points: [
       'The control is the control alone — the row and its label are the host’s, as for a plain `<input>`; name it with `aria-labelledby` or the `emailAddressLabel` slot.',
       'Enter, comma and paste make chips of valid addresses; the rest stays typed and flagged. Blur commits everything, so the form can flag it.',

@@ -553,6 +553,15 @@ export const API_SECTIONS: readonly ApiSection[] = [
         signature: '(path, { min?, max?, rules?, messages? }) => void',
         summary: 'The signal-forms rule for an address field.',
       },
+      {
+        id: 'address-text',
+        name: 'addressText',
+        from: `${LIB}/address-input`,
+        signature: '(path, { min?, max?, rules?, messages? }) => void',
+        summary:
+          'addressList for a field that keeps its addresses as one string — `Ada <ada@x.io>, bob@x.io` in a plain text input.',
+        notes: ['split by the rule in force; min is 0, so an empty field passes; max: 1 for one mailbox'],
+      },
     ],
   },
   {
