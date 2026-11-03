@@ -179,6 +179,7 @@ export default {
     delete: 'Löschen',
     close: 'Schließen',
     deleted: 'Termin gelöscht',
+    deletedMany: '{{count}} Termine gelöscht',
     cut: 'Ausschneiden',
     copy: 'Kopieren',
     paste: 'Einfügen',

@@ -65,7 +65,7 @@
             [attr.data-event-id]="chip.event.id"
             [shape]="chip.shape"
             [untitled]="untitled()"
-            [current]="chip.event.id === currentId()"
+            [current]="!!currentIds()[chip.event.id]"
             [lifted]="chip.lifted"
             [cutBefore]="chip.before"
             [cutAfter]="chip.after"
@@ -76,6 +76,18 @@
           ></button>
         }
       </div>
+    }
+    <!-- A marquee (Shift and a drag): the box, at its place in the strip;
+         the events it covers light up as it goes. -->
+    @if (marqueeBox(); as box) {
+      <div
+        class="month-grid__marquee"
+        [style.left.px]="box.left"
+        [style.top.px]="box.top"
+        [style.width.px]="box.width"
+        [style.height.px]="box.height"
+        aria-hidden="true"
+      ></div>
     }
   </div>
 </div>

@@ -36,6 +36,16 @@ const TRIP: CalendarEvent = {
   description: '',
 };
 
+/** A holiday's day: read-only — selected all the same. */
+const HOLIDAY: CalendarEvent = {
+  ...TRIP,
+  id: 'holiday',
+  title: 'Holiday',
+  start: '2026-10-15T00:00',
+  end: '2026-10-16T00:00',
+  readonly: true,
+};
+
 @Component({
   imports: [MonthGrid],
   template: `
@@ -49,6 +59,8 @@ const TRIP: CalendarEvent = {
         (create)="created.push($event.draft)"
         (change)="changed.push($event)"
         (rangeChange)="follow($event)"
+        (selectMany)="many.push($event)"
+        (selectToggle)="toggled.push($event)"
       />
     </div>
   `,
@@ -58,9 +70,11 @@ class Host {
   readonly day = signal(DateTime.fromISO('2026-10-14'));
   readonly month = () => isoDay(this.day());
   readonly weeks = () => monthWeeks(this.day(), 7);
-  readonly events = [LUNCH, TRIP];
+  readonly events = [LUNCH, TRIP, HOLIDAY];
   readonly created: CalendarEventDraft[] = [];
   readonly changed: CalendarEvent[] = [];
+  readonly many: (readonly string[])[] = [];
+  readonly toggled: string[] = [];
   /** Where the strip scrolled to, and when. */
   readonly ranges: { day: IsoDay; at: number }[] = [];
 
@@ -124,6 +138,22 @@ describe('MonthGrid (render) — the strip', () => {
     await fixture.whenStable();
     await frame();
   };
+
+  const chip = (id: string) => root().querySelector<HTMLElement>(`[data-event-id="${id}"]`)!;
+  const shifted = (target: Element, type: string, x: number, y: number) =>
+    target.dispatchEvent(
+      new PointerEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        pointerId: 1,
+        pointerType: 'mouse',
+        shiftKey: true,
+        button: type === 'pointermove' ? -1 : 0,
+        buttons: type === 'pointerup' ? 0 : 1,
+        clientX: x,
+        clientY: y,
+      }),
+    );
 
   beforeEach(async () => {
     TestBed.configureTestingModule({ providers: [provideTranslateService()] });
@@ -243,6 +273,39 @@ describe('MonthGrid (render) — the strip', () => {
     const times = host().ranges.map(({ at }) => at);
     expect(times.slice(1).every((at, i) => at - times[i] >= 700)).toBe(true);
     expect(problems).toEqual([]);
+  });
+
+  it('selects the events a Shift drag covers, lit as it goes — the box where it was drawn', async () => {
+    const from = cell('2026-10-13').getBoundingClientRect();
+    const to = cell('2026-10-15').getBoundingClientRect();
+    shifted(cell('2026-10-13'), 'pointerdown', from.left + 10, from.top + 10);
+    shifted(grid(), 'pointermove', to.right - 10, to.bottom - 10);
+    await settle(50);
+
+    expect(chip('lunch').getAttribute('aria-current')).toBe('true');
+    // A holiday too: selected, never changed.
+    expect(chip('holiday').getAttribute('aria-current')).toBe('true');
+    expect(chip('trip').getAttribute('aria-current')).toBeNull();
+    const box = root().querySelector<HTMLElement>('.month-grid__marquee')!.getBoundingClientRect();
+    expect(Math.round(box.top)).toBe(Math.round(from.top + 10));
+    expect(Math.round(box.left)).toBe(Math.round(from.left + 10));
+    // Nothing marked out: a marquee makes no event.
+    expect(root().querySelector('.month-grid__cell--marked')).toBeNull();
+
+    shifted(grid(), 'pointerup', to.right - 10, to.bottom - 10);
+    await settle(50);
+    expect(host().many.map((ids) => [...ids].sort())).toEqual([['holiday', 'lunch']]);
+    expect(host().created).toEqual([]);
+    expect(root().querySelector('.month-grid__marquee')).toBeNull();
+  });
+
+  it('toggles an event pressed with Shift, never dragged', async () => {
+    const at = chip('lunch').getBoundingClientRect();
+    shifted(chip('lunch'), 'pointerdown', at.left + 10, at.top + 5);
+    shifted(grid(), 'pointerup', at.left + 10, at.top + 5);
+    await settle(50);
+    expect(host().toggled).toEqual(['lunch']);
+    expect(host().changed).toEqual([]);
   });
 
   it('turns nothing for a bar carried along the first week, right under its top', async () => {

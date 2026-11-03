@@ -1,10 +1,13 @@
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { Router, provideRouter, withComponentInputBinding } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 
 import { CalendarEvent } from '../../../../core/calendar/calendar-event';
+import { CalendarEvents } from '../../../../core/calendar/calendar-events';
 import { CALENDAR_FEED_LATENCY } from '../../../../core/calendar/calendar-feed';
 import { HOLIDAY_SOURCE } from '../../../../core/calendar/holidays';
+import { TimeGrid } from '../../../partials/atomic/calendar/time-grid/time-grid';
 import { CALENDAR_ROUTES } from './calendar.routes';
 
 const KEY = 'angular-email-editor:calendar-events';
@@ -73,6 +76,50 @@ describe('CalendarPage — the events’ context menu', () => {
   });
 
   afterEach(() => localStorage.removeItem(KEY));
+
+  it('deletes what a marquee selected, all at once — one undo brings them all back', async () => {
+    const tea: CalendarEvent = {
+      ...COFFEE,
+      id: 'tea',
+      title: 'Tea',
+      start: '2026-10-29T15:00',
+      end: '2026-10-29T16:00',
+    };
+    TestBed.inject(CalendarEvents).save(tea);
+    await harness.navigateByUrl('/calendar/r/week/2026/10/27');
+    await settle();
+    const grid = harness.fixture.debugElement.query(By.directive(TimeGrid))
+      .componentInstance as TimeGrid;
+    grid.selectMany.emit(['coffee', 'tea']);
+    await settle();
+    const current = () =>
+      [...root.querySelectorAll('[aria-current="true"][data-event-id]')]
+        .map((one) => one.getAttribute('data-event-id'))
+        .sort();
+    expect(current()).toEqual(['coffee', 'tea']);
+
+    await press(document.body, 'Delete');
+    expect(stored()).toEqual([]);
+    const said = document.querySelector('.mat-mdc-snack-bar-container')!;
+    expect(said.textContent).toContain('2 events deleted');
+    said.querySelector<HTMLButtonElement>('button')!.click();
+    await settle();
+    expect(
+      stored()
+        .map((event) => event.id)
+        .sort(),
+    ).toEqual(['coffee', 'tea']);
+  });
+
+  it('lets go of a marquee’s selection with Escape', async () => {
+    const grid = harness.fixture.debugElement.query(By.directive(TimeGrid))
+      .componentInstance as TimeGrid;
+    grid.selectMany.emit(['coffee']);
+    await settle();
+    expect(chip().getAttribute('aria-current')).toBe('true');
+    await press(document.body, 'Escape');
+    expect(chip().getAttribute('aria-current')).toBeNull();
+  });
 
   it('pages with the arrow keys, at once — but not where the mini month steers with them', async () => {
     const router = TestBed.inject(Router);

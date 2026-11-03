@@ -92,7 +92,7 @@
           [month]="page().month"
           [events]="events()"
           [draft]="edit()"
-          [selected]="selectedId()"
+          [selected]="selection()"
           [today]="today()"
           [untitled]="untitled()"
           (create)="created($event)"
@@ -102,6 +102,8 @@
           (dayOpen)="openDay($event)"
           (rangeChange)="follow($event)"
           (windowChange)="fetch($event)"
+          (selectMany)="selectMany($event)"
+          (selectToggle)="toggleSelected($event)"
         />
       }
     } @else if (page().layout === 'year') {
@@ -130,7 +132,7 @@
         [weekends]="stripWeekends()"
         [events]="events()"
         [draft]="edit()"
-        [selected]="selectedId()"
+        [selected]="selection()"
         [today]="today()"
         [now]="now()"
         [untitled]="untitled()"
@@ -143,6 +145,8 @@
         (dayOpen)="openDay($event)"
         (rangeChange)="follow($event)"
         (windowChange)="fetch($event)"
+        (selectMany)="selectMany($event)"
+        (selectToggle)="toggleSelected($event)"
       />
     }
   </div>

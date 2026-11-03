@@ -643,7 +643,7 @@ export class CalendarPage {
       already gives way to it, the title taking focus back; the next mark
       is a press away, Notion's. */
   protected created({ draft, rect }: GridCreate): void {
-    this.selectedId.set(null);
+    this.#select(null);
     this.#write(draft, rect, true);
     afterNextRender(() => this.quickTitle()?.focus(), { injector: this.#injector });
   }
@@ -680,19 +680,70 @@ export class CalendarPage {
   /** The event pressed last — selected (`aria-current` on its chip),
       whether or not its card is open. */
   protected readonly selectedId = signal<string | null>(null);
+  /** The events a marquee (Shift and a drag) selected, or Shift presses
+      added — while there are, the one pressed last is none. */
+  readonly #selectedMany = signal<readonly string[]>([]);
+  /** Every event selected: the grids light them (`aria-current`). */
+  protected readonly selection = computed(() => {
+    const many = this.#selectedMany();
+    const one = this.selectedId();
+    return many.length ? many : one ? [one] : [];
+  });
+
+  /** One event selected — or none: whatever a marquee selected goes. */
+  #select(id: string | null): void {
+    this.#selectedMany.set([]);
+    this.selectedId.set(id);
+  }
+
+  /** A marquee let go: the events it covered, selected — what is open
+      closes. */
+  protected selectMany(ids: readonly string[]): void {
+    this.closeCard();
+    this.selectedId.set(null);
+    this.#selectedMany.set(ids);
+  }
+
+  /** An event pressed with Shift: added to the selection, or taken out. */
+  protected toggleSelected(id: string): void {
+    this.closeCard();
+    const now = this.selection();
+    this.selectedId.set(null);
+    this.#selectedMany.set(now.includes(id) ? now.filter((one) => one !== id) : [...now, id]);
+  }
+
+  /** The events selected deleted, all at once — with a moment to take
+      them all back. A holiday among them stays. */
+  #removeSelected(): void {
+    const gone = this.selection()
+      .map((id) => this.#store.byId().get(id))
+      .filter((event): event is CalendarEvent => !!event && !event.readonly);
+    this.#select(null);
+    if (!gone.length) return;
+    if (gone.length === 1) return this.#remove(gone[0].id, 'calendar.deleted');
+    for (const event of gone) this.#store.remove(event.id);
+    this.#snackBar
+      .open(
+        this.#i18n.t('calendar.deletedMany', { count: gone.length }),
+        this.#i18n.t('calendar.undo'),
+        { duration: 4000 },
+      )
+      .onAction()
+      .subscribe(() => gone.forEach((event) => this.#store.save(event)));
+  }
 
   /** An event pressed: selected — no card any more, whatever is open
       closes. It is written from its menu's Edit (`#editEvent`). */
   protected opened({ id }: GridOpen): void {
     this.closeCard();
-    this.selectedId.set(id);
+    this.#select(id);
   }
 
   /** Empty room pressed once: what is open closes, nothing stays
       selected. */
   protected dismissed(): void {
     this.closeCard();
-    this.selectedId.set(null);
+    this.#select(null);
   }
 
   /** The menu's Edit: the event written in the card, hung from its head
@@ -706,7 +757,7 @@ export class CalendarPage {
     this.#shownId.set(null);
     this.#quick.set(false);
     if (chip) this.anchor.set(headOf(chip));
-    this.selectedId.set(event.id);
+    this.#select(event.id);
     this.edit.set({ ...event });
   }
 
@@ -780,7 +831,8 @@ export class CalendarPage {
       take it back; its card goes with it. */
   #remove(id: string, said: string): void {
     if (this.#shownId() === id || this.edit()?.id === id) this.closeCard();
-    if (this.selectedId() === id) this.selectedId.set(null);
+    if (this.selectedId() === id) this.#select(null);
+    this.#selectedMany.update((many) => many.filter((one) => one !== id));
     const gone = this.#store.remove(id);
     if (!gone) return;
     this.#snackBar
@@ -862,7 +914,7 @@ export class CalendarPage {
       const pressed = this.#eventById(chip.dataset['eventId'] ?? '');
       if (!pressed) return;
       event.preventDefault();
-      this.selectedId.set(pressed.id);
+      this.#select(pressed.id);
       return this.#openMenu(at, { event: pressed }, chip);
     }
     const slot = this.timeGrid()?.slotAt(event) ?? this.monthGrid()?.slotAt(event);
@@ -1062,15 +1114,32 @@ export class CalendarPage {
     ) {
       return;
     }
+    // Many selected (a marquee's): Delete takes them all.
+    if (
+      this.#selectedMany().length &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey &&
+      (event.key === 'Delete' || event.key === 'Backspace')
+    ) {
+      event.preventDefault();
+      this.#removeSelected();
+      return;
+    }
     if (this.#shortcut(event)) {
       event.preventDefault();
       return;
     }
     if (event.ctrlKey || event.metaKey || event.altKey) return;
-    // Escape with nothing open lets go of the selected event.
-    if (event.key === 'Escape' && !this.cardOpen() && !this.quickOpen() && this.selectedId()) {
+    // Escape with nothing open lets go of what is selected.
+    if (
+      event.key === 'Escape' &&
+      !this.cardOpen() &&
+      !this.quickOpen() &&
+      this.selection().length
+    ) {
       event.preventDefault();
-      this.selectedId.set(null);
+      this.#select(null);
       return;
     }
     if (this.cardOpen() || this.quickOpen()) {

@@ -296,6 +296,21 @@
   touch-action: none;
 }
 
+// A marquee's box: the app's one selection wash — the editor's marquee's —
+// over the events, under the gutter that holds still.
+.time-grid__marquee {
+  position: absolute;
+  z-index: 5;
+  border-radius: 4px;
+  background: var(--email-selection-wash);
+  pointer-events: none;
+}
+
+// Its part over the band: the band's whole height.
+.time-grid__marquee--band {
+  inset-block: 0;
+}
+
 // The quarter hour under the pointer: where a press would mark from, in
 // the hour lines' own ink.
 .time-grid__hover {

@@ -45,9 +45,11 @@ import {
   EdgeTurns,
   TURN_ZONE,
   GridCreate,
+  GridMarquee,
   GridOpen,
   GridWindow,
   boxOf,
+  marqueeBox,
   GridSlot,
   headOf,
 } from '../calendar-grid';
@@ -140,12 +142,17 @@ export class MonthGrid {
   readonly month = input<IsoDay | null>(null);
   readonly events = input.required<readonly CalendarEvent[]>();
   readonly draft = input<EventEdit | null>(null);
-  /** The event pressed last — selected, its card open or not. */
-  readonly selected = input<string | null>(null);
-  /** The event whose chip is `current` (`aria-current`): the stored one
-      being written, else the one selected. Never the mark — a new event's
-      room, drawn as itself. */
-  protected readonly currentId = computed(() => this.draft()?.id ?? this.selected());
+  /** The events selected — the one pressed last, or a marquee's. */
+  readonly selected = input<readonly string[]>([]);
+  /** The events whose chips are `current` (`aria-current`), by id: the
+      stored one being written, else those selected. Never the mark — a new
+      event's room, drawn as itself. */
+  protected readonly currentIds = computed<Readonly<Record<string, true>>>(() => {
+    const marquee = this.#marquee();
+    const draft = this.draft()?.id;
+    const ids = marquee?.moved ? this.#marqueeHits() : draft ? [draft] : this.selected();
+    return Object.fromEntries(ids.map((id) => [id, true as const]));
+  });
   readonly today = input.required<IsoDay>();
   readonly untitled = input('');
 
@@ -156,6 +163,10 @@ export class MonthGrid {
   /** A day's empty room pressed once, without a drag: nothing made — what
       is open closes. */
   readonly dismiss = output<void>();
+  /** A marquee let go: the events it covered, selected. */
+  readonly selectMany = output<readonly string[]>();
+  /** An event pressed with Shift, not dragged: in the selection, or out. */
+  readonly selectToggle = output<string>();
   /** Scrolled to another month (its first day) — or, a run of weeks, to
       another first week (its first day): where the page now is. */
   readonly rangeChange = output<IsoDay>();
@@ -171,7 +182,47 @@ export class MonthGrid {
   #edgeFrame = 0;
 
   readonly #drag = signal<Drag | null>(null);
-  protected readonly dragging = computed(() => !!this.#drag()?.moved);
+  /** A marquee over the weeks (`GridMarquee`: px across, down from the
+      strip's first week). */
+  readonly #marquee = signal<GridMarquee | null>(null);
+  protected readonly dragging = computed(() => !!this.#drag()?.moved || !!this.#marquee()?.moved);
+
+  /** The marquee's box, in the strip's room — once it was dragged. */
+  protected readonly marqueeBox = computed(() => marqueeBox(this.#marquee()));
+
+  /** The events the marquee covers: their chips by the numbers a row lays
+      them out by — its index × the row's height, the date's line, a lane's
+      22px 2px apart, their days across — never measured. A holiday too
+      (selected, never changed: a delete passes it by); not what hides
+      behind "+2 more". */
+  readonly #marqueeHits = computed(() => {
+    const box = this.marqueeBox();
+    const width = this.#width();
+    if (!box || !width) return [];
+    const column = width / this.#offsets().length;
+    const height = this.rowHeight();
+    const right = box.left + box.width;
+    const bottom = box.top + box.height;
+    const hits = new Set<string>();
+    for (const row of this.rows()) {
+      for (const chip of row.chips) {
+        const left = chip.from * column;
+        const top = row.key * height + 1 + DATE_LINE + 2 + (chip.row - 2) * LANE;
+        if (
+          left < right &&
+          left + chip.span * column > box.left &&
+          top < bottom &&
+          top + LANE - 2 > box.top
+        ) {
+          hits.add(chip.event.id);
+        }
+      }
+    }
+    return [...hits];
+  });
+
+  /** The strip's room across, px (its scrollbar left out). */
+  readonly #width = signal(0);
   #swallowClick = false;
 
   // ─── The strip ──────────────────────────────────────────────────────
@@ -372,7 +423,10 @@ export class MonthGrid {
     afterNextRender({
       read: () => {
         const scroller = this.scrollerEl().nativeElement;
-        const observer = new ResizeObserver(() => this.#height.set(scroller.clientHeight));
+        const observer = new ResizeObserver(() => {
+          this.#height.set(scroller.clientHeight);
+          this.#width.set(scroller.clientWidth);
+        });
         observer.observe(scroller);
         this.#destroyRef.onDestroy(() => observer.disconnect());
       },
@@ -449,7 +503,13 @@ export class MonthGrid {
   /** A press on a day's empty room: a new all-day event's mark begins
       there — that day, or every day the drag goes over. */
   protected pressDay(event: PointerEvent, day: IsoDay): void {
-    if (event.button !== 0 || event.target !== event.currentTarget) return;
+    if (event.button !== 0) return;
+    // With Shift, a marquee — begun already where an event was pressed.
+    if (event.shiftKey) {
+      if (!this.#marquee()) this.#beginMarquee(event, null);
+      return;
+    }
+    if (event.target !== event.currentTarget) return;
     this.#turns.reset();
     if (event.pointerType !== 'touch') {
       this.#host.setPointerCapture(event.pointerId);
@@ -471,6 +531,9 @@ export class MonthGrid {
 
   protected pressEvent(event: PointerEvent, shown: CalendarEvent, day: IsoDay): void {
     if (event.button !== 0) return;
+    // With Shift: a marquee from here — or, never dragged, this one in the
+    // selection or out.
+    if (event.shiftKey) return this.#beginMarquee(event, shown.id);
     // A holiday (read-only) opens on its click; it never moves.
     if (event.pointerType === 'touch' || shown.readonly) return;
     const stored = this.events().find((one) => one.id === shown.id);
@@ -554,9 +617,44 @@ export class MonthGrid {
     return movedTo(drag.stored, eventSpan(drag.stored).start.plus({ days: shift }));
   }
 
+  /** A point in the strip's room: px across from its start, down from its
+      first week — a point past the strip's room on its edge. */
+  #stripPoint(at: { clientX: number; clientY: number }): { x: number; y: number } {
+    const box = this.#box();
+    const scrollTop = this.scrollerEl().nativeElement.scrollTop;
+    return {
+      x: Math.min(box.width, Math.max(0, at.clientX - box.left)),
+      y: Math.min(box.height, Math.max(0, at.clientY - box.top)) + scrollTop,
+    };
+  }
+
+  /** A Shift press on the weeks — on an event too (`toggles`): a marquee
+      begins there. */
+  #beginMarquee(event: PointerEvent, toggles: string | null): void {
+    if (event.pointerType === 'touch') return;
+    this.#host.setPointerCapture(event.pointerId);
+    event.preventDefault();
+    this.#turns.reset();
+    const at = this.#stripPoint(event);
+    this.#marquee.set({
+      pointer: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      moved: false,
+      from: at,
+      to: at,
+      toggles,
+    });
+  }
+
   /** What is dragged, to the day nearest the pointer — after the strip
-      moved under a pointer that did not. */
+      moved under a pointer that did not; a marquee, to where it is now. */
   #follow(): void {
+    const marquee = this.#marquee();
+    if (marquee?.moved && this.#pointerAt) {
+      this.#marquee.set({ ...marquee, to: this.#stripPoint(this.#pointerAt) });
+      return;
+    }
     const drag = this.#drag();
     const at = this.#pointerAt;
     if (!drag?.moved || !at) return;
@@ -599,7 +697,7 @@ export class MonthGrid {
     this.#edgeFrame = 0;
     const drag = this.#drag();
     const at = this.#pointerAt;
-    if (!drag?.moved || !at) return this.#turns.reset();
+    if (!(drag?.moved || this.#marquee()?.moved) || !at) return this.#turns.reset();
     const box = this.#box();
     const bottom = box.top + box.height;
     const side = at.clientY < box.top ? -1 : at.clientY > bottom - TURN_ZONE ? 1 : 0;
@@ -611,6 +709,20 @@ export class MonthGrid {
   }
 
   protected move(event: PointerEvent): void {
+    const marquee = this.#marquee();
+    if (marquee) {
+      if (marquee.pointer !== event.pointerId) return;
+      const moved =
+        marquee.moved ||
+        Math.hypot(event.clientX - marquee.x, event.clientY - marquee.y) > DRAG_THRESHOLD;
+      if (!moved) return;
+      this.#marquee.set({ ...marquee, moved, to: this.#stripPoint(event) });
+      this.#pointerAt = { clientX: event.clientX, clientY: event.clientY };
+      if (!this.#edgeFrame) {
+        this.#edgeFrame = requestAnimationFrame((time) => this.#edgeStep(time));
+      }
+      return;
+    }
     const drag = this.#drag();
     if (!drag || drag.pointer !== event.pointerId) return;
     const moved =
@@ -627,6 +739,18 @@ export class MonthGrid {
   }
 
   protected release(event: PointerEvent): void {
+    const marquee = this.#marquee();
+    if (marquee && marquee.pointer === event.pointerId) {
+      // Read before it goes: the events it covered.
+      const hits = this.#marqueeHits();
+      this.#marquee.set(null);
+      this.#pointerAt = null;
+      this.#swallowClick = true;
+      setTimeout(() => (this.#swallowClick = false));
+      if (marquee.moved) this.selectMany.emit(hits);
+      else if (marquee.toggles) this.selectToggle.emit(marquee.toggles);
+      return;
+    }
     const drag = this.#drag();
     if (!drag || drag.pointer !== event.pointerId) return;
     this.#drag.set(null);
@@ -660,6 +784,7 @@ export class MonthGrid {
 
   protected cancel(): void {
     this.#drag.set(null);
+    this.#marquee.set(null);
     this.#pointerAt = null;
   }
 

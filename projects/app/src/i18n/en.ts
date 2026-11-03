@@ -178,6 +178,7 @@ export default {
     delete: 'Delete',
     close: 'Close',
     deleted: 'Event deleted',
+    deletedMany: '{{count}} events deleted',
     cut: 'Cut',
     copy: 'Copy',
     paste: 'Paste',

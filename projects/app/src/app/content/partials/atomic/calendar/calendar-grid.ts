@@ -28,6 +28,41 @@ export interface GridWindow {
   to: IsoDay;
 }
 
+/** A marquee (Shift and a drag), Notion's: where it was pressed and where
+    the pointer is, in a strip's own room (px from its first day across,
+    from its top down) — it stays where it was drawn while the strip
+    scrolls under it. A Shift press on an event that never moves toggles
+    that event (`toggles`). An end over the hours' band of all-day events
+    (`band`, which holds still over them) takes in the band. */
+export interface GridMarquee {
+  pointer: number;
+  x: number;
+  y: number;
+  moved: boolean;
+  from: GridMarqueePoint;
+  to: GridMarqueePoint;
+  toggles: string | null;
+}
+
+/** An end of a marquee, in its strip's room. */
+export interface GridMarqueePoint {
+  x: number;
+  y: number;
+  band?: boolean;
+}
+
+/** A marquee's box, in its strip's room. */
+export function marqueeBox(marquee: GridMarquee | null) {
+  if (!marquee?.moved) return null;
+  const { from, to } = marquee;
+  return {
+    left: Math.min(from.x, to.x),
+    top: Math.min(from.y, to.y),
+    width: Math.abs(to.x - from.x),
+    height: Math.abs(to.y - from.y),
+  };
+}
+
 /** A place in a grid to put an event: a day at a minute of it, or the
     whole day (`null` — the all-day band, a month's cell). */
 export interface GridSlot {

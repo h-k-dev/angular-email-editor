@@ -54,6 +54,8 @@ import {
   pressedEmptyOrMark,
   GridOpen,
   GridSlot,
+  GridMarquee,
+  GridMarqueePoint,
   GridWindow,
   boxOf,
   headOf,
@@ -164,12 +166,18 @@ export class TimeGrid {
   readonly events = input.required<readonly CalendarEvent[]>();
   /** The event being written, shown where it will be. */
   readonly draft = input<EventEdit | null>(null);
-  /** The event pressed last — selected, its card open or not. */
-  readonly selected = input<string | null>(null);
-  /** The event whose chip is `current` (`aria-current`): the stored one
-      being written, else the one selected. Never the mark — a new event's
-      room, drawn as itself. */
-  protected readonly currentId = computed(() => this.draft()?.id ?? this.selected());
+  /** The events selected — the one pressed last, or a marquee's. */
+  readonly selected = input<readonly string[]>([]);
+  /** The events whose chips are `current` (`aria-current`), by id: the
+      stored one being written, else those selected — while a marquee is
+      drawn, those it covers. Never the mark — a new event's room, drawn as
+      itself. */
+  protected readonly currentIds = computed<Readonly<Record<string, true>>>(() => {
+    const marquee = this.#marquee();
+    const draft = this.draft()?.id;
+    const ids = marquee?.moved ? this.#marqueeHits() : draft ? [draft] : this.selected();
+    return Object.fromEntries(ids.map((id) => [id, true as const]));
+  });
   readonly today = input.required<IsoDay>();
   readonly now = input.required<DateTime>();
   readonly untitled = input('');
@@ -187,6 +195,10 @@ export class TimeGrid {
   /** Empty room pressed once, without a drag: nothing made — what is open
       closes. */
   readonly dismiss = output<void>();
+  /** A marquee let go: the events it covered, selected. */
+  readonly selectMany = output<readonly string[]>();
+  /** An event pressed with Shift, not dragged: in the selection, or out. */
+  readonly selectToggle = output<string>();
   /** Scrolled to another interval: its first day — where the page now is. */
   readonly rangeChange = output<IsoDay>();
   /** The days drawn now, first to last — what the feed is asked for. */
@@ -202,7 +214,10 @@ export class TimeGrid {
   private readonly gutterEl = viewChild.required<ElementRef<HTMLElement>>('gutter');
 
   readonly #drag = signal<Drag | null>(null);
-  protected readonly dragging = computed(() => !!this.#drag()?.moved);
+  /** A marquee over the hours (`GridMarquee`: px across from the strip's
+      first day, down from midnight). */
+  readonly #marquee = signal<GridMarquee | null>(null);
+  protected readonly dragging = computed(() => !!this.#drag()?.moved || !!this.#marquee()?.moved);
   /** Where the dragging pointer is: held at the hours' top or foot, they
       scroll on under it; at the days' start or end, the strip slides
       (`#edgeStep`). */
@@ -465,7 +480,73 @@ export class TimeGrid {
   });
 
   /** The quarter hour line under the mouse: its day and minute. */
-  protected readonly hoverLine = computed(() => (this.#drag() ? null : this.#hover()));
+  protected readonly hoverLine = computed(() =>
+    this.#drag() || this.#marquee() ? null : this.#hover(),
+  );
+
+  /** The marquee's box, in the strip's room — once it was dragged. */
+  /** The marquee's boxes, in the strip's room — once it was dragged. The
+      band holds still over the hours, so a marquee with an end over it is
+      two boxes: the band's days across (`band`), and the hours from the
+      first in view (`hours`, none with both ends over the band). */
+  protected readonly marqueeBox = computed(() => {
+    const marquee = this.#marquee();
+    if (!marquee?.moved) return null;
+    const { from, to } = marquee;
+    const firstInView = this.scrollTop() ?? 0;
+    const y = (point: GridMarqueePoint) => (point.band ? firstInView : point.y);
+    return {
+      left: Math.min(from.x, to.x),
+      width: Math.abs(to.x - from.x),
+      band: !!(from.band || to.band),
+      hours:
+        from.band && to.band
+          ? null
+          : { top: Math.min(y(from), y(to)), height: Math.abs(y(to) - y(from)) },
+    };
+  });
+
+  /** The events the marquee covers: their blocks in the hours, their bars
+      in the band, by the numbers they are laid out by (the column's day,
+      its share of it, minutes × the hour's height; a bar's days) — never
+      measured. The mark is none of them. */
+  readonly #marqueeHits = computed(() => {
+    const box = this.marqueeBox();
+    const width = this.columnWidth();
+    if (!box || !width) return [];
+    const { from } = this.window();
+    const right = box.left + box.width;
+    const hits = new Set<string>();
+    const hours = box.hours;
+    if (hours) {
+      const bottom = hours.top + hours.height;
+      this.columns().forEach((column, i) => {
+        for (const one of column.events) {
+          if (one.mark) continue;
+          const share = (width - 8) / one.columns;
+          const left = (from + i) * width + one.column * share;
+          const top = (one.top / 60) * HOUR_HEIGHT;
+          const height = (one.length / 60) * HOUR_HEIGHT;
+          if (
+            left < right &&
+            left + share - 2 > box.left &&
+            top < bottom &&
+            top + height > hours.top
+          ) {
+            hits.add(one.event.id);
+          }
+        }
+      });
+    }
+    if (box.band) {
+      for (const bar of this.band().bars) {
+        if (bar.mark) continue;
+        const left = (from + bar.from) * width;
+        if (left < right && left + bar.span * width > box.left) hits.add(bar.event.id);
+      }
+    }
+    return [...hits];
+  });
 
   constructor() {
     this.#destroyRef.onDestroy(() => {
@@ -533,6 +614,40 @@ export class TimeGrid {
   #jump(left: number): void {
     this.scroller().nativeElement.scrollLeft = left;
     this.#scrollLeft.set(left);
+  }
+
+  /** A point in the strip's room: px across from its first day — a point
+      past the days in view on the edge's — and down from midnight. */
+  #stripPoint(at: { clientX: number; clientY: number }): GridMarqueePoint {
+    const box = this.columnsEl().nativeElement.getBoundingClientRect();
+    const view = this.#daysInView();
+    const x = view ? Math.min(view.right - 1, Math.max(view.left, at.clientX)) : at.clientX;
+    return {
+      x: x - box.left + this.window().from * this.columnWidth(),
+      y:
+        Math.min(DAY_MINUTES / 60, Math.max(0, (at.clientY - box.top) / HOUR_HEIGHT)) * HOUR_HEIGHT,
+      // Over the band — or above it: past the hours' first in view.
+      band: at.clientY < this.topEl().nativeElement.getBoundingClientRect().bottom,
+    };
+  }
+
+  /** A Shift press on the hours — on an event too (`toggles`): a marquee
+      begins there. */
+  #beginMarquee(event: PointerEvent, toggles: string | null): void {
+    if (event.pointerType === 'touch') return;
+    this.columnsEl().nativeElement.setPointerCapture(event.pointerId);
+    event.preventDefault();
+    this.#turns.reset();
+    const at = this.#stripPoint(event);
+    this.#marquee.set({
+      pointer: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      moved: false,
+      from: at,
+      to: at,
+      toggles,
+    });
   }
 
   protected scrolled(): void {
@@ -632,9 +747,16 @@ export class TimeGrid {
     return atMinute(parseDay(this.shownDays()[day])!, minute);
   }
 
-  /** A press on an empty hour: a new event's mark begins at its quarter. */
+  /** A press on an empty hour: a new event's mark begins at its quarter —
+      with Shift, a marquee. */
   protected pressHours(event: PointerEvent): void {
-    if (event.button !== 0 || !pressedEmptyOrMark(event)) return;
+    if (event.button !== 0) return;
+    if (event.shiftKey) {
+      // Begun already where an event was pressed under it.
+      if (!this.#marquee()) this.#beginMarquee(event, null);
+      return;
+    }
+    if (!pressedEmptyOrMark(event)) return;
     const { day, minute } = this.#at(event);
     const anchor = Math.min(DAY_MINUTES - SNAP, Math.floor(minute / SNAP) * SNAP);
     this.#begin(event, {
@@ -665,6 +787,9 @@ export class TimeGrid {
     // The mark is room still being chosen: a press in it marks out anew
     // (the hours', the band's own press), it is not picked up.
     if (event.button !== 0 || event.pointerType === 'touch' || shown.id === DRAFT_ID) return;
+    // With Shift: a marquee from here — or, never dragged, this one in the
+    // selection or out.
+    if (event.shiftKey) return this.#beginMarquee(event, shown.id);
     const source = this.#source(shown);
     // A holiday opens on its click; it never moves.
     if (!source || source.readonly) return;
@@ -682,7 +807,7 @@ export class TimeGrid {
 
   /** A press on an event's foot (or the mark's): a drag stretches it. */
   protected pressFoot(event: PointerEvent, shown: CalendarEvent): void {
-    if (event.button !== 0) return;
+    if (event.button !== 0 || event.shiftKey) return;
     const source = this.#source(shown);
     if (!source || source.readonly) return;
     event.stopPropagation();
@@ -715,6 +840,21 @@ export class TimeGrid {
   }
 
   protected move(event: PointerEvent): void {
+    const marquee = this.#marquee();
+    if (marquee) {
+      if (marquee.pointer !== event.pointerId) return;
+      const moved =
+        marquee.moved ||
+        Math.hypot(event.clientX - marquee.x, event.clientY - marquee.y) > DRAG_THRESHOLD;
+      if (!moved) return;
+      this.#marquee.set({ ...marquee, moved, to: this.#stripPoint(event) });
+      this.#pointerAt = { clientX: event.clientX, clientY: event.clientY };
+      if (!this.#edgeFrame) {
+        this.#edgeTime = performance.now();
+        this.#edgeFrame = requestAnimationFrame((time) => this.#edgeStep(time));
+      }
+      return;
+    }
     const drag = this.#drag();
     if (!drag) {
       if (event.pointerType === 'mouse') this.#hoverAt(event);
@@ -741,6 +881,11 @@ export class TimeGrid {
   /** What is dragged, to what is under the pointer now — the strip or the
       hours moved under a pointer that did not. */
   #follow(): void {
+    const marquee = this.#marquee();
+    if (marquee?.moved && this.#pointerAt) {
+      this.#marquee.set({ ...marquee, to: this.#stripPoint(this.#pointerAt) });
+      return;
+    }
     const drag = this.#drag();
     const at = this.#pointerAt;
     if (!drag?.moved || !at) return;
@@ -761,15 +906,18 @@ export class TimeGrid {
   #edgeStep(time: number): void {
     this.#edgeFrame = 0;
     const drag = this.#drag();
+    const marquee = this.#marquee();
     const at = this.#pointerAt;
-    if (!drag?.moved || !at) {
+    if (!(drag?.moved || marquee?.moved) || !at) {
       this.#turns.reset();
       return;
     }
     // By the time gone, at most a slow frame's: as fast at any frame rate.
     const seconds = Math.min(time - this.#edgeTime, 50) / 1000;
     this.#edgeTime = time;
-    const scrolling = drag.kind !== 'days' && this.#scrollStep(at, seconds);
+    // The hours scroll for a drag in them — not one over the band (whole
+    // days), nor a marquee's end over it, taking in the band's events.
+    const scrolling = drag?.kind !== 'days' && !marquee?.to.band && this.#scrollStep(at, seconds);
     const turning = this.#turnStep(at, time);
     if (!scrolling && !turning) return;
     this.#follow();
@@ -879,6 +1027,18 @@ export class TimeGrid {
   }
 
   protected release(event: PointerEvent): void {
+    const marquee = this.#marquee();
+    if (marquee && marquee.pointer === event.pointerId) {
+      // Read before it goes: the events it covered.
+      const hits = this.#marqueeHits();
+      this.#marquee.set(null);
+      this.#pointerAt = null;
+      this.#swallowClick = true;
+      setTimeout(() => (this.#swallowClick = false));
+      if (marquee.moved) this.selectMany.emit(hits);
+      else if (marquee.toggles) this.selectToggle.emit(marquee.toggles);
+      return;
+    }
     const drag = this.#drag();
     if (!drag || drag.pointer !== event.pointerId) return;
     this.#drag.set(null);
@@ -924,14 +1084,16 @@ export class TimeGrid {
 
   protected cancel(): void {
     this.#drag.set(null);
+    this.#marquee.set(null);
     this.#pointerAt = null;
   }
 
   /** Escape lets go of a drag where it began — and is spent on it. */
   protected escape(event: Event): void {
-    if (!this.#drag()) return;
+    if (!this.#drag() && !this.#marquee()) return;
     event.preventDefault();
     this.#drag.set(null);
+    this.#marquee.set(null);
     this.#pointerAt = null;
   }
 
@@ -947,7 +1109,15 @@ export class TimeGrid {
 
   /** A press on the band: an all-day event that day. */
   protected pressBand(event: PointerEvent): void {
-    if (event.button !== 0 || !pressedEmptyOrMark(event)) return;
+    if (event.button !== 0) return;
+    // With Shift, a marquee from here — or, on a bar never dragged, that
+    // event in the selection or out.
+    if (event.shiftKey) {
+      const bar = (event.target as Element).closest<HTMLElement>('[data-event-id]');
+      const id = bar?.dataset['eventId'];
+      return this.#beginMarquee(event, id && id !== DRAFT_ID ? id : null);
+    }
+    if (!pressedEmptyOrMark(event)) return;
     // The band's days line up with the hours' columns: the same tracks.
     const { day } = this.#at(event);
     if (event.pointerType !== 'touch') {

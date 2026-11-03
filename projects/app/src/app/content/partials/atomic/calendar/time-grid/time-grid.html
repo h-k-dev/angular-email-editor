@@ -61,7 +61,7 @@
                 shape="bar"
                 [untitled]="untitled()"
                 [mark]="bar.mark"
-                [current]="bar.event.id === currentId()"
+                [current]="!!currentIds()[bar.event.id]"
                 [lifted]="bar.lifted"
                 [cutBefore]="bar.before"
                 [cutAfter]="bar.after"
@@ -71,6 +71,17 @@
               ></button>
             }
           </div>
+          <!-- A marquee with an end over the band: the band's part of it. -->
+          @if (marqueeBox(); as box) {
+            @if (box.band) {
+              <div
+                class="time-grid__marquee time-grid__marquee--band"
+                [style.left.px]="box.left"
+                [style.width.px]="box.width"
+                aria-hidden="true"
+              ></div>
+            }
+          }
         </div>
       </div>
     </div>
@@ -134,7 +145,7 @@
                     shape="block"
                     [untitled]="untitled()"
                     [mark]="one.mark"
-                    [current]="one.event.id === currentId()"
+                    [current]="!!currentIds()[one.event.id]"
                     [lifted]="one.lifted"
                     [style.--event-chip-lines]="one.lines"
                     (pointerdown)="pressEvent($event, one.event)"
@@ -163,6 +174,20 @@
             ></div>
           }
         </div>
+        <!-- A marquee (Shift and a drag): the box, at its place in the
+             strip; the events it covers light up as it goes. -->
+        @if (marqueeBox(); as box) {
+          @if (box.hours; as hours) {
+            <div
+              class="time-grid__marquee"
+              [style.left.px]="box.left"
+              [style.top.px]="hours.top"
+              [style.width.px]="box.width"
+              [style.height.px]="hours.height"
+              aria-hidden="true"
+            ></div>
+          }
+        }
       </div>
     </div>
   </div>

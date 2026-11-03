@@ -56,6 +56,16 @@
   position: relative;
 }
 
+// A marquee's box: the app's one selection wash — the editor's marquee's —
+// over the weeks.
+.month-grid__marquee {
+  position: absolute;
+  z-index: 2;
+  border-radius: 4px;
+  background: var(--email-selection-wash);
+  pointer-events: none;
+}
+
 .month-grid__week {
   position: absolute;
   inset-inline: 0;

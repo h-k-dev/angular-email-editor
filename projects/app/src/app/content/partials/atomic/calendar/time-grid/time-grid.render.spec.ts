@@ -32,6 +32,32 @@ const LUNCH: CalendarEvent = {
   description: '',
 };
 
+/** Tea the day after, a little later; dinner that evening, apart. */
+const TEA: CalendarEvent = {
+  ...LUNCH,
+  id: 'tea',
+  title: 'Tea',
+  start: '2026-10-29T13:30',
+  end: '2026-10-29T14:30',
+};
+const DINNER: CalendarEvent = {
+  ...LUNCH,
+  id: 'dinner',
+  title: 'Dinner',
+  start: '2026-10-29T19:00',
+  end: '2026-10-29T20:00',
+};
+
+/** A fair all Thursday: a bar in the band. */
+const FAIR: CalendarEvent = {
+  ...LUNCH,
+  id: 'fair',
+  title: 'Fair',
+  allDay: true,
+  start: '2026-10-29T00:00',
+  end: '2026-10-30T00:00',
+};
+
 @Component({
   imports: [TimeGrid],
   template: `
@@ -47,19 +73,23 @@ const LUNCH: CalendarEvent = {
         (change)="changed.push($event)"
         (rangeChange)="follow($event)"
         (windowChange)="windows.push($event)"
+        (selectMany)="many.push($event)"
+        (selectToggle)="toggled.push($event)"
       />
     </div>
   `,
 })
 class Host {
   readonly days = signal(week('2026-10-25'));
-  readonly events = [LUNCH];
+  readonly events = [LUNCH, TEA, DINNER, FAIR];
   readonly now = DateTime.fromISO('2026-10-25T08:00');
   /** Noon at the top: room to scroll both ways. */
   readonly scrollTop = signal<number | null>(12 * 48);
   readonly created: CalendarEventDraft[] = [];
   readonly changed: CalendarEvent[] = [];
   readonly windows: GridWindow[] = [];
+  readonly many: (readonly string[])[] = [];
+  readonly toggled: string[] = [];
   /** Where the strip slid to, and when. */
   readonly ranges: { day: IsoDay; at: number }[] = [];
 
@@ -116,6 +146,22 @@ describe('TimeGrid (render) — the strip', () => {
         cancelable: true,
         pointerId: 1,
         pointerType: 'mouse',
+        button: type === 'pointermove' ? -1 : 0,
+        buttons: type === 'pointerup' ? 0 : 1,
+        clientX: x,
+        clientY: y,
+      }),
+    );
+
+  const chip = (id: string) => root().querySelector<HTMLElement>(`[data-event-id="${id}"]`)!;
+  const shifted = (target: Element, type: string, x: number, y: number) =>
+    target.dispatchEvent(
+      new PointerEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        pointerId: 1,
+        pointerType: 'mouse',
+        shiftKey: true,
         button: type === 'pointermove' ? -1 : 0,
         buttons: type === 'pointerup' ? 0 : 1,
         clientX: x,
@@ -188,6 +234,79 @@ describe('TimeGrid (render) — the strip', () => {
     pointer(columns(), 'pointermove', dayX(1), y + 60);
     pointer(columns(), 'pointerup', dayX(1), y + 60);
     expect(host().created.length).toBe(1);
+  });
+
+  it('selects the events a Shift drag covers — across days, lit as it goes — and draws its box', async () => {
+    const lunch = chip('lunch').getBoundingClientRect();
+    const tea = chip('tea').getBoundingClientRect();
+    shifted(day('2026-10-28'), 'pointerdown', dayX(3), lunch.top - 20);
+    shifted(columns(), 'pointermove', dayX(4), tea.bottom + 10);
+    await settle(50);
+
+    expect(chip('lunch').getAttribute('aria-current')).toBe('true');
+    expect(chip('tea').getAttribute('aria-current')).toBe('true');
+    expect(chip('dinner').getAttribute('aria-current')).toBeNull();
+    const box = root().querySelector<HTMLElement>('.time-grid__marquee')!.getBoundingClientRect();
+    expect(Math.round(box.top)).toBe(Math.round(lunch.top - 20));
+    expect(Math.round(box.bottom)).toBe(Math.round(tea.bottom + 10));
+    // Nothing marked out: a marquee makes no event.
+    expect(root().querySelector('[data-event-id="draft"]')).toBeNull();
+
+    shifted(columns(), 'pointerup', dayX(4), tea.bottom + 10);
+    await settle(50);
+    expect(host().many.map((ids) => [...ids].sort())).toEqual([['lunch', 'tea']]);
+    expect(host().created).toEqual([]);
+    expect(root().querySelector('.time-grid__marquee')).toBeNull();
+  });
+
+  it('takes in the band when a Shift drag goes up over it — and the hours up to the first in view', async () => {
+    const lunch = chip('lunch').getBoundingClientRect();
+    const fair = chip('fair').getBoundingClientRect();
+    shifted(day('2026-10-28'), 'pointerdown', dayX(3), lunch.bottom + 20);
+    shifted(columns(), 'pointermove', dayX(4), fair.top + 5);
+    await settle(50);
+
+    for (const id of ['fair', 'lunch', 'tea']) {
+      expect(chip(id).getAttribute('aria-current')).toBe('true');
+    }
+    expect(chip('dinner').getAttribute('aria-current')).toBeNull();
+    // Two boxes: the band's, the band's whole height; the hours', from the
+    // first in view down to where it was pressed.
+    const band = root().querySelector<HTMLElement>('.time-grid__marquee--band')!;
+    const bandRow = root().querySelector<HTMLElement>('.time-grid__band')!.getBoundingClientRect();
+    expect(Math.round(band.getBoundingClientRect().height)).toBeGreaterThanOrEqual(
+      Math.round(bandRow.height),
+    );
+    const hours = root()
+      .querySelector<HTMLElement>('.time-grid__marquee:not(.time-grid__marquee--band)')!
+      .getBoundingClientRect();
+    expect(Math.round(hours.top)).toBe(Math.round(view().top));
+    expect(Math.round(hours.bottom)).toBe(Math.round(lunch.bottom + 20));
+
+    shifted(columns(), 'pointerup', dayX(4), fair.top + 5);
+    await settle(50);
+    expect(host().many.map((ids) => [...ids].sort())).toEqual([['fair', 'lunch', 'tea']]);
+  });
+
+  it('toggles a bar in the band pressed with Shift, never dragged', async () => {
+    const fair = chip('fair').getBoundingClientRect();
+    shifted(chip('fair'), 'pointerdown', fair.left + 10, fair.top + 5);
+    shifted(columns(), 'pointerup', fair.left + 10, fair.top + 5);
+    await settle(50);
+    expect(host().toggled).toEqual(['fair']);
+    expect(host().created).toEqual([]);
+  });
+
+  it('toggles an event pressed with Shift, never dragged', async () => {
+    const lunch = chip('lunch').getBoundingClientRect();
+    const x = lunch.left + 10;
+    const y = lunch.top + 10;
+    shifted(chip('lunch'), 'pointerdown', x, y);
+    shifted(columns(), 'pointerup', x, y);
+    await settle(50);
+    expect(host().toggled).toEqual(['lunch']);
+    expect(host().many).toEqual([]);
+    expect(host().changed).toEqual([]);
   });
 
   it('stays put while the pointer is clear of the edges', async () => {
