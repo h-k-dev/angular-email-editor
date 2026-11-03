@@ -1,8 +1,9 @@
 import { TestBed } from '@angular/core/testing';
-import { provideRouter, withComponentInputBinding } from '@angular/router';
+import { Router, provideRouter, withComponentInputBinding } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 
 import { CalendarEvent } from '../../../../core/calendar/calendar-event';
+import { CALENDAR_FEED_LATENCY } from '../../../../core/calendar/calendar-feed';
 import { HOLIDAY_SOURCE } from '../../../../core/calendar/holidays';
 import { CALENDAR_ROUTES } from './calendar.routes';
 
@@ -62,6 +63,8 @@ describe('CalendarPage — the events’ context menu', () => {
           withComponentInputBinding(),
         ),
         { provide: HOLIDAY_SOURCE, useValue: { holidays: async () => [] } },
+        // The feed answers at once: the events are there as the page is.
+        { provide: CALENDAR_FEED_LATENCY, useValue: 0 },
       ],
     });
     harness = await RouterTestingHarness.create('/calendar/r/week/2026/10/28');
@@ -70,6 +73,19 @@ describe('CalendarPage — the events’ context menu', () => {
   });
 
   afterEach(() => localStorage.removeItem(KEY));
+
+  it('pages with the arrow keys, at once — but not where the mini month steers with them', async () => {
+    const router = TestBed.inject(Router);
+    await press(document.body, 'ArrowRight');
+    expect(router.url).toBe('/calendar/r/week/2026/11/4');
+    await press(document.body, 'ArrowLeft');
+    await press(document.body, 'ArrowLeft');
+    expect(router.url).toBe('/calendar/r/week/2026/10/21');
+
+    const day = root.querySelector('[role="grid"] [role="gridcell"], [role="grid"] button')!;
+    await press(day, 'ArrowRight');
+    expect(router.url).toBe('/calendar/r/week/2026/10/21');
+  });
 
   it('opens on an event with a right-click: edit, cut, copy, duplicate, delete — each with its keys', async () => {
     await rightClick(chip());

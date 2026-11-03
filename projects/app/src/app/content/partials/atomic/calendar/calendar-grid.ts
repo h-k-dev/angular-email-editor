@@ -21,6 +21,13 @@ export interface GridOpen {
   rect: AnchorRect;
 }
 
+/** The days a grid has drawn, first to last — what it asks the feed for.
+    A strip draws more than it shows: an interval either side. */
+export interface GridWindow {
+  from: IsoDay;
+  to: IsoDay;
+}
+
 /** A place in a grid to put an event: a day at a minute of it, or the
     whole day (`null` — the all-day band, a month's cell). */
 export interface GridSlot {
@@ -57,6 +64,52 @@ export class DoublePress {
     const double = !!last && last.key === key && at - last.at <= DOUBLE_PRESS;
     this.#last = double ? null : { key, at };
     return double;
+  }
+}
+
+/** How near a grid's edge a drag turns it to the interval before or
+    after, px — the days' start or end, the month's foot. */
+export const TURN_ZONE = 32;
+/** How soon a drag held there turns it again, ms. */
+const TURN_REPEAT = 820;
+
+/**
+ * A drag at a grid's edge, in time — Notion Calendar's, measured on
+ * calendar.notion.com: the interval turns as the pointer comes there (in
+ * the frame after), and again each `TURN_REPEAT` while it stays.
+ *
+ * Never sooner the same way: a hand held at an edge wavers across it by a
+ * pixel or two, and each coming back would otherwise be a fresh arrival —
+ * a turn at once, a month or a week skipped. Back at the edge it turned
+ * at, the next turn waits out the rest of `TURN_REPEAT`; the other edge
+ * turns at once (going back is meant).
+ */
+export class EdgeTurns {
+  #side: { direction: -1 | 1; since: number } | null = null;
+  /** The last turn: which way, and when. */
+  #last: { direction: -1 | 1; at: number } | null = null;
+
+  /** The pointer at an edge (`direction`: -1 the start, 1 the end, 0
+      none) at `time`: the turn to make now, if any. */
+  at(direction: -1 | 0 | 1, time: number): -1 | 1 | null {
+    if (!direction) {
+      this.#side = null;
+      return null;
+    }
+    if (this.#side?.direction !== direction) {
+      const last = this.#last?.direction === direction ? this.#last.at : -Infinity;
+      this.#side = { direction, since: last };
+    }
+    if (time - this.#side.since < TURN_REPEAT) return null;
+    this.#side.since = time;
+    this.#last = { direction, at: time };
+    return direction;
+  }
+
+  /** A new drag: nothing turned yet. */
+  reset(): void {
+    this.#side = null;
+    this.#last = null;
   }
 }
 

@@ -41,6 +41,7 @@ import {
 } from '../../../../../core/calendar/calendar-dates';
 import {
   DEFAULT_EVENT_MINUTES,
+  EVENT_COLOR_VALUES,
   EventColor,
   EventEdit,
   eventSpan,
@@ -264,6 +265,8 @@ export class EventEditor {
 
   /** The event's colour, as written (`calendar-color-marker`). */
   protected readonly colorId = computed(() => this.#fields().color);
+  /** Its swatch — the line from the start to the end is drawn in it. */
+  protected readonly colorValue = computed(() => EVENT_COLOR_VALUES[this.colorId()]);
 
   /** Where the place is on Google Maps — none for no place — and the card
       with the way there: only while the place is typed in. */

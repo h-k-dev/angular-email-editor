@@ -179,6 +179,13 @@
   pointer-events: none;
 }
 
+.calendar-screen {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
 // The card: a floating sheet beside the mark — nothing laid over the page.
 // Its edge is two hairlines — a line round it, and a lighter one just
 // inside (light catching the rim) — under a shadow so slight it only lifts

@@ -43,48 +43,50 @@
         />
 
         <!-- When: the start, the end — days and, unless all day, times; under
-         them Notion's band of what else a time can be. -->
-        <div class="event-editor__row">
-          <mat-icon class="event-editor__icon" aria-hidden="true">schedule</mat-icon>
+         them Notion's band of what else a time can be. No "Starts" and
+         "Ends" before them: a line in the event's colour, from the start
+         down to the end, says which is which (the fields' own names say
+         it to a reader). -->
+        <div class="event-editor__row" [style.--event-editor-tint]="colorValue()">
           <div class="event-editor__when">
-            <div class="event-editor__moment">
-              <span class="event-editor__label">{{ 'calendar.starts' | translate }}</span>
-              <!-- The day on the app's own calendar (the mini month), not the
+            <div class="event-editor__span">
+              <div class="event-editor__moment">
+                <!-- The day on the app's own calendar (the mini month), not the
                browser's: `date-field`, a signal-forms control. -->
-              <date-field
-                class="event-editor__field"
-                [formField]="editor.startDay"
-                [fieldLabel]="'calendar.starts' | translate"
-              />
-              @if (!allDay()) {
-                <input
-                  quietField
+                <date-field
                   class="event-editor__field"
-                  type="time"
-                  step="900"
-                  [formField]="editor.startTime"
-                  [attr.aria-label]="'calendar.startTime' | translate"
+                  [formField]="editor.startDay"
+                  [fieldLabel]="'calendar.starts' | translate"
                 />
-              }
-            </div>
-            <div class="event-editor__moment">
-              <span class="event-editor__label">{{ 'calendar.ends' | translate }}</span>
-              <date-field
-                class="event-editor__field"
-                [formField]="editor.endDay"
-                [fieldLabel]="'calendar.ends' | translate"
-              />
-              @if (!allDay()) {
-                <input
-                  quietField
+                @if (!allDay()) {
+                  <input
+                    quietField
+                    class="event-editor__field"
+                    type="time"
+                    step="900"
+                    [formField]="editor.startTime"
+                    [attr.aria-label]="'calendar.startTime' | translate"
+                  />
+                }
+              </div>
+              <div class="event-editor__moment">
+                <date-field
                   class="event-editor__field"
-                  type="time"
-                  step="900"
-                  [formField]="editor.endTime"
-                  [attr.aria-label]="'calendar.endTime' | translate"
-                  [attr.aria-invalid]="endRefused() ? true : null"
+                  [formField]="editor.endDay"
+                  [fieldLabel]="'calendar.ends' | translate"
                 />
-              }
+                @if (!allDay()) {
+                  <input
+                    quietField
+                    class="event-editor__field"
+                    type="time"
+                    step="900"
+                    [formField]="editor.endTime"
+                    [attr.aria-label]="'calendar.endTime' | translate"
+                    [attr.aria-invalid]="endRefused() ? true : null"
+                  />
+                }
+              </div>
             </div>
             @if (endRefused()) {
               <p class="event-editor__error" role="alert">

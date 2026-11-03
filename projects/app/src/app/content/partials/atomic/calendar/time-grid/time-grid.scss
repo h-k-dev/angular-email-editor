@@ -2,17 +2,17 @@
 
 // Notion Calendar's hours: no boxes, hairlines at a whisper of the ink
 // (6%), small quiet words (10px labels, the heads' weekdays 11px), weekends a shade
-// down, today and now in the theme's primary (Notion's red, ours). The heads and
-// band hold still over the one scroller; the gutter (56px) and the days
-// are the same tracks in all three — the scroller's stable gutter
-// mirrored as padding over it, so they line up. Nothing moves by itself.
+// down, today and now in the theme's primary (Notion's red, ours). One
+// scroller, both ways: the heads and band hold still at its top, the
+// gutter (56px) at its start — on the page's own ground, which they cover
+// what scrolls under them with. Nothing moves by itself.
 :host {
   --_gutter: 56px;
+  --_ground: var(--mat-sys-surface-bright);
   --_line: color-mix(in oklch, var(--mat-sys-on-surface) 6%, transparent);
   --_quiet: color-mix(in oklch, var(--mat-sys-on-surface) 46%, transparent);
   --_today: var(--mat-sys-primary);
   --_weekend: color-mix(in oklch, var(--mat-sys-on-surface) 2.5%, transparent);
-  --_tracks: var(--_gutter) repeat(var(--days), minmax(0, 1fr));
 
   display: flex;
   flex-direction: column;
@@ -25,17 +25,57 @@
   user-select: none;
 }
 
+// The scroller: sideways, the strip rests on a day's start (`scrollEnded`).
+.time-grid__scroller {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  @include scroll.scroll;
+}
+
+// As wide as the gutter and every day of the strip — the room alone,
+// before it is measured.
+.time-grid__canvas {
+  inline-size: max(100%, calc(var(--_gutter) + var(--strip, 0px)));
+}
+
+// The heads and the band, held at the top over the hours.
+.time-grid__top {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 7;
+  background: var(--_ground);
+}
+
 .time-grid__heads,
 .time-grid__band-row {
-  flex: none;
   display: grid;
-  grid-template-columns: var(--_tracks);
-  padding-inline-end: var(--email-scroll-size, 8px);
+  grid-template-columns: var(--_gutter) minmax(0, 1fr);
+}
+
+// The strip's room in a row; the days drawn stand at their place in it.
+.time-grid__strip {
+  position: relative;
+  min-inline-size: 0;
+}
+
+.time-grid__head-days,
+.time-grid__band,
+.time-grid__columns {
+  margin-inline-start: var(--window-left, 0px);
+  inline-size: var(--window-width, 100%);
 }
 
 .time-grid__heads {
   align-items: end;
   padding-block: 4px;
+}
+
+.time-grid__head-days {
+  display: grid;
+  grid-template-columns: repeat(var(--days), minmax(0, 1fr));
+  align-items: end;
 }
 
 .time-grid__head {
@@ -99,8 +139,16 @@
   }
 }
 
+// The corners hold still at the start too, over the days scrolling by.
 .time-grid__corner {
-  align-self: end;
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: 1;
+  align-self: stretch;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  background: var(--_ground);
   padding-block-end: 4px;
   min-inline-size: 0;
   overflow: hidden;
@@ -116,7 +164,6 @@
 // The band: a lane per row, each 22px + 2px apart; one empty lane at the
 // least, to press in. The days' lines carry on through it.
 .time-grid__band {
-  grid-column: 2 / -1;
   display: grid;
   grid-template-columns: repeat(var(--days), minmax(0, 1fr));
   grid-template-rows: repeat(var(--lanes), 22px);
@@ -135,14 +182,6 @@
   margin-inline: 2px 4px;
 }
 
-.time-grid__scroller {
-  flex: 1 1 auto;
-  min-block-size: 0;
-  overflow-y: auto;
-  overscroll-behavior-y: contain;
-  @include scroll.scroll;
-}
-
 // Room under midnight, blank (the lines are the columns'): the last hours
 // scroll up clear of the new event's title, which stands over the foot of
 // the surface (the page's `calendar-quick-title`). Padding on the content,
@@ -155,9 +194,13 @@
   padding-block-end: 192px;
 }
 
-// The hours' labels, each centred on its line.
+// The hours' labels, each centred on its line — held at the start over
+// the days scrolling by.
 .time-grid__gutter {
-  position: relative;
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: 6;
+  background: var(--_ground);
 }
 
 .time-grid__hour,
@@ -189,12 +232,15 @@
 
 // The days: a line every hour, a line down each day's start, weekends a
 // shade down — Notion's.
+// The hours' whole height: the strip's room in the body holds the 24
+// hours, and the days' lines, the hour lines and a press on empty room
+// need the columns all down it (their events alone take no room).
 .time-grid__columns {
   position: relative;
+  block-size: 100%;
   display: grid;
   grid-template-columns: repeat(var(--days), minmax(0, 1fr));
   background: repeating-linear-gradient(to bottom, var(--_line) 0 1px, transparent 1px var(--hour));
-  touch-action: pan-y;
 }
 
 .time-grid__day {

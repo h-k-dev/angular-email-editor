@@ -100,6 +100,8 @@
           (dismiss)="dismissed()"
           (change)="changed($event)"
           (dayOpen)="openDay($event)"
+          (rangeChange)="follow($event)"
+          (windowChange)="fetch($event)"
         />
       }
     } @else if (page().layout === 'year') {
@@ -125,6 +127,7 @@
     } @else {
       <calendar-time-grid
         [days]="page().days"
+        [weekends]="stripWeekends()"
         [events]="events()"
         [draft]="edit()"
         [selected]="selectedId()"
@@ -138,6 +141,8 @@
         (dismiss)="dismissed()"
         (change)="changed($event)"
         (dayOpen)="openDay($event)"
+        (rangeChange)="follow($event)"
+        (windowChange)="fetch($event)"
       />
     }
   </div>
@@ -152,13 +157,24 @@
   #origin="cdkOverlayOrigin"
 ></span>
 
+<!-- What the card stands in the middle of, writing an event on a phone:
+     the screen, over the keyboard. Never pushed there: the CDK's push
+     measures against the narrowed screen's width, not its end, and would
+     shove a card as wide as the screen allows 8px off its margin. -->
+<span
+  class="calendar-screen"
+  [style.bottom.px]="keyboardInset()"
+  cdkOverlayOrigin
+  #screen="cdkOverlayOrigin"
+></span>
+
 <ng-template
   #card
   cdkConnectedOverlay
-  [cdkConnectedOverlayOrigin]="origin"
+  [cdkConnectedOverlayOrigin]="cardCentred() ? screen : origin"
   [cdkConnectedOverlayOpen]="cardOpen()"
   [cdkConnectedOverlayPositions]="cardPositions()"
-  [cdkConnectedOverlayPush]="true"
+  [cdkConnectedOverlayPush]="!cardCentred()"
   [cdkConnectedOverlayViewportMargin]="8"
   (overlayOutsideClick)="outside($event)"
   (overlayKeydown)="cardKey($event)"
@@ -243,11 +259,7 @@
   (detach)="quickDetached()"
 >
   @if (edit(); as value) {
-    <section
-      class="calendar-quick"
-      role="dialog"
-      [attr.aria-label]="'calendar.new' | translate"
-    >
+    <section class="calendar-quick" role="dialog" [attr.aria-label]="'calendar.new' | translate">
       <calendar-quick-title
         [value]="value"
         (valueChange)="edit.set($event)"

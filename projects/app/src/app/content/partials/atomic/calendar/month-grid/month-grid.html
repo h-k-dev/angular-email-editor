@@ -5,60 +5,77 @@
   }
 </div>
 
-<!-- A week a row: the days' cells under, the events over them, lane by
-     lane. A cell's empty room holds a new all-day event; its date opens
-     the day. -->
-@for (row of rows(); track row.key) {
-  <div class="month-grid__week" [style.--more-row]="row.moreRow">
-    @for (day of row.days; track day.day) {
+<!-- The strip: every week a row at its place (its index × the row's
+     height), only those in view drawn. A row: the days' cells under, the
+     events over them, lane by lane. A cell's empty room holds a new
+     all-day event; its date opens the day. -->
+<div
+  #weeksBox
+  class="month-grid__weeks"
+  [class.month-grid__weeks--months]="!!month()"
+  (scroll)="scrolled()"
+  (scrollend)="scrollEnded()"
+>
+  <div class="month-grid__strip" [style.block-size.px]="rowCount() * rowHeight()">
+    @for (row of rows(); track row.key) {
       <div
-        class="month-grid__cell"
-        [class.month-grid__cell--outside]="day.outside"
-        [class.month-grid__cell--weekend]="day.weekend"
-        [class.month-grid__cell--first]="day.column === 1"
-        [attr.data-day]="day.day"
-        [style.--column]="day.column"
-        (pointerdown)="pressDay($event, day.day)"
+        class="month-grid__week"
+        [class.month-grid__week--month-start]="row.monthStart"
+        [style.inset-block-start.px]="row.top"
+        [style.block-size.px]="rowHeight()"
+        [style.--more-row]="row.moreRow"
       >
-        <button
-          type="button"
-          class="month-grid__date"
-          [attr.aria-current]="day.today ? 'date' : null"
-          [attr.aria-label]="day.label"
-          (click)="dateOpen(day.day)"
-        >
-          {{ day.number }}
-        </button>
+        @for (day of row.days; track day.day) {
+          <div
+            class="month-grid__cell"
+            [class.month-grid__cell--outside]="day.outside"
+            [class.month-grid__cell--weekend]="day.weekend"
+            [class.month-grid__cell--first]="day.column === 1"
+            [class.month-grid__cell--marked]="day.marked"
+            [attr.data-day]="day.day"
+            [style.--column]="day.column"
+            (pointerdown)="pressDay($event, day.day)"
+          >
+            <button
+              type="button"
+              class="month-grid__date"
+              [attr.aria-current]="day.today ? 'date' : null"
+              [attr.aria-label]="day.label"
+              (click)="dateOpen(day.day)"
+            >
+              {{ day.number }}
+            </button>
+          </div>
+          @if (day.more) {
+            <button
+              type="button"
+              class="month-grid__more"
+              [style.grid-column]="day.column"
+              (click)="dateOpen(day.day)"
+            >
+              {{ 'calendar.more' | translate: { count: day.more } }}
+            </button>
+          }
+        }
+        @for (chip of row.chips; track chip.key) {
+          <button
+            type="button"
+            class="month-grid__chip"
+            [calendarEventChip]="chip.event"
+            [attr.data-event-id]="chip.event.id"
+            [shape]="chip.shape"
+            [untitled]="untitled()"
+            [current]="chip.event.id === currentId()"
+            [lifted]="chip.lifted"
+            [cutBefore]="chip.before"
+            [cutAfter]="chip.after"
+            [style.grid-column]="chip.column"
+            [style.grid-row]="chip.row"
+            (pointerdown)="pressEvent($event, chip.event, row.first)"
+            (click)="clicked($event, chip.event)"
+          ></button>
+        }
       </div>
-      @if (day.more) {
-        <button
-          type="button"
-          class="month-grid__more"
-          [style.grid-column]="day.column"
-          (click)="dateOpen(day.day)"
-        >
-          {{ 'calendar.more' | translate: { count: day.more } }}
-        </button>
-      }
-    }
-    @for (chip of row.chips; track chip.key) {
-      <button
-        type="button"
-        class="month-grid__chip"
-        [calendarEventChip]="chip.event"
-        [attr.data-event-id]="chip.event.id"
-        [shape]="chip.shape"
-        [untitled]="untitled()"
-        [mark]="chip.mark"
-        [current]="chip.event.id === currentId()"
-        [lifted]="chip.lifted"
-        [cutBefore]="chip.before"
-        [cutAfter]="chip.after"
-        [style.grid-column]="chip.column"
-        [style.grid-row]="chip.row"
-        (pointerdown)="pressEvent($event, chip.event, row.key)"
-        (click)="clicked($event, chip.event)"
-      ></button>
     }
   </div>
-}
+</div>

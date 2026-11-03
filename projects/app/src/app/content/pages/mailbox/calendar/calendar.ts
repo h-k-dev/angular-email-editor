@@ -49,6 +49,7 @@ import {
   movedTo,
 } from '../../../../core/calendar/calendar-event';
 import { CalendarEvents } from '../../../../core/calendar/calendar-events';
+import { CalendarFeed } from '../../../../core/calendar/calendar-feed';
 import { CalendarFormat } from '../../../../core/calendar/calendar-format';
 import {
   CalendarView,
@@ -65,12 +66,14 @@ import {
   holidayCountry,
   holidayEvents,
 } from '../../../../core/calendar/holidays';
+import { Viewport } from '../../../../core/layout/viewport';
 import { Preferences } from '../../../../core/storages/preferences';
 import { I18n } from '../../../../core/translations/i18n';
 import {
   GridCreate,
   GridOpen,
   GridSlot,
+  GridWindow,
   HEAD_ROOM,
   boxOf,
   headOf,
@@ -188,6 +191,12 @@ function cardPositions(lap: number, mark: number): ConnectedPosition[] {
     its foot. */
 const SHOWN_CARD = cardPositions(CARD_OVERLAP, CARD_DOT);
 const WRITING_CARD = cardPositions(-CARD_CLEAR, CARD_DELETE);
+/** The one writing an event on a phone: in the middle of the screen (the
+    room over the keyboard) — a 380px card hung from an event has nowhere
+    to go there but over the grid anyway. */
+const CENTRED_CARD: ConnectedPosition[] = [
+  { originX: 'center', originY: 'center', overlayX: 'center', overlayY: 'center' },
+];
 
 /** A new event's title: at the surface's foot, in the middle, this far up
     off it, px. */
@@ -216,6 +225,11 @@ const MENU_VIEWS = [
 /** What the view menu chooses: a view, or one of its two switches. */
 type ViewChoice = (typeof MENU_VIEWS)[number]['id'] | 'weekends' | 'holidays';
 
+/** What steers with the arrow keys itself: there they are its own. */
+const ARROW_WIDGETS =
+  '[role="grid"], [role="menu"], [role="menubar"], [role="listbox"], [role="tablist"], ' +
+  '[role="radiogroup"], [role="toolbar"], [role="slider"], [role="tree"]';
+
 /** How often "now" moves on, ms: the red line, and today at midnight. */
 const TICK = 30_000;
 
@@ -241,7 +255,8 @@ const TICK = 30_000;
  * an event for its card (`EventSummary`); drag an event to move it, its
  * foot to stretch it.
  *
- * Google's keys: T today, D W M Y A X a view, J or N next, K or P previous,
+ * Google's keys: T today, D W M Y A X a view, J or N next, K or P previous
+ * (Notion's arrows too, at once — only a drag's turn slides),
  * C a new event; Escape closes the card, Delete deletes the event it
  * shows.
  */
@@ -275,11 +290,13 @@ const TICK = 30_000;
 export class CalendarPage {
   readonly #router = inject(Router);
   readonly #store = inject(CalendarEvents);
+  readonly #feed = inject(CalendarFeed);
   readonly #formats = inject(CalendarFormat).formats;
   readonly #snackBar = inject(MatSnackBar);
   readonly #i18n = inject(I18n);
   readonly #host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   readonly #injector = inject(Injector);
+  readonly #viewport = inject(Viewport);
 
   /** The route's, Google's path: the view's segment, and the day's numbers
       (the year view has the year alone). */
@@ -389,16 +406,27 @@ export class CalendarPage {
     holidayCountry(this.#browserLanguage, this.#formats().language),
   );
 
-  /** The years the page reaches into — a month's first week can start in
-      December. */
-  readonly #years = computed(() => {
+  /** The days the page reaches over — a month's first week can start in
+      December — and, a strip, every day it has drawn. */
+  readonly #reach = computed<GridWindow>(() => {
     const page = this.#page();
+    const window = this.#window();
     const first = page.days[0] ?? page.weeks[0]?.[0] ?? page.months[0];
     const last = page.days.at(-1) ?? page.weeks.at(-1)?.at(-1) ?? page.to.toISODate()!;
-    const from = +first.slice(0, 4);
-    const to = +last.slice(0, 4);
-    return Array.from({ length: to - from + 1 }, (_, i) => from + i);
+    return window
+      ? { from: window.from < first ? window.from : first, to: window.to > last ? window.to : last }
+      : { from: first, to: last };
   });
+
+  /** The years the page reaches into. */
+  readonly #years = computed(
+    () => {
+      const { from, to } = this.#reach();
+      const first = +from.slice(0, 4);
+      return Array.from({ length: +to.slice(0, 4) - first + 1 }, (_, i) => first + i);
+    },
+    { equal: (a, b) => a.length === b.length && a.every((year, i) => year === b[i]) },
+  );
 
   /** The connector's answer for those years — fetched once a country-year
       (the connector keeps them). */
@@ -441,8 +469,21 @@ export class CalendarPage {
     () => new Map(this.#holidays().map((holiday) => [holiday.id, holiday])),
   );
 
-  /** Every event the views lay out: the stored ones and the holidays. */
-  protected readonly events = computed(() => [...this.#store.events(), ...this.#holidays()]);
+  /** Every event the views lay out: the weeks the feed has handed over
+      (`CalendarFeed`, the backend's) and the holidays. */
+  protected readonly events = computed(() => [...this.#feed.events(), ...this.#holidays()]);
+
+  /** The days a strip has drawn — its buffer either side of the view. */
+  readonly #window = signal<GridWindow | null>(null);
+
+  /** A strip drew other days: the feed is asked for them. */
+  protected fetch(window: GridWindow): void {
+    this.#window.set(window);
+  }
+
+  /** Whether the hours' strip holds weekends: as the page says — but a
+      day at a time it holds every day, as the day view does. */
+  protected readonly stripWeekends = computed(() => this.weekends() || this.#view() === 'day');
 
   /** The hours' scroll, kept across a visit to the month. */
   protected readonly hoursScroll = signal<number | null>(null);
@@ -481,8 +522,16 @@ export class CalendarPage {
     const color = edit?.color ?? shown?.color;
     return color ? EVENT_COLOR_VALUES[color] : null;
   });
+  /** Whether the card writing an event stands in the middle of the screen
+      (`CENTRED_CARD`, a phone) rather than hung from the event. */
+  protected readonly cardCentred = computed(
+    () => !!this.cardContent().edit && this.#viewport.compact(),
+  );
+  /** The room the centred card is centred in: the screen over the
+      keyboard. */
+  protected readonly keyboardInset = this.#viewport.keyboardInset;
   protected readonly cardPositions = computed(() =>
-    this.cardContent().edit ? WRITING_CARD : SHOWN_CARD,
+    this.cardCentred() ? CENTRED_CARD : this.cardContent().edit ? WRITING_CARD : SHOWN_CARD,
   );
   /** What an event without a title says: "(No title)". */
   protected readonly untitled = computed(() => this.#i18n.t('calendar.untitled'));
@@ -491,16 +540,34 @@ export class CalendarPage {
   private readonly quickTitle = viewChild(QuickTitle);
 
   constructor() {
+    // The days the page and its strip reach over: the feed is asked for
+    // their weeks (those it has are not asked again).
+    effect(() => {
+      const { from, to } = this.#reach();
+      untracked(() => this.#feed.request(from, to));
+    });
+
     const tick = setInterval(() => this.now.set(DateTime.now()), TICK);
     inject(DestroyRef).onDestroy(() => clearInterval(tick));
 
     // An open card follows its anchor — the next mark, the mark dragged —
     // once the anchor stands there; and takes its new place when it turns
     // from showing an event to writing it (clear of the event's foot).
+    // Centred, it follows the keyboard instead.
     afterRenderEffect(() => {
       this.anchor();
       this.cardPositions();
+      this.keyboardInset();
       this.card().overlayRef?.updatePosition();
+    });
+    // Centred, it stays centred as it grows or shrinks — a row brought out,
+    // the note written into: the overlay is placed only when asked.
+    afterRenderEffect((onCleanup) => {
+      const ref = this.cardCentred() ? this.card().overlayRef : null;
+      if (!ref) return;
+      const observer = new ResizeObserver(() => ref.updatePosition());
+      observer.observe(ref.overlayElement);
+      onCleanup(() => observer.disconnect());
     });
 
     // The context menu gone: focus back on the event it was opened on —
@@ -519,9 +586,16 @@ export class CalendarPage {
 
   /** To a view and a day. A custom view is remembered first: its path
       (`/r/customweek/…`) names its kind, the length is the setting's. */
-  protected go(view: CalendarView, day: IsoDay | DateTime): void {
+  protected go(view: CalendarView, day: IsoDay | DateTime, replace = false): void {
     if (isCustomView(view)) this.#custom.set(view);
-    void this.#router.navigateByUrl(calendarPath(view, day));
+    void this.#router.navigateByUrl(calendarPath(view, day), { replaceUrl: replace });
+  }
+
+  /** The month's strip scrolled to another month (or a run of weeks to
+      another first week): the path follows — in place, not a step back
+      for each month scrolled past. */
+  protected follow(day: IsoDay): void {
+    this.go(this.#view(), day, true);
   }
 
   protected step(direction: -1 | 1): void {
@@ -1008,6 +1082,15 @@ export class CalendarPage {
         event.preventDefault();
         this.removed();
       }
+      return;
+    }
+    // Notion's arrows: the interval before or after, at once — not where
+    // a widget steers with them (the mini month, a menu, a list).
+    if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') && !event.shiftKey) {
+      if (target?.closest(ARROW_WIDGETS)) return;
+      const rtl = getComputedStyle(this.#host).direction === 'rtl';
+      event.preventDefault();
+      this.step((event.key === 'ArrowRight') !== rtl ? 1 : -1);
       return;
     }
     const key = event.key.toUpperCase();

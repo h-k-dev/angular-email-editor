@@ -130,7 +130,7 @@
 }
 
 // The title, Notion's: large words, starting on the line the fields'
-// words do ("Starts", "Ends" — past the icon column and its gap). A plain
+// words do (the dates — past the icon column and its gap). A plain
 // field: no ring, no wash, under the pointer or in focus — the caret is
 // all there is.
 .event-editor__title {
@@ -165,22 +165,64 @@
   color: var(--mat-sys-on-surface-variant);
 }
 
+// The icon column is the time line's: the when itself on the words'
+// column.
 .event-editor__when {
+  grid-column: 2;
   display: grid;
   row-gap: 4px;
 }
 
-.event-editor__moment {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
+// The start and the end, joined by a line down the icon column in the
+// event's colour (`--event-editor-tint`, its swatch): a dot on the start,
+// a ring on the end, each centred on its row (30px, the time field's), the
+// line from the dot's centre to the ring's edge — the ring hollow, the
+// card's own glass in it. Never wrapped, so each row stays one
+// line — a day and a time fit the narrowest card.
+.event-editor__span {
+  --_tint: var(--event-editor-tint, var(--mat-sys-primary));
+
+  position: relative;
+  display: grid;
+  row-gap: 4px;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset-block: 15px 19px;
+    // The icon column's middle: its gap and half of it back.
+    inset-inline-start: -23px;
+    inline-size: 2px;
+    background: var(--_tint);
+  }
 }
 
-.event-editor__label {
-  inline-size: 44px;
-  color: var(--mat-sys-on-surface-variant);
-  font: var(--mat-sys-label-medium);
+// Pulled back by the quiet fields' inset, so the dates' words start on the
+// title's line.
+.event-editor__moment {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-block-size: 30px;
+  margin-inline-start: -6px;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset-block-start: 11px;
+    inset-inline-start: -20px;
+    inline-size: 8px;
+    block-size: 8px;
+    box-sizing: border-box;
+    border-radius: 50%;
+    background: var(--_tint);
+  }
+
+  & + &::before {
+    border: 2px solid var(--_tint);
+    background: none;
+  }
 }
 
 .event-editor__field {

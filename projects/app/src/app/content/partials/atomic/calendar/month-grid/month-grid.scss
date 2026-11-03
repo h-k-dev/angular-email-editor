@@ -1,16 +1,17 @@
+@use '@h-k-dev/angular-email-editor/styles/scroll';
+
 // Notion Calendar's month: hairlines between days at a whisper of the ink,
 // no boxes; small quiet dates, today's in a primary pill; weekends a shade
-// down. The rows share the height the page gives them.
+// down. The weeks are one scrolled strip under the weekdays.
 :host {
   --_line: color-mix(in oklch, var(--mat-sys-on-surface) 6%, transparent);
   --_quiet: color-mix(in oklch, var(--mat-sys-on-surface) 46%, transparent);
   --_today: var(--mat-sys-primary);
 
   display: grid;
-  grid-template-rows: auto repeat(var(--weeks), minmax(0, 1fr));
+  grid-template-rows: auto minmax(0, 1fr);
   min-block-size: 0;
   block-size: 100%;
-  padding-inline-end: var(--email-scroll-size, 8px);
   box-sizing: border-box;
 }
 
@@ -20,11 +21,14 @@
 }
 
 // A row is a week, or its five weekdays (weekends hidden): `--cols`.
+// Over the strip's scrollbar, its own width left free: the columns line
+// up with the days'.
 .month-grid__weekdays {
   display: grid;
   grid-template-columns: repeat(var(--cols, 7), minmax(0, 1fr));
   block-size: 32px;
   align-items: center;
+  padding-inline-end: var(--email-scroll-size, 8px);
 }
 
 .month-grid__weekday {
@@ -36,8 +40,27 @@
 // A week: the date's line, then 22px lanes 2px apart, the events laid in
 // them by the grid. Under them the days' cells, each the row's whole
 // height (out of the grid, so a row's lanes never stretch them).
-.month-grid__week {
+// The strip's scroller: the wheel goes week by week and stops at every
+// month's first week (a run of weeks: at every week), Notion's.
+.month-grid__weeks {
   position: relative;
+  min-block-size: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scroll-snap-type: y mandatory;
+  @include scroll.scroll;
+}
+
+// As tall as every week of it; the rows stand in it by their index.
+.month-grid__strip {
+  position: relative;
+}
+
+.month-grid__week {
+  position: absolute;
+  inset-inline: 0;
+  box-sizing: border-box;
+  scroll-snap-align: start;
   display: grid;
   grid-template-columns: repeat(var(--cols, 7), minmax(0, 1fr));
   grid-template-rows: 28px;
@@ -47,6 +70,10 @@
   min-block-size: 0;
   overflow: hidden;
   border-block-start: 1px solid var(--_line);
+}
+
+.month-grid__weeks--months .month-grid__week--month-start {
+  scroll-snap-stop: always;
 }
 
 .month-grid__cell {
@@ -60,6 +87,18 @@
   box-sizing: border-box;
   border-inline-start: 1px solid var(--_line);
   cursor: default;
+}
+
+// A day of a new event's room, Notion's: the whole cell washed in the
+// event's colour at an eighth, square, over the date — what the grid
+// writes under it is its own.
+.month-grid__cell--marked::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--month-grid-mark, var(--mat-sys-primary));
+  opacity: 0.125;
+  pointer-events: none;
 }
 
 .month-grid__cell--first {
