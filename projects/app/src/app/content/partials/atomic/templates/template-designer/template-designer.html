@@ -1,19 +1,76 @@
-<!-- The designer's bar, a design tool's: close and the template's name on
-     the left, what it shows and Save on the right. No Send — a template is
-     not sent. -->
+<!-- The designer's bar, a design tool's: close, the side panel and the ⋮
+     on the left, the template's name in the middle, what it shows and Save on the
+     right. No Send — a template is not sent. -->
 <header class="designer-bar">
-  <!-- Close: always — a press on it is a decision, unsaved changes and
-       all; only a stray Escape is kept from closing (`disableClose`). -->
-  <button
-    matIconButton
-    type="button"
-    [attr.aria-label]="'designer.close' | translate"
-    [matTooltip]="'designer.close' | translate"
-    matTooltipPosition="below"
-    (click)="close()"
-  >
-    <mat-icon>close</mat-icon>
-  </button>
+  <div class="designer-bar__start">
+    <!-- Close: always — a press on it is a decision, unsaved changes and
+         all; only a stray Escape is kept from closing (`disableClose`). -->
+    <button
+      matIconButton
+      type="button"
+      [attr.aria-label]="'designer.close' | translate"
+      [matTooltip]="'designer.close' | translate"
+      matTooltipPosition="below"
+      (click)="close()"
+    >
+      <mat-icon>close</mat-icon>
+    </button>
+
+    <!-- The left column, shown or folded to its tabs' rail — over the
+         rail it folds to. Never lit: its glyph says which way it goes,
+         `aria-expanded` says it to a reader. -->
+    <button
+      matIconButton
+      type="button"
+      aria-controls="designer-details"
+      [attr.aria-label]="'designer.sidebar' | translate"
+      [attr.aria-expanded]="asideShown()"
+      [matTooltip]="'designer.sidebar' | translate"
+      matTooltipPosition="below"
+      (click)="toggleAside()"
+    >
+      <mat-icon>{{ asideShown() ? 'left_panel_close' : 'left_panel_open' }}</mat-icon>
+    </button>
+
+    <!-- The ⋮: what is done to the design as a whole. First, an email to
+         study: one received, opened as this design — its body, its
+         subject, its files; Undo puts the design back, Revert the template
+         as saved. Its item picks an .eml; a drop anywhere on the designer,
+         or a paste (the file, or its raw text: Show original), brings one
+         in too (the designer's `messageImport`) — the ⋮ in the primary
+         while a file hangs over it. -->
+    <button
+      matIconButton
+      type="button"
+      [attr.aria-label]="'designer.more' | translate"
+      [attr.aria-busy]="studying() || null"
+      [attr.data-drag-over]="import.dragging() || null"
+      [matTooltip]="'designer.more' | translate"
+      matTooltipPosition="below"
+      ngMenuTrigger
+      #moreTrigger="ngMenuTrigger"
+      [menu]="more.menu()"
+    >
+      <mat-icon>more_vert</mat-icon>
+    </button>
+    <div
+      toolbar-menu
+      #more
+      side="below"
+      [label]="'designer.more' | translate"
+      [trigger]="moreTrigger"
+      [items]="moreItems()"
+      (selected)="moreAction($event, studyPicker)"
+    ></div>
+    <input
+      #studyPicker
+      type="file"
+      hidden
+      accept=".eml,message/rfc822"
+      (change)="studyPicked(studyPicker)"
+    />
+  </div>
+
   <h1 class="designer-bar__title">
     <span class="designer-bar__name">{{ name() }}</span>
     <span badge class="designer-bar__tag">{{ tag() }}</span>
@@ -22,212 +79,154 @@
     }
   </h1>
 
-  <span class="designer-bar__spacer"></span>
+  <div class="designer-bar__end">
+    <!-- How the email is worked on, one module of toggles (a Control
+       Center's, `glassGroup`): its paper, the phone's preview, the
+       formatting toolbar, its layout. The left column's own is by the close
+       button; its HTML is the left rail's source tab. -->
+    <div glassGroup [attr.aria-label]="'designer.editing' | translate">
+      <!-- The email light or dark, at a press: its other side, at once. -->
+      <paper-toggle />
 
-  <!-- The email light or dark, at a press: its other side, at once — a
-       button by itself, in the modules' outline. -->
-  <span glassGroup="outline">
-    <paper-toggle />
-  </span>
+      <!-- The phone's preview, beside the canvas or put away. -->
+      <button
+        matIconButton
+        type="button"
+        [attr.aria-label]="'designer.phone' | translate"
+        [matTooltip]="'designer.phone' | translate"
+        matTooltipPosition="below"
+        [attr.aria-pressed]="phoneOpen()"
+        (click)="togglePhone()"
+      >
+        <mat-icon>smartphone</mat-icon>
+      </button>
 
-  <!-- What lies beside the canvas, one module of toggles (a Control
-       Center's, `glassGroup`): the phone's preview and the details. -->
-  <div glassGroup [attr.aria-label]="'designer.panes' | translate">
-    <!-- The phone's preview, beside the canvas or put away. -->
-    <button
-      matIconButton
-      type="button"
-      [attr.aria-label]="'designer.phone' | translate"
-      [matTooltip]="'designer.phone' | translate"
-      matTooltipPosition="below"
-      [attr.aria-pressed]="phoneOpen()"
-      (click)="phoneOpen.set(!phoneOpen())"
-    >
-      <mat-icon>smartphone</mat-icon>
-    </button>
-
-    <!-- The details on the right, shown or put away — pressed while their
-         panel is there, as the phone's and the source's are. -->
-    <button
-      matIconButton
-      type="button"
-      aria-controls="designer-details"
-      [attr.aria-label]="'designer.details' | translate"
-      [attr.aria-pressed]="detailsOpen()"
-      [matTooltip]="'designer.details' | translate"
-      matTooltipPosition="below"
-      (click)="detailsOpen.set(!detailsOpen())"
-    >
-      <mat-icon>right_panel_open</mat-icon>
-    </button>
-  </div>
-
-  <!-- How the email is worked on, a second module: its source, the
-       formatting toolbar, its layout. -->
-  <div glassGroup [attr.aria-label]="'designer.editing' | translate">
-    <!-- The design's HTML, Summernote's </>: beside the editor, on the
-         right under the details — or in the editor's place, where the desk
-         is too narrow for both. The ⋮'s View says the same. -->
-    <button
-      matIconButton
-      type="button"
-      disabledInteractive
-      [disabled]="!viewOffered()"
-      [attr.aria-label]="'designer.source' | translate"
-      [matTooltip]="'designer.source' | translate"
-      matTooltipPosition="below"
-      [attr.aria-pressed]="sourceView() !== 'hidden'"
-      (click)="toggleSource()"
-    >
-      <mat-icon>code</mat-icon>
-    </button>
-
-    <!-- The formatting toolbar, shown or put away — the writer bar's switch,
+      <!-- The formatting toolbar, shown or put away — the writer bar's switch,
          its preference shared (Gmail's formatting options). -->
-    <button
-      matIconButton
-      type="button"
-      disabledInteractive
-      [disabled]="plainText()"
-      [attr.aria-label]="'designer.formatting' | translate"
-      [matTooltip]="'designer.formatting' | translate"
-      matTooltipPosition="below"
-      [attr.aria-pressed]="formattingOpen()"
-      (click)="formattingOpen.set(!formattingOpen())"
-    >
-      <mat-icon>text_format</mat-icon>
-    </button>
+      <button
+        matIconButton
+        type="button"
+        disabledInteractive
+        [disabled]="plainText()"
+        [attr.aria-label]="'designer.formatting' | translate"
+        [matTooltip]="'designer.formatting' | translate"
+        matTooltipPosition="below"
+        [attr.aria-pressed]="formattingOpen()"
+        (click)="formattingOpen.set(!formattingOpen())"
+      >
+        <mat-icon>text_format</mat-icon>
+      </button>
 
-    <!-- The page's layout — none, or a centred column — in a panel under its
+      <!-- The page's layout — none, or a centred column — in a panel under its
          button, over the canvas: the email stays in sight while it is picked.
          Every pick is a step of the editor's. The kinds as swatches, a picture
          of each; a kind's own settings under them while it is the kind. -->
-    <button
-      matIconButton
-      type="button"
-      cdkOverlayOrigin
-      #layoutOrigin="cdkOverlayOrigin"
-      disabledInteractive
-      [disabled]="plainText()"
-      aria-haspopup="dialog"
-      [attr.aria-expanded]="layoutOpen()"
-      [attr.aria-controls]="layoutOpen() ? 'designer-layout' : null"
-      [attr.aria-label]="'designer.layout.title' | translate"
-      [matTooltip]="'designer.layout.title' | translate"
-      matTooltipPosition="below"
-      (click)="layoutOpen.set(!layoutOpen())"
-    >
-      <mat-icon>view_quilt</mat-icon>
-    </button>
-  </div>
-  <ng-template
-    cdkConnectedOverlay
-    [cdkConnectedOverlayOrigin]="layoutOrigin"
-    [cdkConnectedOverlayOpen]="layoutOpen()"
-    [cdkConnectedOverlayPositions]="layoutPositions"
-    [cdkConnectedOverlayPush]="true"
-    [cdkConnectedOverlayViewportMargin]="8"
-    (overlayOutsideClick)="layoutOpen.set(false)"
-    (overlayKeydown)="layoutKey($event, layoutOrigin)"
-    (detach)="layoutOpen.set(false)"
-  >
-    @let page = pageLayout;
-    <section
-      id="designer-layout"
-      class="designer-layout"
-      role="dialog"
-      paperIslandScheme
-      animate.enter="motion-enter"
-      animate.leave="motion-leave"
-      [attr.aria-label]="'designer.layout.title' | translate"
-    >
-      <p class="designer-block__empty">{{ 'designer.layout.hint' | translate }}</p>
-      <div
-        class="designer-layout__kinds"
-        role="radiogroup"
-        [attr.aria-label]="'designer.layout.kind' | translate"
+      <button
+        matIconButton
+        type="button"
+        cdkOverlayOrigin
+        #layoutOrigin="cdkOverlayOrigin"
+        disabledInteractive
+        [disabled]="plainText()"
+        aria-haspopup="dialog"
+        [attr.aria-expanded]="layoutOpen()"
+        [attr.aria-controls]="layoutOpen() ? 'designer-layout' : null"
+        [attr.aria-label]="'designer.layout.title' | translate"
+        [matTooltip]="'designer.layout.title' | translate"
+        matTooltipPosition="below"
+        (click)="layoutOpen.set(!layoutOpen())"
       >
-        @for (kind of layoutKinds; track kind) {
-          <label class="designer-layout__kind">
-            <input type="radio" [value]="kind" [formField]="page.kind" />
-            <span class="designer-layout__swatch" [attr.data-kind]="kind" aria-hidden="true">
-              <span class="designer-layout__column"> <span></span><span></span><span></span> </span>
-            </span>
-            {{ 'designer.layout.' + kind | translate }}
-          </label>
-        }
-      </div>
+        <mat-icon>view_quilt</mat-icon>
+      </button>
+    </div>
+    <ng-template
+      cdkConnectedOverlay
+      [cdkConnectedOverlayOrigin]="layoutOrigin"
+      [cdkConnectedOverlayOpen]="layoutOpen()"
+      [cdkConnectedOverlayPositions]="layoutPositions"
+      [cdkConnectedOverlayPush]="true"
+      [cdkConnectedOverlayViewportMargin]="8"
+      (overlayOutsideClick)="layoutOpen.set(false)"
+      (overlayKeydown)="layoutKey($event, layoutOrigin)"
+      (detach)="layoutOpen.set(false)"
+    >
+      @let page = pageLayout;
+      <section
+        id="designer-layout"
+        class="designer-layout"
+        role="dialog"
+        paperIslandScheme
+        animate.enter="motion-enter"
+        animate.leave="motion-leave"
+        [attr.aria-label]="'designer.layout.title' | translate"
+      >
+        <p class="designer-block__empty">{{ 'designer.layout.hint' | translate }}</p>
+        <div
+          class="designer-layout__kinds"
+          role="radiogroup"
+          [attr.aria-label]="'designer.layout.kind' | translate"
+        >
+          @for (kind of layoutKinds; track kind) {
+            <label class="designer-layout__kind">
+              <input type="radio" [value]="kind" [formField]="page.kind" />
+              <span class="designer-layout__swatch" [attr.data-kind]="kind" aria-hidden="true">
+                <span class="designer-layout__column">
+                  <span></span><span></span><span></span>
+                </span>
+              </span>
+              {{ 'designer.layout.' + kind | translate }}
+            </label>
+          }
+        </div>
 
-      <!-- The numbers: each one written once its field is done with —
+        <!-- The numbers: each one written once its field is done with —
            left, Enter, or a step of its arrows — and shown as the editor
            took it (on the grid, in range). Escape in one puts the panel
            away, as anywhere on it. -->
-      @if (page.kind().value() !== 'none') {
-        <label class="designer-layout__row">
-          <span class="designer-layout__label">{{ 'designer.layout.width' | translate }}</span>
-          <span class="designer-layout__field">
-            <input
-              type="number"
-              inputmode="numeric"
-              step="4"
-              [formField]="page.width"
-              emailFieldKeys
-              (emailFieldKeysDismissed)="closeLayout(layoutOrigin)"
-            />
-            px
-          </span>
-        </label>
-
-        <label class="designer-layout__row">
-          <span class="designer-layout__label">{{ 'designer.layout.spacing' | translate }}</span>
-          <span class="designer-layout__field">
-            <input
-              type="number"
-              inputmode="numeric"
-              step="4"
-              [formField]="page.spacing"
-              emailFieldKeys
-              (emailFieldKeysDismissed)="closeLayout(layoutOrigin)"
-            />
-            px
-          </span>
-        </label>
-
-        <!-- Rows only: the room round every row's blocks that says none of
-             its own (the column's cellpadding in the email). -->
-        @if (page.kind().value() === 'table') {
+        @if (page.kind().value() !== 'none') {
           <label class="designer-layout__row">
-            <span class="designer-layout__label">{{
-              'designer.layout.rowPadding' | translate
-            }}</span>
+            <span class="designer-layout__label">{{ 'designer.layout.width' | translate }}</span>
             <span class="designer-layout__field">
               <input
                 type="number"
                 inputmode="numeric"
                 step="4"
-                [formField]="page.rowPadding"
+                [formField]="page.width"
                 emailFieldKeys
                 (emailFieldKeysDismissed)="closeLayout(layoutOrigin)"
               />
               px
             </span>
           </label>
-        }
 
-        <!-- Stylesheet only: the runs' side room, and what a phone gets
-             instead (the head rule's @media). -->
-        @if (page.kind().value() === 'stylesheet') {
-          @for (field of sheetFields; track field) {
+          <label class="designer-layout__row">
+            <span class="designer-layout__label">{{ 'designer.layout.spacing' | translate }}</span>
+            <span class="designer-layout__field">
+              <input
+                type="number"
+                inputmode="numeric"
+                step="4"
+                [formField]="page.spacing"
+                emailFieldKeys
+                (emailFieldKeysDismissed)="closeLayout(layoutOrigin)"
+              />
+              px
+            </span>
+          </label>
+
+          <!-- Rows only: the room round every row's blocks that says none of
+             its own (the column's cellpadding in the email). -->
+          @if (page.kind().value() === 'table') {
             <label class="designer-layout__row">
               <span class="designer-layout__label">{{
-                'designer.layout.' + field | translate
+                'designer.layout.rowPadding' | translate
               }}</span>
               <span class="designer-layout__field">
                 <input
                   type="number"
                   inputmode="numeric"
                   step="4"
-                  [formField]="page[field]"
+                  [formField]="page.rowPadding"
                   emailFieldKeys
                   (emailFieldKeysDismissed)="closeLayout(layoutOrigin)"
                 />
@@ -235,269 +234,140 @@
               </span>
             </label>
           }
+
+          <!-- Stylesheet only: the runs' side room, and what a phone gets
+             instead (the head rule's @media). -->
+          @if (page.kind().value() === 'stylesheet') {
+            @for (field of sheetFields; track field) {
+              <label class="designer-layout__row">
+                <span class="designer-layout__label">{{
+                  'designer.layout.' + field | translate
+                }}</span>
+                <span class="designer-layout__field">
+                  <input
+                    type="number"
+                    inputmode="numeric"
+                    step="4"
+                    [formField]="page[field]"
+                    emailFieldKeys
+                    (emailFieldKeysDismissed)="closeLayout(layoutOrigin)"
+                  />
+                  px
+                </span>
+              </label>
+            }
+          }
+
+          <div class="designer-layout__colors">
+            <span class="designer-layout__label" id="designer-layout-page">{{
+              'designer.layout.page' | translate
+            }}</span>
+            <div
+              color-palette
+              aria-labelledby="designer-layout-page"
+              [resetLabel]="'designer.layout.noColor' | translate"
+              [colors]="backgroundPalette()"
+              [customLabel]="'editor.color.customBackground' | translate"
+              [value]="page.background().value()"
+              (picked)="setPageColor($event)"
+            ></div>
+          </div>
+
+          <div class="designer-layout__colors">
+            <span class="designer-layout__label" id="designer-layout-column">{{
+              'designer.layout.column' | translate
+            }}</span>
+            <div
+              color-palette
+              aria-labelledby="designer-layout-column"
+              [resetLabel]="'designer.layout.noColor' | translate"
+              [colors]="backgroundPalette()"
+              [customLabel]="'editor.color.customBackground' | translate"
+              [value]="page.columnBackground().value()"
+              (picked)="setColumnColor($event)"
+            ></div>
+          </div>
         }
+      </section>
+    </ng-template>
 
-        <div class="designer-layout__colors">
-          <span class="designer-layout__label" id="designer-layout-page">{{
-            'designer.layout.page' | translate
-          }}</span>
-          <div
-            color-palette
-            aria-labelledby="designer-layout-page"
-            [resetLabel]="'designer.layout.noColor' | translate"
-            [colors]="backgroundPalette()"
-            [customLabel]="'editor.color.customBackground' | translate"
-            [value]="page.background().value()"
-            (picked)="setPageColor($event)"
-          ></div>
-        </div>
+    <!-- Revert: the design back as last saved. -->
+    <button
+      matIconButton
+      type="button"
+      disabledInteractive
+      [disabled]="!dirty()"
+      [attr.aria-label]="'designer.revert' | translate"
+      [matTooltip]="'designer.revert' | translate"
+      matTooltipPosition="below"
+      (click)="revert()"
+    >
+      <mat-icon>undo</mat-icon>
+    </button>
 
-        <div class="designer-layout__colors">
-          <span class="designer-layout__label" id="designer-layout-column">{{
-            'designer.layout.column' | translate
-          }}</span>
-          <div
-            color-palette
-            aria-labelledby="designer-layout-column"
-            [resetLabel]="'designer.layout.noColor' | translate"
-            [colors]="backgroundPalette()"
-            [customLabel]="'editor.color.customBackground' | translate"
-            [value]="page.columnBackground().value()"
-            (picked)="setColumnColor($event)"
-          ></div>
-        </div>
-      }
-    </section>
-  </ng-template>
-
-  <!-- Revert: the design back as last saved. -->
-  <button
-    matIconButton
-    type="button"
-    disabledInteractive
-    [disabled]="!dirty()"
-    [attr.aria-label]="'designer.revert' | translate"
-    [matTooltip]="'designer.revert' | translate"
-    matTooltipPosition="below"
-    (click)="revert()"
-  >
-    <mat-icon>undo</mat-icon>
-  </button>
-
-  <!-- An email to study, between Revert and the gear: one received, opened
-       as this design — its body, its subject, its files; Undo puts the
-       design back, Revert the template as saved. A press picks an .eml; a
-       drop anywhere on the designer, or a paste (the file, or its raw text:
-       Show original), brings one in too (the designer's `messageImport`) —
-       in the primary while a file hangs over it. -->
-  <button
-    matIconButton
-    type="button"
-    [attr.aria-label]="'designer.study.zone' | translate"
-    [attr.aria-busy]="studying() || null"
-    [attr.data-drag-over]="import.dragging() || null"
-    [matTooltip]="'designer.study.hint' | translate"
-    matTooltipPosition="below"
-    (click)="studyPicker.click()"
-  >
-    <mat-icon>drafts</mat-icon>
-  </button>
-  <input
-    #studyPicker
-    type="file"
-    hidden
-    accept=".eml,message/rfc822"
-    (change)="studyPicked(studyPicker)"
-  />
-
-  <message-settings-button side="below" />
-  <button
-    matButton="filled"
-    type="button"
-    class="designer-bar__save"
-    disabledInteractive
-    [disabled]="!dirty() || saving()"
-    [showProgress]="saving()"
-    [attr.aria-busy]="saving() || null"
-    [matTooltip]="'designer.saveHint' | translate"
-    matTooltipPosition="below"
-    (click)="save()"
-  >
-    <!-- Any save on its way — Save's, or a row's own as it is left: in the
+    <message-settings-button side="below" />
+    <button
+      matButton="filled"
+      type="button"
+      class="designer-bar__save"
+      disabledInteractive
+      [disabled]="!dirty() || saving()"
+      [showProgress]="saving()"
+      [attr.aria-busy]="saving() || null"
+      [matTooltip]="'designer.saveHint' | translate"
+      matTooltipPosition="below"
+      (click)="save()"
+    >
+      <!-- Any save on its way — Save's, or a row's own as it is left: in the
          label's place (Material's `showProgress`), the button as wide as
          ever — nothing beside it moves. -->
-    <mat-progress-spinner
-      progressIndicator
-      class="designer-bar__spinner"
-      mode="indeterminate"
-      diameter="16"
-      strokeWidth="2"
-      [attr.aria-label]="'designer.saving' | translate"
-    />
-    {{ 'designer.save' | translate }}
-  </button>
+      <mat-progress-spinner
+        progressIndicator
+        class="designer-bar__spinner"
+        mode="indeterminate"
+        diameter="16"
+        strokeWidth="2"
+        [attr.aria-label]="'designer.saving' | translate"
+      />
+      {{ 'designer.save' | translate }}
+    </button>
+  </div>
 </header>
 
-<!-- The desk: three panes, an editor's (VS Code's) — the phone's preview,
-     the editor, the right column (the details, the HTML under them) — the
-     sides as wide as their dividers were dragged, the editor never under
-     720px; each side folded from the bar. Where the desk is too narrow for
-     a side at its least, it floats over the editor instead (the preview
-     first), and the HTML takes the editor's place. -->
+<!-- The desk: three panes, an editor's (VS Code's) — the left column (the
+     details, or the HTML in their place), the editor, the phone's preview —
+     the sides as wide as their dividers were dragged, the editor never
+     under a phone's 375px; each side folded from the bar — the left
+     column's tabs keep their rail whatever it holds. Where the desk is too
+     narrow for a side at its least, the details float over the editor, the
+     phone is a tab beside the editor's (down the right edge, one in the
+     editor's place), and the HTML takes the editor's place. -->
 <div
   class="designer-body"
   #desk
   [style.--designer-preview-width.px]="previewWidth()"
   [style.--designer-details-width.px]="asideWidth()"
 >
-  <!-- The phone, centred in the preview pane: a mobile
-       browser (Brave's bars) on the webmail, the message as the inbox shows
-       it received — the reader's own
-       `mail-view`, laid out by the 375px the phone gives it (a container
-       query), under the page header the inbox gives an open message on a
-       phone — the way back to the list — the body as typing settles. Only
-       shown: inert, its buttons press nothing; the screen still scrolls.
-       Read on both papers at once: the light one left of the divider, the
-       dark one right of it — one scroller, so the two halves never part.
-       The divider slides either way, to all of one or all of the other. -->
-  @if (phoneOpen()) {
-    <section
-      class="designer-phone"
-      #phoneRoom
-      [style.--phone-split.px]="phoneSplit()"
-      [attr.aria-label]="'designer.phone' | translate"
-    >
-      <phone-frame
-        chrome="browser"
-        url="mail.example.com"
-        [width]="phoneWidth"
-        [label]="'designer.phone' | translate"
-      >
-        @let mail = received();
-        @let body = phoneHtml.value() ?? html();
-        <div class="designer-phone__papers">
-          @for (paper of papers; track paper) {
-            <div class="designer-phone__paper" [paperIsland]="paper">
-              <header page-header inert>
-                <button matIconButton type="button" [attr.aria-label]="'inbox.back' | translate">
-                  <mat-icon>arrow_back</mat-icon>
-                </button>
-              </header>
-              <article
-                mail-view
-                inert
-                [subject]="mail.subject"
-                [name]="mail.name"
-                [address]="mail.address"
-                [to]="mail.to"
-                [cc]="mail.cc"
-                [date]="mail.date"
-                [html]="body"
-                [scheme]="paper"
-                [bodyLabel]="'designer.phone' | translate"
-              ></article>
-            </div>
-          }
-        </div>
+  <!-- The left column's tabs, on a rail of their own down the desk's left
+       edge — there always, whatever the column holds: a browser's vertical
+       tabs (Arc's, Edge's), as icons — their words in tooltips. A press
+       shows its panel, opening it if it was put away; it never folds one.
+       Selection follows focus — the arrows, Home and End move along them. -->
+  <ng-container
+    [ngTemplateOutlet]="tabRail"
+    [ngTemplateOutletContext]="{
+      tabs: asideTabs(),
+      picked: asideSelected(),
+      pick: pickAside,
+      label: 'designer.panes',
+      tooltip: 'after',
+      side: 'aside',
+    }"
+  />
 
-        <!-- The divider: drag it, or focus it and use the arrows — Home for
-             all dark, End for all light. -->
-        <div
-          phoneOverlay
-          class="designer-phone__divider"
-          [(splitHandle)]="phoneSplit"
-          [splitTarget]="phoneRoom"
-          splitProperty="--phone-split"
-          [splitMax]="phoneWidth"
-          [attr.aria-label]="'designer.phoneSplit' | translate"
-        ></div>
-      </phone-frame>
-    </section>
-  }
-
-  <!-- The dividers, a side pane's while it is a pane: drag one, or focus
-       it and use the arrows. Neither takes the editor under its least. -->
-  @if (previewDocked()) {
-    <div
-      class="designer-divider designer-divider--preview"
-      [(splitHandle)]="previewWidth"
-      (pointerdown)="holdSource()"
-      [splitTarget]="desk"
-      splitProperty="--designer-preview-width"
-      [splitMin]="previewMin"
-      [splitMax]="previewMax"
-      [splitKeep]="previewKeep()"
-      [attr.aria-label]="'designer.previewWidth' | translate"
-    ></div>
-  }
-  <!-- The right column's: its width with the source in it is kept apart
-       from the details' alone. -->
-  @if (sourceDocked()) {
-    <div
-      class="designer-divider designer-divider--details"
-      [(splitHandle)]="sourceWidth"
-      (pointerdown)="holdSource()"
-      [splitTarget]="desk"
-      splitProperty="--designer-details-width"
-      splitEdge="end"
-      [splitMin]="sourceMin"
-      [splitMax]="sourceMax"
-      [splitKeep]="detailsKeep()"
-      aria-controls="designer-details"
-      [attr.aria-label]="'designer.sourceWidth' | translate"
-    ></div>
-  } @else if (detailsDocked()) {
-    <div
-      class="designer-divider designer-divider--details"
-      [(splitHandle)]="detailsWidth"
-      (pointerdown)="holdSource()"
-      [splitTarget]="desk"
-      splitProperty="--designer-details-width"
-      splitEdge="end"
-      [splitMin]="detailsMin"
-      [splitMax]="detailsMax"
-      [splitKeep]="detailsKeep()"
-      aria-controls="designer-details"
-      [attr.aria-label]="'designer.detailsWidth' | translate"
-    ></div>
-  }
-
-  <!-- The canvas: the editor pane — the email's 720px column on the paper,
-       or a wider email's own width, the editor in it; the zoomed window's
-       document. It owns the scroll (`scrollOwner`), both ways: the editor
-       grows with the email and the whole canvas scrolls, the wheel anywhere
-       on it, its bars floating. Its own empty room starts the block
-       marquee, as the editor's margin does. -->
-  <main class="designer-canvas" marqueeStart scrollOwner>
-    <!-- Focusable from the first render, before its editor mounts: the
-         dialog's initial focus lands on it (openTemplateDesigner), and the
-         pane hands the caret on into the text. -->
-    <section
-      email-compose
-      class="designer-paper"
-      tabindex="-1"
-      design
-      [formField]="envelope.html"
-      [(quoted)]="quoted"
-      (templatePicked)="templatePicked($event)"
-      (fileDrop)="onAttachmentDrop($event)"
-      [(sourceView)]="sourceView"
-      [toolbar]="!plainText() && formattingOpen()"
-      [format]="bodyFormat()"
-      [colorScheme]="editorScheme()"
-      [layoutInteraction]="layoutInteraction()"
-      [placeholder]="placeholders()"
-      [codePortal]="sourcePortal()"
-      [codeEditor]="sourcePane().editor()"
-      aria-label="Email editor"
-    ></section>
-  </main>
-
-  <!-- The right column: its panels one at a time — the envelope (the
+  <!-- The left column: its panels one at a time — the envelope (the
        message's rows straight away, no heading over them, its files under
-       them) and the HTML source while it is beside the editor — and, while
-       there is more than one, their tabs down its right edge: a browser's
-       vertical tabs (Arc's, Edge's), as icons — their words in tooltips. -->
+       them) and the HTML source while it is beside the editor. -->
   <aside
     id="designer-details"
     class="designer-details"
@@ -506,8 +376,8 @@
     <div
       id="designer-panel-envelope"
       class="designer-envelope"
-      [attr.role]="tabbed() ? 'tabpanel' : null"
-      [attr.aria-labelledby]="tabbed() ? 'designer-tab-envelope' : null"
+      role="tabpanel"
+      aria-labelledby="designer-tab-envelope"
       [hidden]="shownPanel() !== 'envelope'"
     >
       <!-- Every address row is stored as soon as it is left. -->
@@ -572,57 +442,298 @@
     <div
       id="designer-panel-source"
       class="designer-source"
-      [attr.role]="tabbed() ? 'tabpanel' : null"
-      [attr.aria-labelledby]="tabbed() ? 'designer-tab-source' : null"
+      role="tabpanel"
+      aria-labelledby="designer-tab-source"
       [hidden]="shownPanel() !== 'source'"
     >
-      <section
-        html-email-compose
-        #sourceEl
-        class="email-scroll"
-        [hidden]="!sourceShown()"
-        [active]="sourceShown()"
-        [html]="html()"
-        (htmlChange)="html.set($event)"
-        [extensions]="sourceTools"
-        aria-label="Email HTML source"
-      >
-        <div source-search></div>
-      </section>
-    </div>
+      <!-- Made the first time the HTML is asked for (`sourceMade`), then
+           kept: out of sight, never torn down. -->
+      @if (sourceMade()) {
+        <section
+          html-email-compose
+          #sourceEl
+          class="designer-source__code email-scroll"
+          [hidden]="!sourceShown()"
+          [active]="sourceShown()"
+          [html]="html()"
+          (htmlChange)="html.set($event)"
+          [extensions]="sourceTools"
+          [paperIsland]="sourceScheme()"
+          aria-label="Email HTML source"
+        >
+          <!-- The source's head: a row of its own, standing over the
+               lines and stuck there as they scroll — the pane's top
+               spacing, and the room for the source's own paper. Its toggle
+               shows while the pointer is over the row (or focus is in it):
+               a press, the other paper; on hover its menu under it, the
+               three to pick from, the designer's own among them. -->
+          <header class="designer-source__head">
+            <div
+              class="designer-scheme"
+              [attr.data-shut]="schemeShut() || null"
+              (pointerleave)="schemeShut.set(false)"
+              (focusout)="schemeLeft($event)"
+              (keydown.escape)="schemeShut.set(true)"
+            >
+              <button
+                matIconButton
+                type="button"
+                #schemeToggle
+                class="designer-scheme__toggle"
+                [attr.aria-label]="
+                  (sourceScheme() === 'dark'
+                    ? 'designer.sourceScheme.toLight'
+                    : 'designer.sourceScheme.toDark'
+                  ) | translate
+                "
+                (click)="flipSourceScheme()"
+              >
+                <mat-icon>{{ sourceScheme() === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
+              </button>
+              <div
+                class="designer-scheme__menu"
+                role="radiogroup"
+                [attr.aria-label]="'designer.sourceScheme.title' | translate"
+              >
+                @for (item of sourceSchemes; track item.id) {
+                  <button
+                    type="button"
+                    role="radio"
+                    class="designer-scheme__item"
+                    [attr.aria-checked]="sourceSchemePick() === item.id"
+                    (click)="pickSourceScheme(item.id)"
+                  >
+                    {{ item.label | translate }}
+                    <mat-icon data-slot="check" aria-hidden="true">check</mat-icon>
+                  </button>
+                }
+              </div>
+            </div>
+          </header>
 
-    <!-- The tabs: one per panel, selection following focus — the arrows,
-         Home and End move along them. -->
-    @if (tabbed()) {
-      <div
-        class="designer-tabs"
-        role="tablist"
-        aria-orientation="vertical"
-        [attr.aria-label]="'designer.panes' | translate"
-        (keydown)="tabKey($event)"
-      >
-        @for (tab of asideTabs(); track tab.id) {
-          @let selected = tab.id === asideTab();
-          <button
-            type="button"
-            role="tab"
-            class="designer-tab"
-            [id]="'designer-tab-' + tab.id"
-            [attr.aria-controls]="'designer-panel-' + tab.id"
-            [attr.aria-selected]="selected"
-            [attr.tabindex]="selected ? 0 : -1"
-            [attr.aria-label]="tab.label | translate"
-            [matTooltip]="tab.label | translate"
-            matTooltipPosition="before"
-            (click)="asideTab.set(tab.id)"
-          >
-            <mat-icon aria-hidden="true">{{ tab.icon }}</mat-icon>
-          </button>
-        }
-      </div>
-    }
+          <div source-search></div>
+        </section>
+      }
+    </div>
   </aside>
+
+  <!-- The dividers, a side pane's while it is a pane: drag one, or focus
+       it and use the arrows. Neither takes the editor under its least.
+       The left column's: its width with the source in it is kept apart
+       from the details' alone. -->
+  @if (sourceDocked()) {
+    <div
+      class="designer-divider designer-divider--details designer-divider--source"
+      [(splitHandle)]="sourceWidth"
+      (pointerdown)="holdSource()"
+      [splitTarget]="desk"
+      splitProperty="--designer-details-width"
+      [splitMin]="sourceMin"
+      [splitMax]="sourceMax"
+      [splitKeep]="detailsKeep()"
+      aria-controls="designer-details"
+      [attr.aria-label]="'designer.sourceWidth' | translate"
+    ></div>
+  } @else if (detailsDocked()) {
+    <div
+      class="designer-divider designer-divider--details"
+      [(splitHandle)]="detailsWidth"
+      (pointerdown)="holdSource()"
+      [splitTarget]="desk"
+      splitProperty="--designer-details-width"
+      [splitMin]="detailsMin"
+      [splitMax]="detailsMax"
+      [splitKeep]="detailsKeep()"
+      aria-controls="designer-details"
+      [attr.aria-label]="'designer.detailsWidth' | translate"
+    ></div>
+  }
+  @if (previewDocked()) {
+    <div
+      class="designer-divider designer-divider--preview"
+      [(splitHandle)]="previewWidth"
+      (pointerdown)="holdSource()"
+      [splitTarget]="desk"
+      splitProperty="--designer-preview-width"
+      splitEdge="end"
+      [splitMin]="previewMin"
+      [splitMax]="previewMax"
+      [splitKeep]="previewKeep()"
+      [attr.aria-label]="'designer.previewWidth' | translate"
+    ></div>
+  }
+
+  <!-- The canvas: the editor pane — the email's 720px column on the paper
+       (narrower with the pane, down to a phone's), or a wider email's own
+       width, the editor in it; the zoomed window's
+       document. It owns the scroll (`scrollOwner`), both ways: the editor
+       grows with the email and the whole canvas scrolls, the wheel anywhere
+       on it, its bars floating. Its own empty room starts the block
+       marquee, as the editor's margin does. While the phone is a tab, the
+       editor's tab's panel — out of sight, never torn down, while the
+       phone's is picked. -->
+  <main
+    id="designer-panel-editor"
+    class="designer-canvas"
+    marqueeStart
+    scrollOwner
+    [attr.role]="previewTabbed() ? 'tabpanel' : null"
+    [attr.aria-labelledby]="previewTabbed() ? 'designer-tab-editor' : null"
+    [inert]="previewTabbed() && stageTab() === 'phone'"
+  >
+    <!-- Focusable from the first render, before its editor mounts: the
+         dialog's initial focus lands on it (openTemplateDesigner), and the
+         pane hands the caret on into the text. -->
+    <section
+      email-compose
+      class="designer-paper"
+      tabindex="-1"
+      design
+      [formField]="envelope.html"
+      [(quoted)]="quoted"
+      (templatePicked)="templatePicked($event)"
+      (fileDrop)="onAttachmentDrop($event)"
+      [(sourceView)]="sourceView"
+      [toolbar]="!plainText() && formattingOpen()"
+      [format]="bodyFormat()"
+      [colorScheme]="editorScheme()"
+      [layoutInteraction]="layoutInteraction()"
+      [placeholder]="placeholders()"
+      [codePortal]="sourcePortal()"
+      [codeEditor]="sourcePane()?.editor()"
+      aria-label="Email editor"
+    ></section>
+  </main>
+
+  <!-- The phone, centred in the preview pane — or, a tab, in the editor's
+       place: a mobile
+       browser (Brave's bars) on the webmail, the message as the inbox shows
+       it received — the reader's own
+       `mail-view`, laid out by the 375px the phone gives it (a container
+       query), under the page header the inbox gives an open message on a
+       phone — the way back to the list — the body as typing settles. Only
+       shown: inert, its buttons press nothing; the screen still scrolls.
+       Read on both papers at once: the light one left of the divider, the
+       dark one right of it — one scroller, so the two halves never part.
+       The divider slides either way, to all of one or all of the other. -->
+  @if (phoneOpen()) {
+    <section
+      id="designer-panel-phone"
+      class="designer-phone"
+      #phoneRoom
+      [style.--phone-split.px]="phoneSplit()"
+      [attr.role]="previewTabbed() ? 'tabpanel' : null"
+      [attr.aria-labelledby]="previewTabbed() ? 'designer-tab-phone' : null"
+      [attr.aria-label]="previewTabbed() ? null : ('designer.phone' | translate)"
+      [inert]="previewTabbed() && stageTab() === 'editor'"
+    >
+      <phone-frame
+        chrome="browser"
+        url="mail.example.com"
+        [width]="phoneWidth"
+        [label]="'designer.phone' | translate"
+      >
+        @let mail = received();
+        @let body = phoneHtml.value() ?? html();
+        <div class="designer-phone__papers">
+          @for (paper of papers; track paper) {
+            <div class="designer-phone__paper" [paperIsland]="paper">
+              <header page-header inert>
+                <button matIconButton type="button" [attr.aria-label]="'inbox.back' | translate">
+                  <mat-icon>arrow_back</mat-icon>
+                </button>
+              </header>
+              <article
+                mail-view
+                inert
+                [subject]="mail.subject"
+                [name]="mail.name"
+                [address]="mail.address"
+                [to]="mail.to"
+                [cc]="mail.cc"
+                [date]="mail.date"
+                [html]="body"
+                [scheme]="paper"
+                [bodyLabel]="'designer.phone' | translate"
+              ></article>
+            </div>
+          }
+        </div>
+
+        <!-- The divider: drag it, or focus it and use the arrows — Home for
+             all dark, End for all light. -->
+        <div
+          phoneOverlay
+          class="designer-phone__divider"
+          [(splitHandle)]="phoneSplit"
+          [splitTarget]="phoneRoom"
+          splitProperty="--phone-split"
+          [splitMax]="phoneWidth"
+          [attr.aria-label]="'designer.phoneSplit' | translate"
+        ></div>
+      </phone-frame>
+    </section>
+  }
+
+  <!-- The right side's tabs, while the phone has no pane of its own: the
+       editor and the phone, down the desk's right edge — the left column's
+       mirrored. -->
+  @if (previewTabbed()) {
+    <ng-container
+      [ngTemplateOutlet]="tabRail"
+      [ngTemplateOutletContext]="{
+        tabs: stageTabs,
+        picked: stageTab(),
+        pick: pickStage,
+        label: 'designer.views',
+        tooltip: 'before',
+        side: 'stage',
+      }"
+    />
+  }
 </div>
+
+<!-- A rail of vertical tabs — the left column's, the right side's: an icon
+     a tab, the word in its tooltip, toward the desk. With none picked (the
+     left column put away), the first takes the focus. -->
+<ng-template
+  #tabRail
+  let-tabs="tabs"
+  let-picked="picked"
+  let-pick="pick"
+  let-label="label"
+  let-tooltip="tooltip"
+  let-side="side"
+>
+  <div
+    class="designer-tabs"
+    [attr.data-side]="side"
+    role="tablist"
+    aria-orientation="vertical"
+    [attr.aria-label]="label | translate"
+    (keydown)="tabKey($event, tabs, picked, pick)"
+  >
+    @for (tab of tabs; track tab.id; let first = $first) {
+      @let selected = tab.id === picked;
+      <button
+        type="button"
+        role="tab"
+        class="designer-tab"
+        [id]="'designer-tab-' + tab.id"
+        [attr.aria-controls]="'designer-panel-' + tab.id"
+        [attr.aria-selected]="selected"
+        [attr.tabindex]="selected || (picked === null && first) ? 0 : -1"
+        [disabled]="tab.disabled"
+        [attr.aria-label]="tab.label | translate"
+        [matTooltip]="tab.label | translate"
+        [matTooltipPosition]="tooltip"
+        (click)="pick(tab.id)"
+      >
+        <mat-icon aria-hidden="true">{{ tab.icon }}</mat-icon>
+      </button>
+    }
+  </div>
+</ng-template>
 
 <!-- The import hint: while a file hangs over the designer, what letting it
      go does. Click-through, over the whole frame — last, so it paints over

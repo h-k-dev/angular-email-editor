@@ -11,6 +11,9 @@ import { CustomView, DEFAULT_CUSTOM_VIEW, isCustomView } from '../calendar/calen
 /** The app's theme as chosen: light or dark of its own, or the system's. */
 export type ThemePreference = ThemeScheme | 'system';
 
+/** The designer's HTML source, light or dark — or the designer's own. */
+export type SourceScheme = 'designer' | 'light' | 'dark';
+
 /** Every preference's key starts so: the app's keys, apart from anything
     else on the origin. */
 const PREFIX = 'angular-email-editor:';
@@ -41,10 +44,11 @@ export const SNIPPET_LIST_MIN = 280;
 export const SNIPPET_EDITOR_MIN = 640;
 
 /** What the template designer's editor keeps at least, px, however far
-    either pane beside it is dragged: the email's 720px column inside its
-    window — 8px off each neighbour — an email
-    wider than that scrolls in it. */
-export const DESIGNER_EDITOR_MIN = 720 + 2 * 8;
+    either pane beside it is dragged: a phone's 375px screen — the preview's
+    own — inside its window, 8px off each neighbour. The email's column
+    narrows with it; an email that will not (a fixed-width table) scrolls
+    in it. */
+export const DESIGNER_EDITOR_MIN = 375 + 2 * 8;
 
 /** How narrow the designer's preview may be dragged, px: the phone — its
     375px screen and 12px bezel either side — and 24px round it. How wide
@@ -60,19 +64,14 @@ export const DESIGNER_DETAILS_MIN = 320;
 export const DESIGNER_DETAILS_MAX = 1200;
 export const DESIGNER_DETAILS_DEFAULT = 420;
 
-/** How narrow the designer's right column may be dragged while the HTML
-    source stands in it under the details, px: about 60 characters of code
+/** How narrow the designer's left column may be dragged while the HTML
+    source stands in it in the details' place, px: about 60 characters of code
     beside the gutter; its width until dragged, and a sanity bound. Below
     the editor's least and this, the source takes the editor's place
     instead. */
 export const DESIGNER_SOURCE_MIN = 480;
 export const DESIGNER_SOURCE_MAX = 1600;
 export const DESIGNER_SOURCE_DEFAULT = 640;
-
-/** From how wide a desk the designer's details push the editor aside, px —
-    a pane of their own beside it. Narrower, they float over the editor's
-    end, a Mac's sidebar: a small window keeps the email its whole width. */
-export const DESIGNER_DETAILS_PUSH_MIN = 1200;
 
 /**
  * What the user chose, as two-way signals that survive a reload and reach
@@ -139,6 +138,13 @@ export class Preferences {
       one and the pane scrolls sideways. */
   readonly sourceWrap = this.#storage.pairSignal(`${PREFIX}source-wrap`, onOff(true));
 
+  /** The designer's HTML source, light or dark — its corner toggle, its
+      hover menu. Unset reads as `designer`: the email's own paper. */
+  readonly designerSourceScheme = this.#storage.pairSignal(
+    `${PREFIX}designer-source-scheme`,
+    oneOf<SourceScheme>(['designer', 'light', 'dark'], 'designer'),
+  );
+
   /** How many rows the attachment strip lays its chips in — its corner
       toggle. Unset reads as `one`: a single line, scrolled sideways. */
   readonly attachmentRows = this.#storage.pairSignal(
@@ -197,7 +203,7 @@ export class Preferences {
     wholeIn(DESIGNER_DETAILS_MIN, DESIGNER_DETAILS_MAX, DESIGNER_DETAILS_DEFAULT),
   );
 
-  /** How wide the template designer's right column is while the HTML
+  /** How wide the template designer's left column is while the HTML
       source stands in it, px — its divider, dragged then. */
   readonly designerSourceWidth = this.#storage.pairSignal(
     `${PREFIX}designer-source-width`,

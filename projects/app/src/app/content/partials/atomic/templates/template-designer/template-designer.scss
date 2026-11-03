@@ -1,5 +1,6 @@
 @use '@angular/material' as mat;
 @use '@h-k-dev/angular-email-editor/styles/scroll';
+@use '../../../../../../styles/menu';
 @use '../../../../../../styles/split-handle';
 
 // The designer fills the dialog, which fills the screen: the bar, then the
@@ -10,12 +11,19 @@
 // source). The whole of it is a paper island (`data-paper-scheme`).
 // The editor's least and the preview's, px — DESIGNER_EDITOR_MIN and
 // DESIGNER_PREVIEW_MIN (core/storages/preferences.ts): change them together.
-// The editor's is the email's 720px column inside its window (the canvas's
+// The editor's is a phone's 375px screen inside its window (the canvas's
 // 8px margin, each side).
-$editor-min: 720px + 2 * 8px;
+$editor-min: 375px + 2 * 8px;
 $preview-min: 448px;
-// The right column's tabs: icons, a 32px tab with 6px round it.
-$tabs-rail: 44px;
+// A tab rail: icons, a tab's 28px 6px in from the desk's edge — under the
+// bar's close button (TABS_RAIL). The bar is as tall as the rail is wide.
+$tabs-rail: 40px;
+// Every button on the desk's chrome — the bar's, the rail's tabs, the
+// source's head: a 28px state layer, pressed anywhere in 32px.
+$button-state: 28px;
+$button-touch: 32px;
+// The HTML source's head row: a tab's height.
+$source-head: 32px;
 
 :host {
   // The import's drop hint fills the designer (`[drop-hint]`, absolute).
@@ -27,33 +35,47 @@ $tabs-rail: 44px;
   color: var(--mat-sys-on-surface);
 }
 
+// Three parts: close and the side panel, the name, the rest. The name
+// stands in the middle of the bar — the sides share what it leaves alike —
+// and gives way first, cut short, where the sides need the room.
 .designer-bar {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr);
   align-items: center;
-  gap: 2px;
-  block-size: 48px;
-  padding-inline: 4px 12px;
+  column-gap: 12px;
+  // The rail's 40px, the other way: its buttons' 28px 6px off its edges —
+  // the desk 6px under them, as the rail's tabs are 6px off its sides.
+  block-size: $tabs-rail;
+  // Even, so the middle is the bar's own: close 6px in, over the rail's
+  // tabs; Save's 12px off the end is the end's (below).
+  padding-inline: 6px;
 
-  // The bar's icon buttons as a toolbar's: a 20px glyph on a 32px state
-  // layer and touch target (iusta core's `toolbar-mat-icon-button`).
+  // The bar's icon buttons: a 20px glyph on a 28px state layer, pressed
+  // anywhere in 32px (the touch target past it, 2px a side).
   @include mat.icon-button-overrides(
     (
       icon-size: 20px,
-      state-layer-size: 32px,
-      touch-target-size: 32px,
+      state-layer-size: $button-state,
+      touch-target-size: $button-touch,
     )
   );
 }
 
-// The modules (`glassGroup`) stand apart from each other and from what
-// follows them: the bar's own 2px and 6px more, 8px between two capsules.
-// The last one keeps the room after it itself — what follows may draw no
-// box of its own to keep it (the ⋮, `display: contents`).
-.designer-bar > [glassGroup] + [glassGroup] {
-  margin-inline-start: 6px;
+.designer-bar__start,
+.designer-bar__end {
+  display: flex;
+  align-items: center;
+  // The 32px touch targets side by side, never over each other.
+  gap: $button-touch - $button-state;
 }
 
-.designer-bar > [glassGroup]:not(:has(+ [glassGroup])) {
+.designer-bar__end {
+  justify-content: flex-end;
+  padding-inline-end: 6px;
+}
+
+// The toggles' module (`glassGroup`) stands apart from Revert after it.
+.designer-bar__end > [glassGroup] {
   margin-inline-end: 6px;
 }
 
@@ -67,10 +89,10 @@ $tabs-rail: 44px;
 .designer-bar__title {
   display: flex;
   align-items: baseline;
+  justify-content: center;
   gap: 12px;
   min-inline-size: 0;
   margin: 0;
-  margin-inline-start: 4px;
   font: var(--mat-sys-title-small);
 }
 
@@ -91,15 +113,16 @@ $tabs-rail: 44px;
   color: var(--mat-sys-on-surface-variant);
 }
 
-.designer-bar__spacer {
-  flex: 1 1 auto;
-}
-
+// Save as the bar's buttons are: 28px, pressed anywhere in 32px — the
+// bar's room round it, its words a size down to sit in it.
 .designer-bar__save {
   @include mat.button-overrides(
     (
-      filled-container-height: 32px,
-      filled-horizontal-padding: 16px,
+      filled-container-height: $button-state,
+      filled-touch-target-display: block,
+      filled-touch-target-size: $button-touch,
+      filled-horizontal-padding: 12px,
+      filled-label-text-size: 13px,
       filled-container-shape: var(--mat-sys-corner-large),
     )
   );
@@ -111,52 +134,75 @@ $tabs-rail: 44px;
   --mat-progress-spinner-active-indicator-color: currentColor;
 }
 
-// The desk, three panes in a row, VS Code's: the preview, the editor, the
-// details. A side pane is as wide as its divider was dragged
+// The desk, three panes in a row, VS Code's: the details, the editor, the
+// preview. A side pane is as wide as its divider was dragged
 // (`--designer-*-width`, the preferences') — the details held to what the
-// editor's least and the preview's least leave, the preview to what the
-// editor's least and the details leave, so neither divider ever squeezes
-// the editor (each handle's `splitKeep` says the same) — or no track at all
-// while it is folded, or floats (`over`: the desk too narrow for it).
+// editor's least and the preview's least (or its tabs' rail) leave, the
+// preview to what the editor's least and the details leave, so neither
+// divider ever squeezes the editor (each handle's `splitKeep` says the
+// same) — or no track at all while it is folded, or floats (`over`: the
+// desk too narrow for the details), or is a tab (`tabbed`: too narrow for
+// the phone — the editor and the phone share the editor's track, their
+// tabs on a rail at the desk's right edge). The left column's tabs keep
+// their rail at the desk's left edge always.
 .designer-body {
   --_preview-least: 0px;
   --_preview: 0px;
   --_details: 0px;
+  --_rail: 0px;
 
   position: relative;
   display: grid;
-  grid-template-columns: [preview] var(--_preview) [editor] minmax(0, 1fr) [details] var(--_details);
+  grid-template-columns:
+    [aside-rail] $tabs-rail [details] var(--_details) [editor] minmax(0, 1fr)
+    [preview] var(--_preview) [rail] var(--_rail);
   grid-template-rows: minmax(0, 1fr);
   min-block-size: 0;
 }
 
 :host([data-preview='docked']) .designer-body {
   --_preview-least: #{$preview-min};
-  --_preview: max(0px, min(var(--designer-preview-width), 100% - #{$editor-min} - var(--_details)));
+  --_preview: max(
+    0px,
+    min(var(--designer-preview-width), 100% - #{$tabs-rail} - #{$editor-min} - var(--_details))
+  );
+}
+
+:host([data-preview='tabbed']) .designer-body {
+  --_rail: #{$tabs-rail};
 }
 
 :host([data-details='docked']) .designer-body {
   --_details: max(
     0px,
-    min(var(--designer-details-width), 100% - #{$editor-min} - var(--_preview-least))
+    min(
+      var(--designer-details-width),
+      100% - #{$tabs-rail} - #{$editor-min} - var(--_preview-least) - var(--_rail)
+    )
   );
 }
 
-// The dividers: the inbox's — a vanishing line between two panes, lit once
-// the pointer rests on it (styles/_split-handle.scss) — on each side pane's
-// edge.
+// The dividers: the inbox's — a hairline, lit once the pointer rests on it
+// (styles/_split-handle.scss) — on each side pane's edge.
 .designer-divider {
   @include split-handle.handle;
 }
 
-// Each in the gap between its pane and the editor's window (8px, the
-// handle's width).
-.designer-divider--preview {
-  inset-inline-start: var(--_preview);
+// Beside the HTML source the gap is clear at rest: the source's window
+// has edges of its own to part it from the editor's — only the lit line
+// shows.
+.designer-divider--source::before {
+  background: none;
 }
 
+// Each in the gap between its pane and the editor's window (8px, the
+// handle's width).
 .designer-divider--details {
-  inset-inline-start: calc(100% - var(--_details) - 8px);
+  inset-inline-start: calc(#{$tabs-rail} + var(--_details));
+}
+
+.designer-divider--preview {
+  inset-inline-start: calc(100% - var(--_preview) - 8px);
 }
 
 // The preview: the phone, dead centre of its pane, as tall as the desk lets
@@ -172,16 +218,16 @@ $tabs-rail: 44px;
   padding: 24px;
 }
 
-// Too narrow a desk for it beside the editor: over the editor's start, at
-// its least, on the paper.
-:host([data-preview='over']) .designer-phone {
-  position: absolute;
-  z-index: 2;
-  inset-block: 0;
-  inset-inline-start: 0;
-  inline-size: $preview-min;
-  background: var(--email-paper, var(--mat-sys-surface-bright));
-  box-shadow: var(--mat-sys-level2);
+// Too narrow a desk for it beside the editor: a tab, in the editor's place.
+:host([data-preview='tabbed']) .designer-phone {
+  grid-area: 1 / editor;
+}
+
+// The right side's tab not picked: out of sight, never torn down — the
+// editor keeps its scroll and its caret, the phone its mail.
+:host([data-stage='editor']) .designer-phone,
+:host([data-stage='phone']) .designer-canvas {
+  visibility: hidden;
 }
 
 // The two papers in one place, the dark over the light, cut from the left
@@ -217,10 +263,11 @@ $tabs-rail: 44px;
 // canvas scrolls it, its toolbar stuck to the canvas's foot. The email's
 // column stands in the middle, as wide as the paper (below).
 //
-// A window, Hyprland's: 8px off the desk's edges and the side panes, its
-// corners large — the same whether the work is in it
-// or not. The design and its HTML source swap inside it, so the window
-// stays put when the view changes.
+// A window, Hyprland's: 8px off the desk's sides and foot and the side
+// panes — none off its top, the bar's own room parting them — its corners
+// large, the same whether the work is in it or not. The design and its
+// HTML source swap inside it, so the window stays put when the view
+// changes.
 .designer-canvas {
   // Its width, for the editor's foot (`100cqi`, below).
   container-type: inline-size;
@@ -229,20 +276,21 @@ $tabs-rail: 44px;
   grid-template-columns: [start] 1fr [email] auto [end] 1fr;
   min-inline-size: 0;
   min-block-size: 0;
-  margin: 8px;
+  margin: 0 8px 8px;
   border-radius: var(--mat-sys-corner-large);
   background: var(--email-paper, var(--mat-sys-surface-bright));
 }
 
 // The editor: the email's measure and the inset its layout blocks' grips
-// hang into, nothing round it — the text sits on the paper. 720px, or as
-// wide as the email will go (a fixed-width table: its min-content) — the
-// canvas then scrolling it sideways from the column's start. The HTML
+// hang into, nothing round it — the text sits on the paper. 720px, or the
+// canvas's width where it is narrower (down to a phone's), or as wide as
+// the email will go (a fixed-width table: its min-content) — the canvas
+// then scrolling it sideways from the column's start. The HTML
 // source in its place takes the whole canvas (code reads wide, and its
 // gutter wants the room).
 .designer-paper {
   grid-column: email;
-  inline-size: var(--email-column-max);
+  inline-size: min(var(--email-column-max), 100cqi);
   min-inline-size: min-content;
   min-block-size: 100%;
   --email-compose-surface-padding-block: 16px;
@@ -276,16 +324,96 @@ $tabs-rail: 44px;
   inline-size: var(--designer-source-held, auto);
 }
 
-// The HTML source, out of sight while it is not asked for. Its own
-// `display` would beat the `hidden` attribute.
-section[html-email-compose][hidden] {
-  display: none;
+// The source's head: a row of its own over the lines — the pane's top
+// spacing, a tab's 32px (the rail's) — stuck there as they scroll under
+// it, either way (a sticky box sticks at the pane's padding, which the row
+// reaches back over: edge to edge, flush with the pane's top). The pane's
+// own ground, so no line shows through it.
+.designer-source__head {
+  position: sticky;
+  // Stuck at the pane's very top: past its padding, which a sticky box
+  // would otherwise stop at.
+  inset-block-start: calc(-1 * var(--mat-sys-inner-spacing));
+  inset-inline-start: calc(-1 * var(--mat-sys-inner-spacing));
+  z-index: 4;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  box-sizing: border-box;
+  block-size: $source-head;
+  margin-block: calc(-1 * var(--mat-sys-inner-spacing)) 0;
+  margin-inline: calc(-1 * var(--mat-sys-inner-spacing));
+  padding-inline: 2px;
+  background-color: inherit;
+
+  @include mat.icon-button-overrides(
+    (
+      icon-size: 20px,
+      state-layer-size: $button-state,
+      touch-target-size: $button-touch,
+    )
+  );
 }
 
-// The right column: one panel at a time — the envelope, the HTML source
-// while it stands beside the editor — and their tabs down its right edge
-// while there is more than one. Figma's compact 13px base its parts size
-// against in em.
+// The search bar hangs from under the head, not over it.
+.designer-source__code > [source-search] {
+  inset-block-start: calc(#{$source-head} - 2 * var(--mat-sys-inner-spacing));
+}
+
+// The toggle and its menu: the menu under the toggle at its end.
+.designer-scheme {
+  position: relative;
+  display: flex;
+}
+
+// Only while the pointer is over the head, or the keyboard is in it.
+.designer-scheme__toggle {
+  opacity: 0;
+  transition: opacity var(--mat-sys-transition-duration, 0.15s) ease;
+
+  .designer-source__head:is(:hover, :has(:focus-visible)) & {
+    opacity: 1;
+  }
+}
+
+// Out of sight (and out of the tab order) until the toggle is hovered or
+// reached by the keyboard; put away after a pick or Escape (`data-shut`)
+// until the hand has left. The hand gets a moment to cross to it: it goes
+// only after the fade.
+.designer-scheme__menu {
+  @include menu.panel;
+
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline-end: 0;
+  min-inline-size: 180px;
+  visibility: hidden;
+  opacity: 0;
+  translate: 0 -4px;
+  transition:
+    opacity var(--mat-sys-transition-duration, 0.15s) ease,
+    translate var(--mat-sys-transition-duration, 0.15s) ease,
+    visibility 0s linear var(--mat-sys-transition-duration, 0.15s);
+
+  .designer-scheme:is(:hover, :has(:focus-visible)):not([data-shut]) & {
+    visibility: visible;
+    opacity: 1;
+    translate: 0 0;
+    transition-delay: 0s;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.designer-scheme__item {
+  @include menu.item;
+}
+
+// The left column: one panel at a time — the envelope, the HTML source
+// while it stands beside the editor — their tabs on the rail before it.
+// Figma's compact 13px base its parts size against in em.
 .designer-details {
   position: relative;
   grid-area: 1 / details;
@@ -296,11 +424,6 @@ section[html-email-compose][hidden] {
   min-block-size: 0;
   font-size: 0.8125rem;
   background: var(--email-paper, var(--mat-sys-surface-bright));
-
-  // The tabs' room on the right: what they take while they are icons.
-  :host([data-tabbed]) & {
-    padding-inline-end: $tabs-rail;
-  }
 }
 
 // No panel to show: no column.
@@ -320,12 +443,13 @@ section[html-email-compose][hidden] {
   gap: 12px;
   min-block-size: 0;
   overflow-y: auto;
-  padding-block: 12px;
+  padding-block: 4px 12px;
 }
 
 // The source's panel: its window, the second one, Hyprland's — the
-// editor's corners, 8px off the desk's edges (the editor's own margin
-// parts the two; the tabs, the edge on their side), its own scroller.
+// editor's corners, flush with the desk's top, 8px off its foot (the
+// editor's own margin parts the two; the tabs' rail, the edge on their
+// side), its own scroller.
 .designer-source {
   display: flex;
   flex: 1 1 auto;
@@ -342,49 +466,58 @@ section[html-email-compose][hidden] {
 
     flex: 1 1 0;
     min-block-size: 0;
-    margin: 8px 8px 8px 0;
-
-    :host([data-tabbed]) & {
-      margin-inline-end: 0;
-    }
+    margin-block: 0 8px;
   }
 }
 
-// Their own `display` would beat the `hidden` attribute (the panel not
-// picked, or not there).
+// Their own `display` would beat the `hidden` attribute: the panel not
+// picked, or the HTML source not asked for.
 .designer-envelope[hidden],
-.designer-source[hidden] {
+.designer-source[hidden],
+section[html-email-compose][hidden] {
   display: none;
 }
 
-// The tabs: a browser's vertical tabs (Arc's, Edge's) down the column's
-// right edge — slim, icons only, the picked one on a soft fill; their words
-// in tooltips.
+// The tabs: a browser's vertical tabs (Arc's, Edge's) on a rail — the
+// left column's down the desk's left edge, the right side's down its right
+// edge — slim, icons only, the picked one on a soft fill; their words in
+// tooltips.
 .designer-tabs {
   --mat-icon-size: 20px;
 
-  position: absolute;
-  inset-block: 0;
-  inset-inline-end: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
   box-sizing: border-box;
   inline-size: $tabs-rail;
-  padding-block: 8px;
+  padding-block-end: 8px;
+}
+
+.designer-tabs[data-side='aside'] {
+  grid-area: 1 / aside-rail;
+  // The details' tab level with From, the row it opens on: the envelope's
+  // 4px and half what the row's 40px has over the tab's 32px.
+  padding-block-start: 8px;
+}
+
+.designer-tabs[data-side='stage'] {
+  grid-area: 1 / rail;
 }
 
 .designer-tab {
   display: grid;
   flex: none;
   place-items: center;
-  inline-size: 32px;
-  block-size: 32px;
-  padding: 0;
+  // Pressed anywhere in its 32px; its state painted on the 28px inside,
+  // as the bar's buttons are.
+  inline-size: $button-touch;
+  block-size: $button-touch;
+  padding: ($button-touch - $button-state) * 0.5;
   border: 0;
   border-radius: var(--mat-sys-corner-medium);
   background: transparent;
+  background-clip: content-box;
   color: var(--mat-sys-on-surface-variant);
   cursor: pointer;
   outline: none;
@@ -393,19 +526,25 @@ section[html-email-compose][hidden] {
     color 120ms ease-out;
 
   @media (hover: hover) {
-    &:hover {
+    &:hover:not(:disabled) {
       background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent);
       color: var(--mat-sys-on-surface);
     }
   }
 
   &:focus-visible {
-    box-shadow: inset 0 0 0 2px var(--mat-sys-primary);
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: -2px - ($button-touch - $button-state) * 0.5;
   }
 
   &[aria-selected='true'] {
     background: color-mix(in srgb, var(--mat-sys-on-surface) 9%, transparent);
     color: var(--mat-sys-on-surface);
+  }
+
+  &:disabled {
+    opacity: 0.38;
+    cursor: default;
   }
 
   > mat-icon {
@@ -415,10 +554,10 @@ section[html-email-compose][hidden] {
   }
 }
 
-// Short of a wide desk (`DESIGNER_DETAILS_PUSH_MIN`): over the editor's
-// end, flush with the desk's edge and its whole height — the paper the
-// bar stands on, edged in a hairline: one paper and no shadow, so
-// the edge is what parts them. Only the editor is a window.
+// Too narrow a desk for them beside the editor's least: over the editor's
+// start, flush with the tabs' rail and the desk's whole height — the paper
+// the bar stands on, edged in a hairline: one paper and no shadow, so the
+// edge is what parts them. Only the editor is a window.
 :host([data-details='over']) .designer-details {
   // The whole desk its box, not the details' track (no width while they
   // float): an absolute grid child's containing block is its grid area.
@@ -426,10 +565,9 @@ section[html-email-compose][hidden] {
   position: absolute;
   z-index: 2;
   inset-block: 0;
-  inset-inline-end: 0;
-  inline-size: max(300px, min(var(--designer-details-width), 100%));
-  border-inline-start: 1px solid
-    color-mix(in oklch, var(--mat-sys-outline-variant) 80%, transparent);
+  inset-inline-start: $tabs-rail;
+  inline-size: max(300px, min(var(--designer-details-width), 100% - #{$tabs-rail}));
+  border-inline-end: 1px solid color-mix(in oklch, var(--mat-sys-outline-variant) 80%, transparent);
 }
 
 .designer-block__empty {
@@ -453,8 +591,6 @@ section[html-email-compose][hidden] {
   }
 }
 
-// The email to study: its zone, the files' own, and a line under it on the
-// ways in.
 // A drop zone, drawn (the files'): a dashed box the whole
 // width, the picker's button — an icon and its words in the middle, its
 // edge in the outline's ink (the outline-variant is all but the paper's

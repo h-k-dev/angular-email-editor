@@ -15,6 +15,10 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
+
+// Angular Aria
+import { MenuTrigger } from '@angular/aria/menu';
 
 // Angular CDK
 import { CdkOverlayOrigin, type ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
@@ -68,13 +72,13 @@ import { EmailTemplate, Templates } from '../../../../../core/email/templates';
 import {
   DESIGNER_DETAILS_MAX,
   DESIGNER_DETAILS_MIN,
-  DESIGNER_DETAILS_PUSH_MIN,
   DESIGNER_EDITOR_MIN,
   DESIGNER_PREVIEW_MAX,
   DESIGNER_PREVIEW_MIN,
   DESIGNER_SOURCE_MAX,
   DESIGNER_SOURCE_MIN,
   Preferences,
+  type SourceScheme,
 } from '../../../../../core/storages/preferences';
 import { Badge } from '../../../common/badge/badge';
 import { GlassGroup } from '../../../common/glass-group/glass-group';
@@ -86,7 +90,10 @@ import { PhoneFrame } from '../../../common/phone-frame/phone-frame';
 import { MailView } from '../../../shared/email/mail-view/mail-view';
 import { ScrollOwner } from '../../../../../core/directives/scroll-owner/scroll-owner';
 import { SplitHandle } from '../../../common/split-handle/split-handle';
-import { EmailCompose } from '../../../shared/email/email-compose/email-compose';
+import {
+  EmailCompose,
+  type EditorColorScheme,
+} from '../../../shared/email/email-compose/email-compose';
 import { ColorPalette } from '../../../shared/email/email-compose/formatting-toolbar/color-palette/color-palette';
 import { HtmlEmailCompose } from '../../../shared/email/html-email-compose/html-email-compose';
 import { SourceSearch } from '../../../shared/email/source-search/source-search';
@@ -94,6 +101,10 @@ import {
   AddressRow,
   EnvelopeRows,
 } from '../../../shared/email/message-form/envelope-rows/envelope-rows';
+import {
+  ToolbarMenu,
+  type ToolbarMenuItem,
+} from '../../../shared/email/email-compose/formatting-toolbar/toolbar-menu/toolbar-menu';
 import { MessageSettingsButton } from '../../../shared/email/message-form/message-settings-button/message-settings-button';
 import { EditorView, MessageSheet } from '../../../shared/email/message-form/message-sheet';
 import { releaseEditingSurface } from '../../../shared/email/is-typing';
@@ -106,17 +117,43 @@ import {
 } from '../../../shared/email/paper-island';
 import { TemplateDesignerData } from './open-template-designer';
 
+/** What the bar's ⋮ does to the design as a whole. */
+type MoreAction = 'study';
+
 /** The phone's screen, px — the phone frame's own default. */
 const PHONE_WIDTH = 375;
 
-/** The right column's panels. */
+/** A tab rail's width, px — the stylesheet's `$tabs-rail`: a tab's 28px
+    6px in from the desk's edge on either side, under the bar's close
+    button. */
+const TABS_RAIL = 40;
+
+/** A tab down a rail: an icon, and the word shown beside it while the
+    pointer rests on the tabs. */
+interface DeskTab<T extends string> {
+  readonly id: T;
+  readonly icon: string;
+  readonly label: string;
+  /** Pressed to no effect, for now. */
+  readonly disabled?: boolean;
+}
+
+/** The left column's panels. */
 type AsideTab = 'envelope' | 'source';
 
-/** Their tabs, top to bottom: an icon, and the word shown beside it while
-    the pointer rests on the tabs. */
-const ASIDE_TABS: readonly { id: AsideTab; icon: string; label: string }[] = [
+/** Their tabs, top to bottom. */
+const ASIDE_TABS: readonly DeskTab<AsideTab>[] = [
   { id: 'envelope', icon: 'mail', label: 'designer.details' },
   { id: 'source', icon: 'code', label: 'designer.source' },
+];
+
+/** The right side's views, while the desk is too narrow for both: the
+    editor, or the phone in its place. */
+type StageTab = 'editor' | 'phone';
+
+const STAGE_TABS: readonly DeskTab<StageTab>[] = [
+  { id: 'editor', icon: 'edit', label: 'designer.design' },
+  { id: 'phone', icon: 'smartphone', label: 'designer.phone' },
 ];
 
 /** The same message, as far as a template keeps one: its rows, its body and
@@ -142,17 +179,20 @@ function sameMessage(a: Envelope, b: Envelope): boolean {
  *
  * - One paper, as the zoomed window is: bar, canvas, phone and details all
  *   on the message's paper, nothing of a desk under them.
- * - Three panes, an editor's (VS Code's): the phone's preview, the editor,
- *   the details — the sides dragged by their dividers and folded from the
- *   bar, the editor keeping its 720px whatever they ask.
- * - The canvas: the editor in the email's 720px column — or a wider
+ * - Three panes, an editor's (VS Code's): the details on the left, then the
+ *   editor and the phone's preview — the sides dragged by their dividers
+ *   and folded from the bar, the editor keeping a phone's 375px whatever
+ *   they ask. Too narrow a desk for the phone beside the editor, the two are
+ *   tabs down the right edge, one shown at a time in the editor's place.
+ * - The canvas: the editor in the email's 720px column — narrower with
+ *   the pane, down to a phone's 375px — or a wider
  *   email's own width, the canvas scrolling it both ways — its layout
  *   blocks taking their gestures (design, never write) and the formatting
  *   toolbar always there.
- * - On the right, the message's rows — From, To, Cc, Bcc, Subject,
+ * - On the left, the message's rows — From, To, Cc, Bcc, Subject,
  *   Preview — straight away, and its attachments under them, dropped or
  *   picked on one zone. With the HTML source beside them, the two are
- *   tabs down the column's right edge — a browser's vertical tabs — one
+ *   tabs down the column's left edge — a browser's vertical tabs — one
  *   shown at a time; more panels join them there.
  * - The layout is the email's page (the library's `PageLayout`): none, or
  *   a centred column of a width on a page colour, the column's own colour
@@ -164,12 +204,13 @@ function sameMessage(a: Envelope, b: Envelope): boolean {
  *   room the phone gives it — live as typing settles, on the light paper
  *   and the dark at once: a divider down the screen parts the two, and
  *   slides to show all of either. On when asked for, in the pane on the
- *   left.
- * - Its HTML: the bar's </> puts the source in the right column, a tab
- *   beside the details — phone, editor, HTML side by side — where the desk holds
- *   all three at their least; narrower, in the editor's place (code view,
- *   the compose page's same pane). The window resizing moves it between
- *   the two.
+ *   right — or a tab beside the editor's, where the desk is too narrow.
+ * - Its HTML: the rail's source tab puts the source in the left column in
+ *   the details' place — HTML, editor, phone side by side — where the desk
+ *   holds the source and the editor at their least; narrower, in the
+ *   editor's place (code view, the compose page's same pane). The window
+ *   resizing moves it between the two; the details' tab puts it away. Made
+ *   the first time it is asked for, never before.
  * - No Send: a template is not sent. Save stores it (Ctrl/⌘+S too);
  *   Revert puts it back as last saved.
  * - While anything is unsaved, Escape does not close the dialog — a design
@@ -183,6 +224,9 @@ function sameMessage(a: Envelope, b: Envelope): boolean {
 @Component({
   selector: 'template-designer',
   imports: [
+    NgTemplateOutlet,
+    MenuTrigger,
+    ToolbarMenu,
     TranslatePipe,
     FormField,
     FieldKeys,
@@ -229,9 +273,9 @@ function sameMessage(a: Envelope, b: Envelope): boolean {
   host: {
     '(messageImport)': 'studyEmail($event)',
     '[attr.data-paper-scheme]': 'scheme()',
-    '[attr.data-preview]': "phoneOpen() ? (previewDocked() ? 'docked' : 'over') : null",
+    '[attr.data-preview]': "phoneOpen() ? (previewDocked() ? 'docked' : 'tabbed') : null",
+    '[attr.data-stage]': 'previewTabbed() ? stageTab() : null',
     '[attr.data-details]': "asideShown() ? (detailsDocked() ? 'docked' : 'over') : 'folded'",
-    '[attr.data-tabbed]': 'tabbed() || null',
     '[attr.data-source]': "sourceDocked() ? 'docked' : null",
     '[attr.data-view]': 'editorView()',
     '(keydown)': 'shortcut($event)',
@@ -254,6 +298,8 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
   /** The island's paper: the message's Appearance (the settings'). */
   readonly scheme = computed(() => this.editorScheme());
 
+  /** The bar is always over the desk (`MessageSheet`'s menus open under
+      it). */
   protected readonly barAtTop = signal(true).asReadonly();
 
   /** The template as last stored — what Revert goes back to, and what Save
@@ -290,11 +336,11 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
   #queue: Promise<unknown> = Promise.resolve();
   protected readonly saving = computed(() => this.#pending() > 0);
 
-  /** The details open on the right — or folded to their one line by the
-      bar's toggle, or by that line's press back open. */
+  /** The details open in the left column — or put away by the bar's
+      panel toggle, the column folded to its rail. */
   protected readonly detailsOpen = signal(true);
 
-  /** The phone on the left of the canvas. */
+  /** The phone on the right of the canvas. */
   protected readonly phoneOpen = signal(false);
 
   /** The desk under the bar: the three panes' room. */
@@ -303,9 +349,9 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
       fills it), so the panes open docked where they will stay. */
   readonly #deskWidth = signal(inject(DOCUMENT).defaultView?.innerWidth ?? 0);
 
-  /** The panes' widths as dragged — kept for the next template. The right
-      column keeps two: the details' alone, and with the source under them
-      (code reads wide). */
+  /** The panes' widths as dragged — kept for the next template. The left
+      column keeps two: the details', and the source's in their place (code
+      reads wide). */
   protected readonly previewWidth = inject(Preferences).designerPreviewWidth;
   protected readonly detailsWidth = inject(Preferences).designerDetailsWidth;
   protected readonly sourceWidth = inject(Preferences).designerSourceWidth;
@@ -316,27 +362,28 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
   protected readonly sourceMin = DESIGNER_SOURCE_MIN;
   protected readonly sourceMax = DESIGNER_SOURCE_MAX;
 
-  /** The desk's room once the phone is open, px: what the editor and the
-      right column share. */
+  /** The desk's room for the left column and the editor, px: the left
+      column's tabs keep their rail always; the phone, at the least, takes
+      its tabs' rail — it gives way to a tab before it squeezes either. */
   readonly #deskBesidePhone = computed(
-    () => this.#deskWidth() - (this.phoneOpen() ? DESIGNER_PREVIEW_MIN : 0),
+    () => this.#deskWidth() - TABS_RAIL - (this.phoneOpen() ? TABS_RAIL : 0),
   );
 
   /** Whether the desk holds the HTML source beside the editor, both at
-      their least, and the phone open at its least — short of that, the
-      source takes the editor's place and the phone keeps its pane. */
+      their least — short of that, the source takes the editor's place. */
   readonly #sourceFits = computed(
     () => this.#deskBesidePhone() >= DESIGNER_EDITOR_MIN + DESIGNER_SOURCE_MIN,
   );
 
-  /** The HTML source in the right column, under the details (`detached`):
-      asked for, where it fits. */
+  /** The HTML source in the left column, in the details' place
+      (`detached`): asked for, where it fits. */
   protected readonly sourceDocked = computed(() => this.sourceView() === 'detached');
 
-  /** The right column is there: the details open, or the source in it. */
+  /** The left column's panel is there: the details open, or the source in
+      it. Its tabs' rail is there either way. */
   protected readonly asideShown = computed(() => this.detailsOpen() || this.sourceDocked());
 
-  /** The right column's least and width, px: the source's while it is in
+  /** The left column's least and width, px: the source's while it is in
       it, the details' otherwise. */
   readonly #asideMin = computed(() =>
     this.sourceDocked() ? DESIGNER_SOURCE_MIN : DESIGNER_DETAILS_MIN,
@@ -345,83 +392,139 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
     this.sourceDocked() ? this.sourceWidth() : this.detailsWidth(),
   );
 
-  /** The right column as a pane of its own, pushing the editor aside: the
-      source's always (it docks only where it fits); the details' alone on
-      a wide desk (`DESIGNER_DETAILS_PUSH_MIN`), the phone's pane aside.
-      Narrower, the details float over the editor's end — a Mac's sidebar —
-      and the email keeps the desk's width. */
+  /** The left column as a pane of its own, pushing the editor aside —
+      room kept for it wherever the desk holds it beside the editor's
+      least: the source's always (it docks only where it fits), the
+      details' too. Narrower, the details float over the editor's start —
+      a Mac's sidebar — and the email keeps the desk's width. */
   protected readonly detailsDocked = computed(
     () =>
       this.sourceDocked() ||
-      (this.detailsOpen() &&
-        this.#deskBesidePhone() >=
-          Math.max(DESIGNER_DETAILS_PUSH_MIN, DESIGNER_EDITOR_MIN + DESIGNER_DETAILS_MIN)),
+      (this.detailsOpen() && this.#deskBesidePhone() >= DESIGNER_EDITOR_MIN + DESIGNER_DETAILS_MIN),
   );
 
   /** The preview as a pane of its own: open, where the desk holds it at
-      its least beside the editor's and the docked right column's — it
-      gives way first. Narrower, it floats over the editor's start. */
+      its least beside the editor's and the docked left column's — it
+      gives way first. Narrower, it is a tab beside the editor's, in its
+      place (`previewTabbed`). */
   protected readonly previewDocked = computed(
     () =>
       this.phoneOpen() &&
-      this.#deskWidth() >=
+      this.#deskWidth() - TABS_RAIL >=
         DESIGNER_EDITOR_MIN + DESIGNER_PREVIEW_MIN + (this.detailsDocked() ? this.#asideMin() : 0),
   );
 
-  /** What each divider leaves the rest, px: the editor's least, and the
-      other pane — the right column as wide as it stands (the preview only
-      takes what it leaves), the preview at its least (the right column may
-      push it there). The desk's tracks say the same (the stylesheet). */
+  /** The phone open with no room of its own: the editor and the phone are
+      tabs down the desk's right edge, one in the editor's place. */
+  protected readonly previewTabbed = computed(() => this.phoneOpen() && !this.previewDocked());
+
+  /** What each divider leaves the rest, px: the editor's least and the
+      left column's rail, and the other pane — the left column as wide as
+      it stands (the preview only takes what it leaves), the preview at its
+      least (the left column may push it there), or the phone's rail. The
+      desk's tracks say the same (the stylesheet). */
   protected readonly previewKeep = computed(() => {
-    if (!this.detailsDocked()) return DESIGNER_EDITOR_MIN;
+    if (!this.detailsDocked()) return DESIGNER_EDITOR_MIN + TABS_RAIL;
     const least = this.previewDocked() ? DESIGNER_PREVIEW_MIN : 0;
-    const aside = Math.min(this.asideWidth(), this.#deskWidth() - DESIGNER_EDITOR_MIN - least);
-    return DESIGNER_EDITOR_MIN + aside;
+    const room = this.#deskWidth() - TABS_RAIL - DESIGNER_EDITOR_MIN - least;
+    return DESIGNER_EDITOR_MIN + TABS_RAIL + Math.min(this.asideWidth(), room);
   });
   protected readonly detailsKeep = computed(
-    () => DESIGNER_EDITOR_MIN + (this.previewDocked() ? DESIGNER_PREVIEW_MIN : 0),
+    () =>
+      DESIGNER_EDITOR_MIN +
+      TABS_RAIL +
+      (this.previewDocked() ? DESIGNER_PREVIEW_MIN : this.previewTabbed() ? TABS_RAIL : 0),
   );
 
-  /** The right column's panels, as its tabs list them: the details while
-      they are open, the source while it is beside the editor. */
-  protected readonly asideTabs = computed(() =>
-    ASIDE_TABS.filter((tab) => (tab.id === 'envelope' ? this.detailsOpen() : this.sourceDocked())),
+  /** The left column's tabs: always there, on a rail of their own — the
+      source's off while the message has no HTML (plain text). */
+  protected readonly asideTabs = computed<readonly DeskTab<AsideTab>[]>(() =>
+    ASIDE_TABS.map((tab) =>
+      tab.id === 'source' ? { ...tab, disabled: !this.viewOffered() } : tab,
+    ),
   );
 
-  /** More than one panel: the tabs down the column's edge, one panel shown. */
-  protected readonly tabbed = computed(() => this.asideTabs().length > 1);
+  /** The right side's tabs, while the phone is one. */
+  protected readonly stageTabs = STAGE_TABS;
 
-  /** The tab picked — the panel that just came in, as it comes in (the
-      source as </> is pressed, the details as they open); the one left
-      when the other goes. */
-  protected readonly asideTab = linkedSignal<{ envelope: boolean; source: boolean }, AsideTab>({
-    source: () => ({ envelope: this.detailsOpen(), source: this.sourceDocked() }),
-    computation: (now, previous) => {
-      if (now.source && !previous?.source.source) return 'source';
-      if (now.envelope && !previous?.source.envelope) return 'envelope';
-      if (!now.source) return 'envelope';
-      if (!now.envelope) return 'source';
-      return previous?.value ?? 'envelope';
-    },
+  /** The right side's tab picked: the editor whenever the phone becomes a
+      tab or stops being one — the desk narrowing under a docked phone
+      keeps the work in sight — unless the bar's press opened the phone
+      onto its tab (`togglePhone`): that press is to see it. */
+  protected readonly stageTab = linkedSignal<boolean, StageTab>({
+    source: this.previewTabbed,
+    computation: () => 'editor',
   });
 
-  /** The panel the column shows: the tab picked, or the one there is. */
-  protected readonly shownPanel = computed<AsideTab | null>(() => {
-    const tabs = this.asideTabs();
-    if (tabs.length > 1) return this.asideTab();
-    return tabs[0]?.id ?? null;
-  });
+  /** The bar's phone: open — onto its tab, where it has no pane — or put
+      away. */
+  protected togglePhone(): void {
+    this.phoneOpen.update((open) => !open);
+    if (this.previewTabbed()) this.stageTab.set('phone');
+  }
+
+  /** A right-side tab pressed. */
+  protected readonly pickStage = (tab: StageTab): void => this.stageTab.set(tab);
+
+  /** The panel the column shows: the source while it stands beside the
+      editor, the details otherwise — none while both are put away, the
+      rail alone. */
+  protected readonly shownPanel = computed<AsideTab | null>(() =>
+    this.sourceDocked() ? 'source' : this.detailsOpen() ? 'envelope' : null,
+  );
+
+  /** The left tab lit: the source's while the HTML is out — beside the
+      editor or in its place — the details' while they are shown. */
+  protected readonly asideSelected = computed<AsideTab | null>(() =>
+    this.sourceView() === 'hidden' ? this.shownPanel() : 'source',
+  );
+
+  /** A left tab pressed — the rail is the HTML's switch: the source's shows
+      it (beside the editor, or in its place where the desk is too narrow);
+      the details' puts it away and shows the rows. Never folds the column:
+      the rail is for moving between them. */
+  protected readonly pickAside = (tab: AsideTab): void => {
+    if (tab === 'source') {
+      if (this.sourceView() === 'hidden') this.onEditorView('html');
+      return;
+    }
+    this.detailsOpen.set(true);
+    this.#hideSource();
+  };
+
+  /** The bar's panel toggle: the left column folded to its rail — whatever
+      it holds — or opened on the details. */
+  protected toggleAside(): void {
+    if (!this.asideShown()) {
+      this.detailsOpen.set(true);
+      return;
+    }
+    this.detailsOpen.set(false);
+    if (this.sourceDocked()) this.#hideSource();
+  }
+
+  /** The HTML put away, the editor back where it stood in for it. */
+  #hideSource(): void {
+    if (this.sourceView() === 'hidden') return;
+    releaseEditingSurface();
+    this.sourceView.set('hidden');
+  }
 
   /** The source in sight — in the editor's place, or its panel shown. */
   protected readonly sourceShown = computed(
     () => this.editorView() === 'html' || this.shownPanel() === 'source',
   );
 
-  /** The tabs' keys, a vertical tab list's: up and down (wrapping), Home
-      and End — the selection follows, the focus with it. */
-  protected tabKey(event: KeyboardEvent): void {
-    const tabs = this.asideTabs();
-    const at = tabs.findIndex((tab) => tab.id === this.asideTab());
+  /** A rail's keys, a vertical tab list's: up and down (wrapping, past an
+      off tab), Home and End — the selection follows, the focus with it. */
+  protected tabKey<T extends string>(
+    event: KeyboardEvent,
+    all: readonly DeskTab<T>[],
+    picked: T | null,
+    pick: (tab: T) => void,
+  ): void {
+    const tabs = all.filter((tab) => !tab.disabled);
+    const at = tabs.findIndex((tab) => tab.id === picked);
     const next =
       event.key === 'ArrowDown'
         ? (at + 1) % tabs.length
@@ -435,7 +538,7 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
     if (next < 0) return;
     event.preventDefault();
     const id = tabs[next].id;
-    this.asideTab.set(id);
+    pick(id);
     this.element.querySelector<HTMLElement>(`#designer-tab-${id}`)?.focus();
   }
 
@@ -587,7 +690,9 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
       ends (the desk's `data-resizing`) — re-wrapping a long template on
       every frame of a drag is what made it lag; it wraps once, on release. */
   protected holdSource(): void {
-    const width = this.sourceEl().nativeElement.getBoundingClientRect().width;
+    const source = this.sourceEl();
+    if (!source) return;
+    const width = source.nativeElement.getBoundingClientRect().width;
     this.desk().nativeElement.style.setProperty('--designer-source-held', `${width}px`);
   }
 
@@ -602,14 +707,69 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
     createSourceKeys(),
   ];
 
-  /** The HTML source, and its node for the code-view portal. */
-  protected readonly sourcePane = viewChild.required(HtmlEmailCompose);
-  private readonly sourceEl = viewChild.required('sourceEl', { read: ElementRef });
+  /** The HTML source made the first time it is asked for, and kept from
+      then on — its undo history and folds carry across. Until then there
+      is no editor to mount, and nothing re-formats and re-lints the whole
+      email each time typing rests for a pane nobody has opened. */
+  protected readonly sourceMade = linkedSignal<boolean, boolean>({
+    source: () => this.sourceView() !== 'hidden',
+    computation: (asked, previous) => asked || (previous?.value ?? false),
+  });
+
+  /** The HTML source, and its node for the code-view portal — none until
+      it is made. */
+  protected readonly sourcePane = viewChild(HtmlEmailCompose);
+  private readonly sourceEl = viewChild('sourceEl', { read: ElementRef });
 
   /** In code view the source's own node moves into the editor's place. */
-  protected readonly sourcePortal = computed(() =>
-    this.editorView() === 'html' ? new DomPortal(this.sourceEl()) : null,
-  );
+  protected readonly sourcePortal = computed(() => {
+    const source = this.sourceEl();
+    return this.editorView() === 'html' && source ? new DomPortal(source) : null;
+  });
+
+  /** The HTML source's paper as picked — its corner toggle, its hover
+      menu: light, dark, or the designer's (the email's) own. */
+  protected readonly sourceSchemePick = inject(Preferences).designerSourceScheme;
+
+  /** The HTML source's paper, resolved: a paper island of its own. */
+  protected readonly sourceScheme = computed<EditorColorScheme>(() => {
+    const pick = this.sourceSchemePick();
+    return pick === 'designer' ? this.scheme() : pick;
+  });
+
+  /** The source's papers, its hover menu's rows. */
+  protected readonly sourceSchemes: readonly { id: SourceScheme; label: string }[] = [
+    { id: 'designer', label: 'designer.sourceScheme.designer' },
+    { id: 'light', label: 'designer.sourceScheme.light' },
+    { id: 'dark', label: 'designer.sourceScheme.dark' },
+  ];
+
+  /** The toggle's press: the source's other paper, kept as its own pick. */
+  protected flipSourceScheme(): void {
+    this.sourceSchemePick.set(this.sourceScheme() === 'dark' ? 'light' : 'dark');
+  }
+
+  /** The source's paper menu put away — after a pick, or Escape — until
+      the pointer and focus have both left it: else the hand still on it
+      would hold it open. */
+  protected readonly schemeShut = signal(false);
+
+  /** The toggle, for the focus a pick hands back. */
+  private readonly schemeToggle = viewChild('schemeToggle', { read: ElementRef<HTMLElement> });
+
+  /** A row of the menu picked: that paper, the menu put away, focus back
+      on the toggle (no ring for the pointer's pick). */
+  protected pickSourceScheme(pick: SourceScheme): void {
+    this.sourceSchemePick.set(pick);
+    this.schemeShut.set(true);
+    this.schemeToggle()?.nativeElement.focus();
+  }
+
+  /** Focus leaving the toggle and its menu: open again at the next hover. */
+  protected schemeLeft(event: FocusEvent): void {
+    const next = event.relatedTarget as Node | null;
+    if (!next || !(event.currentTarget as Node).contains(next)) this.schemeShut.set(false);
+  }
 
   /** A design needs its HTML: the designer holds a source pane of its own. */
   protected override sourceOffered(): boolean {
@@ -625,17 +785,6 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
       return;
     }
     super.onEditorView(view);
-  }
-
-  /** The bar's </>: the HTML shown — beside the editor or in its place —
-      or put away. */
-  protected toggleSource(): void {
-    if (this.sourceView() === 'hidden') {
-      this.onEditorView('html');
-      return;
-    }
-    releaseEditingSurface();
-    this.sourceView.set('hidden');
   }
 
   /** Where the designer starts: the text — the canvas is what it is for,
@@ -742,7 +891,6 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
     rememberSwatch(this.#customSwatches, color, 'background');
   }
 
-  /** An email being read into the design. */
   /** The designer's import: a file hanging over it lights the button and
       shows the drop hint. */
   protected readonly import = inject(MessageImport);
@@ -762,7 +910,17 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
     }
   }
 
-  /** The button's picker: the file chosen, then the picker emptied so the
+  /** The ⋮'s items, top to bottom: an email to study, first. */
+  protected readonly moreItems = computed<ToolbarMenuItem<MoreAction>[]>(() => [
+    { value: 'study', label: this.i18n.t('designer.study.import') },
+  ]);
+
+  /** A ⋮ item picked. */
+  protected moreAction(action: MoreAction, studyPicker: HTMLInputElement): void {
+    if (action === 'study') studyPicker.click();
+  }
+
+  /** The ⋮ item's picker: the file chosen, then the picker emptied so the
       same file can be picked again. */
   protected studyPicked(picker: HTMLInputElement): void {
     const file = picker.files?.[0];
