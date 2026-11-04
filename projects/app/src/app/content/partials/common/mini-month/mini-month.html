@@ -56,7 +56,7 @@
               [attr.aria-label]="day.label"
               [tabindex]="day.stop ? 0 : -1"
               (pointerdown)="press($event, day.day)"
-              (click)="picked(day.day)"
+              (click)="picked($event, day.day)"
             >
               {{ day.number }}
             </button>

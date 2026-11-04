@@ -70,6 +70,7 @@ import { Viewport } from '../../../../core/layout/viewport';
 import { Preferences } from '../../../../core/storages/preferences';
 import { I18n } from '../../../../core/translations/i18n';
 import {
+  DayFlash,
   GridCreate,
   GridOpen,
   GridSlot,
@@ -616,6 +617,18 @@ export class CalendarPage {
   protected pickDay(day: IsoDay): void {
     const inside = this.miniSelected().includes(day);
     this.go(inside ? 'day' : this.#view(), day);
+  }
+
+  /** The day the grids light up for a moment, and how many were asked. */
+  protected readonly flash = signal<DayFlash | null>(null);
+
+  /** Cmd/Ctrl and a click on a day in the mini month, Notion's: the view
+      stays what it is, moved there if it must be, and the day lights up
+      for a moment — here it is. The day lit last does not light again
+      (Notion's, measured): only another day does, and after it, it may. */
+  protected revealDay(day: IsoDay): void {
+    if (!this.miniSelected().includes(day)) this.go(this.#view(), day);
+    this.flash.update((last) => (last?.day === day ? last : { day, id: (last?.id ?? 0) + 1 }));
   }
 
   /** A run dragged across the mini month: the view it asks for — days,

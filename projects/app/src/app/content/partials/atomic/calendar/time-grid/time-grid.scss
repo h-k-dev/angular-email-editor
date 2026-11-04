@@ -1,8 +1,8 @@
 @use '@h-k-dev/angular-email-editor/styles/scroll';
 
 // Notion Calendar's hours: no boxes, hairlines at a whisper of the ink
-// (6%), small quiet words (10px labels, the heads' weekdays 11px), weekends a shade
-// down, today and now in the theme's primary (Notion's red, ours). One
+// (6%), small quiet words (10px labels, the heads' weekdays 11px), weekdays a shade
+// up and weekends the plain ground (user: the other way from Notion's), today and now in the theme's primary (Notion's red, ours). One
 // scroller, both ways: the heads and band hold still at its top, the
 // gutter (56px) at its start — on the page's own ground, which they cover
 // what scrolls under them with. Nothing moves by itself.
@@ -12,7 +12,7 @@
   --_line: color-mix(in oklch, var(--mat-sys-on-surface) 6%, transparent);
   --_quiet: color-mix(in oklch, var(--mat-sys-on-surface) 46%, transparent);
   --_today: var(--mat-sys-primary);
-  --_weekend: color-mix(in oklch, var(--mat-sys-on-surface) 2.5%, transparent);
+  --_weekday: color-mix(in oklch, var(--mat-sys-on-surface) 2.5%, transparent);
 
   display: flex;
   flex-direction: column;
@@ -73,15 +73,46 @@
 }
 
 .time-grid__head-days {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(var(--days), minmax(0, 1fr));
   align-items: end;
 }
 
 .time-grid__head {
+  // Over the day's flash.
+  position: relative;
   display: flex;
   justify-content: center;
   min-inline-size: 0;
+}
+
+// A day lit for a moment, Notion's date flash: a solid primary box over
+// the day in the head, the band and the hours — under what they hold —
+// at no opacity at rest; `DayFlashes` plays it up to a third and away.
+// The three meet edge to edge, one strip down the day — never over each
+// other (a third over a third would draw a line): the head's takes in its
+// row's padding above and below (`.time-grid__heads`), its top corners
+// round; the band's takes in the band's hairlines over and under it; the
+// hours' runs on under the band's foot.
+.time-grid__flash {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: calc(var(--flash-day) * 100% / var(--days));
+  inline-size: calc(100% / var(--days));
+  background: var(--mat-sys-primary);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.time-grid__flash--head {
+  inset-block: -4px;
+  border-start-start-radius: 4px;
+  border-start-end-radius: 4px;
+}
+
+.time-grid__flash--band {
+  inset-block: -1px;
 }
 
 // A day's head, top down: the weekday, small and quiet, over the date;
@@ -164,6 +195,7 @@
 // The band: a lane per row, each 22px + 2px apart; one empty lane at the
 // least, to press in. The days' lines carry on through it.
 .time-grid__band {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(var(--days), minmax(0, 1fr));
   grid-template-rows: repeat(var(--lanes), 22px);
@@ -230,8 +262,8 @@
   color: var(--_today);
 }
 
-// The days: a line every hour, a line down each day's start, weekends a
-// shade down — Notion's.
+// The days: a line every hour, a line down each day's start, weekdays a
+// shade up — weekends the plain ground.
 // The hours' whole height: the strip's room in the body holds the 24
 // hours, and the days' lines, the hour lines and a press on empty room
 // need the columns all down it (their events alone take no room).
@@ -249,8 +281,8 @@
   cursor: default;
 }
 
-.time-grid__day--weekend {
-  background: var(--_weekend);
+.time-grid__day:not(.time-grid__day--weekend) {
+  background: var(--_weekday);
 }
 
 // An event's box: from its start, as long as it lasts, its share of the

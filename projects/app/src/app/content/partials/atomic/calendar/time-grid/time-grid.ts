@@ -47,6 +47,8 @@ import { laneCount, placeInDay, placeInLanes } from '../../../../../core/calenda
 import { EventChip } from '../../../shared/calendar/event-chip/event-chip';
 import {
   DRAG_THRESHOLD,
+  DayFlash,
+  DayFlashes,
   DoublePress,
   EdgeTurns,
   TURN_ZONE,
@@ -181,6 +183,9 @@ export class TimeGrid {
   readonly today = input.required<IsoDay>();
   readonly now = input.required<DateTime>();
   readonly untitled = input('');
+  /** A day to light up for a moment (Cmd/Ctrl and a click on it in the
+      mini month), once it is drawn. */
+  readonly flash = input<DayFlash | null>(null);
   /** Where the hours are scrolled to, px — kept by the page, so the month
       and back opens at the same hour; null until first scrolled. */
   readonly scrollTop = model<number | null>(null);
@@ -206,6 +211,7 @@ export class TimeGrid {
 
   protected readonly hourHeight = HOUR_HEIGHT;
   readonly #presses = new DoublePress();
+  readonly #flashes = new DayFlashes();
 
   protected readonly scroller = viewChild.required<ElementRef<HTMLElement>>('scroller');
   protected readonly columnsEl = viewChild.required<ElementRef<HTMLElement>>('dayColumns');
@@ -391,6 +397,13 @@ export class TimeGrid {
         weekend: date.weekday > 5,
       };
     });
+  });
+
+  /** Where the day asked to light up is among the days drawn — -1 while it
+      is not drawn: its boxes (head, band, hours) stand there. */
+  protected readonly flashIndex = computed(() => {
+    const day = this.flash()?.day;
+    return day ? this.shownDays().indexOf(day) : -1;
   });
 
   /** The hours' labels, from 1 — midnight goes unsaid. The one now is
@@ -599,6 +612,20 @@ export class TimeGrid {
           this.#turningTo = null;
           this.#jump(to * width);
         });
+      },
+    });
+
+    // A day asked to light up: its head, band and hours, once the strip
+    // draws it.
+    afterRenderEffect({
+      write: () => {
+        const flash = this.flash();
+        this.flashIndex();
+        untracked(() =>
+          this.#flashes.play(flash, [
+            ...this.scroller().nativeElement.querySelectorAll('.time-grid__flash'),
+          ]),
+        );
       },
     });
 

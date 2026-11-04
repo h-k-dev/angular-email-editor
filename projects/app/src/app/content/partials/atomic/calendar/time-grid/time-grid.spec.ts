@@ -7,6 +7,7 @@ import {
   CalendarEventDraft,
   DRAFT_ID,
 } from '../../../../../core/calendar/calendar-event';
+import { DayFlash } from '../calendar-grid';
 import { TimeGrid } from './time-grid';
 
 const DAYS = [
@@ -39,6 +40,7 @@ const COFFEE: CalendarEvent = {
       [today]="days[5]"
       [now]="now"
       [draft]="draft()"
+      [flash]="flash()"
       (change)="changed = $event"
       (create)="created.push($event.draft)"
       (dismiss)="dismissed = dismissed + 1"
@@ -50,6 +52,7 @@ class Host {
   readonly events = signal<CalendarEvent[]>([COFFEE]);
   readonly now = DateTime.fromISO('2026-10-30T08:00');
   readonly draft = signal<CalendarEventDraft | null>(null);
+  readonly flash = signal<DayFlash | null>(null);
   changed: CalendarEvent | null = null;
   readonly created: CalendarEventDraft[] = [];
   dismissed = 0;
@@ -220,5 +223,50 @@ describe('TimeGrid — making an event', () => {
     expect(fixture.componentInstance.created).toMatchObject([
       { start: '2026-10-27T10:00', end: '2026-10-27T12:00' },
     ]);
+  });
+});
+
+describe('TimeGrid — a day lit up', () => {
+  // jsdom has no Web Animations: a stand-in, gone after.
+  afterEach(() => {
+    delete (Element.prototype as Partial<Element>).animate;
+  });
+
+  it('lights the day in the head, the band and the hours, once per ask — again when asked again', async () => {
+    const cancel = vi.fn();
+    const animate = vi.fn(() => ({ cancel }));
+    Element.prototype.animate = animate as unknown as Element['animate'];
+    const fixture = TestBed.createComponent(Host);
+    await fixture.whenStable();
+    expect(animate).not.toHaveBeenCalled();
+
+    fixture.componentInstance.flash.set({ day: '2026-10-28', id: 1 });
+    await fixture.whenStable();
+    const boxes = animate.mock.contexts as HTMLElement[];
+    expect(boxes.map((box) => box.parentElement!.className)).toEqual([
+      'time-grid__head-days',
+      'time-grid__band',
+      'time-grid__columns',
+    ]);
+    // The fourth day drawn: its place across.
+    expect(boxes.map((box) => box.style.getPropertyValue('--flash-day'))).toEqual(['3', '3', '3']);
+    // Notion's: up to a third, held, gone — 3s.
+    const [frames, timing] = animate.mock.calls[0] as unknown as [
+      Keyframe[],
+      KeyframeAnimationOptions,
+    ];
+    expect(frames.map((frame) => frame['opacity'])).toEqual([0, 0.33, 0.33, 0]);
+    expect(timing).toMatchObject({ duration: 3000, fill: 'forwards' });
+
+    // Another render is no new ask.
+    fixture.componentInstance.events.set([]);
+    await fixture.whenStable();
+    expect(animate).toHaveBeenCalledTimes(3);
+
+    // Asked again: the last stopped, played anew.
+    fixture.componentInstance.flash.set({ day: '2026-10-28', id: 2 });
+    await fixture.whenStable();
+    expect(cancel).toHaveBeenCalledTimes(3);
+    expect(animate).toHaveBeenCalledTimes(6);
   });
 });

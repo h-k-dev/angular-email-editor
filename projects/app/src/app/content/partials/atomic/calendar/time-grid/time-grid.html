@@ -17,6 +17,16 @@
         <div class="time-grid__corner">{{ zone() }}</div>
         <div class="time-grid__strip">
           <div class="time-grid__head-days">
+            <!-- A day lit for a moment (Cmd/Ctrl and a click in the mini
+                 month): its head, its band and its hours, under what
+                 they hold. -->
+            @if (flashIndex() >= 0) {
+              <div
+                class="time-grid__flash time-grid__flash--head"
+                [style.--flash-day]="flashIndex()"
+                aria-hidden="true"
+              ></div>
+            }
             @for (head of heads(); track head.day) {
               <div class="time-grid__head">
                 <button
@@ -52,6 +62,13 @@
             (pointerup)="release($event)"
             (pointercancel)="cancel()"
           >
+            @if (flashIndex() >= 0) {
+              <div
+                class="time-grid__flash time-grid__flash--band"
+                [style.--flash-day]="flashIndex()"
+                aria-hidden="true"
+              ></div>
+            }
             @for (bar of band().bars; track bar.key) {
               <button
                 type="button"
@@ -114,6 +131,13 @@
           (pointercancel)="cancel()"
           (pointerleave)="leave()"
         >
+          @if (flashIndex() >= 0) {
+            <div
+              class="time-grid__flash"
+              [style.--flash-day]="flashIndex()"
+              aria-hidden="true"
+            ></div>
+          }
           <!-- Now's thin line, from the time in the gutter across the whole
                row — under the events (they come after it); today's own
                line stands over it. -->

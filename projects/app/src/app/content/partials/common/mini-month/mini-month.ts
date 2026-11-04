@@ -88,6 +88,8 @@ export class MiniMonth {
 
   /** A day was picked. */
   readonly pick = output<IsoDay>();
+  /** A day was clicked with Cmd/Ctrl: shown where it is, not picked. */
+  readonly reveal = output<IsoDay>();
   /** A run of days was dragged across, in order. */
   readonly pickRange = output<{ from: IsoDay; to: IsoDay }>();
 
@@ -202,9 +204,10 @@ export class MiniMonth {
     this.pickRange.emit({ from, to });
   }
 
-  protected picked(day: IsoDay): void {
+  protected picked(event: MouseEvent, day: IsoDay): void {
     this.#cursor.set(day);
-    this.pick.emit(day);
+    if (event.metaKey || event.ctrlKey) this.reveal.emit(day);
+    else this.pick.emit(day);
   }
 
   protected keydown(event: KeyboardEvent): void {

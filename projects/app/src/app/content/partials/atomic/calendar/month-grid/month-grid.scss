@@ -1,8 +1,8 @@
 @use '@h-k-dev/angular-email-editor/styles/scroll';
 
 // Notion Calendar's month: hairlines between days at a whisper of the ink,
-// no boxes; small quiet dates, today's in a primary pill; weekends a shade
-// down. The weeks are one scrolled strip under the weekdays.
+// no boxes; small quiet dates, today's in a primary pill; weekdays a shade
+// up, weekends the plain ground (user: the other way from Notion's). The weeks are one scrolled strip under the weekdays.
 :host {
   --_line: color-mix(in oklch, var(--mat-sys-on-surface) 6%, transparent);
   --_quiet: color-mix(in oklch, var(--mat-sys-on-surface) 46%, transparent);
@@ -111,11 +111,23 @@
   pointer-events: none;
 }
 
+// The day lit for a moment, Notion's date flash: the whole cell a solid
+// primary at no opacity at rest; `DayFlashes` plays it up to a third and
+// away.
+.month-grid__cell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--mat-sys-primary);
+  opacity: 0;
+  pointer-events: none;
+}
+
 .month-grid__cell--first {
   border-inline-start: 0;
 }
 
-.month-grid__cell--weekend {
+.month-grid__cell:not(.month-grid__cell--weekend) {
   background: color-mix(in oklch, var(--mat-sys-on-surface) 2.5%, transparent);
 }
 

@@ -198,6 +198,49 @@ function markOf(element: Element, left: number, style: CSSStyleDeclaration): num
   return left + (parseFloat(style.paddingLeft) || 0);
 }
 
+/** A day to light up for a moment — Cmd/Ctrl and a click on it in the mini
+    month: Notion's "here it is". `id` counts the days asked for — the page
+    asks for a day only when it is not the one lit last — so a day lit,
+    another, then it again, lights again. */
+export interface DayFlash {
+  readonly day: IsoDay;
+  readonly id: number;
+}
+
+/** Notion's date flash, read off calendar.notion.com (2026-11-04): a solid
+    box in its accent up to a third, held, then gone — 3s, each step eased
+    out (`--ease-out-quad`), the same light and dark. Ours is primary. */
+const FLASH_EASE = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+const FLASH_PEAK = 0.33;
+const FLASH_FRAMES: Keyframe[] = [
+  { opacity: 0, easing: FLASH_EASE },
+  { opacity: FLASH_PEAK, offset: 0.15, easing: FLASH_EASE },
+  { opacity: FLASH_PEAK, offset: 0.3, easing: FLASH_EASE },
+  { opacity: 0 },
+];
+const FLASH_TIME: KeyframeAnimationOptions = { duration: 3000, fill: 'forwards' };
+
+/**
+ * Lights a day's boxes — a week's head, band and hours for it; a month's
+ * cell (its `::before`) — each a solid primary at no opacity at rest (the
+ * grid's styles). Plays once per ask, once the day is drawn: a grid calls
+ * it after every render with what it has, none while the day is not drawn
+ * yet (the strip still on its way there). A new ask stops the last.
+ */
+export class DayFlashes {
+  #played = 0;
+  #running: Animation[] = [];
+
+  play(flash: DayFlash | null, boxes: readonly Element[], pseudoElement?: string): void {
+    if (!flash || flash.id === this.#played || !boxes.length) return;
+    this.#played = flash.id;
+    for (const running of this.#running) running.cancel();
+    this.#running = boxes
+      .map((box) => box.animate?.(FLASH_FRAMES, { ...FLASH_TIME, pseudoElement }))
+      .filter((animation): animation is Animation => !!animation);
+  }
+}
+
 /** A box from an element, for an anchor. */
 export function boxOf(element: Element): AnchorRect {
   const { left, top, width, height } = element.getBoundingClientRect();

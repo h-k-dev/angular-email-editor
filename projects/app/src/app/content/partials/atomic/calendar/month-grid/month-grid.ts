@@ -41,6 +41,8 @@ import { placeInLanes } from '../../../../../core/calendar/calendar-layout';
 import { EventChip } from '../../../shared/calendar/event-chip/event-chip';
 import {
   DRAG_THRESHOLD,
+  DayFlash,
+  DayFlashes,
   DoublePress,
   EdgeTurns,
   TURN_ZONE,
@@ -155,6 +157,9 @@ export class MonthGrid {
   });
   readonly today = input.required<IsoDay>();
   readonly untitled = input('');
+  /** A day to light up for a moment (Cmd/Ctrl and a click on it in the
+      mini month), once it is drawn. */
+  readonly flash = input<DayFlash | null>(null);
 
   readonly create = output<GridCreate>();
   readonly open = output<GridOpen>();
@@ -174,6 +179,7 @@ export class MonthGrid {
   readonly windowChange = output<GridWindow>();
 
   readonly #presses = new DoublePress();
+  readonly #flashes = new DayFlashes();
   readonly #turns = new EdgeTurns();
   private readonly scrollerEl = viewChild.required<ElementRef<HTMLElement>>('weeksBox');
   /** Where the dragging pointer is, and the frame that watches it at the
@@ -429,6 +435,25 @@ export class MonthGrid {
         });
         observer.observe(scroller);
         this.#destroyRef.onDestroy(() => observer.disconnect());
+      },
+    });
+
+    // A day asked to light up: its cell, once the strip draws its week.
+    afterRenderEffect({
+      write: () => {
+        const flash = this.flash();
+        this.rows();
+        untracked(() =>
+          this.#flashes.play(
+            flash,
+            [
+              ...this.scrollerEl().nativeElement.querySelectorAll(
+                `.month-grid__cell[data-day="${flash?.day}"]`,
+              ),
+            ],
+            '::before',
+          ),
+        );
       },
     });
 
