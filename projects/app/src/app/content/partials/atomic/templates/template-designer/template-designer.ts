@@ -266,7 +266,7 @@ function sameMessage(a: Envelope, b: Envelope): boolean {
     { provide: PaperIsland, useExisting: TemplateDesigner },
   ],
   templateUrl: './template-designer.html',
-  styleUrl: './template-designer.scss',
+  styleUrls: ['./template-designer.scss', './template-designer-layout.scss'],
   // An .eml dropped anywhere on the designer, or pasted where no field takes
   // the paste (the file, or its raw text), opens as the design.
   hostDirectives: [{ directive: MessageImport, outputs: ['messageImport'] }],

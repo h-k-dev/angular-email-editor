@@ -47,6 +47,17 @@ beforeEach(() => {
   document.documentElement.lang = 'en';
 });
 
+/**
+ * …and on an entry with nothing in it. The runner shares one window between
+ * the spec files a worker runs (`isolate: false`, the builder's default), and
+ * the history with it: a guard another file left up (core/router/back-button)
+ * leaves its mark on the entry the next file starts from — so a spec that
+ * presses back onto it would find that mark, not a clean page. How many files
+ * share a window is how many workers there are, so it shows on a CI runner's
+ * few cores and hardly ever on a laptop's.
+ */
+beforeEach(() => history.replaceState(null, ''));
+
 /** jsdom implements no scrolling: a chip that scrolls itself into view (the
     chip cloud's arrow keys) finds a no-op instead of throwing. */
 if (typeof Element !== 'undefined' && typeof Element.prototype.scrollIntoView !== 'function') {
