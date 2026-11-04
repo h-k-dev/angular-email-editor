@@ -175,6 +175,23 @@
     opacity: 1;
     font-weight: 500;
   }
+
+  // How long it is, while it has no title: muted, as the grid's quiet
+  // labels (Notion's) — the times above it carry the mark.
+  .event-chip__duration {
+    color: color-mix(in oklch, var(--mat-sys-on-surface) 46%, transparent);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+// The last day of a run over days: its words at its foot, where the drag
+// ends (a column-reverse mark's foot is its main start).
+:host(.event-chip--foot[data-shape='block']) {
+  justify-content: flex-end;
+}
+
+:host(.event-chip--mark.event-chip--foot[data-shape='block']) {
+  justify-content: flex-start;
 }
 
 // Current — its card open, `aria-current="true"`: a step deeper than a

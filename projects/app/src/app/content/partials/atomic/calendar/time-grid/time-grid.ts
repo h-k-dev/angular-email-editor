@@ -458,6 +458,8 @@ export class TimeGrid {
           lines: one.length < 45 ? 1 : Math.max(1, Math.floor((one.length / 60) * 2.4) - 1),
           mark: false,
           lifted: one.event.id === lifted,
+          bare: false,
+          foot: false,
         })),
         // The event in hand, across the days it runs over, as the mark.
         ...placeInDay(holding, day, { spanning: true }).map((one) => ({
@@ -466,14 +468,21 @@ export class TimeGrid {
           lines: one.length < 45 ? 1 : Math.max(1, Math.floor((one.length / 60) * 2.4) - 1),
           mark: false,
           lifted: one.event.id === lifted,
+          bare: one.cutStart && one.cutEnd,
+          foot: one.cutStart && !one.cutEnd,
         })),
-        // The mark over them all, the column's whole width: Notion's.
+        // The mark over them all, the column's whole width: Notion's. Over
+        // days, its words on the first day and the last only — the days
+        // between are its colour alone; on the last, at its foot (it
+        // starts at midnight — the words would be out of sight there).
         ...placeInDay(mark, day, { spanning: true }).map((one) => ({
           ...one,
           key: one.event.id,
           lines: 1,
           mark: true,
           lifted: false,
+          bare: one.cutStart && one.cutEnd,
+          foot: one.cutStart && !one.cutEnd,
         })),
       ],
     }));

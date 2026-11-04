@@ -1,5 +1,5 @@
 import { Service, computed, inject } from '@angular/core';
-import { DateTime, DateTimeFormatOptions, Interval } from 'luxon';
+import { DateTime, DateTimeFormatOptions, Duration, Interval } from 'luxon';
 
 import { I18n } from '../translations/i18n';
 import { WeekStart, weekStartOf } from './calendar-dates';
@@ -28,7 +28,18 @@ export interface CalendarFormats {
   /** When an event is, in a line: "Thursday, October 29 · 10:00 – 11:00 AM",
       "Thursday, October 29" all day, "October 29 – 31" over days. */
   when(event: Pick<CalendarEvent, 'start' | 'end' | 'allDay'>): string;
+  /** How long from one to the other, narrow: "1h 45m", "6d 10h 45m" —
+      the units that are none left out. */
+  duration(start: DateTime, end: DateTime): string;
 }
+
+/** `Intl.DurationFormat` (ES2025 — past this project's lib): where the
+    browser has it, a duration's own words; else Luxon's list of units. */
+type DurationFormatter = new (
+  language: string,
+  options: { style: 'narrow' },
+) => { format(duration: Record<string, number>): string };
+const DurationFormat = (Intl as unknown as { DurationFormat?: DurationFormatter }).DurationFormat;
 
 const MONTH_YEAR: DateTimeFormatOptions = { month: 'long', year: 'numeric' };
 const SHORT_MONTH_YEAR: DateTimeFormatOptions = { month: 'short', year: 'numeric' };
@@ -55,6 +66,7 @@ export function calendarFormats(language: string): CalendarFormats {
   const range = (from: DateTime, to: DateTime, options: DateTimeFormatOptions) =>
     Interval.fromDateTimes(from, to).toLocaleString(options, locale);
   const timeRange = (start: DateTime, end: DateTime) => range(start, end, HOUR_MINUTE);
+  const narrow = DurationFormat ? new DurationFormat(language, { style: 'narrow' }) : null;
 
   return {
     language,
@@ -78,6 +90,16 @@ export function calendarFormats(language: string): CalendarFormats {
       return start.hasSame(end.minus({ milliseconds: 1 }), 'day')
         ? `${one(start, DAY_OF_WEEK)} · ${timeRange(start, end)}`
         : range(start, end, DAY_TIME);
+    },
+    duration: (start, end) => {
+      const units = end.diff(start, ['days', 'hours', 'minutes']).removeZeros().toObject();
+      const span = Duration.fromObject(Object.keys(units).length ? units : { minutes: 0 });
+      // None at all (a moment): Intl leaves out every unit and says
+      // nothing — Luxon says "0m".
+      return (
+        narrow?.format(span.toObject() as Record<string, number>) ||
+        span.reconfigure(locale).toHuman({ unitDisplay: 'narrow' })
+      );
     },
   };
 }

@@ -2,7 +2,11 @@ import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { DateTime } from 'luxon';
 
-import { CalendarEvent, CalendarEventDraft } from '../../../../../core/calendar/calendar-event';
+import {
+  CalendarEvent,
+  CalendarEventDraft,
+  DRAFT_ID,
+} from '../../../../../core/calendar/calendar-event';
 import { TimeGrid } from './time-grid';
 
 const DAYS = [
@@ -98,6 +102,48 @@ describe('TimeGrid — stretching an event', () => {
     await fixture.whenStable();
     expect(root.querySelector('.time-grid__bar[data-event-id="coffee"]')).not.toBeNull();
     expect(root.querySelectorAll('.time-grid__chip[data-event-id="coffee"]')).toHaveLength(0);
+  });
+});
+
+describe('TimeGrid — a mark over days', () => {
+  it('says its words on its first day and its last only — the days between are bare', async () => {
+    const fixture = TestBed.createComponent(Host);
+    fixture.componentInstance.draft.set({
+      title: '',
+      start: '2026-10-27T10:00',
+      end: '2026-10-30T12:00',
+      allDay: false,
+      color: 'peacock',
+      location: '',
+      description: '',
+    });
+    await fixture.whenStable();
+    const root = fixture.nativeElement as HTMLElement;
+
+    const pieces = [
+      ...root.querySelectorAll<HTMLElement>(`.time-grid__chip[data-event-id="${DRAFT_ID}"]`),
+    ];
+    expect(pieces).toHaveLength(4);
+    const worded = pieces.map((piece) => !!piece.querySelector('.event-chip__time'));
+    expect(worded).toEqual([true, false, false, true]);
+    // No title yet: how long it is, where the title will be.
+    expect(pieces[0].querySelector('.event-chip__duration')?.textContent).toBe('3d 2h');
+    expect(pieces[3].querySelector('.event-chip__duration')?.textContent).toBe('3d 2h');
+    // The bare ones are the same event again: not said, not stopped on.
+    expect(pieces.map((piece) => piece.getAttribute('aria-hidden'))).toEqual([
+      null,
+      'true',
+      'true',
+      null,
+    ]);
+    expect(pieces[1].tabIndex).toBe(-1);
+    // The last starts at midnight: its words at its foot, where the drag is.
+    expect(pieces.map((piece) => piece.classList.contains('event-chip--foot'))).toEqual([
+      false,
+      false,
+      false,
+      true,
+    ]);
   });
 });
 

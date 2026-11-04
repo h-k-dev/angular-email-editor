@@ -38,14 +38,22 @@ export type EventChipShape = 'block' | 'bar' | 'item';
 @Component({
   selector: '[calendarEventChip]',
   template: `
-    @if (shape() === 'item') {
+    @if (bare()) {
+      <!-- A run's middle day: the colour alone. -->
+    } @else if (shape() === 'item') {
       <span class="event-chip__dot" aria-hidden="true"></span>
       @if (time(); as time) {
         <span class="event-chip__time">{{ time }}</span>
       }
       <span class="event-chip__title">{{ title() }}</span>
     } @else {
-      <span class="event-chip__title">{{ title() }}</span>
+      @if (duration(); as duration) {
+        <!-- A mark not yet named: how long it is, muted, where the
+             title will be. -->
+        <span class="event-chip__title event-chip__duration">{{ duration }}</span>
+      } @else {
+        <span class="event-chip__title">{{ title() }}</span>
+      }
       @if (shape() === 'block' && time(); as time) {
         <span class="event-chip__time">{{ time }}</span>
       }
@@ -60,6 +68,7 @@ export type EventChipShape = 'block' | 'bar' | 'item';
     '[attr.aria-current]': 'current() ? "true" : null',
     '[class.event-chip--cut-before]': 'cutBefore()',
     '[class.event-chip--cut-after]': 'cutAfter()',
+    '[class.event-chip--foot]': 'foot()',
     '[style.--event-color]': 'color()',
   },
 })
@@ -82,10 +91,26 @@ export class EventChip {
       end is cut square. */
   readonly cutBefore = input(false, { transform: booleanAttribute });
   readonly cutAfter = input(false, { transform: booleanAttribute });
+  /** No words: a block on a day in the middle of a run over days (a mark
+      dragged sideways) — its first day and its last say them. */
+  readonly bare = input(false, { transform: booleanAttribute });
+  /** Its words at its foot: a block on the last day of such a run — it
+      starts at midnight, where they would be out of sight; its foot is
+      where the drag is. */
+  readonly foot = input(false, { transform: booleanAttribute });
 
   protected readonly color = computed(() => EVENT_COLOR_VALUES[this.event().color]);
 
   protected readonly title = computed(() => this.event().title.trim() || this.untitled());
+
+  /** How long a mark in the hours lasts — said where its title goes while
+      it has none (Notion's): "1h 45m". None once it is named. */
+  protected readonly duration = computed(() => {
+    const event = this.event();
+    if (!this.mark() || this.shape() !== 'block' || event.allDay || event.title.trim()) return '';
+    const { start, end } = eventSpan(event);
+    return this.#formats().duration(start, end);
+  });
 
   /** Its times — a block's two, an item's start; none all day. */
   protected readonly time = computed(() => {
