@@ -5,7 +5,7 @@
  * parser so its output is always well-formed.
  */
 import { clientList, findCssIssues } from '@h-k-dev/dawn';
-import { normalizeMergeTagText } from './extensions/nodes/merge-tag';
+import { normalizeMergeTagText, writeMergeTags } from './extensions/nodes/merge-tag';
 import { escapeAttribute, escapeText } from './utils/escape';
 import { VOID_TAGS } from './html-tags';
 import {
@@ -751,18 +751,52 @@ function room(pad: string, width: number): number {
   return Math.max(width, pad.length + Math.round(width * 0.75));
 }
 
-export function formatHTML(html: string, indent = '  ', width = FORMAT_WIDTH): string {
+/** What the formatter is told beyond the layout. */
+export interface FormatHtmlOptions {
+  /** A merge tag expression's canonical form — the editor's dialect's
+      (`ExpressionDialect.format`, AngularJS: strings in single quotes);
+      without one, a tag is padded only. */
+  formatExpression?: (expr: string) => string;
+}
+
+/** Every merge tag in a parsed tree — its text and its attributes — in its
+    canonical form (`normalizeMergeTagText`). */
+function canonicalizeMergeTags(root: globalThis.Node, format?: (expr: string) => string): void {
+  const walker = (root.ownerDocument ?? (root as Document)).createTreeWalker(
+    root,
+    NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+  );
+  for (let node: globalThis.Node | null = walker.currentNode; node; node = walker.nextNode()) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      if (node.nodeValue?.includes('{{')) node.nodeValue = normalizeMergeTagText(node.nodeValue, format);
+    } else {
+      for (const attribute of Array.from((node as Element).attributes ?? [])) {
+        if (attribute.value.includes('{{')) attribute.value = normalizeMergeTagText(attribute.value, format);
+      }
+    }
+  }
+}
+
+export function formatHTML(
+  html: string,
+  indent = '  ',
+  width = FORMAT_WIDTH,
+  options: FormatHtmlOptions = {},
+): string {
   const lines: string[] = [];
   // The whole document formats as one — the head in
   // exactly the canonical line form the parse stores (`canonicalHead`), so
   // the pretty source and the canonical document never disagree about it —
   // and a wide style breaks only where the parse can undo it.
   const dom = parseDocument(html);
+  // Its merge tags in their canonical form — padded, and the dialect's —
+  // in text and in attributes alike; written as typed (`writeMergeTags`).
+  canonicalizeMergeTags(dom.documentElement, options.formatExpression);
   if (!hasDocumentEnvelope(html)) {
     for (const child of Array.from(dom.body.childNodes)) {
       formatNode(child, 0, lines, indent, width, true);
     }
-    return lines.join('\n');
+    return writeMergeTags(lines.join('\n'));
   }
   const envelope = readEnvelope(dom);
   if (envelope.doctype) lines.push(envelope.doctype);
@@ -775,7 +809,7 @@ export function formatHTML(html: string, indent = '  ', width = FORMAT_WIDTH): s
     formatNode(child, 2, lines, indent, width, true);
   }
   lines.push(`${indent}</body>`, '</html>');
-  return lines.join('\n');
+  return writeMergeTags(lines.join('\n'));
 }
 
 function formatNode(

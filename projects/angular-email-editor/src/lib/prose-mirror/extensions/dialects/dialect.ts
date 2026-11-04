@@ -18,6 +18,11 @@ export interface ExpressionDialect {
   requiredFields(doc: Node): string[];
   /** Diagnostics for one token's inner expression, positions relative to it. */
   analyze(expr: string): ExpressionIssue[];
+  /** The expression in the dialect's canonical form — applied with a
+      token's padding (`canonicalMergeTagInner`), by the editor once the
+      cursor leaves a token and by the formatter. Without it, an expression
+      stays byte-verbatim. Must not change what the expression means. */
+  format?(expr: string): string;
 }
 
 /** A problem inside one expression, `[from, to)` relative to its text. */

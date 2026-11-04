@@ -434,10 +434,56 @@ export function angularRequiredFields(expressions: string[]): string[] {
 // ---------------------------------------------------------------------------
 // The extension
 
+/** A double-quoted literal, single-quoted: its quotes only — an escaped
+    `\"` inside is a plain `"` now, a bare `'` is escaped; every other
+    escape stays as written. */
+function singleQuoteLiteral(literal: string): string {
+  const body = literal.slice(1, -1);
+  let out = '';
+  for (let i = 0; i < body.length; i++) {
+    const ch = body[i];
+    if (ch === '\\') {
+      const next = body[i + 1] ?? '';
+      out += next === '"' ? '"' : ch + next;
+      i++;
+    } else {
+      out += ch === "'" ? "\\'" : ch;
+    }
+  }
+  return `'${out}'`;
+}
+
+/**
+ * An AngularJS expression in its canonical form: every string in single
+ * quotes — Angular's way in a template (`[title]="a ? 'x' : 'y'"`, as
+ * Prettier prints one with `singleQuote`), so the attribute a token sits in
+ * keeps its double quotes and the token holds the real characters.
+ * AngularJS reads both quotes alike, so nothing it means changes; the
+ * tokenizer finds the strings, so nothing else moves. One that does not
+ * tokenize stays as it is.
+ */
+export function formatAngularExpression(expr: string): string {
+  let tokens: Token[];
+  try {
+    tokens = tokenize(expr);
+  } catch {
+    return expr;
+  }
+  let out = '';
+  let at = 0;
+  for (const token of tokens) {
+    if (token.kind !== 'string' || token.text[0] !== '"') continue;
+    out += expr.slice(at, token.from) + singleQuoteLiteral(token.text);
+    at = token.to;
+  }
+  return at ? out + expr.slice(at) : expr;
+}
+
 export const angularDialect: ExpressionDialect = {
   name: 'angular',
   requiredFields: (doc: Node) => angularRequiredFields(mergeTagRanges(doc).map((t) => t.expr)),
   analyze: analyzeAngularExpression,
+  format: formatAngularExpression,
 };
 
 export interface AngularExpressionsOptions {

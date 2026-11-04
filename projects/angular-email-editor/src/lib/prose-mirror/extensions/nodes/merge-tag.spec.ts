@@ -2,6 +2,7 @@ import { createEditor, Editor } from '../../editor';
 import { createSchema } from '../../schema';
 import { parseHTML, serializeToHTML } from '../../html';
 import { lintHTML } from '../../html-source';
+import { parseDocument } from '../../envelope';
 import { emailPlainText } from '../../plain-text';
 import Handlebars from 'handlebars';
 import { TextSelection } from 'prosemirror-state';
@@ -9,10 +10,15 @@ import { Node } from 'prosemirror-model';
 import { emailExtensions } from '../kits';
 import {
   MAX_MERGE_TAG_LENGTH,
+  canonicalMergeTagInner,
+  decodeMergeTagEntities,
   isMergeTagExpression,
   mergeTagFields,
   mergeTagRanges,
+  restoreMergeTagsIn,
   selectionInsideMergeTag,
+  standInMergeTags,
+  writeMergeTags,
 } from './merge-tag';
 
 const schema = createSchema(emailExtensions);
@@ -362,5 +368,74 @@ describe('merge-tag editing — text with a mark', () => {
     expect(mergeTagRanges(editor.state.doc).map((t) => t.expr.trim())).toEqual(['a', 'b']);
     expect(editor.state.doc.eq(before)).toBe(false);
     expect(editor.getHTML()).toBe('<div>{{ a }}{{ b }}!</div>');
+  });
+});
+
+describe('merge-tag — written as typed, read whole', () => {
+  const badge = '<div class="cs" style="{{case_private || cf_20 ? "" : "display:none"}}">x</div>';
+
+  it('pads a token, and hands its expression to the dialect — a sigil kept against its braces', () => {
+    const upper = (expr: string) => expr.toUpperCase();
+    expect(canonicalMergeTagInner('a', upper)).toBe(' A ');
+    expect(canonicalMergeTagInner('  a  ')).toBe(' a ');
+    expect(canonicalMergeTagInner('~ a ~', upper)).toBe('~ a ~');
+  });
+
+  it('writes a token as typed, where HTML still reads it as text', () => {
+    expect(writeMergeTags('<p>{{ cf_3 &gt; 0 &amp;&amp; cf_4 &lt; 2 }}</p>')).toBe('<p>{{ cf_3 > 0 && cf_4 < 2 }}</p>');
+    // `&` before a name, `<` before a tag's: still escaped.
+    expect(writeMergeTags('{{ a &amp;b; }} {{ a &lt;b }}')).toBe('{{ a &amp;b; }} {{ a &lt;b }}');
+    // Outside a token, and a token holding markup: as it is.
+    expect(writeMergeTags('a &amp;&amp; b {{ a <b>&amp;</b> }}')).toBe('a &amp;&amp; b {{ a <b>&amp;</b> }}');
+  });
+
+  it('serializes a token as typed', () => {
+    expect(canonical('<div>{{ cf_3 &gt; 0 &amp;&amp; cf_4 }}</div>')).toBe('<div>{{ cf_3 > 0 && cf_4 }}</div>');
+  });
+
+  it('decodes the references a token holds, by hand — no document needed', () => {
+    expect(decodeMergeTagEntities('&quot;&#252;&#xE4;&amp;&nope;&#0;')).toBe('"üä&&nope;&#0;');
+  });
+
+  it('stands a token in for a word of its own width, and puts it back into the tree', () => {
+    const { html, tags } = standInMergeTags(badge);
+    expect(html).not.toContain('{{');
+    expect(html.length).toBe(badge.length);
+
+    const body = new DOMParser().parseFromString(`<body>${html}<!-- {{ c }} -->`, 'text/html').body;
+    restoreMergeTagsIn(body, tags);
+    expect(body.firstElementChild?.getAttribute('style')).toBe('{{case_private || cf_20 ? "" : "display:none"}}');
+  });
+
+  it('puts tokens back into comments too', () => {
+    const { html, tags } = standInMergeTags('<!-- {{ a }} --><p>{{ b }}</p>');
+    const body = new DOMParser().parseFromString(`<body>${html}`, 'text/html').body;
+    restoreMergeTagsIn(body, tags);
+    expect(body.innerHTML).toBe('<!-- {{ a }} --><p>{{ b }}</p>');
+  });
+
+  it('never stands in a token holding markup, nor reads a look-alike as a token', () => {
+    expect(standInMergeTags('{{ <b>x</b> }}').html).toBe('{{ <b>x</b> }}');
+    const lookAlike = '<a href="\ue000\ue010\ue002">{{ x }}</a>';
+    expect(standInMergeTags(lookAlike)).toEqual({ html: lookAlike, tags: [] });
+  });
+
+  it('parses a token in an attribute whole, its quotes the attribute text', () => {
+    const div = parseDocument(badge).body.firstElementChild;
+    expect(div?.getAttribute('style')).toBe('{{case_private || cf_20 ? "" : "display:none"}}');
+    expect(div?.getAttributeNames()).toEqual(['class', 'style']);
+  });
+
+  it('stays linear on hostile input — tokens, references, stand-ins', () => {
+    const hostile = [
+      ('{{ ' + 'a'.repeat(1000)).repeat(60),
+      ('&' + 'a'.repeat(40)).repeat(1500),
+      '{{ ' + '&amp;'.repeat(150) + ' }}',
+    ].join('');
+    const started = performance.now();
+    standInMergeTags(hostile);
+    writeMergeTags(hostile);
+    decodeMergeTagEntities(hostile);
+    expect(performance.now() - started).toBeLessThan(1000);
   });
 });

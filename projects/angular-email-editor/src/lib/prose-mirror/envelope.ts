@@ -12,6 +12,7 @@
  * next parse normalizes them straight back.
  */
 import { hasDocumentEnvelope } from '@h-k-dev/dawn';
+import { restoreMergeTagsIn, standInMergeTags } from './extensions/nodes/merge-tag';
 import { REFUSED_TAGS, VOID_TAGS } from './html-tags';
 import {
   AttributePairs,
@@ -37,10 +38,17 @@ export { hasDocumentEnvelope };
 
 /** Parses HTML into a throwaway document. A bare fragment is parsed inside
     an explicit `<body>`: otherwise the HTML parser files a leading comment
-    or `<style>` under the head, and body-only consumers would lose it. */
+    or `<style>` under the head, and body-only consumers would lose it. Its
+    merge tags are words while the browser reads it (`standInMergeTags`) and
+    back in the tree after: a token's quotes would otherwise end the
+    attribute it sits in — `style="{{ a ? "" : "x" }}"`, which a renderer
+    reading the raw text takes whole. */
 export function parseDocument(html: string): Document {
-  const source = hasDocumentEnvelope(html) ? html : `<body>${html}`;
-  return new DOMParser().parseFromString(source, 'text/html');
+  const stoodIn = standInMergeTags(html);
+  const source = hasDocumentEnvelope(html) ? stoodIn.html : `<body>${stoodIn.html}`;
+  const dom = new DOMParser().parseFromString(source, 'text/html');
+  restoreMergeTagsIn(dom.documentElement, stoodIn.tags);
+  return dom;
 }
 
 /** Reads the envelope off a parsed document. */

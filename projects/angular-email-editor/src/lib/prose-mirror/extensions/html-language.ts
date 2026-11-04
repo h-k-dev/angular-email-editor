@@ -31,6 +31,11 @@ export interface HtmlLanguageOptions {
       only moves the existing decorations along. Default
       {@link TYPING_REST}. */
   rescanDelay?: number;
+  /** A merge tag expression's canonical form, applied by Format Document
+      with each tag's padding — the rich editor's dialect's
+      (`formatAngularExpression` for AngularJS). Without it, tags are padded
+      only. */
+  formatExpression?: (expr: string) => string;
 }
 
 /**
@@ -178,13 +183,16 @@ function buildDecorations(
   };
 }
 
-/** Replaces the document with its pretty-printed form. */
-const formatDocument: Command = (state, dispatch) => {
+/** Replaces the document with its pretty-printed form — its merge tags in
+    their canonical form (`formatExpression`). */
+const formatDocumentWith =
+  (formatExpression?: (expr: string) => string): Command =>
+  (state, dispatch) => {
   const lineType = state.schema.nodes['codeLine'];
   if (!lineType) return false;
 
   const source = docText(state.doc);
-  const formatted = formatHTML(source);
+  const formatted = formatHTML(source, undefined, undefined, { formatExpression });
   if (formatted === source) return true;
 
   if (dispatch) {
@@ -273,6 +281,7 @@ function handleCodePaste(state: EditorState, text: string | undefined): Slice | 
  * serialized output never changes.
  */
 export const createHtmlLanguage = (options: HtmlLanguageOptions = {}): FunctionalExtension => {
+  const formatDocument = formatDocumentWith(options.formatExpression);
   const key = new PluginKey<HtmlLanguageState>('htmlLanguage');
   const scanned = (doc: Node): HtmlLanguageState => ({
     ...buildDecorations(doc, options),

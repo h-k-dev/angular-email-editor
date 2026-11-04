@@ -9,6 +9,7 @@ import {
   analyzeAngularExpression,
   angularRequiredFields,
   createAngularExpressions,
+  formatAngularExpression,
   parseAngularExpression,
 } from './angular-expressions';
 
@@ -111,6 +112,25 @@ describe('AngularJS required fields', () => {
   });
 });
 
+describe('formatAngularExpression', () => {
+  it("puts every string in single quotes — Angular's way in a template", () => {
+    expect(formatAngularExpression('case_private || cf_20 ? "" : "display:none"')).toBe(
+      "case_private || cf_20 ? '' : 'display:none'",
+    );
+  });
+
+  it("changes a string's quotes only: a single quote it holds escaped, a double one plain", () => {
+    expect(formatAngularExpression('"it\'s"')).toBe("'it\\'s'");
+    expect(formatAngularExpression('"say \\"hi\\""')).toBe("'say \"hi\"'");
+    expect(formatAngularExpression('"a\\nb"')).toBe("'a\\nb'");
+  });
+
+  it('leaves single-quoted strings, everything else, and what does not tokenize as written', () => {
+    expect(formatAngularExpression("cf_8 == 'arbeit'  ?  x : y")).toBe("cf_8 == 'arbeit'  ?  x : y");
+    expect(formatAngularExpression('"open')).toBe('"open');
+  });
+});
+
 describe('createAngularExpressions', () => {
   const mount = (content: string) => {
     const host = document.createElement('div');
@@ -154,6 +174,16 @@ describe('createAngularExpressions', () => {
     expect(diagnostic.message).toBe("Unexpected character '#'");
     expect(editor.state.doc.textBetween(diagnostic.from, diagnostic.to)).toBe('#');
     expect(diagnostic.expr).toBe(" customer #? 'x' : 'y' ");
+    unmount();
+  });
+
+  it("formats a token in the dialect's form once the caret leaves it", () => {
+    const { editor, unmount } = mount('<div>x</div>');
+    editor.exec((state, dispatch) => {
+      dispatch?.(state.tr.insertText('{{a ? "b" : "c"}}', 2));
+      return true;
+    });
+    expect(editor.getHTML()).toBe("<div>x{{ a ? 'b' : 'c' }}</div>");
     unmount();
   });
 

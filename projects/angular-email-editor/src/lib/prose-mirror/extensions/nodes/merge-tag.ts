@@ -2,6 +2,7 @@ import { Command, EditorState, Plugin, PluginKey, Transaction } from 'prosemirro
 import { Mark, MarkType, Node, Schema } from 'prosemirror-model';
 import { AddMarkStep, RemoveMarkStep, Transform } from 'prosemirror-transform';
 import { defineMark } from '../../extension';
+import { expressionDialect } from '../dialects/dialect';
 import type { SuggestionTrigger } from '../suggestion-menu';
 
 /**
@@ -22,7 +23,10 @@ import type { SuggestionTrigger } from '../suggestion-menu';
  *  0. **A token is padded canonically**: `{{ expr }}`, one space each side
  *     ({@link canonicalMergeTagInner}) — the only rewrite the editor makes
  *     to a token, applied on parse, on completion, and by the formatter; a
- *     token under the cursor is left alone until the cursor leaves it.
+ *     token under the cursor is left alone until the cursor leaves it. An
+ *     installed dialect may add its own canonical form of the expression
+ *     (`ExpressionDialect.format` — AngularJS: strings in single quotes);
+ *     without one, the expression stays byte-verbatim.
  *  1. **The mark covers exactly the tokens.** Text that reads `{{…}}` (per
  *     {@link isMergeTagExpression}) carries the mark, nothing else does —
  *     type a token by hand and it becomes a pill on the closing brace,
@@ -78,18 +82,18 @@ const SCAN = /(?<!\{)\{\{([^{}\r\n]{1,1002})\}\}/g;
     rewrite the editor allows itself on a token; the expression itself stays
     byte-verbatim. Handlebars' `{{~ … ~}}` whitespace control and `{{& …}}`
     need their sigil against the braces: those are left as written. */
-export function canonicalMergeTagInner(expr: string): string {
+export function canonicalMergeTagInner(expr: string, format?: (expr: string) => string): string {
   const trimmed = expr.trim();
   if (/^[~&]|~$/.test(trimmed)) return expr;
-  return ` ${trimmed} `;
+  return ` ${format ? format(trimmed) : trimmed} `;
 }
 
 /** Every token in running text at its canonical padding — the source
     formatter's rule (Shift-Alt-F, Mod-S, format-on-blur), and the same form
     the schema serializes. Pure. */
-export function normalizeMergeTagText(text: string): string {
+export function normalizeMergeTagText(text: string, format?: (expr: string) => string): string {
   return text.replace(SCAN, (match, inner: string) =>
-    isMergeTagExpression(inner) ? `{{${canonicalMergeTagInner(inner)}}}` : match,
+    isMergeTagExpression(inner) ? `{{${canonicalMergeTagInner(inner, format)}}}` : match,
   );
 }
 
@@ -274,13 +278,13 @@ function wholeRangeHasMark(doc: Node, from: number, to: number, mark: Mark): boo
     cursor is *inside* is left alone while it is being edited — the padding
     would fight the typist — and fixed the moment the cursor leaves it, or on
     the next parse. Replacements run last-to-first so earlier positions hold. */
-function padTokens(tr: Transform, cursor?: number): boolean {
+function padTokens(tr: Transform, cursor?: number, format?: (expr: string) => string): boolean {
   let changed = false;
   const tags = mergeTagRanges(tr.doc);
   for (let i = tags.length - 1; i >= 0; i--) {
     const tag = tags[i];
     if (cursor !== undefined && cursor > tag.from && cursor < tag.to) continue;
-    const canonical = canonicalMergeTagInner(tag.expr);
+    const canonical = canonicalMergeTagInner(tag.expr, format);
     if (canonical === tag.expr) continue;
     const marks = tr.doc.resolve(tag.from + 2).nodeAfter?.marks ?? [];
     tr.replaceWith(tag.from + 2, tag.to - 2, tr.doc.type.schema.text(canonical, marks));
@@ -385,11 +389,11 @@ function applyStoredMarksToToken(
  * split by formatting stays the text it is, never widened to whole. A schema
  * without the mark (the HTML source editor) passes straight through.
  */
-export function promoteMergeTags(doc: Node, schema: Schema): Node {
+export function promoteMergeTags(doc: Node, schema: Schema, format?: (expr: string) => string): Node {
   const type = schema.marks['mergeTag'];
   if (!type) return doc;
   const tr = new Transform(doc);
-  padTokens(tr);
+  padTokens(tr, undefined, format);
   coverTokens(tr, type);
   return tr.doc;
 }
@@ -436,7 +440,8 @@ export const MergeTag = defineMark({
           transactions.forEach((applied, i) => {
             changed = widenMarkSteps(tr, applied, transactions.slice(i + 1)) || changed;
           });
-          changed = padTokens(tr, state.selection.head) || changed;
+          // The installed dialect's canonical form too, when it has one.
+          changed = padTokens(tr, state.selection.head, expressionDialect(state)?.format) || changed;
           changed = coverTokens(tr, type) || changed;
         }
         return changed ? tr : null;
@@ -524,5 +529,112 @@ function forEachIdentifier(
       isDottedTail: before.endsWith('.'),
       isAssignment: after.startsWith('=') && !after.startsWith('=='),
     });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tokens in HTML
+
+/** Any tag at all: a token holding one is markup, never a token. */
+const MARKUP = /<[A-Za-z/!?]/;
+
+/** The named references a token's text holds: what a serializer writes, and
+    what an older editor left. */
+const NAMED_ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00a0' };
+
+/** HTML's entities in a token's text, decoded — by hand, bounded: no
+    document needed (a worker has none), no run a hostile input could walk. */
+export function decodeMergeTagEntities(text: string): string {
+  if (!text.includes('&')) return text;
+  return text.replace(/&(#x[0-9a-f]{1,6}|#\d{1,7}|[a-z]{1,31});/gi, (reference, name: string) => {
+    if (name[0] !== '#') return NAMED_ENTITIES[name.toLowerCase()] ?? reference;
+    const code = name[1] === 'x' || name[1] === 'X' ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10);
+    return Number.isFinite(code) && code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : reference;
+  });
+}
+
+/**
+ * HTML with every token written as typed: inside a token, `&amp;`, `&lt;`
+ * and `&gt;` back to `&`, `<` and `>` — each only where HTML still reads it
+ * as text: `&` not before what could make a character reference, `<` not
+ * before what would open a tag. An expression reaches its evaluator as its
+ * author wrote it (`cf_3 > 0 && cf_4`, never `&amp;&amp;`), and the HTML
+ * reads the same. A `&quot;` stays: in an attribute, it is what keeps it
+ * whole. A token holding markup is left as it is. The serializer's and the
+ * formatter's last step.
+ */
+export function writeMergeTags(html: string): string {
+  SCAN.lastIndex = 0;
+  return html.replace(SCAN, (token, inner: string) => {
+    if (MARKUP.test(inner) || !isMergeTagExpression(decodeMergeTagEntities(inner))) return token;
+    const typed = inner
+      .replace(/&amp;(?![A-Za-z0-9#])/g, '&')
+      .replace(/&lt;(?![A-Za-z/!?])/g, '<')
+      .replace(/&gt;/g, '>');
+    return `{{${typed}}}`;
+  });
+}
+
+/**
+ * A token while HTML is parsed: one word of private-use characters — no
+ * quote, brace or space in it, as wide as the token, carrying its index —
+ * so a token is never split by the quotes it holds: an attribute's
+ * `style="{{ a ? "" : "display:none" }}"` stays whole, as a renderer reads
+ * it from the raw text. Put back into the parsed tree
+ * ({@link restoreMergeTagsIn}), its quotes are the attribute's text. A
+ * token holding markup is never stood in (whatever reads the HTML must see
+ * it), and HTML already holding these characters (real content never does)
+ * is read as it is — a look-alike must never come back as a token.
+ */
+const STAND_IN = { open: '\ue000', fill: '\ue001', close: '\ue002', digit0: 0xe010 };
+const STAND_INS = /\ue000([\ue010-\ue019]+)\ue001*\ue002/g;
+
+/** HTML with its tokens stood in for, and the tokens by index. */
+export function standInMergeTags(html: string): { html: string; tags: readonly string[] } {
+  if (/[\ue000-\ue019]/.test(html)) return { html, tags: [] };
+  const tags: string[] = [];
+  let out = '';
+  let at = 0;
+  SCAN.lastIndex = 0;
+  for (let match = SCAN.exec(html); match; match = SCAN.exec(html)) {
+    const [token, inner] = match;
+    if (MARKUP.test(inner) || !isMergeTagExpression(decodeMergeTagEntities(inner))) continue;
+    const from = match.index;
+    const digits = [...String(tags.length)].map((d) => String.fromCharCode(STAND_IN.digit0 + Number(d))).join('');
+    tags.push(token);
+    out +=
+      html.slice(at, from) +
+      STAND_IN.open +
+      digits +
+      STAND_IN.fill.repeat(Math.max(0, token.length - 2 - digits.length)) +
+      STAND_IN.close;
+    at = from + token.length;
+  }
+  return { html: out + html.slice(at), tags };
+}
+
+/** The tokens back in a parsed tree — its text, comments and attributes —
+    each as read: its entities decoded (a tree holds text, not source). */
+export function restoreMergeTagsIn(root: globalThis.Node, tags: readonly string[]): void {
+  if (!tags.length) return;
+  const decoded = tags.map(decodeMergeTagEntities);
+  const restore = (text: string) =>
+    text.replace(STAND_INS, (_, digits: string) => {
+      const index = Number([...digits].map((d) => d.charCodeAt(0) - STAND_IN.digit0).join(''));
+      return decoded[index] ?? '';
+    });
+  const document = root.ownerDocument ?? (root as Document);
+  const walker = document.createTreeWalker(
+    root,
+    NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT | NodeFilter.SHOW_COMMENT,
+  );
+  for (let node: globalThis.Node | null = walker.currentNode; node; node = walker.nextNode()) {
+    if (node.nodeType === 3 || node.nodeType === 8) {
+      if (node.nodeValue?.includes(STAND_IN.open)) node.nodeValue = restore(node.nodeValue);
+    } else {
+      for (const attribute of Array.from((node as Element).attributes ?? [])) {
+        if (attribute.value.includes(STAND_IN.open)) attribute.value = restore(attribute.value);
+      }
+    }
   }
 }

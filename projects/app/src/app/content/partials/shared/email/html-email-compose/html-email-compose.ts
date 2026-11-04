@@ -26,6 +26,7 @@ import {
   createHtmlAutocomplete,
   createHtmlLanguage,
   createOffsetMapper,
+  formatAngularExpression,
   formatHTML,
   htmlSourceExtensions,
   lintHTML,
@@ -45,7 +46,9 @@ import { FloatingScrollbar } from '../../../common/floating-scrollbar/floating-s
     the user's own edits go out. */
 const SOURCE_CODEC: EditorCodec = {
   read: (editor) => editor.getText(),
-  write: (editor, html, options) => editor.setText(formatHTML(html), options),
+  // Its merge tags as the composer's AngularJS dialect writes them.
+  write: (editor, html, options) =>
+    editor.setText(formatHTML(html, undefined, undefined, { formatExpression: formatAngularExpression }), options),
   canonical: false,
 };
 
@@ -117,7 +120,10 @@ export class HtmlEmailCompose {
       autocomplete in this pane's listbox. */
   protected readonly kit = (): Extension[] => [
     ...htmlSourceExtensions.filter((extension) => extension.name !== 'htmlLanguage'),
-    createHtmlLanguage({ onDiagnostics: (diagnostics) => this.diagnostics.set(diagnostics) }),
+    createHtmlLanguage({
+      onDiagnostics: (diagnostics) => this.diagnostics.set(diagnostics),
+      formatExpression: formatAngularExpression,
+    }),
     createHtmlAutocomplete({
       element: this.menu().nativeElement,
       onChange: (state) => this.completions.set(state),

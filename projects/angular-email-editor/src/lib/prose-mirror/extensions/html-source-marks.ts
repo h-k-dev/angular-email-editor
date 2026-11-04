@@ -1,5 +1,6 @@
 import { Command, EditorState, TextSelection } from 'prosemirror-state';
 import { Node, Schema } from 'prosemirror-model';
+import { expressionDialect } from './dialects/dialect';
 import {
   CommandFactory,
   EditorAction,
@@ -110,7 +111,10 @@ function throughRichSchema(schema: Schema, richCommand: Command): Command {
       const { from, to } = rich.selection;
       rich = rich.apply(rich.tr.insertText(MARK_END, to).insertText(MARK_START, from));
     }
-    const formatted = formatHTML(serializeToHTML(rich.doc, schema));
+    // Its tags in the rich editor's canonical form (its dialect's, if any).
+    const formatted = formatHTML(serializeToHTML(rich.doc, schema), undefined, undefined, {
+      formatExpression: expressionDialect(rich)?.format,
+    });
     const start = formatted.indexOf(MARK_START);
     const end = formatted.indexOf(MARK_END);
     const cleaned = formatted.replace(MARK_START, '').replace(MARK_END, '');

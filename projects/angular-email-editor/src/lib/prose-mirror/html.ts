@@ -1,7 +1,7 @@
 import { DOMOutputSpec, DOMSerializer, Node, Schema, Slice } from 'prosemirror-model';
 import { Command, Selection } from 'prosemirror-state';
 import { repairTables } from './extensions/nodes/table';
-import { promoteMergeTags } from './extensions/nodes/merge-tag';
+import { promoteMergeTags, writeMergeTags } from './extensions/nodes/merge-tag';
 import { bareButtons } from './extensions/nodes/button';
 import { outlookColumns } from './extensions/nodes/columns';
 import {
@@ -90,7 +90,8 @@ export function serializeToHTML(doc: Node, schema: Schema): string {
     doc.type === schema.topNodeType ? normalizePageLayout(doc.attrs['pageLayout']) : null;
   if (layout) wrapPageLayout(container, layout);
   realizeComments(container);
-  const body = container.innerHTML;
+  // Its merge tags as typed (`writeMergeTags`): `&&`, never `&amp;&amp;`.
+  const body = writeMergeTags(container.innerHTML);
   const envelope = doc.attrs['envelope'] as DocumentEnvelope | null | undefined;
   // A Stylesheet page's rule: in the head, or first in a body with none.
   const sheet = layout?.kind === 'stylesheet' ? pageLayoutSheetElement(layout) : '';

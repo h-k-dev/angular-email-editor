@@ -3,6 +3,7 @@ import { completionContextAt, formatHTML, lintHTML, openTags, scanHTML } from '.
 import { createSchema } from './schema';
 import { parseHTML, serializeToHTML } from './html';
 import { emailExtensions } from './extensions/kits';
+import { formatAngularExpression } from './extensions/dialects/angular-expressions';
 
 const emailSchema = createSchema(emailExtensions);
 /** Parse + serialize through the email schema — what the source pane's text becomes. */
@@ -262,6 +263,20 @@ describe('html-source formatter — merge tags', () => {
     expect(formatHTML('<div>{{#if a}}{{x}}{{/if}} {{~ y ~}}</div>')).toBe(
       '<div>{{#if a}}{{ x }}{{/if}} {{~ y ~}}</div>',
     );
+  });
+
+  it('keeps a token in an attribute whole, and writes every token as typed', () => {
+    const badge = '<div style="{{a ? "" : "display:none"}}">{{ b &amp;&amp; c }}</div>';
+    expect(formatHTML(badge)).toBe(
+      '<div style="{{ a ? &quot;&quot; : &quot;display:none&quot; }}">\n  {{ b && c }}\n</div>',
+    );
+  });
+
+  it("gives every token the dialect's form, in text and attributes alike", () => {
+    const badge = '<div style="{{a ? "" : "display:none"}}">{{ b ? "x" : c }}</div>';
+    const formatted = formatHTML(badge, undefined, undefined, { formatExpression: formatAngularExpression });
+    expect(formatted).toBe(`<div style="{{ a ? '' : 'display:none' }}">{{ b ? 'x' : c }}</div>`);
+    expect(formatHTML(formatted, undefined, undefined, { formatExpression: formatAngularExpression })).toBe(formatted);
   });
 });
 
