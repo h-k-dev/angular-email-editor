@@ -226,10 +226,12 @@ describe('inline atoms: an image or a button selected like a character', () => {
         return found as { marks: number } | null;
       };
       expect(find(parsed)).toEqual({ marks: 1 });
-      const transformed = editor.view.someProp('transformPasted', (f) =>
-        f(parsed, editor.view, false),
-      );
-      expect(find(transformed!)).toEqual({ marks: 0 });
+      // Every plugin's transform, in turn — as ProseMirror's paste runs them.
+      let transformed = parsed;
+      editor.view.someProp('transformPasted', (f) => {
+        transformed = f(transformed, editor.view, false);
+      });
+      expect(find(transformed)).toEqual({ marks: 0 });
       unmount();
     });
   });

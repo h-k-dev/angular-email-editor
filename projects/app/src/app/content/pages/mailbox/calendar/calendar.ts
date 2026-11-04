@@ -31,8 +31,10 @@ import { Anchor, AnchorRect } from '@h-k-dev/angular-email-editor/anchor';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import {
+  DAY_MINUTES,
   IsoDay,
   atMinute,
+  daysBetween,
   isoDay,
   minuteOfDay,
   parseDay,
@@ -50,7 +52,11 @@ import {
 } from '../../../../core/calendar/calendar-event';
 import { CalendarEvents } from '../../../../core/calendar/calendar-events';
 import { CalendarFeed } from '../../../../core/calendar/calendar-feed';
-import { CalendarFormat } from '../../../../core/calendar/calendar-format';
+import {
+  CalendarFormat,
+  eventClipboardLine,
+  parseEventClipboardLine,
+} from '../../../../core/calendar/calendar-format';
 import {
   CalendarView,
   calendarPage,
@@ -226,6 +232,9 @@ const MENU_VIEWS = [
 /** What the view menu chooses: a view, or one of its two switches. */
 type ViewChoice = (typeof MENU_VIEWS)[number]['id'] | 'weekends' | 'holidays';
 
+/** Where keys and pastes are the words' being written. */
+const EDITABLE = 'input, textarea, select, [contenteditable]:not([contenteditable="false"])';
+
 /** What steers with the arrow keys itself: there they are its own. */
 const ARROW_WIDGETS =
   '[role="grid"], [role="menu"], [role="menubar"], [role="listbox"], [role="tablist"], ' +
@@ -286,7 +295,7 @@ const TICK = 30_000;
   ],
   templateUrl: './calendar.html',
   styleUrl: './calendar.scss',
-  host: { '(document:keydown)': 'key($event)' },
+  host: { '(document:keydown)': 'key($event)', '(document:paste)': 'pasted($event)' },
 })
 export class CalendarPage {
   readonly #router = inject(Router);
@@ -728,19 +737,39 @@ export class CalendarPage {
   /** The events selected deleted, all at once — with a moment to take
       them all back. A holiday among them stays. */
   #removeSelected(): void {
-    const gone = this.selection()
-      .map((id) => this.#store.byId().get(id))
-      .filter((event): event is CalendarEvent => !!event && !event.readonly);
+    const gone = this.#selectedEvents().filter((event) => !event.readonly);
     this.#select(null);
+    this.#removeAll(gone, 'calendar.deleted', 'calendar.deletedMany');
+  }
+
+  /** Every event selected, as they are — those gone meanwhile left out. */
+  #selectedEvents(): CalendarEvent[] {
+    return this.selection()
+      .map((id) => this.#eventById(id))
+      .filter((event): event is CalendarEvent => !!event);
+  }
+
+  /** Events taken away — deleted, or cut — saying so, with a moment to
+      take them all back at once: one says `said`, more `saidMany`. */
+  #removeAll(events: readonly CalendarEvent[], said: string, saidMany: string): void {
+    if (events.length < 2) {
+      if (events.length) this.#remove(events[0].id, said);
+      return;
+    }
+    const ids = events.map((event) => event.id);
+    if (ids.includes(this.#shownId() ?? '') || ids.includes(this.edit()?.id ?? '')) {
+      this.closeCard();
+    }
+    if (ids.includes(this.selectedId() ?? '')) this.#select(null);
+    this.#selectedMany.update((many) => many.filter((one) => !ids.includes(one)));
+    const gone = ids
+      .map((id) => this.#store.remove(id))
+      .filter((event): event is CalendarEvent => !!event);
     if (!gone.length) return;
-    if (gone.length === 1) return this.#remove(gone[0].id, 'calendar.deleted');
-    for (const event of gone) this.#store.remove(event.id);
     this.#snackBar
-      .open(
-        this.#i18n.t('calendar.deletedMany', { count: gone.length }),
-        this.#i18n.t('calendar.undo'),
-        { duration: 4000 },
-      )
+      .open(this.#i18n.t(saidMany, { count: gone.length }), this.#i18n.t('calendar.undo'), {
+        duration: 4000,
+      })
       .onAction()
       .subscribe(() => gone.forEach((event) => this.#store.save(event)));
   }
@@ -856,11 +885,14 @@ export class CalendarPage {
 
   // ─── Cut, copy, paste ───────────────────────────────────────────────
 
-  /** What was copied or cut: an event's content, to be pasted as a new
-      one. */
-  readonly #clipboard = signal<CalendarEventDraft | null>(null);
-  /** What the context menu is about: an event, or a slot to paste at. */
-  readonly #menuFor = signal<{ event: CalendarEvent } | { slot: GridSlot } | null>(null);
+  /** What was copied or cut: events' content, earliest first, to be
+      pasted as new ones. */
+  readonly #clipboard = signal<readonly CalendarEventDraft[]>([]);
+  /** What the context menu is about: events (the one pressed, or every
+      one selected with it), or a slot to paste at. */
+  readonly #menuFor = signal<{ events: readonly CalendarEvent[] } | { slot: GridSlot } | null>(
+    null,
+  );
   /** Where the menu's hidden trigger stands. */
   protected readonly menuAt = signal({ x: 0, y: 0 });
   /** Where focus goes back to once the menu is gone. */
@@ -884,13 +916,19 @@ export class CalendarPage {
           label: t('calendar.paste'),
           icon: 'content_paste',
           ...withMod('V'),
-          disabled: !this.#clipboard(),
+          disabled: !this.#clipboard().length,
         },
       ];
     }
-    const fixed = !!about.event.readonly;
+    // Many: cut and deleted are those of their own, Edit is one's alone.
+    const fixed = about.events.every((event) => event.readonly);
     return [
-      { value: 'edit', label: t('calendar.edit'), icon: 'edit', disabled: fixed },
+      {
+        value: 'edit',
+        label: t('calendar.edit'),
+        icon: 'edit',
+        disabled: fixed || about.events.length > 1,
+      },
       {
         value: 'cut',
         label: t('calendar.cut'),
@@ -927,8 +965,13 @@ export class CalendarPage {
       const pressed = this.#eventById(chip.dataset['eventId'] ?? '');
       if (!pressed) return;
       event.preventDefault();
+      // One of many selected: the menu is about them all.
+      const selected = this.#selectedEvents();
+      if (selected.length > 1 && selected.some((one) => one.id === pressed.id)) {
+        return this.#openMenu(at, { events: selected }, chip);
+      }
       this.#select(pressed.id);
-      return this.#openMenu(at, { event: pressed }, chip);
+      return this.#openMenu(at, { events: [pressed] }, chip);
     }
     const slot = this.timeGrid()?.slotAt(event) ?? this.monthGrid()?.slotAt(event);
     if (!slot) return;
@@ -938,7 +981,7 @@ export class CalendarPage {
 
   #openMenu(
     at: { x: number; y: number },
-    about: { event: CalendarEvent } | { slot: GridSlot },
+    about: { events: readonly CalendarEvent[] } | { slot: GridSlot },
     returnTo: HTMLElement | null,
   ): void {
     this.menuAt.set(at);
@@ -960,38 +1003,79 @@ export class CalendarPage {
       else if (action === 'paste') this.#paste(about.slot);
       return;
     }
-    this.#act(action, about.event);
+    this.#act(action, about.events);
   }
 
-  /** Does `action` to an event — a holiday is never edited, cut or
-      deleted. */
-  #act(action: EventAction, event: CalendarEvent): void {
-    if (action === 'copy') return this.#copy(event);
+  /** Does `action` to events — one, or every one selected. A holiday is
+      never edited, cut or deleted: among others, it is left where it is;
+      Edit is one event's alone. */
+  #act(action: EventAction, events: readonly CalendarEvent[]): void {
+    if (action === 'copy') return this.#copy(events);
     if (action === 'duplicate') {
-      this.#store.create(contentOf(event));
+      for (const event of events) this.#store.create(contentOf(event));
       return;
     }
-    if (event.readonly) return;
+    const own = events.filter((event) => !event.readonly);
+    if (!own.length) return;
     if (action === 'edit') {
-      this.#editEvent(event);
+      if (events.length === 1) this.#editEvent(own[0]);
     } else if (action === 'cut') {
-      this.#copy(event);
-      this.#remove(event.id, 'calendar.cutDone');
+      this.#copy(own);
+      this.#removeAll(own, 'calendar.cutDone', 'calendar.cutMany');
     } else if (action === 'delete') {
-      this.#remove(event.id, 'calendar.deleted');
+      this.#removeAll(own, 'calendar.deleted', 'calendar.deletedMany');
     }
   }
 
-  /** Kept to be pasted — and, for anywhere else, as words: its title and
-      when it is. */
-  #copy(event: CalendarEvent): void {
-    this.#clipboard.set(contentOf(event));
-    const words = [
-      event.title.trim() || this.untitled(),
-      this.#formats().when(event),
-      event.location.trim(),
-    ].filter(Boolean);
-    void navigator.clipboard?.writeText(words.join('\n')).catch(() => undefined);
+  /** Kept to be pasted — and, for anywhere else, as Notion Calendar's
+      lines, one an event: its title and when it is
+      (`eventClipboardLine`), earliest first. */
+  #copy(events: readonly CalendarEvent[]): void {
+    if (!events.length) return;
+    const drafts = events.map(contentOf).sort((a, b) => +eventSpan(a).start - +eventSpan(b).start);
+    this.#clipboard.set(drafts);
+    // Each ended by a line break, as Notion's one is.
+    const text = drafts
+      .map((draft) => `${eventClipboardLine(draft, draft.title.trim() || this.untitled())}\n`)
+      .join('');
+    this.#copiedText = text.trim();
+    void navigator.clipboard?.writeText(text).catch(() => undefined);
+  }
+
+  /** The lines the last copy wrote: while the clipboard still says them,
+      a paste is those events whole — colour, place and note too. */
+  #copiedText: string | null = null;
+
+  /**
+   * ⌘/Ctrl V, as the browser's paste — whose words need no permission to
+   * read: the events copied here, while the clipboard still holds their
+   * lines (or nothing could be written there); else the events Notion
+   * Calendar's lines name (`parseEventClipboardLine`), copied there or
+   * here. At the quarter the pointer rests on, else at their own time on
+   * the day in view. Any other words are the browser's.
+   */
+  protected pasted(event: ClipboardEvent): void {
+    const target = event.target as HTMLElement | null;
+    if (event.defaultPrevented || this.edit() || target?.closest?.(EDITABLE)) return;
+    const text = event.clipboardData?.getData('text/plain').trim() ?? '';
+    const copied = this.#clipboard();
+    const content =
+      copied.length && (!text || text === this.#copiedText) ? copied : this.#fromLines(text);
+    if (!content.length) return;
+    event.preventDefault();
+    this.#paste(this.timeGrid()?.hoveredSlot() ?? { day: this.day(), minute: null }, content);
+  }
+
+  /** The events copied lines name — every line one, or none at all:
+      their titles and times, the rest a new one's. */
+  #fromLines(text: string): CalendarEventDraft[] {
+    const named = text
+      .split(/\r?\n/)
+      .filter((line) => line.trim())
+      .map(parseEventClipboardLine);
+    if (!named.length || named.some((one) => !one)) return [];
+    const blank = draftAt(DateTime.now());
+    return named.map((one) => ({ ...blank, ...one! }));
   }
 
   /** A new event at a slot: an hour from the quarter in the hours — the
@@ -1006,17 +1090,30 @@ export class CalendarPage {
     this.created({ draft, rect: { left: x, top: y, width: 0, height: 0 } });
   }
 
-  /** The copied event, new, at a slot: a timed one at the slot's minute —
-      or at its own time of day on a whole day; an all-day one on the
-      slot's day. As long as it was. */
-  #paste(slot: GridSlot): void {
-    const copied = this.#clipboard();
+  /** The copied events, new, at a slot — earliest first, as far apart as
+      they were: the first on the slot's day, a timed one at the slot's
+      minute — or at its own time of day on a whole day; an all-day one
+      that whole day. Each as long as it was; the pasted ones selected. */
+  #paste(slot: GridSlot, copied = this.#clipboard()): void {
     const day = parseDay(slot.day);
-    if (!copied || !day) return;
-    const start = copied.allDay
-      ? day
-      : atMinute(day, slot.minute ?? minuteOfDay(eventSpan(copied).start));
-    this.#store.create(movedTo(copied, start));
+    if (!copied.length || !day) return;
+    const starts = copied.map((draft) => eventSpan(draft).start);
+    const firstTimed = copied.findIndex((draft) => !draft.allDay);
+    const days = daysBetween(starts[0], day);
+    const minutes =
+      firstTimed < 0 || slot.minute === null ? 0 : slot.minute - minuteOfDay(starts[firstTimed]);
+    // On the clock, not in elapsed time: across a clock change a 10:00
+    // stays 10:00.
+    const moved = (start: DateTime, allDay: boolean) => {
+      const minute = minuteOfDay(start) + (allDay ? 0 : minutes);
+      const overDays = Math.floor(minute / DAY_MINUTES);
+      return atMinute(start.plus({ days: days + overDays }), minute - overDays * DAY_MINUTES);
+    };
+    const pasted = copied.map((draft, i) =>
+      this.#store.create(movedTo(draft, moved(starts[i], draft.allDay))),
+    );
+    if (pasted.length > 1) this.selectMany(pasted.map((event) => event.id));
+    else this.#select(pasted[0].id);
   }
 
   #eventById(id: string): CalendarEvent | null {
@@ -1025,53 +1122,61 @@ export class CalendarPage {
 
   /**
    * The menu's keys, without the menu — on the focused event, else on the
-   * event whose card is open: ⌘/Ctrl C, X, D, Delete; ⌘/Ctrl V pastes at
-   * the quarter the pointer rests on, else at its own time on the day in
-   * view. Shift+F10 and the menu key open the menu under the focused
-   * event. A selection of words is the browser's to copy.
+   * event whose card is open, else on the one selected (a press selects
+   * without focusing): ⌘/Ctrl C, X, D, Delete (⌘/Ctrl V is the paste's,
+   * `pasted`). Shift+F10 and the menu key open the menu under the focused event. A
+   * selection of words is the browser's to copy.
    */
   #shortcut(event: KeyboardEvent): boolean {
     const focused = (event.target as Element | null)?.closest?.<HTMLElement>('[data-event-id]');
+    const selected = this.selectedId();
+    const focusedEvent = focused ? this.#eventById(focused.dataset['eventId'] ?? '') : null;
     const subject = focused
-      ? this.#eventById(focused.dataset['eventId'] ?? '')
+      ? focusedEvent
       : this.edit()
         ? null
-        : this.shown();
+        : (this.shown() ?? (selected ? this.#eventById(selected) : null));
     if (
       focused &&
       subject &&
       (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10'))
     ) {
       const box = focused.getBoundingClientRect();
-      this.#openMenu({ x: box.left, y: box.bottom }, { event: subject }, focused);
+      this.#openMenu({ x: box.left, y: box.bottom }, { events: [subject] }, focused);
       return true;
     }
     const mod = (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey;
     if (mod) {
       const key = event.key.toLowerCase();
-      if (key === 'v') {
-        if (!this.#clipboard() || this.edit()) return false;
-        this.#paste(this.timeGrid()?.hoveredSlot() ?? { day: this.day(), minute: null });
-        return true;
-      }
-      if (!subject) return false;
+      // ⌘/Ctrl V is left to the browser: its paste reads the clipboard
+      // (`pasted`).
+      // Many selected (a marquee's) — and none focused outside them: the
+      // keys are theirs, all of them.
+      const many = this.#selectedMany().length && !this.edit() ? this.#selectedEvents() : [];
+      const subjects =
+        many.length && (!focusedEvent || many.includes(focusedEvent))
+          ? many
+          : subject
+            ? [subject]
+            : [];
+      if (!subjects.length) return false;
       if (key === 'c') {
         if (getSelection()?.isCollapsed === false) return false;
-        this.#act('copy', subject);
+        this.#act('copy', subjects);
         return true;
       }
-      if (key === 'x' && !subject.readonly) {
-        this.#act('cut', subject);
+      if (key === 'x' && subjects.some((one) => !one.readonly)) {
+        this.#act('cut', subjects);
         return true;
       }
       if (key === 'd') {
-        this.#act('duplicate', subject);
+        this.#act('duplicate', subjects);
         return true;
       }
       return false;
     }
     if (
-      focused &&
+      (focused || selected) &&
       subject &&
       !subject.readonly &&
       !event.ctrlKey &&
@@ -1079,7 +1184,7 @@ export class CalendarPage {
       !event.altKey &&
       (event.key === 'Delete' || event.key === 'Backspace')
     ) {
-      this.#act('delete', subject);
+      this.#act('delete', [subject]);
       return true;
     }
     return false;
@@ -1122,9 +1227,7 @@ export class CalendarPage {
   protected key(event: KeyboardEvent): void {
     if (event.defaultPrevented) return;
     const target = event.target as HTMLElement | null;
-    if (
-      target?.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])')
-    ) {
+    if (target?.closest(EDITABLE)) {
       return;
     }
     // Many selected (a marquee's): Delete takes them all.

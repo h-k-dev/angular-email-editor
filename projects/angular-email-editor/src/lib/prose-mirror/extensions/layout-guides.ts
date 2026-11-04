@@ -37,6 +37,15 @@ export const GUIDES_ACTIVE_CLASS = 'aee-guides-active';
     layout block's guides at once. */
 export const GUIDES_PEEK_CLASS = 'aee-guides-peek';
 
+/** Dispatched on the editor root when the peek comes or goes (`detail`:
+    whether it is on) — for whatever else the peek reveals (a filled
+    placeholder's token) to follow it without a pointer move. */
+export const GUIDES_PEEK_EVENT = 'aee-guides-peek';
+
+/** Whether the peek is on in `view` — Ctrl held. */
+export const isPeeking = (view: { dom: Element }): boolean =>
+  view.dom.classList.contains(GUIDES_PEEK_CLASS);
+
 /**
  * How long Ctrl must be held before guides appear. Ctrl is also the prefix for
  * every shortcut (Ctrl-B, Ctrl-C, Ctrl-Z), so revealing instantly would make the
@@ -91,7 +100,9 @@ export const LayoutGuides = defineExtension({
         };
         const setPeek = (on: boolean) => {
           clearTimer();
+          if (isPeeking(view) === on) return;
           view.dom.classList.toggle(GUIDES_PEEK_CLASS, on);
+          view.dom.dispatchEvent(new CustomEvent<boolean>(GUIDES_PEEK_EVENT, { detail: on }));
         };
 
         const onKeyDown = (event: KeyboardEvent) => {
@@ -101,11 +112,8 @@ export const LayoutGuides = defineExtension({
             setPeek(false);
             return;
           }
-          if (timer !== undefined || view.dom.classList.contains(GUIDES_PEEK_CLASS)) return;
-          timer = setTimeout(() => {
-            timer = undefined;
-            view.dom.classList.add(GUIDES_PEEK_CLASS);
-          }, GUIDES_PEEK_DELAY_MS);
+          if (timer !== undefined || isPeeking(view)) return;
+          timer = setTimeout(() => setPeek(true), GUIDES_PEEK_DELAY_MS);
         };
         const onKeyUp = (event: KeyboardEvent) => {
           if (event.key === 'Control') setPeek(false);

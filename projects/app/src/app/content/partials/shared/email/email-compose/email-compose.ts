@@ -4,6 +4,7 @@ import {
   DestroyRef,
   ElementRef,
   Injector,
+  TemplateRef,
   afterNextRender,
   afterRenderEffect,
   booleanAttribute,
@@ -38,6 +39,7 @@ import { PaperIsland } from '../paper-island';
 import { TableMenu } from './table-menu/table-menu';
 import { CellMenu } from './cell-menu/cell-menu';
 import { SectionMenu } from './section-menu/section-menu';
+import { FilledValueCard, FilledValueContext } from './filled-value-card';
 import { BubbleMenu } from './bubble-menu/bubble-menu';
 import { FormattingCommands } from './formatting-commands';
 import { FormattingToolbar } from './formatting-toolbar/formatting-toolbar';
@@ -491,6 +493,11 @@ export class EmailCompose implements FormValueControl<string> {
   protected readonly linkEditor = viewChild.required(LinkEditor);
   protected readonly altTextEditor = viewChild.required(AltTextEditor);
   protected readonly suggestion = viewChild.required(ChatBasedSuggestion);
+  /** A filled-in placeholder's card, Ctrl held over its value: the token it
+      was, and Restore. */
+  private readonly filledValueTemplate =
+    viewChild.required<TemplateRef<FilledValueContext>>('filledValueCard');
+  readonly #filledValueCard = new FilledValueCard(() => this.filledValueTemplate());
 
   /** The chat-based suggestion's button, for the toolbar's end while the
       strip is up and the toolbar shows — the bar takes it as its own. */
@@ -768,6 +775,7 @@ export class EmailCompose implements FormValueControl<string> {
               resolve: (expressions) => this.#mergeTags.resolve(expressions),
               onResolved: (report) => this.placeholdersFilled.emit(report),
               onError: (error) => this.placeholdersFailed.emit(error),
+              onFilledHover: this.#filledValueCard.onHover,
             }),
           ]),
     ];

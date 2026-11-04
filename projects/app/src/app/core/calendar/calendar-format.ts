@@ -2,8 +2,8 @@ import { Service, computed, inject } from '@angular/core';
 import { DateTime, DateTimeFormatOptions, Duration, Interval } from 'luxon';
 
 import { I18n } from '../translations/i18n';
-import { WeekStart, weekStartOf } from './calendar-dates';
-import { CalendarEvent, eventSpan } from './calendar-event';
+import { WeekStart, isoMoment, weekStartOf } from './calendar-dates';
+import { CalendarEvent, DEFAULT_EVENT_MINUTES, eventSpan } from './calendar-event';
 
 /** How a calendar writes its dates and times in one language. */
 export interface CalendarFormats {
@@ -102,6 +102,79 @@ export function calendarFormats(language: string): CalendarFormats {
       );
     },
   };
+}
+
+const COPY_LOCALE = { locale: 'en-US' };
+const copyDay = (date: DateTime) => date.toFormat('MMM d, yyyy', COPY_LOCALE);
+const copyTime = (date: DateTime) => date.toFormat('h:mm a', COPY_LOCALE);
+
+/**
+ * An event as a line on the clipboard, Notion Calendar's, word for word —
+ * English whatever the app's language, so either side reads the other's:
+ * "Coffee on Nov 3, 2026 at 6:45 AM - 9:15 AM", "Coffee on Nov 3, 2026"
+ * all day, "… on Nov 3, 2026 - Nov 5, 2026" over days,
+ * "… on Nov 3, 2026 at 10:00 PM - Nov 4, 2026 at 1:00 AM" past midnight.
+ */
+export function eventClipboardLine(
+  event: Pick<CalendarEvent, 'start' | 'end' | 'allDay'>,
+  title: string,
+): string {
+  const { start, end } = eventSpan(event);
+  if (event.allDay) {
+    // The exclusive end's day before: the last day it holds.
+    const last = end.minus({ days: 1 });
+    const days = last > start ? `${copyDay(start)} - ${copyDay(last)}` : copyDay(start);
+    return `${title} on ${days}`;
+  }
+  const until = start.hasSame(end.minus({ milliseconds: 1 }), 'day')
+    ? copyTime(end)
+    : `${copyDay(end)} at ${copyTime(end)}`;
+  return `${title} on ${copyDay(start)} at ${copyTime(start)} - ${until}`;
+}
+
+/** What a copied line says: a title and when — the rest is the paste's. */
+export type CopiedEvent = Pick<CalendarEvent, 'title' | 'start' | 'end' | 'allDay'>;
+
+const DAY_WORDS = '([A-Z][a-z]{2} \\d{1,2}, \\d{4})';
+const TIME_WORDS = '(\\d{1,2}:\\d{2} [AP]M)';
+/** Every form `eventClipboardLine` writes; the title is all before the
+    last " on " a day follows. */
+const LINE = new RegExp(
+  `^(.*) on ${DAY_WORDS}(?: at ${TIME_WORDS})?` +
+    `(?: - (?:${DAY_WORDS}(?: at ${TIME_WORDS})?|${TIME_WORDS}))?$`,
+);
+const readDay = (words: string) => DateTime.fromFormat(words, 'MMM d, yyyy', COPY_LOCALE);
+const readTime = (day: DateTime, words: string) => {
+  const time = DateTime.fromFormat(words, 'h:mm a', COPY_LOCALE);
+  return time.isValid ? day.set({ hour: time.hour, minute: time.minute }) : null;
+};
+
+/**
+ * Notion Calendar's line read back — ours, or one copied there: the event
+ * it names, or null for any other words. An end with no day before its
+ * start is the next day's ("… at 10:00 PM - 1:00 AM"); none at all, the
+ * default hour.
+ */
+export function parseEventClipboardLine(text: string): CopiedEvent | null {
+  // Intl may space a time with a narrow no-break space.
+  const match = LINE.exec(text.trim().replace(/[\s\u202f]+/g, ' '));
+  if (!match) return null;
+  const [, title, startDay, startTime, endDay, endTime, sameDayEnd] = match;
+  const day = readDay(startDay);
+  const lastDay = endDay ? readDay(endDay) : day;
+  if (!day.isValid || !lastDay.isValid || (startTime && endDay && !endTime)) return null;
+  if (!startTime) {
+    if (sameDayEnd || endTime || lastDay < day) return null;
+    const end = lastDay.plus({ days: 1 });
+    return { title, start: isoMoment(day), end: isoMoment(end), allDay: true };
+  }
+  const start = readTime(day, startTime);
+  let end = endTime || sameDayEnd ? readTime(lastDay, endTime ?? sameDayEnd) : null;
+  if (!start || ((endTime || sameDayEnd) && !end)) return null;
+  end ??= start.plus({ minutes: DEFAULT_EVENT_MINUTES });
+  if (end <= start && !endDay) end = end.plus({ days: 1 });
+  if (end < start) return null;
+  return { title, start: isoMoment(start), end: isoMoment(end), allDay: false };
 }
 
 /** The calendar's formats in the app's language, following a switch. */

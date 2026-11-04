@@ -216,3 +216,54 @@
     }
   </div>
 </ng-template>
+
+<!-- A filled-in placeholder's card — Ctrl held over its value (the layout
+     guides' peek paints every value the pill's colour): the token it was,
+     the value written by hand (still the token's), and the ways back. Each
+     is one undo step. -->
+<ng-template #filledValueCard let-card>
+  @if (card.hover(); as hover) {
+    <div class="email-compose__filled">
+      <span class="email-compose__filled-token">{{ card.token() }}</span>
+      @if (card.editing()) {
+        <textarea
+          class="email-compose__filled-field"
+          rows="2"
+          [attr.aria-label]="'editor.filled.value' | translate"
+          [value]="card.draft()"
+          (input)="card.input($event)"
+          (keydown)="card.keydown($event)"
+        ></textarea>
+        <button
+          type="button"
+          class="email-compose__filled-row"
+          [disabled]="!card.draft()"
+          (click)="card.apply()"
+        >
+          <mat-icon class="email-compose__filled-icon" aria-hidden="true">check</mat-icon>
+          <span>{{ 'editor.filled.apply' | translate }}</span>
+        </button>
+      } @else {
+        <button type="button" class="email-compose__filled-row" (click)="card.edit()">
+          <mat-icon class="email-compose__filled-icon" aria-hidden="true">edit</mat-icon>
+          <span>{{ 'editor.filled.edit' | translate }}</span>
+        </button>
+        @if (hover.edited) {
+          <button
+            type="button"
+            class="email-compose__filled-row"
+            [title]="hover.value"
+            (click)="card.reset()"
+          >
+            <mat-icon class="email-compose__filled-icon" aria-hidden="true">history</mat-icon>
+            <span>{{ 'editor.filled.reset' | translate }}</span>
+          </button>
+        }
+        <button type="button" class="email-compose__filled-row" (click)="card.restore()">
+          <mat-icon class="email-compose__filled-icon" aria-hidden="true">undo</mat-icon>
+          <span>{{ 'editor.filled.restore' | translate }}</span>
+        </button>
+      }
+    </div>
+  }
+</ng-template>

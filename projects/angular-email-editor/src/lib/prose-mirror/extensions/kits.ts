@@ -9,6 +9,7 @@ import { CodeLineIndent } from './code-line-indent';
 import { createSourceMarks } from './html-source-marks';
 import { HardBreak } from './nodes/hard-break';
 import { MergeTag } from './nodes/merge-tag';
+import { FilledMergeTag } from './merge-tag-resolution';
 import { Heading } from './nodes/heading';
 import { Blockquote } from './nodes/blockquote';
 import { BulletList, ListItem, OrderedList } from './nodes/lists';
@@ -56,6 +57,9 @@ const withParagraph = (paragraph: NodeExtension): Extension[] => [
   // Personalization tokens (`{{firstName}}`): pills in the editor, raw
   // Handlebars-flavoured text in the email.
   MergeTag,
+  // Where a filled-in value came from (editor-only): its token, put back on
+  // request. Before the formatting marks, so one span wraps a bold piece.
+  FilledMergeTag,
   Heading,
   Blockquote,
   BulletList,

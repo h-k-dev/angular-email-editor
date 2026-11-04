@@ -1,12 +1,17 @@
 import { TextSelection } from 'prosemirror-state';
-import { undo } from 'prosemirror-history';
+import { closeHistory, undo } from 'prosemirror-history';
 import { createEditor, Editor } from '../editor';
 import { emailExtensions } from './kits';
 import {
+  FILLED_EDITED_CLASS,
+  FilledMergeTagHover,
   MergeTagResolutionReport,
   createMergeTagResolution,
+  filledMergeTagAt,
   mergeTagResolutionPending,
 } from './merge-tag-resolution';
+import { GUIDES_PEEK_DELAY_MS } from './layout-guides';
+import { mergeTagRanges } from './nodes/merge-tag';
 
 /** A host evaluator the test answers by hand: each request waits until
     `answer` (or `fail`) is called. */
@@ -44,6 +49,7 @@ describe('merge tag resolution', () => {
   let reports: MergeTagResolutionReport[];
   let errors: unknown[];
   let pending: boolean[];
+  let hovers: (FilledMergeTagHover | null)[];
 
   const mount = (content: string) => {
     editor?.destroy();
@@ -56,6 +62,7 @@ describe('merge tag resolution', () => {
           onResolved: (report) => reports.push(report),
           onError: (error) => errors.push(error),
           onPendingChange: (value) => pending.push(value),
+          onFilledHover: (hover) => hovers.push(hover),
         }),
       ],
       content,
@@ -70,6 +77,7 @@ describe('merge tag resolution', () => {
     reports = [];
     errors = [];
     pending = [];
+    hovers = [];
   });
 
   afterEach(() => {
@@ -239,5 +247,256 @@ describe('merge tag resolution', () => {
     expect(reports).toEqual([]);
     expect(pending).toEqual([true]);
     mount('<div></div>');
+  });
+
+  describe('where a value came from', () => {
+    /** Every fill in the document: its id, its expression, its text. */
+    const fills = () => {
+      const found: { id: string; expr: string; text: string }[] = [];
+      editor.state.doc.descendants((node) => {
+        const mark = node.marks.find((m) => m.type.name === 'filledMergeTag');
+        if (!mark || !node.isText) return;
+        const last = found.at(-1);
+        if (last && last.id === mark.attrs['id']) last.text += node.text;
+        else found.push({ id: mark.attrs['id'], expr: mark.attrs['expr'], text: node.text! });
+      });
+      return found;
+    };
+    const fill = async (html: string, values: (string | null)[]) => {
+      mount(html);
+      editor.commands['resolveMergeTags']();
+      await evaluator.answer(values);
+    };
+    const posOf = (text: string) => {
+      let at = -1;
+      editor.state.doc.descendants((node, pos) => {
+        if (at < 0 && node.isText && node.text!.includes(text)) at = pos + node.text!.indexOf(text);
+      });
+      return at;
+    };
+
+    it('marks each value with its token — one fill each, even for the same expression', async () => {
+      await fill('<div>{{ a }} und {{ a }} und {{ b }}</div>', ['A', 'B']);
+      const found = fills();
+      expect(found.map(({ expr, text }) => [expr, text])).toEqual([
+        ['a', 'A'],
+        ['a', 'A'],
+        ['b', 'B'],
+      ]);
+      expect(new Set(found.map((f) => f.id)).size).toBe(3);
+    });
+
+    it('leaves no trace in the email', async () => {
+      await fill('<div>Hallo <strong>{{ name }}</strong></div>', ['Müller']);
+      expect(editor.getHTML()).toBe('<div>Hallo <strong>Müller</strong></div>');
+      expect(editor.view.dom.querySelector('[data-aee-filled]')?.getAttribute('data-aee-expr')).toBe('name');
+    });
+
+    it('a value over two lines is one value', async () => {
+      await fill('<div>An {{ address }}!</div>', ['Hauptstr. 1\n10115 Berlin']);
+      const range = filledMergeTagAt(editor.state.doc, posOf('10115'))!;
+      expect(editor.state.doc.textBetween(range.from, range.to, '|', '|')).toBe('Hauptstr. 1|10115 Berlin');
+    });
+
+    it('restores the token, a pill again, with the value’s formatting — one undo away', async () => {
+      await fill('<div>Hallo <strong>{{ name }}</strong>, {{ x }}</div>', ['Müller', 'X']);
+      const filled = editor.getHTML();
+      editor.view.dispatch(closeHistory(editor.state.tr));
+      expect(editor.commands['restoreMergeTag'](posOf('Müller') + 2)).toBe(true);
+      expect(editor.getHTML()).toBe('<div>Hallo <strong>{{ name }}</strong>, X</div>');
+      expect(mergeTagRanges(editor.state.doc).map((tag) => tag.expr.trim())).toEqual(['name']);
+      editor.exec(undo);
+      expect(editor.getHTML()).toBe(filled);
+    });
+
+    it('restores one fill of an expression, not its twin', async () => {
+      await fill('<div>{{ a }} und {{ a }}</div>', ['A']);
+      editor.commands['restoreMergeTag'](editor.state.doc.content.size - 2);
+      expect(editor.getText()).toBe('A und {{ a }}');
+    });
+
+    it('a value over two lines comes back as one token', async () => {
+      await fill('<div>An {{ address }}!</div>', ['Hauptstr. 1\n10115 Berlin']);
+      editor.commands['restoreMergeTag'](posOf('10115'));
+      expect(editor.getHTML()).toBe('<div>An {{ address }}!</div>');
+    });
+
+    it('with the caret at a value’s end, the caret’s value', async () => {
+      await fill('<div>{{ a }} und</div>', ['Anna']);
+      const end = posOf('Anna') + 4;
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, end)));
+      expect(editor.commands['restoreMergeTag']()).toBe(true);
+      expect(editor.getText()).toBe('{{ a }} und');
+    });
+
+    it('nothing to restore where no value was filled in', async () => {
+      await fill('<div>{{ a }} und</div>', ['Anna']);
+      expect(editor.commands['restoreMergeTag'](posOf('und'))).toBe(false);
+    });
+
+    it('typing at a value’s edge is the writer’s own text', async () => {
+      await fill('<div>[{{ a }}]</div>', ['Anna']);
+      const end = posOf('Anna') + 4;
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, end)));
+      editor.view.dispatch(editor.state.tr.insertText('s'));
+      expect(fills().map((f) => f.text)).toEqual(['Anna']);
+    });
+
+    it('survives clearing the formatting — it is not formatting', async () => {
+      await fill('<div><strong>{{ a }}</strong></div>', ['Anna']);
+      editor.view.dispatch(
+        editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, editor.state.doc.content.size - 1)),
+      );
+      editor.commands['clearFormatting']();
+      expect(editor.getHTML()).toBe('<div>Anna</div>');
+      expect(fills().map((f) => f.text)).toEqual(['Anna']);
+    });
+
+    it('a pasted value is a fill of its own', async () => {
+      await fill('<div>{{ a }}</div>', ['Anna']);
+      const [original] = fills();
+      const html = editor.view.dom.innerHTML;
+      const event = Object.assign(new Event('paste'), {
+        clipboardData: { getData: (type: string) => (type === 'text/html' ? html : '') },
+      }) as unknown as ClipboardEvent;
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, editor.state.doc.content.size - 1)));
+      editor.view.pasteHTML(html, event);
+      const after = fills();
+      expect(after.map((f) => [f.expr, f.text])).toEqual([
+        ['a', 'Anna'],
+        ['a', 'Anna'],
+      ]);
+      expect(after[0].id).toBe(original.id);
+      expect(after[1].id).not.toBe(original.id);
+    });
+
+    describe('under the Ctrl peek', () => {
+      beforeEach(() => vi.useFakeTimers());
+      afterEach(() => vi.useRealTimers());
+
+      const key = (type: 'keydown' | 'keyup', name = 'Control') =>
+        document.dispatchEvent(new KeyboardEvent(type, { key: name, bubbles: true }));
+      const peek = () => {
+        key('keydown');
+        vi.advanceTimersByTime(GUIDES_PEEK_DELAY_MS + 1);
+      };
+      const pointTo = (element: Element) =>
+        element.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      const value = () => editor.view.dom.querySelector<HTMLElement>('[data-aee-filled]')!;
+
+      it('reports the value under the pointer only while Ctrl is held', async () => {
+        await fill('<div>Hallo {{ name }}</div>', ['Müller']);
+        pointTo(value());
+        expect(hovers).toEqual([]);
+        peek();
+        expect(hovers.map((h) => h && h.expr)).toEqual(['name']);
+        expect(hovers[0]!.element).toBe(value());
+      });
+
+      it('stays up with Ctrl released while the pointer is on it, goes when it leaves', async () => {
+        await fill('<div>Hallo {{ name }}</div>', ['Müller']);
+        peek();
+        pointTo(value());
+        key('keyup');
+        expect(hovers.map((h) => h && h.expr)).toEqual(['name']);
+        pointTo(editor.view.dom.querySelector('div')!);
+        expect(hovers.map((h) => h && h.expr)).toEqual(['name', null]);
+      });
+
+      it('a shortcut is no peek', async () => {
+        await fill('<div>Hallo {{ name }}</div>', ['Müller']);
+        pointTo(value());
+        key('keydown');
+        key('keydown', 'b');
+        vi.advanceTimersByTime(GUIDES_PEEK_DELAY_MS + 1);
+        expect(hovers).toEqual([]);
+      });
+
+      it('its restore puts the token back, and the card is told it is gone', async () => {
+        await fill('<div>Hallo {{ name }}</div>', ['Müller']);
+        peek();
+        pointTo(value());
+        expect(hovers[0]!.restore()).toBe(true);
+        expect(editor.getText()).toBe('Hallo {{ name }}');
+        expect(hovers.at(-1)).toBeNull();
+        expect(hovers[0]!.restore()).toBe(false);
+      });
+
+      it('reports what the value is now, and edits it by hand', async () => {
+        await fill('<div>Hallo {{ name }}</div>', ['Müller']);
+        peek();
+        pointTo(value());
+        expect(hovers[0]).toEqual(
+          expect.objectContaining({ expr: 'name', value: 'Müller', text: 'Müller', edited: false }),
+        );
+        expect(hovers[0]!.edit('Frau Müller')).toBe(true);
+        expect(editor.getText()).toBe('Hallo Frau Müller');
+        expect(fills().map((f) => [f.expr, f.text])).toEqual([['name', 'Frau Müller']]);
+        pointTo(value());
+        expect(hovers.at(-1)).toEqual(expect.objectContaining({ text: 'Frau Müller', edited: true }));
+      });
+    });
+
+    describe('written over by hand', () => {
+      const edited = () =>
+        [...editor.view.dom.querySelectorAll(`.${FILLED_EDITED_CLASS}`)].map((e) => e.textContent).join('');
+
+      it('keeps the value as filled in; untouched, it is not edited', async () => {
+        await fill('<div>{{ address }}</div>', ['Hauptstr. 1\n10115 Berlin']);
+        expect(filledMergeTagAt(editor.state.doc, 1)).toEqual(
+          expect.objectContaining({ value: 'Hauptstr. 1\n10115 Berlin', text: 'Hauptstr. 1\n10115 Berlin', edited: false }),
+        );
+        expect(edited()).toBe('');
+      });
+
+      it('an edit stays the token’s — same fill, its formatting, one undo away', async () => {
+        await fill('<div>Hallo <strong>{{ name }}</strong>!</div>', ['Müller']);
+        const [before] = fills();
+        editor.view.dispatch(closeHistory(editor.state.tr));
+        expect(editor.commands['editFilledValue']('Frau\nMüller', posOf('Müller'))).toBe(true);
+        // A value's line break is a bare `<br>`, as on fill.
+        expect(editor.getHTML()).toBe('<div>Hallo <strong>Frau</strong><br><strong>Müller</strong>!</div>');
+        const range = filledMergeTagAt(editor.state.doc, posOf('Frau'))!;
+        expect(range).toEqual(
+          expect.objectContaining({ id: before.id, expr: 'name', value: 'Müller', text: 'Frau\nMüller', edited: true }),
+        );
+        expect(edited()).toBe('FrauMüller');
+        editor.exec(undo);
+        expect(editor.getHTML()).toBe('<div>Hallo <strong>Müller</strong>!</div>');
+        expect(edited()).toBe('');
+      });
+
+      it('typing inside a value makes it edited too — derived, never flagged', async () => {
+        await fill('<div>{{ name }}</div>', ['Anna']);
+        editor.view.dispatch(editor.state.tr.insertText('nn', posOf('Anna') + 2));
+        expect(filledMergeTagAt(editor.state.doc, 1)).toEqual(
+          expect.objectContaining({ text: 'Annnna', edited: true }),
+        );
+        expect(edited()).toBe('Annnna');
+      });
+
+      it('reset takes the filled value back; on an untouched value there is nothing to reset', async () => {
+        await fill('<div>{{ name }} und {{ city }}</div>', ['Anna', 'Berlin']);
+        editor.commands['editFilledValue']('Hanna', posOf('Anna'));
+        expect(editor.commands['resetFilledValue'](posOf('Berlin'))).toBe(false);
+        expect(editor.commands['resetFilledValue'](posOf('Hanna'))).toBe(true);
+        expect(editor.getText()).toBe('Anna und Berlin');
+        expect(edited()).toBe('');
+        expect(fills().map((f) => f.expr)).toEqual(['name', 'city']);
+      });
+
+      it('an empty edit is refused — the value, and where it came from, would be gone', async () => {
+        await fill('<div>{{ name }}</div>', ['Anna']);
+        expect(editor.commands['editFilledValue']('', 1)).toBe(false);
+        expect(editor.getText()).toBe('Anna');
+      });
+
+      it('restoring an edited value brings the token back all the same', async () => {
+        await fill('<div>{{ name }}</div>', ['Anna']);
+        editor.commands['editFilledValue']('Hanna', 1);
+        editor.commands['restoreMergeTag'](1);
+        expect(editor.getText()).toBe('{{ name }}');
+      });
+    });
   });
 });

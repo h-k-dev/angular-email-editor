@@ -358,3 +358,84 @@
 .email-compose__suggestion-more {
   opacity: 0.7;
 }
+
+// A filled-in placeholder's card (filled-value-card.ts) — an overlay pane,
+// drawn from this template, so these rules reach it. The token as the
+// editor's pill shows it, then its rows (2px apart, as a menu's): Edit,
+// Reset on a value written over, Restore — or, editing, the field and
+// Apply.
+.email-compose__filled {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  min-inline-size: 200px;
+  max-inline-size: 320px;
+}
+
+.email-compose__filled-token {
+  align-self: flex-start;
+  margin: 4px 8px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background-color: color-mix(in srgb, var(--mat-sys-primary) 12%, transparent);
+  font: var(--mat-sys-body-medium);
+  overflow-wrap: anywhere;
+}
+
+// The value, written by hand: Enter applies, Shift-Enter breaks the line.
+.email-compose__filled-field {
+  box-sizing: border-box;
+  inline-size: 100%;
+  min-block-size: 56px;
+  padding: 6px 8px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: var(--mat-sys-corner-small);
+  background: var(--mat-sys-surface-container-lowest);
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
+  resize: vertical;
+
+  &:focus {
+    border-color: var(--mat-sys-primary);
+    outline: none;
+  }
+}
+
+.email-compose__filled-row {
+  all: unset;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  block-size: 32px;
+  padding-inline: 8px;
+  border-radius: var(--mat-sys-corner-small);
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
+  white-space: nowrap;
+  cursor: pointer;
+
+  &:hover {
+    background: color-mix(in oklch, var(--mat-sys-on-surface) 8%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: -2px;
+  }
+
+  &:disabled {
+    opacity: 0.38;
+    cursor: default;
+    background: none;
+  }
+}
+
+.email-compose__filled-icon {
+  --mat-icon-size: 20px;
+
+  inline-size: 20px;
+  block-size: 20px;
+  font-size: 20px;
+  color: var(--mat-sys-primary);
+}

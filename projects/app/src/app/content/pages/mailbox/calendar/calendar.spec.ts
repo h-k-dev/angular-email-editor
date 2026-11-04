@@ -320,6 +320,134 @@ describe('CalendarPage — the events’ context menu', () => {
     expect(stored().map((event) => event.id)).not.toContain('coffee');
   });
 
+  /** The browser's paste, the clipboard saying `text`. */
+  const paste = async (text: string, target: Element = document.body) => {
+    const pasted = new Event('paste', { bubbles: true, cancelable: true });
+    Object.defineProperty(pasted, 'clipboardData', {
+      value: { getData: (type: string) => (type === 'text/plain' ? text : '') },
+    });
+    target.dispatchEvent(pasted);
+    await settle();
+    return pasted;
+  };
+
+  it('copies the event pressed with Ctrl+C — Notion Calendar’s line — and pastes it whole', async () => {
+    const written: string[] = [];
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: async (text: string) => void written.push(text) },
+    });
+    chip().dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await settle();
+    // Selected, not focused: the keys reach the document.
+    await press(document.body, 'c', { ctrlKey: true });
+    expect(written).toEqual(['Coffee on Oct 28, 2026 at 10:00 AM - 11:00 AM\n']);
+
+    // Ctrl+V is the browser's paste; its line is the event copied, whole.
+    const keyed = new KeyboardEvent('keydown', { key: 'v', ctrlKey: true, cancelable: true });
+    document.body.dispatchEvent(keyed);
+    expect(keyed.defaultPrevented).toBe(false);
+    expect((await paste(written[0])).defaultPrevented).toBe(true);
+    expect(stored()).toHaveLength(2);
+    expect(stored()[1]).toMatchObject({ title: 'Coffee', location: 'Alexanderplatz' });
+  });
+
+  it('pastes an event Notion Calendar copied — its title and times — and leaves other words', async () => {
+    await paste('Standup on Nov 3, 2026 at 6:45 AM - 9:15 AM');
+    // No pointer over the hours: its own time, on the day in view.
+    expect(stored()[1]).toMatchObject({
+      title: 'Standup',
+      start: '2026-10-28T06:45',
+      end: '2026-10-28T09:15',
+      allDay: false,
+      location: '',
+    });
+
+    expect((await paste('just some words')).defaultPrevented).toBe(false);
+    const field = document.createElement('input');
+    root.appendChild(field);
+    expect((await paste('Tea on Nov 3, 2026', field)).defaultPrevented).toBe(false);
+    expect(stored()).toHaveLength(2);
+  });
+
+  describe('a marquee’s many', () => {
+    const tea: CalendarEvent = {
+      ...COFFEE,
+      id: 'tea',
+      title: 'Tea',
+      start: '2026-10-29T15:00',
+      end: '2026-10-29T16:00',
+      color: 'tomato',
+    };
+    let written: string[];
+
+    beforeEach(async () => {
+      written = [];
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: { writeText: async (text: string) => void written.push(text) },
+      });
+      TestBed.inject(CalendarEvents).save(tea);
+      await harness.navigateByUrl('/calendar/r/week/2026/10/27');
+      await settle();
+      const grid = harness.fixture.debugElement.query(By.directive(TimeGrid))
+        .componentInstance as TimeGrid;
+      grid.selectMany.emit(['coffee', 'tea']);
+      await settle();
+    });
+
+    it('cuts them all with Ctrl+X — one line each — and pastes them back as far apart', async () => {
+      await press(document.body, 'x', { ctrlKey: true });
+      expect(stored()).toEqual([]);
+      expect(document.querySelector('.mat-mdc-snack-bar-container')!.textContent).toContain(
+        '2 events cut',
+      );
+      expect(written).toEqual([
+        'Coffee on Oct 28, 2026 at 10:00 AM - 11:00 AM\nTea on Oct 29, 2026 at 3:00 PM - 4:00 PM\n',
+      ]);
+
+      // No pointer over the hours: the first on the day in view, at its own
+      // time; the other a day and five hours on, as it was.
+      await paste(written[0]);
+      expect(stored()).toEqual([
+        expect.objectContaining({ title: 'Coffee', start: '2026-10-27T10:00', color: 'peacock' }),
+        expect.objectContaining({ title: 'Tea', start: '2026-10-28T15:00', color: 'tomato' }),
+      ]);
+      // The pasted ones, selected.
+      expect(root.querySelectorAll('[aria-current="true"][data-event-id]')).toHaveLength(2);
+    });
+
+    it('copies and duplicates them all by key', async () => {
+      await press(document.body, 'c', { ctrlKey: true });
+      expect(written[0].trim().split('\n')).toHaveLength(2);
+      await press(document.body, 'd', { ctrlKey: true });
+      expect(stored()).toHaveLength(4);
+    });
+
+    it('acts on them all from the menu of one of them', async () => {
+      await rightClick(chip());
+      expect(items()[0].disabled).toBe(true); // Edit: one event's alone.
+      await pick('Cut');
+      expect(stored()).toEqual([]);
+    });
+
+    it('pastes the events many Notion lines name — or none, if one is not', async () => {
+      await paste('Lunch on Nov 3, 2026 at 12:00 PM - 1:00 PM\nwords');
+      expect(stored()).toHaveLength(2);
+      await paste(
+        'Lunch on Nov 3, 2026 at 12:00 PM - 1:00 PM\nDinner on Nov 3, 2026 at 7:00 PM - 8:00 PM\n',
+      );
+      expect(stored().map((event) => event.title)).toEqual(['Coffee', 'Tea', 'Lunch', 'Dinner']);
+    });
+  });
+
+  it('deletes the event pressed with Delete', async () => {
+    chip().dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await settle();
+    await press(document.body, 'Delete');
+    expect(stored()).toEqual([]);
+  });
+
   it('opens the menu under the focused event with Shift+F10, and hands focus back after', async () => {
     chip().focus();
     await press(chip(), 'F10', { shiftKey: true });

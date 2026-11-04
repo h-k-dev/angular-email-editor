@@ -1,8 +1,9 @@
-import { Fragment, Mark, Node, Schema } from 'prosemirror-model';
+import { Fragment, Mark, MarkType, Node, Schema, Slice } from 'prosemirror-model';
 import { Command, EditorState, Plugin, PluginKey, Transaction } from 'prosemirror-state';
-import { EditorView } from 'prosemirror-view';
-import { FunctionalExtension, defineExtension } from '../extension';
+import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
+import { FunctionalExtension, defineExtension, defineMark } from '../extension';
 import { AUTHORED_ATTR } from '../authored';
+import { GUIDES_PEEK_EVENT, isPeeking } from './layout-guides';
 import { mergeTagRanges, scanMergeTags } from './nodes/merge-tag';
 
 /**
@@ -40,6 +41,296 @@ import { mergeTagRanges, scanMergeTags } from './nodes/merge-tag';
  * `resolve-placeholders` action, so it is a `/` menu row and a toolbar
  * button with no further wiring.
  */
+
+// ---------------------------------------------------------------------------
+// What a value was
+
+/**
+ * Where a filled-in value came from: the token it took the place of. Each
+ * fill is one occurrence with an **id** of its own — a value split in pieces
+ * (a line break in it, bold put on half of it later) is still one value,
+ * and the same expression filled twice is two, restored apart.
+ *
+ * Editor-only (`emitDOM: null`): the email carries the value, nothing of
+ * where it came from. It rides the undo history, the clipboard (a paste
+ * takes fresh ids: a copy is a fill of its own), and survives clearing the
+ * formatting — it is not formatting. Not kept across a reload: the draft is
+ * stored as the email's HTML.
+ *
+ * It also keeps the **value as filled**, so a value written over by hand
+ * is known without a flag: its text is no longer that value. The writer may
+ * hand-roll it ({@link editFilledValue}) and it is still the token's — or
+ * take the filled value back ({@link resetFilledValue}), or the token
+ * ({@link restoreMergeTag}). An edited value carries the class
+ * {@link FILLED_EDITED_CLASS} (a decoration over the whole of it).
+ *
+ * Painted by the host only while Ctrl is held — the layout guides' peek
+ * (`.aee-guides-peek .aee-filled-merge-tag`) — and reported to it on hover
+ * then ({@link MergeTagResolutionOptions.onFilledHover}), with those ways.
+ */
+export const FilledMergeTag = defineMark({
+  name: 'filledMergeTag',
+  spec: {
+    attrs: { id: { default: '' }, expr: { default: '' }, value: { default: '' } },
+    // Typing at either end of a value is the writer's own text.
+    inclusive: false,
+    // Enter at the end of a value starts the next line without it.
+    splittable: false,
+    // Not formatting: "Clear formatting" leaves it.
+    clearable: false,
+    parseDOM: [
+      {
+        tag: 'span[data-aee-filled]',
+        getAttrs: (dom: HTMLElement) => ({
+          id: dom.getAttribute('data-aee-filled') ?? '',
+          expr: dom.getAttribute('data-aee-expr') ?? '',
+          value: dom.getAttribute('data-aee-value') ?? '',
+        }),
+      },
+    ],
+    toDOM: (mark) => [
+      'span',
+      {
+        class: 'aee-filled-merge-tag',
+        'data-aee-filled': mark.attrs['id'],
+        'data-aee-expr': mark.attrs['expr'],
+        'data-aee-value': mark.attrs['value'],
+      },
+      0,
+    ],
+    emitDOM: null,
+  },
+  plugins: ({ schema }) => {
+    const type = schema.marks['filledMergeTag'];
+    return [
+      new Plugin<DecorationSet>({
+        state: {
+          init: (_, state) => editedValues(state.doc),
+          apply: (tr, set) => (tr.docChanged ? editedValues(tr.doc) : set),
+        },
+        props: {
+          transformPasted: (slice) =>
+            new Slice(freshFillIds(slice.content, type, new Map()), slice.openStart, slice.openEnd),
+          decorations(state) {
+            return this.getState(state);
+          },
+        },
+      }),
+    ];
+  },
+});
+
+/** The class on a filled value written over by hand — its text no longer
+    the value filled in. */
+export const FILLED_EDITED_CLASS = 'aee-filled-merge-tag--edited';
+
+/** Every edited value, decorated whole. A walk of the document's text on
+    each change — fills are few, and nothing is measured. */
+function editedValues(doc: Node): DecorationSet {
+  const type = doc.type.schema.marks['filledMergeTag'];
+  const found: Decoration[] = [];
+  doc.descendants((node, pos) => {
+    if (!node.inlineContent) return true;
+    let offset = 0;
+    for (let index = 0; index < node.childCount; index++) {
+      const child = node.child(index);
+      const at = pos + 1 + offset;
+      offset += child.nodeSize;
+      if (!type.isInSet(child.marks)) continue;
+      const filled = filledMergeTagAt(doc, at);
+      if (!filled) continue;
+      if (filled.edited) found.push(Decoration.inline(filled.from, filled.to, { class: FILLED_EDITED_CLASS }));
+      // On past the rest of this value.
+      while (index + 1 < node.childCount && pos + 1 + offset < filled.to) {
+        offset += node.child(++index).nodeSize;
+      }
+    }
+    return false;
+  });
+  return DecorationSet.create(doc, found);
+}
+
+let fills = 0;
+/** A fill's id: unique in the page, never across reloads (it is not stored). */
+const nextFillId = (): string => `fill-${++fills}`;
+
+/** `fragment` with every fill's id swapped for a fresh one — one per
+    original id, so a pasted value split in pieces stays one value. */
+function freshFillIds(fragment: Fragment, type: MarkType, ids: Map<string, string>): Fragment {
+  const nodes: Node[] = [];
+  fragment.forEach((node) => {
+    let next = node.isText || !node.content.size ? node : node.copy(freshFillIds(node.content, type, ids));
+    const mark = type.isInSet(next.marks);
+    if (mark) {
+      let id = ids.get(mark.attrs['id']);
+      if (!id) ids.set(mark.attrs['id'], (id = nextFillId()));
+      next = next.mark(type.create({ ...mark.attrs, id }).addToSet(next.marks));
+    }
+    nodes.push(next);
+  });
+  return Fragment.from(nodes);
+}
+
+/** A filled value in the document: where it stands, which fill, and what
+    its token was. */
+export interface FilledMergeTagRange {
+  from: number;
+  to: number;
+  id: string;
+  /** The expression, trimmed — as the host was asked. */
+  expr: string;
+  /** The value as filled in, a line break as `\n`. */
+  value: string;
+  /** The value's text now, a line break as `\n`. */
+  text: string;
+  /** Written over by hand: `text` is no longer `value`. */
+  edited: boolean;
+}
+
+/**
+ * The filled value at `pos` — the inline content right after it, or, with
+ * `before`, right before it (a caret at a value's end). The whole value: its
+ * pieces run on through line breaks and formatting changes, as long as they
+ * carry the same fill.
+ */
+export function filledMergeTagAt(
+  doc: Node,
+  pos: number,
+  options: { before?: boolean } = {},
+): FilledMergeTagRange | null {
+  const type = doc.type.schema.marks['filledMergeTag'];
+  if (!type) return null;
+  const $pos = doc.resolve(pos);
+  const parent = $pos.parent;
+  if (!parent.inlineContent) return null;
+  const offset = $pos.parentOffset;
+  let hit = parent.childAfter(offset);
+  let mark = hit.node && type.isInSet(hit.node.marks);
+  if (!mark && options.before && offset > 0) {
+    hit = parent.childBefore(offset);
+    mark = hit.node && type.isInSet(hit.node.marks);
+  }
+  if (!mark) return null;
+  const id = mark.attrs['id'] as string;
+  const same = (index: number) =>
+    index >= 0 && index < parent.childCount && type.isInSet(parent.child(index).marks)?.attrs['id'] === id;
+  /** How many children on from `index` (by `step`) still belong to the
+      value: one of the fill's, or a line break between two of them. */
+  const reach = (index: number, step: 1 | -1) => {
+    if (same(index + step)) return 1;
+    const between = index + step;
+    const leaf = between >= 0 && between < parent.childCount && parent.child(between);
+    return leaf && leaf.isLeaf && !leaf.isText && same(between + step) ? 2 : 0;
+  };
+
+  let first = hit.index;
+  let start = hit.offset;
+  for (let n; (n = reach(first, -1)); ) {
+    for (let i = 0; i < n; i++) start -= parent.child(--first).nodeSize;
+  }
+  let last = hit.index;
+  let end = hit.offset + parent.child(last).nodeSize;
+  for (let n; (n = reach(last, 1)); ) {
+    for (let i = 0; i < n; i++) end += parent.child(++last).nodeSize;
+  }
+
+  const base = $pos.start();
+  const from = base + start;
+  const to = base + end;
+  const value = mark.attrs['value'] as string;
+  const text = doc.textBetween(from, to, '\n', '\n');
+  return { from, to, id, expr: mark.attrs['expr'] as string, value, text, edited: text !== value };
+}
+
+/** The marks of a value's first text — its formatting, and the fill. */
+function valueMarks(doc: Node, from: number, to: number): readonly Mark[] {
+  let marks: readonly Mark[] = [];
+  doc.nodesBetween(from, to, (node) => {
+    if (node.isText && !marks.length) marks = node.marks;
+    return !marks.length;
+  });
+  return marks;
+}
+
+/**
+ * Writes `text` over the filled value at `pos` (default: the caret's) by
+ * hand — and it stays the token's value: the same fill, the formatting of
+ * its first piece, a line break in `text` a hard break. One step, undone
+ * with Mod-Z. An empty `text` is refused: the value would be gone, and
+ * where it came from with it (Restore, or delete it as text).
+ */
+export const editFilledValue =
+  (text: string, pos?: number): Command =>
+  (state, dispatch) => {
+    const filled = filledMergeTagAt(state.doc, pos ?? state.selection.from, { before: pos === undefined });
+    const next = text.replace(/\r\n?/g, '\n');
+    if (!filled || !next) return false;
+    if (dispatch && next !== filled.text) {
+      const content = valueContent(state.schema, next, valueMarks(state.doc, filled.from, filled.to));
+      dispatch(state.tr.replaceWith(filled.from, filled.to, content).scrollIntoView());
+    }
+    return true;
+  };
+
+/** Takes back the value as filled in, over whatever was written by hand
+    ({@link editFilledValue}); false when the value is not edited. */
+export const resetFilledValue =
+  (pos?: number): Command =>
+  (state, dispatch) => {
+    const filled = filledMergeTagAt(state.doc, pos ?? state.selection.from, { before: pos === undefined });
+    if (!filled?.edited || !filled.value) return false;
+    return editFilledValue(filled.value, filled.from)(state, dispatch);
+  };
+
+/**
+ * Puts the token back in place of the filled value at `pos` (default: the
+ * caret's) — `{{ expr }}` with the value's formatting, a pill again. One
+ * step, undone with Mod-Z. Text written into the value since goes with it:
+ * the token is what was asked for.
+ */
+export const restoreMergeTag =
+  (pos?: number): Command =>
+  (state, dispatch) => {
+    const filled = filledMergeTagAt(state.doc, pos ?? state.selection.from, { before: pos === undefined });
+    if (!filled) return false;
+    if (dispatch) {
+      const type = state.schema.marks['filledMergeTag'];
+      const marks = type.removeFromSet(valueMarks(state.doc, filled.from, filled.to));
+      dispatch(
+        state.tr
+          .replaceWith(filled.from, filled.to, state.schema.text(`{{ ${filled.expr} }}`, marks))
+          .scrollIntoView(),
+      );
+    }
+    return true;
+  };
+
+/** A filled value under the pointer while Ctrl is held — what the host's
+    card shows. */
+export interface FilledMergeTagHover {
+  /** The value's piece under the pointer — the card's anchor. */
+  element: HTMLElement;
+  /** The fill it belongs to. */
+  id: string;
+  /** Its token's expression, trimmed. */
+  expr: string;
+  /** The value as filled in, a line break as `\n`. */
+  value: string;
+  /** The value's text when the pointer came — what an edit field starts
+      with. */
+  text: string;
+  /** Written over by hand. */
+  edited: boolean;
+  /** Writes `text` over the value by hand, still the token's
+      ({@link editFilledValue}); false when the value is gone meanwhile, or
+      `text` is empty. */
+  edit(text: string): boolean;
+  /** Takes back the value as filled in ({@link resetFilledValue}). */
+  reset(): boolean;
+  /** Puts the token back ({@link restoreMergeTag}); false when the value is
+      gone meanwhile. */
+  restore(): boolean;
+}
 
 /** What became of a request — for the host's message ("3 Platzhalter ohne
     Wert"). */
@@ -79,6 +370,15 @@ export interface MergeTagResolutionOptions {
   /** Called with `true` when a request goes out and `false` when it is
       settled — the host's spinner. */
   onPendingChange?: (pending: boolean) => void;
+  /**
+   * Told when the pointer comes onto a filled value while Ctrl is held (the
+   * layout guides' peek), and `null` when it leaves — the host's card: the
+   * token it was, an edit by hand, and the ways back. A card already up
+   * stays while the pointer is on the value, Ctrl released or not, so its
+   * buttons can be reached; told again (the same `element`) when the value
+   * changes under it.
+   */
+  onFilledHover?: (hover: FilledMergeTagHover | null) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -200,10 +500,21 @@ function fill(tr: Transaction, from: number, to: number, values: Map<string, str
   }
 
   const mergeTag = doc.type.schema.marks['mergeTag'];
+  const filled = doc.type.schema.marks['filledMergeTag'];
   const texts = found.filter((occurrence) => occurrence.kind === 'text').reverse();
   for (const occurrence of texts) {
-    const marks = (tr.doc.nodeAt(occurrence.from)?.marks ?? []).filter((mark) => mark.type !== mergeTag);
-    const content = valueContent(tr.doc.type.schema, values.get(occurrence.expr) as string, marks);
+    let marks: readonly Mark[] = (tr.doc.nodeAt(occurrence.from)?.marks ?? []).filter(
+      (mark) => mark.type !== mergeTag,
+    );
+    const schema = tr.doc.type.schema;
+    let content = valueContent(schema, values.get(occurrence.expr) as string, marks);
+    // Where the value came from, when the kit keeps it (FilledMergeTag) —
+    // with the value as it went in, read back the way an edit is compared.
+    if (filled && content.size) {
+      const value = content.textBetween(0, content.size, '\n', '\n');
+      marks = filled.create({ id: nextFillId(), expr: occurrence.expr, value }).addToSet(marks);
+      content = valueContent(schema, values.get(occurrence.expr) as string, marks);
+    }
     tr.replaceWith(occurrence.from, occurrence.to, content);
   }
   return found.length;
@@ -234,6 +545,80 @@ export function mergeTagResolutionPending(state: EditorState): boolean {
 }
 
 let requests = 0;
+
+/**
+ * Reports the filled value under the pointer while the peek is on: on the
+ * pointer coming onto one, and on the peek coming with the pointer already
+ * there. One that is up stays while the pointer is on it, the peek gone or
+ * not; it goes when the pointer leaves it, or the value leaves the page.
+ * Written over while up (its piece kept on the page), it is reported again:
+ * what it reads now, whether it is edited.
+ */
+function filledHover(
+  view: EditorView,
+  report: MergeTagResolutionOptions['onFilledHover'],
+): { update: (view: EditorView, before: EditorState) => void; destroy: () => void } {
+  if (!report) return { update: () => {}, destroy: () => {} };
+  /** The value's piece under the pointer, peek or not. */
+  let over: HTMLElement | null = null;
+  /** The piece reported. */
+  let shown: HTMLElement | null = null;
+
+  const sync = () => {
+    const next = over && over.isConnected && (isPeeking(view) || over === shown) ? over : null;
+    if (next === shown) return;
+    shown = next;
+    report(next ? hoverOf(view, next) : null);
+  };
+  const onOver = (event: MouseEvent) => {
+    over = (event.target as Element | null)?.closest?.<HTMLElement>('[data-aee-filled]') ?? null;
+    if (over && !view.dom.contains(over)) over = null;
+    sync();
+  };
+  const onLeave = () => {
+    over = null;
+    sync();
+  };
+
+  view.dom.addEventListener('mouseover', onOver);
+  view.dom.addEventListener('mouseleave', onLeave);
+  view.dom.addEventListener(GUIDES_PEEK_EVENT, sync);
+  return {
+    update: (_, before) => {
+      const kept = shown;
+      sync();
+      if (kept && kept === shown && !before.doc.eq(view.state.doc)) report(hoverOf(view, kept));
+    },
+    destroy: () => {
+      view.dom.removeEventListener('mouseover', onOver);
+      view.dom.removeEventListener('mouseleave', onLeave);
+      view.dom.removeEventListener(GUIDES_PEEK_EVENT, sync);
+      if (shown) report(null);
+    },
+  };
+}
+
+function hoverOf(view: EditorView, element: HTMLElement): FilledMergeTagHover {
+  const filled = filledMergeTagAt(view.state.doc, view.posAtDOM(element, 0));
+  /** Runs `command` at the value — while its piece is still on the page. */
+  const run = (command: (pos: number) => Command) => {
+    if (!element.isConnected || view.isDestroyed) return false;
+    const done = command(view.posAtDOM(element, 0))(view.state, view.dispatch);
+    if (done) view.focus();
+    return done;
+  };
+  return {
+    element,
+    id: element.getAttribute('data-aee-filled') ?? '',
+    expr: element.getAttribute('data-aee-expr') ?? '',
+    value: filled?.value ?? '',
+    text: filled?.text ?? '',
+    edited: !!filled?.edited,
+    edit: (text) => run((pos) => editFilledValue(text, pos)),
+    reset: () => run(resetFilledValue),
+    restore: () => run(restoreMergeTag),
+  };
+}
 
 /**
  * The placeholder fill: `resolve` asks the host, `onResolved` reports. See
@@ -321,10 +706,16 @@ export const createMergeTagResolution = (options: MergeTagResolutionOptions): Fu
             };
           },
         },
+        view: (view) => filledHover(view, options.onFilledHover),
       }),
     ],
     keymap: () => ({ 'Mod-Shift-Enter': resolveMergeTags }),
-    commands: () => ({ resolveMergeTags: (): Command => resolveMergeTags }),
+    commands: () => ({
+      resolveMergeTags: (): Command => resolveMergeTags,
+      restoreMergeTag,
+      editFilledValue,
+      resetFilledValue,
+    }),
     actions: () => [
       {
         id: 'resolve-placeholders',

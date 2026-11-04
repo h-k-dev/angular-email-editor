@@ -180,6 +180,7 @@ export default {
     paste: '貼り付け',
     duplicate: '複製',
     cutDone: '予定を切り取りました',
+    cutMany: '{{count}} 件の予定を切り取りました',
     eventMenu: '予定の操作',
     undo: '元に戻す',
     colors: {
@@ -465,6 +466,13 @@ export default {
       hide: '引用テキストを隠す',
       edit: '引用テキストを編集',
       remove: '引用テキストを削除',
+    },
+    filled: {
+      restore: 'プレースホルダーに戻す',
+      edit: '値を編集',
+      reset: '差し込んだ値に戻す',
+      apply: '適用',
+      value: '値',
     },
     actions: {
       text: { title: 'テキスト', keywords: '段落, 本文, だんらく' },

@@ -184,6 +184,7 @@ export default {
     paste: 'Paste',
     duplicate: 'Duplicate',
     cutDone: 'Event cut',
+    cutMany: '{{count}} events cut',
     eventMenu: 'Event actions',
     undo: 'Undo',
     colors: {
@@ -469,6 +470,13 @@ export default {
       hide: 'Hide quoted text',
       edit: 'Edit quoted text',
       remove: 'Remove quoted text',
+    },
+    filled: {
+      restore: 'Restore placeholder',
+      edit: 'Edit value',
+      reset: 'Reset to the filled-in value',
+      apply: 'Apply',
+      value: 'Value',
     },
     actions: {
       'resolve-placeholders': { title: 'Fill in placeholders' },

@@ -2,7 +2,9 @@ import { Command } from 'prosemirror-state';
 import { defineExtension } from '../extension';
 
 /** Strips every mark from the selection — Gmail's "remove formatting". Block
-    structure (lists, quotes, alignment) is layout, not formatting: it stays. */
+    structure (lists, quotes, alignment) is layout, not formatting: it stays,
+    and so does a mark that is not formatting (`clearable: false` — where a
+    filled value came from). */
 const clearFormatting: Command = (state, dispatch) => {
   const { from, to, empty } = state.selection;
   if (empty) return false;
@@ -10,6 +12,7 @@ const clearFormatting: Command = (state, dispatch) => {
   if (dispatch) {
     let tr = state.tr;
     for (const type of Object.values(state.schema.marks)) {
+      if (type.spec['clearable'] === false) continue;
       tr = tr.removeMark(from, to, type);
     }
     dispatch(tr.setStoredMarks([]).scrollIntoView());

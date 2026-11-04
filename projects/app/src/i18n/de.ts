@@ -185,6 +185,7 @@ export default {
     paste: 'Einfügen',
     duplicate: 'Duplizieren',
     cutDone: 'Termin ausgeschnitten',
+    cutMany: '{{count}} Termine ausgeschnitten',
     eventMenu: 'Terminaktionen',
     undo: 'Rückgängig',
     colors: {
@@ -472,6 +473,13 @@ export default {
       hide: 'Zitierten Text ausblenden',
       edit: 'Zitierten Text bearbeiten',
       remove: 'Zitierten Text entfernen',
+    },
+    filled: {
+      restore: 'Platzhalter wiederherstellen',
+      edit: 'Wert bearbeiten',
+      reset: 'Eingesetzten Wert zurückholen',
+      apply: 'Übernehmen',
+      value: 'Wert',
     },
     actions: {
       text: { title: 'Text', keywords: 'absatz, fließtext' },
