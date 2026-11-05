@@ -539,6 +539,11 @@ export const HOOK_GROUPS: readonly HookGroup[] = [
           'The personalization pill, and the underline under an expression the dialect rejects.',
       },
       {
+        name: '.aee-filled-merge-tag · .aee-filled-merge-tag--edited',
+        applies:
+          'A filled-in value, drawn only while Ctrl is held (`.aee-guides-peek`), and one written over by hand. `@include merge-tags.merge-tags` (`styles/merge-tags`) draws these and the pill, on `--email-merge-tag-*`.',
+      },
+      {
         name: '.aee-quoted · .aee-quote-fold',
         applies:
           'The quoted history after the body, and its ⋯ fold button. `data-folded` while folded; its parts (bar, fold, edit, remove, content) are `data-slot`s.',

@@ -16,7 +16,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import type { FormValueControl } from '@angular/forms/signals';
+import type { FormValueControl, ValidationError } from '@angular/forms/signals';
 import type { EditorView } from 'prosemirror-view';
 import {
   type ContentOptions,
@@ -24,8 +24,18 @@ import {
   type EditorOptions,
   type Extension,
   createEditor,
+  revealMergeTag,
 } from '@h-k-dev/angular-email-editor';
 import { atRest } from '@h-k-dev/angular-email-editor/actions';
+import { isMergeTagUnfilled } from './merge-tag-errors';
+
+/** Where the form put the caret: a placeholder without a value. */
+export interface MergeTagRevealed {
+  /** The expression, trimmed. */
+  readonly expr: string;
+  /** The pill (or the node, the link) it stands in. */
+  readonly element: HTMLElement;
+}
 
 /** What an editor is made of: its extensions — or a function that gives
     them, called as the editor mounts (a render in, so it may read the
@@ -168,6 +178,17 @@ export class EmailEditor implements FormValueControl<string>, EditorRef {
   readonly disabled = input(false, { transform: booleanAttribute });
   readonly readonly = input(false, { transform: booleanAttribute });
 
+  /** The field's errors — bound by `[formField]`, or by hand from a host
+      control that wraps this one. Read when the form focuses the field: a
+      {@link MergeTagUnfilled} puts the caret on its token. */
+  readonly errors = input<readonly ValidationError.WithOptionalFieldTree[]>([]);
+
+  /** The form put the caret on a placeholder without a value
+      ({@link MergeTagUnfilled}): its expression, and the element it stands
+      in — for a card beside it (write a value, or remove it:
+      `writeMergeTag` / `removeMergeTag`). */
+  readonly mergeTagRevealed = output<MergeTagRevealed>({ alias: 'emailEditorMergeTagRevealed' });
+
   /** An editor was mounted — the first, or one on a new kit — before it
       takes the value in. */
   readonly mounted = output<EditorHandle>({ alias: 'emailEditorMounted' });
@@ -268,11 +289,17 @@ export class EmailEditor implements FormValueControl<string>, EditorRef {
   }
 
   /** Puts the caret in the text — now, or as the editor mounts if focus is
-      still where it was asked from. The form's way in (`focusBoundControl`). */
+      still where it was asked from. The form's way in (`focusBoundControl`):
+      with a placeholder without a value among the field's errors
+      ({@link MergeTagUnfilled}), on that token, selected and in view — and
+      says so ({@link mergeTagRevealed}). */
   focus(): void {
     const editor = this.#editor();
     if (editor && !this.#stale()) {
-      editor.focus();
+      const unfilled = this.errors().find(isMergeTagUnfilled);
+      const element = unfilled ? revealMergeTag(editor.view, unfilled.expr) : null;
+      if (unfilled && element) this.mergeTagRevealed.emit({ expr: unfilled.expr, element });
+      else editor.focus();
       return;
     }
     this.#focusAsked = this.#host.ownerDocument.activeElement;

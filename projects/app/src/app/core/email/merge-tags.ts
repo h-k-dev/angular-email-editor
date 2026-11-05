@@ -1,5 +1,4 @@
 import { Service } from '@angular/core';
-import type { ValidationError } from '@angular/forms/signals';
 
 import { evaluateExpression } from './expression-evaluator';
 import { Filter, applyFilter, respond } from './loopback-filter';
@@ -145,26 +144,7 @@ export class MergeTags {
       signal,
     );
   }
-
-  /** Of `expressions`, the ones with no value for the contact — the
-      evaluator says `''` (or nothing): what a send must not carry as a
-      token. In the order given. */
-  async unfilled(expressions: readonly string[], signal?: AbortSignal): Promise<string[]> {
-    if (!expressions.length) return [];
-    const values = await this.resolve(expressions, signal);
-    return expressions.filter((_, i) => !values[i]);
-  }
 }
-
-/** The error a send pins on the body for a placeholder with no value — it
-    names the token (`expr`, trimmed), so the body's control can put the
-    caret on it when the form focuses the field (`focusBoundControl`). */
-export interface PlaceholderUnfilled extends ValidationError {
-  readonly kind: typeof PLACEHOLDER_UNFILLED;
-  readonly expr: string;
-}
-
-export const PLACEHOLDER_UNFILLED = 'placeholder.unfilled';
 
 /** The paths the sample contact has, on purpose, no value for — the
     "Missing placeholders (Send check)" example
@@ -173,6 +153,3 @@ export const PLACEHOLDER_UNFILLED = 'placeholder.unfilled';
     the middle (the settlement offer) and one at its very end (the signing
     lawyer), so Send stops three times, in reading order. */
 export const ALWAYS_MISSING = ['contact.salutation', 'settlement.offer', 'advisor.name'] as const;
-
-export const isPlaceholderUnfilled = (error: ValidationError): error is PlaceholderUnfilled =>
-  error.kind === PLACEHOLDER_UNFILLED && typeof (error as Partial<PlaceholderUnfilled>).expr === 'string';

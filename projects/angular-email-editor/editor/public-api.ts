@@ -3,3 +3,4 @@
  */
 
 export * from './editor';
+export * from './merge-tag-errors';

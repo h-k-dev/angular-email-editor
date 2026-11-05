@@ -300,11 +300,59 @@ const editor = createEditor({
       resolve: (expressions) => api.evaluate(expressions, contactId),
       onResolved: ({ filled, empty, kept }) => notify(filled, empty.length, kept.length),
       onPendingChange: (pending) => busy.set(pending),
+      // Ctrl held over a filled value (the layout guides' peek): your card.
+      onFilledHover: (hover) => (hover ? card.open(hover.element, hover) : card.closeSoon()),
     }),
   ],
 });
 
 editor.commands['resolveMergeTags'](); // also Mod-Shift-Enter; a selection: only its tokens`,
+
+  'filled-merge-tag': `import {
+  editFilledValue, filledMergeTagAt, resetFilledValue, restoreMergeTag,
+} from '@h-k-dev/angular-email-editor';
+
+// FilledMergeTag is in emailExtensions: every filled value carries
+// { id, expr, value } — editor-only, never in the email.
+const filled = filledMergeTagAt(editor.state.doc, pos);
+// { from, to, id, expr: 'customer.lastName', value: 'Müller', text: 'Frau Müller', edited: true }
+
+editor.exec(editFilledValue('Frau Müller', pos)); // still the token's, one undo step
+editor.exec(resetFilledValue(pos));               // the value as filled in
+editor.exec(restoreMergeTag(pos));                // {{ customer.lastName }}, a pill again`,
+
+  'merge-tag-by-expression': `import {
+  distinctMergeTagExpressions, removeMergeTag, revealMergeTag, writeMergeTag,
+} from '@h-k-dev/angular-email-editor';
+
+distinctMergeTagExpressions(editor.state.doc); // ['salutation', 'case.id', …] text and attributes, once each
+
+const pill = revealMergeTag(editor.view, 'salutation'); // selected, focused, in view
+editor.exec(writeMergeTag('salutation', 'Liebe'));   // every {{ salutation }}, by hand
+editor.exec(removeMergeTag('salutation'));          // or none: the explicit empty value`,
+
+  'check-merge-tag-values': `import { checkMergeTagValues } from '@h-k-dev/angular-email-editor/editor';
+
+readonly body = viewChild.required(EmailEditor);
+readonly message = form(this.model, {
+  submission: {
+    action: async (field) => {
+      // The same evaluator createMergeTagResolution takes; '' or null is no value.
+      const unfilled = await checkMergeTagValues(field.html, this.body(), { resolve });
+      if (unfilled.length) {
+        // Errors land once the action settles: focus after that.
+        afterNextRender(() => field.html().focusBoundControl(), { injector });
+        return unfilled;
+      }
+      return send(field().value());
+    },
+  },
+});
+
+// <div [emailEditor]="kit" [formField]="message.html"
+//      (emailEditorMergeTagRevealed)="card.open($event.element, $event.expr)"></div>
+// focusBoundControl selects the first token without a value; an edit clears the
+// errors, and the next send names the next one.`,
 
   'create-send-intent': `import {
   SendIntent, createEditor, createSendIntent, emailExtensions,

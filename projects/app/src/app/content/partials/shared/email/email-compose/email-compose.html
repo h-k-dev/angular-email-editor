@@ -59,6 +59,8 @@
     [emailEditorOptions]="editorOptions"
     (emailEditorMounted)="onMounted($event)"
     (emailEditorChange)="onBodyChange($event)"
+    [errors]="errors()"
+    (emailEditorMergeTagRevealed)="placeholderRevealed($event)"
     (touch)="touch.emit()"
     [attr.data-color-scheme]="colorScheme()"
     dropZone

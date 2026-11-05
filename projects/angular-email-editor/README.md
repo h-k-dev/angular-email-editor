@@ -32,6 +32,9 @@ engine, the behaviour and accessible building blocks.
   expression dialect with live syntax diagnostics, and **placeholder filling**
   (`createMergeTagResolution`, <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd>):
   your evaluator gets each expression raw, the values go back in as text, in one undo step.
+  A filled value remembers its token (edit it by hand, reset it, or restore the token), a
+  value that comes back empty keeps its token, and `checkMergeTagValues` stops a send on
+  each placeholder without a value — `focusBoundControl` puts the caret on that token.
 - **Compose workflow** — reply/forward seeds with localized labels, quoted history kept
   beside the body, inline images (`cid:`), a send intent with `text/plain` alternative.
 - **Address fields that implement the RFCs** — RFC 5322/5321/6531 parsing and
@@ -125,6 +128,17 @@ ProseMirror's required CSS (`prosemirror-view/style/prosemirror.css`, and
 
 ```scss
 @use '@h-k-dev/angular-email-editor/styles/scroll';
+```
+
+So is the merge-tag look — the `{{ … }}` pill, and filled-in values shown for what they
+were while Ctrl is held (needs `LayoutGuides`, which the email kit has):
+
+```scss
+@use '@h-k-dev/angular-email-editor/styles/merge-tags';
+
+.aee-editor {
+  @include merge-tags.merge-tags;
+}
 ```
 
 The [demo app](https://github.com/h-k-dev/angular-email-editor/tree/main/projects/app) is

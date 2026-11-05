@@ -63,11 +63,8 @@ import { Paper } from '../../../../../core/theme/paper';
 import { I18n } from '../../../../../core/translations/i18n';
 import { AttachmentRef, AttachmentUploads } from '../../../../../core/email/attachment-uploads';
 import { EmailSend, SendRejected } from '../../../../../core/email/email-send';
-import {
-  MergeTags,
-  PLACEHOLDER_UNFILLED,
-  PlaceholderUnfilled,
-} from '../../../../../core/email/merge-tags';
+import { MergeTags } from '../../../../../core/email/merge-tags';
+import { checkMergeTagValues } from '@h-k-dev/angular-email-editor/editor';
 import { Preferences } from '../../../../../core/storages/preferences';
 import { Viewport } from '../../../../../core/layout/viewport';
 import { EnvelopeRows } from './envelope-rows/envelope-rows';
@@ -869,18 +866,11 @@ export abstract class MessageSheet {
     const { from, to, cc, bcc, subject, previewText, format, attachments } = field().value();
     const html = format === 'html';
     if (html) {
-      const unfilled = await this.#unfilledPlaceholders();
+      const unfilled = await this.#unfilledPlaceholders(field);
       if (unfilled.length) {
         // The errors land once this action has settled: reveal after that.
         afterNextRender({ write: () => this.#revealInvalid(field) }, { injector: this.#injector });
-        return unfilled.map((expr) => {
-          const error: PlaceholderUnfilled = {
-            kind: PLACEHOLDER_UNFILLED,
-            expr,
-            message: this.i18n.t('composer.placeholders.unfilled', { token: `{{ ${expr} }}` }),
-          };
-          return { ...error, fieldTree: field.html };
-        });
+        return unfilled;
       }
     }
     try {
@@ -945,11 +935,15 @@ export abstract class MessageSheet {
   }
 
   /** The body's placeholders the contact has no value for, in reading
-      order. An evaluator that cannot be reached checks nothing: the
-      backend fills tokens at send all the same. */
-  async #unfilledPlaceholders(): Promise<string[]> {
+      order, as errors on the body (the library's `checkMergeTagValues`).
+      An evaluator that cannot be reached checks nothing: the backend fills
+      tokens at send all the same. */
+  async #unfilledPlaceholders(field: FieldTree<Envelope>) {
     try {
-      return await this.#mergeTags.unfilled(this.emailPane().placeholderExpressions());
+      return await checkMergeTagValues(field.html, this.emailPane(), {
+        resolve: (expressions) => this.#mergeTags.resolve(expressions),
+        message: (expr) => this.i18n.t('composer.placeholders.unfilled', { token: `{{ ${expr} }}` }),
+      });
     } catch {
       return [];
     }

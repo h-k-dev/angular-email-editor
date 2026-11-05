@@ -53,7 +53,7 @@ import { Popover } from './popover/popover';
 import { PopoverOutlet } from './popover/popover-outlet';
 import { Examples } from '../../../../../core/email/examples';
 import { examplesGroup } from './examples-group';
-import { MergeTags, isPlaceholderUnfilled } from '../../../../../core/email/merge-tags';
+import { MergeTags } from '../../../../../core/email/merge-tags';
 import { I18n } from '../../../../../core/translations/i18n';
 import { createAiWriter } from './ai-writer';
 import { MERGE_TAG_SOURCE } from './merge-tag-source';
@@ -87,9 +87,7 @@ import {
   createInlineImages,
   createSendIntent,
   createMergeTagResolution,
-  distinctMergeTagExpressions,
   removeMergeTag,
-  revealMergeTag,
   writeMergeTag,
   MergeTagResolutionReport,
   createSuggestionMenu,
@@ -113,7 +111,7 @@ import {
   storedMistakes,
 } from '@h-k-dev/angular-email-editor';
 import { atRest } from '@h-k-dev/angular-email-editor/actions';
-import { EditorKit, EmailEditor } from '@h-k-dev/angular-email-editor/editor';
+import { EditorKit, EmailEditor, MergeTagRevealed } from '@h-k-dev/angular-email-editor/editor';
 import {
   SuggestionMenu,
   SuggestionMenuItem,
@@ -990,31 +988,25 @@ export class EmailCompose implements FormValueControl<string> {
 
   /** The form's way in (`focusBoundControl` on the body field): the caret
       goes to the email editor — leaving code view first if the source is
-      standing in its place, since a hidden editor cannot take focus. With
-      a placeholder the contact has no value for among the field's errors
-      (`placeholder.unfilled`), it goes onto that token, and the card says
-      what can be done: write a value, or remove it. */
+      standing in its place, since a hidden editor cannot take focus. The
+      editor reads the field's errors (handed on as `[errors]`): with a
+      placeholder the contact has no value for (`mergeTag.unfilled`), the
+      caret goes onto that token ({@link placeholderRevealed}). */
   focus(): void {
-    const unfilled = this.errors().find(isPlaceholderUnfilled);
-    const land = () => (unfilled ? this.#revealPlaceholder(unfilled.expr) : this.body().focus());
-    if (!this.codeView()) return land();
+    if (!this.codeView()) {
+      this.body().focus();
+      return;
+    }
     releaseEditingSurface();
     this.sourceView.set('hidden');
-    afterNextRender({ write: land }, { injector: this.#injector });
+    afterNextRender({ write: () => this.body().focus() }, { injector: this.#injector });
   }
 
-  /** The distinct expressions of the body's placeholders, in reading order
-      — what a send asks values for. Only HTML has tokens. */
-  placeholderExpressions(): string[] {
-    const doc = this.editor()?.state.doc;
-    return doc && this.format() === 'html' ? distinctMergeTagExpressions(doc) : [];
-  }
-
-  /** The caret on the first token holding `expr`, its card beside it. */
-  #revealPlaceholder(expr: string): void {
+  /** The form put the caret on a placeholder without a value: its card
+      beside it — write a value, or remove it. */
+  protected placeholderRevealed({ expr, element }: MergeTagRevealed): void {
     const editor = this.editor();
-    const element = editor ? revealMergeTag(editor.view, expr) : null;
-    if (!editor || !element) return this.body().focus();
+    if (!editor) return;
     const run = (command: Command) => {
       const done = editor.exec(command);
       editor.view.focus();

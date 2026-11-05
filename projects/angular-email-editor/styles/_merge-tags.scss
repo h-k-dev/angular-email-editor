@@ -1,0 +1,74 @@
+// The library's merge-tag look — the pill on a `{{ … }}` token, and a
+// filled-in value shown for what it was while Ctrl is held (the layout
+// guides' peek). Editor-only chrome: none of it reaches the email.
+//
+//     @use '@h-k-dev/angular-email-editor/styles/merge-tags';
+//
+//     .aee-editor {
+//       @include merge-tags.merge-tags;
+//     }
+//
+// A mixin, not a class: nothing reaches a stylesheet that does not include
+// it. Included on the editor's root (`.aee-editor`), whose classes it reads.
+// Tokens — `--email-merge-tag-*` first, then Material's system token of the
+// same meaning, then a fallback:
+//
+// - `--email-merge-tag-background` — the pill's fill, and a filled value's
+//   under the peek (the primary colour at 12%).
+// - `--email-merge-tag-edited` — the dashed ring of a value written over by
+//   hand (the primary colour at 70%).
+//
+// The parts:
+//
+// - `.aee-merge-tag` — the pill: a mark on the raw `{{…}}` text, so the
+//   caret lands anywhere inside and a long expression wraps like text
+//   (`clone` caps every wrapped piece). No colour of its own: bold, colour
+//   and the rest — always on the whole token — show through.
+// - `.aee-filled-merge-tag` — a value the fill put in (`FilledMergeTag`).
+//   Nothing at rest: the mail reads as it will be sent. Under the peek
+//   (`.aee-guides-peek`, which `LayoutGuides` puts on the root while Ctrl
+//   is held) it wears the pill's colour, bled out as a ring (a shadow) so
+//   the reveal moves no word.
+// - `.aee-filled-merge-tag--edited` — that value written over by hand (a
+//   decoration over the whole of it): still the token's, but not what the
+//   data said — a dashed ring and no fill, so the two read apart.
+
+@mixin merge-tags {
+  --_aee-merge-tag-fill: var(
+    --email-merge-tag-background,
+    color-mix(in srgb, var(--mat-sys-primary, #4c6ef5) 12%, transparent)
+  );
+
+  .aee-merge-tag {
+    padding: 1px 4px;
+    border-radius: 4px;
+    background-color: var(--_aee-merge-tag-fill);
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+
+  .aee-filled-merge-tag {
+    border-radius: 2px;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+    transition:
+      background-color 120ms ease,
+      box-shadow 120ms ease;
+  }
+
+  &.aee-guides-peek .aee-filled-merge-tag {
+    background-color: var(--_aee-merge-tag-fill);
+    box-shadow: 0 0 0 2px var(--_aee-merge-tag-fill);
+  }
+
+  &.aee-guides-peek .aee-filled-merge-tag:has(.aee-filled-merge-tag--edited) {
+    background-color: transparent;
+    box-shadow: none;
+    outline: 1px dashed
+      var(
+        --email-merge-tag-edited,
+        color-mix(in srgb, var(--mat-sys-primary, #4c6ef5) 70%, transparent)
+      );
+    outline-offset: 1px;
+  }
+}

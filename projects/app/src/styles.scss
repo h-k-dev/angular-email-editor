@@ -4,6 +4,8 @@
 // The library's scrollbar — from its source, by the path a host imports it
 // by (`projects` is a Sass load path, angular.json).
 @use '@h-k-dev/angular-email-editor/styles/scroll';
+// The library's merge-tag pill and filled-value look (the Ctrl peek).
+@use '@h-k-dev/angular-email-editor/styles/merge-tags';
 // The floating scrollbar's bar, drawn outside any component's view.
 @use 'styles/floating-scrollbar';
 // Avatars and the containers in their hue ([avatar], [hueOf]): any element
@@ -963,55 +965,10 @@ section[email-compose][data-scroll='host']
   }
 }
 
-/* Merge-tag pill: editor-only chrome for a personalization token — a *mark*
- * on the raw `{{…}}` text, so the cursor lands anywhere inside and a long
- * expression wraps like text (`clone` caps every wrapped piece). Just text
- * with a background: no colour of its own, so bold, colour and the rest —
- * always applied to the whole token — show through. The email carries the
- * raw text; none of this serializes. */
-.aee-editor .aee-merge-tag {
-  padding: 1px 4px;
-  border-radius: 4px;
-  background-color: var(
-    --email-merge-tag-background,
-    color-mix(in srgb, var(--mat-sys-primary, #4c6ef5) 12%, transparent)
-  );
-  -webkit-box-decoration-break: clone;
-  box-decoration-break: clone;
-}
-
-/* A filled-in placeholder's value (`FilledMergeTag`, editor-only): it was a
- * token. Nothing at rest — the mail reads as it will be sent; under the Ctrl
- * peek, the layout guides' (`aee-guides-peek`), it wears the pill's colour.
- * No padding of its own: the colour bleeds out as a ring (a shadow), so the
- * reveal moves no word. */
-.aee-editor .aee-filled-merge-tag {
-  --_filled: var(
-    --email-merge-tag-background,
-    color-mix(in srgb, var(--mat-sys-primary, #4c6ef5) 12%, transparent)
-  );
-
-  border-radius: 2px;
-  -webkit-box-decoration-break: clone;
-  box-decoration-break: clone;
-  transition:
-    background-color 120ms ease,
-    box-shadow 120ms ease;
-}
-
-.aee-editor.aee-guides-peek .aee-filled-merge-tag {
-  background-color: var(--_filled);
-  box-shadow: 0 0 0 2px var(--_filled);
-}
-
-/* …written over by hand (`aee-filled-merge-tag--edited`, a decoration over
- * the whole value, inside the mark's span): still the token's, but not what
- * the data said — a dashed ring, no fill, so the two read apart at a peek. */
-.aee-editor.aee-guides-peek .aee-filled-merge-tag:has(.aee-filled-merge-tag--edited) {
-  background-color: transparent;
-  box-shadow: none;
-  outline: 1px dashed color-mix(in srgb, var(--mat-sys-primary, #4c6ef5) 70%, transparent);
-  outline-offset: 1px;
+/* The merge-tag pill, and a filled-in value shown for what it was under the
+ * Ctrl peek — the library's look (styles/merge-tags), on our tokens. */
+.aee-editor {
+  @include merge-tags.merge-tags;
 }
 
 /* A suggestion menu's session — the trigger and the query being typed — is

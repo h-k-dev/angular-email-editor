@@ -595,8 +595,34 @@ export const API_SECTIONS: readonly ApiSection[] = [
         id: 'create-merge-tag-resolution',
         name: 'createMergeTagResolution · mergeTagResolutionPending',
         signature:
-          '({ resolve: (expressions) => Promise<(string | null)[]>, onResolved?, onError?, onPendingChange? }) => FunctionalExtension · (state) => boolean',
-        summary: 'Fills placeholders with the host’s values, in one undo step.',
+          '({ resolve: (expressions) => Promise<(string | null)[]>, onResolved?, onError?, onPendingChange?, onFilledHover? }) => FunctionalExtension · (state) => boolean',
+        summary:
+          'Fills placeholders with the host’s values, in one undo step. A value that comes back empty keeps its token: only the writer removes one.',
+      },
+      {
+        id: 'filled-merge-tag',
+        name: 'FilledMergeTag · filledMergeTagAt · editFilledValue · resetFilledValue · restoreMergeTag',
+        signature:
+          'MarkExtension · (doc, pos, { before? }) => FilledMergeTagRange | null · (text, pos?) => Command · (pos?) => Command · (pos?) => Command',
+        summary:
+          'A filled value remembers its token: written over by hand it is still the token’s, the filled value comes back, or the token does.',
+      },
+      {
+        id: 'merge-tag-by-expression',
+        name: 'distinctMergeTagExpressions · selectMergeTag · revealMergeTag · writeMergeTag · removeMergeTag',
+        signature:
+          '(doc) => string[] · (expr) => Command · (view, expr) => HTMLElement | null · (expr, value) => Command · (expr) => Command',
+        summary:
+          'One token by its expression: find it, put the caret on it, write a value in its place, or remove it — the one explicit empty value.',
+      },
+      {
+        id: 'check-merge-tag-values',
+        name: 'checkMergeTagValues · MergeTagUnfilled · isMergeTagUnfilled',
+        from: `${LIB}/editor`,
+        signature:
+          '(field, editor, { resolve, message? }) => Promise<MergeTagUnfilled[]> · ValidationError & { expr } · (error) => boolean',
+        summary:
+          'Stops a send on each placeholder without a value; the form’s focus lands on that token.',
       },
     ],
   },

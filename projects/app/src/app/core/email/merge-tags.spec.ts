@@ -95,10 +95,12 @@ describe('MergeTags', () => {
       'utf8',
     );
     const expressions = scanMergeTags(html).map(({ expr: [from, to] }) => html.slice(from, to).trim());
-    const pending = service.unfilled([...new Set(expressions)]);
+    const asked = [...new Set(expressions)];
+    const pending = service.resolve(asked);
     await vi.runAllTimersAsync();
 
-    expect(await pending).toEqual([...ALWAYS_MISSING]);
+    const values = await pending;
+    expect(asked.filter((_, i) => !values[i])).toEqual([...ALWAYS_MISSING]);
     // Where they stand: the very first token, one between, the very last.
     expect(expressions[0]).toBe(ALWAYS_MISSING[0]);
     expect(expressions.at(-1)).toBe(ALWAYS_MISSING[2]);
