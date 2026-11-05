@@ -6,6 +6,7 @@ import { DateTime } from 'luxon';
 
 import { isoMoment } from '../../../../../core/calendar/calendar-dates';
 import { EventEdit } from '../../../../../core/calendar/calendar-event';
+import { Preferences } from '../../../../../core/storages/preferences';
 import { EventEditor } from './event-editor';
 
 @Component({
@@ -38,6 +39,30 @@ describe('EventEditor', () => {
     const { root } = await start();
     expect(root.querySelectorAll('date-field')).toHaveLength(2);
     expect(root.querySelector('input[type="date"]')).toBeNull();
+  });
+
+  it('refuses an end sooner than the minimum duration, and says the least', async () => {
+    const { fixture, root } = await start();
+    const preferences = TestBed.inject(Preferences);
+    // 90 minutes long: fine at any minimum.
+    expect(root.querySelector('.event-editor__error')).toBeNull();
+
+    fixture.componentInstance.edit.update((edit) => ({ ...edit, end: '2026-10-30T09:15' }));
+    await fixture.whenStable();
+    expect(root.querySelector('.event-editor__error')).toBeNull(); // 15, the default
+
+    // This spec loads no dictionary: the words are their keys.
+    preferences.calendarMinDuration.set(30);
+    await fixture.whenStable();
+    expect(root.querySelector('.event-editor__error')?.textContent?.trim()).toBe(
+      'calendar.tooShort',
+    );
+
+    fixture.componentInstance.edit.update((edit) => ({ ...edit, end: '2026-10-30T08:00' }));
+    await fixture.whenStable();
+    expect(root.querySelector('.event-editor__error')?.textContent?.trim()).toBe(
+      'calendar.endsBeforeStart',
+    );
   });
 
   it('carries the end along when the start moves: the event keeps its length', async () => {

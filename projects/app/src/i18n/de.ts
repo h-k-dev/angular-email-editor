@@ -78,6 +78,7 @@ export default {
         label: 'Bereiche der Einstellungen',
         appearance: 'Darstellung',
         language: 'Sprache',
+        calendar: 'Kalender',
       },
       theme: {
         label: 'Design',
@@ -87,6 +88,16 @@ export default {
         dark: 'Dunkel',
       },
       language: { label: 'Sprache', hint: 'Die Sprache der App' },
+      region: {
+        label: 'Kalenderregion',
+        hint: 'Wo die Woche beginnt, ob Wochen nummeriert sind und welche Feiertage erscheinen – unabhängig von der Sprache. System: {{system}}',
+        system: 'System',
+      },
+      minDuration: {
+        label: 'Mindestdauer',
+        hint: 'Kürzer wird kein Termin – ob in den Stunden aufgezogen, am Ende gezogen oder im Editor geschrieben',
+        minutes: '{{minutes}} Min.',
+      },
     },
   },
   docs: { onThisPage: 'Auf dieser Seite', trail: 'Wo Sie sind' },
@@ -135,6 +146,8 @@ export default {
     },
   },
   calendar: {
+    week: 'Kalenderwoche',
+    weekNumber: 'Kalenderwoche {{number}}',
     today: 'Heute',
     previous: 'Zurück',
     next: 'Weiter',
@@ -170,6 +183,7 @@ export default {
     startTime: 'Startzeit',
     endTime: 'Endzeit',
     endsBeforeStart: 'Endet, bevor er beginnt',
+    tooShort: 'Mindestens {{minutes}} Min.',
     color: 'Farbe',
     addLocation: 'Ort hinzufügen',
     openInMaps: 'In Google Maps öffnen',

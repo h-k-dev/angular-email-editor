@@ -32,6 +32,13 @@
   overflow: auto;
   overscroll-behavior: contain;
   @include scroll.scroll;
+
+  // No bar sideways, Notion's: the strip is forty years of days, its thumb
+  // a speck — the wheel, the trackpad and the page's arrows move it. The
+  // hours keep theirs. (Firefox draws both or neither: it keeps its thin one.)
+  &::-webkit-scrollbar:horizontal {
+    height: 0;
+  }
 }
 
 // As wide as the gutter and every day of the strip — the room alone,

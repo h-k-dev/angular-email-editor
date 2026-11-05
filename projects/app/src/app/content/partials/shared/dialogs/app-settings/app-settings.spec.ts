@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 
 import { Theme } from '../../../../../core/theme/theme';
 import { Preferences } from '../../../../../core/storages/preferences';
+import { Region } from '../../../../../core/translations/region';
 import { AppSettingsSection, openAppSettings } from './app-settings';
 
 describe('AppSettings', () => {
@@ -60,5 +61,27 @@ describe('AppSettings', () => {
     const tabs = again.dialog.querySelectorAll('[role="tab"]');
     expect(tabs[1].getAttribute('aria-selected')).toBe('true');
     again.ref.close();
+  });
+
+  it('picks the calendar region apart from the language, and the minimum duration', async () => {
+    const { ref, dialog } = await open(signal<AppSettingsSection | undefined>('calendar'));
+    // The system's region (test-setup: Germany), said in the hint.
+    expect(pick(dialog, 'region', 'System').getAttribute('aria-checked')).toBe('true');
+    expect(dialog.textContent).toContain('Your system: Germany');
+    expect(pick(dialog, 'min-duration', '15 min').getAttribute('aria-checked')).toBe('true');
+
+    pick(dialog, 'region', 'Japan').click();
+    pick(dialog, 'min-duration', '30 min').click();
+    await settle();
+    expect(TestBed.inject(Region).current()).toBe('JP');
+    expect(localStorage.getItem('angular-email-editor:region')).toBe('JP');
+    expect(TestBed.inject(Preferences).calendarMinDuration()).toBe(30);
+    // The language never moved with it.
+    expect(TestBed.inject(Preferences).language()).toBe('en');
+
+    pick(dialog, 'region', 'System').click();
+    await settle();
+    expect(localStorage.getItem('angular-email-editor:region')).toBeNull();
+    ref.close();
   });
 });

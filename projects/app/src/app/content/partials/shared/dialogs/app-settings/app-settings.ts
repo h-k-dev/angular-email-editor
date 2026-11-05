@@ -1,5 +1,5 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, Injector, WritableSignal, inject } from '@angular/core';
+import { Component, Injector, WritableSignal, computed, inject } from '@angular/core';
 
 // Angular Aria
 import { Tab, TabContent, TabList, TabPanel, Tabs } from '@angular/aria/tabs';
@@ -18,9 +18,11 @@ import {
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { largeDialog } from '../../../../../core/layout/dialogs';
+import { MIN_DURATIONS, Preferences } from '../../../../../core/storages/preferences';
 import { Viewport } from '../../../../../core/layout/viewport';
 import { Theme } from '../../../../../core/theme/theme';
 import { I18n } from '../../../../../core/translations/i18n';
+import { Region, RegionCode } from '../../../../../core/translations/region';
 import { LANGUAGE_NAMES } from '../../../common/language-menu/language-menu';
 import { OverflowRow } from '../../../common/overflow-row/overflow-row';
 
@@ -32,6 +34,7 @@ let nextSettingsId = 0;
 const SECTIONS = [
   { id: 'appearance', icon: 'palette', label: 'app.settings.sections.appearance' },
   { id: 'language', icon: 'translate', label: 'app.settings.sections.language' },
+  { id: 'calendar', icon: 'calendar_month', label: 'app.settings.sections.calendar' },
 ] as const;
 
 export type AppSettingsSection = (typeof SECTIONS)[number]['id'];
@@ -64,7 +67,8 @@ export function openAppSettings(
 /**
  * The app's settings — never the email's (those are the composer's own
  * dialog, `MessageSettings`, in the same frame): Appearance (the app's
- * theme — System, the default, Light or Dark) and Language. Opened from the
+ * theme — System, the default, Light or Dark), Language, and Calendar (its
+ * region — apart from the language — and an event's minimum duration). Opened from the
  * mailbox aside's foot. Every pick applies at once, behind it, and this
  * browser keeps it ({@link Preferences}); there is nothing to save.
  */
@@ -93,6 +97,9 @@ export class AppSettings {
   protected readonly viewport = inject(Viewport);
   protected readonly theme = inject(Theme);
   protected readonly i18n = inject(I18n);
+  protected readonly region = inject(Region);
+  protected readonly minDuration = inject(Preferences).calendarMinDuration;
+  protected readonly minDurations = MIN_DURATIONS;
 
   protected readonly sections = SECTIONS;
   protected readonly languageNames = LANGUAGE_NAMES;
@@ -104,4 +111,15 @@ export class AppSettings {
   protected readonly titleId = `${this.#id}-title`;
   protected readonly themeLabelId = `${this.#id}-theme`;
   protected readonly languageLabelId = `${this.#id}-language`;
+  protected readonly regionLabelId = `${this.#id}-region`;
+  protected readonly minDurationLabelId = `${this.#id}-min-duration`;
+
+  /** Each region by its name in the app's language — the region and the
+      language are two settings, but the words are always the language's. */
+  protected readonly regionNames = computed<Record<RegionCode, string>>(() => {
+    const names = new Intl.DisplayNames([this.i18n.lang()], { type: 'region' });
+    return Object.fromEntries(
+      this.region.regions.map((code) => [code, names.of(code) ?? code]),
+    ) as Record<RegionCode, string>;
+  });
 }

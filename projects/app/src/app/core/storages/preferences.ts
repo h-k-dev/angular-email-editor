@@ -7,6 +7,7 @@ import type { CustomSwatches } from '@h-k-dev/angular-email-editor/swatches';
 import { LocalStorage, StorageCodec, onOff, oneOf, wholeIn } from './local-storage';
 import type { ThemeScheme } from '../theme/theme';
 import { CustomView, DEFAULT_CUSTOM_VIEW, isCustomView } from '../calendar/calendar-view-token';
+import { REGIONS, type RegionPreference } from '../translations/region-codes';
 
 /** The app's theme as chosen: light or dark of its own, or the system's. */
 export type ThemePreference = ThemeScheme | 'system';
@@ -230,6 +231,39 @@ export class Preferences {
 
   /** Whether the calendar shows the public holidays (core/calendar/holidays). */
   readonly calendarHolidays = this.#storage.pairSignal(`${PREFIX}calendar-holidays`, onOff(true));
+
+  /** Where the user is, for the calendar — the app settings' Calendar
+      region, apart from the language (`Region`). Unset reads as `system`:
+      the system's region, else Germany. */
+  readonly region = this.#storage.pairSignal(
+    `${PREFIX}region`,
+    oneOf<RegionPreference>(['system', ...REGIONS], 'system'),
+  );
+
+  /** The shortest a timed event may be, minutes — the app settings'
+      Minimum duration: a mark on the hours, a stretched end, the editor's
+      end. Unset reads as a quarter hour, the least there is. */
+  readonly calendarMinDuration = this.#storage.pairSignal(
+    `${PREFIX}calendar-min-duration`,
+    minutesOf(MIN_DURATIONS, MIN_DURATIONS[0]),
+  );
+}
+
+/** What an event's Minimum duration may be, minutes — a quarter hour at
+    the least, the grid's own step. */
+export const MIN_DURATIONS = [15, 30, 45, 60] as const;
+export type MinDuration = (typeof MIN_DURATIONS)[number];
+
+/** A number of minutes from `values`; `fallback` while unset or unknown,
+    and kept as no key at all. */
+function minutesOf<const T extends number>(
+  values: readonly T[],
+  fallback: NoInfer<T>,
+): StorageCodec<T> {
+  return {
+    read: (raw) => values.find((value) => String(value) === raw) ?? fallback,
+    write: (value) => (value === fallback ? null : String(value)),
+  };
 }
 
 /** A custom calendar view, `2d`–`7d` or `2w`–`6w`; the default (four

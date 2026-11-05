@@ -129,5 +129,61 @@
         </div>
       </ng-template>
     </section>
+
+    <!-- Calendar: its region — where its weeks start, whether they are
+         numbered, whose holidays show; apart from the language, its names
+         in the language's words — and how short an event may be. -->
+    <section ngTabPanel value="calendar" [preserveContent]="true" class="settings__page">
+      <ng-template ngTabContent>
+        <h3 class="settings__page-title">{{ 'app.settings.sections.calendar' | translate }}</h3>
+        <div class="settings__card">
+          <div class="settings__row">
+            <div class="settings__text">
+              <span class="settings__label" [id]="regionLabelId">{{
+                'app.settings.region.label' | translate
+              }}</span>
+              <span class="settings__hint">{{
+                'app.settings.region.hint' | translate: { system: regionNames()[region.system] }
+              }}</span>
+            </div>
+            <hk-tgb
+              class="settings__toggle"
+              data-setting="region"
+              [attr.aria-labelledby]="regionLabelId"
+              [value]="region.preference()"
+              (valueChange)="region.choose($event)"
+            >
+              <button hkTgbText value="system">
+                {{ 'app.settings.region.system' | translate }}
+              </button>
+              @for (code of region.regions; track code) {
+                <button hkTgbText [value]="code">{{ regionNames()[code] }}</button>
+              }
+            </hk-tgb>
+          </div>
+          <div class="settings__row">
+            <div class="settings__text">
+              <span class="settings__label" [id]="minDurationLabelId">{{
+                'app.settings.minDuration.label' | translate
+              }}</span>
+              <span class="settings__hint">{{ 'app.settings.minDuration.hint' | translate }}</span>
+            </div>
+            <hk-tgb
+              class="settings__toggle"
+              data-setting="min-duration"
+              [attr.aria-labelledby]="minDurationLabelId"
+              [value]="minDuration()"
+              (valueChange)="minDuration.set($event)"
+            >
+              @for (minutes of minDurations; track minutes) {
+                <button hkTgbText [value]="minutes">
+                  {{ 'app.settings.minDuration.minutes' | translate: { minutes } }}
+                </button>
+              }
+            </hk-tgb>
+          </div>
+        </div>
+      </ng-template>
+    </section>
   </div>
 </div>

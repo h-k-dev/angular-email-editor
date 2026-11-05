@@ -2,13 +2,17 @@ import { Service, computed, inject } from '@angular/core';
 import { DateTime, DateTimeFormatOptions, Duration, Interval } from 'luxon';
 
 import { I18n } from '../translations/i18n';
-import { WeekStart, isoMoment, weekStartOf } from './calendar-dates';
+import { Region } from '../translations/region';
+import type { RegionCode } from '../translations/region-codes';
+import { RegionCalendar, isoMoment, regionCalendar } from './calendar-dates';
 import { CalendarEvent, DEFAULT_EVENT_MINUTES, eventSpan } from './calendar-event';
 
-/** How a calendar writes its dates and times in one language. */
-export interface CalendarFormats {
+/** How a calendar writes its dates and times in one language, laid out
+    as one region prints its calendars (its week, its week numbers) — the
+    two apart: German words over a Japanese calendar. */
+export interface CalendarFormats extends RegionCalendar {
   readonly language: string;
-  readonly weekStart: WeekStart;
+  readonly region: RegionCode;
   /** "October 2026" — or "Oct – Nov 2026" for a run across two months. */
   title(from: DateTime, to: DateTime): string;
   /** "Thursday, October 29, 2026". */
@@ -57,9 +61,10 @@ const HOUR_MINUTE: DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit' 
 const DAY_TIME: DateTimeFormatOptions = { ...MONTH_DAY, ...HOUR_MINUTE };
 const SHORT_DAY_TIME: DateTimeFormatOptions = { ...SHORT_DAY, ...HOUR_MINUTE };
 
-/** A language's formats — pure: the view's language in, its words out.
-    Luxon writes them through `Intl`, a range through its `formatRange`. */
-export function calendarFormats(language: string): CalendarFormats {
+/** A language's formats over a region's calendar — pure: the view's
+    language and region in, its words and week out. Luxon writes them
+    through `Intl`, a range through its `formatRange`. */
+export function calendarFormats(language: string, region: RegionCode): CalendarFormats {
   const locale = { locale: language };
   const one = (date: DateTime, options: DateTimeFormatOptions) =>
     date.toLocaleString(options, locale);
@@ -70,7 +75,8 @@ export function calendarFormats(language: string): CalendarFormats {
 
   return {
     language,
-    weekStart: weekStartOf(language),
+    region,
+    ...regionCalendar(region),
     title: (from, to) =>
       from.hasSame(to, 'month') ? one(from, MONTH_YEAR) : range(from, to, SHORT_MONTH_YEAR),
     longDay: (date) => one(date, LONG_DAY),
@@ -177,10 +183,12 @@ export function parseEventClipboardLine(text: string): CopiedEvent | null {
   return { title, start: isoMoment(start), end: isoMoment(end), allDay: false };
 }
 
-/** The calendar's formats in the app's language, following a switch. */
+/** The calendar's formats in the app's language over its region's
+    calendar, following a switch of either. */
 @Service()
 export class CalendarFormat {
   readonly #language = inject(I18n).lang;
+  readonly #region = inject(Region).current;
 
-  readonly formats = computed(() => calendarFormats(this.#language()));
+  readonly formats = computed(() => calendarFormats(this.#language(), this.#region()));
 }

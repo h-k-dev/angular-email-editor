@@ -12,6 +12,7 @@ import { DateTime } from 'luxon';
 
 import { IsoDay, isoDay, monthWeeks } from '../../../../../core/calendar/calendar-dates';
 import { CalendarEvent, CalendarEventDraft } from '../../../../../core/calendar/calendar-event';
+import { SYSTEM_REGION } from '../../../../../core/translations/region';
 import { MonthGrid } from './month-grid';
 
 const LUNCH: CalendarEvent = {
@@ -156,7 +157,10 @@ describe('MonthGrid (render) — the strip', () => {
     );
 
   beforeEach(async () => {
-    TestBed.configureTestingModule({ providers: [provideTranslateService()] });
+    // Weeks from Sunday, as these days are written: Japan's.
+    TestBed.configureTestingModule({
+      providers: [provideTranslateService(), { provide: SYSTEM_REGION, useValue: 'JP' }],
+    });
     fixture = TestBed.createComponent(Host);
     document.body.append(fixture.nativeElement);
     await settle(100);

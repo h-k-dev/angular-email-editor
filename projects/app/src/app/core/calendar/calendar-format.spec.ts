@@ -4,7 +4,7 @@ import { calendarFormats, eventClipboardLine, parseEventClipboardLine } from './
 
 describe('calendarFormats — duration', () => {
   const at = (iso: string) => DateTime.fromISO(iso);
-  const { duration } = calendarFormats('en');
+  const { duration } = calendarFormats('en', 'DE');
 
   it('says how long, narrow, the units that are none left out', () => {
     expect(duration(at('2027-01-06T10:45'), at('2027-01-06T12:30'))).toBe('1h 45m');

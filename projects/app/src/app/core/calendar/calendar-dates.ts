@@ -1,4 +1,6 @@
-import { DateTime, Info, WeekdayNumbers } from 'luxon';
+import { DateTime, WeekdayNumbers } from 'luxon';
+
+import type { RegionCode } from '../translations/region-codes';
 
 /**
  * The calendar's dates: Luxon `DateTime`s in the browser's zone, written as
@@ -125,9 +127,27 @@ export function snapMinutes(minutes: number, step = 15): number {
   return Math.round(minutes / step) * step;
 }
 
-/** The week a language starts on, as its calendars print it — the
-    locale's own week (Sunday in English and Japanese, Monday in German),
-    which Luxon reads from `Intl.Locale`'s week info. */
-export function weekStartOf(language: string): WeekStart {
-  return Info.getStartOfWeek({ locale: language });
+/** How a region's calendars are printed — a place's, never a language's:
+    German words over a Japanese calendar start its weeks on Sunday. */
+export interface RegionCalendar {
+  /** The day a week starts on: Monday in Germany and the UK (ISO 8601),
+      Sunday in Japan — CLDR's, written out: Luxon reads it from
+      `Intl.Locale`'s week info, which not every browser has (it falls back
+      to Monday, and Japan's would be wrong). */
+  readonly weekStart: WeekStart;
+  /** Whether weeks are numbered beside them — Germany's Kalenderwoche
+      (ISO 8601 weeks, which start on Monday too). */
+  readonly weekNumbers: boolean;
+  /** Whether the weekend's days have colours of their own — Japan's
+      calendars: Saturday blue, Sunday red. */
+  readonly weekendColors: boolean;
+}
+
+/** A region's calendar ({@link RegionCalendar}). */
+export function regionCalendar(region: RegionCode): RegionCalendar {
+  return {
+    weekStart: region === 'JP' ? 7 : 1,
+    weekNumbers: region === 'DE',
+    weekendColors: region === 'JP',
+  };
 }

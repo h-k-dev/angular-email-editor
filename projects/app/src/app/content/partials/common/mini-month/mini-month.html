@@ -35,8 +35,21 @@
 >
   <thead>
     <tr>
+      @if (weekNumbers()) {
+        <!-- Over the weeks' numbers: nothing to see, its name to hear. -->
+        <th
+          scope="col"
+          class="mini-month__week-head"
+          [attr.aria-label]="'calendar.week' | translate"
+        ></th>
+      }
       @for (weekday of weekdays(); track weekday.day) {
-        <th scope="col" class="mini-month__weekday" [attr.abbr]="weekday.long">
+        <th
+          scope="col"
+          class="mini-month__weekday"
+          [attr.abbr]="weekday.long"
+          [attr.data-weekend]="weekday.weekend"
+        >
           {{ weekday.narrow }}
         </th>
       }
@@ -45,6 +58,15 @@
   <tbody>
     @for (week of weeks(); track week.key) {
       <tr>
+        @if (weekNumbers()) {
+          <th
+            scope="row"
+            class="mini-month__week-number"
+            [attr.aria-label]="'calendar.weekNumber' | translate: { number: week.number }"
+          >
+            {{ week.number }}
+          </th>
+        }
         @for (day of week.days; track day.day) {
           <td role="gridcell" class="mini-month__cell" [attr.aria-selected]="day.selected">
             <button
@@ -52,6 +74,7 @@
               class="mini-month__day"
               [class.mini-month__day--outside]="day.outside"
               [attr.data-day]="day.day"
+              [attr.data-weekend]="day.weekend"
               [attr.aria-current]="day.today ? 'date' : null"
               [attr.aria-label]="day.label"
               [tabindex]="day.stop ? 0 : -1"

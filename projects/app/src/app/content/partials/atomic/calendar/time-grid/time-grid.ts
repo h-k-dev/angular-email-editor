@@ -43,6 +43,7 @@ import {
   movedTo,
 } from '../../../../../core/calendar/calendar-event';
 import { CalendarFormat } from '../../../../../core/calendar/calendar-format';
+import { Preferences } from '../../../../../core/storages/preferences';
 import { laneCount, placeInDay, placeInLanes } from '../../../../../core/calendar/calendar-layout';
 import { EventChip } from '../../../shared/calendar/event-chip/event-chip';
 import {
@@ -158,6 +159,9 @@ interface Drag {
 export class TimeGrid {
   readonly #formats = inject(CalendarFormat).formats;
   readonly #destroyRef = inject(DestroyRef);
+  /** The shortest a mark or a stretched event may be, minutes — the app
+      settings' Minimum duration, a quarter hour at the least. */
+  readonly #minDuration = inject(Preferences).calendarMinDuration;
 
   /** The page's days: where the strip stands (their first), and how many a
       screen holds. */
@@ -1032,13 +1036,18 @@ export class TimeGrid {
     if (drag.kind === 'mark') {
       // From the quarter pressed to the one the pointer is at — on its day:
       // sideways, Notion's, the mark runs across the days between. Either
-      // way; a quarter at the least.
+      // way; the pressed quarter and the minimum duration at the least —
+      // the end gives, the start stays under the pointer.
       const pressed = drag.pressed;
       const pointer = this.#moment(day, snapped);
+      const least = this.#minDuration();
       const [start, end] =
         pointer >= pressed
-          ? [pressed, DateTime.max(pointer, pressed.plus({ minutes: SNAP }))]
-          : [pointer, pressed.plus({ minutes: SNAP })];
+          ? [pressed, DateTime.max(pointer, pressed.plus({ minutes: least }))]
+          : [
+              pointer,
+              DateTime.max(pressed.plus({ minutes: SNAP }), pointer.plus({ minutes: least })),
+            ];
       return { ...drag.preview, start: isoMoment(start), end: isoMoment(end) };
     }
     if (drag.kind === 'days') {
@@ -1059,7 +1068,8 @@ export class TimeGrid {
     }
     const { start } = eventSpan(drag.preview);
     const end = this.#moment(day, snapped);
-    return { ...drag.preview, end: isoMoment(DateTime.max(end, start.plus({ minutes: SNAP }))) };
+    const least = start.plus({ minutes: this.#minDuration() });
+    return { ...drag.preview, end: isoMoment(DateTime.max(end, least)) };
   }
 
   protected release(event: PointerEvent): void {

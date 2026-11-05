@@ -88,38 +88,40 @@ export const HOLIDAY_SOURCE = new InjectionToken<HolidaySource>('HOLIDAY_SOURCE'
   factory: () => inject(NagerHolidays),
 });
 
+/** A country's own language, as CLDR has it (`JP` → `ja`); none for a
+    code it cannot read. */
+function countryLanguage(country: string): string | undefined {
+  try {
+    return new Intl.Locale(`und-${country}`).maximize().language;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Holidays' colour on the calendar — Google's holidays calendar's green. */
 export const HOLIDAY_COLOR: EventColor = 'sage';
 
-/** The country whose holidays show: the browser's region (`de-DE` → DE),
-    else the app language's own (English → US). */
-export function holidayCountry(browserLanguage: string, appLanguage: string): string {
-  try {
-    const region = new Intl.Locale(browserLanguage).maximize().region;
-    if (region) return region;
-  } catch {
-    // An unreadable tag: the app's language decides.
-  }
-  return ({ de: 'DE', ja: 'JP' } as Record<string, string>)[appLanguage] ?? 'US';
-}
-
 /**
  * Holidays as the calendar's events: all day, read-only (a subscribed
- * calendar's — opened, never moved or deleted), named in English for an
- * English calendar and in the country's own language otherwise. A regional
+ * calendar's — opened, never moved or deleted), named in the country's own
+ * language when the app speaks it (Japan's in Japanese), in English
+ * otherwise — the region is not the language: a German calendar of Japan's
+ * holidays reads "Culture Day", never 文化の日. A regional
  * one says where it is kept on its card: `regional` words it, from the
  * regions' short codes (`BB, HB, HH`).
  */
 export function holidayEvents(
   holidays: readonly Holiday[],
   language: string,
+  country: string,
   regional: (regions: string) => string = (regions) => regions,
 ): CalendarEvent[] {
+  const own = countryLanguage(country) === language;
   return holidays.map((holiday) => {
     const day = DateTime.fromISO(holiday.date);
     return {
       id: `holiday:${holiday.date}:${holiday.name}`,
-      title: language === 'en' ? holiday.name : holiday.localName,
+      title: own ? holiday.localName : holiday.name,
       start: isoMoment(day),
       end: isoMoment(day.plus({ days: 1 })),
       allDay: true,

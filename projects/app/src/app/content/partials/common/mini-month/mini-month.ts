@@ -44,6 +44,18 @@ interface MiniDay {
   selected: boolean;
   /** The one tab stop. */
   stop: boolean;
+  /** Its weekend day, where the region colours them (Japan's). */
+  weekend: Weekend | null;
+}
+
+/** A weekend day, by its colour in a calendar that has them: Japan's
+    Saturday blue, Sunday red. */
+type Weekend = 'saturday' | 'sunday';
+
+/** `date`'s weekend day, where `colored` — else none. */
+function weekendOf(date: DateTime, colored: boolean): Weekend | null {
+  if (!colored) return null;
+  return date.weekday === 6 ? 'saturday' : date.weekday === 7 ? 'sunday' : null;
 }
 
 /**
@@ -54,6 +66,11 @@ interface MiniDay {
  * of the months either side are faint, and there are always seven weeks of
  * them (`WEEKS`) — the grid never changes height as the months turn. Generic: it
  * knows days, not events — any date field can open one.
+ *
+ * Laid out as the calendar region prints its months (`CalendarFormats`),
+ * whatever the language: Germany's weeks start on Monday and are numbered
+ * (a Kalenderwoche before each), the UK's start on Monday, Japan's on
+ * Sunday — its Saturdays blue, its Sundays red.
  *
  *     <mini-month [(month)]="shown" [selected]="days()" [today]="today()" (pick)="go($event)" />
  *
@@ -127,6 +144,9 @@ export class MiniMonth {
     return this.#formats().title(month, month);
   });
 
+  /** Whether each week shows its number first — the region's (Germany's). */
+  protected readonly weekNumbers = computed(() => this.#formats().weekNumbers);
+
   protected readonly weekdays = computed(() => {
     const formats = this.#formats();
     const [week] = fixedWeeks(this.#shown(), formats.weekStart, WEEKS);
@@ -134,6 +154,7 @@ export class MiniMonth {
       const date = parseDay(day)!;
       return {
         day,
+        weekend: weekendOf(date, formats.weekendColors),
         narrow: formats.narrowWeekday(date),
         long: date.toLocaleString({ weekday: 'long' }, { locale: formats.language }),
       };
@@ -148,6 +169,8 @@ export class MiniMonth {
     const cursor = this.#cursor();
     return fixedWeeks(shown, formats.weekStart, WEEKS).map((week) => ({
       key: week[0],
+      // ISO 8601's, which a week numbered here starts on Monday with.
+      number: parseDay(week[0])!.weekNumber,
       days: week.map((day, i): MiniDay => {
         const date = parseDay(day)!;
         const on = selected.has(day);
@@ -159,6 +182,7 @@ export class MiniMonth {
           today: day === today,
           selected: on,
           stop: day === cursor,
+          weekend: weekendOf(date, formats.weekendColors),
         };
       }),
     }));

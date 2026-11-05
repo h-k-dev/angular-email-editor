@@ -73,7 +73,12 @@ export default {
       open: '設定',
       title: '設定',
       close: '設定を閉じる',
-      sections: { label: '設定のセクション', appearance: '外観', language: '言語' },
+      sections: {
+        label: '設定のセクション',
+        appearance: '外観',
+        language: '言語',
+        calendar: 'カレンダー',
+      },
       theme: {
         label: 'テーマ',
         hint: 'アプリをライトまたはダークに。システムに合わせると、その切り替えにも追従します',
@@ -82,6 +87,16 @@ export default {
         dark: 'ダーク',
       },
       language: { label: '言語', hint: 'アプリの表示言語' },
+      region: {
+        label: 'カレンダーの地域',
+        hint: '週の始まり、週番号の有無、表示する祝日を決めます。言語とは別の設定です。システム: {{system}}',
+        system: 'システム',
+      },
+      minDuration: {
+        label: '最短の長さ',
+        hint: '予定の最短の長さ。時間帯でのドラッグ、終了のドラッグ、エディタでの入力に適用されます',
+        minutes: '{{minutes}} 分',
+      },
     },
   },
   docs: { onThisPage: 'このページの内容', trail: '現在地' },
@@ -130,6 +145,8 @@ export default {
     },
   },
   calendar: {
+    week: '週',
+    weekNumber: '第{{number}}週',
     today: '今日',
     previous: '前へ',
     next: '次へ',
@@ -165,6 +182,7 @@ export default {
     startTime: '開始時刻',
     endTime: '終了時刻',
     endsBeforeStart: '開始より前に終了しています',
+    tooShort: '{{minutes}} 分以上にしてください',
     color: '色',
     addLocation: '場所を追加',
     openInMaps: 'Google マップで開く',

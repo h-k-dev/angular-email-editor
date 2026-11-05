@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { beforeEach } from 'vitest';
 
+import { SYSTEM_REGION } from './app/core/translations/region';
 import { provideI18n } from './i18n/loader';
 
 /**
@@ -32,7 +33,16 @@ for (const name of ['localStorage', 'sessionStorage'] as const) {
  * bundled, so a rendered component shows words, not keys. A spec that
  * configures its own TestBed adds to this.
  */
-beforeEach(() => TestBed.configureTestingModule({ providers: [provideI18n()] }));
+/**
+ * …and lives in Germany, the app's fallback region, whatever machine or
+ * time zone runs it: the calendar's week starts on Monday. A spec of
+ * another region picks it (`Region.choose`).
+ */
+beforeEach(() =>
+  TestBed.configureTestingModule({
+    providers: [provideI18n(), { provide: SYSTEM_REGION, useValue: 'DE' }],
+  }),
+);
 
 /**
  * Every spec starts on an empty storage: a preference one spec picks (a

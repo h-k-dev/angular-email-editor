@@ -2,6 +2,11 @@
 
 // Google's mini month, Linear's quiet: small type, round days, no lines.
 :host {
+  // Japan's weekend: Saturday blue, Sunday red (`data-weekend`, only
+  // where the region colours them).
+  --_saturday: light-dark(#1f5fbf, #8ab4f8);
+  --_sunday: var(--mat-sys-error);
+
   display: grid;
   gap: 4px;
   inline-size: 100%;
@@ -59,18 +64,35 @@
   background: color-mix(in oklch, var(--mat-sys-on-surface) 8%, transparent);
 }
 
-// A run starts where the cell before is not one of it (or there is none)…
-.mini-month__cell[aria-selected='true']:first-child,
+// A run starts where the cell before is not one of it (or there is none —
+// a week's number, a `th`, is no cell: hence of its type)…
+.mini-month__cell[aria-selected='true']:first-of-type,
 .mini-month__cell:not([aria-selected='true']) + .mini-month__cell[aria-selected='true'] {
   border-start-start-radius: 6px;
   border-end-start-radius: 6px;
 }
 
 // …and ends where the cell after is not.
-.mini-month__cell[aria-selected='true']:last-child,
+.mini-month__cell[aria-selected='true']:last-of-type,
 .mini-month__cell[aria-selected='true']:has(+ .mini-month__cell:not([aria-selected='true'])) {
   border-start-end-radius: 6px;
   border-end-end-radius: 6px;
+}
+
+// A week's number before it (Germany's Kalenderwoche): quieter than the
+// days, a narrow column of its own — its head empty.
+.mini-month__week-head,
+.mini-month__week-number {
+  inline-size: 24px;
+  padding: 0;
+}
+
+.mini-month__week-number {
+  color: color-mix(in oklch, var(--mat-sys-on-surface) 32%, transparent);
+  font-size: 10px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
 }
 
 .mini-month__weekday {
@@ -110,6 +132,26 @@
 
 .mini-month__day--outside {
   color: color-mix(in oklch, var(--mat-sys-on-surface) 32%, transparent);
+}
+
+// The weekend's colours: the days and their letters; a day of the months
+// either side as faint as its neighbours.
+.mini-month__weekday[data-weekend='saturday'],
+.mini-month__day[data-weekend='saturday'] {
+  color: var(--_saturday);
+}
+
+.mini-month__weekday[data-weekend='sunday'],
+.mini-month__day[data-weekend='sunday'] {
+  color: var(--_sunday);
+}
+
+.mini-month__day--outside[data-weekend='saturday'] {
+  color: color-mix(in oklch, var(--_saturday) 45%, transparent);
+}
+
+.mini-month__day--outside[data-weekend='sunday'] {
+  color: color-mix(in oklch, var(--_sunday) 45%, transparent);
 }
 
 // Today: the one primary square.

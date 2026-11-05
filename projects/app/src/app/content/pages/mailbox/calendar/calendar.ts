@@ -1,6 +1,5 @@
 import {
   Component,
-  DOCUMENT,
   DestroyRef,
   ElementRef,
   Injector,
@@ -66,12 +65,7 @@ import {
   stepped,
 } from '../../../../core/calendar/calendar-view';
 import { segmentView } from '../../../../core/calendar/calendar-view-token';
-import {
-  HOLIDAY_SOURCE,
-  Holiday,
-  holidayCountry,
-  holidayEvents,
-} from '../../../../core/calendar/holidays';
+import { HOLIDAY_SOURCE, Holiday, holidayEvents } from '../../../../core/calendar/holidays';
 import { Viewport } from '../../../../core/layout/viewport';
 import { Preferences } from '../../../../core/storages/preferences';
 import { I18n } from '../../../../core/translations/i18n';
@@ -410,11 +404,9 @@ export class CalendarPage {
   // ─── Holidays ───────────────────────────────────────────────────────
 
   readonly #holidaySource = inject(HOLIDAY_SOURCE);
-  readonly #browserLanguage = inject(DOCUMENT).defaultView?.navigator.language ?? '';
-  /** Whose holidays: the browser's region, else the app language's. */
-  readonly #holidayCountry = computed(() =>
-    holidayCountry(this.#browserLanguage, this.#formats().language),
-  );
+  /** Whose holidays: the calendar region's (app settings), whatever
+      language the app speaks — the names are the language's. */
+  readonly #holidayCountry = computed(() => this.#formats().region);
 
   /** The days the page reaches over — a month's first week can start in
       December — and, a strip, every day it has drawn. */
@@ -456,18 +448,19 @@ export class CalendarPage {
   /** The holidays as events — the last ones held while the next year's
       load, none while switched off or when the connector fails. */
   readonly #holidays = linkedSignal<
-    { rows: Holiday[] | undefined; on: boolean; language: string },
+    { rows: Holiday[] | undefined; on: boolean; language: string; country: string },
     CalendarEvent[]
   >({
     source: () => ({
       rows: this.#holidayRows.hasValue() ? this.#holidayRows.value() : undefined,
       on: this.showHolidays(),
       language: this.#formats().language,
+      country: this.#holidayCountry(),
     }),
-    computation: ({ rows, on, language }, previous) => {
+    computation: ({ rows, on, language, country }, previous) => {
       if (!on) return [];
       if (rows) {
-        return holidayEvents(rows, language, (regions) =>
+        return holidayEvents(rows, language, country, (regions) =>
           this.#i18n.t('calendar.regionalHoliday', { regions }),
         );
       }

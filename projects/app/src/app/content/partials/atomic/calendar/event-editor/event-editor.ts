@@ -22,6 +22,7 @@ import { MatTooltip } from '@angular/material/tooltip';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { mapsUrl } from '../../../../../core/calendar/maps';
+import { Preferences } from '../../../../../core/storages/preferences';
 import { DateField } from '../../../common/date-field/date-field';
 import { HoverCard } from '../../../common/hover-card/hover-card';
 import { NoteEditor } from '../../../common/note-editor/note-editor';
@@ -173,8 +174,8 @@ const sameEdit = (a: EventEdit, b: EventEdit): boolean =>
  * The edit is a two-way `value`, written through as it is typed: the grids
  * show the event where it will be while the card is open, and the page
  * only stores it on `save` — Save, or Enter in the title. The fields are
- * one signal form, Save its submit; an end before the start does not go
- * through.
+ * one signal form, Save its submit; an end before the start, or sooner
+ * after it than the app settings' Minimum duration, does not go through.
  */
 @Component({
   selector: 'calendar-event-editor',
@@ -199,6 +200,8 @@ const sameEdit = (a: EventEdit, b: EventEdit): boolean =>
 })
 export class EventEditor {
   readonly #injector = inject(Injector);
+  /** The shortest a timed event may be, minutes (app settings). */
+  readonly #minDuration = inject(Preferences).calendarMinDuration;
 
   readonly value = model.required<EventEdit>();
 
@@ -238,7 +241,11 @@ export class EventEditor {
         if (valueOf(p.allDay)) return null;
         const start = parseMoment(`${valueOf(p.startDay)}T${valueOf(p.startTime)}`);
         const end = parseMoment(`${valueOf(p.endDay)}T${valueOf(p.endTime)}`);
-        return start && end && end <= start ? { kind: 'calendar.endsBeforeStart' } : null;
+        if (!start || !end) return null;
+        if (end <= start) return { kind: 'calendar.endsBeforeStart' };
+        return end < start.plus({ minutes: this.#minDuration() })
+          ? { kind: 'calendar.tooShort' }
+          : null;
       });
       validate(p.endDay, ({ valueOf }) =>
         valueOf(p.endDay) < valueOf(p.startDay) ? { kind: 'calendar.endsBeforeStart' } : null,
@@ -261,6 +268,14 @@ export class EventEditor {
   /** The end said wrong — after a try, or as soon as the times disagree. */
   protected readonly endRefused = computed(
     () => this.editor.endTime().invalid() || this.editor.endDay().invalid(),
+  );
+
+  /** What the refused end is told: too short — the least it may be — or
+      before the start. */
+  protected readonly endWords = computed(() =>
+    this.editor.endTime().errors()[0]?.kind === 'calendar.tooShort'
+      ? { key: 'calendar.tooShort', params: { minutes: this.#minDuration() } }
+      : { key: 'calendar.endsBeforeStart', params: {} },
   );
 
   /** The event's colour, as written (`calendar-color-marker`). */

@@ -7,6 +7,7 @@ import {
   CalendarEventDraft,
   DRAFT_ID,
 } from '../../../../../core/calendar/calendar-event';
+import { Preferences } from '../../../../../core/storages/preferences';
 import { DayFlash } from '../calendar-grid';
 import { TimeGrid } from './time-grid';
 
@@ -201,6 +202,23 @@ describe('TimeGrid — making an event', () => {
       { start: '2026-10-27T09:00', end: '2026-10-27T11:00' },
     ]);
     expect(fixture.componentInstance.dismissed).toBe(0);
+  });
+
+  it('marks no shorter than the minimum duration — the end gives, either way', async () => {
+    TestBed.inject(Preferences).calendarMinDuration.set(45);
+    const { fixture, columns, day, pointer } = await start();
+    // Down a quarter: the end goes on to the least.
+    pointer(day, 'pointerdown', 9);
+    pointer(columns, 'pointermove', 9.25);
+    pointer(columns, 'pointerup', 9.25);
+    // Up a quarter: the start under the pointer, the end the least after it.
+    pointer(day, 'pointerdown', 14);
+    pointer(columns, 'pointermove', 13.75);
+    pointer(columns, 'pointerup', 13.75);
+    expect(fixture.componentInstance.created).toMatchObject([
+      { start: '2026-10-27T09:00', end: '2026-10-27T09:45' },
+      { start: '2026-10-27T13:45', end: '2026-10-27T14:30' },
+    ]);
   });
 
   it('marks out anew from a press inside the pending mark — never picks the mark up', async () => {

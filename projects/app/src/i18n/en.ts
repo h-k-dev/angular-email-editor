@@ -77,7 +77,12 @@ export default {
       open: 'Settings',
       title: 'Settings',
       close: 'Close settings',
-      sections: { label: 'Settings sections', appearance: 'Appearance', language: 'Language' },
+      sections: {
+        label: 'Settings sections',
+        appearance: 'Appearance',
+        language: 'Language',
+        calendar: 'Calendar',
+      },
       theme: {
         label: 'Theme',
         hint: 'The app light or dark — or as your system is, following it as it changes',
@@ -86,6 +91,16 @@ export default {
         dark: 'Dark',
       },
       language: { label: 'Language', hint: 'The words the app speaks' },
+      region: {
+        label: 'Calendar region',
+        hint: 'Where weeks start, whether they are numbered and whose holidays show — apart from the language. Your system: {{system}}',
+        system: 'System',
+      },
+      minDuration: {
+        label: 'Minimum duration',
+        hint: 'The shortest an event can be: marked on the hours, its end dragged, or written in the editor',
+        minutes: '{{minutes}} min',
+      },
     },
   },
   docs: { onThisPage: 'On this page', trail: 'Where you are' },
@@ -134,6 +149,8 @@ export default {
     },
   },
   calendar: {
+    week: 'Week',
+    weekNumber: 'Week {{number}}',
     today: 'Today',
     previous: 'Previous',
     next: 'Next',
@@ -169,6 +186,7 @@ export default {
     startTime: 'Start time',
     endTime: 'End time',
     endsBeforeStart: 'Ends before it starts',
+    tooShort: 'At least {{minutes}} min',
     color: 'Color',
     addLocation: 'Add location',
     openInMaps: 'Open in Google Maps',

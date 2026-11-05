@@ -90,7 +90,7 @@
             </div>
             @if (endRefused()) {
               <p class="event-editor__error" role="alert">
-                {{ 'calendar.endsBeforeStart' | translate }}
+                {{ endWords().key | translate: endWords().params }}
               </p>
             }
             <!-- Notion's band: one quiet button, its words what it brings out —

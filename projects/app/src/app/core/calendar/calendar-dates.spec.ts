@@ -10,8 +10,8 @@ import {
   monthWeeks,
   parseDay,
   parseMoment,
+  regionCalendar,
   startOfWeek,
-  weekStartOf,
 } from './calendar-dates';
 
 const local = (y: number, m: number, d: number, hour = 0, minute = 0) =>
@@ -54,11 +54,22 @@ describe('calendar dates', () => {
     expect(minutesInto(changeDay, DateTime.fromISO('2026-10-26T01:00', { zone }))).toBe(1500);
   });
 
-  it('starts a week on the language’s day', () => {
+  it('starts a week on the region’s day — Monday in Germany and the UK, Sunday in Japan', () => {
     const thursday = local(2026, 10, 29);
-    expect(isoDay(startOfWeek(thursday, weekStartOf('en')))).toBe('2026-10-25');
-    expect(isoDay(startOfWeek(thursday, weekStartOf('de')))).toBe('2026-10-26');
+    expect(isoDay(startOfWeek(thursday, regionCalendar('JP').weekStart))).toBe('2026-10-25');
+    expect(isoDay(startOfWeek(thursday, regionCalendar('DE').weekStart))).toBe('2026-10-26');
+    expect(isoDay(startOfWeek(thursday, regionCalendar('GB').weekStart))).toBe('2026-10-26');
     expect(isoDay(startOfWeek(local(2026, 10, 25), 1))).toBe('2026-10-19');
+  });
+
+  it('numbers weeks in Germany alone, colours the weekend in Japan alone', () => {
+    expect(regionCalendar('DE')).toEqual({ weekStart: 1, weekNumbers: true, weekendColors: false });
+    expect(regionCalendar('GB')).toEqual({
+      weekStart: 1,
+      weekNumbers: false,
+      weekendColors: false,
+    });
+    expect(regionCalendar('JP')).toEqual({ weekStart: 7, weekNumbers: false, weekendColors: true });
   });
 
   it('gives a picker seven weeks whatever the month: the same height every turn', () => {

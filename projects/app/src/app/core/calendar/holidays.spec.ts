@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 
-import { HOLIDAY_SOURCE, NagerHolidays, holidayCountry, holidayEvents } from './holidays';
+import { HOLIDAY_SOURCE, NagerHolidays, holidayEvents } from './holidays';
 
 /** Two rows as Nager.Date answers them: one nationwide, one regional. */
 const ROWS = [
@@ -70,13 +70,6 @@ describe('holidays', () => {
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
-  it('takes the country from the browser’s region, else from the app’s language', () => {
-    expect(holidayCountry('de-DE', 'en')).toBe('DE');
-    expect(holidayCountry('de', 'en')).toBe('DE');
-    expect(holidayCountry('en-GB', 'de')).toBe('GB');
-    expect(holidayCountry('x-unreadable-tag!', 'ja')).toBe('JP');
-  });
-
   it('shows holidays as read-only all-day events, named in the calendar’s language', () => {
     const [unity, reformation] = holidayEvents(
       [
@@ -94,6 +87,7 @@ describe('holidays', () => {
         },
       ],
       'de',
+      'DE',
       (regions) => `Regional: ${regions}`,
     );
     // A regional one says where, by the regions' short codes.
@@ -112,7 +106,17 @@ describe('holidays', () => {
       holidayEvents(
         [{ date: '2026-10-03', name: 'German Unity Day', localName: 'x', regions: null }],
         'en',
+        'DE',
       )[0].title,
     ).toBe('German Unity Day');
+    // Another country's, in a language not its own: English, never its words.
+    const culture = {
+      date: '2026-11-03',
+      name: 'Culture Day',
+      localName: '文化の日',
+      regions: null,
+    };
+    expect(holidayEvents([culture], 'de', 'JP')[0].title).toBe('Culture Day');
+    expect(holidayEvents([culture], 'ja', 'JP')[0].title).toBe('文化の日');
   });
 });
