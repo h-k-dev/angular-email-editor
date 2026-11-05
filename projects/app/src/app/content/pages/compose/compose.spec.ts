@@ -1399,6 +1399,76 @@ describe('Compose', () => {
     expect(problem()).toContain('bounce@example.com was rejected');
   });
 
+  it('a placeholder the contact has no value for holds the send on its token — write a value, or remove it', async () => {
+    const root = fixture.nativeElement as HTMLElement;
+    const pm = root.querySelector('[aria-label="Message body"]') as HTMLElement;
+    const sheet = (component as any).sheet();
+    pm.focus();
+    sheet.emailPane().value.set('<div>Hallo {{ nobody.title }}, Ihr {{ order.item }} – {{ nobody.note }}</div>');
+    pm.blur();
+    sheet.message.update((m: object) => ({ ...m, to: ['ada@example.com'] }));
+    await fixture.whenStable();
+    const notes = sentNotes();
+    const view = () => sheet.emailPane().editor().view;
+    const selected = () => {
+      const { from, to } = view().state.selection;
+      return view().state.doc.textBetween(from, to);
+    };
+    const card = () => document.querySelector<HTMLElement>('.hover-card');
+    const row = (label: string) =>
+      [...(card()?.querySelectorAll<HTMLButtonElement>('button') ?? [])].find((b) =>
+        b.textContent?.includes(label),
+      );
+    const send = async () => {
+      (root.querySelector('.writer-bar__send') as HTMLButtonElement).click();
+      // The evaluator's answer (the demo's latency), then the reveal's render.
+      await new Promise((resolve) => setTimeout(resolve, 450));
+      await fixture.whenStable();
+      await settle();
+    };
+
+    // The first token without a value, in reading order: named, selected, its card up.
+    await send();
+    expect(notes).toEqual([]);
+    expect(problem()).toBe('No value for {{ nobody.title }}');
+    expect(selected()).toBe('{{ nobody.title }}');
+    expect(card()?.textContent).toContain('No value for this contact');
+    expect(row('Write a value')).toBeDefined();
+    expect(row('Remove placeholder')).toBeDefined();
+    // The keyboard carries on from Send: focus on the card's first row.
+    expect(document.activeElement).toBe(row('Write a value'));
+
+    // Written by hand: the value takes the token's place.
+    row('Write a value')!.click();
+    await fixture.whenStable();
+    await settle();
+    const field = card()!.querySelector('textarea')!;
+    expect(document.activeElement).toBe(field);
+    field.value = 'Frau';
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+    field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    await fixture.whenStable();
+    await settle();
+    expect(view().state.doc.textContent).toBe('Hallo Frau, Ihr {{ order.item }} – {{ nobody.note }}');
+    // The value changed: the error went with it.
+    expect(problem()).toBeNull();
+
+    // The next one; removed — an empty value is only ever explicit.
+    await send();
+    expect(problem()).toBe('No value for {{ nobody.note }}');
+    expect(selected()).toBe('{{ nobody.note }}');
+    row('Remove placeholder')!.click();
+    await fixture.whenStable();
+    await settle();
+    expect(view().state.doc.textContent).toBe('Hallo Frau, Ihr {{ order.item }} – ');
+
+    // Every token left has a value: it goes (the backend fills them).
+    await send();
+    expect(notes.length).toBe(1);
+    const sent = TestBed.inject(EmailSend).last()!.message;
+    expect(sent.html).toContain('Hallo Frau, Ihr {{ order.item }}');
+  });
+
   it('docks nothing beside the sheet: no preview, no detached source — the zoomed window on the page', async () => {
     const root = fixture.nativeElement as HTMLElement;
     expect(root.querySelector('section[email-preview]')).toBeNull();

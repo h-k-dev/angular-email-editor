@@ -296,7 +296,7 @@ const editor = createEditor({
     ...emailExtensions,
     createMergeTagResolution({
       // Each distinct expression once, raw (never &amp;); values back in order
-      // (a string fills, '' removes the token, null keeps it).
+      // (a string fills; '' and null keep the token — removing one is the writer's).
       resolve: (expressions) => api.evaluate(expressions, contactId),
       onResolved: ({ filled, empty, kept }) => notify(filled, empty.length, kept.length),
       onPendingChange: (pending) => busy.set(pending),

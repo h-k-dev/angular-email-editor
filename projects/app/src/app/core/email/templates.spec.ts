@@ -37,6 +37,7 @@ describe('Templates', () => {
     const rows = await find({ order: 'name ASC' });
     expect(rows.map((row) => [row.id, row.dialect])).toEqual([
       ['handlebars/0', 'handlebars'],
+      ['angularjs/9', 'angularjs'],
       ['angularjs/7', 'angularjs'],
       ['angularjs/2', 'angularjs'],
       ['angularjs/0', 'angularjs'],
@@ -48,14 +49,14 @@ describe('Templates', () => {
       ['handlebars/1', 'handlebars'],
       ['angularjs/4', 'angularjs'],
     ]);
-    expect(rows[3].html).toContain('Platzhalter im Überblick');
+    expect(rows[4].html).toContain('Platzhalter im Überblick');
   });
 
   it('answers a LoopBack filter: where, order, skip, limit', async () => {
     const rows = await find({ where: { name: { ilike: '%PLATZHALTER%' } } });
     expect(rows.map((row) => row.name)).toEqual(['Platzhalter im Überblick']);
     expect(await find({ where: { dialect: 'handlebars' } })).toHaveLength(2);
-    const page = await find({ order: 'name ASC', skip: 3, limit: 1 });
+    const page = await find({ order: 'name ASC', skip: 4, limit: 1 });
     expect(page.map((row) => row.name)).toEqual(['Platzhalter im Überblick']);
   });
 

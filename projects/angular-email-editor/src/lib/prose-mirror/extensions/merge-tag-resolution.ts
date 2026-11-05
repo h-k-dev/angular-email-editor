@@ -1,5 +1,13 @@
 import { Fragment, Mark, MarkType, Node, Schema, Slice } from 'prosemirror-model';
-import { Command, EditorState, Plugin, PluginKey, Transaction } from 'prosemirror-state';
+import {
+  Command,
+  EditorState,
+  NodeSelection,
+  Plugin,
+  PluginKey,
+  TextSelection,
+  Transaction,
+} from 'prosemirror-state';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import { FunctionalExtension, defineExtension, defineMark } from '../extension';
 import { AUTHORED_ATTR } from '../authored';
@@ -22,7 +30,12 @@ import { mergeTagRanges, scanMergeTags } from './nodes/merge-tag';
  * - each value goes in **as text**, in the token's place and with its
  *   formatting (a bold `{{ customer_lastName }}` becomes the bold name), a
  *   line break in a value a hard break;
- * - all of it is **one transaction**: one Mod-Z brings the tokens back.
+ * - all of it is **one transaction**: one Mod-Z brings the tokens back;
+ * - a value that comes back **empty leaves its token** — an evaluator says
+ *   `''` for a field without a value as for one that computes to nothing,
+ *   so the fill cannot tell a gap from an intent. The writer decides: write
+ *   a value by hand ({@link writeMergeTag}), or remove the token
+ *   ({@link removeMergeTag}) — an empty value is always explicit.
  *
  * Tokens in running text and in any string attribute of a node or mark — a
  * link's or a button's `href`, a button's label, an image's `src` or `alt`
@@ -341,7 +354,7 @@ export interface MergeTagResolutionReport {
   filled: number;
   /** Expressions whose value came back empty — a field without a value, or
       one the evaluator could not compute (most say `''` for both). Their
-      tokens are gone. */
+      tokens stay, for the writer to fill by hand or remove. */
   empty: string[];
   /** Expressions the host left unresolved (`null`): their tokens stay. */
   kept: string[];
@@ -351,8 +364,9 @@ export interface MergeTagResolutionOptions {
   /**
    * Values for the distinct expressions asked for, in the same order — each
    * the trimmed text between the braces, as written. A string replaces the
-   * token (`''` removes it); `null` or `undefined` leaves it as it is. The
-   * editor never evaluates anything itself: this is the host's evaluator.
+   * token; `''`, `null` or `undefined` leave it as it is (`''` is reported
+   * as empty — only the writer removes a token). The editor never
+   * evaluates anything itself: this is the host's evaluator.
    *
    * ```ts
    * resolve: async (expressions) => {
@@ -470,8 +484,16 @@ function valueContent(schema: Schema, value: string, marks: readonly Mark[]): Fr
 
 /** Applies `values` to every occurrence in `[from, to)`; returns how many
     were filled. Attributes first (they move nothing), then text from the
-    end, so every position read off `doc` still holds when it is used. */
-function fill(tr: Transaction, from: number, to: number, values: Map<string, string | null>): number {
+    end, so every position read off `doc` still holds when it is used. A
+    value written `byHand` is the token's all the same, but nothing was
+    filled in: it reads as edited from the start. */
+function fill(
+  tr: Transaction,
+  from: number,
+  to: number,
+  values: Map<string, string | null>,
+  byHand = false,
+): number {
   const doc = tr.doc;
   const found = occurrences(doc, from, to).filter(
     (occurrence) => typeof values.get(occurrence.expr) === 'string',
@@ -511,7 +533,7 @@ function fill(tr: Transaction, from: number, to: number, values: Map<string, str
     // Where the value came from, when the kit keeps it (FilledMergeTag) —
     // with the value as it went in, read back the way an edit is compared.
     if (filled && content.size) {
-      const value = content.textBetween(0, content.size, '\n', '\n');
+      const value = byHand ? '' : content.textBetween(0, content.size, '\n', '\n');
       marks = filled.create({ id: nextFillId(), expr: occurrence.expr, value }).addToSet(marks);
       content = valueContent(schema, values.get(occurrence.expr) as string, marks);
     }
@@ -519,6 +541,89 @@ function fill(tr: Transaction, from: number, to: number, values: Map<string, str
   }
   return found.length;
 }
+
+// ---------------------------------------------------------------------------
+// One token, by its expression
+
+/** The distinct expressions the document's tokens hold, trimmed, in the
+    order they are first met — running text and attributes alike: what a
+    host checks for values before the mail goes out. */
+export function distinctMergeTagExpressions(doc: Node): string[] {
+  return [...new Set(occurrences(doc, 0, doc.content.size).map((occurrence) => occurrence.expr))];
+}
+
+/** The first occurrence of `expr` (trimmed), in document order. */
+const firstOccurrence = (doc: Node, expr: string): Occurrence | undefined =>
+  occurrences(doc, 0, doc.content.size).find((occurrence) => occurrence.expr === expr.trim());
+
+/**
+ * Selects the first token holding `expr` and scrolls it into view: the pill
+ * in running text, the node (a button, an image) or the linked text whose
+ * attribute holds it. Where a form's "this placeholder has no value" sends
+ * the caret. False when no token holds it.
+ */
+export const selectMergeTag =
+  (expr: string): Command =>
+  (state, dispatch) => {
+    const occurrence = firstOccurrence(state.doc, expr);
+    if (!occurrence) return false;
+    if (dispatch) {
+      const selection =
+        occurrence.kind === 'node'
+          ? NodeSelection.create(state.doc, occurrence.pos)
+          : TextSelection.create(state.doc, occurrence.from, occurrence.to);
+      dispatch(state.tr.setSelection(selection).scrollIntoView());
+    }
+    return true;
+  };
+
+/**
+ * {@link selectMergeTag} in `view`, focused — and the element it stands in
+ * (the pill, the node, the link), for a card to open beside. Null when no
+ * token holds `expr`.
+ */
+export function revealMergeTag(view: EditorView, expr: string): HTMLElement | null {
+  const occurrence = firstOccurrence(view.state.doc, expr);
+  if (!occurrence || !selectMergeTag(expr)(view.state, view.dispatch)) return null;
+  view.focus();
+  if (occurrence.kind === 'node') return view.nodeDOM(occurrence.pos) as HTMLElement | null;
+  const { node } = view.domAtPos(occurrence.from + 1);
+  const element = node instanceof HTMLElement ? node : node.parentElement;
+  return (
+    element?.closest<HTMLElement>(occurrence.kind === 'text' ? '.aee-merge-tag' : 'a, [href]') ?? element
+  );
+}
+
+/**
+ * Writes `value` by hand in place of every token holding `expr` — in
+ * running text with the token's formatting, a line break a hard break, and
+ * still the token's ({@link FilledMergeTag}, edited from the start: nothing
+ * was filled in); in an attribute, as text. One step, undone with Mod-Z.
+ * An empty `value` removes the tokens — {@link removeMergeTag}, the one
+ * explicit way to an empty value. False when no token holds `expr`.
+ */
+export const writeMergeTag =
+  (expr: string, value: string): Command =>
+  (state, dispatch) => {
+    const key = expr.trim();
+    if (!firstOccurrence(state.doc, key)) return false;
+    if (dispatch) {
+      const tr = state.tr;
+      fill(tr, 0, state.doc.content.size, new Map([[key, value.replace(/\r\n?/g, '\n')]]), true);
+      // A selected token (where a send put the caret) would map onto the
+      // value as a range — a selection the writer never made: the caret
+      // goes after it instead.
+      if (!state.selection.empty) {
+        tr.setSelection(TextSelection.near(tr.doc.resolve(tr.mapping.map(state.selection.to))));
+      }
+      dispatch(tr.scrollIntoView());
+    }
+    return true;
+  };
+
+/** Removes every token holding `expr` — the writer's say that it stands
+    for nothing here. One step, undone with Mod-Z. */
+export const removeMergeTag = (expr: string): Command => writeMergeTag(expr, '');
 
 // ---------------------------------------------------------------------------
 // The request
@@ -661,7 +766,9 @@ export const createMergeTagResolution = (options: MergeTagResolutionOptions): Fu
 
     options.resolve(expressions).then(
       (answers) => {
-        const values = new Map(expressions.map((expr, i) => [expr, answers[i] ?? null]));
+        const answered = expressions.map((expr, i) => [expr, answers[i] ?? null] as const);
+        // An empty answer is no value: the token stays, for the writer.
+        const values = new Map(answered.map(([expr, value]) => [expr, value || null]));
         let filled = 0;
         const settled = settle(view, id, (tr, pending) => {
           filled = fill(tr, pending.from, pending.to, values);
@@ -671,8 +778,8 @@ export const createMergeTagResolution = (options: MergeTagResolutionOptions): Fu
         options.onResolved?.({
           scope: scope.selection ? 'selection' : 'document',
           filled,
-          empty: expressions.filter((expr) => values.get(expr) === ''),
-          kept: expressions.filter((expr) => values.get(expr) === null),
+          empty: answered.filter(([, value]) => value === '').map(([expr]) => expr),
+          kept: answered.filter(([, value]) => value === null).map(([expr]) => expr),
         });
       },
       (error: unknown) => {
@@ -715,6 +822,9 @@ export const createMergeTagResolution = (options: MergeTagResolutionOptions): Fu
       restoreMergeTag,
       editFilledValue,
       resetFilledValue,
+      selectMergeTag,
+      writeMergeTag,
+      removeMergeTag,
     }),
     actions: () => [
       {

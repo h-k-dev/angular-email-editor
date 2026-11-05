@@ -462,6 +462,7 @@ export default {
         other: '{{count}} placeholders had no value',
       },
       failed: 'Placeholders could not be filled in',
+      unfilled: 'No value for {{token}}',
     },
   },
   editor: {
@@ -495,6 +496,9 @@ export default {
       reset: 'Reset to the filled-in value',
       apply: 'Apply',
       value: 'Value',
+      noValue: 'No value for this contact',
+      write: 'Write a value',
+      remove: 'Remove placeholder',
     },
     actions: {
       'resolve-placeholders': { title: 'Fill in placeholders' },

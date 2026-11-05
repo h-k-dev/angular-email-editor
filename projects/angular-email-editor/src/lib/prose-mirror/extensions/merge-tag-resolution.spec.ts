@@ -8,7 +8,9 @@ import {
   MergeTagResolutionReport,
   createMergeTagResolution,
   filledMergeTagAt,
+  distinctMergeTagExpressions,
   mergeTagResolutionPending,
+  revealMergeTag,
 } from './merge-tag-resolution';
 import { GUIDES_PEEK_DELAY_MS } from './layout-guides';
 import { mergeTagRanges } from './nodes/merge-tag';
@@ -117,12 +119,19 @@ describe('merge tag resolution', () => {
     expect(editor.getHTML()).toBe(before);
   });
 
-  it('an empty value removes its token, null keeps it — and the report says which', async () => {
+  it('an empty value keeps its token, as null does — only the writer removes one; the report says which', async () => {
     mount('<div>[{{ a }}] [{{ b }}] [{{ c }}]</div>');
     editor.commands['resolveMergeTags']();
     await evaluator.answer(['A', '', null]);
-    expect(editor.getText()).toBe('[A] [] [{{ c }}]');
-    expect(reports).toEqual([{ scope: 'document', filled: 2, empty: ['b'], kept: ['c'] }]);
+    expect(editor.getText()).toBe('[A] [{{ b }}] [{{ c }}]');
+    expect(reports).toEqual([{ scope: 'document', filled: 1, empty: ['b'], kept: ['c'] }]);
+  });
+
+  it('an empty value keeps an attribute’s token too', async () => {
+    mount('<div><a href="https://example.com/{{ id }}">Akte</a></div>');
+    editor.commands['resolveMergeTags']();
+    await evaluator.answer(['']);
+    expect(editor.getHTML()).toContain('href="https://example.com/{{ id }}"');
   });
 
   it('a line break in a value becomes a hard break', async () => {
@@ -496,6 +505,83 @@ describe('merge tag resolution', () => {
         editor.commands['editFilledValue']('Hanna', 1);
         editor.commands['restoreMergeTag'](1);
         expect(editor.getText()).toBe('{{ name }}');
+      });
+    });
+
+    describe('a token without a value', () => {
+      const selected = () =>
+        editor.state.doc.textBetween(editor.state.selection.from, editor.state.selection.to);
+
+      it('lists every expression once, in reading order — text and attributes', () => {
+        mount(
+          '<div>{{ b }} <a href="https://x.example/{{ a }}">x</a> {{ b }}</div><div>{{ c | upper }}</div>',
+        );
+        expect(distinctMergeTagExpressions(editor.state.doc)).toEqual(['b', 'c | upper', 'a']);
+      });
+
+      it('selects the first token holding an expression', () => {
+        mount('<div>Hallo {{ name }} und {{ name }}</div>');
+        expect(editor.commands['selectMergeTag']('name')).toBe(true);
+        expect(selected()).toBe('{{ name }}');
+        expect(editor.state.selection.from).toBe(posOf('{{ name }}'));
+        expect(editor.commands['selectMergeTag']('missing')).toBe(false);
+      });
+
+      it('selects the linked text whose href holds it', () => {
+        mount('<div>Zur <a href="https://x.example/{{ id }}">Akte</a></div>');
+        editor.commands['selectMergeTag']('id');
+        expect(selected()).toBe('Akte');
+      });
+
+      it('reveals it: focused, selected, and the pill to open a card by', () => {
+        mount('<div>Hallo {{ name }}</div>');
+        const element = revealMergeTag(editor.view, 'name');
+        expect(element?.classList.contains('aee-merge-tag')).toBe(true);
+        expect(element?.textContent).toBe('{{ name }}');
+        expect(selected()).toBe('{{ name }}');
+        expect(revealMergeTag(editor.view, 'missing')).toBeNull();
+      });
+
+      it('a value written by hand takes every token’s place, still the token’s — edited from the start', () => {
+        mount('<div>Hallo <strong>{{ name }}</strong>, {{ name }}!</div>');
+        expect(editor.commands['writeMergeTag']('name', 'Frau Müller')).toBe(true);
+        expect(editor.getHTML()).toBe('<div>Hallo <strong>Frau Müller</strong>, Frau Müller!</div>');
+        expect(fills().map((f) => [f.expr, f.text])).toEqual([
+          ['name', 'Frau Müller'],
+          ['name', 'Frau Müller'],
+        ]);
+        expect(filledMergeTagAt(editor.state.doc, posOf('Frau'))).toEqual(
+          expect.objectContaining({ value: '', edited: true }),
+        );
+        // The caret was nowhere near: it stays a caret.
+        expect(editor.state.selection.empty).toBe(true);
+        // Nothing was filled in, so there is nothing to reset to.
+        expect(editor.commands['resetFilledValue'](posOf('Frau'))).toBe(false);
+        editor.exec(undo);
+        expect(editor.getText()).toBe('Hallo {{ name }}, {{ name }}!');
+      });
+
+      it('written over the selected token, the caret goes after the value — no range left selected', () => {
+        mount('<div>Hallo {{ name }}!</div>');
+        editor.commands['selectMergeTag']('name');
+        editor.commands['writeMergeTag']('name', 'Anna');
+        expect(editor.state.selection.empty).toBe(true);
+        expect(editor.state.selection.from).toBe(posOf('Anna') + 4);
+      });
+
+      it('writes into an attribute as text', () => {
+        mount('<div><a href="https://x.example/{{ id }}">Akte</a></div>');
+        editor.commands['writeMergeTag']('id', '4711');
+        expect(editor.getHTML()).toContain('href="https://x.example/4711"');
+      });
+
+      it('remove is the explicit empty value: every token holding it goes', () => {
+        mount('<div>[{{ title }}] Müller <a href="https://x.example/{{ title }}">x</a></div>');
+        expect(editor.commands['removeMergeTag']('title')).toBe(true);
+        expect(editor.getText()).toBe('[] Müller x');
+        expect(editor.getHTML()).toContain('href="https://x.example/"');
+        expect(fills()).toEqual([]);
+        expect(editor.commands['removeMergeTag']('title')).toBe(false);
       });
     });
   });

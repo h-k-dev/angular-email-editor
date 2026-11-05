@@ -134,6 +134,27 @@ describe('CalendarPage — the events’ context menu', () => {
     expect(router.url).toBe('/calendar/r/week/2026/10/21');
   });
 
+  it('a key on another surface — a compose window’s button — is that surface’s, never a calendar shortcut', async () => {
+    const router = TestBed.inject(Router);
+    const start = router.url;
+    // A compose window over the page, as the mailbox shell draws one: a
+    // dialog of its own, outside the calendar, its title bar a button.
+    const window = document.createElement('section');
+    window.setAttribute('role', 'dialog');
+    const title = document.createElement('button');
+    window.append(title);
+    document.body.append(window);
+    try {
+      for (const key of ['d', 'w', 'a', 't', 'ArrowRight']) await press(title, key);
+      expect(router.url).toBe(start);
+    } finally {
+      window.remove();
+    }
+    // On the page itself, the same keys are the calendar's.
+    await press(document.body, 'd');
+    expect(router.url).toBe(start.replace('/week/', '/day/'));
+  });
+
   it('opens on an event with a right-click: edit, cut, copy, duplicate, delete — each with its keys', async () => {
     await rightClick(chip());
     expect(items().map(({ text }) => text.replace(/\s+/g, ' ').trim())).toEqual([

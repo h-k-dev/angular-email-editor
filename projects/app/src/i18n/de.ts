@@ -461,6 +461,7 @@ export default {
       filled: 'Platzhalter eingesetzt',
       empty: { one: '1 Platzhalter ohne Wert', other: '{{count}} Platzhalter ohne Wert' },
       failed: 'Platzhalter konnten nicht eingesetzt werden',
+      unfilled: 'Kein Wert für {{token}}',
     },
   },
   editor: {
@@ -494,6 +495,9 @@ export default {
       reset: 'Eingesetzten Wert zurückholen',
       apply: 'Übernehmen',
       value: 'Wert',
+      noValue: 'Kein Wert für diesen Kontakt',
+      write: 'Wert eingeben',
+      remove: 'Platzhalter entfernen',
     },
     actions: {
       text: { title: 'Text', keywords: 'absatz, fließtext' },

@@ -458,6 +458,7 @@ export default {
         other: '値のないプレースホルダー: {{count}}件',
       },
       failed: 'プレースホルダーを埋められませんでした',
+      unfilled: '{{token}} に値がありません',
     },
   },
   editor: {
@@ -491,6 +492,9 @@ export default {
       reset: '差し込んだ値に戻す',
       apply: '適用',
       value: '値',
+      noValue: 'この連絡先には値がありません',
+      write: '値を入力',
+      remove: 'プレースホルダーを削除',
     },
     actions: {
       text: { title: 'テキスト', keywords: '段落, 本文, だんらく' },

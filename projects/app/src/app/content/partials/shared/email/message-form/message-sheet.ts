@@ -63,6 +63,11 @@ import { Paper } from '../../../../../core/theme/paper';
 import { I18n } from '../../../../../core/translations/i18n';
 import { AttachmentRef, AttachmentUploads } from '../../../../../core/email/attachment-uploads';
 import { EmailSend, SendRejected } from '../../../../../core/email/email-send';
+import {
+  MergeTags,
+  PLACEHOLDER_UNFILLED,
+  PlaceholderUnfilled,
+} from '../../../../../core/email/merge-tags';
 import { Preferences } from '../../../../../core/storages/preferences';
 import { Viewport } from '../../../../../core/layout/viewport';
 import { EnvelopeRows } from './envelope-rows/envelope-rows';
@@ -144,6 +149,7 @@ export abstract class MessageSheet {
     message: 'mail',
   };
   readonly #transport = inject(EmailSend);
+  readonly #mergeTags = inject(MergeTags);
   readonly #images = inject(InlineImages);
   readonly #injector = inject(Injector);
   readonly #preferences = inject(Preferences);
@@ -177,7 +183,7 @@ export abstract class MessageSheet {
     : 'Ctrl+Shift+Enter';
 
   /** Says what the placeholder fill did: done, or how many came back
-      without a value — those tokens are gone, and the user should look. */
+      without a value — those tokens stay, and Send will point at each. */
   protected placeholdersFilled(report: MergeTagResolutionReport): void {
     const empty = report.empty.length;
     const message = empty
@@ -852,12 +858,31 @@ export abstract class MessageSheet {
 
   /** The submit action: the validated message goes to the transport. A
       rejection the server pins on an address comes back as an error on the
-      To row — the round trip a real backend's answer takes. */
+      To row — the round trip a real backend's answer takes. Before it goes,
+      every placeholder still in the body is asked for its value: one the
+      contact has none for comes back as an error on the body naming its
+      token, and the caret goes to that token — the writer writes a value
+      or removes it, and sends again (the next one, if any, is next). */
   async #deliver(field: FieldTree<Envelope>): Promise<TreeValidationResult> {
     const intent = this.emailPane().intent();
     if (!intent) return { kind: 'editor.unready', message: 'The editor is still loading' };
     const { from, to, cc, bcc, subject, previewText, format, attachments } = field().value();
     const html = format === 'html';
+    if (html) {
+      const unfilled = await this.#unfilledPlaceholders();
+      if (unfilled.length) {
+        // The errors land once this action has settled: reveal after that.
+        afterNextRender({ write: () => this.#revealInvalid(field) }, { injector: this.#injector });
+        return unfilled.map((expr) => {
+          const error: PlaceholderUnfilled = {
+            kind: PLACEHOLDER_UNFILLED,
+            expr,
+            message: this.i18n.t('composer.placeholders.unfilled', { token: `{{ ${expr} }}` }),
+          };
+          return { ...error, fieldTree: field.html };
+        });
+      }
+    }
     try {
       const receipt = await this.#transport.send({
         ...intent,
@@ -917,5 +942,16 @@ export abstract class MessageSheet {
       control to focus — the note is the whole answer. */
   #revealInvalid(field: FieldTree<Envelope>): void {
     field().errorSummary()[0]?.fieldTree().focusBoundControl();
+  }
+
+  /** The body's placeholders the contact has no value for, in reading
+      order. An evaluator that cannot be reached checks nothing: the
+      backend fills tokens at send all the same. */
+  async #unfilledPlaceholders(): Promise<string[]> {
+    try {
+      return await this.#mergeTags.unfilled(this.emailPane().placeholderExpressions());
+    } catch {
+      return [];
+    }
   }
 }

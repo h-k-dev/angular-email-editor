@@ -383,6 +383,13 @@
   overflow-wrap: anywhere;
 }
 
+// A token with no value: says so, under the token.
+.email-compose__filled-note {
+  margin: 0 8px 4px;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-small);
+}
+
 // The value, written by hand: Enter applies, Shift-Enter breaks the line.
 .email-compose__filled-field {
   box-sizing: border-box;

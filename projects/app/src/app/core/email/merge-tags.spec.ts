@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { scanMergeTags } from '@h-k-dev/angular-email-editor';
-import { MergeTags } from './merge-tags';
+import { ALWAYS_MISSING, MergeTags } from './merge-tags';
 
 describe('MergeTags', () => {
   let service: MergeTags;
@@ -86,5 +86,28 @@ describe('MergeTags', () => {
     expect(values.filter((value) => !value)).toEqual([]);
     expect(values).toContain('Swoosh (figurative mark)');
     expect(values).toContain('Marketplace listing');
+  });
+
+  it('the Missing placeholders example misses exactly its three: first, middle, last — the rest fill', async () => {
+    const fs = (globalThis as any).process.getBuiltinModule('fs');
+    const html: string = fs.readFileSync(
+      'projects/app/public/examples/angularjs/missing-placeholders.html',
+      'utf8',
+    );
+    const expressions = scanMergeTags(html).map(({ expr: [from, to] }) => html.slice(from, to).trim());
+    const pending = service.unfilled([...new Set(expressions)]);
+    await vi.runAllTimersAsync();
+
+    expect(await pending).toEqual([...ALWAYS_MISSING]);
+    // Where they stand: the very first token, one between, the very last.
+    expect(expressions[0]).toBe(ALWAYS_MISSING[0]);
+    expect(expressions.at(-1)).toBe(ALWAYS_MISSING[2]);
+    const middle = expressions.indexOf(ALWAYS_MISSING[1]);
+    expect(middle).toBeGreaterThan(0);
+    expect(middle).toBeLessThan(expressions.length - 1);
+    // And the body opens and closes on them, nothing written around them.
+    const text = html.replace(/<[^>]+>/g, '').trim();
+    expect(text.startsWith(`{{ ${ALWAYS_MISSING[0]} }}`)).toBe(true);
+    expect(text.endsWith(`{{ ${ALWAYS_MISSING[2]} }}`)).toBe(true);
   });
 });

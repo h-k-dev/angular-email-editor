@@ -229,6 +229,19 @@ type ViewChoice = (typeof MENU_VIEWS)[number]['id'] | 'weekends' | 'holidays';
 /** Where keys and pastes are the words' being written. */
 const EDITABLE = 'input, textarea, select, [contenteditable]:not([contenteditable="false"])';
 
+/** Surfaces over the page that are someone else's — a compose window, a
+    dialog, an overlay's pane (a hover card, a menu) — and the calendar's
+    own among them (its event card, its quick title). A key pressed on a
+    button in a compose window is the window's, never a calendar shortcut. */
+const ELSEWHERE = '[role="dialog"], [role="alertdialog"], .cdk-overlay-pane';
+const OWN_SURFACES = '.calendar-card, .calendar-quick';
+
+/** Whether a key or a paste aimed at `target` is not the calendar's: words
+    being written, or anything on a surface that is not its own. */
+const notTheCalendars = (target: HTMLElement | null): boolean =>
+  !!target?.closest?.(EDITABLE) ||
+  (!!target?.closest?.(ELSEWHERE) && !target.closest(OWN_SURFACES));
+
 /** What steers with the arrow keys itself: there they are its own. */
 const ARROW_WIDGETS =
   '[role="grid"], [role="menu"], [role="menubar"], [role="listbox"], [role="tablist"], ' +
@@ -1049,7 +1062,7 @@ export class CalendarPage {
    */
   protected pasted(event: ClipboardEvent): void {
     const target = event.target as HTMLElement | null;
-    if (event.defaultPrevented || this.edit() || target?.closest?.(EDITABLE)) return;
+    if (event.defaultPrevented || this.edit() || notTheCalendars(target)) return;
     const text = event.clipboardData?.getData('text/plain').trim() ?? '';
     const copied = this.#clipboard();
     const content =
@@ -1220,9 +1233,7 @@ export class CalendarPage {
   protected key(event: KeyboardEvent): void {
     if (event.defaultPrevented) return;
     const target = event.target as HTMLElement | null;
-    if (target?.closest(EDITABLE)) {
-      return;
-    }
+    if (notTheCalendars(target)) return;
     // Many selected (a marquee's): Delete takes them all.
     if (
       this.#selectedMany().length &&

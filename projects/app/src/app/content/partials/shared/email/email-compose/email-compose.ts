@@ -1,4 +1,4 @@
-import { TextSelection } from 'prosemirror-state';
+import { Command, TextSelection } from 'prosemirror-state';
 import {
   Component,
   DestroyRef,
@@ -31,7 +31,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { Portal, PortalModule } from '@angular/cdk/portal';
 
 import { AngularFileDrop, FileDropEvent, claimDragEvent } from '@h-k-dev/angular-file-drop';
-import type { FormValueControl } from '@angular/forms/signals';
+import type { FormValueControl, ValidationError } from '@angular/forms/signals';
 
 import { DropHint, DropHintArt } from '../../../common/drop-hint/drop-hint';
 import { releaseEditingSurface } from '../is-typing';
@@ -53,7 +53,7 @@ import { Popover } from './popover/popover';
 import { PopoverOutlet } from './popover/popover-outlet';
 import { Examples } from '../../../../../core/email/examples';
 import { examplesGroup } from './examples-group';
-import { MergeTags } from '../../../../../core/email/merge-tags';
+import { MergeTags, isPlaceholderUnfilled } from '../../../../../core/email/merge-tags';
 import { I18n } from '../../../../../core/translations/i18n';
 import { createAiWriter } from './ai-writer';
 import { MERGE_TAG_SOURCE } from './merge-tag-source';
@@ -87,6 +87,10 @@ import {
   createInlineImages,
   createSendIntent,
   createMergeTagResolution,
+  distinctMergeTagExpressions,
+  removeMergeTag,
+  revealMergeTag,
+  writeMergeTag,
   MergeTagResolutionReport,
   createSuggestionMenu,
   extensionSuggestions,
@@ -254,6 +258,11 @@ export class EmailCompose implements FormValueControl<string> {
       owns the canonical form: whatever comes in is parsed through the email
       schema and re-published as what survived. */
   value = model('');
+
+  /** The body field's errors — bound by `[formField]`. Read when the form
+      focuses the field: a `placeholder.unfilled` one names the token the
+      caret goes to. */
+  readonly errors = input<readonly ValidationError.WithOptionalFieldTree[]>([]);
 
   /** The quoted history a reply or forward answers — kept beside `value`,
       never replaced with it (a template, an `.eml`, the source pane), and
@@ -497,7 +506,10 @@ export class EmailCompose implements FormValueControl<string> {
       was, and Restore. */
   private readonly filledValueTemplate =
     viewChild.required<TemplateRef<FilledValueContext>>('filledValueCard');
-  readonly #filledValueCard = new FilledValueCard(() => this.filledValueTemplate());
+  readonly #filledValueCard = new FilledValueCard(
+    () => this.filledValueTemplate(),
+    () => this.editor()?.view.focus(),
+  );
 
   /** The chat-based suggestion's button, for the toolbar's end while the
       strip is up and the toolbar shows — the bar takes it as its own. */
@@ -978,15 +990,42 @@ export class EmailCompose implements FormValueControl<string> {
 
   /** The form's way in (`focusBoundControl` on the body field): the caret
       goes to the email editor — leaving code view first if the source is
-      standing in its place, since a hidden editor cannot take focus. */
+      standing in its place, since a hidden editor cannot take focus. With
+      a placeholder the contact has no value for among the field's errors
+      (`placeholder.unfilled`), it goes onto that token, and the card says
+      what can be done: write a value, or remove it. */
   focus(): void {
-    if (!this.codeView()) {
-      this.body().focus();
-      return;
-    }
+    const unfilled = this.errors().find(isPlaceholderUnfilled);
+    const land = () => (unfilled ? this.#revealPlaceholder(unfilled.expr) : this.body().focus());
+    if (!this.codeView()) return land();
     releaseEditingSurface();
     this.sourceView.set('hidden');
-    afterNextRender({ write: () => this.body().focus() }, { injector: this.#injector });
+    afterNextRender({ write: land }, { injector: this.#injector });
+  }
+
+  /** The distinct expressions of the body's placeholders, in reading order
+      — what a send asks values for. Only HTML has tokens. */
+  placeholderExpressions(): string[] {
+    const doc = this.editor()?.state.doc;
+    return doc && this.format() === 'html' ? distinctMergeTagExpressions(doc) : [];
+  }
+
+  /** The caret on the first token holding `expr`, its card beside it. */
+  #revealPlaceholder(expr: string): void {
+    const editor = this.editor();
+    const element = editor ? revealMergeTag(editor.view, expr) : null;
+    if (!editor || !element) return this.body().focus();
+    const run = (command: Command) => {
+      const done = editor.exec(command);
+      editor.view.focus();
+      return done;
+    };
+    this.#filledValueCard.showUnfilled({
+      element,
+      expr,
+      write: (text) => run(writeMergeTag(expr, text)),
+      remove: () => run(removeMergeTag(expr)),
+    });
   }
 }
 

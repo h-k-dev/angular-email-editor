@@ -145,6 +145,15 @@
             "subject": "Zahlungserinnerung zu Rechnung {{ invoice.number }} – Kundennummer {{ customer.number }}",
             "previewText": "Offen: {{ invoice.total | currency:'€' }}, bitte zahlen bis {{ invoice.dueDate | date:'dd.MM.yyyy' }}."
           }
+        },
+        {
+          "name": "Missing placeholders (Send check)",
+          "file": "angularjs/missing-placeholders.html",
+          "envelope": {
+            "from": ["kanzlei@example.com"],
+            "subject": "Ihre Sache {{ case_number }} – unsere Einschätzung nach der Klageerwiderung",
+            "previewText": "Wir raten Ihnen, das Vergleichsangebot der Gegenseite anzunehmen."
+          }
         }
       ]
     },

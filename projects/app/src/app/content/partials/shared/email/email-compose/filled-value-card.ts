@@ -17,42 +17,62 @@ export interface FilledValueContext {
   $implicit: FilledValueCard;
 }
 
+/** A token with no value for the contact, where a send put the caret —
+    its pill, its expression, and what can be done about it. */
+export interface UnfilledPlaceholder {
+  /** The pill (or the node, the link) — the card's anchor. */
+  readonly element: HTMLElement;
+  /** The expression, trimmed. */
+  readonly expr: string;
+  /** Writes `text` by hand in place of every token holding `expr`. */
+  write(text: string): boolean;
+  /** Removes every token holding `expr` — the explicit empty value. */
+  remove(): boolean;
+}
+
 /** How long the card stays after the pointer has left the value and the
     card — time to cross into it (a hover card's own hide delay). */
 const HIDE_DELAY = 300;
 
 /**
- * The card a filled-in placeholder's value shows while Ctrl is held — the
- * layout guides' peek, which paints every value the pill's colour: the
- * token it was, and what can be done with the value —
+ * The card beside a placeholder, two ways in:
  *
- * - **Edit value**: a field over the value as it reads; Enter writes it in
- *   by hand (Shift-Enter a line break), and it is still the token's;
- * - **Reset**, on a value written over: the value as filled in, again;
- * - **Restore placeholder**: the token, a pill again.
+ * - **A filled-in value, Ctrl held over it** — the layout guides' peek,
+ *   which paints every value the pill's colour: the token it was, then
+ *   **Edit value** (a field over the value as it reads; Enter writes it in
+ *   by hand, Shift-Enter a line break — still the token's), **Reset** on a
+ *   value written over, **Restore placeholder** (the token again).
+ * - **A token with no value, where Send put the caret** (the body's
+ *   `placeholder.unfilled` error, through `focusBoundControl`): **Write a
+ *   value**, or **Remove placeholder** — an empty value is only ever the
+ *   writer's explicit say.
  *
- * Comes at once (Ctrl held is the deliberate gesture, no show delay), stays
- * while the pointer is on the value or in the card — Ctrl released or not —
- * and while its field has focus. Escape takes it away.
+ * Comes at once, stays while the pointer is on the value or in the card and
+ * while focus is in it (read when it would go, not tracked). Escape takes it
+ * away, the caret back in the text.
  *
- * Fed by `createMergeTagResolution({ onFilledHover })`; drawn by the
- * HoverCards service, one card app-wide. Made in an injection context.
+ * Fed by `createMergeTagResolution({ onFilledHover })` and the pane's
+ * {@link showUnfilled}; drawn by the HoverCards service, one card app-wide.
+ * Made in an injection context.
  */
 export class FilledValueCard {
   readonly #cards = inject(HoverCards);
   readonly #view = inject(ViewContainerRef);
   readonly #injector = inject(Injector);
   readonly #template: () => TemplateRef<FilledValueContext>;
+  readonly #focusText: () => void;
 
-  /** The value the card is up for, as last reported. */
+  /** The filled value the card is up for, as last reported. */
   readonly hover = signal<FilledMergeTagHover | null>(null);
+  /** …or the token with no value it is up for. */
+  readonly unfilled = signal<UnfilledPlaceholder | null>(null);
   /** The edit field is open. */
   readonly editing = signal(false);
   /** What the edit field holds. */
   readonly draft = signal('');
-  /** The token the value took the place of — `{{ customer_lastName }}`. */
+  /** The token the card is about — `{{ customer_lastName }}`. */
   readonly token = computed(() => {
-    const expr = this.hover()?.expr;
+    const expr = this.unfilled()?.expr ?? this.hover()?.expr;
     return expr ? `{{ ${expr} }}` : '';
   });
 
@@ -60,8 +80,11 @@ export class FilledValueCard {
   #onCard = false;
   #timer: ReturnType<typeof setTimeout> | undefined;
 
-  constructor(template: () => TemplateRef<FilledValueContext>) {
+  /** `focusText` puts the caret back in the text when the card goes with
+      focus in it. */
+  constructor(template: () => TemplateRef<FilledValueContext>, focusText: () => void) {
     this.#template = template;
+    this.#focusText = focusText;
     inject(DestroyRef).onDestroy(() => this.#close());
   }
 
@@ -72,21 +95,27 @@ export class FilledValueCard {
     const same = this.#card && hover.element === this.hover()?.element;
     // The same value again: it changed under the card — read it anew.
     this.hover.set(hover);
-    if (!same) this.#open(hover);
+    if (same) return;
+    this.unfilled.set(null);
+    this.#open(hover.element);
   };
 
-  /** Opens the field over the value as it reads. */
+  /** Opens the card on a token with no value, focus on its first button —
+      Send put the caret there, the keyboard carries on. */
+  showUnfilled(token: UnfilledPlaceholder): void {
+    this.#clearTimer();
+    this.hover.set(null);
+    this.unfilled.set(token);
+    this.#open(token.element);
+    this.#focusIn('button');
+  }
+
+  /** Opens the field: over the value as it reads, or empty for a token
+      with no value. */
   edit(): void {
     this.draft.set(this.hover()?.text ?? '');
     this.editing.set(true);
-    afterNextRender(
-      () => {
-        const field = this.#card?.pane.querySelector('textarea');
-        field?.focus();
-        field?.select();
-      },
-      { injector: this.#injector },
-    );
+    this.#focusIn('textarea', true);
   }
 
   /** The field, typed in. */
@@ -102,9 +131,18 @@ export class FilledValueCard {
     this.apply();
   }
 
-  /** Writes the draft over the value, still the token's. */
+  /** Writes the draft in, still the token's. */
   apply(): void {
-    if (this.hover()?.edit(this.draft())) this.#close();
+    const draft = this.draft();
+    if (!draft) return;
+    const unfilled = this.unfilled();
+    if (unfilled ? unfilled.write(draft) : this.hover()?.edit(draft)) this.#close();
+  }
+
+  /** The token with no value goes — the explicit empty value. */
+  remove(): void {
+    this.unfilled()?.remove();
+    this.#close();
   }
 
   /** The value as filled in, again. */
@@ -119,19 +157,23 @@ export class FilledValueCard {
     this.#close();
   }
 
-  #open(hover: FilledMergeTagHover): void {
+  #open(anchor: HTMLElement): void {
     this.#onCard = false;
     this.editing.set(false);
     const card = this.#cards.open(
       this,
-      hover.element,
+      anchor,
       new TemplatePortal(this.#template(), this.#view, { $implicit: this }),
       {
         position: 'below',
         closed: () => {
+          // Taken away with focus in it (Escape): the caret back in the text.
+          const active = document.activeElement;
+          if (!active || active === document.body || card.pane.contains(active)) this.#focusText();
           if (this.#card !== card) return;
           this.#card = null;
           this.hover.set(null);
+          this.unfilled.set(null);
           this.editing.set(false);
         },
       },
@@ -150,6 +192,18 @@ export class FilledValueCard {
       if (!pane.contains(event.relatedTarget as Node | null)) this.#closeLater();
     });
     this.#card = card;
+  }
+
+  /** Focuses the card's first `selector` once it is drawn. */
+  #focusIn(selector: string, select = false): void {
+    afterNextRender(
+      () => {
+        const element = this.#card?.pane.querySelector<HTMLElement>(selector);
+        element?.focus();
+        if (select && element instanceof HTMLTextAreaElement) element.select();
+      },
+      { injector: this.#injector },
+    );
   }
 
   #closeLater(): void {
