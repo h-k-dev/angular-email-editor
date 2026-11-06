@@ -1,4 +1,4 @@
-import { Component, DestroyRef, ElementRef, computed, inject, input, signal } from '@angular/core';
+import { Component, DestroyRef, ElementRef, computed, effect, inject, input, signal } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 import { PaperScheme, dawnDocument } from '../../../../core/dawn/dawn.render';
@@ -124,6 +124,15 @@ export class EmailViewer {
   constructor() {
     const destroyRef = inject(DestroyRef);
     destroyRef.onDestroy(() => this.#observer?.disconnect());
+    // A new document unloads the one the observer measures, which drops to
+    // nothing before the new one loads: stop measuring it with the change,
+    // or the frame folds to 0 until `fit` — and moves what was just
+    // measured (a ResizeObserver loop).
+    effect(() => {
+      this.document();
+      this.#observer?.disconnect();
+      this.#observer = null;
+    });
     if (typeof ResizeObserver === 'undefined') return;
     const host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
     const room = new ResizeObserver(([entry]) => this.#room.set(entry.contentRect.width));

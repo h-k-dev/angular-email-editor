@@ -22,7 +22,7 @@ import { BubbleMenuState, createBubbleMenu } from './bubble-menu';
 function appRules(): string {
   const token = appStyles.match(/--email-selection-wash:[\s\S]*?\);/)?.[0];
   const start = appStyles.indexOf('/* Selected blocks (`BlockSelection`');
-  const end = appStyles.indexOf('/* Merge-tag pill:');
+  const end = appStyles.indexOf('/* The merge-tag pill, and a filled-in value');
   const hideStart = appStyles.indexOf("/* ProseMirror's own hide-selection contract");
   const hideEnd = appStyles.indexOf('/* Mid-drag belt and braces');
   if (!token || start < 0 || end < start || hideStart < 0 || hideEnd < hideStart) {

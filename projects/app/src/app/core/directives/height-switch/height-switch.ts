@@ -30,8 +30,11 @@ export const HEIGHT_SWITCH = 200;
  * than the room it takes, and a target summed from it overshoots, then
  * snaps back. Only a switch runs: the box follows
  * anything else at once (content with a transition of its own, the chat
- * input's, would lag behind two). Written in the observer, before the frame
- * paints, so the first frame is already the old height. Then `auto` again.
+ * input's, would lag behind two). The box is held at its height as the
+ * switch is armed — before its content changes — so what is round it stays
+ * put until the observer, before the frame paints, starts the run from
+ * there: nothing the observer does moves a box another observer has just
+ * measured (a ResizeObserver loop). Then `auto` again.
  * Nothing under reduced motion, on the server, or without a
  * `ResizeObserver`.
  *
@@ -55,6 +58,16 @@ export class HeightSwitch {
   /** A switch happened: the next resize is its, and runs. */
   #armed = false;
 
+  /** The box is held at its height for an armed switch that has not run
+      yet: the switch's start, set before the content changes. */
+  #holding = false;
+
+  /** Its content is observed: there is a resize to come for a hold. */
+  #observing = false;
+
+  /** Counts the switches, so an arming lapses only for its own switch. */
+  #switches = 0;
+
   /** Stops watching the running switch for its end. */
   #unwatch: (() => void) | null = null;
 
@@ -68,9 +81,18 @@ export class HeightSwitch {
       }
       if (prefersReducedMotion()) return;
       this.#armed = true;
-      // A switch that moves nothing leaves no resize: the arming lapses
-      // after a whole frame, so a later, unrelated resize does not run.
-      requestAnimationFrame(() => requestAnimationFrame(() => (this.#armed = false)));
+      this.#hold();
+      // A switch that moves nothing leaves no resize: the arming (and its
+      // hold) lapses after a whole frame, so a later, unrelated resize does
+      // not run.
+      const switchNo = ++this.#switches;
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          if (switchNo !== this.#switches) return;
+          this.#armed = false;
+          this.#letGo();
+        }),
+      );
     });
     const destroyRef = inject(DestroyRef);
     afterNextRender({
@@ -79,12 +101,30 @@ export class HeightSwitch {
         if (!content || typeof ResizeObserver !== 'function') return;
         const observer = new ResizeObserver(() => this.#resized());
         observer.observe(content);
+        this.#observing = true;
         destroyRef.onDestroy(() => {
           observer.disconnect();
           this.#unwatch?.();
         });
       },
     });
+  }
+
+  /** Holds the box where it is, for the switch armed: its content changes
+      under a box that does not move. A switch still running holds the box
+      already (at its end), and takes it on from where it has it. */
+  #hold(): void {
+    const box = this.#box;
+    if (!this.#observing || this.#height === null || box.hasAttribute('data-height-switch')) return;
+    box.style.height = `${this.#height}px`;
+    this.#holding = true;
+  }
+
+  /** Lets go of a hold no switch took on. */
+  #letGo(): void {
+    if (!this.#holding) return;
+    this.#holding = false;
+    this.#box.style.height = '';
   }
 
   #resized(): void {
@@ -96,7 +136,7 @@ export class HeightSwitch {
     // The box's own height for what it now holds — its auto height, read
     // with any hold let go for the read.
     let height = shown;
-    if (running) {
+    if (running || this.#holding) {
       const held = box.style.height;
       box.style.height = '';
       height = box.getBoundingClientRect().height;
@@ -106,6 +146,7 @@ export class HeightSwitch {
     this.#height = height;
     if (!this.#armed || last === null || Math.abs(last - height) < 1) return;
     this.#armed = false;
+    this.#holding = false;
     const from = running ? shown : last;
     box.setAttribute('data-height-switch', '');
     box.style.transition = `height ${HEIGHT_SWITCH}ms ease`;
