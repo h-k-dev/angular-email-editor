@@ -137,7 +137,6 @@ export default {
       set: 'セット',
       cancel: 'キャンセル',
       create: '作成',
-      nameMissing: 'テンプレートには名前が必要です',
     },
     sets: {
       angularjs: 'AngularJS 式',

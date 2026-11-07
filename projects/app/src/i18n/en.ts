@@ -141,7 +141,6 @@ export default {
       set: 'Set',
       cancel: 'Cancel',
       create: 'Create',
-      nameMissing: 'A template needs a name',
     },
     sets: {
       angularjs: 'AngularJS expressions',

@@ -138,7 +138,6 @@ export default {
       set: 'Sammlung',
       cancel: 'Abbrechen',
       create: 'Erstellen',
-      nameMissing: 'Eine Vorlage braucht einen Namen',
     },
     sets: {
       angularjs: 'AngularJS-Ausdrücke',

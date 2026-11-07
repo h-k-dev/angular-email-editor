@@ -1,48 +1,64 @@
-<h2 mat-dialog-title>{{ 'templates.add.title' | translate }}</h2>
+<!-- The dialog's own frame, Material 3's basic dialog with a hero icon — no
+     mat-dialog-content: the host is the surface's grid (icon, headline,
+     the fields, the actions), its insets the spec's 24px.
+     The form is the whole of it, so Enter anywhere submits. -->
+<form class="add" [formRoot]="addForm" novalidate>
+  <header class="add__header">
+    <sticker-icon icon="note_stack_add" />
+    <h2 class="add__title" [id]="titleId">{{ 'templates.add.title' | translate }}</h2>
+  </header>
 
-<mat-dialog-content>
-  <form id="template-add-form" class="template-add" [formRoot]="addForm" novalidate>
-    <mat-form-field class="template-add__name">
+  <div class="add__body">
+    <!-- Required by its asterisk alone: no error line under it (an empty
+         name is outlined in the error colour on Create, and focused), so
+         the subscript holds nothing and takes no room. -->
+    <mat-form-field appearance="outline" class="add__name" subscriptSizing="dynamic">
       <mat-label>{{ 'templates.add.name' | translate }}</mat-label>
       <input matInput cdkFocusInitial autocomplete="off" [formField]="addForm.name" />
-      @for (error of addForm.name().errors(); track error.kind) {
-        <mat-error>{{ error.kind | translate }}</mat-error>
-      }
     </mat-form-field>
 
     <!-- The set it joins: its shelf, and the dialect its tokens are
-         written in. -->
+         written in — one row a set, the dialect's token beside its name,
+         so the choice reads as what the template will be written in. -->
     @if (data.sets.length > 1) {
-      <div class="template-add__set">
-        <span class="template-add__label" id="template-add-set">{{ 'templates.add.set' | translate }}</span>
-        <hk-tgb
-          aria-labelledby="template-add-set"
-          [value]="addForm.set().value()"
-          (valueChange)="pickSet($event)"
+      <div class="add__sets">
+        <span class="add__label" [id]="setLabelId">{{ 'templates.add.set' | translate }}</span>
+        <mat-radio-group
+          class="add__set-list"
+          [aria-labelledby]="setLabelId"
+          [formField]="addForm.set"
         >
           @for (set of data.sets; track set.key) {
-            <button hkTgbText [value]="set.key">{{ set.label }}</button>
+            <mat-radio-button class="add__set" [value]="set.key">
+              <span class="add__set-text">
+                <span class="add__set-name">{{ set.label }}</span>
+                @if (sampleOf(set); as sample) {
+                  <code class="add__set-sample">{{ sample }}</code>
+                } @else {
+                  <span class="add__set-hint">{{ 'templates.noMergeTags' | translate }}</span>
+                }
+              </span>
+            </mat-radio-button>
           }
-        </hk-tgb>
+        </mat-radio-group>
       </div>
     }
-  </form>
-</mat-dialog-content>
+  </div>
 
-<mat-dialog-actions align="end">
-  <button matButton type="button" mat-dialog-close [disabled]="addForm().submitting()">
-    {{ 'templates.add.cancel' | translate }}
-  </button>
-  <!-- On its way: the spinner in the label's place (Material's
-       `showProgress`), the button as wide as ever. -->
-  <button
-    matButton="filled"
-    type="submit"
-    form="template-add-form"
-    [showProgress]="addForm().submitting()"
-    [attr.aria-busy]="addForm().submitting() || null"
-  >
-    <mat-progress-spinner progressIndicator mode="indeterminate" diameter="16" strokeWidth="2" />
-    {{ 'templates.add.create' | translate }}
-  </button>
-</mat-dialog-actions>
+  <footer class="add__actions">
+    <button matButton type="button" mat-dialog-close [disabled]="addForm().submitting()">
+      {{ 'templates.add.cancel' | translate }}
+    </button>
+    <!-- On its way: the spinner in the label's place (Material's
+         `showProgress`), the button as wide as ever. -->
+    <button
+      matButton="filled"
+      type="submit"
+      [showProgress]="addForm().submitting()"
+      [attr.aria-busy]="addForm().submitting() || null"
+    >
+      <mat-progress-spinner progressIndicator mode="indeterminate" diameter="16" strokeWidth="2" />
+      {{ 'templates.add.create' | translate }}
+    </button>
+  </footer>
+</form>

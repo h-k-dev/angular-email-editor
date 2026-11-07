@@ -1,21 +1,145 @@
-// The name over the set, the dialog's width each.
-.template-add {
-  display: grid;
-  gap: 8px;
-  padding-block-start: 8px;
+// Material 3's basic dialog with a hero icon, laid out by hand: 24px insets,
+// the icon over a centred headline, the fields
+// below at the dialog's width, the actions at the end — 24px between the
+// three parts, 16px inside each.
+@use '@angular/material' as mat;
+
+:host {
+  display: block;
 }
 
-.template-add__name {
+.add {
+  display: grid;
+  gap: 24px;
+  padding: 24px;
+}
+
+.add__header {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.add__title {
+  margin: 0;
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-headline-small);
+}
+
+.add__body {
+  display: grid;
+  gap: 16px;
+}
+
+// The name's outline in the set rows' shape: their corner, a squircle where
+// supported. Material draws the outline in three parts — the two ends
+// carry the corners, the notch between them none.
+.add__name {
   inline-size: 100%;
+  @include mat.form-field-overrides(
+    (
+      outlined-container-shape: var(--mat-sys-corner-medium),
+    )
+  );
+
+  @supports (corner-shape: squircle) {
+    @include mat.form-field-overrides(
+      (
+        outlined-container-shape: calc(var(--mat-sys-corner-medium) * 2),
+      )
+    );
+
+    ::ng-deep :is(.mdc-notched-outline__leading, .mdc-notched-outline__trailing) {
+      corner-shape: squircle;
+    }
+  }
 }
 
-.template-add__set {
+.add__sets {
   display: grid;
   gap: 8px;
-  justify-items: start;
 }
 
-.template-add__label {
+.add__label {
+  padding-inline: 4px;
   color: var(--mat-sys-on-surface-variant);
   font: var(--mat-sys-label-large);
+}
+
+// One tile a set, 4px apart: an outlined row the whole of which picks it —
+// outline only, never a fill: the hovered one's ring the outline, the
+// picked one's the primary, 2px. Squircle corners where supported.
+.add__set-list {
+  display: grid;
+  gap: 4px;
+}
+
+.add__set {
+  --_ring: var(--mat-sys-outline-variant);
+  --_ring-width: 1px;
+  display: block;
+  border-radius: var(--mat-sys-corner-medium);
+  box-shadow: inset 0 0 0 var(--_ring-width) var(--_ring);
+
+  // A squircle reads as round as a circle's corner of half its radius:
+  // drawn twice as large (the compose window's rule). The ring follows the
+  // shape; without the property, the plain corner above.
+  @supports (corner-shape: squircle) {
+    corner-shape: squircle;
+    border-radius: calc(var(--mat-sys-corner-medium) * 2);
+  }
+  transition: box-shadow 150ms var(--mat-sys-motion-easing-standard, ease);
+
+  &:hover {
+    --_ring: var(--mat-sys-outline);
+  }
+
+  &.mat-mdc-radio-checked {
+    --_ring: var(--mat-sys-primary);
+    --_ring-width: 2px;
+  }
+
+  // The row is the label: the form field the radio and its text share,
+  // stretched over the tile, so a press anywhere on it picks the set.
+  ::ng-deep .mdc-form-field {
+    display: flex;
+    inline-size: 100%;
+    padding-inline-end: 16px;
+  }
+
+  ::ng-deep .mdc-label {
+    flex: 1;
+    min-inline-size: 0;
+    padding-block: 10px;
+    cursor: pointer;
+  }
+}
+
+.add__set-text {
+  display: grid;
+  gap: 2px;
+}
+
+.add__set-name {
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-large);
+}
+
+.add__set-hint,
+.add__set-sample {
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-small);
+}
+
+.add__set-sample {
+  font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+
+.add__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
 }
