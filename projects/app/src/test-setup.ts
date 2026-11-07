@@ -75,3 +75,13 @@ if (typeof Element !== 'undefined' && typeof Element.prototype.scrollIntoView !=
     return;
   };
 }
+
+/** …and no layout: ProseMirror measures a selection it scrolls to (a
+    placeholder a send stops on) through a Range's rects. Empty ones, as
+    the library's own setup gives, rather than a throw. */
+if (typeof Range !== 'undefined') {
+  const empty = (): DOMRect =>
+    ({ x: 0, y: 0, width: 0, height: 0, top: 0, right: 0, bottom: 0, left: 0, toJSON: () => ({}) }) as DOMRect;
+  Range.prototype.getClientRects ??= () => [] as unknown as DOMRectList;
+  Range.prototype.getBoundingClientRect ??= empty;
+}

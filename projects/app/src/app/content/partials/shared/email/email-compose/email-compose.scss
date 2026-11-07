@@ -409,27 +409,19 @@
   }
 }
 
-.email-compose__filled-row {
-  all: unset;
+// The rows (Angular Aria's menu): every menu's row — 2px apart, the one the
+// arrows reached washed, never ringed. Apply, under the field, is one too.
+.email-compose__filled-menu {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  block-size: 32px;
-  padding-inline: 8px;
-  border-radius: var(--mat-sys-corner-small);
-  color: var(--mat-sys-on-surface);
+  flex-direction: column;
+  gap: 2px;
+  outline: none;
+}
+
+.email-compose__filled-row {
+  @include menu.item;
+
   font: var(--mat-sys-body-medium);
-  white-space: nowrap;
-  cursor: pointer;
-
-  &:hover {
-    background: color-mix(in oklch, var(--mat-sys-on-surface) 8%, transparent);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--mat-sys-primary);
-    outline-offset: -2px;
-  }
 
   &:disabled {
     opacity: 0.38;

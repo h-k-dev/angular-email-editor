@@ -250,36 +250,42 @@
           <mat-icon class="email-compose__filled-icon" aria-hidden="true">check</mat-icon>
           <span>{{ 'editor.filled.apply' | translate }}</span>
         </button>
-      } @else if (card.unfilled()) {
-        <button type="button" class="email-compose__filled-row" (click)="card.edit()">
-          <mat-icon class="email-compose__filled-icon" aria-hidden="true">edit</mat-icon>
-          <span>{{ 'editor.filled.write' | translate }}</span>
-        </button>
-        <button type="button" class="email-compose__filled-row" (click)="card.remove()">
-          <mat-icon class="email-compose__filled-icon" aria-hidden="true">delete</mat-icon>
-          <span>{{ 'editor.filled.remove' | translate }}</span>
-        </button>
-      } @else if (card.hover(); as hover) {
-        <button type="button" class="email-compose__filled-row" (click)="card.edit()">
-          <mat-icon class="email-compose__filled-icon" aria-hidden="true">edit</mat-icon>
-          <span>{{ 'editor.filled.edit' | translate }}</span>
-        </button>
-        <!-- Reset only to a value that was filled in: one written by hand has none. -->
-        @if (hover.edited && hover.value) {
-          <button
-            type="button"
-            class="email-compose__filled-row"
-            [title]="hover.value"
-            (click)="card.reset()"
-          >
-            <mat-icon class="email-compose__filled-icon" aria-hidden="true">history</mat-icon>
-            <span>{{ 'editor.filled.reset' | translate }}</span>
-          </button>
-        }
-        <button type="button" class="email-compose__filled-row" (click)="card.restore()">
-          <mat-icon class="email-compose__filled-icon" aria-hidden="true">undo</mat-icon>
-          <span>{{ 'editor.filled.restore' | translate }}</span>
-        </button>
+      } @else {
+        <!-- The rows: Angular Aria's menu — the arrows walk them, Enter picks;
+             the card opens on the first. -->
+        <div
+          ngMenu
+          class="email-compose__filled-menu"
+          [attr.aria-label]="card.token()"
+          (itemSelected)="card.choose($event)"
+        >
+          @if (card.unfilled()) {
+            <div ngMenuItem class="email-compose__filled-row" value="edit">
+              <mat-icon class="email-compose__filled-icon" aria-hidden="true">edit</mat-icon>
+              <span>{{ 'editor.filled.write' | translate }}</span>
+            </div>
+            <div ngMenuItem class="email-compose__filled-row" value="remove">
+              <mat-icon class="email-compose__filled-icon" aria-hidden="true">delete</mat-icon>
+              <span>{{ 'editor.filled.remove' | translate }}</span>
+            </div>
+          } @else if (card.hover(); as hover) {
+            <div ngMenuItem class="email-compose__filled-row" value="edit">
+              <mat-icon class="email-compose__filled-icon" aria-hidden="true">edit</mat-icon>
+              <span>{{ 'editor.filled.edit' | translate }}</span>
+            </div>
+            <!-- Reset only to a value that was filled in: one written by hand has none. -->
+            @if (hover.edited && hover.value) {
+              <div ngMenuItem class="email-compose__filled-row" value="reset" [title]="hover.value">
+                <mat-icon class="email-compose__filled-icon" aria-hidden="true">history</mat-icon>
+                <span>{{ 'editor.filled.reset' | translate }}</span>
+              </div>
+            }
+            <div ngMenuItem class="email-compose__filled-row" value="restore">
+              <mat-icon class="email-compose__filled-icon" aria-hidden="true">undo</mat-icon>
+              <span>{{ 'editor.filled.restore' | translate }}</span>
+            </div>
+          }
+        </div>
       }
     </div>
   }

@@ -29,6 +29,7 @@ import { MatIconModule } from '@angular/material/icon';
 
 // CDK
 import { Portal, PortalModule } from '@angular/cdk/portal';
+import { Menu, MenuItem } from '@angular/aria/menu';
 
 import { AngularFileDrop, FileDropEvent, claimDragEvent } from '@h-k-dev/angular-file-drop';
 import type { FormValueControl, ValidationError } from '@angular/forms/signals';
@@ -186,6 +187,9 @@ export type ComposeKit = BodyFormat | 'snippet';
     SuggestionMenu,
     SuggestionMenuItem,
     SuggestionMenuSection,
+    // The filled-value card's rows: arrows walk them.
+    Menu,
+    MenuItem,
   ],
   // The formatting commands this composer's toolbar, bubble menu and ⋯ menu
   // share — one per composer, bound to its editor and code view — and the

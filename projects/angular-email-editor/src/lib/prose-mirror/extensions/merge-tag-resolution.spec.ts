@@ -542,6 +542,27 @@ describe('merge tag resolution', () => {
         expect(revealMergeTag(editor.view, 'missing')).toBeNull();
       });
 
+      it('scrolls to it even from outside the editor — a Send button has the focus', () => {
+        mount('<div>Hallo {{ name }}</div>');
+        const button = document.createElement('button');
+        document.body.append(button);
+        button.focus();
+        // ProseMirror scrolls to a selection by measuring it — and only while
+        // the DOM's selection is in the editor; the measure is the tell.
+        const measured: number[] = [];
+        editor.view.coordsAtPos = (pos: number) => {
+          measured.push(pos);
+          return { left: 0, right: 0, top: 0, bottom: 0 };
+        };
+        try {
+          revealMergeTag(editor.view, 'name');
+          expect(document.activeElement).toBe(editor.view.dom);
+          expect(measured).toContain(editor.state.selection.head);
+        } finally {
+          button.remove();
+        }
+      });
+
       it('a value written by hand takes every token’s place, still the token’s — edited from the start', () => {
         mount('<div>Hallo <strong>{{ name }}</strong>, {{ name }}!</div>');
         expect(editor.commands['writeMergeTag']('name', 'Frau Müller')).toBe(true);

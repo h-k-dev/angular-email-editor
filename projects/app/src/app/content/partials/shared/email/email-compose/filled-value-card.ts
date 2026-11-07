@@ -1,4 +1,5 @@
 import {
+  ApplicationRef,
   DestroyRef,
   Injector,
   TemplateRef,
@@ -30,6 +31,34 @@ export interface UnfilledPlaceholder {
   remove(): boolean;
 }
 
+/** How long the page must stay still before a card opens on what was just
+    scrolled to, ms — a scroll's events come a frame late, smooth ones for
+    a while. */
+const STILL = 60;
+
+/** Runs `then` once no scroll — of the page or of any scroller in it — has
+    happened for {@link STILL} ms; returns what cancels it. */
+function whenStill(then: () => void): () => void {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const stop = () => {
+    clearTimeout(timer);
+    document.removeEventListener('scroll', wait, true);
+  };
+  const wait = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      stop();
+      then();
+    }, STILL);
+  };
+  document.addEventListener('scroll', wait, true);
+  wait();
+  return stop;
+}
+
+/** The card's rows, as its menu names them (`ngMenuItem` values). */
+export type FilledCardAction = 'edit' | 'remove' | 'reset' | 'restore';
+
 /** How long the card stays after the pointer has left the value and the
     card — time to cross into it (a hover card's own hide delay). */
 const HIDE_DELAY = 300;
@@ -59,6 +88,7 @@ export class FilledValueCard {
   readonly #cards = inject(HoverCards);
   readonly #view = inject(ViewContainerRef);
   readonly #injector = inject(Injector);
+  readonly #appRef = inject(ApplicationRef);
   readonly #template: () => TemplateRef<FilledValueContext>;
   readonly #focusText: () => void;
 
@@ -100,14 +130,44 @@ export class FilledValueCard {
     this.#open(hover.element);
   };
 
-  /** Opens the card on a token with no value, focus on its first button —
-      Send put the caret there, the keyboard carries on. */
+  /** Opens the card on a token with no value, focus on its first row —
+      Send put the caret there, the keyboard carries on (the arrows walk
+      the rows, Enter picks). */
   showUnfilled(token: UnfilledPlaceholder): void {
     this.#clearTimer();
+    this.#stopWaiting();
     this.hover.set(null);
     this.unfilled.set(token);
-    this.#open(token.element);
-    this.#focusIn('button');
+    // Revealing the token scrolled to it — and a scroll's events come a
+    // frame late, so a card opened now would be taken by the first of them
+    // (cards go on scroll). It opens once the page has stopped moving.
+    this.#stopWaiting = whenStill(() => {
+      if (this.unfilled() !== token || !token.element.isConnected) return;
+      this.#open(token.element);
+      // Opened from a timer, no render is coming: one now, so the menu
+      // knows its rows before the first takes focus (else the first arrow
+      // only finds where it stands).
+      this.#appRef.tick();
+      this.#focusIn('[ngMenuItem][tabindex="0"], [ngMenuItem]');
+    });
+  }
+
+  /** Cancels a card still waiting for the page to stop scrolling. */
+  #stopWaiting: () => void = () => {};
+
+  /** A row of the card's menu, picked — by the pointer, or Enter / Space
+      on the row the arrows reached. */
+  choose(action: FilledCardAction): void {
+    switch (action) {
+      case 'edit':
+        return this.edit();
+      case 'remove':
+        return this.remove();
+      case 'reset':
+        return this.reset();
+      case 'restore':
+        return this.restore();
+    }
   }
 
   /** Opens the field: over the value as it reads, or empty for a token
@@ -191,19 +251,35 @@ export class FilledValueCard {
     pane.addEventListener('focusout', (event) => {
       if (!pane.contains(event.relatedTarget as Node | null)) this.#closeLater();
     });
+    // Escape takes the card away, from anywhere in it, the caret back in
+    // the text. Caught on the way down: the menu's rows answer Escape
+    // themselves (a menu closing its submenus) and stop it there, before
+    // the overlay's own Escape would hear it.
+    pane.addEventListener(
+      'keydown',
+      (event) => {
+        if (event.key !== 'Escape' || event.isComposing) return;
+        event.preventDefault();
+        event.stopPropagation();
+        this.#close();
+        this.#focusText();
+      },
+      true,
+    );
     this.#card = card;
   }
 
-  /** Focuses the card's first `selector` once it is drawn. */
+  /** Focuses the card's first `selector` — at once when it is there (the
+      card's rows are drawn as it opens, and it may open from a timer, with
+      no render to come), else once it is drawn (the field Edit asks for). */
   #focusIn(selector: string, select = false): void {
-    afterNextRender(
-      () => {
-        const element = this.#card?.pane.querySelector<HTMLElement>(selector);
-        element?.focus();
-        if (select && element instanceof HTMLTextAreaElement) element.select();
-      },
-      { injector: this.#injector },
-    );
+    const focus = () => {
+      const element = this.#card?.pane.querySelector<HTMLElement>(selector);
+      element?.focus();
+      if (select && element instanceof HTMLTextAreaElement) element.select();
+      return !!element;
+    };
+    if (!focus()) afterNextRender(focus, { injector: this.#injector });
   }
 
   #closeLater(): void {
@@ -218,6 +294,7 @@ export class FilledValueCard {
 
   #close(): void {
     this.#clearTimer();
+    this.#stopWaiting();
     this.#card = null;
     this.#onCard = false;
     // `hover` stays as it was while the card leaves (`closed` clears it).

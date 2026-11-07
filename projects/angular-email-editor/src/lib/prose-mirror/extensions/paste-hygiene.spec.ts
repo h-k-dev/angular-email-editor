@@ -111,7 +111,9 @@ describe('paste hygiene', () => {
       loaded.destroy();
     });
 
-    it('an email pasted over the whole document keeps its outermost wrapper, as a load does', () => {
+    // A whole MJML document, parsed twice (paste and load): 3s on a fast
+    // machine — room for a slow runner.
+    it('an email pasted over the whole document keeps its outermost wrapper, as a load does', { timeout: 20_000 }, () => {
       // MJML's: the body's `role="article"` div round its bands, its fill.
       const mjml = (globalThis as any).process
         .getBuiltinModule('fs')

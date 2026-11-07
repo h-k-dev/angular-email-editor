@@ -755,6 +755,63 @@ describe('Compose', () => {
     expect(note).toContain('no subject');
   });
 
+  it('Ctrl-Enter sends from anywhere in the page — a row, a button — not only the text', async () => {
+    const root = fixture.nativeElement as HTMLElement;
+    const pm = root.querySelector('[aria-label="Message body"]') as HTMLElement;
+    pm.focus();
+    (component as any).sheet().emailPane().value.set('<div>hello</div>');
+    pm.blur();
+    await fixture.whenStable();
+    const notes = sentNotes();
+    const press = (target: EventTarget) => {
+      const event = new KeyboardEvent('keydown', {
+        key: 'Enter',
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true,
+      });
+      target.dispatchEvent(event);
+      return event;
+    };
+
+    // The Subject row: sent.
+    const subject = root.querySelector<HTMLInputElement>('.writer-field__input')!;
+    expect(press(subject).defaultPrevented).toBe(true);
+    await settle();
+    await fixture.whenStable();
+    expect(notes.length).toBe(1);
+
+    // A button on the writer's bar: sent too.
+    (component as any).sheet().message.update((m: object) => ({ ...m, html: '<div>again</div>' }));
+    await fixture.whenStable();
+    press(root.querySelector('.writer-bar [aria-label="Settings"]')!);
+    await settle();
+    await fixture.whenStable();
+    expect(notes.length).toBe(2);
+
+    // A plain Enter, or one something else claimed first, is not Send.
+    (component as any).sheet().message.update((m: object) => ({ ...m, html: '<div>third</div>' }));
+    await fixture.whenStable();
+    subject.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    const claimed = new KeyboardEvent('keydown', {
+      key: 'Enter',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    claimed.preventDefault();
+    subject.dispatchEvent(claimed);
+    // From what sits outside the page (a dialog in the overlay, or
+    // nothing focused at all): not the page's.
+    const overlay = document.body.appendChild(document.createElement('button'));
+    press(overlay);
+    overlay.remove();
+    press(document.body);
+    await settle();
+    await fixture.whenStable();
+    expect(notes.length).toBe(2);
+  });
+
   it('Cc and Bcc sit on the To row like Gmail: each opens its row focused, and an empty row folds back', async () => {
     const root = fixture.nativeElement as HTMLElement;
     const labels = () =>
@@ -935,7 +992,9 @@ describe('Compose', () => {
       await fixture.whenStable();
     };
     const toggle = async (setting: string) => {
-      dialog.querySelector<HTMLButtonElement>(`[data-setting="${setting}"] button[role="switch"]`)!.click();
+      dialog
+        .querySelector<HTMLButtonElement>(`[data-setting="${setting}"] button[role="switch"]`)!
+        .click();
       await fixture.whenStable();
     };
 
@@ -1121,12 +1180,11 @@ describe('Compose', () => {
 
     // The menu reads: the count, the trash, then (when it applies) the rows.
     const menu = root.querySelector<HTMLElement>('.attachment-strip__menu')!;
-    expect([...menu.children].map((child) =>
+    expect(
+      [...menu.children].map((child) =>
         [...child.classList].find((name) => name.startsWith('attachment-strip__')),
-      )).toEqual([
-      'attachment-strip__count',
-      'attachment-strip__clear',
-    ]);
+      ),
+    ).toEqual(['attachment-strip__count', 'attachment-strip__clear']);
     expect(menu.querySelector('.attachment-strip__count')!.textContent).toContain('3');
 
     const trash = root.querySelector<HTMLButtonElement>('.attachment-strip__clear')!;
@@ -1141,7 +1199,9 @@ describe('Compose', () => {
     await fixture.whenStable();
 
     expect(sheet.message().attachments).toEqual([]);
-    expect(cancel.mock.calls.map(([key]) => key)).toEqual(refs.map((ref: { key: string }) => ref.key));
+    expect(cancel.mock.calls.map(([key]) => key)).toEqual(
+      refs.map((ref: { key: string }) => ref.key),
+    );
     expect(root.querySelector<HTMLElement>('.attachment-strip')!.hidden).toBe(true);
     // The chips leave without a word: the sheet says what happened.
     expect(announce).toHaveBeenCalledWith('All attachments removed');
@@ -1185,7 +1245,10 @@ describe('Compose', () => {
     sheet.attachmentsHidden.set(true);
     await fixture.whenStable();
     const reason = () =>
-      sheet.envelope.attachments().errors().map((error: { kind: string }) => error.kind);
+      sheet.envelope
+        .attachments()
+        .errors()
+        .map((error: { kind: string }) => error.kind);
     expect(reason()).toEqual(['attachments.pending']);
 
     status.set('failed');
@@ -1404,7 +1467,9 @@ describe('Compose', () => {
     const pm = root.querySelector('[aria-label="Message body"]') as HTMLElement;
     const sheet = (component as any).sheet();
     pm.focus();
-    sheet.emailPane().value.set('<div>Hallo {{ nobody.title }}, Ihr {{ order.item }} – {{ nobody.note }}</div>');
+    sheet
+      .emailPane()
+      .value.set('<div>Hallo {{ nobody.title }}, Ihr {{ order.item }} – {{ nobody.note }}</div>');
     pm.blur();
     sheet.message.update((m: object) => ({ ...m, to: ['ada@example.com'] }));
     await fixture.whenStable();
@@ -1416,9 +1481,17 @@ describe('Compose', () => {
     };
     const card = () => document.querySelector<HTMLElement>('.hover-card');
     const row = (label: string) =>
-      [...(card()?.querySelectorAll<HTMLButtonElement>('button') ?? [])].find((b) =>
+      [...(card()?.querySelectorAll<HTMLElement>('[ngMenuItem], button') ?? [])].find((b) =>
         b.textContent?.includes(label),
       );
+    /** A key where the focus is — the card's rows answer to the arrows. */
+    const key = async (name: string) => {
+      document.activeElement!.dispatchEvent(
+        new KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true }),
+      );
+      await fixture.whenStable();
+      await settle();
+    };
     const send = async () => {
       (root.querySelector('.writer-bar__send') as HTMLButtonElement).click();
       // The evaluator's answer (the demo's latency), then the reveal's render.
@@ -1427,29 +1500,48 @@ describe('Compose', () => {
       await settle();
     };
 
+    // Revealing a token far down scrolls to it, and the scroll's events come
+    // a frame late — after the reveal. They must not take the card (cards go
+    // on scroll): it opens once the page is still.
+    const revealed = sheet
+      .emailPane()
+      .body()
+      .mergeTagRevealed.subscribe(() =>
+        document.dispatchEvent(new Event('scroll', { bubbles: true })),
+      );
+
     // The first token without a value, in reading order: named, selected, its card up.
     await send();
+    revealed.unsubscribe();
     expect(notes).toEqual([]);
     expect(problem()).toBe('No value for {{ nobody.title }}');
     expect(selected()).toBe('{{ nobody.title }}');
     expect(card()?.textContent).toContain('No value for this contact');
     expect(row('Write a value')).toBeDefined();
     expect(row('Remove placeholder')).toBeDefined();
-    // The keyboard carries on from Send: focus on the card's first row.
+    // The keyboard carries on from Send: focus on the card's first row; the
+    // arrows walk the rows (a menu's), Enter picks.
+    expect(card()!.querySelector('[role="menu"]')).not.toBeNull();
+    expect(document.activeElement).toBe(row('Write a value'));
+    await key('ArrowDown');
+    expect(document.activeElement).toBe(row('Remove placeholder'));
+    await key('ArrowUp');
     expect(document.activeElement).toBe(row('Write a value'));
 
     // Written by hand: the value takes the token's place.
-    row('Write a value')!.click();
-    await fixture.whenStable();
-    await settle();
+    await key('Enter');
     const field = card()!.querySelector('textarea')!;
     expect(document.activeElement).toBe(field);
     field.value = 'Frau';
     field.dispatchEvent(new Event('input', { bubbles: true }));
-    field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    field.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    );
     await fixture.whenStable();
     await settle();
-    expect(view().state.doc.textContent).toBe('Hallo Frau, Ihr {{ order.item }} – {{ nobody.note }}');
+    expect(view().state.doc.textContent).toBe(
+      'Hallo Frau, Ihr {{ order.item }} – {{ nobody.note }}',
+    );
     // The value changed: the error went with it.
     expect(problem()).toBeNull();
 
@@ -1457,9 +1549,17 @@ describe('Compose', () => {
     await send();
     expect(problem()).toBe('No value for {{ nobody.note }}');
     expect(selected()).toBe('{{ nobody.note }}');
-    row('Remove placeholder')!.click();
-    await fixture.whenStable();
-    await settle();
+    // Escape takes the card away, the caret back on the token.
+    await key('Escape');
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    expect(card()).toBeNull();
+    expect(document.activeElement).toBe(view().dom);
+    expect(selected()).toBe('{{ nobody.note }}');
+    // Sent again, it is back.
+    await send();
+    expect(document.activeElement).toBe(row('Write a value'));
+    await key('ArrowDown');
+    await key('Enter');
     expect(view().state.doc.textContent).toBe('Hallo Frau, Ihr {{ order.item }} – ');
 
     // Every token left has a value: it goes (the backend fills them).

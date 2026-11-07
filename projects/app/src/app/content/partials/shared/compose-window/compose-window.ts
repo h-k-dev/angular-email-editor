@@ -27,7 +27,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 
 import { MessageForm } from '../email/message-form/message-form';
 import { MobileMessageForm } from '../email/message-form/mobile-message-form';
-import { MessageSheet } from '../email/message-form/message-sheet';
+import { MessageSheet, isSendKey } from '../email/message-form/message-sheet';
 import { IslandMarquee, PaperIsland } from '../email/paper-island';
 import { Viewport } from '../../../../core/layout/viewport';
 import { I18n } from '../../../../core/translations/i18n';
@@ -104,6 +104,7 @@ interface Grab {
     '(pointerdown)': 'windows.raise(window().id)',
     '(focusin)': 'windows.raise(window().id)',
     '(keydown.escape)': 'leaveDialog($event)',
+    '(keydown)': 'sendKey($event)',
   },
 })
 export class ComposeWindowFrame implements PaperIsland {
@@ -315,6 +316,17 @@ export class ComposeWindowFrame implements PaperIsland {
       duration: 4000,
     });
     this.close();
+  }
+
+  /** Mod-Enter anywhere in the window — a row, the bar, the title bar,
+      docked or zoomed — sends, as it does in the text. Not while it is
+      minimized: the sheet is out of sight, and so would be what stops it. */
+  protected sendKey(event: KeyboardEvent): void {
+    if (this.minimized() || !isSendKey(event)) return;
+    const sheet = this.sheet();
+    if (!sheet) return;
+    event.preventDefault();
+    sheet.requestSend();
   }
 
   /** Escape leaves the dialog for the edge — unless something inside took

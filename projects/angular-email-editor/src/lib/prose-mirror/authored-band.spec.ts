@@ -74,13 +74,15 @@ describe('an MJML band — offered as a section of ours, with its columns', () =
     host.remove();
   });
 
-  it('converts nothing on parse: every band is kept as written', () => {
-    for (const name of EXAMPLES) {
+  // One test an example: all of them in one ran past the 5s timeout on a
+  // slow runner (4.4s on a fast one), and a failure names its file.
+  for (const name of EXAMPLES) {
+    it(`converts nothing on parse: every band of ${name} is kept as written`, () => {
       const doc = parseHTML(read(name), schema);
-      expect(nodesOf(doc, 'section'), name).toEqual([]);
-      expect(nodesOf(doc, 'columns'), name).toEqual([]);
-    }
-  });
+      expect(nodesOf(doc, 'section')).toEqual([]);
+      expect(nodesOf(doc, 'columns')).toEqual([]);
+    });
+  }
 
   it('recognises Racoon’s bands: the header’s two columns, the hero’s 200 and 400px, the products’ three', () => {
     const doc = parseHTML(RACOON, schema);

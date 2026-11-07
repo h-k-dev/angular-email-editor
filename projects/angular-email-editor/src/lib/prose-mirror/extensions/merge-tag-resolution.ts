@@ -584,8 +584,12 @@ export const selectMergeTag =
  */
 export function revealMergeTag(view: EditorView, expr: string): HTMLElement | null {
   const occurrence = firstOccurrence(view.state.doc, expr);
-  if (!occurrence || !selectMergeTag(expr)(view.state, view.dispatch)) return null;
+  if (!occurrence) return null;
+  // Focus first: ProseMirror scrolls to a selection only while the DOM's
+  // selection is in the editor — from a Send button, selecting first
+  // would leave the token where it was, out of sight.
   view.focus();
+  if (!selectMergeTag(expr)(view.state, view.dispatch)) return null;
   if (occurrence.kind === 'node') return view.nodeDOM(occurrence.pos) as HTMLElement | null;
   const { node } = view.domAtPos(occurrence.from + 1);
   const element = node instanceof HTMLElement ? node : node.parentElement;

@@ -91,7 +91,31 @@ export type EditingMode = 'design' | 'write';
     as the message opens, and kept until it closes. */
 export type MessageSheetKind = 'desktop' | 'mobile';
 
-/** Tells the sheets on one page apart: the attachment strip needs an id of
+/** Whether the keyboard is a Mac's: ⌘ where others hold Ctrl — the
+    editor's `Mod`. */
+const MAC = typeof navigator !== 'undefined' && /Mac|iP(hone|ad|od)/.test(navigator.platform);
+
+/**
+ * Send's key, as a frame hears it (a compose window, zoomed or not; the
+ * compose page, a pop-out's too): Mod-Enter — Ctrl-Enter, ⌘-Enter on a
+ * Mac — wherever the caret is in the frame, not only in the text. What
+ * claimed the key first is left alone: the editor's own Mod-Enter (it
+ * sends already), the AI chat's, a proposal's Apply — each prevents it.
+ * A held key repeats nothing, and an IME's Enter stays the IME's.
+ */
+export function isSendKey(event: KeyboardEvent): boolean {
+  return (
+    event.key === 'Enter' &&
+    (MAC ? event.metaKey : event.ctrlKey) &&
+    !event.shiftKey &&
+    !event.altKey &&
+    !event.repeat &&
+    !event.isComposing &&
+    !event.defaultPrevented
+  );
+}
+
+/** Tells the sheets on one page apart:the attachment strip needs an id of
     its own for the attach button's `aria-controls`. */
 let nextSheetId = 0;
 
@@ -850,6 +874,13 @@ export abstract class MessageSheet {
   /** The editor's own ways in — Mod-Enter, /send — submit the form exactly
       as the Send button does: one path, validated. */
   protected send(): void {
+    this.requestSend();
+  }
+
+  /** Send, asked from outside the sheet: the frame's Mod-Enter
+      (`isSendKey`), heard wherever the caret is in it — a row, a button,
+      the title bar — the same submit the editor's Mod-Enter makes. */
+  requestSend(): void {
     void submit(this.envelope);
   }
 
@@ -942,7 +973,8 @@ export abstract class MessageSheet {
     try {
       return await checkMergeTagValues(field.html, this.emailPane(), {
         resolve: (expressions) => this.#mergeTags.resolve(expressions),
-        message: (expr) => this.i18n.t('composer.placeholders.unfilled', { token: `{{ ${expr} }}` }),
+        message: (expr) =>
+          this.i18n.t('composer.placeholders.unfilled', { token: `{{ ${expr} }}` }),
       });
     } catch {
       return [];

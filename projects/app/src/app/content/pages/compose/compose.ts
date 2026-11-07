@@ -40,7 +40,7 @@ import { KeepDraft } from '../../partials/shared/email/message-form/keep-draft';
 import { Examples } from '../../../core/email/examples';
 import { MessageForm } from '../../partials/shared/email/message-form/message-form';
 import { MobileMessageForm } from '../../partials/shared/email/message-form/mobile-message-form';
-import { MessageSheet } from '../../partials/shared/email/message-form/message-sheet';
+import { MessageSheet, isSendKey } from '../../partials/shared/email/message-form/message-sheet';
 import { PaperIslandDirective } from '../../partials/shared/email/paper-island';
 import { DRAFT_SESSION, Draft } from '../../../core/email/draft';
 import { BLANK, Envelope } from '../../../core/email/envelope';
@@ -97,8 +97,21 @@ const WELCOME: Envelope = { ...BLANK, to: ['pride@example.com'] };
   ],
   templateUrl: './compose.html',
   styleUrl: './compose.scss',
+  host: { '(keydown)': 'sendKey($event)' },
 })
 export class Compose {
+  /** Mod-Enter anywhere in the page sends, as it does in the text: a row,
+      the bar, the source pane. Heard on the page's own element, so what
+      sits over it — a dialog, a menu, a compose window — is out of reach:
+      each is its own. */
+  protected sendKey(event: KeyboardEvent): void {
+    if (!isSendKey(event)) return;
+    const sheet = this.sheet();
+    if (!sheet) return;
+    event.preventDefault();
+    sheet.requestSend();
+  }
+
   /** The pop-out's session — its draft; `null`, the front page's. Read as
       the page opens. */
   readonly session = input<string | null>(null);

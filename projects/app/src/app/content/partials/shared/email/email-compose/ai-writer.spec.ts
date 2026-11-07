@@ -58,7 +58,9 @@ describe('createAiWriter', () => {
     expect(editor.getHTML()).toBe(html);
   });
 
-  it('the assistant’s whole email streams through the library with its empty lines intact', async () => {
+  // A whole email streamed piece by piece through the editor: 3.5s on a
+  // fast machine — room for a slow runner.
+  it('the assistant’s whole email streams through the library with its empty lines intact', { timeout: 20_000 }, async () => {
     vi.useFakeTimers();
     for (const language of ['en', 'de', 'ja'] as const) {
       const real = new Ai();
