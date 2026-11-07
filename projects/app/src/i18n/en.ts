@@ -82,6 +82,11 @@ export default {
         appearance: 'Appearance',
         language: 'Language',
         calendar: 'Calendar',
+        general: 'General',
+      },
+      inlineImages: {
+        label: 'Inline images',
+        hint: 'Off: a dropped or pasted picture stands in as an empty placeholder of its size — to try mail that carries no embedded pictures',
       },
       theme: {
         label: 'Theme',
@@ -567,6 +572,10 @@ export default {
       altPlaceholder: 'Describe the image',
       altWithValue: 'Alt text: {{alt}}',
       applyAlt: 'Apply alt text',
+      linkLabel: 'Image link',
+      linkPlaceholder: 'Paste an image address',
+      linkRefused: 'This address can’t be used for an image',
+      applyLink: 'Apply image link',
     },
     section: {
       options: 'Section options',

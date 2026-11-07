@@ -63,12 +63,12 @@ const BUTTON_LAYOUT: FormattingLayout = [
 ];
 
 /** An image alone gets its own tools instead: where it sits on its line
-    (the line's alignment — the image is inline), then swapping the file
-    and taking it out. The alt text leads, as a text button (see the
-    template). */
+    (the line's alignment — the image is inline), then its picture — from a
+    link, or a file — and taking it out. The alt text leads, as a text
+    button (see the template). */
 const IMAGE_LAYOUT: FormattingLayout = [
   ['align-left', 'align-center', 'align-right'],
-  ['replace-image', 'remove-image'],
+  ['image-link', 'replace-image', 'remove-image'],
 ];
 
 /** The colour pane, centred on its button: away from the selection first

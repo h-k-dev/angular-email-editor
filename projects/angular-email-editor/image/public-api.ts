@@ -3,3 +3,4 @@
  */
 
 export * from './image-alt';
+export * from './image-source';

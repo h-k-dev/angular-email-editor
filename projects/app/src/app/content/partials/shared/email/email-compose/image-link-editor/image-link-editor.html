@@ -1,0 +1,38 @@
+<!-- The dialog, for the composer's one popover: the address over the image. -->
+<ng-template #panel>
+  <div
+    class="image-link-editor"
+    role="dialog"
+    [attr.aria-label]="'editor.image.linkLabel' | translate"
+  >
+    <!-- The library does the rest: the address in the field, Enter and
+         Escape, the caret back to the editor, a refused address kept. -->
+    <input
+      class="image-link-editor__input"
+      type="url"
+      inputmode="url"
+      autocomplete="off"
+      spellcheck="false"
+      [attr.aria-label]="'editor.image.linkLabel' | translate"
+      [placeholder]="'editor.image.linkPlaceholder' | translate"
+      [emailImageSource]="editor()"
+      #link="emailImageSource"
+      [attr.aria-invalid]="link.refused()"
+      [attr.aria-describedby]="link.refused() ? 'image-link-editor-error' : null"
+      (emailImageSourceClosed)="open.set(false)"
+    />
+    @if (link.refused()) {
+      <span id="image-link-editor-error" class="image-link-editor__error" role="alert">{{
+        'editor.image.linkRefused' | translate
+      }}</span>
+    }
+    <button
+      mat-icon-button
+      type="button"
+      [attr.aria-label]="'editor.image.applyLink' | translate"
+      (click)="link.apply()"
+    >
+      <mat-icon>check</mat-icon>
+    </button>
+  </div>
+</ng-template>

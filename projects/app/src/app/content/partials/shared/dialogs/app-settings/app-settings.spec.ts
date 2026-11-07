@@ -63,6 +63,26 @@ describe('AppSettings', () => {
     again.ref.close();
   });
 
+  it('switches inline images off and on again — on, the default, keeps nothing', async () => {
+    const { ref, dialog } = await open(signal<AppSettingsSection | undefined>('general'));
+    const toggle = () =>
+      dialog.querySelector<HTMLButtonElement>(
+        '[data-setting="inline-images"] button[role="switch"]',
+      )!;
+    expect(toggle().getAttribute('aria-checked')).toBe('true');
+
+    toggle().click();
+    await settle();
+    expect(TestBed.inject(Preferences).inlineImages()).toBe(false);
+    expect(localStorage.getItem('angular-email-editor:inline-images')).not.toBeNull();
+
+    toggle().click();
+    await settle();
+    expect(TestBed.inject(Preferences).inlineImages()).toBe(true);
+    expect(localStorage.getItem('angular-email-editor:inline-images')).toBeNull();
+    ref.close();
+  });
+
   it('picks the calendar region apart from the language, and the minimum duration', async () => {
     const { ref, dialog } = await open(signal<AppSettingsSection | undefined>('calendar'));
     // The system's region (test-setup: Germany), said in the hint.

@@ -8,6 +8,7 @@ import { Tab, TabContent, TabList, TabPanel, Tabs } from '@angular/aria/tabs';
 import { MatIconButton } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogClose, MatDialogRef } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
+import { MatSlideToggle } from '@angular/material/slide-toggle';
 
 // Angular Email Editor
 import {
@@ -35,6 +36,7 @@ const SECTIONS = [
   { id: 'appearance', icon: 'palette', label: 'app.settings.sections.appearance' },
   { id: 'language', icon: 'translate', label: 'app.settings.sections.language' },
   { id: 'calendar', icon: 'calendar_month', label: 'app.settings.sections.calendar' },
+  { id: 'general', icon: 'tune', label: 'app.settings.sections.general' },
 ] as const;
 
 export type AppSettingsSection = (typeof SECTIONS)[number]['id'];
@@ -67,8 +69,10 @@ export function openAppSettings(
 /**
  * The app's settings — never the email's (those are the composer's own
  * dialog, `MessageSettings`, in the same frame): Appearance (the app's
- * theme — System, the default, Light or Dark), Language, and Calendar (its
- * region — apart from the language — and an event's minimum duration). Opened from the
+ * theme — System, the default, Light or Dark), Language, Calendar (its
+ * region — apart from the language — and an event's minimum duration), and
+ * General (Inline images, a switch for trying a host that sends no embedded
+ * pictures). Opened from the
  * mailbox aside's foot. Every pick applies at once, behind it, and this
  * browser keeps it ({@link Preferences}); there is nothing to save.
  */
@@ -80,6 +84,7 @@ export function openAppSettings(
     MatIcon,
     MatIconButton,
     MatDialogClose,
+    MatSlideToggle,
     Tabs,
     TabList,
     Tab,
@@ -99,6 +104,7 @@ export class AppSettings {
   protected readonly i18n = inject(I18n);
   protected readonly region = inject(Region);
   protected readonly minDuration = inject(Preferences).calendarMinDuration;
+  protected readonly inlineImages = inject(Preferences).inlineImages;
   protected readonly minDurations = MIN_DURATIONS;
 
   protected readonly sections = SECTIONS;
@@ -113,6 +119,8 @@ export class AppSettings {
   protected readonly languageLabelId = `${this.#id}-language`;
   protected readonly regionLabelId = `${this.#id}-region`;
   protected readonly minDurationLabelId = `${this.#id}-min-duration`;
+  protected readonly inlineImagesLabelId = `${this.#id}-inline-images`;
+  protected readonly inlineImagesHintId = `${this.#id}-inline-images-hint`;
 
   /** Each region by its name in the app's language — the region and the
       language are two settings, but the words are always the language's. */

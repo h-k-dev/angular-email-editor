@@ -18,6 +18,7 @@ import {
   imageDropTarget,
   selectedImage,
   selectedImageAlt,
+  selectedImageSource,
   openFileChooser,
 } from './image';
 import { NodeSelection, Selection, TextSelection } from 'prosemirror-state';
@@ -612,6 +613,7 @@ describe('image node', () => {
         src: 'a.png',
         alt: 'hero',
         width: 320,
+        height: null,
       });
       expect(
         filledPlaceholderAttrs({ src: null, width: null }, { src: 'a.png', alt: 'a', width: 600 }),
@@ -619,6 +621,7 @@ describe('image node', () => {
         src: 'a.png',
         alt: 'a',
         width: 600,
+        height: null,
       });
     });
   });
@@ -921,6 +924,310 @@ describe('image sources: the host’s rules', () => {
     it('with files (the default), an image drop is embedded as ever', () => {
       const { editor, unmount } = mount({});
       expect(drop(editor, [png])).toEqual({ claimed: true, prevented: 1 });
+      unmount();
+    });
+
+    /** jsdom has no object URLs and never draws: the file looks like a
+          picture of `width` × `height`, and every URL made is released. */
+    const measureAs = (width: number, height: number) => {
+      const made: string[] = [];
+      const revoked: string[] = [];
+      const create = vi.fn(() => {
+        made.push(`blob:${made.length}`);
+        return made.at(-1)!;
+      });
+      const revoke = vi.fn((url: string) => void revoked.push(url));
+      const { createObjectURL, revokeObjectURL } = URL;
+      Object.assign(URL, { createObjectURL: create, revokeObjectURL: revoke });
+      const src = vi.spyOn(HTMLImageElement.prototype, 'src', 'set').mockImplementation(function (
+        this: HTMLImageElement,
+      ) {
+        Object.defineProperty(this, 'naturalWidth', { value: width });
+        Object.defineProperty(this, 'naturalHeight', { value: height });
+        queueMicrotask(() => this.onload?.(new Event('load')));
+      });
+      return {
+        made,
+        revoked,
+        restore: () => {
+          src.mockRestore();
+          Object.assign(URL, { createObjectURL, revokeObjectURL });
+        },
+      };
+    };
+    const placeholder = (editor: ReturnType<typeof mount>['editor']) => {
+      let attrs: Record<string, unknown> | null = null;
+      editor.state.doc.descendants((node) => {
+        if (node.type.name === 'image') attrs = node.attrs;
+      });
+      return attrs;
+    };
+
+    describe("files: 'placeholder'", () => {
+      it('a desktop drop stands in as an empty frame of the picture’s size, its bytes never read', async () => {
+        const measured = measureAs(400, 300);
+        const refused: ImageRefusal[] = [];
+        const { editor, unmount } = mount({
+          files: 'placeholder',
+          onRefused: (r) => refused.push(r),
+        });
+        expect(drop(editor, [png])).toEqual({ claimed: true, prevented: 1 });
+        await settle();
+        expect(placeholder(editor)).toMatchObject({ src: null, width: 400, height: 300 });
+        const html = editor.getHTML();
+        expect(html).not.toContain('src=');
+        expect(html).toContain('width="400"');
+        expect(html).toContain('height="300"');
+        expect(refused).toEqual([]);
+        expect(measured.revoked).toEqual(measured.made);
+        // Drawn at the picture's ratio, not the frame's default.
+        const frame = editor.view.dom.querySelector('.aee-image__placeholder') as HTMLElement;
+        expect(frame.style.aspectRatio).toBe('400 / 300');
+        measured.restore();
+        unmount();
+      });
+
+      it('a picture wider than an email is capped at its own ratio', async () => {
+        const measured = measureAs(1200, 600);
+        const { editor, unmount } = mount({ files: 'placeholder' });
+        drop(editor, [png]);
+        await settle();
+        expect(placeholder(editor)).toMatchObject({ src: null, width: 600, height: 300 });
+        measured.restore();
+        unmount();
+      });
+
+      it('a pasted file stands in the same way; a pasted data: image keeps its width, emptied', async () => {
+        const measured = measureAs(200, 100);
+        const { editor, unmount } = mount({ files: 'placeholder' });
+        const event = {
+          clipboardData: { files: [png], types: ['Files'], getData: () => '' },
+        } as unknown as ClipboardEvent;
+        const taken = editor.view.someProp('handlePaste', (f) =>
+          f(editor.view, event, editor.state.doc.slice(0, 0)),
+        );
+        expect(taken).toBe(true);
+        await settle();
+        expect(placeholder(editor)).toMatchObject({ src: null, width: 200, height: 100 });
+        measured.restore();
+        unmount();
+
+        const html = '<img src="data:image/png;base64,AAAA" width="120" alt="logo">';
+        const other = mount({ files: 'placeholder' });
+        other.editor.view.pasteHTML(html, {
+          clipboardData: { getData: () => html, types: ['text/html'] },
+        } as unknown as ClipboardEvent);
+        expect(placeholder(other.editor)).toMatchObject({ src: null, width: 120, alt: 'logo' });
+        expect(other.editor.getHTML()).not.toContain('data:image');
+        other.unmount();
+      });
+
+      it('a web picture still comes in by its address; the picker never opens', async () => {
+        const measured = measureNothing();
+        const { editor, enabled, unmount } = mount({ files: 'placeholder' });
+        const web = { 'text/uri-list': 'https://example.com/cat.png' };
+        expect(drop(editor, [png], web)).toEqual({ claimed: true, prevented: 1 });
+        await settle();
+        expect(editor.getHTML()).toContain('src="https://example.com/cat.png"');
+        expect(enabled('image')).toBe(false);
+        measured.mockRestore();
+        unmount();
+      });
+
+      it('the height is a placeholder’s alone: it round-trips, and filling drops it', () => {
+        const { editor, unmount } = mount(
+          { files: 'placeholder' },
+          '<div><img width="400" height="300"><img src="https://example.com/a.png" width="40" height="30"></div>',
+        );
+        const images: Record<string, unknown>[] = [];
+        editor.state.doc.descendants((node) => {
+          if (node.type.name === 'image') images.push(node.attrs);
+        });
+        expect(images[0]).toMatchObject({ src: null, width: 400, height: 300 });
+        expect(images[1]).toMatchObject({ width: 40, height: null });
+        // Written fresh (a parsed source is kept verbatim): the placeholder
+        // writes its height, a picture never does.
+        const fresh = mount({ files: 'placeholder' }, '<div>x</div>');
+        const image = fresh.editor.state.schema.nodes['image'];
+        fresh.editor.view.dispatch(
+          fresh.editor.state.tr.insert(1, [
+            image.create({ src: null, width: 400, height: 300 }),
+            image.create({ src: 'https://example.com/a.png', width: 40, height: 30 }),
+          ]),
+        );
+        const html = fresh.editor.getHTML();
+        expect(html).toContain('width="400" height="300"');
+        expect(html).toContain('width="40" style');
+        fresh.unmount();
+        expect(
+          filledPlaceholderAttrs(images[0] as unknown as ImageAttrs, { src: 'b.png', width: 10 })
+            .height,
+        ).toBeNull();
+        unmount();
+      });
+    });
+
+    describe('files: { upload }', () => {
+      /** An upload the spec settles by hand. */
+      const uploads = () => {
+        const pending: {
+          file: File;
+          resolve: (src: string) => void;
+          reject: (e: unknown) => void;
+        }[] = [];
+        const upload = (file: File) =>
+          new Promise<string>((resolve, reject) => pending.push({ file, resolve, reject }));
+        return { pending, upload };
+      };
+      const frame = (editor: ReturnType<typeof mount>['editor']) =>
+        editor.view.dom.querySelector('.aee-image') as HTMLElement;
+
+      it('a drop stands in at its size, marked, and is filled with the address the upload gives', async () => {
+        const measured = measureAs(400, 300);
+        const { pending, upload } = uploads();
+        const { editor, unmount } = mount({ files: { upload } });
+        expect(drop(editor, [png])).toEqual({ claimed: true, prevented: 1 });
+        await settle();
+        expect(pending.map((p) => p.file)).toEqual([png]);
+        expect(placeholder(editor)).toMatchObject({ src: null, width: 400, height: 300 });
+        expect(frame(editor).classList).toContain('aee-image--uploading');
+        expect(frame(editor).getAttribute('aria-busy')).toBe('true');
+
+        pending[0].resolve('https://cdn.example.com/a.png');
+        await settle();
+        expect(placeholder(editor)).toMatchObject({
+          src: 'https://cdn.example.com/a.png',
+          alt: 'a',
+          width: 400,
+          height: null,
+        });
+        expect(frame(editor).classList).not.toContain('aee-image--uploading');
+        expect(editor.getHTML()).not.toContain('data:image');
+        measured.restore();
+        unmount();
+      });
+
+      it('finds its image after edits moved it; a deleted one takes no address', async () => {
+        const measured = measureAs(100, 50);
+        const { pending, upload } = uploads();
+        const { editor, unmount } = mount({ files: { upload } });
+        drop(editor, [png]);
+        await settle();
+        editor.view.dispatch(editor.state.tr.insertText('moved ', 1));
+        pending[0].resolve('https://cdn.example.com/a.png');
+        await settle();
+        expect(placeholder(editor)).toMatchObject({ src: 'https://cdn.example.com/a.png' });
+
+        drop(editor, [png]);
+        await settle();
+        let at = -1;
+        editor.state.doc.descendants((node, pos) => {
+          if (node.type.name === 'image' && !node.attrs['src']) at = pos;
+        });
+        editor.view.dispatch(editor.state.tr.delete(at, at + 1));
+        const before = editor.getHTML();
+        pending[1].resolve('https://cdn.example.com/b.png');
+        await settle();
+        expect(editor.getHTML()).toBe(before);
+        measured.restore();
+        unmount();
+      });
+
+      it('a failed upload leaves the placeholder and says so; an address the rules refuse is told too', async () => {
+        const measured = measureAs(100, 50);
+        const refused: ImageRefusal[] = [];
+        const { pending, upload } = uploads();
+        const { editor, unmount } = mount({
+          files: { upload },
+          accept: https,
+          onRefused: (r) => refused.push(r),
+        });
+        drop(editor, [png]);
+        await settle();
+        const error = new Error('offline');
+        pending[0].reject(error);
+        await settle();
+        expect(placeholder(editor)).toMatchObject({ src: null });
+        expect(frame(editor).classList).not.toContain('aee-image--uploading');
+        expect(refused).toEqual([{ reason: 'upload', file: png, error }]);
+
+        drop(editor, [png]);
+        await settle();
+        pending[1].resolve('http://cdn.example.com/a.png');
+        await settle();
+        expect(refused[1]).toEqual({ reason: 'source', src: 'http://cdn.example.com/a.png' });
+        measured.restore();
+        unmount();
+      });
+
+      it('files as a function is asked at every drop — a setting can switch it', async () => {
+        const measured = measureAs(100, 50);
+        let mode: 'placeholder' | boolean = true;
+        const { editor, unmount } = mount({ files: () => mode });
+        mode = 'placeholder';
+        drop(editor, [png]);
+        await settle();
+        expect(placeholder(editor)).toMatchObject({ src: null, width: 100, height: 50 });
+        mode = false;
+        expect(drop(editor, [png])).toEqual({ claimed: false, prevented: 0 });
+        measured.restore();
+        unmount();
+      });
+    });
+  });
+
+  describe('setImageSource', () => {
+    const select = (editor: ReturnType<typeof mount>['editor'], pos: number) =>
+      editor.view.dispatch(
+        editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, pos)),
+      );
+
+    it('fills a placeholder from a link, its frame and alt kept', () => {
+      const { editor, unmount } = mount(
+        { files: 'placeholder' },
+        '<div>a<img alt="hero" width="400" height="300">b</div>',
+      );
+      select(editor, 2);
+      expect(selectedImageSource(editor.state)).toBe('');
+      expect(editor.commands['setImageSource']('https://example.com/hero.png')).toBe(true);
+      expect(editor.state.doc.nodeAt(2)!.attrs).toMatchObject({
+        src: 'https://example.com/hero.png',
+        alt: 'hero',
+        width: 400,
+        height: null,
+      });
+      expect(selectedImageSource(editor.state)).toBe('https://example.com/hero.png');
+      unmount();
+    });
+
+    it('swaps a picture’s address, its width and alt kept; an embedded one reads as empty', () => {
+      const { editor, unmount } = mount(
+        {},
+        '<div>a<img src="data:image/png;base64,AAAA" alt="dot" width="40">b</div>',
+      );
+      select(editor, 2);
+      expect(selectedImageSource(editor.state)).toBe('');
+      expect(editor.commands['setImageSource']('https://example.com/b.png')).toBe(true);
+      expect(editor.state.doc.nodeAt(2)!.attrs).toMatchObject({
+        src: 'https://example.com/b.png',
+        alt: 'dot',
+        width: 40,
+      });
+      unmount();
+    });
+
+    it('goes through the rules; an empty link or no image sets nothing', () => {
+      const refused: ImageRefusal[] = [];
+      const { editor, unmount } = mount(
+        { accept: https, onRefused: (r) => refused.push(r) },
+        '<div>a<img width="40">b</div>',
+      );
+      expect(editor.commands['setImageSource']('https://example.com/a.png')).toBe(false);
+      select(editor, 2);
+      expect(editor.commands['setImageSource']('  ')).toBe(false);
+      expect(editor.commands['setImageSource']('http://example.com/a.png')).toBe(false);
+      expect(refused).toEqual([{ reason: 'source', src: 'http://example.com/a.png' }]);
+      expect(editor.state.doc.nodeAt(2)!.attrs['src']).toBeNull();
       unmount();
     });
   });

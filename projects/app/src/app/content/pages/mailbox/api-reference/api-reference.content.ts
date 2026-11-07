@@ -560,7 +560,9 @@ export const API_SECTIONS: readonly ApiSection[] = [
         signature: '(path, { min?, max?, rules?, messages? }) => void',
         summary:
           'addressList for a field that keeps its addresses as one string — `Ada <ada@x.io>, bob@x.io` in a plain text input.',
-        notes: ['split by the rule in force; min is 0, so an empty field passes; max: 1 for one mailbox'],
+        notes: [
+          'split by the rule in force; min is 0, so an empty field passes; max: 1 for one mailbox',
+        ],
       },
     ],
   },
@@ -655,21 +657,40 @@ export const API_SECTIONS: readonly ApiSection[] = [
     id: 'image-sources',
     title: 'Image sources',
     intro:
-      'Where an image may come from — the host’s rules, one by one. Without them the editor takes every file (embedded) and every safe address. A transport with no inline parts keeps to linked pictures: `files: false`, `accept` for public addresses, `choose` for its own dialog.',
+      'Where an image may come from — the host’s rules, one by one. Without them the editor takes every file (embedded) and every safe address. A transport with no inline parts keeps to linked pictures: upload files with `files: { upload }`, or hold their place with `files: "placeholder"` and fill it from a link.',
     entries: [
       {
         id: 'create-image-sources',
         name: 'createImageSources',
         signature:
-          '(options: { files?: boolean; choose?: (request) => Promise<ImageChoice | null>; accept?: (src: string) => boolean; onRefused?: (refusal: ImageRefusal) => void }) => FunctionalExtension',
+          '(options: { files?: ImageFiles | (() => ImageFiles); choose?: (request) => Promise<ImageChoice | null>; accept?: (src: string) => boolean; onRefused?: (refusal: ImageRefusal) => void }) => FunctionalExtension',
         summary:
           'Bytes (`data:`, `blob:`, `file:`, `cid:`) go by `files`; addresses by `accept`. Placeholders and `{{ … }}` tokens always pass.',
         notes: [
-          'files: false — a dropped or pasted file is refused and bubbles to the host’s dropzone; a picture dragged from a web page comes in by its address',
+          'files: true — the default: a dropped, pasted or picked file is embedded',
+          'files: false — refused and left to bubble to the host’s dropzone; a picture dragged from a web page comes in by its address',
+          'files: "placeholder" — an empty frame of the picture’s exact size, its bytes never read; fill it with setImageSource',
+          'files: { upload: (file) => Promise<string> } — the same frame, marked aee-image--uploading, filled with the address it resolves with; the file picker uploads too',
+          'files as a function — asked at every drop, paste and pick, so it can follow a setting',
           'choose — asked wherever the file picker would open: /image, Replace image, a placeholder’s click',
-          'accept — asked of every address: dropped, pasted, chosen, insertImage; a refused one is left out of a paste',
-          'onRefused — { reason: "file", files } or { reason: "source", src }, once per paste',
+          'accept — asked of every address: dropped, pasted, chosen, uploaded, insertImage, setImageSource',
+          'onRefused — { reason: "file", files }, { reason: "source", src } or { reason: "upload", file, error }',
         ],
+      },
+      {
+        id: 'selected-image-source',
+        name: 'selectedImageSource',
+        signature: '(state: EditorState) => string | null',
+        summary:
+          'The selected image’s link — empty for a placeholder or an embedded picture. Its command, `editor.commands.setImageSource(src)`, gives the image a link: a placeholder is filled (its frame and alt kept), a picture’s address swapped (its width and alt kept), through `accept`.',
+      },
+      {
+        id: 'image-source-field',
+        name: 'ImageSource',
+        from: `${LIB}/image`,
+        signature: '<input [emailImageSource]="editor" #link="emailImageSource">',
+        summary:
+          'The link as the host’s own field, the twin of `[emailImageAlt]`: Enter applies, Escape cancels, a refused address keeps the field open with `refused()` true.',
       },
       {
         id: 'image-source-accepted',

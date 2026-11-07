@@ -2725,6 +2725,26 @@ section[html-email-compose]:not([data-wrap='off']) .aee-source-gutter > .aee-cod
   color: var(--mat-sys-primary, #4c6ef5);
 }
 
+/* A picture on its way up (`createImageSources({ files: { upload } })`):
+ * the placeholder breathes until the address comes back. Still where
+ * motion is reduced — the primary border alone says it. */
+.aee-editor .aee-image--uploading .aee-image__placeholder {
+  border-color: var(--mat-sys-primary, #4c6ef5);
+  animation: aee-image-uploading 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes aee-image-uploading {
+  to {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aee-editor .aee-image--uploading .aee-image__placeholder {
+    animation: none;
+  }
+}
+
 /* A token's image (`src="{{ company.logoUrl }}"`) is the same placeholder
  * until the tags are filled: the expression dead centre, a pill as the text
  * draws a tag. One line always — on a frame narrower than the expression

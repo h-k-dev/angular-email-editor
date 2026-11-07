@@ -8,7 +8,7 @@ import {
   TextSelection,
   Transaction,
 } from 'prosemirror-state';
-import { Decoration, EditorView, NodeView } from 'prosemirror-view';
+import { Decoration, DecorationSet, EditorView, NodeView } from 'prosemirror-view';
 import { DOMSerializer, Fragment, Node, Schema, Slice } from 'prosemirror-model';
 import { FunctionalExtension, defineExtension, defineNode } from '../../extension';
 import { isSafeUrl } from '../marks/link';
@@ -23,6 +23,12 @@ export interface ImageAttrs {
   title?: string | null;
   /** Natural display width in px, capped at {@link MAX_IMAGE_WIDTH}. */
   width?: number | null;
+  /** A placeholder's height in px — the frame stands at the size of the
+      picture it holds the place of (a file dropped where files are not
+      taken, `createImageSources({ files: 'placeholder' })`). Placeholders
+      only: a picture is `height: auto` at its own ratio, so filling or
+      replacing one drops it, and a source never parses or serializes it. */
+  height?: number | null;
 }
 
 /** Email convention: wider than this overflows phones and gets Gmail-clipped
@@ -39,16 +45,52 @@ function parseWidth(node: HTMLElement): number | null {
   return parsed > 0 ? Math.min(parsed, MAX_IMAGE_WIDTH) : null;
 }
 
+/** A placeholder's `height` attribute — the only height an image keeps. */
+function parseHeight(node: HTMLElement): number | null {
+  const attr = parseInt(node.getAttribute('height') ?? '', 10);
+  return attr > 0 ? attr : null;
+}
+
 /** The natural width of an image at `url`, capped for email — null when it
     cannot be measured. */
 function naturalWidth(url: string): Promise<number | null> {
+  return naturalSize(url).then((size) => size?.width ?? null);
+}
+
+/** The natural size of an image at `url`, capped for email at its own
+    ratio — null when it cannot be measured. */
+function naturalSize(url: string): Promise<{ width: number; height: number } | null> {
   return new Promise((resolve) => {
     const probe = document.createElement('img');
-    probe.onload = () =>
-      resolve(probe.naturalWidth ? Math.min(probe.naturalWidth, MAX_IMAGE_WIDTH) : null);
+    probe.onload = () => {
+      const { naturalWidth: width, naturalHeight: height } = probe;
+      if (!width || !height) return resolve(null);
+      const scale = Math.min(1, MAX_IMAGE_WIDTH / width);
+      resolve({ width: Math.round(width * scale), height: Math.round(height * scale) });
+    };
     probe.onerror = () => resolve(null);
     probe.src = url;
   });
+}
+
+/** The placeholder a file stands in as where files are not taken
+    (`files: 'placeholder'`): an empty frame at the picture's size, capped
+    for email. The bytes are only looked at, through an object URL released
+    at once — never read into the document. Unmeasurable, the fresh
+    placeholder's width. */
+export async function imageFilePlaceholder(file: File): Promise<ImageAttrs> {
+  const url = URL.createObjectURL(file);
+  try {
+    const size = await naturalSize(url);
+    return {
+      src: null,
+      alt: null,
+      width: size?.width ?? PLACEHOLDER_WIDTH,
+      height: size?.height ?? null,
+    };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 function dataUrl(file: File): Promise<string> {
@@ -66,7 +108,7 @@ function dataUrl(file: File): Promise<string> {
     document stays light, the part travels with the send intent), else a
     data URL (the registry-less fallback, promoted at send). */
 export function readImageFile(file: File, registry?: InlineImageRegistry): Promise<ImageAttrs> {
-  const alt = file.name.replace(/\.\w+$/, '');
+  const alt = fileAlt(file);
   if (registry) {
     const cid = registry.add(file);
     return naturalWidth(registry.resolve(cid) ?? '').then((width) => ({
@@ -215,6 +257,15 @@ const imageDragKey = new PluginKey<ImageDragOptions>('imageDrag');
  *       onRefused: () => toast('Only linked images can be sent'),
  *     })
  *
+ * A host that keeps its pictures on its own server uploads them instead —
+ * the file stands in as a placeholder of its size until the address comes
+ * back:
+ *
+ *     createImageSources({
+ *       files: { upload: (file) => api.uploadImage(file) }, // → its https URL
+ *       accept: (src) => /^https:\/\//i.test(src),
+ *     })
+ *
  * Bytes and addresses are two rules: a source that carries a file's bytes
  * (`data:`, `blob:`, `file:`, `cid:`) is a file, and `files` decides it; any
  * other is an address, and `accept` does. An empty source (a placeholder)
@@ -222,14 +273,14 @@ const imageDragKey = new PluginKey<ImageDragOptions>('imageDrag');
  */
 export interface ImageSourceOptions {
   /**
-   * Local files — dropped, pasted, picked — become images. On by default.
-   * Off, no file is ever read: a drop or paste of image files is turned
-   * away (`onRefused`) and left to bubble, so a dropzone round the editor
-   * still attaches it; the file picker never opens; a pasted `data:` image
-   * is dropped. A picture dragged from a web page still comes in — by its
-   * address, through `accept`.
+   * What a local file — dropped, pasted, picked — becomes ({@link ImageFiles}):
+   * an embedded image (`true`, the default), nothing (`false`), an empty
+   * placeholder of its size (`'placeholder'`), or an uploaded one
+   * (`{ upload }`). A function is asked at every drop, paste and pick, so
+   * the answer can follow a setting: `files: () => (embed() ? true :
+   * 'placeholder')`.
    */
-  files?: boolean;
+  files?: ImageFiles | (() => ImageFiles);
   /**
    * Asked for a source wherever the editor would open the file picker —
    * `/image`, Replace image, a click on a placeholder. Resolves with the
@@ -245,8 +296,43 @@ export interface ImageSourceOptions {
    * (pasted, it is dropped from what is pasted). Default: every safe one.
    */
   accept?: (src: string) => boolean;
-  /** An image the rules turned away: files, or an address. */
+  /** An image the rules turned away — files, or an address — or an upload
+      that failed. */
   onRefused?: (refusal: ImageRefusal) => void;
+}
+
+/**
+ * What a local file becomes:
+ *
+ * - `true` (the default): an embedded image — read into the document as a
+ *   `cid:` part of the inline image registry, or a data URL without one.
+ * - `false`: nothing. No file is ever read: a drop or paste of image files
+ *   is turned away (`onRefused`) and left to bubble, so a dropzone round
+ *   the editor still attaches it; the file picker never opens; a pasted
+ *   `data:` image is dropped.
+ * - `'placeholder'`: an empty frame of exactly the picture's size
+ *   ({@link imageFilePlaceholder}), for an address to fill later —
+ *   `setImageSource`, or `choose`. Its bytes are never read. The drop is
+ *   the editor's: it does not bubble. The file picker never opens.
+ * - `{ upload }`: an uploaded image. The file stands in as that same
+ *   placeholder at once, marked `aee-image--uploading` (and `aria-busy`)
+ *   while `upload` runs, and is filled with the address it resolves with —
+ *   through `accept`, its width and the file's name as alt kept. A failed
+ *   upload leaves the placeholder and tells `onRefused` (`reason:
+ *   'upload'`); an image deleted meanwhile takes no address. The file
+ *   picker opens; what it picks is uploaded the same way.
+ *
+ * In every mode but `true`, a pasted image that carries bytes (`data:`,
+ * `cid:`, …) is a placeholder at its width rather than dropped (`false`
+ * drops it), and a picture dragged from a web page comes in by its
+ * address, through `accept`.
+ */
+export type ImageFiles = boolean | 'placeholder' | ImageUpload;
+
+/** Where an uploaded picture goes: `upload` puts the file where the
+    recipient can load it and resolves with its address. */
+export interface ImageUpload {
+  readonly upload: (file: File) => Promise<string>;
 }
 
 /** What the editor asks `choose` for. */
@@ -266,11 +352,23 @@ export interface ImageChoice {
 
 export type ImageRefusal =
   | { readonly reason: 'file'; readonly files: readonly File[] }
-  | { readonly reason: 'source'; readonly src: string };
+  | { readonly reason: 'source'; readonly src: string }
+  | { readonly reason: 'upload'; readonly file: File; readonly error: unknown };
 
 /** The host's rules, as plugin state — the image node reads them from its
     view, as it reads the drag options. */
 const imageSourcesKey = new PluginKey<ImageSourceOptions>('imageSources');
+
+/** The uploads in flight: a node decoration on each image waiting for its
+    address (spec `upload`: the upload's id), mapped with the document — so
+    the address finds its image wherever edits moved it, and an image
+    deleted meanwhile takes none. The decoration also marks it for the app
+    (`aee-image--uploading`, `aria-busy`). */
+const imageUploadsKey = new PluginKey<DecorationSet>('imageUploads');
+
+type UploadMeta = { add: { id: number; pos: number; size: number } } | { done: number };
+
+let nextUploadId = 0;
 
 /** Installs the host's image rules ({@link ImageSourceOptions}). Without it
     the editor takes every file and every safe address. */
@@ -287,6 +385,27 @@ export const createImageSources = (options: ImageSourceOptions): FunctionalExten
           transformPasted: (slice) => keepAcceptedImages(slice, options),
         },
       }),
+      new Plugin<DecorationSet>({
+        key: imageUploadsKey,
+        state: {
+          init: () => DecorationSet.empty,
+          apply: (tr, set) => {
+            set = set.map(tr.mapping, tr.doc);
+            const meta = tr.getMeta(imageUploadsKey) as UploadMeta | undefined;
+            if (meta && 'add' in meta) {
+              const { id, pos, size } = meta.add;
+              const attrs = { class: 'aee-image--uploading', 'aria-busy': 'true' };
+              set = set.add(tr.doc, [Decoration.node(pos, pos + size, attrs, { upload: id })]);
+            } else if (meta && 'done' in meta) {
+              set = set.remove(
+                set.find(undefined, undefined, (spec) => spec['upload'] === meta.done),
+              );
+            }
+            return set;
+          },
+        },
+        props: { decorations: (state) => imageUploadsKey.getState(state) },
+      }),
     ],
   });
 
@@ -294,13 +413,45 @@ function imageSources(state: EditorState): ImageSourceOptions {
   return imageSourcesKey.getState(state) ?? {};
 }
 
-function filesAllowed(state: EditorState): boolean {
-  return imageSources(state).files !== false;
+/** What a file becomes under `options`, asked now (`files` may be a
+    function). */
+function filesOf(options: ImageSourceOptions): ImageFiles {
+  const files = typeof options.files === 'function' ? options.files() : options.files;
+  return files ?? true;
 }
 
-/** A way to choose a picture: the host's `choose`, or the file picker. */
+/** The host's upload, when files are uploaded. */
+function uploaderOf(options: ImageSourceOptions): ImageUpload['upload'] | null {
+  const files = filesOf(options);
+  return typeof files === 'object' ? files.upload : null;
+}
+
+/** Whether files are read into images — embedded, the default. */
+const readsFiles = (options: ImageSourceOptions): boolean => filesOf(options) === true;
+
+function filesAllowed(state: EditorState): boolean {
+  return readsFiles(imageSources(state));
+}
+
+function filesAsPlaceholders(state: EditorState): boolean {
+  return filesOf(imageSources(state)) === 'placeholder';
+}
+
+function filesUploaded(state: EditorState): boolean {
+  return !!uploaderOf(imageSources(state));
+}
+
+/** Whether a pick — `/image`, Replace image, a placeholder's click — opens
+    the file picker for an upload: files uploaded, and no `choose` of the
+    host's taking the pick instead. */
+function pickedForUpload(state: EditorState): boolean {
+  return !imageSources(state).choose && filesUploaded(state);
+}
+
+/** A way to choose a picture: the host's `choose`, or the file picker —
+    files embedded or uploaded. */
 function canChooseImage(state: EditorState): boolean {
-  return !!imageSources(state).choose || filesAllowed(state);
+  return !!imageSources(state).choose || filesAllowed(state) || filesUploaded(state);
 }
 
 /** A source carrying a file's bytes, not an address. */
@@ -315,9 +466,18 @@ export function imageSourceAccepted(
 ): boolean {
   if (!src?.trim() || pendingImageSource(src)) return true;
   if (!isSafeUrl(src)) return false;
-  if (BYTES.test(src)) return options.files !== false;
+  if (BYTES.test(src)) return readsFiles(options);
   return options.accept?.(src.trim()) ?? true;
 }
+
+/** A bytes image (`data:`, `cid:`, …) that `'placeholder'` or `{ upload }`
+    turns into an empty frame rather than away. */
+const placeholderInstead = (options: ImageSourceOptions, src: string): boolean => {
+  const files = filesOf(options);
+  return (
+    (files === 'placeholder' || typeof files === 'object') && isSafeUrl(src) && BYTES.test(src)
+  );
+};
 
 /** The addresses a paste turned away, told once the paste is done: one
     paste can pass the rules twice (ProseMirror's parse, then the editor's
@@ -337,14 +497,19 @@ function refuseSource(options: ImageSourceOptions, src: string): void {
   pending.add(src);
 }
 
-/** `slice` without the images `options` turn away — each told once. */
+/** `slice` without the images `options` turn away — each told once. Under
+    `files: 'placeholder'` a bytes image stays, as an empty frame at its
+    width (its height is not known before it is drawn). */
 function keepAcceptedImages(slice: Slice, options: ImageSourceOptions): Slice {
   let dropped = false;
   const keep = (fragment: Fragment): Fragment => {
     const nodes: Node[] = [];
     fragment.forEach((node) => {
       const src = node.type.name === 'image' ? (node.attrs['src'] as string | null) : null;
-      if (src && !imageSourceAccepted(options, src)) {
+      if (src && placeholderInstead(options, src)) {
+        dropped = true;
+        nodes.push(node.type.create({ ...node.attrs, src: null, height: null }, null, node.marks));
+      } else if (src && !imageSourceAccepted(options, src)) {
         dropped = true;
         refuseSource(options, src);
       } else nodes.push(node.isLeaf ? node : node.copy(keep(node.content)));
@@ -388,6 +553,14 @@ function dropLinkedImage(
 ): boolean {
   const options = imageSources(view.state);
   const src = webImageSource(event.dataTransfer);
+  const asPlaceholder = filesOf(options) === 'placeholder';
+  if (!src && (asPlaceholder || uploaderOf(options))) {
+    event.preventDefault();
+    imageDragKey.getState(view.state)?.claim?.(event);
+    const pos = imageDropTarget(view).pos;
+    void (asPlaceholder ? insertImagePlaceholders : insertImageUploads)(view, schema, files, pos);
+    return true;
+  }
   if (!src) {
     options.onRefused?.({ reason: 'file', files });
     return false;
@@ -423,7 +596,7 @@ async function chooseImages(
     }
     return [{ src, alt: choice?.alt ?? null, width: await naturalWidth(src) }];
   }
-  if (options.files === false) return [];
+  if (!readsFiles(options)) return [];
   const files = await pickImageFiles(multiple);
   const registry = inlineImageRegistry(view.state);
   const picked: ImageAttrs[] = [];
@@ -561,20 +734,157 @@ async function insertImageFiles(
   }
 }
 
+/** Each file as a placeholder of its size (`files: 'placeholder'`). */
+async function insertImagePlaceholders(
+  view: EditorView,
+  schema: Schema,
+  files: File[],
+  pos: number,
+): Promise<void> {
+  for (const file of files) {
+    const attrs = await imageFilePlaceholder(file);
+    if (view.isDestroyed) return;
+    pos = insertImageAttrs(view, schema, attrs, pos);
+  }
+}
+
+/** Each file as a placeholder of its size, then uploaded into it
+    (`files: { upload }`). */
+async function insertImageUploads(
+  view: EditorView,
+  schema: Schema,
+  files: File[],
+  pos: number,
+): Promise<void> {
+  for (const file of files) {
+    const attrs = await imageFilePlaceholder(file);
+    if (view.isDestroyed) return;
+    const inserted = insertImageNode(view, schema, attrs, pos);
+    pos = inserted.next;
+    const at = positionOf(view.state.doc, inserted.node);
+    if (at !== null) startUpload(view, at, file);
+  }
+}
+
+/** Where `node` — that very instance — stands in `doc`, or null. */
+function positionOf(doc: Node, node: Node): number | null {
+  let found: number | null = null;
+  doc.descendants((child, pos) => {
+    if (found !== null) return false;
+    if (child === node) found = pos;
+    return true;
+  });
+  return found;
+}
+
+/** The alt a file brings: its name, without the extension. */
+const fileAlt = (file: File): string => file.name.replace(/\.\w+$/, '');
+
+/** Uploads `file` into the image at `pos` — a placeholder it fills, or a
+    picture whose source it replaces: the image is marked while the upload
+    runs, and takes the address it resolves with (see {@link ImageFiles}). */
+function startUpload(view: EditorView, pos: number, file: File): void {
+  const options = imageSources(view.state);
+  const upload = uploaderOf(options);
+  const node = view.state.doc.nodeAt(pos);
+  if (!upload || !node) return;
+  const id = ++nextUploadId;
+  const meta: UploadMeta = { add: { id, pos, size: node.nodeSize } };
+  view.dispatch(view.state.tr.setMeta(imageUploadsKey, meta).setMeta('addToHistory', false));
+  upload(file).then(
+    (src) => finishUpload(view, id, { src: String(src ?? '').trim(), alt: fileAlt(file) }),
+    (error: unknown) => {
+      finishUpload(view, id, null);
+      options.onRefused?.({ reason: 'upload', file, error });
+    },
+  );
+}
+
+/** An upload is done: its image — if it is still there — takes the address,
+    through the rules; the mark comes off either way. */
+function finishUpload(
+  view: EditorView,
+  id: number,
+  picked: { src: string; alt: string } | null,
+): void {
+  if (view.isDestroyed) return;
+  const { state } = view;
+  const found = imageUploadsKey
+    .getState(state)
+    ?.find(undefined, undefined, (spec) => spec['upload'] === id)[0];
+  const tr = state.tr.setMeta(imageUploadsKey, { done: id } satisfies UploadMeta);
+  const node = found ? state.doc.nodeAt(found.from) : null;
+  const options = imageSources(state);
+  if (!node || !picked?.src) {
+    view.dispatch(tr.setMeta('addToHistory', false));
+    return;
+  }
+  if (!imageSourceAccepted(options, picked.src)) {
+    view.dispatch(tr.setMeta('addToHistory', false));
+    options.onRefused?.({ reason: 'source', src: picked.src });
+    return;
+  }
+  tr.setNodeMarkup(found!.from, undefined, sourcedImageAttrs(node.attrs as ImageAttrs, picked));
+  view.dispatch(keepNodeSelection(tr, state, found!.from));
+}
+
+/** An image given a new source: a placeholder is filled (its frame kept),
+    a picture's source replaced — its width kept, the alt the new one's
+    where it brings one, the height a picture's own. */
+function sourcedImageAttrs(current: ImageAttrs, picked: ImageAttrs): ImageAttrs {
+  const placeholder = !current.src || !!pendingImageSource(current.src);
+  if (placeholder) return filledPlaceholderAttrs(current, picked);
+  return {
+    ...current,
+    src: picked.src,
+    alt: picked.alt === undefined ? (current.alt ?? null) : picked.alt,
+    width: current.width ?? picked.width ?? null,
+    height: null,
+  };
+}
+
+/** A node selection on the image at `pos` survives its replacement in
+    place (a leaf's new attrs are a new node, which a node selection does
+    not map over). */
+function keepNodeSelection(tr: Transaction, state: EditorState, pos: number): Transaction {
+  return state.selection instanceof NodeSelection && state.selection.from === pos
+    ? tr.setSelection(NodeSelection.create(tr.doc, pos))
+    : tr;
+}
+
 /** Puts one image in at `pos` and answers the position past it. */
-function insertImageAttrs(view: EditorView, schema: Schema, attrs: ImageAttrs, pos: number): number {
-  if (view.isDestroyed) return pos;
+function insertImageAttrs(
+  view: EditorView,
+  schema: Schema,
+  attrs: ImageAttrs,
+  pos: number,
+): number {
+  return insertImageNode(view, schema, attrs, pos).next;
+}
+
+/** Puts one image in at `pos`: the node inserted, and the position past
+    it. */
+function insertImageNode(
+  view: EditorView,
+  schema: Schema,
+  attrs: ImageAttrs,
+  pos: number,
+): { node: Node; next: number } {
+  if (view.isDestroyed) return { node: schema.nodes['image'].create(attrs), next: pos };
   // Fitted to its line with room for the caret to its right (`CARET_ROOM`):
-  // a full-width image would push the caret's spot to the next line.
+  // a full-width image would push the caret's spot to the next line. A
+  // placeholder's height follows, at the picture's ratio.
   const width = fitImageWidth(attrs.width ?? null, lineCeilingAt(view, pos));
-  const node = schema.nodes['image'].create({ ...attrs, width });
+  const height =
+    attrs.height && attrs.width && width ? Math.round((attrs.height * width) / attrs.width) : null;
+  const node = schema.nodes['image'].create({ ...attrs, width, height });
   const tr = view.state.tr.insert(Math.min(pos, view.state.doc.content.size), node);
   // A tall image can push the caret below the fold; bring it back the same
   // way `insertImage` does, so a drop is not a caret that vanished.
   view.dispatch(tr.scrollIntoView());
   // Past whatever was inserted: at a block boundary the transform wraps the
   // inline image into a line of its own, so the growth is not the node's size.
-  return tr.mapping.map(pos);
+  return { node, next: tr.mapping.map(pos) };
 }
 
 /** Opens the OS file picker for images and resolves with the choice (a
@@ -659,6 +969,12 @@ function isWindows(): boolean {
     them at the cursor: the slash-menu path, mirroring what drop and paste
     already do. */
 function pickAndInsertImages(view: EditorView, schema: Schema): void {
+  if (pickedForUpload(view.state)) {
+    void pickImageFiles(true).then((files) =>
+      insertImageUploads(view, schema, files, view.state.selection.from),
+    );
+    return;
+  }
   void chooseImages(view, { kind: 'insert', current: null }, true).then((images) => {
     let pos = view.state.selection.from;
     for (const attrs of images) pos = insertImageAttrs(view, schema, attrs, pos);
@@ -715,13 +1031,15 @@ export function fitImageWidth(
 export const PLACEHOLDER_WIDTH = 320;
 
 /** A placeholder keeps the frame its author sized: the picked file supplies
-    the source (and the alt when the placeholder has none); `width` stays. */
+    the source (and the alt when the placeholder has none); `width` stays,
+    the height becomes the picture's own (`height: auto`). */
 export function filledPlaceholderAttrs(placeholder: ImageAttrs, picked: ImageAttrs): ImageAttrs {
   return {
     ...placeholder,
     src: picked.src,
     alt: placeholder.alt ?? picked.alt ?? null,
     width: placeholder.width ?? picked.width ?? null,
+    height: null,
   };
 }
 
@@ -837,7 +1155,13 @@ class ImageView implements NodeView {
 
   private render(node: Node): HTMLElement {
     const src = node.attrs['src'] as string | null;
-    if (!src) return imageFrame('aee-image__placeholder', frameWords(this.decorations));
+    if (!src) {
+      const box = imageFrame('aee-image__placeholder', frameWords(this.decorations));
+      // Sized after a picture (`height`): its ratio, not the app's default.
+      const { width, height } = node.attrs as ImageAttrs;
+      if (width && height) box.style.aspectRatio = `${width} / ${height}`;
+      return box;
+    }
     const pending = pendingImageSource(src);
     if (pending) return pendingFrame(pending);
     const img = DOMSerializer.renderSpec(document, node.type.spec.toDOM!(node)).dom as HTMLElement;
@@ -910,6 +1234,13 @@ class ImageView implements NodeView {
     if ((src && !pendingImageSource(src)) || this.resized) return;
     if ((event.target as Element | null)?.closest?.('.aee-image__pad')) return;
     if (!canChooseImage(this.view.state)) return;
+    if (pickedForUpload(this.view.state)) {
+      void pickImageFiles(false).then(([file]) => {
+        const pos = this.getPos();
+        if (file && pos !== undefined && !this.view.isDestroyed) startUpload(this.view, pos, file);
+      });
+      return;
+    }
     const current = this.node.attrs as ImageAttrs;
     void chooseImages(this.view, { kind: 'fill', current }, false).then(([picked]) => {
       if (!picked || this.view.isDestroyed) return;
@@ -959,7 +1290,13 @@ class ImageView implements NodeView {
       setTimeout(() => (this.resized = false), 0);
       const pos = this.getPos();
       if (pos === undefined || width === startWidth) return;
-      const tr = this.view.state.tr.setNodeMarkup(pos, undefined, { ...this.node.attrs, width });
+      // A placeholder sized after a picture keeps that picture's ratio.
+      const height = this.node.attrs['height'] ? Math.round(width * ratio) : null;
+      const tr = this.view.state.tr.setNodeMarkup(pos, undefined, {
+        ...this.node.attrs,
+        width,
+        height,
+      });
       tr.setSelection(NodeSelection.create(tr.doc, pos));
       this.view.dispatch(tr);
     };
@@ -1000,6 +1337,41 @@ function reselect(tr: Transaction, state: EditorState, pos: number): Transaction
     : tr.setSelection(TextSelection.create(tr.doc, state.selection.from, state.selection.to));
 }
 
+/** The selected image's address, as a field would show it: `''` for a
+    placeholder and for a source that carries bytes (a `cid:` part, a data
+    URL — nothing anyone would type), the token of a pending source, `null`
+    when no image is the selection (see {@link selectedImage}). */
+export function selectedImageSource(state: EditorState): string | null {
+  const image = selectedImage(state);
+  if (!image) return null;
+  const src = ((image.node.attrs['src'] as string | null) ?? '').trim();
+  return BYTES.test(src) ? '' : src;
+}
+
+/**
+ * Gives the selected image the picture at `src` — a link, `https://…`:
+ * a placeholder is filled (its frame and alt kept), a picture's source is
+ * replaced (its width and alt kept — the words may still fit; rewrite them
+ * after). Through the host's rules (`createImageSources`): an address they
+ * turn away is not set, and `onRefused` hears it. False when no image is
+ * the selection, `src` is empty, or the rules refuse it.
+ */
+const setImageSource =
+  (src: string): Command =>
+  (state, dispatch) => {
+    const image = selectedImage(state);
+    const value = src.trim();
+    if (!image || !value) return false;
+    const options = imageSources(state);
+    if (!imageSourceAccepted(options, value)) {
+      if (dispatch) options.onRefused?.({ reason: 'source', src: value });
+      return false;
+    }
+    const attrs = sourcedImageAttrs(image.node.attrs as ImageAttrs, { src: value });
+    dispatch?.(reselect(state.tr.setNodeMarkup(image.pos, undefined, attrs), state, image.pos));
+    return true;
+  };
+
 /** Sets the selected image's alt text; empty or null takes it off. */
 const setImageAlt =
   (alt: string | null): Command =>
@@ -1030,6 +1402,14 @@ const removeImage: Command = (state, dispatch) => {
 function replaceSelectedImage(view: EditorView): void {
   const image = selectedImage(view.state);
   if (!image) return;
+  if (pickedForUpload(view.state)) {
+    void pickImageFiles(false).then(([file]) => {
+      if (file && !view.isDestroyed && view.state.doc.nodeAt(image.pos) === image.node) {
+        startUpload(view, image.pos, file);
+      }
+    });
+    return;
+  }
   const current = image.node.attrs as ImageAttrs;
   void chooseImages(view, { kind: 'replace', current }, false).then(([picked]) => {
     if (!picked || view.isDestroyed) return;
@@ -1040,6 +1420,7 @@ function replaceSelectedImage(view: EditorView): void {
       src: picked.src,
       alt: picked.alt ?? null,
       width: image.node.attrs['width'] ?? picked.width ?? null,
+      height: null,
     });
     view.dispatch(reselect(tr, state, image.pos));
   });
@@ -1075,6 +1456,7 @@ export const Image = defineNode({
       alt: { default: null },
       title: { default: null },
       width: { default: null },
+      height: { default: null },
     },
     parseDOM: [
       {
@@ -1090,12 +1472,14 @@ export const Image = defineNode({
             alt: node.getAttribute('alt'),
             title: node.getAttribute('title'),
             width: parseWidth(node),
+            // A placeholder's only: a picture is `height: auto`.
+            height: src ? null : parseHeight(node),
           };
         },
       },
     ],
     toDOM: (node) => {
-      const { src, alt, title, width } = node.attrs;
+      const { src, alt, title, width, height } = node.attrs;
       const style = width
         ? `width: 100%; max-width: ${width}px; height: auto;`
         : 'max-width: 100%; height: auto;';
@@ -1106,6 +1490,7 @@ export const Image = defineNode({
           ...(alt && { alt }),
           ...(title && { title }),
           ...(width && { width: String(width) }),
+          ...(!src && height && { height: String(height) }),
           style,
         },
       ];
@@ -1120,6 +1505,7 @@ export const Image = defineNode({
       return true;
     },
     setImageAlt,
+    setImageSource,
     removeImage: () => removeImage,
   }),
   actions: ({ schema }) => [
@@ -1203,6 +1589,14 @@ export const Image = defineNode({
             // page — pastes as ever, its images through the rules; files
             // alone are turned away.
             const html = Array.from(event.clipboardData?.types ?? []).includes('text/html');
+            if (!html && filesAsPlaceholders(view.state)) {
+              void insertImagePlaceholders(view, schema, files, view.state.selection.from);
+              return true;
+            }
+            if (!html && filesUploaded(view.state)) {
+              void insertImageUploads(view, schema, files, view.state.selection.from);
+              return true;
+            }
             if (!html) imageSources(view.state).onRefused?.({ reason: 'file', files });
             return false;
           }

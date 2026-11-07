@@ -79,6 +79,11 @@ export default {
         appearance: 'Darstellung',
         language: 'Sprache',
         calendar: 'Kalender',
+        general: 'Allgemein',
+      },
+      inlineImages: {
+        label: 'Eingebettete Bilder',
+        hint: 'Aus: Ein abgelegtes oder eingefügtes Bild wird zum leeren Platzhalter in seiner Größe – zum Ausprobieren von Mails ohne eingebettete Bilder',
       },
       theme: {
         label: 'Design',
@@ -600,6 +605,7 @@ export default {
       undo: 'Rückgängig',
       redo: 'Wiederholen',
       'image-alt': 'Alternativtext',
+      'image-link': 'Bildlink',
       color: 'Farbe',
       link: 'Link',
       strike: 'Durchgestrichen',
@@ -690,6 +696,10 @@ export default {
       altPlaceholder: 'Bild beschreiben',
       altWithValue: 'Alternativtext: {{alt}}',
       applyAlt: 'Alternativtext übernehmen',
+      linkLabel: 'Bildlink',
+      linkPlaceholder: 'Bildadresse einfügen',
+      linkRefused: 'Diese Adresse kann nicht für ein Bild verwendet werden',
+      applyLink: 'Bildlink übernehmen',
     },
     menu: {
       sections: {

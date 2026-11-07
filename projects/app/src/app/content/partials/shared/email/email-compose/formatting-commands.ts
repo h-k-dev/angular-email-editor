@@ -39,6 +39,9 @@ export interface FormattingHost {
   openLink: (options?: { newButton?: boolean }) => void;
   /** Opens the alt-text editor over the selected image. */
   openAltText: () => void;
+  /** Opens the image-link editor over the selected image: a public
+      picture's address, to fill a placeholder or swap the picture. */
+  openImageLink: () => void;
 }
 
 /**
@@ -122,6 +125,12 @@ export class FormattingCommands {
       {
         id: 'image-alt',
         run: () => this.#host()?.openAltText(),
+        isEnabled: (state) => !!selectedImage(state),
+      },
+      // Its link, the same way: the address of a public picture.
+      {
+        id: 'image-link',
+        run: () => this.#host()?.openImageLink(),
         isEnabled: (state) => !!selectedImage(state),
       },
     ],

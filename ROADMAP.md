@@ -57,7 +57,7 @@ HTML is allowed to be.
 2. **Unknown is marked, never changed.** What the library does not know yet
    — markup no block models, tags/attributes/CSS outside the email
    vocabulary — is marked in the editor (`UnknownMarkup`) and noted by the
-   lint. Conversions a recognised pattern allows are *offered* (a suggestion
+   lint. Conversions a recognised pattern allows are _offered_ (a suggestion
    the author takes, one undo step), never run on parse. The vocabulary grows
    one piece at a time.
 3. **Canonical output is deterministic.** Same document → byte-identical
@@ -78,7 +78,7 @@ HTML is allowed to be.
    an event handler. An API whose natural template use is a lookup
    (`actions.get(id)`, `sectionTitle(id)`) is shaped wrong: the lookup goes
    behind a `computed` or into the state (`emailAction="bold"
-   [emailActionFrom]="actions"`, `item.heading` — 2026-10-17).
+[emailActionFrom]="actions"`, `item.heading` — 2026-10-17).
 7. **If a mainstream client can't render it, we don't emit it.** Gmail,
    Outlook (Word engine), Apple Mail, Yahoo, and the big webmailers define
    our floor. When in doubt: caniemail says no.
@@ -750,18 +750,18 @@ stripped), so every answer must be fluid and inline.
 **Definition of done for any node extension: its JSDoc states what happens at
 320px, and its serialize rules implement that answer.**
 
-| Extension                      | The trap at 320px                                                                                         | Our fluid answer                                                                                                                                                                                                                                                                                                                                                   |
-| ------------------------------ | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Image**                      | Fixed pixel width overflows the screen; Outlook ignores `max-width` entirely                              | Hybrid sizing: `width` _attribute_ for Outlook + `style="width:100%; max-width:<n>px; height:auto"` for everyone else                                                                                                                                                                                                                                              |
-| **Table / layout blocks (M5)** | Columns keep their desktop widths and force horizontal scroll                                             | ✅ **Shipped (`/columns`)**: `inline-block` columns with `width:100%` capped by `max-width: container/n` + `box-sizing:border-box` — side by side when the caps fit, stacked when they don't. Outlook ignores `inline-block` and stacks too. Ghost tables for true Outlook side-by-side remain a non-goal for now. (Data `/table` is separate — it stays tabular.) |
-| **Lists**                      | Default `padding-inline-start: 40px` per nesting level — two levels eat a third of the screen             | ✅ **Shipped 2026-09-02**: `padding-left: 24px` on `ul`/`ol` — 24px per level, tested nested. **2026-10-17**: a top-level list keeps `margin: 12px 0px` (Gmail's spacing; Outlook may add it to a neighbouring heading's or list's, up to 12px over a browser); **Bulleted/Numbered list (layout)** and every nested list stay `margin: 0px` (a repair plugin flushes what Tab nests). A flush import (top margin said, zero) or a list inside an `li` reads as layout                                                                                                                                                                                                                                              |
-| **Blockquote**                 | Nested reply chains accumulate margins until text is one word per line                                    | ✅ **Shipped 2026-09-02**: `margin: 0px; padding-left: 12px; border-left: 2px solid` — 14px per nesting level, never a stacked margin                                                                                                                                                                                                                              |
+| Extension                      | The trap at 320px                                                                                         | Our fluid answer                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Image**                      | Fixed pixel width overflows the screen; Outlook ignores `max-width` entirely                              | Hybrid sizing: `width` _attribute_ for Outlook + `style="width:100%; max-width:<n>px; height:auto"` for everyone else                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| **Table / layout blocks (M5)** | Columns keep their desktop widths and force horizontal scroll                                             | ✅ **Shipped (`/columns`)**: `inline-block` columns with `width:100%` capped by `max-width: container/n` + `box-sizing:border-box` — side by side when the caps fit, stacked when they don't. Outlook ignores `inline-block` and stacks too. Ghost tables for true Outlook side-by-side remain a non-goal for now. (Data `/table` is separate — it stays tabular.)                                                                                                                                                                                                                                                                                                                                                                   |
+| **Lists**                      | Default `padding-inline-start: 40px` per nesting level — two levels eat a third of the screen             | ✅ **Shipped 2026-09-02**: `padding-left: 24px` on `ul`/`ol` — 24px per level, tested nested. **2026-10-17**: a top-level list keeps `margin: 12px 0px` (Gmail's spacing; Outlook may add it to a neighbouring heading's or list's, up to 12px over a browser); **Bulleted/Numbered list (layout)** and every nested list stay `margin: 0px` (a repair plugin flushes what Tab nests). A flush import (top margin said, zero) or a list inside an `li` reads as layout                                                                                                                                                                                                                                                               |
+| **Blockquote**                 | Nested reply chains accumulate margins until text is one word per line                                    | ✅ **Shipped 2026-09-02**: `margin: 0px; padding-left: 12px; border-left: 2px solid` — 14px per nesting level, never a stacked margin                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | **Headings**                   | Desktop-sized `h1` wraps into a wall at phone width                                                       | ✅ **Shipped 2026-09-02**: 24/20/18/16px scale as inline `font-size`; no `line-height` on purpose (Outlook substitutes its own — the lint would say so). **2026-10-17**: h1–h4 only (h5/h6 import as plain lines, `##### ` stays text); a heading takes `margin: <above>px 0px 4px` — 20/16/14/12 above, 4 below (proximity: nearer its words), px, positive (caniemail: Gmail, Outlook Windows, Apple Mail). Lines carry no margins, so two meet only heading-to-heading, where browsers collapse and Word may add: above + 4 = the size, so Outlook's worst case is the 24/20/18/16 scale, 4px off at most; **Heading (layout)** keeps `margin: 0px` for bands and columns. A flush import (top margin said, zero) reads as layout |
-| **Paragraph / document width** | Full-width lines are unreadable on desktop, so someone will add a fixed container that then breaks phones | If we ever emit a wrapper, it is `max-width` + `width:100%` — the hybrid, never a fixed width                                                                                                                                                                                                                                                                      |
-| **Links / long text**          | An unbroken URL or token wider than the viewport forces the whole email to scroll                         | `word-break`-friendly serialization for link text where possible; lint long unbroken strings                                                                                                                                                                                                                                                                       |
-| **Button block (M5)**          | Padding-based fake buttons too small to tap                                                               | Touch target ≥ 44px via padding (never `height`), generous inline `padding`                                                                                                                                                                                                                                                                                        |
-| **Font sizes**                 | Below ~13px, iOS auto-inflates text and reflows the layout                                                | Minimum emitted font size ≥ 14px; the lint engine (M3) enforces it                                                                                                                                                                                                                                                                                                 |
-| **Horizontal rule**            | Fixed pixel width                                                                                         | `width:100%`, done                                                                                                                                                                                                                                                                                                                                                 |
+| **Paragraph / document width** | Full-width lines are unreadable on desktop, so someone will add a fixed container that then breaks phones | If we ever emit a wrapper, it is `max-width` + `width:100%` — the hybrid, never a fixed width                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| **Links / long text**          | An unbroken URL or token wider than the viewport forces the whole email to scroll                         | `word-break`-friendly serialization for link text where possible; lint long unbroken strings                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| **Button block (M5)**          | Padding-based fake buttons too small to tap                                                               | Touch target ≥ 44px via padding (never `height`), generous inline `padding`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| **Font sizes**                 | Below ~13px, iOS auto-inflates text and reflows the layout                                                | Minimum emitted font size ≥ 14px; the lint engine (M3) enforces it                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| **Horizontal rule**            | Fixed pixel width                                                                                         | `width:100%`, done                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 
 Two enforcement hooks so the ledger stays alive:
 
@@ -965,6 +965,21 @@ quoted block ("On {date}, {name} wrote:") is generated from inbound From/Date
         `claim: claimDragEvent`; dropzone.js, ngx-file-drop, a hand-written
         zone: `claim: (event) => event.stopPropagation()`. No `claim`, no
         zone, no difference. The peer dependency is gone.
+  - [x] **Hosts without inline parts (2026-11-07).** `createImageSources`'
+        `files` grew two modes beside `true`/`false`: `'placeholder'` — a
+        dropped or pasted file stands in as an empty frame of its exact size
+        (measured through an object URL released at once; the `height`
+        attribute is a placeholder's alone), its bytes never read — and
+        `{ upload }` — the same frame, marked `aee-image--uploading` while
+        the host's upload runs (a node decoration mapped with the document,
+        so edits meanwhile are fine and a deleted image takes nothing), then
+        filled with the address it resolves with, through `accept`; a
+        failure tells `onRefused` (`reason: 'upload'`). `files` may be a
+        function, asked at every drop, paste and pick. A link fills or swaps
+        any image: the `setImageSource` command, `selectedImageSource`, and
+        `[emailImageSource]` (the `/image` entry point, `[emailImageAlt]`'s
+        twin). The demo: Settings › General › Inline images, and Image link
+        in the image bubble.
   - [x] **A `cid:` resolver input** (`cid → object URL`), display-only —
         shipped 2026-09-02 as the _registry_, see the shipped note below. An
         imported `cid:` image renders broken today: the MIME parts went to the
@@ -1041,11 +1056,11 @@ client applies.
 schema (`ParseMode`, `parseHTML(html, schema, { mode })`,
 `createEditor({ parseMode })`):
 
-| Mode       | Default of                                                         | What it keeps                                                                                     |
-| ---------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
-| `email`    | `createEditor`, `createHtmlLanguage`, `createSourceMarks`, the app | Every tag, attribute and CSS property at least one floor client applies (`email-vocabulary.ts`), exactly as authored; the document envelope; comments and conditionals. |
-| `preserve` | opt-in                                                             | Like `email`, minus the vocabulary filter — custom elements, `data-*`, invented CSS.              |
-| `repair`   | `parseHTML`, `lintHTML`/`formatHTML`, paste, reply/import seeds, AI proposals | The canonical blocks, via the import pipeline — unchanged.                                  |
+| Mode       | Default of                                                                    | What it keeps                                                                                                                                                           |
+| ---------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `email`    | `createEditor`, `createHtmlLanguage`, `createSourceMarks`, the app            | Every tag, attribute and CSS property at least one floor client applies (`email-vocabulary.ts`), exactly as authored; the document envelope; comments and conditionals. |
+| `preserve` | opt-in                                                                        | Like `email`, minus the vocabulary filter — custom elements, `data-*`, invented CSS.                                                                                    |
+| `repair`   | `parseHTML`, `lintHTML`/`formatHTML`, paste, reply/import seeds, AI proposals | The canonical blocks, via the import pipeline — unchanged.                                                                                                              |
 
 - **Every block recognizes usable markup — generically** (`preserve.ts`
   `recognize`, `authored.ts`). A node or mark claims whatever its own parse
@@ -1055,7 +1070,7 @@ schema (`ParseMode`, `parseHTML(html, schema, { mode })`,
   bold and stays `<b class="x">`, an MJML text `<div>` is a paragraph, its
   `<td><img>` an image in a table cell, its inline-block anchors buttons.
   Recognition is refused — the preserve family keeps the element verbatim
-  instead — only when taking it would change the *structure*: the node
+  instead — only when taking it would change the _structure_: the node
   could not stand there without an invented wrapper, the authored elements
   down to the content are not the ones the node renders (MJML's section
   bands, which lack the inner `<div>` ours writes), the content would not
@@ -1107,7 +1122,7 @@ Known trade-offs, accepted for now:
   canonical markup; a structural edit that rebuilds a node (some table
   commands) keeps the overlay only where the command carries attributes.
 - Head `<style>` text is kept as written in every mode; only style
-  *attributes* are filtered by the vocabulary.
+  _attributes_ are filtered by the vocabulary.
 - **Import and reply still repair.** An `.eml` body is email HTML, so the
   email parse is the natural next step for `importedDocument` — one argument.
 
@@ -1123,6 +1138,7 @@ refused). The Summernote corrections are offered (`storedMistakes`,
 page by the page grip (`authored-page.ts`), no longer lifted on parse.
 Unknown markup is marked (`UnknownMarkup`). An `<iframe>` the parse refuses
 leaves a link to what it played (the refusal's own step, `embeds.ts`).
+
 - Outlook fidelity of kept markup is by construction (verbatim); only
   browser rendering is measured.
 
@@ -1365,7 +1381,7 @@ colgroup + tbody` + a boundary-lines overlay) none of which serializes
   of an editor that already exists — it replaced the demo's `angularSync`
   extension. `/actions` is the Angular side: `injectActions`,
   `editorState`, `[emailAction]` (by id since 2026-10-17: `emailAction="bold"
-  [emailActionFrom]="actions"` — the lookup is the directive's `computed`,
+[emailActionFrom]="actions"` — the lookup is the directive's `computed`,
   not a call in the template). Host-only concerns stay the host's: order
   and grouping, responsive `wide`, labels shown (translated by id in the
   template), and items that open host UI (link, pickers) — to come in as

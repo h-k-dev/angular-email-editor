@@ -50,6 +50,7 @@ class Host {
       codeEditor: signal(undefined),
       openLink: () => undefined,
       openAltText: () => undefined,
+      openImageLink: () => undefined,
     });
     afterNextRender(() => {
       this.editor = createEditor({

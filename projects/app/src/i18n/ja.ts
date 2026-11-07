@@ -78,6 +78,11 @@ export default {
         appearance: '外観',
         language: '言語',
         calendar: 'カレンダー',
+        general: '一般',
+      },
+      inlineImages: {
+        label: 'インライン画像',
+        hint: 'オフ：ドロップまたは貼り付けた画像は、同じサイズの空のプレースホルダーになります。画像を埋め込まないメールの確認用です',
       },
       theme: {
         label: 'テーマ',
@@ -589,6 +594,7 @@ export default {
       undo: '元に戻す',
       redo: 'やり直す',
       'image-alt': '代替テキスト',
+      'image-link': '画像のリンク',
       color: '色',
       link: 'リンク',
       table: '表を挿入',
@@ -678,6 +684,10 @@ export default {
       altPlaceholder: '画像の説明',
       altWithValue: '代替テキスト：{{alt}}',
       applyAlt: '代替テキストを適用',
+      linkLabel: '画像のリンク',
+      linkPlaceholder: '画像のアドレスを貼り付け',
+      linkRefused: 'このアドレスは画像に使用できません',
+      applyLink: '画像のリンクを適用',
     },
     menu: {
       sections: {

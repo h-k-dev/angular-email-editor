@@ -49,10 +49,12 @@ import { FloatingScrollbar } from '../../../common/floating-scrollbar/floating-s
 import { FloatingFoot, footClearance } from './floating-foot';
 import { LinkEditor } from './link-editor/link-editor';
 import { AltTextEditor } from './alt-text-editor/alt-text-editor';
+import { ImageLinkEditor } from './image-link-editor/image-link-editor';
 import { ChatBasedSuggestion } from './chat-based-suggestion/chat-based-suggestion';
 import { Popover } from './popover/popover';
 import { PopoverOutlet } from './popover/popover-outlet';
 import { Examples } from '../../../../../core/email/examples';
+import { Preferences } from '../../../../../core/storages/preferences';
 import { examplesGroup } from './examples-group';
 import { MergeTags } from '../../../../../core/email/merge-tags';
 import { I18n } from '../../../../../core/translations/i18n';
@@ -85,6 +87,7 @@ import {
   createContentStream,
   createAngularExpressions,
   createImageDrag,
+  createImageSources,
   createInlineImages,
   createSendIntent,
   createMergeTagResolution,
@@ -179,6 +182,7 @@ export type ComposeKit = BodyFormat | 'snippet';
     FormattingToolbar,
     LinkEditor,
     AltTextEditor,
+    ImageLinkEditor,
     ChatBasedSuggestion,
     HeightSwitch,
     FloatingScrollbar,
@@ -218,6 +222,8 @@ export class EmailCompose implements FormValueControl<string> {
   readonly #commands = inject(FormattingCommands);
   /** The composer's inline image registry — provided by the composer. */
   readonly #images = inject(InlineImages);
+  /** The app settings' Inline images — read at every drop and paste. */
+  readonly #inlineImages = inject(Preferences).inlineImages;
   /** The rows of the slash menu's /templates group — the template store,
       as `TEMPLATE_SOURCE` gives it. */
   readonly #templateSource = inject(TEMPLATE_SOURCE);
@@ -503,6 +509,7 @@ export class EmailCompose implements FormValueControl<string> {
   protected readonly tableMenu = viewChild.required(TableMenu);
   protected readonly linkEditor = viewChild.required(LinkEditor);
   protected readonly altTextEditor = viewChild.required(AltTextEditor);
+  protected readonly imageLinkEditor = viewChild.required(ImageLinkEditor);
   protected readonly suggestion = viewChild.required(ChatBasedSuggestion);
   /** A filled-in placeholder's card, Ctrl held over its value: the token it
       was, and Restore. */
@@ -615,6 +622,8 @@ export class EmailCompose implements FormValueControl<string> {
       // The bubble menu is open over the image when its alt button is
       // pressed: its box is where the popover goes.
       openAltText: () => this.altTextEditor().show(this.bubbleMenuState().boundingBox),
+      // Image link, the same way: over the image the bubble stands over.
+      openImageLink: () => this.imageLinkEditor().show(this.bubbleMenuState().boundingBox),
     });
 
     // On an island, its start points (`MarqueeStart` — a zoomed window's
@@ -766,6 +775,11 @@ export class EmailCompose implements FormValueControl<string> {
       createAngularExpressions({ onDiagnostics: (d) => this.expressionDiagnostics.set(d) }),
       createTextMetrics({ onMetrics: (metrics) => this.bodyMetrics.set(metrics) }),
       createInlineImages({ registry: this.#images }),
+      // The app settings' Inline images: off, a dropped or pasted picture
+      // stands in as an empty placeholder of its size — the image bubble's
+      // Image link fills it. Asked at every drop, paste and pick, so an
+      // open composer follows the switch.
+      createImageSources({ files: () => (this.#inlineImages() ? true : 'placeholder') }),
       // A click on a button never follows it: it opens the link editor on
       // it, as on a text link — whose "Open link" is the way out. The caret
       // stays in the editor, the button selected as an image is on a click:

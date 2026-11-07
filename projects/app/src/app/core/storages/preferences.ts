@@ -139,6 +139,13 @@ export class Preferences {
       one and the pane scrolls sideways. */
   readonly sourceWrap = this.#storage.pairSignal(`${PREFIX}source-wrap`, onOff(true));
 
+  /** Whether a picture dropped or pasted into a message is embedded — the
+      app settings' Inline images, a switch for trying a host whose mail
+      carries no embedded images. Unset reads as on; off, the picture stands
+      in as an empty placeholder of its size (`createImageSources({ files:
+      'placeholder' })`), in every composer at once. */
+  readonly inlineImages = this.#storage.pairSignal(`${PREFIX}inline-images`, onOff(true));
+
   /** The designer's HTML source, light or dark — its corner toggle, its
       hover menu. Unset reads as `designer`: the email's own paper. */
   readonly designerSourceScheme = this.#storage.pairSignal(

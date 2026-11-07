@@ -185,5 +185,35 @@
         </div>
       </ng-template>
     </section>
+
+    <!-- General: Inline images — on, a dropped or pasted picture is
+         embedded; off, it stands in as an empty placeholder of its size, to
+         try a host whose mail carries no embedded pictures. Every composer
+         follows at once, open ones too. -->
+    <section ngTabPanel value="general" [preserveContent]="true" class="settings__page">
+      <ng-template ngTabContent>
+        <h3 class="settings__page-title">{{ 'app.settings.sections.general' | translate }}</h3>
+        <div class="settings__card">
+          <div class="settings__row">
+            <div class="settings__text">
+              <span class="settings__label" [id]="inlineImagesLabelId">{{
+                'app.settings.inlineImages.label' | translate
+              }}</span>
+              <span class="settings__hint" [id]="inlineImagesHintId">{{
+                'app.settings.inlineImages.hint' | translate
+              }}</span>
+            </div>
+            <mat-slide-toggle
+              class="settings__switch"
+              data-setting="inline-images"
+              [checked]="inlineImages()"
+              [aria-labelledby]="inlineImagesLabelId"
+              [aria-describedby]="inlineImagesHintId"
+              (change)="inlineImages.set($event.checked)"
+            />
+          </div>
+        </div>
+      </ng-template>
+    </section>
   </div>
 </div>

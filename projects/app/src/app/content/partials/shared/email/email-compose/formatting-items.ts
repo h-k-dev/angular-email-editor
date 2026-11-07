@@ -28,6 +28,7 @@ export type FormattingItemId =
   | 'clear-formatting'
   | 'table'
   | 'image-alt'
+  | 'image-link'
   | 'replace-image'
   | 'remove-image';
 
@@ -225,6 +226,14 @@ export function formattingItems(
       label: 'Alt text',
       icon: 'short_text',
       ...action('image-alt', { toggle: false }),
+    },
+    // A public picture's address — the composer's too: it opens the image
+    // link editor, which fills a placeholder or swaps the picture.
+    'image-link': {
+      id: 'image-link',
+      label: 'Image link',
+      icon: 'add_link',
+      ...action('image-link', { toggle: false }),
     },
     'replace-image': {
       id: 'replace-image',

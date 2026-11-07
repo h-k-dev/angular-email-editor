@@ -6,6 +6,7 @@
      the menus are its panels. Here they all take no room. -->
 <div link-editor></div>
 <div alt-text-editor></div>
+<div image-link-editor></div>
 <div bubble-menu [state]="bubbleShown()"></div>
 <div section-menu [target]="sectionHandle()" (closed)="closeHandles()"></div>
 <div table-menu [target]="tableHandle()" (closed)="tableHandle.set(null)"></div>
@@ -208,7 +209,9 @@
         <span class="email-compose__suggestion-text">
           <span class="email-compose__suggestion-title">{{ item.title }}</span>
           @if (item.detail) {
-            <span class="email-compose__suggestion-detail" [title]="item.detail">{{ item.detail }}</span>
+            <span class="email-compose__suggestion-detail" [title]="item.detail">{{
+              item.detail
+            }}</span>
           }
         </span>
         @if (item.children) {
