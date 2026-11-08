@@ -1,6 +1,6 @@
 import { DateTime, WeekdayNumbers } from 'luxon';
 
-import type { RegionCode } from '../translations/region-codes';
+import type { RegionCode } from './calendar-regions';
 
 /**
  * The calendar's dates: Luxon `DateTime`s in the browser's zone, written as

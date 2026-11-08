@@ -11,7 +11,7 @@ import {
 
 import { I18n } from '../../../../../../core/translations/i18n';
 import { FormattingCommands } from '../formatting-commands';
-import { ToolbarMenuItem } from './toolbar-menu/toolbar-menu';
+import { ToolbarMenuItem } from '../../../../common/toolbar-menu/toolbar-menu';
 
 /** The curated stack a font is, if it is one — compared as the library
     compares stacks, so a computed style matches the stack it came from. */

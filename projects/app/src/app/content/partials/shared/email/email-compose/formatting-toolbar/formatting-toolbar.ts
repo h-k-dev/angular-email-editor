@@ -39,7 +39,11 @@ import { ColorPicker } from './color-picker/color-picker';
 import { createFontState } from './font-state';
 import { TablePicker } from './table-picker/table-picker';
 import { ToolbarKeys } from './toolbar-keys';
-import { ToolbarMenu, ToolbarMenuItem, ToolbarMenuRow } from './toolbar-menu/toolbar-menu';
+import {
+  ToolbarMenu,
+  ToolbarMenuItem,
+  ToolbarMenuRow,
+} from '../../../../common/toolbar-menu/toolbar-menu';
 import { PaperIslandScheme } from '../../paper-island';
 import { ToolbarOverflow, ToolbarOverflowItem } from './toolbar-overflow';
 import { KeepFocus } from '@h-k-dev/angular-email-editor/focus';
@@ -192,15 +196,17 @@ export class FormattingToolbar {
   protected readonly moreItems = computed<ToolbarMenuItem<FormattingItemId>[]>(() => {
     const from = this.overflow()?.overflowFrom() ?? null;
     if (from === null) return [];
-    return this.entries().slice(from).map(({ item, separated }, i) => ({
-      value: item.id,
-      label: item.title(),
-      icon: item.icon,
-      kind: item.pressed ? 'checkbox' : undefined,
-      checked: item.pressed?.(),
-      disabled: item.disabled?.(),
-      separated: i > 0 && separated,
-    }));
+    return this.entries()
+      .slice(from)
+      .map(({ item, separated }, i) => ({
+        value: item.id,
+        label: item.title(),
+        icon: item.icon,
+        kind: item.pressed ? 'checkbox' : undefined,
+        checked: item.pressed?.(),
+        disabled: item.disabled?.(),
+        separated: i > 0 && separated,
+      }));
   });
 
   /** Presses a button — on the toolbar, or chosen from the ⋯ menu. A picker

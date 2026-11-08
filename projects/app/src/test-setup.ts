@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { beforeEach } from 'vitest';
 
+import { provideAppCalendarHost } from './app/core/calendar-host/app-calendar-host';
 import { SYSTEM_REGION } from './app/core/translations/region';
 import { provideI18n } from './i18n/loader';
 
@@ -34,13 +35,20 @@ for (const name of ['localStorage', 'sessionStorage'] as const) {
  * configures its own TestBed adds to this.
  */
 /**
+ * …with the app as the calendar's host, as app.config.ts gives it…
+ */
+/**
  * …and lives in Germany, the app's fallback region, whatever machine or
  * time zone runs it: the calendar's week starts on Monday. A spec of
  * another region picks it (`Region.choose`).
  */
 beforeEach(() =>
   TestBed.configureTestingModule({
-    providers: [provideI18n(), { provide: SYSTEM_REGION, useValue: 'DE' }],
+    providers: [
+      provideI18n(),
+      provideAppCalendarHost(),
+      { provide: SYSTEM_REGION, useValue: 'DE' },
+    ],
   }),
 );
 
@@ -81,7 +89,17 @@ if (typeof Element !== 'undefined' && typeof Element.prototype.scrollIntoView !=
     the library's own setup gives, rather than a throw. */
 if (typeof Range !== 'undefined') {
   const empty = (): DOMRect =>
-    ({ x: 0, y: 0, width: 0, height: 0, top: 0, right: 0, bottom: 0, left: 0, toJSON: () => ({}) }) as DOMRect;
+    ({
+      x: 0,
+      y: 0,
+      width: 0,
+      height: 0,
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+      toJSON: () => ({}),
+    }) as DOMRect;
   Range.prototype.getClientRects ??= () => [] as unknown as DOMRectList;
   Range.prototype.getBoundingClientRect ??= empty;
 }

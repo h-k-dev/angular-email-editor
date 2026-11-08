@@ -7,7 +7,7 @@ import type { CustomSwatches } from '@h-k-dev/angular-email-editor/swatches';
 import { LocalStorage, StorageCodec, onOff, oneOf, wholeIn } from './local-storage';
 import type { ThemeScheme } from '../theme/theme';
 import { CustomView, DEFAULT_CUSTOM_VIEW, isCustomView } from '../calendar/calendar-view-token';
-import { REGIONS, type RegionPreference } from '../translations/region-codes';
+import { REGIONS, type RegionPreference } from '../calendar/calendar-regions';
 
 /** The app's theme as chosen: light or dark of its own, or the system's. */
 export type ThemePreference = ThemeScheme | 'system';

@@ -12,11 +12,8 @@ import {
   EVENT_COLOR_VALUES,
   EventColor,
 } from '../../../../../core/calendar/calendar-event';
-import { I18n } from '../../../../../core/translations/i18n';
-import {
-  ToolbarMenu,
-  ToolbarMenuItem,
-} from '../../email/email-compose/formatting-toolbar/toolbar-menu/toolbar-menu';
+import { CALENDAR_HOST } from '../../../../../core/calendar/calendar-host';
+import { ToolbarMenu, ToolbarMenuItem } from '../../../common/toolbar-menu/toolbar-menu';
 
 /**
  * An event's colour at the head of its card: a round dot in a round quiet
@@ -64,7 +61,7 @@ import {
   host: { '[style.--event-color]': 'value()' },
 })
 export class ColorMarker {
-  readonly #i18n = inject(I18n);
+  readonly #host = inject(CALENDAR_HOST);
 
   /** The event's colour. */
   readonly color = input.required<EventColor>();
@@ -77,14 +74,15 @@ export class ColorMarker {
 
   /** Its name: "Color: Peacock". */
   protected readonly label = computed(
-    () => `${this.#i18n.t('calendar.color')}: ${this.#i18n.t(`calendar.colors.${this.color()}`)}`,
+    () =>
+      `${this.#host.label('calendar.color')}: ${this.#host.label(`calendar.colors.${this.color()}`)}`,
   );
 
   protected readonly items = computed<ToolbarMenuItem<EventColor>[]>(() => {
     const picked = this.color();
     return EVENT_COLORS.map((id) => ({
       value: id,
-      label: this.#i18n.t(`calendar.colors.${id}`),
+      label: this.#host.label(`calendar.colors.${id}`),
       swatch: EVENT_COLOR_VALUES[id],
       kind: 'radio',
       checked: id === picked,

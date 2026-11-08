@@ -29,10 +29,7 @@ import { PHONE_CONTAINER_MAX } from '../../../../../core/layout/viewport';
 import { I18n } from '../../../../../core/translations/i18n';
 import { EmailViewer } from '../../../common/email-viewer/email-viewer';
 import { PaperIslandScheme } from '../paper-island';
-import {
-  ToolbarMenu,
-  ToolbarMenuItem,
-} from '../email-compose/formatting-toolbar/toolbar-menu/toolbar-menu';
+import { ToolbarMenu, ToolbarMenuItem } from '../../../common/toolbar-menu/toolbar-menu';
 
 /** The header's side inset (the stylesheet's `--_inset`), px: wide, and as
     wide as a phone. */

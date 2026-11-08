@@ -22,7 +22,7 @@ import { MatTooltip } from '@angular/material/tooltip';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { mapsUrl } from '../../../../../core/calendar/maps';
-import { Preferences } from '../../../../../core/storages/preferences';
+import { CALENDAR_HOST } from '../../../../../core/calendar/calendar-host';
 import { DateField } from '../../../common/date-field/date-field';
 import { HoverCard } from '../../../common/hover-card/hover-card';
 import { NoteEditor } from '../../../common/note-editor/note-editor';
@@ -201,7 +201,7 @@ const sameEdit = (a: EventEdit, b: EventEdit): boolean =>
 export class EventEditor {
   readonly #injector = inject(Injector);
   /** The shortest a timed event may be, minutes (app settings). */
-  readonly #minDuration = inject(Preferences).calendarMinDuration;
+  readonly #minDuration = inject(CALENDAR_HOST).minDuration;
 
   readonly value = model.required<EventEdit>();
 

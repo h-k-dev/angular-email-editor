@@ -43,7 +43,7 @@ import {
   movedTo,
 } from '../../../../../core/calendar/calendar-event';
 import { CalendarFormat } from '../../../../../core/calendar/calendar-format';
-import { Preferences } from '../../../../../core/storages/preferences';
+import { CALENDAR_HOST } from '../../../../../core/calendar/calendar-host';
 import { laneCount, placeInDay, placeInLanes } from '../../../../../core/calendar/calendar-layout';
 import { EventChip } from '../../../shared/calendar/event-chip/event-chip';
 import {
@@ -161,7 +161,7 @@ export class TimeGrid {
   readonly #destroyRef = inject(DestroyRef);
   /** The shortest a mark or a stretched event may be, minutes — the app
       settings' Minimum duration, a quarter hour at the least. */
-  readonly #minDuration = inject(Preferences).calendarMinDuration;
+  readonly #minDuration = inject(CALENDAR_HOST).minDuration;
 
   /** The page's days: where the strip stands (their first), and how many a
       screen holds. */

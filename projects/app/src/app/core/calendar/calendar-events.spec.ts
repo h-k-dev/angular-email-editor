@@ -2,6 +2,8 @@ import { TestBed } from '@angular/core/testing';
 
 import { DateTime } from 'luxon';
 
+import { provideI18n } from '../../../i18n/loader';
+import { provideAppCalendarHost } from '../calendar-host/app-calendar-host';
 import { draftAt } from './calendar-event';
 import { CalendarEvents } from './calendar-events';
 import type { Invite } from './invite';
@@ -47,7 +49,9 @@ describe('CalendarEvents', () => {
     expect(TestBed.inject(CalendarEvents).events()).toEqual([good]);
 
     localStorage.setItem(KEY, '{not json');
+    // A fresh app — test-setup's providers went with the reset.
     TestBed.resetTestingModule();
+    TestBed.configureTestingModule({ providers: [provideI18n(), provideAppCalendarHost()] });
     expect(TestBed.inject(CalendarEvents).events()).toEqual([]);
   });
   describe('invitations', () => {

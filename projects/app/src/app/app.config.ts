@@ -6,6 +6,7 @@ import { provideRouter, withComponentInputBinding, withInMemoryScrolling } from 
 import { provideI18n } from '../i18n/loader';
 
 import { routes } from './app.routes';
+import { provideAppCalendarHost } from './core/calendar-host/app-calendar-host';
 import { provideDialogDefaults } from './core/layout/dialogs';
 import { provideEveryScroll } from './core/layout/scrolling';
 import { PageScroller } from './core/router/page-scroller';
@@ -28,6 +29,9 @@ export const appConfig: ApplicationConfig = {
     // English is bundled; any other language is a chunk of its own, fetched
     // when it is first switched to (see i18n/loader.ts).
     provideI18n(),
+    // The calendar meets the app here alone: its language, region, minimum
+    // duration and where its events are kept (core/calendar/calendar-host).
+    provideAppCalendarHost(),
     // The colours a user picked outside the palette, kept with their
     // preferences: offered again as swatches in every picker.
     provideCustomSwatches(() => inject(Preferences).customSwatches),

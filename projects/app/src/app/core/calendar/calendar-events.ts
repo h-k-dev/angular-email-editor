@@ -1,6 +1,5 @@
 import { Service, computed, inject } from '@angular/core';
 
-import { LocalStorage, StorageCodec } from '../storages/local-storage';
 import {
   CalendarEvent,
   CalendarEventDraft,
@@ -8,6 +7,7 @@ import {
   InviteAnswer,
   isCalendarEvent,
 } from './calendar-event';
+import { CALENDAR_HOST, CalendarCodec } from './calendar-host';
 import type { Invite } from './invite';
 
 /** What an invitation says of its event: when, what, where — and which
@@ -23,9 +23,9 @@ const fromInvite = (invite: Invite) => ({
   sequence: invite.sequence,
 });
 
-/** The events as storage keeps them: a JSON array, nothing while empty. A
-    row this version does not read is dropped, never a broken calendar. */
-const eventList: StorageCodec<readonly CalendarEvent[]> = {
+/** The events as kept: a JSON array, nothing while empty. A row this
+    version does not read is dropped, never a broken calendar. */
+const eventList: CalendarCodec<readonly CalendarEvent[]> = {
   read: (raw) => {
     if (!raw) return [];
     try {
@@ -52,10 +52,8 @@ const eventList: StorageCodec<readonly CalendarEvent[]> = {
  */
 @Service()
 export class CalendarEvents {
-  readonly #stored = inject(LocalStorage).pairSignal(
-    'angular-email-editor:calendar-events',
-    eventList,
-  );
+  /** Where the host keeps them (the app: this browser's storage). */
+  readonly #stored = inject(CALENDAR_HOST).store('calendar-events', eventList);
 
   /** Every event, in the order they were made — but invitations you said
       No to, which are kept for their answer, off the calendar. */

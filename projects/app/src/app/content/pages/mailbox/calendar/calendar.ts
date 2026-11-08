@@ -89,10 +89,7 @@ import { MiniMonth } from '../../../partials/common/mini-month/mini-month';
 import { PageHeader } from '../../../partials/common/page-header/page-header';
 import { EventSummary } from '../../../partials/shared/calendar/event-summary/event-summary';
 import { ColorMarker } from '../../../partials/shared/calendar/color-marker/color-marker';
-import {
-  ToolbarMenu,
-  ToolbarMenuItem,
-} from '../../../partials/shared/email/email-compose/formatting-toolbar/toolbar-menu/toolbar-menu';
+import { ToolbarMenu, ToolbarMenuItem } from '../../../partials/common/toolbar-menu/toolbar-menu';
 
 /** What the card holds: an event being written, or one shown. */
 interface CardContent {

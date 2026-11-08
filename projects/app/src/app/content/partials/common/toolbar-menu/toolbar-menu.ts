@@ -34,7 +34,7 @@ import {
 
 import { Router, RouterLink } from '@angular/router';
 
-import { PaperIslandScheme } from '../../../paper-island';
+import { PaperIslandScheme } from '../../shared/email/paper-island';
 
 /** A row of a toolbar menu. */
 export interface ToolbarMenuItem<V> {

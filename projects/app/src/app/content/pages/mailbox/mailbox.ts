@@ -31,10 +31,7 @@ import {
 } from '../../partials/shared/dialogs/app-settings/app-settings';
 import { HoverCard } from '../../partials/common/hover-card/hover-card';
 import { DocPageLink } from '../../partials/common/doc-page/doc';
-import {
-  ToolbarMenu,
-  ToolbarMenuItem,
-} from '../../partials/shared/email/email-compose/formatting-toolbar/toolbar-menu/toolbar-menu';
+import { ToolbarMenu, ToolbarMenuItem } from '../../partials/common/toolbar-menu/toolbar-menu';
 import { API_PAGES } from './api-reference/api-pages';
 import { COMPONENT_PAGES, UTILITY_PAGES } from './components/component-pages';
 import { STYLING_PAGES } from './styling/styling-pages';

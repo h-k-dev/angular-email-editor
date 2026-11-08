@@ -17,10 +17,7 @@ import { Badge } from '../../../common/badge/badge';
 import { EmailThumbnail } from '../../../common/email-thumbnail/email-thumbnail';
 import { GridSeen } from '../../../common/virtual-grid/virtual-grid';
 import { openTemplateDesigner } from '../template-designer/open-template-designer';
-import {
-  ToolbarMenu,
-  ToolbarMenuItem,
-} from '../../../shared/email/email-compose/formatting-toolbar/toolbar-menu/toolbar-menu';
+import { ToolbarMenu, ToolbarMenuItem } from '../../../common/toolbar-menu/toolbar-menu';
 
 /** A template as the gallery shows it, worked out once per language. */
 export interface TemplateCardModel {
@@ -74,7 +71,11 @@ export class TemplateCard {
   /** "1 merge tag", "8 merge tags", "No merge tags". */
   protected readonly mergeTagsKey = computed(() => {
     const count = this.card().mergeTags;
-    return count === 0 ? 'templates.noMergeTags' : count === 1 ? 'templates.mergeTag' : 'templates.mergeTags';
+    return count === 0
+      ? 'templates.noMergeTags'
+      : count === 1
+        ? 'templates.mergeTag'
+        : 'templates.mergeTags';
   });
 
   protected readonly moreItems = computed<ToolbarMenuItem<TemplateAction>[]>(() => [

@@ -1,7 +1,12 @@
 import { DOCUMENT, InjectionToken, Service, computed, inject } from '@angular/core';
 
 import { Preferences } from '../storages/preferences';
-import { FALLBACK_REGION, REGIONS, RegionCode, RegionPreference } from './region-codes';
+import {
+  FALLBACK_REGION,
+  REGIONS,
+  RegionCode,
+  RegionPreference,
+} from '../calendar/calendar-regions';
 
 export { FALLBACK_REGION, REGIONS };
 export type { RegionCode, RegionPreference };

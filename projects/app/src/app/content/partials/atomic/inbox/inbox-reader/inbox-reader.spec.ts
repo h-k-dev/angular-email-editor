@@ -5,7 +5,7 @@ import { ComposeWindows } from '../../../../../core/email/compose-windows';
 import { ReceivedMail } from '../../../../../core/email/mailbox/received-mail';
 import { provideExampleMail } from '../../../../../../../test/received-mail-fixture';
 import { Preferences } from '../../../../../core/storages/preferences';
-import { ToolbarMenu } from '../../../shared/email/email-compose/formatting-toolbar/toolbar-menu/toolbar-menu';
+import { ToolbarMenu } from '../../../common/toolbar-menu/toolbar-menu';
 import { InboxPaper } from '../inbox-paper';
 import { InboxReader } from './inbox-reader';
 

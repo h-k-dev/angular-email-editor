@@ -10,10 +10,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 
 import { AppLanguage } from '../../../../../i18n/loader';
 import { I18n } from '../../../../core/translations/i18n';
-import {
-  ToolbarMenu,
-  ToolbarMenuItem,
-} from '../../shared/email/email-compose/formatting-toolbar/toolbar-menu/toolbar-menu';
+import { ToolbarMenu, ToolbarMenuItem } from '../toolbar-menu/toolbar-menu';
 
 /** A language in its own words — a name is never translated: whoever looks
     for their language looks for it as they write it. */

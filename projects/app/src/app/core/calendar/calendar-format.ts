@@ -1,11 +1,10 @@
 import { Service, computed, inject } from '@angular/core';
 import { DateTime, DateTimeFormatOptions, Duration, Interval } from 'luxon';
 
-import { I18n } from '../translations/i18n';
-import { Region } from '../translations/region';
-import type { RegionCode } from '../translations/region-codes';
+import type { RegionCode } from './calendar-regions';
 import { RegionCalendar, isoMoment, regionCalendar } from './calendar-dates';
 import { CalendarEvent, DEFAULT_EVENT_MINUTES, eventSpan } from './calendar-event';
+import { CALENDAR_HOST } from './calendar-host';
 
 /** How a calendar writes its dates and times in one language, laid out
     as one region prints its calendars (its week, its week numbers) — the
@@ -187,8 +186,9 @@ export function parseEventClipboardLine(text: string): CopiedEvent | null {
     calendar, following a switch of either. */
 @Service()
 export class CalendarFormat {
-  readonly #language = inject(I18n).lang;
-  readonly #region = inject(Region).current;
+  readonly #host = inject(CALENDAR_HOST);
+  readonly #language = this.#host.language;
+  readonly #region = this.#host.region;
 
   readonly formats = computed(() => calendarFormats(this.#language(), this.#region()));
 }

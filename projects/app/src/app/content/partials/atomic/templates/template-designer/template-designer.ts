@@ -101,10 +101,7 @@ import {
   AddressRow,
   EnvelopeRows,
 } from '../../../shared/email/message-form/envelope-rows/envelope-rows';
-import {
-  ToolbarMenu,
-  type ToolbarMenuItem,
-} from '../../../shared/email/email-compose/formatting-toolbar/toolbar-menu/toolbar-menu';
+import { ToolbarMenu, type ToolbarMenuItem } from '../../../common/toolbar-menu/toolbar-menu';
 import { MessageSettingsButton } from '../../../shared/email/message-form/message-settings-button/message-settings-button';
 import { EditorView, MessageSheet } from '../../../shared/email/message-form/message-sheet';
 import { releaseEditingSurface } from '../../../shared/email/is-typing';
