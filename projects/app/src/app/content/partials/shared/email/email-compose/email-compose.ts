@@ -643,6 +643,15 @@ export class EmailCompose implements FormValueControl<string> {
       untracked(() => editor?.view.dispatch(editor.state.tr.setMeta('addToHistory', false)));
     });
 
+    // Inline images switched on or off: the editor asks the setting when
+    // it draws, so an empty transaction redraws which images are marked as
+    // not sent.
+    effect(() => {
+      this.#inlineImages();
+      const editor = this.editor();
+      untracked(() => editor?.view.dispatch(editor.state.tr.setMeta('addToHistory', false)));
+    });
+
     // New words for empty lines: the host's pipe, after a language switch.
     effect(() => {
       const text = this.placeholder();
@@ -779,7 +788,7 @@ export class EmailCompose implements FormValueControl<string> {
       // stands in as an empty placeholder of its size — the image bubble's
       // Image link fills it. Asked at every drop, paste and pick, so an
       // open composer follows the switch.
-      createImageSources({ files: () => (this.#inlineImages() ? true : 'placeholder') }),
+      createImageSources({ files: () => (this.#inlineImages() ? true : 'unsent') }),
       // A click on a button never follows it: it opens the link editor on
       // it, as on a text link — whose "Open link" is the way out. The caret
       // stays in the editor, the button selected as an image is on a click:

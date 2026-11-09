@@ -83,7 +83,7 @@ export default {
       },
       inlineImages: {
         label: 'Eingebettete Bilder',
-        hint: 'Aus: Ein abgelegtes oder eingefügtes Bild wird zum leeren Platzhalter in seiner Größe – zum Ausprobieren von Mails ohne eingebettete Bilder',
+        hint: 'Aus: Kein eingebettetes Bild wird gespeichert oder gesendet. Ein abgelegtes oder eingefügtes Bild bleibt ausgegraut sichtbar und geht als leerer Rahmen hinaus – nur verlinkte Bilder verlassen den Editor',
       },
       theme: {
         label: 'Design',

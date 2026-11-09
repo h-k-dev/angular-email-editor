@@ -46,6 +46,8 @@ import {
   PAGE_SPACING_MAX,
   PAGE_WIDTH_MAX,
   PAGE_WIDTH_MIN,
+  embeddedImages,
+  withoutEmbeddedImages,
 } from '@h-k-dev/angular-email-editor';
 import { atRest, pageLayoutModel } from '@h-k-dev/angular-email-editor/actions';
 import {
@@ -282,6 +284,7 @@ function sameMessage(a: Envelope, b: Envelope): boolean {
 export class TemplateDesigner extends MessageSheet implements PaperIsland {
   readonly #ref = inject<MatDialogRef<TemplateDesigner>>(MatDialogRef);
   readonly #templates = inject(Templates);
+  readonly #inlineImages = inject(Preferences).inlineImages;
   readonly #snack = inject(MatSnackBar);
 
   /** Whether the editor's formatting toolbar shows — the bar's switch, the
@@ -810,6 +813,17 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
     return run;
   }
 
+  /** The body as it is stored. Inline images off (Settings › General):
+      no embedded one is — it stays in the editor, greyed, and is stored as
+      the empty frame it leaves. The editor tracks them, so a body with
+      none is stored as it is, unread. */
+  #storedHtml(html: string): string {
+    if (this.#inlineImages()) return html;
+    const editor = this.emailPane().editor();
+    if (editor && !embeddedImages(editor.state).length) return html;
+    return withoutEmbeddedImages(html);
+  }
+
   /** Stores the template as it stands. */
   protected async save(): Promise<void> {
     if (this.saving()) return;
@@ -819,7 +833,7 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
       try {
         const stored = await this.#templates.save({
           ...this.#template(),
-          html: message.html,
+          html: this.#storedHtml(message.html),
           envelope: { from, to, cc, bcc, subject, previewText, attachments },
         });
         this.#template.set(stored);

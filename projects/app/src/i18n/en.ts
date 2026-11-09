@@ -86,7 +86,7 @@ export default {
       },
       inlineImages: {
         label: 'Inline images',
-        hint: 'Off: a dropped or pasted picture stands in as an empty placeholder of its size — to try mail that carries no embedded pictures',
+        hint: 'Off: no embedded picture is saved or sent. A dropped or pasted one is still shown, greyed, and goes out as an empty frame — only pictures by link leave the editor',
       },
       theme: {
         label: 'Theme',

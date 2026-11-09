@@ -7,6 +7,7 @@ import { mergeTagFields } from './nodes/merge-tag';
 import { expressionDialect } from './dialects/dialect';
 import { InlineImage, inlineImageRegistry, promoteInlineImages } from './inline-images';
 import { withQuoted } from './quoted-history';
+import { sendsEmbeddedImages, withoutEmbeddedImageNodes } from './nodes/image';
 
 /**
  * What the composer hands the host when the user asks to send: the canonical
@@ -65,7 +66,14 @@ export const createSendIntent = (options: SendIntentOptions): FunctionalExtensio
       // The promotion lives in the payload only — no transaction, the
       // document is not touched, the editor keeps showing its data URLs.
       // The quoted history goes out under the body, its images promoted too.
-      const { doc, images } = promoteInlineImages(withQuoted(state.doc), inlineImageRegistry(state));
+      // Where embedded images are not sent (`createImageSources`), none
+      // goes out at all: nothing is promoted, and each one in the document
+      // or its quoted history leaves as an empty frame — taken out where
+      // the editor tracked it, before anything is serialized.
+      const embeds = sendsEmbeddedImages(state);
+      const { doc, images } = embeds
+        ? promoteInlineImages(withQuoted(state.doc), inlineImageRegistry(state))
+        : { doc: withQuoted(withoutEmbeddedImageNodes(state)), images: [] };
       const html = foldHTML(serializeToHTML(doc, state.schema));
       options.onSend({
         html,

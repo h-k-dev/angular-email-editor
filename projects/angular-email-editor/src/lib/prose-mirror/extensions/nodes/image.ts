@@ -9,6 +9,7 @@ import {
   Transaction,
 } from 'prosemirror-state';
 import { Decoration, DecorationSet, EditorView, NodeView } from 'prosemirror-view';
+import { Transform } from 'prosemirror-transform';
 import { DOMSerializer, Fragment, Node, Schema, Slice } from 'prosemirror-model';
 import { FunctionalExtension, defineExtension, defineNode } from '../../extension';
 import { isSafeUrl } from '../marks/link';
@@ -322,12 +323,25 @@ export interface ImageSourceOptions {
  *   'upload'`); an image deleted meanwhile takes no address. The file
  *   picker opens; what it picks is uploaded the same way.
  *
+ * - `'unsent'`: an embedded image in the editor, and only there. A file
+ *   is read and shown exactly as under `true` — dropped, pasted, picked —
+ *   but it never goes out: the send intent's HTML carries its empty frame
+ *   and no inline part. For a backend that takes no embedded images, with
+ *   the writer still seeing what was dropped.
+ *
+ * In every mode but `true`, an embedded image in the document — dropped
+ * under `'unsent'`, a template's, a reply's — is shown marked
+ * {@link IMAGE_NOT_SENT_CLASS} and never sent. They are tracked as the
+ * document changes ({@link embeddedImages}), so taking them out at send
+ * time is a step per image, not a search
+ * ({@link withoutEmbeddedImageNodes}).
+ *
  * In every mode but `true`, a pasted image that carries bytes (`data:`,
  * `cid:`, …) is a placeholder at its width rather than dropped (`false`
  * drops it), and a picture dragged from a web page comes in by its
  * address, through `accept`.
  */
-export type ImageFiles = boolean | 'placeholder' | ImageUpload;
+export type ImageFiles = boolean | 'placeholder' | 'unsent' | ImageUpload;
 
 /** Where an uploaded picture goes: `upload` puts the file where the
     recipient can load it and resolves with its address. */
@@ -383,6 +397,36 @@ export const createImageSources = (options: ImageSourceOptions): FunctionalExten
           // What is pasted — or dropped as HTML — keeps only the images the
           // rules take.
           transformPasted: (slice) => keepAcceptedImages(slice, options),
+          // An embedded image that will not go out stays to be seen,
+          // marked — the tracked ones, drawn only while they are not sent.
+          decorations: (state) => (sendsFiles(options) ? null : embeddedImagesKey.getState(state)),
+        },
+      }),
+      // Every embedded image of the document, kept as the document changes:
+      // what is sent without them is found here, never searched for.
+      new Plugin<DecorationSet>({
+        key: embeddedImagesKey,
+        state: {
+          init: (_config, state) =>
+            DecorationSet.create(state.doc, embeddedIn(state.doc, 0, state.doc.content.size)),
+          apply: (tr, set) => {
+            if (!tr.docChanged) return set;
+            set = set.map(tr.mapping, tr.doc);
+            // Only what the steps wrote is read again.
+            const size = tr.doc.content.size;
+            tr.mapping.maps.forEach((map, index) => {
+              map.forEach((_oldStart, _oldEnd, newStart, newEnd) => {
+                const rest = tr.mapping.slice(index + 1);
+                const from = Math.max(0, rest.map(newStart, -1) - 1);
+                const to = Math.min(size, rest.map(newEnd, 1) + 1);
+                const stale = set.find(from, to);
+                if (stale.length) set = set.remove(stale);
+                const found = embeddedIn(tr.doc, from, to);
+                if (found.length) set = set.add(tr.doc, found);
+              });
+            });
+            return set;
+          },
         },
       }),
       new Plugin<DecorationSet>({
@@ -409,6 +453,108 @@ export const createImageSources = (options: ImageSourceOptions): FunctionalExten
     ],
   });
 
+/** The class an embedded image wears in the editor while embedded images
+    are not sent (`files` anything but `true`): it is still shown, and left
+    out of what is sent. The app owns the look. */
+export const IMAGE_NOT_SENT_CLASS = 'aee-image--not-sent';
+
+const embeddedImagesKey = new PluginKey<DecorationSet>('embeddedImages');
+
+/** The bytes source of a node that is an embedded image — an `image`, or
+    an authored `<img>` kept verbatim — or null. */
+function embeddedSource(node: Node): string | null {
+  let src: string | null = null;
+  if (node.type.name === 'image') src = node.attrs['src'] as string | null;
+  else if (
+    (node.type.name === 'htmlVoid' || node.type.name === 'htmlVoidBlock') &&
+    String(node.attrs['tag']).toLowerCase() === 'img'
+  ) {
+    const pairs = node.attrs['attrs'] as [string, string][];
+    src = pairs.find(([name]) => name.toLowerCase() === 'src')?.[1] ?? null;
+  }
+  return src && BYTES.test(src) ? src : null;
+}
+
+/** A mark on every embedded image between `from` and `to`. */
+function embeddedIn(doc: Node, from: number, to: number): Decoration[] {
+  const found: Decoration[] = [];
+  doc.nodesBetween(from, to, (node, pos) => {
+    if (embeddedSource(node)) {
+      found.push(Decoration.node(pos, pos + node.nodeSize, { class: IMAGE_NOT_SENT_CLASS }));
+    }
+    return !node.isLeaf;
+  });
+  return found;
+}
+
+/** Where the document's embedded images stand — tracked as it changes
+    ({@link createImageSources}), so this reads a list and searches nothing.
+    Empty in an editor without the extension. */
+export function embeddedImages(state: EditorState): number[] {
+  return (embeddedImagesKey.getState(state)?.find() ?? []).map((mark) => mark.from);
+}
+
+/** Whether embedded images go out of this editor — `files: true`, the
+    default, and what an editor without {@link createImageSources} does.
+    False under every other mode: `'unsent'` shows them and keeps them
+    back, the rest never let one in. */
+export function sendsEmbeddedImages(state: EditorState): boolean {
+  return sendsFiles(imageSources(state));
+}
+
+/**
+ * The document as it goes out where embedded images do not: each tracked
+ * one ({@link embeddedImages}) an empty frame — its source gone, its width,
+ * alt and place kept — and the quoted history's the same
+ * ({@link withoutEmbeddedImages}). The document itself is not touched. The
+ * work is one step per embedded image: none, and the document comes back
+ * as it is.
+ */
+export function withoutEmbeddedImageNodes(state: EditorState): Node {
+  const positions = embeddedImages(state);
+  const quoted = state.doc.attrs['quoted'] as string | null | undefined;
+  const cleanQuoted = quoted ? withoutEmbeddedImages(quoted) : quoted;
+  if (!positions.length && cleanQuoted === quoted) return state.doc;
+  const tr = new Transform(state.doc);
+  for (const pos of positions) {
+    const node = tr.doc.nodeAt(pos);
+    if (!node) continue;
+    if (node.type.name === 'image') {
+      // An authored image's markup carries the source too: it goes with it.
+      const attrs: Record<string, unknown> = { ...node.attrs, src: null };
+      if ('html' in attrs) attrs['html'] = null;
+      tr.setNodeMarkup(pos, null, attrs);
+    } else {
+      const pairs = (node.attrs['attrs'] as [string, string][]).filter(
+        ([name]) => name.toLowerCase() !== 'src',
+      );
+      tr.setNodeMarkup(pos, null, { ...node.attrs, attrs: pairs });
+    }
+  }
+  if (cleanQuoted !== quoted) tr.setDocAttribute('quoted', cleanQuoted);
+  return tr.doc;
+}
+
+/** An `<img …>` tag, quotes respected (a `>` in an `alt` is no end). */
+const IMG_TAG = /<img\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi;
+/** Its `src`, when that carries bytes. */
+const BYTES_SRC =
+  /\ssrc\s*=\s*(?:"\s*(?:data|blob|file|cid):[^"]*"|'\s*(?:data|blob|file|cid):[^']*'|(?:data|blob|file|cid):[^\s>]*)/i;
+
+/**
+ * `html` with no embedded image in it: every `<img>` whose source carries
+ * bytes (`data:`, `cid:`, `blob:`, `file:`) loses that source and stays
+ * as the empty frame it leaves — its width, its alt, its place. Images by
+ * address are untouched, and so is everything else, character for
+ * character. What a host puts between its editor and its backend when it
+ * takes no embedded images: the send intent does it itself where files are
+ * not embedded; a save of the model's HTML calls this.
+ */
+export function withoutEmbeddedImages(html: string): string {
+  if (!/(?:data|blob|file|cid):/i.test(html)) return html;
+  return html.replace(IMG_TAG, (tag) => tag.replace(BYTES_SRC, ''));
+}
+
 function imageSources(state: EditorState): ImageSourceOptions {
   return imageSourcesKey.getState(state) ?? {};
 }
@@ -426,8 +572,16 @@ function uploaderOf(options: ImageSourceOptions): ImageUpload['upload'] | null {
   return typeof files === 'object' ? files.upload : null;
 }
 
-/** Whether files are read into images — embedded, the default. */
-const readsFiles = (options: ImageSourceOptions): boolean => filesOf(options) === true;
+/** Whether files are read into images — embedded (the default), or
+    embedded and kept back (`'unsent'`). */
+const readsFiles = (options: ImageSourceOptions): boolean => {
+  const files = filesOf(options);
+  return files === true || files === 'unsent';
+};
+
+/** Whether an embedded image goes out: only where files are embedded
+    outright. */
+const sendsFiles = (options: ImageSourceOptions): boolean => filesOf(options) === true;
 
 function filesAllowed(state: EditorState): boolean {
   return readsFiles(imageSources(state));
