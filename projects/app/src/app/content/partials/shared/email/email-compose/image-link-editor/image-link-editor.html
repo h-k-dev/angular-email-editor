@@ -15,7 +15,7 @@
       spellcheck="false"
       [attr.aria-label]="'editor.image.linkLabel' | translate"
       [placeholder]="'editor.image.linkPlaceholder' | translate"
-      [emailImageSource]="editor()"
+      emailImageSource
       #link="emailImageSource"
       [attr.aria-invalid]="link.refused()"
       [attr.aria-describedby]="link.refused() ? 'image-link-editor-error' : null"

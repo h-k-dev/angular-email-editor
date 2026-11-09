@@ -114,7 +114,7 @@ import {
   fixStoredMistakes,
   storedMistakes,
 } from '@h-k-dev/angular-email-editor';
-import { atRest } from '@h-k-dev/angular-email-editor/actions';
+import { EMAIL_ACTIONS, EMAIL_EDITOR, atRest } from '@h-k-dev/angular-email-editor/actions';
 import { EditorKit, EmailEditor, MergeTagRevealed } from '@h-k-dev/angular-email-editor/editor';
 import {
   SuggestionMenu,
@@ -197,8 +197,16 @@ export type ComposeKit = BodyFormat | 'snippet';
   ],
   // The formatting commands this composer's toolbar, bubble menu and ⋯ menu
   // share — one per composer, bound to its editor and code view — and the
-  // one popover its floating menus are panels of.
-  providers: [FormattingCommands, Popover],
+  // one popover its floating menus are panels of. The composer is also the
+  // library's island for all of them (`EMAIL_EDITOR`, `EMAIL_ACTIONS`): a
+  // menu's `[emailAction]`, a popover's `emailImageAlt` bind nothing —
+  // in an overlay too, out of the composer's DOM but in its injector.
+  providers: [
+    FormattingCommands,
+    Popover,
+    { provide: EMAIL_EDITOR, useExisting: FormattingCommands },
+    { provide: EMAIL_ACTIONS, useFactory: () => inject(FormattingCommands).actions },
+  ],
   // The surface is set in the email's default font, not the app's: what is
   // written looks as it will in the recipient's Gmail, and the toolbar's
   // font menu shows Sans Serif ticked rather than the app's Roboto.

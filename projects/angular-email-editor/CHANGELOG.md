@@ -16,6 +16,16 @@ version may change behaviour, and says so here.
 
 ### Added
 
+- **The editor island** — a trigger takes its editor from where it stands, with nothing
+  bound. `[emailActions]="editor | actions"` (`/actions`) on a toolbar gives every
+  `[emailAction]` inside its list; `[emailEditor]` gives what is inside it its actions;
+  a composer whose menus sit beside the editor, or open in an overlay, provides
+  `EMAIL_EDITOR` and `EMAIL_ACTIONS` once for all of them. `injectActions()` with no
+  editor reads the island's; a bare `emailImageAlt` / `emailImageSource` does too.
+  `[emailActionFrom]` is now optional (`ActionTrigger.from()` may be `undefined`) and
+  still wins where bound; a bare trigger on no island throws, saying what to bind.
+  `EMAIL_EDITOR`, `injectEditor` and `EditorRef` now live in `/actions` and are still
+  exported from `/editor`.
 - **Filled values remember their token** — the `FilledMergeTag` mark (in
   `emailExtensions`, editor-only) on every value the fill puts in: `filledMergeTagAt`,
   `editFilledValue` (write over it by hand, still the token's), `resetFilledValue`,

@@ -1,6 +1,16 @@
-import { Injector, Signal, computed, effect, inject, signal, untracked } from '@angular/core';
+import {
+  InjectionToken,
+  Injector,
+  Signal,
+  computed,
+  effect,
+  inject,
+  signal,
+  untracked,
+} from '@angular/core';
 import { EditorState } from 'prosemirror-state';
 import { Editor, EditorAction, isActionEnabled } from '@h-k-dev/angular-email-editor';
+import { EMAIL_EDITOR } from './editor-ref';
 
 /**
  * An editor's state as a signal: the text, the selection, the stored marks —
@@ -91,6 +101,24 @@ export interface EditorActions {
 }
 
 /**
+ * The actions of the island one stands on — what an `[emailAction]` with
+ * nothing bound triggers. An `[emailEditor]` provides its own to what is
+ * inside it, `[emailActions]` provides a list to the toolbar it is on, and
+ * a component whose buttons sit beside its editor, or in an overlay,
+ * provides one for all of them:
+ *
+ *     providers: [{ provide: EMAIL_ACTIONS, useFactory: () => injectActions() }]
+ */
+export const EMAIL_ACTIONS = new InjectionToken<EditorActions>('EMAIL_ACTIONS');
+
+/** What {@link injectActions} takes besides the editor. */
+export interface ActionsOptions {
+  host?: readonly HostAction[];
+  override?: Readonly<Record<string, Omit<HostAction, 'id'>>>;
+  injector?: Injector;
+}
+
+/**
  * The actions of an editor, bound and live — for a toolbar, a bubble menu,
  * a menu:
  *
@@ -101,22 +129,27 @@ export interface EditorActions {
  * `editor` is read reactively: when it changes — a composer switching to its
  * code view — the actions are the new editor's. Its kit decides what exists:
  * the source pane offers the marks, so there a list button has no action
- * and shows disabled, with no routing written anywhere.
+ * and shows disabled, with no routing written anywhere. Left out, it is the
+ * island's editor (`EMAIL_EDITOR`) — `injectActions()`, or
+ * `injectActions({ host })`.
  *
  * `host` and `override` bring in the host's own — see {@link HostAction} — so
  * that one list serves a surface whose buttons are not all the editor's.
  *
  * Call in an injection context, or hand it an injector.
  */
+export function injectActions(options?: ActionsOptions): EditorActions;
 export function injectActions(
   editor: () => Editor | undefined,
-  options: {
-    host?: readonly HostAction[];
-    override?: Readonly<Record<string, Omit<HostAction, 'id'>>>;
-    injector?: Injector;
-  } = {},
+  options?: ActionsOptions,
+): EditorActions;
+export function injectActions(
+  first?: (() => Editor | undefined) | ActionsOptions,
+  second: ActionsOptions = {},
 ): EditorActions {
+  const options = typeof first === 'function' ? second : (first ?? {});
   const injector = options.injector ?? inject(Injector);
+  const editor = typeof first === 'function' ? first : injector.get(EMAIL_EDITOR).editor;
   const state = editorState(editor, { injector });
 
   const bind = (current: Editor, action?: EditorAction, over?: HostAction): BoundAction => {
@@ -154,7 +187,8 @@ export function injectActions(
     for (const action of current.actions) {
       // Its own entry only: an id such as `constructor` overrides nothing.
       const { override } = options;
-      const given = override && Object.hasOwn(override, action.id) ? override[action.id] : undefined;
+      const given =
+        override && Object.hasOwn(override, action.id) ? override[action.id] : undefined;
       // A host action under a kit's id is an override by another name.
       const over = given ? { id: action.id, ...given } : hosted.get(action.id);
       hosted.delete(action.id);

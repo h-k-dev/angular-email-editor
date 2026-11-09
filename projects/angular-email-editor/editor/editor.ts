@@ -2,7 +2,6 @@ import {
   DestroyRef,
   Directive,
   ElementRef,
-  InjectionToken,
   Injector,
   Signal,
   afterNextRender,
@@ -26,7 +25,13 @@ import {
   createEditor,
   revealMergeTag,
 } from '@h-k-dev/angular-email-editor';
-import { atRest } from '@h-k-dev/angular-email-editor/actions';
+import {
+  EMAIL_ACTIONS,
+  EMAIL_EDITOR,
+  type EditorRef,
+  atRest,
+  injectActions,
+} from '@h-k-dev/angular-email-editor/actions';
 import { isMergeTagUnfilled } from './merge-tag-errors';
 
 /** Where the form put the caret: a placeholder without a value. */
@@ -82,26 +87,9 @@ export interface EditorSetup {
 /** The rest of `createEditor`'s options a host may give. */
 export type EditorSetupOptions = Pick<EditorOptions, 'attributes'>;
 
-/** An editor someone holds — what a toolbar, a menu or a model next to it
-    needs (`injectEditor`). */
-export interface EditorRef {
-  /** The editor once mounted; `undefined` before, and between two kits. */
-  readonly editor: Signal<EditorHandle | undefined>;
-  /** Puts the caret in the text — now, or as the editor mounts. */
-  focus(): void;
-}
-
-/** The nearest editor (`[emailEditor]` provides itself). */
-export const EMAIL_EDITOR = new InjectionToken<EditorRef>('EMAIL_EDITOR');
-
-/** The nearest `[emailEditor]`'s editor, from inside it — a toolbar or a menu
-    in its subtree, or a component that provides {@link EMAIL_EDITOR}
-    itself. Call in an injection context. */
-export function injectEditor(): EditorRef;
-export function injectEditor(options: { optional: true }): EditorRef | null;
-export function injectEditor(options: { optional?: boolean } = {}): EditorRef | null {
-  return inject(EMAIL_EDITOR, { optional: options.optional ?? false });
-}
+// The island's tokens live with the actions (every entry that stands on an
+// island imports that one); here they are for whoever mounts the editor.
+export { EMAIL_EDITOR, injectEditor, type EditorRef } from '@h-k-dev/angular-email-editor/actions';
 
 /**
  * Whether the user is typing into this view right now: it holds focus *and*
@@ -137,7 +125,9 @@ export function isTyping(view: EditorView): boolean {
  *   step — a Revert.
  * - `disabled` and `readonly` (the form's) make it read-only; leaving the
  *   text is `touch`.
- * - It provides itself as {@link EMAIL_EDITOR}.
+ * - It is an island: it provides itself as {@link EMAIL_EDITOR}, and its
+ *   actions (`EMAIL_ACTIONS`), to what is inside it — an `[emailAction]`
+ *   there needs nothing bound.
  *
  * Behaviour only: no template, no styles; the element is the host's. A
  * component or directive of the host's own can wear it too
@@ -148,7 +138,11 @@ export function isTyping(view: EditorView): boolean {
 @Directive({
   selector: '[emailEditor]',
   exportAs: 'emailEditor',
-  providers: [{ provide: EMAIL_EDITOR, useExisting: EmailEditor }],
+  providers: [
+    { provide: EMAIL_EDITOR, useExisting: EmailEditor },
+    // Made when the first trigger inside asks, never otherwise.
+    { provide: EMAIL_ACTIONS, useFactory: () => injectActions() },
+  ],
 })
 export class EmailEditor implements FormValueControl<string>, EditorRef {
   /** The kit — see {@link EditorKit}. Bound, or given to {@link configure}. */

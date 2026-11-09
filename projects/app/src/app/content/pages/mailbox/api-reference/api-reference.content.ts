@@ -873,9 +873,9 @@ export const API_SECTIONS: readonly ApiSection[] = [
         name: 'injectActions · editorState · emailAction',
         from: `${LIB}/actions`,
         signature:
-          '(editor: () => Editor | undefined) => EditorActions · => Signal<EditorState> · emailAction="id" [emailActionFrom]="actions"',
+          '(editor?: () => Editor | undefined) => EditorActions · => Signal<EditorState> · [emailActions]="editor | actions" · emailAction="id"',
         summary:
-          'The extensions’ actions bound to a live editor as signals — pressed, disabled, run.',
+          'The extensions’ actions bound to a live editor as signals — pressed, disabled, run. Said once on a toolbar, every trigger inside has them.',
       },
       {
         id: 'email-anchor',

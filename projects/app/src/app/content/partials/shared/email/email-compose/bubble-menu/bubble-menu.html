@@ -50,7 +50,6 @@
               aria-haspopup="dialog"
               [attr.aria-label]="altLabel()"
               [emailAction]="altItem.id"
-              [emailActionFrom]="actions"
               #altTrigger="emailAction"
               [disabled]="altTrigger.disabled()"
             >
@@ -132,7 +131,6 @@
         type="button"
         [attr.aria-label]="item.title()"
         [emailAction]="item.id"
-        [emailActionFrom]="actions"
         #trigger="emailAction"
         [disabled]="trigger.disabled()"
       >

@@ -63,7 +63,6 @@
               type="button"
               [attr.aria-label]="item.title()"
               [emailAction]="item.id"
-              [emailActionFrom]="actions"
               #align="emailAction"
               [disabled]="align.disabled()"
             >
@@ -94,7 +93,6 @@
             type="button"
             [attr.aria-label]="boldItem.title()"
             [emailAction]="boldItem.id"
-            [emailActionFrom]="actions"
             emailActionFocus="false"
             #bold="emailAction"
             [disabled]="bold.disabled()"
@@ -106,7 +104,6 @@
             type="button"
             [attr.aria-label]="italicItem.title()"
             [emailAction]="italicItem.id"
-            [emailActionFrom]="actions"
             emailActionFocus="false"
             #italic="emailAction"
             [disabled]="italic.disabled()"

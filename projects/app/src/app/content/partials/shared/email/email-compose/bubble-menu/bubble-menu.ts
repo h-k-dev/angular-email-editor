@@ -214,9 +214,6 @@ export class BubbleMenu {
 
   protected readonly i18n = inject(I18n);
 
-  /** The visible editor's actions, which the buttons trigger by id. */
-  protected readonly actions = this.#commands.actions;
-
   /** Whether the colour pane is open — shut again whenever the menu
       closes or turns into another kind's tools, which have no colour
       button to stand at. */

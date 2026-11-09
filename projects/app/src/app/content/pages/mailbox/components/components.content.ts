@@ -201,6 +201,7 @@ export const COMPONENT_CONTENT: Readonly<Record<string, ComponentPage>> = {
       'A value from outside waits while the text is typed in — a draft saved in another tab lands when the writer leaves the text, not under their cursor.',
       '`baseline()` is the body as the editor first published it, so “unsaved” is `value() !== baseline()` — never on open. `replace()` writes into a focused editor as one undo step: a Revert the user can take back.',
       'A codec says how value and editor meet — HTML by default; a source pane reads and writes text. `emailEditorPaused` holds outside values for a pane out of sight.',
+      'It is an island: what is inside it has its editor (`injectEditor()`) and its actions with nothing bound. A composer whose toolbar sits beside the editor, or whose menus open in an overlay, provides `EMAIL_EDITOR` itself and is the island for all of them.',
     ],
     usage: `<div [emailEditor]="kit" [formField]="form.body" #body="emailEditor"></div>
 <button [disabled]="form.body().value() === body.baseline()"
@@ -232,7 +233,9 @@ export const COMPONENT_CONTENT: Readonly<Record<string, ComponentPage>> = {
     lede: 'The editor’s actions, bound and live, for the host’s own buttons: `injectActions` lists what the kit declares, and `[emailAction]` makes any control the trigger of one.',
     exports: [
       'injectActions',
+      'Actions',
       'ActionTrigger',
+      'EMAIL_ACTIONS',
       'editorState',
       'HostAction',
       'editorModel',
@@ -241,18 +244,18 @@ export const COMPONENT_CONTENT: Readonly<Record<string, ComponentPage>> = {
     ],
     points: [
       'A trigger says its state as ARIA — `aria-pressed` for a toggle, `aria-disabled` when it cannot run — and never a class or a style: how that looks is the host’s, bound from `pressed()` and `disabled()`.',
+      'The list is said once: `[emailActions]` on the toolbar — an editor, or a list of the host’s — and every trigger inside has it. Inside an `[emailEditor]`, or a component that provides `EMAIL_ACTIONS` for its menus, a trigger binds nothing at all; its own `[emailActionFrom]` still wins.',
       'The list follows the editor it is given, so one toolbar serves a composer and its code view; an action the kit lacks is simply disabled.',
       '`host` adds actions of the host’s own (a link dialog); `override` replaces the kit’s `run` by id and keeps its state.',
       'After a run the caret goes back to the editor, unless `[emailActionFocus]="false"`.',
       'The same entry holds the document’s values as writable signals — `editorModel` and the typed models (a band’s padding and fill, a column’s spacing, the page layout) — and `atRest`, a value as typing settles.',
     ],
-    usage: `<div role="toolbar" emailKeepFocus>
+    usage: `<div role="toolbar" [emailActions]="editor" #actions="emailActions" emailKeepFocus>
   @for (action of actions.all(); track action.id) {
     <button
       mat-icon-button
       #trigger="emailAction"
       [emailAction]="action.id"
-      [emailActionFrom]="actions"
       [class.on]="trigger.pressed()"
     >
       <mat-icon>{{ action.action?.icon }}</mat-icon>
@@ -302,6 +305,7 @@ export const COMPONENT_CONTENT: Readonly<Record<string, ComponentPage>> = {
       'Enter applies, Escape puts the alt back; both hand the caret back to the editor and emit `emailImageAltClosed`.',
       'As a popover it takes focus with its text selected; as a panel field, `[emailImageAltAutoSelect]="false"`.',
       'The image stays selected while the field has focus, so the popover can sit where the host likes.',
+      'The editor is bound — or, the attribute bare, the island’s: `<input emailImageAlt />` in a composer that provides `EMAIL_EDITOR`.',
     ],
     usage: `<input dir="auto" [emailImageAlt]="editor" #alt="emailImageAlt"
        (emailImageAltClosed)="open.set(false)" />

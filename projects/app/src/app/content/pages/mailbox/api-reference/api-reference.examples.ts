@@ -451,16 +451,18 @@ export class Toolbar {
 
   'inject-actions': `import { Component, input } from '@angular/core';
 import { Editor } from '@h-k-dev/angular-email-editor';
-import { ActionTrigger, injectActions } from '@h-k-dev/angular-email-editor/actions';
+import { ActionTrigger, Actions, injectActions } from '@h-k-dev/angular-email-editor/actions';
 
 @Component({
   selector: 'app-format-bar',
-  imports: [ActionTrigger],
+  imports: [Actions, ActionTrigger],
   template: \`
-    <!-- aria-pressed / aria-disabled, never native disabled; the caret returns after. -->
-    <button emailAction="bold" [emailActionFrom]="actions" #bold="emailAction"
-            [class.on]="bold.pressed()">B</button>
-    <button emailAction="link" [emailActionFrom]="actions">Link</button>
+    <!-- The list said once, on the bar: every trigger inside has it. -->
+    <div role="toolbar" [emailActions]="actions">
+      <!-- aria-pressed / aria-disabled, never native disabled; the caret returns after. -->
+      <button emailAction="bold" #bold="emailAction" [class.on]="bold.pressed()">B</button>
+      <button emailAction="link">Link</button>
+    </div>
   \`,
 })
 export class FormatBar {

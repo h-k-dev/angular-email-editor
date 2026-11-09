@@ -2,6 +2,7 @@ import { Component, ElementRef, afterNextRender, signal, viewChild } from '@angu
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { NodeSelection, TextSelection } from 'prosemirror-state';
 import { Editor, createEditor, emailExtensions } from '@h-k-dev/angular-email-editor';
+import { EMAIL_EDITOR, EditorRef } from '@h-k-dev/angular-email-editor/actions';
 import { ImageAlt } from './image-alt';
 
 /** A popover the way a host writes one: its own field and button, the
@@ -170,5 +171,76 @@ describe('[emailImageAlt]', () => {
     const focus = vi.spyOn(editor(), 'focus');
     key('Enter');
     expect(focus).not.toHaveBeenCalled();
+  });
+});
+
+/** A composer as the island: the popover's field binds no editor. */
+@Component({
+  imports: [ImageAlt],
+  providers: [{ provide: EMAIL_EDITOR, useExisting: Island }],
+  template: `
+    <div #surface></div>
+    @if (open()) {
+      <input emailImageAlt (emailImageAltClosed)="open.set(false)" />
+    }
+  `,
+})
+class Island implements EditorRef {
+  readonly surface = viewChild.required<ElementRef<HTMLElement>>('surface');
+  readonly editor = signal<Editor | undefined>(undefined);
+  readonly open = signal(false);
+
+  constructor() {
+    afterNextRender(() => {
+      this.editor.set(
+        createEditor({
+          parent: this.surface().nativeElement,
+          extensions: emailExtensions,
+          content: '<div>a <img src="x.png" alt="dot"> b</div>',
+        }),
+      );
+    });
+  }
+
+  focus(): void {
+    this.editor()?.focus();
+  }
+}
+
+/** The bare attribute on no island. */
+@Component({ imports: [ImageAlt], template: `<input emailImageAlt />` })
+class Stranded {}
+
+describe('[emailImageAlt] on an island', () => {
+  it('takes the island’s editor when none is bound', async () => {
+    document.elementFromPoint ??= () => null;
+    const fixture = TestBed.createComponent(Island);
+    const host = fixture.componentInstance;
+    document.body.appendChild(fixture.nativeElement);
+    await fixture.whenStable();
+    const editor = host.editor()!;
+    editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, 3)));
+    host.open.set(true);
+    await fixture.whenStable();
+
+    const field = (fixture.nativeElement as HTMLElement).querySelector('input')!;
+    expect(field.value).toBe('dot');
+    const focus = vi.spyOn(editor, 'focus');
+    field.value = 'a dot';
+    field.dispatchEvent(new Event('input'));
+    field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', cancelable: true }));
+    expect(editor.state.doc.nodeAt(3)?.attrs['alt']).toBe('a dot');
+    expect(focus).toHaveBeenCalledTimes(1);
+    expect(host.open()).toBe(false);
+
+    editor.destroy();
+    (fixture.nativeElement as HTMLElement).remove();
+  });
+
+  it('says so when it is bare and stands on none', () => {
+    const fixture = TestBed.createComponent(Stranded);
+    expect(() => fixture.detectChanges()).toThrowError(
+      /\[emailImageAlt\] has no editor.*EMAIL_EDITOR on an ancestor/,
+    );
   });
 });

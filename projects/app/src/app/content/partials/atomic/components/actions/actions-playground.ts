@@ -2,7 +2,7 @@ import { Component, computed, inject, signal, viewChild } from '@angular/core';
 import { MatIcon } from '@angular/material/icon';
 import { richTextExtensions } from '@h-k-dev/angular-email-editor';
 import { EmailEditor } from '@h-k-dev/angular-email-editor/editor';
-import { ActionTrigger, injectActions } from '@h-k-dev/angular-email-editor/actions';
+import { ActionTrigger, Actions, injectActions } from '@h-k-dev/angular-email-editor/actions';
 import { KeepFocus } from '@h-k-dev/angular-email-editor/focus';
 
 import {
@@ -28,7 +28,15 @@ const CONTENT =
  */
 @Component({
   selector: 'actions-playground',
-  imports: [EmailEditor, PlaygroundFrame, PlaygroundSubject, ActionTrigger, KeepFocus, MatIcon],
+  imports: [
+    EmailEditor,
+    PlaygroundFrame,
+    PlaygroundSubject,
+    Actions,
+    ActionTrigger,
+    KeepFocus,
+    MatIcon,
+  ],
   templateUrl: './actions-playground.html',
   styleUrls: ['../playground/playground-stage.scss', './actions-playground.scss'],
   providers: [Playground],

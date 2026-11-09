@@ -257,10 +257,6 @@ export class LinkEditor {
 
   protected readonly italicItem = this.#commands.items.italic;
 
-  /** The visible editor's actions, which the alignment and style buttons
-      trigger. */
-  protected readonly actions = this.#commands.actions;
-
   /** Whether that button was just made from text (the button link): a
       button is a link, so one left without a link is taken back — undone,
       the text exactly as it was, marks and all. */

@@ -6,15 +6,16 @@
     [attr.aria-label]="'editor.image.altLabel' | translate"
   >
     <!-- The library does the rest: the alt in the field, Enter and Escape,
-         the caret back to the editor. `dir="auto"`: an alt in a
-         right-to-left script reads the right way round. -->
+         the caret back to the editor — the composer's, with nothing bound
+         (its island). `dir="auto"`: an alt in a right-to-left script reads
+         the right way round. -->
     <input
       class="alt-text-editor__input"
       type="text"
       dir="auto"
       [attr.aria-label]="'editor.image.altLabel' | translate"
       [placeholder]="'editor.image.altPlaceholder' | translate"
-      [emailImageAlt]="editor()"
+      emailImageAlt
       #alt="emailImageAlt"
       (emailImageAltClosed)="open.set(false)"
     />

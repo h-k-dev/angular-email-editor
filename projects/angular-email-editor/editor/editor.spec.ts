@@ -3,6 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormField, form } from '@angular/forms/signals';
 import { undo } from 'prosemirror-history';
 import { Extension, richTextExtensions } from '@h-k-dev/angular-email-editor';
+import { ActionTrigger } from '@h-k-dev/angular-email-editor/actions';
 import { EMAIL_EDITOR, EditorCodec, EditorRef, EmailEditor, injectEditor } from './editor';
 
 /** A text codec that pretty-prints what it is shown (upper case, here),
@@ -20,7 +21,7 @@ class Probe {
 }
 
 @Component({
-  imports: [EmailEditor, FormField, Probe],
+  imports: [ActionTrigger, EmailEditor, FormField, Probe],
   template: `
     <div
       class="body"
@@ -29,7 +30,9 @@ class Probe {
       [emailEditorPaused]="paused()"
       (emailEditorMounted)="mounts.push($event)"
       (emailEditorChange)="changes = changes + 1"
-    ><probe /></div>
+    >
+      <probe /><button class="inside" emailAction="bold"></button>
+    </div>
     <div class="source" [emailEditor]="kit()" [emailEditorCodec]="shout" [(value)]="source"></div>
     <button class="elsewhere">elsewhere</button>
   `,
@@ -76,6 +79,14 @@ describe('EmailEditor', () => {
   it('provides itself to what is inside it', () => {
     expect(host.probe().ref).toBe(host.body());
     expect(TestBed.inject(EMAIL_EDITOR, null)).toBeNull();
+  });
+
+  it('is an island: a trigger inside it has its actions, nothing bound', async () => {
+    const inside = fixture.nativeElement.querySelector('.inside') as HTMLButtonElement;
+    expect(inside.getAttribute('aria-pressed')).toBe('false');
+    const exec = vi.spyOn(host.body().editor()!, 'exec');
+    inside.click();
+    expect(exec).toHaveBeenCalledTimes(1);
   });
 
   it('sends every change out, and takes a value from outside in', async () => {

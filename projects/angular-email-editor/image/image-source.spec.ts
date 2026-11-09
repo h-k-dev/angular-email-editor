@@ -8,6 +8,7 @@ import {
   createImageSources,
   emailExtensions,
 } from '@h-k-dev/angular-email-editor';
+import { EMAIL_EDITOR, EditorRef } from '@h-k-dev/angular-email-editor/actions';
 import { ImageSource } from './image-source';
 
 /** A popover the way a host writes one: its own field and button, the
@@ -149,5 +150,63 @@ describe('[emailImageSource]', () => {
     key('Enter');
     expect(attrs(picture)!['src']).toBe('https://example.com/y.png');
     expect(host.closed).toEqual([false, false]);
+  });
+});
+
+/** A composer as the island: the popover's field binds no editor. */
+@Component({
+  imports: [ImageSource],
+  providers: [{ provide: EMAIL_EDITOR, useExisting: Island }],
+  template: `
+    <div #surface></div>
+    @if (open()) {
+      <input type="url" emailImageSource (emailImageSourceClosed)="open.set(false)" />
+    }
+  `,
+})
+class Island implements EditorRef {
+  readonly surface = viewChild.required<ElementRef<HTMLElement>>('surface');
+  readonly editor = signal<Editor | undefined>(undefined);
+  readonly open = signal(false);
+
+  constructor() {
+    afterNextRender(() => {
+      this.editor.set(
+        createEditor({
+          parent: this.surface().nativeElement,
+          extensions: emailExtensions,
+          content: '<div>a <img src="https://example.com/y.png"> b</div>',
+        }),
+      );
+    });
+  }
+
+  focus(): void {
+    this.editor()?.focus();
+  }
+}
+
+describe('[emailImageSource] on an island', () => {
+  it('takes the island’s editor when none is bound', async () => {
+    document.elementFromPoint ??= () => null;
+    const fixture = TestBed.createComponent(Island);
+    const host = fixture.componentInstance;
+    document.body.appendChild(fixture.nativeElement);
+    await fixture.whenStable();
+    const editor = host.editor()!;
+    editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, 3)));
+    host.open.set(true);
+    await fixture.whenStable();
+
+    const field = (fixture.nativeElement as HTMLElement).querySelector('input')!;
+    expect(field.value).toBe('https://example.com/y.png');
+    field.value = 'https://example.com/z.png';
+    field.dispatchEvent(new Event('input'));
+    field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', cancelable: true }));
+    expect(editor.state.doc.nodeAt(3)?.attrs['src']).toBe('https://example.com/z.png');
+    expect(host.open()).toBe(false);
+
+    editor.destroy();
+    (fixture.nativeElement as HTMLElement).remove();
   });
 });

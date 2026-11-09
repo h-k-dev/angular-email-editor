@@ -1,5 +1,5 @@
-import { Directive, booleanAttribute, computed, input } from '@angular/core';
-import { EditorActions } from './actions';
+import { Directive, booleanAttribute, computed, inject, input } from '@angular/core';
+import { EMAIL_ACTIONS, EditorActions } from './actions';
 
 /**
  * Makes the host's own control the trigger of an editor action: a click runs
@@ -13,6 +13,14 @@ import { EditorActions } from './actions';
  * The action is named by its id, and looked up in the list it is from
  * (`injectActions`) here, in a `computed`: a template binds values and reads
  * signals, it calls no lookup of its own.
+ *
+ * The list is bound — or, with nothing bound, the island's (`EMAIL_ACTIONS`):
+ * an `[emailActions]` on the toolbar around it, the `[emailEditor]` it is
+ * inside, or a component that provides one for its menus:
+ *
+ *     <div role="toolbar" [emailActions]="editor">
+ *       <button emailAction="bold">B</button>
+ *     </div>
  *
  * Behaviour only, and ARIA only where the host's widget has not spoken:
  * - `aria-pressed` for a toggle, and `aria-disabled` when it cannot run —
@@ -42,12 +50,28 @@ export class ActionTrigger {
   /** The id of the action to trigger. */
   readonly id = input.required<string>({ alias: 'emailAction' });
 
-  /** The actions it is one of — what `injectActions` returned. */
-  readonly from = input.required<EditorActions>({ alias: 'emailActionFrom' });
+  /** The actions it is one of — what `injectActions` returned. Left out,
+      the island's (`EMAIL_ACTIONS`). */
+  readonly from = input<EditorActions | undefined>(undefined, { alias: 'emailActionFrom' });
+
+  readonly #island = inject(EMAIL_ACTIONS, { optional: true });
+
+  /** The list in use: its own, else the island's. Neither is a mistake, and
+      said so. */
+  readonly #actions = computed(() => {
+    const actions = this.from() ?? this.#island;
+    if (!actions) {
+      throw new Error(
+        `[emailAction]="${this.id()}" has no actions: bind a list ` +
+          `([emailActionFrom]="actions"), or put [emailActions] on an ancestor.`,
+      );
+    }
+    return actions;
+  });
 
   /** The action itself. `undefined` (no editor yet, or a kit without it) is a
       trigger with nothing to do: disabled. */
-  readonly action = computed(() => this.from().get(this.id()));
+  readonly action = computed(() => this.#actions().get(this.id()));
 
   /** Whether this directive writes `aria-pressed` and `aria-disabled`. */
   readonly aria = input(true, { alias: 'emailActionAria', transform: booleanAttribute });

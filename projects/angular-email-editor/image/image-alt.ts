@@ -9,8 +9,12 @@ import {
   linkedSignal,
   output,
 } from '@angular/core';
-import { Editor, selectedImage, selectedImageAlt } from '@h-k-dev/angular-email-editor';
-import { editorState } from '@h-k-dev/angular-email-editor/actions';
+import { selectedImage, selectedImageAlt } from '@h-k-dev/angular-email-editor';
+import {
+  type BoundEditor,
+  editorState,
+  resolveEditor,
+} from '@h-k-dev/angular-email-editor/actions';
 
 /**
  * Makes the host's own text field the alt text of the editor's selected
@@ -39,6 +43,10 @@ import { editorState } from '@h-k-dev/angular-email-editor/actions';
  * the right way round. The image stays selected throughout — the editor
  * keeps its selection while the field has focus — so the popover can sit
  * where the host likes.
+ *
+ * The editor is bound — or, the attribute bare, the island's
+ * (`EMAIL_EDITOR`): `<input emailImageAlt />` in a composer that provides
+ * its editor to its popovers.
  */
 @Directive({
   selector: 'input[emailImageAlt], textarea[emailImageAlt]',
@@ -51,8 +59,12 @@ import { editorState } from '@h-k-dev/angular-email-editor/actions';
   },
 })
 export class ImageAlt {
-  /** The editor whose selected image this field describes. */
-  readonly editor = input.required<Editor | undefined>({ alias: 'emailImageAlt' });
+  /** The editor whose selected image this field describes. Bare, the
+      island's (`EMAIL_EDITOR`). */
+  readonly editor = input.required<BoundEditor>({ alias: 'emailImageAlt' });
+
+  /** The editor in use: the bound one, else the island's. */
+  readonly #editor = resolveEditor(this.editor, 'emailImageAlt');
 
   /** Whether the field takes focus, its text selected, as it appears. */
   readonly autoSelect = input(true, {
@@ -67,10 +79,10 @@ export class ImageAlt {
       not — cancelled, or no image to apply it to. */
   readonly closed = output<boolean>({ alias: 'emailImageAltClosed' });
 
-  readonly #element = inject<ElementRef<HTMLInputElement | HTMLTextAreaElement>>(ElementRef)
-    .nativeElement;
+  readonly #element =
+    inject<ElementRef<HTMLInputElement | HTMLTextAreaElement>>(ElementRef).nativeElement;
 
-  readonly #state = editorState(() => this.editor());
+  readonly #state = editorState(this.#editor);
 
   /** The selected image — where it is and what its alt says — or null. */
   readonly #image = computed(
@@ -111,7 +123,7 @@ export class ImageAlt {
   /** Writes the draft to the selected image's alt. False when no image is
       selected. */
   apply(): boolean {
-    const applied = !!this.editor()?.commands['setImageAlt']?.(this.value());
+    const applied = !!this.#editor()?.commands['setImageAlt']?.(this.value());
     this.#done(applied);
     return applied;
   }
@@ -130,7 +142,7 @@ export class ImageAlt {
   }
 
   #done(applied: boolean): void {
-    if (this.returnFocus()) this.editor()?.focus();
+    if (this.returnFocus()) this.#editor()?.focus();
     this.closed.emit(applied);
   }
 }

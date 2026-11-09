@@ -10,8 +10,12 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { Editor, selectedImage, selectedImageSource } from '@h-k-dev/angular-email-editor';
-import { editorState } from '@h-k-dev/angular-email-editor/actions';
+import { selectedImage, selectedImageSource } from '@h-k-dev/angular-email-editor';
+import {
+  type BoundEditor,
+  editorState,
+  resolveEditor,
+} from '@h-k-dev/angular-email-editor/actions';
 
 /**
  * Makes the host's own text field the link of the editor's selected image —
@@ -39,6 +43,9 @@ import { editorState } from '@h-k-dev/angular-email-editor/actions';
  *   address too). An empty field applies nothing and closes;
  * - `apply()` and `cancel()` for the host's buttons; `value()`, `active()`
  *   and `refused()` for its bindings.
+ *
+ * The editor is bound — or, the attribute bare, the island's
+ * (`EMAIL_EDITOR`), as `[emailImageAlt]`'s.
  */
 @Directive({
   selector: 'input[emailImageSource], textarea[emailImageSource]',
@@ -51,8 +58,12 @@ import { editorState } from '@h-k-dev/angular-email-editor/actions';
   },
 })
 export class ImageSource {
-  /** The editor whose selected image this field links. */
-  readonly editor = input.required<Editor | undefined>({ alias: 'emailImageSource' });
+  /** The editor whose selected image this field links. Bare, the island's
+      (`EMAIL_EDITOR`). */
+  readonly editor = input.required<BoundEditor>({ alias: 'emailImageSource' });
+
+  /** The editor in use: the bound one, else the island's. */
+  readonly #editor = resolveEditor(this.editor, 'emailImageSource');
 
   /** Whether the field takes focus, its text selected, as it appears. */
   readonly autoSelect = input(true, {
@@ -74,7 +85,7 @@ export class ImageSource {
   readonly #element =
     inject<ElementRef<HTMLInputElement | HTMLTextAreaElement>>(ElementRef).nativeElement;
 
-  readonly #state = editorState(() => this.editor());
+  readonly #state = editorState(this.#editor);
 
   /** The selected image — where it is and its address — or null. */
   readonly #image = computed(
@@ -120,7 +131,7 @@ export class ImageSource {
       this.#done(false);
       return false;
     }
-    const applied = !!this.editor()?.commands['setImageSource']?.(value);
+    const applied = !!this.#editor()?.commands['setImageSource']?.(value);
     if (!applied) {
       this.#refused.set(true);
       return false;
@@ -149,7 +160,7 @@ export class ImageSource {
   }
 
   #done(applied: boolean): void {
-    if (this.returnFocus()) this.editor()?.focus();
+    if (this.returnFocus()) this.#editor()?.focus();
     this.closed.emit(applied);
   }
 }

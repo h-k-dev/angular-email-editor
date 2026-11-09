@@ -1,7 +1,14 @@
 <playground-frame [knobs]="knobs" [actions]="playgroundActions" [value]="state()">
-  <!-- The host's own buttons, an [emailAction] each. The toolbar keeps the
-       editor's focus on a press, so the selection stays. -->
-  <div class="stage-bar" role="toolbar" aria-label="Formatting" [emailKeepFocus]="keepFocus()">
+  <!-- The host's own buttons, an [emailAction] each — their list said once,
+       on the toolbar ([emailActions]). The toolbar keeps the editor's focus
+       on a press, so the selection stays. -->
+  <div
+    class="stage-bar"
+    role="toolbar"
+    aria-label="Formatting"
+    [emailActions]="actions"
+    [emailKeepFocus]="keepFocus()"
+  >
     @for (action of actions.all(); track action.id) {
       <button
         type="button"
@@ -9,7 +16,6 @@
         #trigger="emailAction"
         [playgroundSubject]="action.id === 'bold' ? 'Trigger · bold' : ''"
         [emailAction]="action.id"
-        [emailActionFrom]="actions"
         [emailActionFocus]="returnFocus()"
         [emailActionAria]="aria()"
         [class.act--on]="action.pressed()"
