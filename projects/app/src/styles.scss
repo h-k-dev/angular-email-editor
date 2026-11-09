@@ -2059,6 +2059,12 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
  * block only as a layout table (`aee-table-wrap--layout`): a bordered or
  * borderless one is content and keeps its own. Child combinators, so a static
  * columns block leaves the table inside it its own. */
+/* Frozen text — a layout heading or list while layout is off: the
+   template's own words, there to be read. No text cursor over it. */
+.aee-editor .aee-static-text {
+  cursor: default;
+}
+
 .aee-editor[data-aee-static~='table'] .aee-table-wrap--layout > .aee-table-box > .aee-col-lines,
 .aee-editor[data-aee-static~='table'] .aee-table-wrap--layout > .aee-table-box > .aee-add-zone,
 .aee-editor[data-aee-static~='columns'] .aee-columns-wrap > .aee-columns-box > .aee-col-lines,

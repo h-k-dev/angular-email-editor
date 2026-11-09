@@ -1,3 +1,4 @@
+import { guarded } from '../guarded';
 import {
   liftListItem,
   sinkListItem,
@@ -24,7 +25,7 @@ export const findListDepth = ($from: ResolvedPos): number | null => {
  * Wraps the selection in a list, lifts out of it when already in that list,
  * or converts the list in place when it is of the other flavour.
  */
-export const toggleList =
+const toggleListOf =
   (listType: NodeType, itemType: NodeType): Command =>
   (state, dispatch, view) => {
     const { $from } = state.selection;
@@ -44,7 +45,7 @@ export const toggleList =
  * list it is in one (either flavour, kept flush), or lifts out of it when it
  * is one already.
  */
-export const toggleLayoutList =
+const toggleLayoutListOf =
   (listType: NodeType, itemType: NodeType): Command =>
   (state, dispatch, view) => {
     const { $from } = state.selection;
@@ -61,6 +62,14 @@ export const toggleLayoutList =
   };
 
 /** Whether the selection is in a list of `type`, a layout one or not. */
+/** The toggles as the editor runs them: a static layout list keeps its
+    flavour and stays a list (`LayoutInteraction`), so where the lock would
+    refuse, the command says it cannot run. */
+export const toggleList = (listType: NodeType, itemType: NodeType): Command =>
+  guarded(toggleListOf(listType, itemType));
+export const toggleLayoutList = (listType: NodeType, itemType: NodeType): Command =>
+  guarded(toggleLayoutListOf(listType, itemType));
+
 const inList = (state: EditorState, type: NodeType, layout: boolean): boolean =>
   isNodeActive(state, type, { layout });
 

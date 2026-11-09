@@ -955,7 +955,7 @@ describe('Compose', () => {
     layoutSwitch().click();
     await fixture.whenStable();
     expect(layoutSwitch().getAttribute('aria-checked')).toBe('false');
-    expect(pm().getAttribute('data-aee-static')).toBe('section columns table spacer');
+    expect(pm().getAttribute('data-aee-static')).toBe('section columns table spacer heading list');
 
     // Plain text has no layout: the switch is still there, disabled.
     sheet.onFormat('text');
@@ -969,7 +969,7 @@ describe('Compose', () => {
     await settle();
     await fixture.whenStable();
     expect(layoutSwitch().disabled).toBe(false);
-    expect(pm().getAttribute('data-aee-static')).toBe('section columns table spacer');
+    expect(pm().getAttribute('data-aee-static')).toBe('section columns table spacer heading list');
     await closeSettings(fixture, dialog);
   });
 

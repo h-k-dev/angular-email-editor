@@ -154,6 +154,15 @@
             "subject": "Ihre Sache {{ case_number }} – unsere Einschätzung nach der Klageerwiderung",
             "previewText": "Wir raten Ihnen, das Vergleichsangebot der Gegenseite anzunehmen."
           }
+        },
+        {
+          "name": "All layout elements (writer-mode check)",
+          "file": "angularjs/all-layout-elements.html",
+          "envelope": {
+            "from": ["layout@example.com"],
+            "subject": "All layout elements",
+            "previewText": "Sections, columns, layout tables, layout headings and lists, spacers."
+          }
         }
       ]
     },

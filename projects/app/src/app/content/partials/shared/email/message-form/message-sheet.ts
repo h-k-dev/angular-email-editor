@@ -641,10 +641,11 @@ export abstract class MessageSheet {
   readonly layoutInteractive = linkedSignal(() => this.mode() === 'design');
 
   /** The switch, as the editor takes it: every layout block alike — a
-      spacer's height drag too. */
+      spacer's height drag too, and the text layout elements (a layout
+      heading, a layout list), which are frozen whole while it is off. */
   readonly layoutInteraction = computed<LayoutInteractivity>(() => {
     const on = this.layoutInteractive();
-    return { section: on, columns: on, table: on, spacer: on };
+    return { section: on, columns: on, table: on, spacer: on, heading: on, list: on };
   });
 
   /** The View toggle: moves the source into the editor's place or out of

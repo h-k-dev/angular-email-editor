@@ -113,7 +113,7 @@ describe('ComposeWindows', () => {
     for (let i = 0; i < 4; i++) await settle();
     const frame = frames()[0];
     const editor = () => frame.querySelector<HTMLElement>('.ProseMirror')!;
-    expect(editor().getAttribute('data-aee-static')).toBe('section columns table spacer');
+    expect(editor().getAttribute('data-aee-static')).toBe('section columns table spacer heading list');
 
     // The settings' switch overrides the mode's default, for this message.
     // The settings dialog — this window's gear — is the overlay's.

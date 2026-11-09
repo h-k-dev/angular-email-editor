@@ -6,6 +6,7 @@ import { defineNode } from '../../extension';
 import { declaresFlushTop } from '../../inline-style';
 import { markedAs, markerAttrs } from '../../layout-marker';
 import { alignmentOf } from './email-paragraph';
+import { guarded } from '../guarded';
 
 /** The levels the schema knows. No h5 or h6: an imported one is a plain
     line, and `##### ` stays the text it is. */
@@ -48,13 +49,13 @@ export const headingStyle = (level: number, layout = false): string => {
 
 /** Makes the line a heading of `level`; a layout heading when `layout`.
     The line's alignment comes along: a centred line stays centred. */
-const toHeading =
-  (type: NodeType, level: number, layout = false): Command =>
-  (state, dispatch, view) => {
+const toHeading = (type: NodeType, level: number, layout = false): Command =>
+  // Guarded: a static layout heading keeps its level (`LayoutInteraction`).
+  guarded((state, dispatch, view) => {
     const align =
       (state.selection.$from.parent.attrs['align'] as string | null | undefined) ?? null;
     return setBlockType(type, { level, layout, align })(state, dispatch, view);
-  };
+  });
 
 /** Makes the line a layout heading, at its level when it is a heading
     already, else at 1. */

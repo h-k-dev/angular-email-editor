@@ -103,3 +103,8 @@ export function withoutMarkers(value: string): string {
 export function markerAttrs(kind: LayoutMarkerKind, marked = true): { class?: string } {
   return marked ? { class: layoutMarker(kind) } : {};
 }
+
+/** The transaction meta that says a change means to alter layout blocks whose
+    interaction is off (`LayoutInteraction`): a whole document put in place
+    of another. Set to `true`. */
+export const LAYOUT_EDIT_META = 'layoutEdit';

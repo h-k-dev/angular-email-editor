@@ -1,3 +1,4 @@
+import { guarded } from '../guarded';
 import { setBlockType } from 'prosemirror-commands';
 import { defineNode } from '../../extension';
 
@@ -21,10 +22,10 @@ export const Paragraph = defineNode({
     toDOM: () => ['p', { dir: 'auto' }, 0],
   },
   commands: ({ schema }) => ({
-    setParagraph: () => setBlockType(schema.nodes['paragraph']),
+    setParagraph: () => guarded(setBlockType(schema.nodes['paragraph'])),
   }),
   keymap: ({ schema }) => ({
-    'Mod-Alt-0': setBlockType(schema.nodes['paragraph']),
+    'Mod-Alt-0': guarded(setBlockType(schema.nodes['paragraph'])),
   }),
   actions: ({ schema }) => [
     {
@@ -33,7 +34,7 @@ export const Paragraph = defineNode({
       title: 'Text',
       keywords: ['paragraph', 'plain'],
       icon: 'notes',
-      command: setBlockType(schema.nodes['paragraph']),
+      command: guarded(setBlockType(schema.nodes['paragraph'])),
     },
   ],
 });

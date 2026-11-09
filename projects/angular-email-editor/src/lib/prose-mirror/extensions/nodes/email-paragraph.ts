@@ -1,3 +1,4 @@
+import { guarded } from '../guarded';
 import { setBlockType } from 'prosemirror-commands';
 import { liftListItem, sinkListItem } from 'prosemirror-schema-list';
 import { Command, EditorState } from 'prosemirror-state';
@@ -334,14 +335,14 @@ export const EmailParagraph = defineNode({
   },
 
   commands: ({ schema }) => ({
-    setParagraph: () => setBlockType(schema.nodes['paragraph']),
+    setParagraph: () => guarded(setBlockType(schema.nodes['paragraph'])),
     setAlignment: (align: ParagraphAlignment) => setAlignment(align),
     indent: () => shiftIndent(1),
     outdent: () => shiftIndent(-1),
   }),
 
   keymap: ({ schema }) => ({
-    'Mod-Alt-0': setBlockType(schema.nodes['paragraph']),
+    'Mod-Alt-0': guarded(setBlockType(schema.nodes['paragraph'])),
     // Gmail/Docs bindings; left = back to the default.
     'Mod-Shift-l': setAlignment(null),
     'Mod-Shift-e': setAlignment('center'),
@@ -359,7 +360,7 @@ export const EmailParagraph = defineNode({
       title: 'Text',
       keywords: ['paragraph', 'plain'],
       icon: 'notes',
-      command: setBlockType(schema.nodes['paragraph']),
+      command: guarded(setBlockType(schema.nodes['paragraph'])),
     },
     ...(
       [

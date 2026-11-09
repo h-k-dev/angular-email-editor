@@ -1,4 +1,5 @@
 import { EditorState, Plugin, PluginKey, TextSelection, AllSelection } from 'prosemirror-state';
+import { selectionInStaticText } from './layout-interaction';
 import { FunctionalExtension, defineExtension } from '../extension'; // Adjust path if needed
 import { selectionInsideMergeTag } from './nodes/merge-tag';
 import { selectedImage } from './nodes/image';
@@ -98,6 +99,9 @@ export const createBubbleMenu = (options: BubbleMenuOptions): FunctionalExtensio
             !destroyed &&
             !mouseSelecting &&
             (options.shouldShow || defaultBubbleShouldShow)(view.state) &&
+            // Frozen text (a static layout heading or list) has nothing to
+            // format.
+            !selectionInStaticText(view.state) &&
             (view.hasFocus() || held());
 
           // The box of a range: from its start to its end, over every line it

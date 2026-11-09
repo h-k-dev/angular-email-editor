@@ -20,6 +20,7 @@ export function stubExampleAssets(): void {
     'Monatsabrechnung (fixed width, non-responsive)',
     'Poor Fix Width (Zahlungserinnerung)',
     'Missing placeholders (Send check)',
+    'All layout elements (writer-mode check)',
   ];
   // The one entry the catalogue gives an envelope (a no-reply sender).
   const envelopes: Record<string, object> = {

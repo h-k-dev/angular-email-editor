@@ -22,6 +22,7 @@ import {
 } from './page-layout';
 import { stripCustomColorStamps } from './custom-colors';
 import { refusedEmbedsAsLinks } from './embeds';
+import { LAYOUT_EDIT_META } from './layout-marker';
 
 const serializerCache = new WeakMap<Schema, DOMSerializer>();
 
@@ -218,7 +219,9 @@ export const replaceHTML =
           tr.setDocAttribute(name, value);
         }
       }
-      dispatch(tr.setSelection(Selection.atEnd(tr.doc)).scrollIntoView());
+      dispatch(
+        tr.setMeta(LAYOUT_EDIT_META, true).setSelection(Selection.atEnd(tr.doc)).scrollIntoView(),
+      );
     }
     return true;
   };
