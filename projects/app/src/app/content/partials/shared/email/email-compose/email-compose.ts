@@ -81,6 +81,7 @@ import {
   createSectionHandles,
   createBubbleMenu,
   createDarkRendering,
+  createDocumentStyles,
   dawnDarkColor,
   createButtonEdit,
   createContentProposal,
@@ -735,8 +736,13 @@ export class EmailCompose implements FormValueControl<string> {
       createAiWriter({ onAsk: (ask) => this.suggestion().show(ask) }),
       createContentStream(),
       createContentProposal(),
-      ...emailExtensions.filter((extension) => extension.name !== 'quotedHistory'),
+      ...emailExtensions.filter(
+        (extension) => extension.name !== 'quotedHistory' && extension.name !== 'documentStyles',
+      ),
       this.#quotedHistory(),
+      // A document's own head styles: its body's on the root, its dark rules
+      // by this paper, never by the browser's scheme.
+      createDocumentStyles({ darkScope: DARK_PAPER }),
       createPlaceholder({ text: this.placeholder() }),
       // The dark paper, drawn by Dawn — as the reading pane draws the mail.
       createDarkRendering({ scope: DARK_PAPER }),

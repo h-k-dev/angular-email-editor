@@ -1,4 +1,4 @@
-import { emailDocument } from './email-document';
+import { DATA_DETECTORS_RULE, emailDocument } from './email-document';
 
 const parse = (html: string) => new DOMParser().parseFromString(html, 'text/html');
 
@@ -24,11 +24,34 @@ describe('email document', () => {
     const html = emailDocument('<div>x</div>');
     expect(html).toContain('<o:PixelsPerInch>96</o:PixelsPerInch>');
     expect(html).toContain('<meta name="x-apple-disable-message-reformatting">');
-    // The phone rule is the head's one style: no dark one beside it.
-    expect(html.match(/<style/g)).toHaveLength(1);
+    // The phone rule and iOS's own links: the head's two styles, no dark
+    // one beside them.
+    expect(html.match(/<style/g)).toHaveLength(2);
     expect(html).toContain(
       '@media only screen and (max-width: 479px) { .aee-stack { max-width: 100% !important; } }',
     );
+  });
+
+  it('lets a date, an address or a number iOS Mail linked read as the words round it — in a sheet of its own', () => {
+    const doc = parse(emailDocument('<div>Termin am 12.03.2027, Tel. 030 1234567</div>'));
+    const sheets = Array.from(doc.head.querySelectorAll('style'), (sheet) => sheet.textContent);
+    // Its own sheet, after the phone rule: a client that refuses one keeps the other.
+    expect(sheets[1]).toBe(DATA_DETECTORS_RULE);
+    expect(sheets[0]).not.toContain('x-apple-data-detectors');
+    // Only the links iOS makes: an author's own link carries no such attribute.
+    expect(DATA_DETECTORS_RULE.startsWith('a[x-apple-data-detectors] {')).toBe(true);
+    for (const property of [
+      'color',
+      'text-decoration',
+      'font-family',
+      'font-size',
+      'font-weight',
+      'line-height',
+    ]) {
+      expect(DATA_DETECTORS_RULE).toMatch(
+        new RegExp(`[{ ]${property}: (inherit|none) !important;`),
+      );
+    }
   });
 
   it('hooks the rule onto stacking columns only — a held one keeps its share', () => {
@@ -49,8 +72,9 @@ describe('email document', () => {
     expect(html).not.toContain('color-scheme');
     expect(html).not.toMatch(/aee-d[btl]-/);
     expect(html).toContain('<span style="color: #c5221f">');
-    // The phone rule is the head's one style.
-    expect(html.match(/<style/g)).toHaveLength(1);
+    // The head's two styles say nothing of dark.
+    expect(html.match(/<style/g)).toHaveLength(2);
+    expect(html).not.toContain('prefers-color-scheme');
   });
 
   it('puts hidden preview text first, escaped and padded', () => {

@@ -37,14 +37,20 @@ export interface EmailDocumentOptions {
  *   on its line — a logo — becomes a block, so no descender gap shows under
  *   it (`fitEmailImages`).
  *
- * Everything the email needs is inline. The head's one `<style>` rule is an
- * enhancement nothing depends on: on a phone a stacked column takes the
- * whole width instead of its desktop cap (Dawn's `STACK_RULE`). A
- * client that strips the head (Gmail's app with a non-Google account)
- * keeps the cap — narrower, still whole — and loses nothing else, which is
- * the same rule the canonical HTML already keeps. The one exception is
- * chosen: a Stylesheet page (page-layout.ts) is drawn by its head rule,
- * which the sent head carries too.
+ * Everything the email needs is inline. The head's two `<style>` rules are
+ * enhancements nothing depends on, each in a sheet of its own, so a client
+ * that refuses one keeps the other:
+ *
+ * - on a phone a stacked column takes the whole width instead of its
+ *   desktop cap (Dawn's `STACK_RULE`). A client that strips the head
+ *   (Gmail's app with a non-Google account) keeps the cap — narrower,
+ *   still whole — and loses nothing else, which is the same rule the
+ *   canonical HTML already keeps;
+ * - on iOS a date, an address or a phone number Mail made a link of its
+ *   own reads as the words round it ({@link DATA_DETECTORS_RULE}).
+ *
+ * The one exception is chosen: a Stylesheet page (page-layout.ts) is drawn
+ * by its head rule, which the sent head carries too.
  *
  * A body in its page (page-layout.ts) paints the `<body>` with the page's
  * colour too: webmail drops the body and keeps the page's 100% table; Apple
@@ -80,6 +86,7 @@ export function emailDocument(html: string, options: EmailDocumentOptions = {}):
     `<title>${escapeText(title ?? '')}</title>` +
     OUTLOOK_SETTINGS +
     `<style type="text/css">${STACK_RULE}</style>` +
+    `<style type="text/css">${DATA_DETECTORS_RULE}</style>` +
     sheet +
     '</head>' +
     '<body' +
@@ -111,6 +118,21 @@ function bodyFill(html: string): { style: string; bgcolor: string } {
 
 /** A Stylesheet page's rule as `serializeToHTML` puts it first in a body. */
 const PAGE_SHEET = /^<style class="aee-layout-page-sheet">[^<]*<\/style>/;
+
+/**
+ * iOS Mail makes links of its own out of the dates, addresses and phone
+ * numbers it finds — blue and underlined, in a letter that wrote them as
+ * words. Its links carry `x-apple-data-detectors`; told to take what is
+ * round them, they read as the text they are, and still open the calendar,
+ * the map or the dialler on a tap. The author's own links never carry the
+ * attribute, so none of them is touched. An enhancement like the phone
+ * rule: any other client, or one that strips the head, has nothing to lose.
+ */
+export const DATA_DETECTORS_RULE =
+  'a[x-apple-data-detectors] { color: inherit !important; ' +
+  'text-decoration: none !important; font-family: inherit !important; ' +
+  'font-size: inherit !important; font-weight: inherit !important; ' +
+  'line-height: inherit !important; }';
 
 const OUTLOOK_SETTINGS =
   '<!--[if mso]><noscript><xml><o:OfficeDocumentSettings>' +

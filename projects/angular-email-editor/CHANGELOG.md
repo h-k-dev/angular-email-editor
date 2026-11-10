@@ -7,6 +7,13 @@ version may change behaviour, and says so here.
 
 ### Changed — behaviour
 
+- **A document's `prefers-color-scheme` rules follow the paper.** In the editor they used to
+  follow the viewer's browser, which says nothing of the paper: a dark browser drew an
+  email's dark rules on light paper. They now apply while the root matches the dark-paper
+  selector, and `light` ones while it does not. `createDocumentStyles({ darkScope })` takes
+  that selector — the one `createDarkRendering` takes as `scope`, same default
+  (`DARK_PAPER_SCOPE`); a host with its own passes it to both. `scopedDocumentCss` now
+  returns one `@scope` block per run of rules (any, dark, light) instead of always one.
 - **An empty value keeps its token.** `createMergeTagResolution`'s `resolve` answering
   `''` for an expression used to remove its tokens; it now leaves them, like `null`
   (still reported in `MergeTagResolutionReport.empty`). An evaluator says `''` both for a
@@ -22,6 +29,12 @@ version may change behaviour, and says so here.
 
 ### Added
 
+- **iOS's own links read as text.** `emailDocument`'s head carries a second rule, in a sheet
+  of its own (`DATA_DETECTORS_RULE`): the links iOS Mail makes of dates, addresses and phone
+  numbers (`a[x-apple-data-detectors]`) take the colour, face, size and weight of the words
+  round them and lose their underline. They still open on a tap; an author's own links are
+  not touched. A sent email now has two `<style>` elements in its head (three with a
+  Stylesheet page).
 - **MJML's group, offered as held columns.** A band whose cell holds one `mj-group` — a
   full-width `div` round columns that say their share themselves — is now recognised
   (`authoredBand`, `authoredColumns`): its band grip offers the section and a columns block
@@ -62,6 +75,18 @@ version may change behaviour, and says so here.
 
 ### Fixed
 
+- **A document's body rules reach the editor's root.** `DocumentStyles` put the `<body>`'s
+  inline style on the root, but a rule of the head for the body (`body { … }`, `body.page`,
+  `[dir="rtl"] body`) matched nothing inside the editor's `@scope`. Such a rule is now read
+  against the body the document has and, where it matches, said of the root — over a host's
+  own surface rules, under the inline style. Its box stays out: `margin*` / `padding*` go
+  to `--aee-body-*`, and `width`, `height`, `display`, `position` and the like are left
+  behind. `body td` is read the same way and keeps its weight. An email whose body turns
+  black by a head rule in dark no longer shows a white strip under its last line.
+- **On dark paper the body's own fill is drawn dark too.** `createDarkRendering` drew every
+  inline colour dark except the root's — the `<body>`'s `bgcolor` or inline background, which
+  stayed light under a dark email. The root's own style is now drawn dark like any other, and
+  so are the colours of a body rule.
 - **A block link is no stored mistake.** `storedMistakes` counted an `<a>` round a table or a
   block — a card that is one link, `<a style="display:block"><table>…` — as
   `inline-around-blocks`, and `fixStoredMistakes` pushed the link inside. A link that says
