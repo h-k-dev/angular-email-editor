@@ -7,10 +7,12 @@ import { emailExtensions } from '../kits';
 import {
   COLUMN_PADDING_MAX,
   appendColumn,
+  columnCaps,
   columnPaddingOf,
   columnsGapOf,
   findColumnsContext,
   removeLastColumn,
+  setColumnsBoundary,
 } from './columns';
 
 const schema = createSchema(emailExtensions);
@@ -544,5 +546,86 @@ describe('columns editing', () => {
       return true;
     });
     expect(editor.getHTML()).toContain('</div><div>under</div>');
+  });
+});
+
+describe('held columns — a row that keeps its shares on a phone', () => {
+  const HELD = (share: string, max: number) =>
+    `display: inline-block; width: ${share}; max-width: ${max}px; vertical-align: top; ` +
+    `box-sizing: border-box;`;
+  const row = (...columns: [string, number][]) =>
+    `<div style="width: 100%; max-width: 600px;">` +
+    columns.map(([share, max]) => `<div style="${HELD(share, max)}"><div>x</div></div>`).join('') +
+    `</div>`;
+  const holds = (html: string) => columnsOf(html).map((column) => column['hold']);
+
+  let host: HTMLElement;
+  let editor: Editor;
+  /** The editor on `content`, and where its columns block stands. */
+  const mount = (content: string): number => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    editor = createEditor({ parent: host, extensions: emailExtensions, content });
+    let at = -1;
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'columns' && at < 0) at = pos;
+    });
+    return at;
+  };
+  const sharesAt = (pos: number) => {
+    const shares: unknown[] = [];
+    editor.state.doc.nodeAt(pos)!.forEach((column) => shares.push(column.attrs['hold']));
+    return shares;
+  };
+  afterEach(() => {
+    editor?.destroy();
+    host?.remove();
+  });
+
+  it('reads the share a column says and writes it back as written — MJML’s exact halves, not the budget’s', () => {
+    const halves = row(['50%', 300], ['50%', 300]);
+    expect(holds(halves)).toEqual([50, 50]);
+    const once = canonical(halves);
+    // 300px of a 560px budget would be 54% — two of them wrap on a phone.
+    expect(once).toContain('display: inline-block; width: 50%; max-width: 300px;');
+    expect(once).not.toContain('width: 54%');
+    expect(canonical(once)).toBe(once);
+  });
+
+  it('keeps three thirds inside the row: each share cut down, never up — the authored width as written', () => {
+    const third: [string, number] = ['33.333333333333336%', 200];
+    const thirds = row(third, third, third);
+    expect(holds(thirds)).toEqual([33.3333, 33.3333, 33.3333]);
+    const once = canonical(thirds);
+    // Authored markup is the source: its own digits stay, the model holds the cut share.
+    expect(once).toContain('width: 33.333333333333336%; max-width: 200px;');
+    expect(canonical(once)).toBe(once);
+  });
+
+  it('a column the whole width stacks: no share to hold', () => {
+    expect(holds(TWO_COLS)).toEqual([false, false]);
+  });
+
+  it('the boundary drag moves the pair’s share with its caps', () => {
+    const pos = mount(row(['50%', 300], ['50%', 300]));
+    expect(editor.exec(setColumnsBoundary(pos, 0, 200))).toBe(true);
+    expect(columnCaps(editor.state.doc.nodeAt(pos)!)).toEqual([200, 400]);
+    expect(sharesAt(pos)).toEqual([33.3333, 66.6667]);
+    expect(editor.getHTML()).toContain('width: 33.3333%; max-width: 200px;');
+    expect(editor.getHTML()).toContain('width: 66.6667%; max-width: 400px;');
+  });
+
+  it('a column added to a held row holds its even share with the rest — and gives it back', () => {
+    const pos = mount(row(['50%', 300], ['50%', 300]));
+    expect(editor.exec(appendColumn(pos))).toBe(true);
+    expect(sharesAt(pos)).toEqual([33.3333, 33.3333, 33.3333]);
+    expect(editor.exec(removeLastColumn(pos))).toBe(true);
+    expect(sharesAt(pos)).toEqual([50, 50]);
+  });
+
+  it('a column added to a stacking row stacks like the rest', () => {
+    const pos = mount(TWO_COLS);
+    expect(editor.exec(appendColumn(pos))).toBe(true);
+    expect(sharesAt(pos)).toEqual([false, false, false]);
   });
 });

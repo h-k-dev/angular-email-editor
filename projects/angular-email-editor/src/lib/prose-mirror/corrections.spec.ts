@@ -2,6 +2,7 @@ import {
   correctStoredMistakes,
   dropDeadOfficeClasses,
   inlineBootstrapTableBorders,
+  isBlockLink,
   lowerInlinesAroundBlocks,
   repairLinkSchemes,
   unwrapOfficeParagraphMarks,
@@ -178,6 +179,64 @@ describe('corrections', () => {
     it('leaves inlines that hold no block', () => {
       const html = '<div><b>a <span style="color:red">b</span></b></div><p><a href="x">c</a></p>';
       expect(after(html, lowerInlinesAroundBlocks)).toBe(html);
+    });
+
+    // A card that is one link — a promo's tile, as its author coded it.
+    const TILE =
+      '<a href="https://example.com/pixel-art" target="_blank" style="display:block; text-decoration:none; color:inherit;">' +
+      '<table role="presentation" width="100%"><tbody>' +
+      '<tr><td><img src="https://example.com/a.png" alt=""></td></tr>' +
+      '<tr><td><h2>Pixel art</h2></td></tr>' +
+      '</tbody></table></a>';
+
+    for (const [what, html] of [
+      ['a link that says it is a block, round a table', TILE],
+      [
+        'a link round a table, saying nothing',
+        '<a href="x"><table><tbody><tr><td>a</td></tr></tbody></table></a>',
+      ],
+      [
+        'a link round a block holding a table',
+        '<a href="x"><div><table><tbody><tr><td>a</td></tr></tbody></table></div></a>',
+      ],
+      [
+        'a link drawn as a box of its own',
+        '<a href="x" style="padding:8px;display:inline-block"><div>a</div></a>',
+      ],
+      [
+        'a block link whose display is marked important',
+        '<a href="x" style="display: block !important"><div>a</div><div>b</div></a>',
+      ],
+    ]) {
+      it(`leaves a block link as written: ${what}`, () => {
+        expect(after(html, lowerInlinesAroundBlocks)).toBe(html);
+        expect(isBlockLink(body(html).querySelector('a')!)).toBe(true);
+        expect(storedMistakes(html)).toEqual([]);
+      });
+    }
+
+    it('still lowers a link an editor wrapped round lines of text', () => {
+      const html = '<a href="x"><div>a</div><div>b</div></a>';
+      expect(isBlockLink(body(html).querySelector('a')!)).toBe(false);
+      expect(after(html, lowerInlinesAroundBlocks)).toBe(
+        '<div><a href="x">a</a></div><div><a href="x">b</a></div>',
+      );
+      // An inline display is no box of its own.
+      expect(
+        after('<a href="x" style="display:inline"><div>a</div></a>', lowerInlinesAroundBlocks),
+      ).toBe('<div><a href="x" style="display:inline">a</a></div>');
+    });
+
+    it('hands a table’s wrapper to its cells — its own, and a nested table’s through them — and reads back the same', () => {
+      const out = after(
+        '<font color="red"><table><tbody><tr><td>a</td><td><table><tbody><tr><td>b</td></tr></tbody></table></td><td></td></tr></tbody></table></font>',
+        lowerInlinesAroundBlocks,
+      );
+      expect(out).toBe(
+        '<table><tbody><tr><td><font color="red">a</font></td><td><table><tbody><tr><td><font color="red">b</font></td></tr></tbody></table></td><td></td></tr></tbody></table>',
+      );
+      // Between a table and its rows the wrapper would be moved out, empty.
+      expect(body(out).innerHTML).toBe(out);
     });
   });
 

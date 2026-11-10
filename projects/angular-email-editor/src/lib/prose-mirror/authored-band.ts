@@ -1,6 +1,7 @@
 import { Fragment, Node, ResolvedPos } from 'prosemirror-model';
 import { Command, Transaction } from 'prosemirror-state';
 import { isSafeColor, toEmailSafeColor } from './extensions/marks/text-style';
+import { heldShare } from './extensions/nodes/columns';
 import { SECTION_CONTENT_MAX, SectionWidth } from './extensions/nodes/section';
 import { DocumentEnvelope } from './envelope';
 import { inlinePadding, paddingOf, parseDeclarations } from './inline-style';
@@ -25,7 +26,11 @@ import { AttributePairs } from './verbatim';
  * - its columns — a columns block, each column capped at exactly its share
  *   of the row, as MJML drew it ({@link columnCap}), its vertical
  *   alignment, its content exactly as written. One full-width column is no
- *   columns block: its content is the section's.
+ *   columns block: its content is the section's;
+ * - a group of columns (`mj-group`: one full-width `div` of no type of its
+ *   own round columns that say their share themselves, `width: 50%`, and
+ *   so keep it on a phone instead of stacking) — the same columns block,
+ *   each column holding its share (`hold`, columns.ts).
  *
  * Only what a section can say is offered: a band with corners, a class of
  * its own, an image behind it (VML) or anything else a section cannot
@@ -41,6 +46,9 @@ import { AttributePairs } from './verbatim';
 export interface AuthoredColumn {
   percent: number;
   valign: 'top' | 'middle' | 'bottom';
+  /** Keeps its share of the row on a phone instead of stacking — a column
+      of MJML's group. */
+  hold: boolean;
 }
 
 /** What an MJML band would be in our blocks. */
@@ -85,8 +93,9 @@ export function authoredBand(node: Node): AuthoredBand | null {
 
 /** The columns a node holds, if they are MJML's: every child an
     `mj-column-*` div or a ghost comment of Outlook's, one column at least
-    — their shares of a row `contentWidth` px wide (a `px` column's width
-    is one of them). Null for anything else. */
+    — or one group of them ({@link groupOf}), its columns then — their
+    shares of a row `contentWidth` px wide (a `px` column's width is one of
+    them). Null for anything else. */
 export function authoredColumns(
   node: Node,
   contentWidth: number = SECTION_CONTENT_MAX,
@@ -247,6 +256,8 @@ function columnsBlock(holder: Node, shares: AuthoredColumn[], row: number): Node
         {
           maxWidth: columnCap(shares[index].percent, row),
           valign: shares[index].valign,
+          // A group's column: the share it said, kept on a phone.
+          hold: shares[index].hold ? heldShare(shares[index].percent) : false,
         },
         div.content,
       ),
@@ -349,19 +360,72 @@ function cellOf(band: Node): Node | null {
   return node;
 }
 
-/** The `mj-column-*` divs a holder holds, in order. */
-function columnDivs(holder: Node): Node[] {
-  const divs: Node[] = [];
+/** What a holder holds beside Outlook's ghost comments, in order. */
+function ownChildren(holder: Node): Node[] {
+  const own: Node[] = [];
   holder.forEach((child) => {
-    if (!isGhost(child)) divs.push(child);
+    if (!isGhost(child)) own.push(child);
   });
-  return divs;
+  return own;
+}
+
+/** The `mj-column-*` divs a holder holds, in order — its group's, where
+    it holds one ({@link groupOf}). */
+function columnDivs(holder: Node): Node[] {
+  return ownChildren(groupOf(holder) ?? holder);
+}
+
+/** What MJML's group may say of itself: a full-width inline-block with no
+    type of its own, so nothing stands between its columns. A fill, or
+    anything else, is more than a columns block says. */
+const GROUP_DECLARATIONS: Record<string, (value: string) => boolean> = {
+  'font-size': (value) => /^0(?:px)?$/.test(value),
+  'line-height': (value) => /^0(?:px)?$/.test(value),
+  'text-align': (value) => value === 'left',
+  direction: (value) => value === 'ltr',
+  display: (value) => value === 'inline-block',
+  'vertical-align': (value) => /^(top|middle|bottom)$/.test(value),
+  width: (value) => value === '100%',
+};
+
+const seenGroups = new WeakMap<Node, Node | null>();
+
+/** The group a holder holds and nothing else beside Outlook's ghosts —
+    MJML's `mj-group`: a `div.mj-column-per-100` round columns that each say
+    their share of it (`width: 50%`), which is how they keep it on a phone.
+    Null for anything else. */
+function groupOf(holder: Node): Node | null {
+  let known = seenGroups.get(holder);
+  if (known === undefined) {
+    known = readGroup(holder);
+    seenGroups.set(holder, known);
+  }
+  return known;
+}
+
+function readGroup(holder: Node): Node | null {
+  if (holder.isTextblock || holder.isAtom) return null;
+  const [group, ...others] = ownChildren(holder);
+  if (!group || others.length || !isElement(group, 'div')) return null;
+  if (pairsOf(group).some(([name]) => name !== 'class' && name !== 'style')) return null;
+  const classes = (attrOf(group, 'class') ?? '').split(/\s+/).filter(Boolean);
+  if (!classes.includes('mj-column-per-100')) return null;
+  // A class of the author's is drawn by their head: no group of ours.
+  if (classes.some((name) => name !== 'mj-column-per-100' && name !== 'mj-outlook-group-fix')) {
+    return null;
+  }
+  for (const [name, value] of styleOf(group)) {
+    if (!GROUP_DECLARATIONS[name]?.(value)) return null;
+  }
+  const columns = ownChildren(group);
+  return columns.length && columns.every((column) => columnOf(column, true)) ? group : null;
 }
 
 interface RawColumn {
   unit: 'per' | 'px';
   value: number;
   valign: AuthoredColumn['valign'];
+  hold: boolean;
 }
 
 const seenColumns = new WeakMap<Node, RawColumn[] | null>();
@@ -377,9 +441,10 @@ function rawColumns(holder: Node): RawColumn[] | null {
 
 function readColumns(holder: Node): RawColumn[] | null {
   if (holder.isTextblock || holder.isAtom || !holder.childCount) return null;
+  const group = groupOf(holder);
   const columns: RawColumn[] = [];
-  for (const child of columnDivs(holder)) {
-    const column = columnOf(child);
+  for (const child of ownChildren(group ?? holder)) {
+    const column = columnOf(child, !!group);
     if (!column) return null;
     columns.push(column);
   }
@@ -403,7 +468,14 @@ const COLUMN_DECLARATIONS: Record<string, (value: string) => boolean> = {
   width: (value) => value === '100%',
 };
 
-function columnOf(node: Node): RawColumn | null {
+/** A share a group's column says itself: `width: 50%`. */
+const SHARE = /^(\d+(?:\.\d+)?)%$/;
+
+/** What an `mj-column-*` div is, or null for a div that is none. `held`
+    reads it as a group's column: its width its own share of the group —
+    what its class says, in percent — where a column of a band says the
+    whole width and leaves its share to the head's rule. */
+function columnOf(node: Node, held = false): RawColumn | null {
   if (!isElement(node, 'div') || !node.childCount) return null;
   if (pairsOf(node).some(([name]) => name !== 'class' && name !== 'style')) return null;
   let share: RegExpExecArray | null = null;
@@ -416,19 +488,27 @@ function columnOf(node: Node): RawColumn | null {
   if (!share) return null;
   const style = styleOf(node);
   for (const [name, value] of style) {
+    // A group's column: its width is read below, against its class.
+    if (held && name === 'width') continue;
     if (!COLUMN_DECLARATIONS[name]?.(value)) return null;
+  }
+  const value = Number(share[2].replace('-', '.'));
+  if (held) {
+    const own = SHARE.exec(style.get('width') ?? '');
+    if (share[1] !== 'per' || !own || Math.abs(Number(own[1]) - value) > 0.01) return null;
   }
   return {
     unit: share[1] as RawColumn['unit'],
-    value: Number(share[2].replace('-', '.')),
+    value,
     valign: (style.get('vertical-align') as AuthoredColumn['valign'] | undefined) ?? 'top',
+    hold: held,
   };
 }
 
 function sharedColumn(column: RawColumn, contentWidth: number): AuthoredColumn {
   const percent =
     column.unit === 'per' ? column.value : (column.value / Math.max(1, contentWidth)) * 100;
-  return { percent, valign: column.valign };
+  return { percent, valign: column.valign, hold: column.hold };
 }
 
 /** The row a holder's px columns share: our width, a section's content;

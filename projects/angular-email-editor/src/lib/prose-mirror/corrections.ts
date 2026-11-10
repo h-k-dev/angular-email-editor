@@ -25,7 +25,10 @@
  *   drew them.
  * - An inline element wrapped around blocks (`<font color><div>…</div></font>`,
  *   `<span style><div>…</div></span>`) — a client re-nests it and the blocks
- *   lose the formatting. The inline is pushed down into each block.
+ *   lose the formatting. The inline is pushed down into each block — a
+ *   table's cells, for a table. A link round a block it means to be
+ *   ({@link isBlockLink}: a card, a tile, all of it one link) is no
+ *   mistake, and stays.
  * - A `<video>` — no client plays one. The intent, "watch this", becomes a
  *   link to its page.
  *
@@ -256,19 +259,47 @@ const BLOCK = new Set([
 const isBlock = (node: Node) =>
   node.nodeType === 1 && BLOCK.has((node as Element).tagName.toLowerCase());
 
+/** `display` as a link says it for itself — anything but `inline`. */
+const OWN_BOX = /^(?!inline$)[a-z-]+$/;
+
+/**
+ * A block link: an `<a>` round blocks that is meant to be round them — the
+ * way HTML makes a whole card one link (`<a style="display:block"><table>…`).
+ * It says so itself (a `display` of its own, in its style), or it holds a
+ * table, which no link could be pushed into and stay one. Lowered, it would
+ * be a link in every block, or in every cell: not what its author wrote, and
+ * not a shape an editor stored by mistake.
+ */
+export function isBlockLink(element: Element): boolean {
+  if (element.tagName.toLowerCase() !== 'a') return false;
+  if (element.querySelector('table')) return true;
+  const display = splitDeclarations(element.getAttribute('style') ?? '')
+    .filter((declaration) => declarationProperty(declaration) === 'display')
+    .map((declaration) =>
+      declaration
+        .slice(declaration.indexOf(':') + 1)
+        .replace(/!important/i, '')
+        .trim()
+        .toLowerCase(),
+    )
+    .at(-1);
+  return !!display && OWN_BOX.test(display);
+}
+
 /**
  * `<font color><div>a</div>b</font>` → `<div><font color>a</font></div><font color>b</font>`.
  * Each run of inline children keeps a copy of the wrapper; each block gets
  * one inside it, around its own content — recursively, so a block of blocks
- * hands it on down. An `<hr>` or an empty block takes none. Returns how many
- * wrappers were lowered.
+ * hands it on down, and a table hands it to its cells. An `<hr>` or an empty
+ * block takes none; a block link ({@link isBlockLink}) is left where it is.
+ * Returns how many wrappers were lowered.
  */
 export function lowerInlinesAroundBlocks(root: ParentNode): number {
   let count = 0;
   // Deepest first: an inner wrapper lowered hands its blocks to the outer one.
   for (const element of Array.from(root.querySelectorAll('*')).reverse()) {
     if (!element.isConnected || !FORMATTING.has(element.tagName.toLowerCase())) continue;
-    if (!Array.from(element.childNodes).some(isBlock)) continue;
+    if (!Array.from(element.childNodes).some(isBlock) || isBlockLink(element)) continue;
     lower(element);
     count++;
   }
@@ -302,9 +333,18 @@ function lower(wrapper: Element): void {
 }
 
 /** Puts a copy of `wrapper` around a block's content — or, for a block of
-    blocks, around each inner block's content. */
+    blocks, around each inner block's content; for a table, in each of its
+    own cells (between a table and its rows it would be no HTML: a client
+    moves it out, empty, and the cells lose what it carried). */
 function wrapInto(block: Element, wrapper: Element): void {
-  if (block.tagName.toLowerCase() === 'hr' || !block.childNodes.length) return;
+  const tag = block.tagName.toLowerCase();
+  if (tag === 'hr' || !block.childNodes.length) return;
+  if (tag === 'table') {
+    for (const cell of Array.from(block.querySelectorAll('td, th, caption'))) {
+      if (cell.closest('table') === block) wrapInto(cell, wrapper);
+    }
+    return;
+  }
   if (Array.from(block.childNodes).some(isBlock)) {
     const copy = wrapper.cloneNode(false) as Element;
     copy.append(...Array.from(block.childNodes));

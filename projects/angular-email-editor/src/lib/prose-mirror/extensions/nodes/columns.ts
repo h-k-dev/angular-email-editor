@@ -71,10 +71,10 @@ const columnStyle = (
   maxWidth: number,
   background: string | null,
   padding: string | null,
-  hold = false,
+  hold: ColumnHold = false,
   valign: CellVerticalAlignment = 'top',
 ): string =>
-  `display: inline-block; width: ${hold ? `${columnShare(maxWidth)}%` : '100%'}; max-width: ${maxWidth}px; ` +
+  `display: inline-block; width: ${hold ? `${heldWidth(hold, maxWidth)}%` : '100%'}; max-width: ${maxWidth}px; ` +
   `vertical-align: ${valign}; box-sizing: border-box;` +
   (padding ? ` padding: ${padding};` : '') +
   (background ? ` background-color: ${background}; color: ${fillTextColor(background)};` : '');
@@ -123,13 +123,42 @@ function cardOf(column: HTMLElement): HTMLElement | null {
     : null;
 }
 
-/** A column's share of the row, in whole percent — what a held column is
-    wide on a phone (its cap still holds on a desktop). */
+/** Whether a column holds its share of the row on a phone, and the share:
+    percent of the row, as the author wrote it — `false` for a column that
+    stacks. (`true`, a held column of no said share, takes its cap's share
+    of the budget.) */
+export type ColumnHold = number | boolean;
+
+/** A share a held column may carry: percent, cut to four decimals — down,
+    never up, so the shares of a row never pass it (three thirds are
+    99.9999, not 100.0002). */
+export const heldShare = (percent: number): number =>
+  Math.max(0.0001, Math.min(100, Math.floor(percent * 1e4 + 1e-6) / 1e4));
+
+/** What a held column is wide, percent of its row — on a phone, where its
+    cap no longer binds (on a desktop the cap is that share in px). */
+const heldWidth = (hold: ColumnHold, maxWidth: number): number =>
+  typeof hold === 'number' ? hold : columnShare(maxWidth);
+
+/** A column's share of the budget, in whole percent — a held column's
+    width where it says no share of its own. */
 const columnShare = (maxWidth: number): number =>
   Math.max(
     1,
     Math.min(100, Math.round((maxWidth / (CONTAINER_MAX - 2 * CLIENT_PADDING_BUDGET)) * 100)),
   );
+
+/** The share every column of an even split of `count` holds — or `false`
+    for one that stacks. */
+const evenHold = (column: Node, count: number): ColumnHold =>
+  column.attrs['hold'] ? heldShare(100 / count) : false;
+
+/** What a fresh column beside `block`'s holds: the even share where all of
+    them hold theirs (a row holds whole or not at all), else nothing. */
+const freshHold = (block: Node, count: number): ColumnHold =>
+  block.childCount > 0 && block.content.content.every((column) => column.attrs['hold'])
+    ? heldShare(100 / count)
+    : false;
 
 const columnMaxWidth = (count: number): number =>
   Math.floor((CONTAINER_MAX - 2 * CLIENT_PADDING_BUDGET) / count);
@@ -177,12 +206,23 @@ export function setColumnsBoundary(columnsPos: number, boundary: number, leftCap
 
     if (dispatch) {
       const tr = state.tr;
+      // Two held columns: the share the pair holds goes with the caps.
+      const holds = [columns.child(boundary), columns.child(boundary + 1)].map(
+        (column) => column.attrs['hold'] as ColumnHold,
+      );
+      const share = holds.every((hold) => typeof hold === 'number')
+        ? (holds[0] as number) + (holds[1] as number)
+        : null;
+      const leftShare = share === null ? null : heldShare((share * left) / pair);
       let pos = columnsPos + 1;
       columns.forEach((column, _offset, index) => {
         if (index === boundary || index === boundary + 1) {
           tr.setNodeMarkup(pos, null, {
             ...column.attrs,
             maxWidth: index === boundary ? left : right,
+            ...(share !== null && {
+              hold: index === boundary ? leftShare : Math.round((share - leftShare!) * 1e4) / 1e4,
+            }),
           });
         }
         pos += column.nodeSize;
@@ -225,7 +265,8 @@ export const Column = defineNode({
       /** Holds its share of the row on a phone instead of stacking — a
           builder's grouped columns (MJML's `mj-group`), written with a
           percent `width` of their own rather than the stacking pattern's
-          `width: 100%`. Emitted as that percent. */
+          `width: 100%`. The share itself, percent ({@link ColumnHold}),
+          emitted as written. */
       hold: { default: false },
       /** The block's gap, px — the same on every column of it, set for all
           at once (`setColumnsGap`): 0, the columns side by side with
@@ -265,7 +306,7 @@ export const Column = defineNode({
             background: isSafeColor(bg) ? bg : null,
             padding: parsePadding(fillOf),
             gutter: card ? gutterOf(el) : 0,
-            hold: !!share && +share[1] < 100,
+            hold: !!share && +share[1] < 100 ? heldShare(+share[1]) : false,
             valign: parseColumnVerticalAlign(el),
           };
         },
@@ -532,7 +573,9 @@ function findColumnsEditContext(
     Backgrounds and content are kept. */
 function resplitColumns(columns: Node[], count: number): Node[] {
   const maxWidth = columnMaxWidth(count);
-  return columns.map((col) => col.type.create({ ...col.attrs, maxWidth }, col.content));
+  return columns.map((col) =>
+    col.type.create({ ...col.attrs, maxWidth, hold: evenHold(col, count) }, col.content),
+  );
 }
 
 /** Inserts an empty column after the cursor's, up to {@link MAX_COLUMNS};
@@ -549,6 +592,7 @@ export const addColumn: Command = (state, dispatch) => {
   const fresh = freshColumn(state.schema, {
     maxWidth: columnMaxWidth(count),
     gutter: ctx.node.firstChild?.attrs['gutter'] ?? 0,
+    hold: freshHold(ctx.node, count),
   });
   columns.splice(ctx.index + 1, 0, fresh);
 
@@ -625,12 +669,23 @@ function restructureColumns(
   if (append) {
     const end = tr.mapping.map(pos + block.nodeSize - 1, -1);
     // The block's gap is every column's: the new one takes it too.
-    tr.insert(end, freshColumn(state.schema, { gutter: block.firstChild?.attrs['gutter'] ?? 0 }));
+    tr.insert(
+      end,
+      freshColumn(state.schema, {
+        gutter: block.firstChild?.attrs['gutter'] ?? 0,
+        // Held like the rest: the re-split below gives it its share.
+        hold: freshHold(block, block.childCount + 1),
+      }),
+    );
   }
   const rebuilt = tr.doc.nodeAt(pos)!;
   const maxWidth = columnMaxWidth(rebuilt.childCount);
   rebuilt.forEach((col, offset) => {
-    tr.setNodeMarkup(pos + 1 + offset, undefined, { ...col.attrs, maxWidth });
+    tr.setNodeMarkup(pos + 1 + offset, undefined, {
+      ...col.attrs,
+      maxWidth,
+      hold: evenHold(col, rebuilt.childCount),
+    });
   });
   return tr;
 }

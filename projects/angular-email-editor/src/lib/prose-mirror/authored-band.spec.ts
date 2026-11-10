@@ -16,6 +16,7 @@ import {
 } from './authored-band';
 import { authoredPageBands, convertAuthoredPageToCentred } from './authored-page';
 import { normalizePageLayout } from './page-layout';
+import { columnCaps as columnCapsOf } from './extensions/nodes/columns';
 import { createSchema } from './schema';
 
 const fs = (globalThis as any).process.getBuiltinModule('fs');
@@ -299,8 +300,8 @@ describe('an MJML band — offered as a section of ours, with its columns', () =
 
   it('reads a band’s px columns as their share of its content', () => {
     expect(bandOf(band(centred, column('px-150') + column('px-450')))?.columns).toEqual([
-      { percent: 25, valign: 'top' },
-      { percent: 75, valign: 'top' },
+      { percent: 25, valign: 'top', hold: false },
+      { percent: 75, valign: 'top', hold: false },
     ]);
     const doc = parseHTML(band(centred, column('per-50') + column('per-50')), schema);
     const cell = doc.nodeAt(authoredBandPositions(doc)[0] + 4)!;
@@ -325,6 +326,123 @@ describe('an MJML band — offered as a section of ours, with its columns', () =
   ]) {
     it(`offers no section for ${what}`, () => {
       expect(bandOf(html)?.convertible ?? false).toBe(false);
+    });
+  }
+
+  /** MJML's group: one full-width div of no type round columns that say
+      their share themselves. */
+  const ghost = (tags: string) => `<!--[if mso | IE]>${tags}<![endif]-->`;
+  const group = (columns: string[], extra = '') =>
+    `<div class="mj-column-per-100 mj-outlook-group-fix" style="font-size:0;line-height:0;text-align:left;display:inline-block;width:100%;direction:ltr;${extra}">` +
+    ghost(
+      '<table border="0" cellpadding="0" cellspacing="0" role="presentation" ><tr><td style="vertical-align:top;width:300px;" >',
+    ) +
+    columns.join(ghost('</td><td style="vertical-align:top;width:300px;" >')) +
+    ghost('</td></tr></table>') +
+    '</div>';
+  const held = (share: string, width = `${share}%`) =>
+    column(`per-${share.replace('.', '-')}`).replace('width:100%;', `width:${width};`);
+
+  it('recognises Worldly’s header: a group of two halves, each holding its share', () => {
+    const doc = parseHTML(read('worldly.html'), schema);
+    const [pos] = authoredBandPositions(doc);
+    const header = authoredBand(doc.nodeAt(pos)!)!;
+    expect(header.convertible).toBe(true);
+    expect(header.section).toEqual({ fill: null, width: 600, top: 20, bottom: 20, inset: 0 });
+    expect(header.columns).toEqual([
+      { percent: 50, valign: 'top', hold: true },
+      { percent: 50, valign: 'top', hold: true },
+    ]);
+  });
+
+  it('converted: the group a columns block whose columns keep their halves on a phone, the content as written — one undo step', () => {
+    mount(read('worldly.html'));
+    const before = editor.getHTML();
+    const [pos] = authoredBandPositions(editor.state.doc);
+    expect(editor.exec(convertAuthoredBand(pos))).toBe(true);
+
+    const [section] = nodesOf(editor.state.doc, 'section');
+    const columns = section.node.child(0);
+    expect(columns.type.name).toBe('columns');
+    expect(columns.childCount).toBe(2);
+    columns.forEach((one) => {
+      // MJML's own width, and the share it said: half of whatever a phone gives.
+      expect(one.attrs).toMatchObject({ maxWidth: 300, hold: 50, valign: 'top' });
+    });
+    const html = editor.getHTML();
+    expect(html).toContain('style="display: inline-block; width: 50%; max-width: 300px;');
+    // Outlook's row: one cell a column, at its cap.
+    expect(html).toContain('<td width="300" valign="top"><![endif]-->');
+    // The group and its own ghost table went; what its columns held stayed.
+    expect(html).not.toContain('font-size:0;line-height:0;');
+    const mjml = (doc: Document) =>
+      Array.from(doc.querySelectorAll('.mj-column-per-100 > .mj-column-per-50')).slice(0, 2);
+    const ours = (doc: Document) =>
+      Array.from(doc.querySelectorAll('.aee-layout-section .aee-layout-column')).slice(0, 2);
+    expect(inner(html, ours)).toEqual(inner(before, mjml));
+    expect(readsBack(editor.state.doc)).toBe(true);
+
+    undo(editor.state, editor.view.dispatch);
+    expect(editor.getHTML()).toBe(before);
+  });
+
+  it('keeps NYA’s rounded group band as written, its columns alone offered — held, inside the band’s side room', () => {
+    const doc = parseHTML(read('nya-cart.html'), schema);
+    const pos = authoredBandPositions(doc).find((at) => {
+      const found = authoredBand(doc.nodeAt(at)!)!;
+      return (
+        !found.convertible && found.columnsConvertible && found.columns.every((one) => one.hold)
+      );
+    })!;
+    expect(pos).toBeDefined();
+    const state = after(doc, convertAuthoredColumns(pos))!;
+    const kept = state.doc.nodeAt(pos)!;
+    expect(kept.type.name).toBe('htmlElement');
+    const [block] = nodesOf(kept, 'columns');
+    // 10px of room each side of a 600px band: two halves of 580.
+    block.node.forEach((one) => expect(one.attrs).toMatchObject({ maxWidth: 290, hold: 50 }));
+    expect(serializeToHTML(state.doc, schema)).toContain('border-radius:10px');
+    expect(state.doc.textContent).toBe(doc.textContent);
+    expect(readsBack(state.doc)).toBe(true);
+  });
+
+  it('reads a group of three thirds: each share cut down, so the row never passes its band', () => {
+    const third = '33.333333333333336';
+    const html = band(centred, group([held(third), held(third), held(third)]));
+    expect(bandOf(html)?.columns.map((one) => one.hold)).toEqual([true, true, true]);
+    const state = after(parseHTML(html, schema), convertAuthoredBands())!;
+    const [block] = nodesOf(state.doc, 'columns');
+    const shares: number[] = [];
+    block.node.forEach((one) => shares.push(one.attrs['hold']));
+    expect(shares).toEqual([33.3333, 33.3333, 33.3333]);
+    expect(columnCapsOf(block.node)).toEqual([200, 200, 200]);
+    expect(readsBack(state.doc)).toBe(true);
+  });
+
+  it('recognises a group of two halves', () => {
+    expect(bandOf(band(centred, group([held('50'), held('50')])))?.columns).toEqual([
+      { percent: 50, valign: 'top', hold: true },
+      { percent: 50, valign: 'top', hold: true },
+    ]);
+  });
+
+  for (const [what, html] of [
+    [
+      'a group with a fill of its own',
+      band(centred, group([held('50'), held('50')], 'background-color:#ff0000;')),
+    ],
+    ['a group beside a column', band(centred, group([held('50'), held('50')]) + column('per-100'))],
+    [
+      'a group whose column says another share than its class',
+      band(centred, group([held('50', '40%'), held('50')])),
+    ],
+    [
+      'a group whose columns say the whole width',
+      band(centred, group([column('per-50'), column('per-50')])),
+    ],
+  ]) {
+    it(`offers nothing for ${what}`, () => {
+      expect(bandOf(html)).toBeNull();
     });
   }
 

@@ -304,6 +304,13 @@
               as written.
             </p>
           }
+          @if (band.columns.length > 1 && band.columns[0].hold) {
+            <!-- MJML's group: its columns say their share themselves. -->
+            <p>
+              Its columns are a group: on a phone they keep their share of the row instead of
+              stacking, and do so as columns of ours.
+            </p>
+          }
           <div class="section-menu__suggestion-actions">
             @if (band.convertible) {
               <button
