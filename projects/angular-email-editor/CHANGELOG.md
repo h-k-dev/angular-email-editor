@@ -87,6 +87,11 @@ version may change behaviour, and says so here.
   inline colour dark except the root's — the `<body>`'s `bgcolor` or inline background, which
   stayed light under a dark email. The root's own style is now drawn dark like any other, and
   so are the colours of a body rule.
+- **A page's room stays dark on dark paper.** Drawing the root's own style dark
+  (above) also took its custom properties: the page layout's
+  `--aee-page-background-dark`, already the dark fill, was drawn dark once more
+  and came out light — light strips above and below a page on dark paper.
+  `createDarkRendering` now leaves the root's custom properties as written.
 - **A block link is no stored mistake.** `storedMistakes` counted an `<a>` round a table or a
   block — a card that is one link, `<a style="display:block"><table>…` — as
   `inline-around-blocks`, and `fixStoredMistakes` pushed the link inside. A link that says

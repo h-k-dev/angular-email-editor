@@ -50,7 +50,9 @@ let nextId = 0;
  * The root takes Dawn's ink and dark surface — and where it carries a look
  * of its own (a document's `<body>` fill, put on it inline by
  * `DocumentStyles`), that is drawn dark like any other: a white body is no
- * white strip under a dark email. The sheet is made again whenever the
+ * white strip under a dark email. Its custom properties are left as written
+ * (the page layout's fills, which say their own dark). The sheet is made
+ * again whenever the
  * spellings in the editor change, and leaves with the editor.
  *
  * What the editor does not draw — a pasted document's `<style>` — is not
@@ -131,9 +133,14 @@ export function darkRenderingCss(dom: Element, root: string): { css: string; key
     rules.push(`${root} [style=${cssString(style)}] { ${body.join(' ')} }`);
   }
   // The root's own look — a document's body, on it inline: drawn dark too,
-  // over the surface above.
+  // over the surface above. Never its custom properties: those are the
+  // editor's own (the page layout's `--aee-page-background` and its
+  // `-dark`, each already written for its light) — drawn dark again, the
+  // dark one comes out light, and the page's room with it.
   const own = dom.getAttribute('style') ?? '';
-  const ownDeclarations = own ? dawnDarkDeclarationsOf(own) : [];
+  const ownDeclarations = (own ? dawnDarkDeclarationsOf(own) : []).filter(
+    ([property]) => !property.startsWith('--'),
+  );
   if (ownDeclarations.length) {
     const body = ownDeclarations.map(([property, value]) => `${property}: ${value} !important;`);
     rules.push(`${root}[style=${cssString(own)}] { ${body.join(' ')} }`);

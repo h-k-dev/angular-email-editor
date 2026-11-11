@@ -60,6 +60,32 @@ describe('createDarkRendering', () => {
     expect(style).toBeGreaterThan(bg);
   });
 
+  it('draws the root’s own fill dark, and leaves its custom properties as written', () => {
+    // A page layout's root: its fills as custom properties, each already
+    // written for both lights, beside the document's body fill.
+    const dom = document.createElement('div');
+    dom.setAttribute(
+      'style',
+      '--aee-page-background: #f1f3f4; --aee-page-background-dark: rgb(60, 62, 62); background: #f3f5f8',
+    );
+    const { css } = darkRenderingCss(dom, '.r');
+    const own = css.split('\n').find((rule) => rule.startsWith('.r[style='))!;
+    const body = own.slice(own.lastIndexOf('{'));
+    expect(body).toContain(`background: ${dawnDarkColor('#f3f5f8')} !important;`);
+    // Drawn dark again, the dark fill would come out light.
+    expect(body).not.toContain('--aee-page-background');
+  });
+
+  it('gives a root of custom properties alone no rule of its own', () => {
+    const dom = document.createElement('div');
+    dom.setAttribute(
+      'style',
+      '--aee-page-background: #f1f3f4; --aee-page-background-dark: #3c3e3e',
+    );
+    const { css } = darkRenderingCss(dom, '.r');
+    expect(css).not.toContain('.r[style=');
+  });
+
   it('quotes a style it matches exactly, quotes and all', () => {
     const dom = document.createElement('div');
     dom.innerHTML = `<p style='font-family: "Tan"; color: #000000'>x</p>`;
