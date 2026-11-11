@@ -35,7 +35,10 @@ import { mergeTagRanges, scanMergeTags } from './nodes/merge-tag';
  *   `''` for a field without a value as for one that computes to nothing,
  *   so the fill cannot tell a gap from an intent. The writer decides: write
  *   a value by hand ({@link writeMergeTag}), or remove the token
- *   ({@link removeMergeTag}) — an empty value is always explicit.
+ *   ({@link removeMergeTag}) — an empty value is always explicit;
+ * - a host that **can** tell says so: {@link REMOVE_MERGE_TAG} for an
+ *   expression takes its tokens out in the same transaction, the text
+ *   closed up behind them.
  *
  * Tokens in running text and in any string attribute of a node or mark — a
  * link's or a button's `href`, a button's label, an image's `src` or `alt`
@@ -358,15 +361,33 @@ export interface MergeTagResolutionReport {
   empty: string[];
   /** Expressions the host left unresolved (`null`): their tokens stay. */
   kept: string[];
+  /** Expressions the host took out ({@link REMOVE_MERGE_TAG}): their tokens
+      are gone, in the fill's own step. */
+  removed: string[];
 }
+
+/**
+ * An evaluator's answer for "this expression stands for nothing here": its
+ * tokens are removed in the fill's own transaction — one undo step with the
+ * values — and the text closes up behind them, as {@link removeMergeTags}
+ * does. For the host that can tell an intent from a gap (`cf_7 ? ', ' +
+ * cf_7 : ''` computing to nothing, against a field without a value): `''`
+ * stays "no value", and keeps its token.
+ */
+export const REMOVE_MERGE_TAG: unique symbol = Symbol.for('angular-email-editor.removeMergeTag');
+
+/** What an evaluator says for one expression: the value, the say to take
+    its tokens out, or no value (`''`, `null`, `undefined`). */
+export type MergeTagAnswer = string | typeof REMOVE_MERGE_TAG | null | undefined;
 
 export interface MergeTagResolutionOptions {
   /**
    * Values for the distinct expressions asked for, in the same order — each
    * the trimmed text between the braces, as written. A string replaces the
    * token; `''`, `null` or `undefined` leave it as it is (`''` is reported
-   * as empty — only the writer removes a token). The editor never
-   * evaluates anything itself: this is the host's evaluator.
+   * as empty — the fill never guesses a removal); {@link REMOVE_MERGE_TAG}
+   * takes it out, on the host's word. The editor never evaluates anything
+   * itself: this is the host's evaluator.
    *
    * ```ts
    * resolve: async (expressions) => {
@@ -376,7 +397,7 @@ export interface MergeTagResolutionOptions {
    * }
    * ```
    */
-  resolve: (expressions: string[]) => Promise<readonly (string | null | undefined)[]>;
+  resolve: (expressions: string[]) => Promise<readonly MergeTagAnswer[]>;
   /** Called once the values are in the document. */
   onResolved?: (report: MergeTagResolutionReport) => void;
   /** Called when `resolve` rejects — the document is left as it was. */
@@ -397,6 +418,12 @@ export interface MergeTagResolutionOptions {
 
 // ---------------------------------------------------------------------------
 // Where the tokens are
+
+/** A stretch of the document. */
+interface Range {
+  from: number;
+  to: number;
+}
 
 /** One token occurrence: in running text, or in an attribute. */
 type Occurrence =
@@ -482,11 +509,54 @@ function valueContent(schema: Schema, value: string, marks: readonly Mark[]): Fr
   return Fragment.from(nodes);
 }
 
+/** A space, as the text has it — typed twice, the editor writes a no-break
+    space for one of them. */
+const SPACE = /^[ \u00a0]$/;
+
+/** Punctuation that leans on the word before it: a token gone from in front
+    of it takes its own leading space along (`Dear {{ title }},` → `Dear,`). */
+const CLOSING = /^[,.;:!?)\]]$/;
+
+/** Whether `[from, to)` is running text of spaces only — nothing at all
+    included: no node, no line between. */
+function onlySpaces(doc: Node, from: number, to: number): boolean {
+  const gap = doc.textBetween(from, to);
+  return gap.length === to - from && [...gap].every((char) => SPACE.test(char));
+}
+
+/**
+ * What to delete for `tokens` (in document order) to be gone and the text
+ * to read as if they were never there: tokens side by side, or with only
+ * spaces between, go as one; and one of the spaces around them goes along
+ * (`invite {{ a }} to` → `invite to`) — at a line's start or end, or before
+ * a comma or full stop, the space on the other side. In document order,
+ * never overlapping.
+ */
+function removalRanges(doc: Node, tokens: readonly Range[]): Range[] {
+  const ranges: Range[] = [];
+  for (const token of tokens) {
+    const last = ranges.at(-1);
+    if (last && onlySpaces(doc, last.to, token.from)) last.to = token.to;
+    else ranges.push({ from: token.from, to: token.to });
+  }
+  for (const range of ranges) {
+    const $from = doc.resolve(range.from);
+    const $to = doc.resolve(range.to);
+    const before = $from.parentOffset > 0 ? doc.textBetween(range.from - 1, range.from) : '';
+    const after = $to.parentOffset < $to.parent.content.size ? doc.textBetween(range.to, range.to + 1) : '';
+    if (SPACE.test(after) && (SPACE.test(before) || !before)) range.to += 1;
+    else if (SPACE.test(before) && (!after || CLOSING.test(after))) range.from -= 1;
+  }
+  return ranges;
+}
+
 /** Applies `values` to every occurrence in `[from, to)`; returns how many
-    were filled. Attributes first (they move nothing), then text from the
-    end, so every position read off `doc` still holds when it is used. A
-    value written `byHand` is the token's all the same, but nothing was
-    filled in: it reads as edited from the start. */
+    took a value. An empty value removes its tokens — in an attribute the
+    token alone, in running text with the space it leaves closed up
+    ({@link removalRanges}). Attributes first (they move nothing), then text
+    from the end, so every position read off `doc` still holds when it is
+    used. A value written `byHand` is the token's all the same, but nothing
+    was filled in: it reads as edited from the start. */
 function fill(
   tr: Transaction,
   from: number,
@@ -523,8 +593,17 @@ function fill(
 
   const mergeTag = doc.type.schema.marks['mergeTag'];
   const filled = doc.type.schema.marks['filledMergeTag'];
-  const texts = found.filter((occurrence) => occurrence.kind === 'text').reverse();
-  for (const occurrence of texts) {
+  const texts = found.filter((occurrence) => occurrence.kind === 'text');
+  const gone = removalRanges(
+    doc,
+    texts.filter((occurrence) => !values.get(occurrence.expr)),
+  ).map((range) => ({ ...range, expr: null }));
+  const edits = [...texts.filter((occurrence) => values.get(occurrence.expr)), ...gone];
+  for (const occurrence of edits.sort((a, b) => b.from - a.from)) {
+    if (occurrence.expr === null) {
+      tr.delete(occurrence.from, occurrence.to);
+      continue;
+    }
     let marks: readonly Mark[] = (tr.doc.nodeAt(occurrence.from)?.marks ?? []).filter(
       (mark) => mark.type !== mergeTag,
     );
@@ -539,7 +618,7 @@ function fill(
     }
     tr.replaceWith(occurrence.from, occurrence.to, content);
   }
-  return found.length;
+  return found.filter((occurrence) => values.get(occurrence.expr)).length;
 }
 
 // ---------------------------------------------------------------------------
@@ -603,8 +682,9 @@ export function revealMergeTag(view: EditorView, expr: string): HTMLElement | nu
  * running text with the token's formatting, a line break a hard break, and
  * still the token's ({@link FilledMergeTag}, edited from the start: nothing
  * was filled in); in an attribute, as text. One step, undone with Mod-Z.
- * An empty `value` removes the tokens — {@link removeMergeTag}, the one
- * explicit way to an empty value. False when no token holds `expr`.
+ * An empty `value` removes the tokens — {@link removeMergeTag}, the
+ * writer's explicit way to an empty value. False when no token holds
+ * `expr`.
  */
 export const writeMergeTag =
   (expr: string, value: string): Command =>
@@ -625,9 +705,32 @@ export const writeMergeTag =
     return true;
   };
 
-/** Removes every token holding `expr` — the writer's say that it stands
-    for nothing here. One step, undone with Mod-Z. */
-export const removeMergeTag = (expr: string): Command => writeMergeTag(expr, '');
+/**
+ * Removes every token holding one of `expressions` — the say that they
+ * stand for nothing here — and closes the text up behind them, so it reads
+ * as if they were never there: tokens side by side, or with only spaces
+ * between, go as one, and one of the spaces around them goes along (`invite
+ * {{ a }} to` → `invite to`; at a line's start or end, or before a comma or
+ * full stop, the space on the other side). In an attribute the token alone
+ * goes. All of it one step, undone with Mod-Z; the caret stays where it
+ * was. False when no token holds any of them.
+ */
+export const removeMergeTags =
+  (expressions: readonly string[]): Command =>
+  (state, dispatch) => {
+    const keys = expressions.map((expr) => expr.trim());
+    if (!keys.some((key) => firstOccurrence(state.doc, key))) return false;
+    if (dispatch) {
+      const tr = state.tr;
+      fill(tr, 0, state.doc.content.size, new Map(keys.map((key) => [key, ''])), true);
+      dispatch(tr);
+    }
+    return true;
+  };
+
+/** {@link removeMergeTags} for one expression: every token holding `expr`
+    goes, the text closed up behind it. */
+export const removeMergeTag = (expr: string): Command => removeMergeTags([expr]);
 
 // ---------------------------------------------------------------------------
 // The request
@@ -771,8 +874,11 @@ export const createMergeTagResolution = (options: MergeTagResolutionOptions): Fu
     options.resolve(expressions).then(
       (answers) => {
         const answered = expressions.map((expr, i) => [expr, answers[i] ?? null] as const);
-        // An empty answer is no value: the token stays, for the writer.
-        const values = new Map(answered.map(([expr, value]) => [expr, value || null]));
+        // An empty answer is no value: the token stays, for the writer —
+        // unless the host says it goes, which `fill` reads as `''`.
+        const values = new Map(
+          answered.map(([expr, value]) => [expr, value === REMOVE_MERGE_TAG ? '' : value || null]),
+        );
         let filled = 0;
         const settled = settle(view, id, (tr, pending) => {
           filled = fill(tr, pending.from, pending.to, values);
@@ -784,6 +890,7 @@ export const createMergeTagResolution = (options: MergeTagResolutionOptions): Fu
           filled,
           empty: answered.filter(([, value]) => value === '').map(([expr]) => expr),
           kept: answered.filter(([, value]) => value === null).map(([expr]) => expr),
+          removed: answered.filter(([, value]) => value === REMOVE_MERGE_TAG).map(([expr]) => expr),
         });
       },
       (error: unknown) => {
@@ -829,6 +936,7 @@ export const createMergeTagResolution = (options: MergeTagResolutionOptions): Fu
       selectMergeTag,
       writeMergeTag,
       removeMergeTag,
+      removeMergeTags,
     }),
     actions: () => [
       {

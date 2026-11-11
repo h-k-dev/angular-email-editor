@@ -1,7 +1,7 @@
 import { Component, signal, viewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormField, form, submit } from '@angular/forms/signals';
-import { emailExtensions } from '@h-k-dev/angular-email-editor';
+import { REMOVE_MERGE_TAG, emailExtensions } from '@h-k-dev/angular-email-editor';
 import { EmailEditor, MergeTagRevealed } from './editor';
 import { MERGE_TAG_UNFILLED, checkMergeTagValues, isMergeTagUnfilled } from './merge-tag-errors';
 
@@ -70,6 +70,15 @@ describe('checkMergeTagValues and the editor’s errors', () => {
     ]);
     expect(errors.every((error) => error.fieldTree === host.fields.body)).toBe(true);
     expect(errors.every(isMergeTagUnfilled)).toBe(true);
+  });
+
+  it('one the host would take out is no error — it stands for nothing, on its word', async () => {
+    await write('<div>{{ salutation }} {{ suffix }}</div>');
+    const errors = await checkMergeTagValues(host.fields.body, host.body(), {
+      resolve: async (expressions) =>
+        expressions.map((expr) => (expr === 'suffix' ? REMOVE_MERGE_TAG : '')),
+    });
+    expect(errors.map((error) => error.expr)).toEqual(['salutation']);
   });
 
   it('asks nothing when the document has no placeholder, or no editor yet', async () => {

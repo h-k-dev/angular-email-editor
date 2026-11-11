@@ -595,11 +595,11 @@ export const API_SECTIONS: readonly ApiSection[] = [
       },
       {
         id: 'create-merge-tag-resolution',
-        name: 'createMergeTagResolution · mergeTagResolutionPending',
+        name: 'createMergeTagResolution · mergeTagResolutionPending · REMOVE_MERGE_TAG',
         signature:
-          '({ resolve: (expressions) => Promise<(string | null)[]>, onResolved?, onError?, onPendingChange?, onFilledHover? }) => FunctionalExtension · (state) => boolean',
+          '({ resolve: (expressions) => Promise<MergeTagAnswer[]>, onResolved?, onError?, onPendingChange?, onFilledHover? }) => FunctionalExtension · (state) => boolean · unique symbol',
         summary:
-          'Fills placeholders with the host’s values, in one undo step. A value that comes back empty keeps its token: only the writer removes one.',
+          'Fills placeholders with the host’s values, in one undo step. A value that comes back empty keeps its token; the host that means it gone answers `REMOVE_MERGE_TAG`, and it goes in the same step.',
       },
       {
         id: 'filled-merge-tag',
@@ -611,11 +611,11 @@ export const API_SECTIONS: readonly ApiSection[] = [
       },
       {
         id: 'merge-tag-by-expression',
-        name: 'distinctMergeTagExpressions · selectMergeTag · revealMergeTag · writeMergeTag · removeMergeTag',
+        name: 'distinctMergeTagExpressions · selectMergeTag · revealMergeTag · writeMergeTag · removeMergeTag · removeMergeTags',
         signature:
-          '(doc) => string[] · (expr) => Command · (view, expr) => HTMLElement | null · (expr, value) => Command · (expr) => Command',
+          '(doc) => string[] · (expr) => Command · (view, expr) => HTMLElement | null · (expr, value) => Command · (expr) => Command · (expressions) => Command',
         summary:
-          'One token by its expression: find it, put the caret on it, write a value in its place, or remove it — the one explicit empty value.',
+          'One token by its expression: find it, put the caret on it, write a value in its place, or remove it — several at once in one undo step, the text closed up behind them.',
       },
       {
         id: 'check-merge-tag-values',

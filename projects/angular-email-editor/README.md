@@ -33,8 +33,10 @@ engine, the behaviour and accessible building blocks.
   (`createMergeTagResolution`, <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd>):
   your evaluator gets each expression raw, the values go back in as text, in one undo step.
   A filled value remembers its token (edit it by hand, reset it, or restore the token), a
-  value that comes back empty keeps its token, and `checkMergeTagValues` stops a send on
-  each placeholder without a value — `focusBoundControl` puts the caret on that token.
+  value that comes back empty keeps its token — unless your evaluator answers
+  `REMOVE_MERGE_TAG`, which takes it out in the same step, the text closed up behind it —
+  and `checkMergeTagValues` stops a send on each placeholder without a value:
+  `focusBoundControl` puts the caret on that token.
 - **Compose workflow** — reply/forward seeds with localized labels, quoted history kept
   beside the body, inline images (`cid:`), a send intent with `text/plain` alternative.
 - **Address fields that implement the RFCs** — RFC 5322/5321/6531 parsing and

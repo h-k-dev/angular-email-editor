@@ -7,6 +7,12 @@ version may change behaviour, and says so here.
 
 ### Changed — behaviour
 
+- **Removing a token closes the text up.** `removeMergeTag` (and `writeMergeTag` with an
+  empty value) used to take the token alone, leaving the two spaces round it side by side.
+  One of them now goes along — `invite {{ a }} to` reads `invite to`; at a line's start or
+  end, or before a comma or full stop, the space on the other side — and tokens side by
+  side, or a space apart, go as one. A token in an attribute goes alone, as before.
+  `removeMergeTag` no longer scrolls to the selection.
 - **A document's `prefers-color-scheme` rules follow the paper.** In the editor they used to
   follow the viewer's browser, which says nothing of the paper: a dark browser drew an
   email's dark rules on light paper. They now apply while the root matches the dark-paper
@@ -63,6 +69,15 @@ version may change behaviour, and says so here.
 - **One token by its expression** — `distinctMergeTagExpressions` (text and attributes,
   once each), `selectMergeTag`, `revealMergeTag`, `writeMergeTag` (a value by hand in
   every token's place), `removeMergeTag`.
+- **The evaluator may take a token out** — `resolve` answering `REMOVE_MERGE_TAG` for an
+  expression removes its tokens in the fill's own transaction (one undo step with the
+  values), the text closed up behind them; `''` still keeps the token. For the host that
+  can tell an intent from a gap. Reported in `MergeTagResolutionReport.removed` (a new,
+  always present field); `MergeTagAnswer` is the type of one answer.
+  `checkMergeTagValues` takes such an answer as no error.
+- **Several tokens removed at once** — `removeMergeTags(expressions)`: every token holding
+  one of them, one undo step, the text closed up as above. Also the `removeMergeTags`
+  editor command.
 - **Signal-forms check at send** (`/editor`) — `checkMergeTagValues(field, editor,
   { resolve })` returns a `MergeTagUnfilled` error (`mergeTag.unfilled`, with its `expr`)
   for each placeholder without a value; `isMergeTagUnfilled`. `EmailEditor` takes the
@@ -87,6 +102,12 @@ version may change behaviour, and says so here.
   inline colour dark except the root's — the `<body>`'s `bgcolor` or inline background, which
   stayed light under a dark email. The root's own style is now drawn dark like any other, and
   so are the colours of a body rule.
+- **A floating menu keeps to the paper on screen, across too.** `measureMenuPlacement`
+  held the box to the container's `scrollWidth`: in an email wider than its paper (a 600px
+  table in a narrower window) the `/` and `{{` menus stood past the paper's edge, cut off
+  there — and, standing there, widened the very width they were held to. The box now keeps
+  to what the container shows across, cut down by every scroller round it and the window,
+  as it already did down it.
 - **A page's room stays dark on dark paper.** Drawing the root's own style dark
   (above) also took its custom properties: the page layout's
   `--aee-page-background-dark`, already the dark fill, was drawn dark once more

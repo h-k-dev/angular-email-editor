@@ -5,15 +5,18 @@ import { measureMenuPlacement } from './menu-position';
  * editor on screen, the box 320px tall (the token's default), 4px from the
  * line. jsdom has no layout, so the geometry is set by hand.
  */
-function mount(geometry: { scrollTop?: number; height?: number } = {}): HTMLElement {
+function mount(
+  geometry: { scrollTop?: number; height?: number; scrollLeft?: number; scrollWidth?: number } = {},
+): HTMLElement {
   const container = document.createElement('div');
   const menu = document.createElement('div');
   container.appendChild(menu);
   container.getBoundingClientRect = () => new DOMRect(0, 100, 600, 380);
   Object.defineProperties(container, {
     clientHeight: { value: 380 },
-    scrollWidth: { value: 600 },
-    scrollLeft: { value: 0 },
+    clientWidth: { value: 600 },
+    scrollWidth: { value: geometry.scrollWidth ?? 600 },
+    scrollLeft: { value: geometry.scrollLeft ?? 0 },
     scrollTop: { value: geometry.scrollTop ?? 0 },
   });
   Object.defineProperties(menu, {
@@ -116,6 +119,61 @@ describe('measureMenuPlacement', () => {
     });
   });
 
+  it('keeps to what is on screen across a container scrolled sideways, however wide it scrolls', () => {
+    // An email wider than its paper: 600px on screen, scrolled 40px into
+    // 656 — or into 900, once a box standing past the edge has widened it.
+    // A caret 100px from the paper's right edge: the 240px box ends at that
+    // edge (content x 640), never past it.
+    for (const scrollWidth of [656, 900]) {
+      expect(
+        measureMenuPlacement(
+          { left: 500, top: 120, bottom: 136 },
+          mount({ scrollLeft: 40, scrollWidth }),
+          4,
+        ),
+      ).toMatchObject({ left: 400, anchorX: 140 });
+    }
+    // …and a caret scrolled out past the left edge: the box starts at it.
+    expect(
+      measureMenuPlacement(
+        { left: -30, top: 120, bottom: 136 },
+        mount({ scrollLeft: 40, scrollWidth: 656 }),
+        4,
+      ),
+    ).toMatchObject({ left: 40, anchorX: 0 });
+  });
+
+  it('keeps to what a scroller round the container shows across', () => {
+    // An editor as wide as its email (1000px, not scrolled itself) inside a
+    // 400px sheet that scrolls it sideways: a caret 20px from the sheet's
+    // right edge pushes the 240px box in to end there.
+    const sheet = document.createElement('div');
+    sheet.style.overflowX = 'auto';
+    sheet.getBoundingClientRect = () => new DOMRect(0, 100, 400, 380);
+    Object.defineProperties(sheet, { clientLeft: { value: 0 }, clientWidth: { value: 400 } });
+    const container = document.createElement('div');
+    const menu = document.createElement('div');
+    container.appendChild(menu);
+    sheet.appendChild(container);
+    document.body.appendChild(sheet);
+    container.getBoundingClientRect = () => new DOMRect(0, 100, 1000, 380);
+    Object.defineProperties(container, {
+      clientHeight: { value: 380 },
+      clientWidth: { value: 1000 },
+      scrollLeft: { value: 0 },
+      scrollTop: { value: 0 },
+    });
+    Object.defineProperties(menu, { offsetWidth: { value: 240 }, offsetHeight: { value: 320 } });
+    try {
+      expect(measureMenuPlacement({ left: 380, top: 120, bottom: 136 }, menu, 4)).toMatchObject({
+        left: 160,
+        anchorX: 220,
+      });
+    } finally {
+      sheet.remove();
+    }
+  });
+
   it('counts only what is on screen when a scroller round the container clips it', () => {
     // An editor that grows with its text (2000px, not scrolled itself)
     // inside a sheet that scrolls: the sheet shows 100–480 of the window,
@@ -133,6 +191,7 @@ describe('measureMenuPlacement', () => {
     container.getBoundingClientRect = () => new DOMRect(0, -200, 600, 2000);
     Object.defineProperties(container, {
       clientHeight: { value: 2000 },
+      clientWidth: { value: 600 },
       scrollWidth: { value: 600 },
       scrollLeft: { value: 0 },
       scrollTop: { value: 0 },

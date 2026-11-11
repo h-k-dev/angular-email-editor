@@ -287,7 +287,7 @@ export class Envelope {
 }`,
 
   'create-merge-tag-resolution': `import {
-  createEditor, createMergeTagResolution, emailExtensions,
+  REMOVE_MERGE_TAG, createEditor, createMergeTagResolution, emailExtensions,
 } from '@h-k-dev/angular-email-editor';
 
 const editor = createEditor({
@@ -296,8 +296,12 @@ const editor = createEditor({
     ...emailExtensions,
     createMergeTagResolution({
       // Each distinct expression once, raw (never &amp;); values back in order
-      // (a string fills; '' and null keep the token — removing one is the writer's).
-      resolve: (expressions) => api.evaluate(expressions, contactId),
+      // (a string fills; '' and null keep the token; REMOVE_MERGE_TAG takes it out
+      // in the same undo step, the text closed up — for the host that means it gone).
+      resolve: async (expressions) => {
+        const values = await api.evaluate(expressions, contactId);
+        return values.map((value, i) => value || (isComputed(expressions[i]) ? REMOVE_MERGE_TAG : null));
+      },
       onResolved: ({ filled, empty, kept }) => notify(filled, empty.length, kept.length),
       onPendingChange: (pending) => busy.set(pending),
       // Ctrl held over a filled value (the layout guides' peek): your card.
@@ -322,14 +326,16 @@ editor.exec(resetFilledValue(pos));               // the value as filled in
 editor.exec(restoreMergeTag(pos));                // {{ customer.lastName }}, a pill again`,
 
   'merge-tag-by-expression': `import {
-  distinctMergeTagExpressions, removeMergeTag, revealMergeTag, writeMergeTag,
+  distinctMergeTagExpressions, removeMergeTag, removeMergeTags, revealMergeTag, writeMergeTag,
 } from '@h-k-dev/angular-email-editor';
 
 distinctMergeTagExpressions(editor.state.doc); // ['salutation', 'case.id', …] text and attributes, once each
 
 const pill = revealMergeTag(editor.view, 'salutation'); // selected, focused, in view
 editor.exec(writeMergeTag('salutation', 'Liebe'));   // every {{ salutation }}, by hand
-editor.exec(removeMergeTag('salutation'));          // or none: the explicit empty value`,
+editor.exec(removeMergeTag('salutation'));          // or none: the explicit empty value
+// Several, one undo step; the text closes up: 'Dear {{ title }} {{ suffix }},' → 'Dear,'
+editor.exec(removeMergeTags(['title', 'suffix']));`,
 
   'check-merge-tag-values': `import { checkMergeTagValues } from '@h-k-dev/angular-email-editor/editor';
 

@@ -36,8 +36,8 @@ export interface MenuPlacement {
  * passes `height`, the box's height without that cap — a box measured at the
  * last cap would choose its side by the old room, not its own size.
  *
- * The room is what is on screen: the container's visible part, cut down by
- * every scroller round it and by the window. A container that does not
+ * The room is what is on screen, both ways: the container's visible part,
+ * cut down by every scroller round it and by the window. A container that does not
  * scroll itself — an editor that grows with its text inside a scrolling
  * sheet — is as tall as its text, and only its ancestors say where the
  * screen ends (on a phone, at the keyboard).
@@ -52,10 +52,18 @@ export function measureMenuPlacement(
   if (!container) return null;
   const containerRect = container.getBoundingClientRect();
   const width = element.offsetWidth;
-  const { scrollLeft, scrollTop, scrollWidth, clientHeight } = container;
+  const { scrollLeft, scrollTop, clientWidth, clientHeight } = container;
 
+  // Across, the box keeps to what is on screen of the container, as it does
+  // down it — never to all the container scrolls to: an email wider than
+  // its paper scrolls sideways, and a box held to that width stood past the
+  // paper's edge, cut off there (and, standing there, widened the very
+  // width it was held to).
   const at = anchor.left - containerRect.left + scrollLeft;
-  const left = Math.min(Math.max(at, 0), Math.max(scrollWidth - width, 0));
+  const shown = visibleAcross(container, containerRect.left, containerRect.left + clientWidth);
+  const shownLeft = shown.left - containerRect.left + scrollLeft;
+  const shownRight = shown.right - containerRect.left + scrollLeft;
+  const left = Math.min(Math.max(at, shownLeft), Math.max(shownRight - width, shownLeft));
   const anchorX = Math.min(Math.max(at - left, 0), width);
 
   // The box's top edge below the line, its bottom edge above it, and the
@@ -102,4 +110,29 @@ function visibleSpan(
     bottom = Math.min(bottom, view.innerHeight);
   }
   return { top, bottom };
+}
+
+/** The part of `left`–`right` (viewport coordinates, `element`'s client
+    area) left on screen by every ancestor that clips its overflow and by the
+    window — {@link visibleSpan}, across. */
+function visibleAcross(
+  element: Element,
+  left: number,
+  right: number,
+): { left: number; right: number } {
+  for (let node = element.parentElement; node; node = node.parentElement) {
+    // Nothing said is nothing clipped: an engine without layout (jsdom)
+    // computes no overflow at all, and no width to clip to either.
+    const overflow = getComputedStyle(node).overflowX;
+    if (overflow === 'visible' || overflow === '') continue;
+    const rect = node.getBoundingClientRect();
+    left = Math.max(left, rect.left + node.clientLeft);
+    right = Math.min(right, rect.left + node.clientLeft + node.clientWidth);
+  }
+  const view = element.ownerDocument.defaultView;
+  if (view) {
+    left = Math.max(left, 0);
+    right = Math.min(right, view.innerWidth);
+  }
+  return { left, right };
 }

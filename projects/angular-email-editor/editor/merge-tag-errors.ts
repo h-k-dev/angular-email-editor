@@ -1,6 +1,6 @@
 import type { FieldTree, ValidationError } from '@angular/forms/signals';
 import type { EditorState } from 'prosemirror-state';
-import { distinctMergeTagExpressions } from '@h-k-dev/angular-email-editor';
+import { distinctMergeTagExpressions, type MergeTagAnswer } from '@h-k-dev/angular-email-editor';
 
 /** The kind of {@link MergeTagUnfilled}. */
 export const MERGE_TAG_UNFILLED = 'mergeTag.unfilled';
@@ -29,9 +29,10 @@ export interface MergeTagDocument {
 
 export interface CheckMergeTagValuesOptions {
   /** The host's evaluator — the same one `createMergeTagResolution` takes:
-      a value per expression, in order; `''`, `null` or `undefined` is no
-      value. */
-  resolve: (expressions: string[]) => Promise<readonly (string | null | undefined)[]>;
+      an answer per expression, in order; `''`, `null` or `undefined` is no
+      value. One the fill would take out (`REMOVE_MERGE_TAG`) is no error:
+      it stands for nothing, on the host's word. */
+  resolve: (expressions: string[]) => Promise<readonly MergeTagAnswer[]>;
   /** The error's words. Default: `No value for {{ expr }}`. */
   message?: (expr: string) => string;
 }

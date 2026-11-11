@@ -5,7 +5,9 @@ import { emailExtensions } from './kits';
 import {
   FILLED_EDITED_CLASS,
   FilledMergeTagHover,
+  MergeTagAnswer,
   MergeTagResolutionReport,
+  REMOVE_MERGE_TAG,
   createMergeTagResolution,
   filledMergeTagAt,
   distinctMergeTagExpressions,
@@ -19,11 +21,11 @@ import { mergeTagRanges } from './nodes/merge-tag';
     `answer` (or `fail`) is called. */
 function deferredHost() {
   const asked: string[][] = [];
-  let answer!: (values: (string | null)[]) => void;
+  let answer!: (values: MergeTagAnswer[]) => void;
   let fail!: (error: unknown) => void;
   const resolve = (expressions: string[]) => {
     asked.push(expressions);
-    return new Promise<(string | null)[]>((done, reject) => {
+    return new Promise<MergeTagAnswer[]>((done, reject) => {
       answer = done;
       fail = reject;
     });
@@ -31,7 +33,7 @@ function deferredHost() {
   return {
     asked,
     resolve,
-    answer: async (values: (string | null)[]) => {
+    answer: async (values: MergeTagAnswer[]) => {
       answer(values);
       await Promise.resolve();
       await Promise.resolve();
@@ -105,7 +107,7 @@ describe('merge tag resolution', () => {
     expect(editor.getHTML()).toBe(
       '<div>Sehr geehrte <strong>&lt;b&gt;Müller&lt;/b&gt; &amp; Co</strong>, Ihr Zeichen AZ-7.</div>',
     );
-    expect(reports).toEqual([{ scope: 'document', filled: 2, empty: [], kept: [] }]);
+    expect(reports).toEqual([{ scope: 'document', filled: 2, empty: [], kept: [], removed: [] }]);
   });
 
   it('is one step back: a single undo brings every token back', async () => {
@@ -124,7 +126,41 @@ describe('merge tag resolution', () => {
     editor.commands['resolveMergeTags']();
     await evaluator.answer(['A', '', null]);
     expect(editor.getText()).toBe('[A] [{{ b }}] [{{ c }}]');
-    expect(reports).toEqual([{ scope: 'document', filled: 1, empty: ['b'], kept: ['c'] }]);
+    expect(reports).toEqual([{ scope: 'document', filled: 1, empty: ['b'], kept: ['c'], removed: [] }]);
+  });
+
+  describe('taken out on the host’s word', () => {
+    it('removes the tokens it says, in the fill’s own step — one undo brings all back', async () => {
+      const html = '<div>Sehr geehrte {{ title }} {{ name }}{{ suffix }}, Ihr {{ gap }}.</div>';
+      mount(html);
+      const before = editor.getHTML();
+      editor.commands['resolveMergeTags']();
+      await evaluator.answer([REMOVE_MERGE_TAG, 'Müller', REMOVE_MERGE_TAG, '']);
+      expect(editor.getText()).toBe('Sehr geehrte Müller, Ihr {{ gap }}.');
+      expect(reports).toEqual([
+        { scope: 'document', filled: 1, empty: ['gap'], kept: [], removed: ['title', 'suffix'] },
+      ]);
+      editor.exec(undo);
+      expect(editor.getHTML()).toBe(before);
+    });
+
+    it('with nothing to fill in, the removal is the step', async () => {
+      mount('<div>Hallo {{ title }} Welt</div>');
+      const before = editor.getHTML();
+      editor.commands['resolveMergeTags']();
+      await evaluator.answer([REMOVE_MERGE_TAG]);
+      expect(editor.getText()).toBe('Hallo Welt');
+      expect(reports[0]).toEqual(expect.objectContaining({ filled: 0, removed: ['title'] }));
+      editor.exec(undo);
+      expect(editor.getHTML()).toBe(before);
+    });
+
+    it('takes it out of an attribute too', async () => {
+      mount('<div><a href="https://example.com/{{ id }}">Akte</a></div>');
+      editor.commands['resolveMergeTags']();
+      await evaluator.answer([REMOVE_MERGE_TAG]);
+      expect(editor.getHTML()).toContain('href="https://example.com/"');
+    });
   });
 
   it('an empty value keeps an attribute’s token too', async () => {
@@ -603,6 +639,68 @@ describe('merge tag resolution', () => {
         expect(editor.getHTML()).toContain('href="https://x.example/"');
         expect(fills()).toEqual([]);
         expect(editor.commands['removeMergeTag']('title')).toBe(false);
+      });
+
+      describe('removed, the text closed up', () => {
+        /** The lines once `expressions` are removed. */
+        const removed = (html: string, ...expressions: string[]) => {
+          mount(html);
+          expect(editor.commands['removeMergeTags'](expressions)).toBe(true);
+          return editor.getText();
+        };
+
+        it('one space goes with a token between two', () => {
+          expect(removed('<div>i invite {{ a }} to case 1</div>', 'a')).toBe('i invite to case 1');
+        });
+
+        it('at a line’s start or end, the space on its other side', () => {
+          expect(removed('<div>{{ a }} invites you</div><div>see {{ a }}</div>', 'a')).toBe('invites you\nsee');
+        });
+
+        it('closes up before punctuation, and leaves the tokens it was not asked for', () => {
+          expect(removed('<div>Dear {{ a }}, from {{ b }}.</div>', 'a')).toBe('Dear, from {{ b }}.');
+          expect(removed('<div>Dear {{ a }}, from {{ b }}.</div>', 'b')).toBe('Dear {{ a }}, from.');
+        });
+
+        it('tokens side by side, or a space apart, go as one — every occurrence', () => {
+          expect(removed('<div>a {{ x }}{{ x }} b {{ x }} c</div>', 'x')).toBe('a b c');
+          expect(removed('<div>a {{ x }} {{ y }} b</div>', 'x', 'y')).toBe('a b');
+          expect(removed('<div>a {{ x }} {{ y }}.</div>', 'x', 'y')).toBe('a.');
+        });
+
+        it('a line of nothing else is left empty, the next one untouched', () => {
+          expect(removed('<div>{{ x }} {{ y }}</div><div>{{ z }} bleibt</div>', 'x', 'y')).toBe(
+            '\n{{ z }} bleibt',
+          );
+        });
+
+        it('a token between two removed ones keeps its place', () => {
+          expect(removed('<div>{{ x }} {{ keep }} {{ y }}</div>', 'x', 'y')).toBe('{{ keep }}');
+        });
+
+        it('a line break is a line’s end', () => {
+          mount('<div>a {{ x }}<br>{{ x }} b</div>');
+          editor.commands['removeMergeTags'](['x']);
+          expect(editor.getHTML()).toBe('<div>a<br>b</div>');
+        });
+
+        it('several expressions are one step, and the caret stays where it was', () => {
+          mount('<div>Hallo {{ x }} und {{ y }} Welt</div>');
+          const before = editor.getHTML();
+          const caret = posOf('Welt') + 2;
+          editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, caret)));
+          editor.commands['removeMergeTags'](['x', ' y ']);
+          expect(editor.getText()).toBe('Hallo und Welt');
+          expect(editor.state.selection.from).toBe(posOf('Welt') + 2);
+          editor.exec(undo);
+          expect(editor.getHTML()).toBe(before);
+        });
+
+        it('says no where no token holds any of them', () => {
+          mount('<div>Hallo {{ x }}</div>');
+          expect(editor.commands['removeMergeTags'](['y', 'z'])).toBe(false);
+          expect(editor.commands['removeMergeTags']([])).toBe(false);
+        });
       });
     });
   });
