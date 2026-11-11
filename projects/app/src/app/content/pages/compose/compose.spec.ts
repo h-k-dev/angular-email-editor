@@ -1560,7 +1560,8 @@ describe('Compose', () => {
     expect(document.activeElement).toBe(row('Write a value'));
     await key('ArrowDown');
     await key('Enter');
-    expect(view().state.doc.textContent).toBe('Hallo Frau, Ihr {{ order.item }} – ');
+    // At the line's end, the space before it goes along: no space left over.
+    expect(view().state.doc.textContent).toBe('Hallo Frau, Ihr {{ order.item }} –');
 
     // Every token left has a value: it goes (the backend fills them).
     await send();
