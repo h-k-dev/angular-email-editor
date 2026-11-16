@@ -61,6 +61,12 @@ const PATH = /^[A-Za-z_$][\w$]*(?:\.[\w$]+)*$/;
 
 export const isMergeTagPath = (path: string): boolean => PATH.test(path);
 
+/** What opens a Handlebars helper, closer, partial or inverse — or its
+    comment: a `!` with a space, `--` or nothing after it (`{{! note }}`,
+    `{{!-- note --}}`). A `!` against what it negates is an expression
+    (AngularJS: `!!cf_3 ? 'x' : ''`, `!(a || b)`). */
+const BLOCK_SYNTAX = /^(?:[#/>^]|!(?:--|\s|$))/;
+
 /** An inner text the editor will protect as one token: single-line, sanely
     sized, no nested braces, not block syntax (a Handlebars helper / closer /
     `{{else}}` / partial / comment) — half of a block is not a value. */
@@ -68,7 +74,7 @@ export function isMergeTagExpression(raw: string): boolean {
   if (/[{}\r\n]/.test(raw)) return false;
   const trimmed = raw.trim();
   if (trimmed.length > MAX_MERGE_TAG_LENGTH) return false;
-  return trimmed.length > 0 && trimmed !== 'else' && !/^[#/>!^]/.test(trimmed);
+  return trimmed.length > 0 && trimmed !== 'else' && !BLOCK_SYNTAX.test(trimmed);
 }
 
 /** `{{ … }}` occurrences in running text (capture = the inner expression,
@@ -81,10 +87,15 @@ const SCAN = /(?<!\{)\{\{([^{}\r\n]{1,1002})\}\}/g;
     we transport (AngularJS `$parse`, Handlebars), so this is the one
     rewrite the editor allows itself on a token; the expression itself stays
     byte-verbatim. Handlebars' `{{~ … ~}}` whitespace control and `{{& …}}`
-    need their sigil against the braces: those are left as written. */
+    need their sigil against the braces: those are left as written. So is a
+    leading `!` while no dialect says what it is: against the braces,
+    Handlebars reads `{{!note}}` as a comment, and padded it would be none —
+    a dialect that formats the expression (AngularJS) knows it as a negation,
+    and pads it like any other. */
 export function canonicalMergeTagInner(expr: string, format?: (expr: string) => string): string {
   const trimmed = expr.trim();
   if (/^[~&]|~$/.test(trimmed)) return expr;
+  if (!format && trimmed.startsWith('!')) return expr;
   return ` ${format ? format(trimmed) : trimmed} `;
 }
 

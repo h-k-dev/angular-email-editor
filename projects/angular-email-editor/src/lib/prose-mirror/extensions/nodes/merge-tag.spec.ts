@@ -198,6 +198,23 @@ describe('merge-tag — the three-line expression and the ceiling', () => {
     ]);
   });
 
+  it('knows a negation from a Handlebars comment', () => {
+    expect(isMergeTagExpression("!!cf_587 && cf_587 > 0 ? 'x' : ''")).toBe(true);
+    expect(isMergeTagExpression('!cf_3')).toBe(true);
+    expect(isMergeTagExpression('!(a || b)')).toBe(true);
+    expect(isMergeTagExpression('! a note')).toBe(false);
+    expect(isMergeTagExpression('!-- a note --')).toBe(false);
+    expect(isMergeTagExpression('!')).toBe(false);
+    // A token: its expression as typed, never `&amp;&amp;`.
+    const negation = "<div>{{!!cf_587 && cf_587 > 0 ? 'x' : ''}}</div>";
+    expect(tokens(parseHTML(negation, schema))).toBe(1);
+    expect(writeMergeTags('<div>{{!!a &amp;&amp; b &gt; 0}}</div>')).toBe('<div>{{!!a && b > 0}}</div>');
+    // With no dialect its edge stays as written (Handlebars: `{{!note}}` is a
+    // comment only against the braces); a dialect that formats pads it.
+    expect(canonicalMergeTagInner('!!a')).toBe('!!a');
+    expect(canonicalMergeTagInner('!!a', (expr) => expr)).toBe(' !!a ');
+  });
+
   it('protects up to the ceiling and leaves a runaway alone', () => {
     expect(MAX_MERGE_TAG_LENGTH).toBe(1000);
     expect(isMergeTagExpression('a'.repeat(MAX_MERGE_TAG_LENGTH))).toBe(true);
