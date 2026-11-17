@@ -1,6 +1,6 @@
 {
   "name": "@h-k-dev/angular-email-editor",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "An email editor for Angular on ProseMirror — a visual composer and an HTML source editor over one schema that is the vocabulary of email HTML.",
   "license": "MIT",
   "author": "h-k-dev",
@@ -55,7 +55,7 @@
     }
   },
   "dependencies": {
-    "@h-k-dev/dawn": "^1.0.0",
+    "@h-k-dev/dawn": "^1.1.0",
     "tslib": "^2.3.0"
   },
   "exports": {

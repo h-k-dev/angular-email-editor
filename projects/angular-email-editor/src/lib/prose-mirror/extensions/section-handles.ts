@@ -5,6 +5,7 @@ import { FunctionalExtension, defineExtension } from '../extension';
 import { GripFactory, sectionHandlesKey } from './handle-grips';
 import { authoredPageBands } from '../authored-page';
 import { authoredBandPositions } from '../authored-band';
+import { authoredStackRowPositions } from '../authored-stack';
 import { layoutInteractive } from './layout-interaction';
 import { isBandRow } from './nodes/page-row';
 import { findBandContext } from './nodes/section';
@@ -15,9 +16,10 @@ import { selectedSpacer } from './nodes/spacer';
 export interface SectionHandleTarget {
   /** A band's grip, or a spacer's — whose menu is its fill and Remove — or
       an authored page's (a page edited by hand, recognised:
-      `authoredPageBands`), or an MJML band's (`authoredBand`), whose
-      menus suggest our blocks for them. */
-  kind: 'section' | 'spacer' | 'page' | 'band';
+      `authoredPageBands`), an MJML band's (`authoredBand`), or a row of
+      columns written by hand (`authoredStackRow`), whose menus suggest
+      our blocks for them. */
+  kind: 'section' | 'spacer' | 'page' | 'band' | 'stack';
   /** The band's (the spacer's) position in the document. Read it again
       before acting: the press put the caret in the band — or selected the
       spacer — so the caret-relative commands (`setSectionBackground`,
@@ -39,6 +41,8 @@ export interface SectionHandlesOptions {
   pageLabel?: () => string;
   /** What an MJML band's grip says, the same way. */
   bandLabel?: () => string;
+  /** What the grip of a row of columns written by hand says, the same way. */
+  stackLabel?: () => string;
 }
 
 /**
@@ -121,13 +125,19 @@ export const createSectionHandles = (options: SectionHandlesOptions): Functional
   const pageLabel = options.pageLabel ?? (() => 'Page options');
   // An MJML band's grip: the same anchor, just before the band.
   const bandLabel = options.bandLabel ?? (() => 'Band options');
-  const pageGrip = (view: EditorView, pos: number, kind: 'page' | 'band'): HTMLElement => {
+  // A row of columns written by hand: the same anchor, just before it.
+  const stackLabel = options.stackLabel ?? (() => 'Columns options');
+  const pageGrip = (
+    view: EditorView,
+    pos: number,
+    kind: 'page' | 'band' | 'stack',
+  ): HTMLElement => {
     const anchor = document.createElement('div');
     anchor.className = 'aee-page-anchor';
     anchor.contentEditable = 'false';
     const el = document.createElement('span');
     el.className = `aee-grip aee-grip--column aee-grip--${kind}`;
-    const label = kind === 'page' ? pageLabel() : bandLabel();
+    const label = kind === 'page' ? pageLabel() : kind === 'band' ? bandLabel() : stackLabel();
     el.setAttribute('role', 'button');
     el.setAttribute('aria-label', label);
     el.setAttribute('title', label);
@@ -222,6 +232,17 @@ export const createSectionHandles = (options: SectionHandlesOptions): Functional
               grips.push(
                 Decoration.widget(pos, (view) => pageGrip(view, pos, 'band'), {
                   key: `band-grip-${pos}`,
+                  side: -1,
+                  ignoreSelection: true,
+                }),
+              );
+            }
+            // A row of columns written by hand, recognised
+            // (`authoredStackRow`): its grip the same way.
+            for (const pos of authoredStackRowPositions(state.doc)) {
+              grips.push(
+                Decoration.widget(pos, (view) => pageGrip(view, pos, 'stack'), {
+                  key: `stack-grip-${pos}`,
                   side: -1,
                   ignoreSelection: true,
                 }),

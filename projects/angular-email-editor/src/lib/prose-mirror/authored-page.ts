@@ -1,4 +1,4 @@
-import { Node, Schema } from 'prosemirror-model';
+import { Fragment, Node, Schema } from 'prosemirror-model';
 import { Command } from 'prosemirror-state';
 import { convertBands } from './authored-band';
 import { isFillTextColor } from './dual-contrast';
@@ -48,6 +48,8 @@ import {
  * — the column — every row of it one cell, and a fill on the page or on the
  * column. It is the `table` page kind as a hand would code it; offered as
  * one ({@link convertAuthoredPageToRows}), kept as authored until then.
+ * What draws nothing may stand beside it — a comment, a hidden preheader,
+ * a tracking pixel — and moves into the nearest row with the conversion.
  *
  * A third, a centred column written band by band — MJML's way: a wrapper
  * (the body's `<div>`) holding nothing but bands, each its own `max-width`
@@ -146,20 +148,96 @@ export function convertAuthoredPageToRows(pos: number): Command {
     const node = state.doc.nodeAt(pos);
     const conversion = node ? authoredPageBands(node, state.schema) : null;
     if (!node || !conversion?.rows || state.doc.attrs['pageLayout']) return false;
+    if (conversion.shape !== 'rows-page') {
+      if (dispatch) {
+        const rows = parseHTML(conversion.rows.html, state.schema).content;
+        dispatch(
+          state.tr
+            .replaceWith(pos, pos + node.nodeSize, rows)
+            .setDocAttribute('pageLayout', conversion.rows.layout)
+            .scrollIntoView(),
+        );
+      }
+      return true;
+    }
     // A page written by hand is the body's page only where it is the whole
-    // body: a block beside it would land in a column it was never in.
-    if (conversion.shape === 'rows-page' && state.doc.childCount !== 1) return false;
+    // body: a block beside it would land in a column it was never in. What
+    // draws nothing may stand beside it, as a hand writes it — a comment, a
+    // hidden preheader before the page, a tracking pixel after — and goes
+    // into the nearest row: still first (or last) in the body, still unseen,
+    // and no row of its own.
+    const before: Node[] = [];
+    const after: Node[] = [];
+    let alone = true;
+    state.doc.forEach((child, offset) => {
+      if (offset === pos) return;
+      if (!drawsNothing(child, state.schema)) alone = false;
+      (offset < pos ? before : after).push(child);
+    });
+    if (!alone) return false;
+    const rows: Node[] = [];
+    parseHTML(conversion.rows.html, state.schema).content.forEach((row) => rows.push(row));
+    if (!rows.length) return false;
+    const last = rows.length - 1;
+    if (before.length) {
+      rows[0] = rows[0].copy(Fragment.from(before).append(rows[0].content));
+    }
+    if (after.length) {
+      rows[last] = rows[last].copy(rows[last].content.append(Fragment.from(after)));
+    }
+    if (!rows[0].type.validContent(rows[0].content)) return false;
+    if (!rows[last].type.validContent(rows[last].content)) return false;
     if (dispatch) {
-      const rows = parseHTML(conversion.rows.html, state.schema).content;
       dispatch(
         state.tr
-          .replaceWith(pos, pos + node.nodeSize, rows)
+          .replaceWith(0, state.doc.content.size, rows)
           .setDocAttribute('pageLayout', conversion.rows.layout)
           .scrollIntoView(),
       );
     }
     return true;
   };
+}
+
+/** Whether a top-level block draws nothing in a reader: a comment, a block
+    hidden by its own `display: none` (the preheader a hand writes before
+    the page), or a block holding only tracking pixels (an image of 1×1 or
+    less, as a sending service adds after it). */
+function drawsNothing(node: Node, schema: Schema): boolean {
+  if (node.type.name === 'htmlComment') return true;
+  const html = serializeToHTML(schema.topNodeType.create(null, node), schema);
+  const body = new DOMParser().parseFromString(html, 'text/html').body;
+  const inside = meaningful(body);
+  return (
+    inside.length > 0 &&
+    inside.every((child) => child instanceof HTMLElement && (hidden(child) || pixelOnly(child)))
+  );
+}
+
+/** Hidden by its own inline style. */
+function hidden(el: HTMLElement): boolean {
+  return (
+    declared(el)
+      .get('display')
+      ?.replace(/\s*!important$/i, '') === 'none'
+  );
+}
+
+/** No words, and nothing but images a pixel big or smaller. */
+function pixelOnly(el: HTMLElement): boolean {
+  if (el.textContent?.trim()) return false;
+  const all = el instanceof HTMLImageElement ? [el] : Array.from(el.querySelectorAll('*'));
+  const images = all.filter(
+    (inner): inner is HTMLImageElement => inner instanceof HTMLImageElement,
+  );
+  const tiny = (image: HTMLImageElement, side: 'width' | 'height') =>
+    /^[01]$/.test(image.getAttribute(side) ?? '');
+  return (
+    images.length > 0 &&
+    images.every((image) => tiny(image, 'width') && tiny(image, 'height')) &&
+    // Anything else in it is a wrapper round a pixel.
+    all.every((inner) => inner instanceof HTMLImageElement || !!inner.querySelector('img'))
+  );
 }
 
 /** Turns the centred column written band by band at `pos` into a centred
@@ -396,6 +474,23 @@ function withoutLayout(body: string, phone: boolean, fill: string): string {
     })
     .filter((part) => part.trim())
     .join(';');
+}
+
+/** The classes a head's `@media` rules stack: `.name { display: block }`
+    (a `td.name` too) — what a hand writes to put the cells of a row one
+    under another on a phone (authored-stack.ts). */
+export function stackingClasses(head: string): Set<string> {
+  const classes = new Set<string>();
+  for (const style of headSheets(head).styles) {
+    for (const rule of scanRules(style.textContent ?? '')) {
+      if (!rule.media || ruleDeclarations(rule.body).get('display') !== 'block') continue;
+      for (const selector of rule.selector.split(',')) {
+        const name = /^(?:td)?\.([\w-]+)$/i.exec(selector.trim());
+        if (name) classes.add(name[1]);
+      }
+    }
+  }
+  return classes;
 }
 
 /** The head's own document — its `<style>` elements, to read and to edit. */
@@ -790,6 +885,16 @@ function rowOfCell(cell: HTMLTableCellElement, inherited: Map<string, string>): 
     padding: parsePadding(cell),
   });
   if (style) row.style.cssText = style;
+  // What the cell says beyond a row's own: its classes (the hooks of the
+  // head's rules — a phone's padding) and the declarations a row has no
+  // word for (its corners' radius). Both stay as written, after ours — the
+  // row is then one of ours carrying authored markup (authored.ts).
+  const classes = (cell.getAttribute('class') ?? '').split(/\s+/).filter(Boolean);
+  if (classes.length) row.className = [layoutMarker('page-row'), ...classes].join(' ');
+  const kept = keptDeclarations(cell);
+  if (kept.length) {
+    row.setAttribute('style', [row.getAttribute('style') ?? '', ...kept].filter(Boolean).join(' '));
+  }
   const styles = new Map([...inherited, ...textStyles(cell)]);
   const words = Array.from(cell.childNodes);
   if (!styles.size) {
@@ -801,6 +906,23 @@ function rowOfCell(cell: HTMLTableCellElement, inherited: Map<string, string>): 
   block.append(...words);
   row.append(block);
   return row;
+}
+
+/** A cell's declarations a row of ours says nothing of, as written, each
+    closed with `;` — its padding, its fill, its text colour and the text
+    styles its words take (`TEXT_STYLES`) left out: the row and its block
+    say those. */
+function keptDeclarations(cell: HTMLTableCellElement): string[] {
+  const ours = new Set<string>([...TEXT_STYLES, 'background-color']);
+  return splitDeclarations(cell.getAttribute('style') ?? '').flatMap((part) => {
+    const property = declarationProperty(part);
+    if (!property || ours.has(property) || /^padding(?:-|$)/.test(property)) return [];
+    // A `background` that is the fill alone is the row's fill already.
+    if (property === 'background' && isSafeColor(part.slice(part.indexOf(':') + 1).trim())) {
+      return [];
+    }
+    return [`${part.trim()};`];
+  });
 }
 
 /**

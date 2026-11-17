@@ -156,6 +156,40 @@ describe('page of rows', () => {
 
     const page = (column: string, attrs = 'bgcolor="#eef2f7"') =>
       `<table role="presentation" width="100%" ${attrs}><tbody><tr><td align="center">${column}</td></tr></tbody></table>`;
+
+    it("converted, keeps a row's classes and what a row has no word for — as written", () => {
+      // A hand's header row: a class the head's phone rule hooks, and
+      // rounded top corners.
+      converted(
+        page(
+          '<table width="600"><tbody>' +
+            '<tr><td class="px" style="background-color: #0f0f0f; border-radius: 16px 16px 0 0; padding: 22px 40px;">Head</td></tr>' +
+            '<tr><td class="px" style="padding: 0 40px">Words</td></tr>' +
+            '<tr><td style="padding: 8px">Plain</td></tr>' +
+            '</tbody></table>',
+        ),
+      );
+      const doc = editor.state.doc;
+      expect(top(doc)).toEqual(Array(3).fill('pageRow'));
+      // Still rows of ours: their fill and room are the row's to edit.
+      expect(doc.child(0).attrs['background']).toBe('#0f0f0f');
+      expect(doc.child(0).attrs['padding']).toBe('22px 40px');
+      expect(doc.child(1).attrs['padding']).toBe('0px 40px');
+      // A row that says nothing more is a plain row of ours.
+      expect(doc.child(2).attrs['html'] ?? null).toBeNull();
+      const html = editor.getHTML();
+      const { cells } = rows(html);
+      expect(cells.map((cell) => cell.className)).toEqual([
+        'aee-layout-page-row px',
+        'aee-layout-page-row px',
+        'aee-layout-page-row',
+      ]);
+      expect(cells[0].getAttribute('style')).toContain('border-radius: 16px 16px 0 0;');
+      expect(cells[0].getAttribute('bgcolor')).toBe('#0f0f0f');
+      // Sent and read back, it is what it was.
+      expect(serializeToHTML(parseHTML(html, editor.schema), editor.schema)).toBe(html);
+    });
+
     const COLUMN =
       '<table width="600"><tbody><tr><td>One</td></tr><tr><td>Two</td></tr></tbody></table>';
     const cases: [string, string][] = [
@@ -178,6 +212,56 @@ describe('page of rows', () => {
         });
       });
     }
+
+    describe('with what draws nothing beside it — as a hand writes a mail', () => {
+      const PREHEADER =
+        '<!-- Preheader -->' +
+        '<div style="display: none; max-height: 0; overflow: hidden; mso-hide: all;">Shown in the inbox only</div>';
+      const PIXEL =
+        '<div><img src="https://example.com/open" alt="" width="1" height="1" border="0"></div>';
+      /** Where the page stands among the top blocks. */
+      const pagePos = () => {
+        let at = -1;
+        editor.state.doc.forEach((node, pos) => {
+          if (authoredPageBands(node, editor.schema)) at = pos;
+        });
+        return at;
+      };
+
+      it('still offers the page: a comment, a hidden preheader and a tracking pixel are no blocks beside it', () => {
+        mount(PREHEADER + WELCOME + PIXEL);
+        expect(top()).toEqual(['htmlComment', 'paragraph', 'htmlElement', 'paragraph']);
+        expect(editor.exec(convertAuthoredPageToRows(pagePos()))).toBe(true);
+        const doc = editor.state.doc;
+        expect(normalizePageLayout(doc.attrs['pageLayout'])).toEqual(WELCOME_ROWS);
+        // Rows only: none of them a row of its own.
+        expect(top(doc)).toEqual(Array(6).fill('pageRow'));
+        // The preheader first in the first row, the pixel last in the last.
+        expect(doc.firstChild!.child(0).type.name).toBe('htmlComment');
+        expect(doc.firstChild!.child(1).textContent).toBe('Shown in the inbox only');
+        expect(doc.lastChild!.lastChild!.firstChild!.type.name).toBe('image');
+        // Sent, the preheader is still the body's first words, still hidden.
+        const html = editor.getHTML();
+        expect(html.indexOf('Shown in the inbox only')).toBeLessThan(html.indexOf('Welcome to'));
+        expect(html).toContain('display: none; max-height: 0; overflow: hidden; mso-hide: all;');
+        expect(serializeToHTML(parseHTML(html, editor.schema), editor.schema)).toBe(html);
+        // One step: undone as one, every block back where it stood.
+        undo(editor.state, editor.view.dispatch);
+        expect(editor.state.doc.attrs['pageLayout']).toBeNull();
+        expect(top()).toEqual(['htmlComment', 'paragraph', 'htmlElement', 'paragraph']);
+      });
+
+      it('makes no page where something beside it is seen', () => {
+        for (const beside of [
+          '<div style="display: block">Hello</div>',
+          '<div><img src="https://example.com/logo.png" alt="" width="120" height="40"></div>',
+          '<div><img src="https://example.com/open" alt="" width="1" height="1"> and words</div>',
+        ]) {
+          mount(PREHEADER + WELCOME + beside);
+          expect(editor.exec(convertAuthoredPageToRows(pagePos()))).toBe(false);
+        }
+      });
+    });
 
     it("takes the column's cellpadding as the page's row padding", () => {
       const column =

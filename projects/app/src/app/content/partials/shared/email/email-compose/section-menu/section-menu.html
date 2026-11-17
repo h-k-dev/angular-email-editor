@@ -336,6 +336,29 @@
             }
           </div>
         </aside>
+      } @else if (stackSuggested(); as stack) {
+        <!-- A row of columns written by hand: a table whose cells the head's
+             phone rule stacks — the columns block it stands for. -->
+        <aside class="section-menu__suggestion" aria-labelledby="section-menu-suggestion">
+          <strong id="section-menu-suggestion">Columns written by hand</strong>
+          <p>
+            This table's {{ stack.columns.length }} cells stand side by side and stack on a phone,
+            by a rule in the email's head. As columns of ours they do the same without it; their
+            widths and room become yours to set, their content as written.
+          </p>
+          @if (stack.top || stack.bottom) {
+            <p>The line the table draws becomes a rule of its own, the same colour and height.</p>
+          }
+          <div class="section-menu__suggestion-actions">
+            <button
+              type="button"
+              class="section-menu__button section-menu__button--primary"
+              (click)="convertStack()"
+            >
+              <span>Convert to columns</span>
+            </button>
+          </div>
+        </aside>
       } @else if (pageSuggested()) {
         <aside class="section-menu__suggestion" aria-labelledby="section-menu-suggestion">
           <strong id="section-menu-suggestion">Rows outside the page's column</strong>

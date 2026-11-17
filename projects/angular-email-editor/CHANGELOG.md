@@ -7,6 +7,26 @@ version may change behaviour, and says so here.
 
 ### Changed — behaviour
 
+- **Dark paper keeps what is dark already.** `createDarkRendering` draws as Dawn 1.1 does: a
+  background is never drawn lighter and text never darker, so an ink band stays ink (a white
+  logo on it stays readable) and white text on it stays white. It used to invert every
+  colour. A border, an outline or a shadow follows the band it lies on — as written on a
+  background kept as written, drawn on any other; its sheet says which through two
+  inherited custom properties (`--aee-not-kept`, `--aee-not-drawn`) that every element
+  painting a background sets. `dawnDarkDeclarationsOf` may return a third value (what was
+  written) for such a border. Needs `@h-k-dev/dawn` 1.1 or later.
+- **A page written by hand converts with what stands unseen beside it.**
+  `convertAuthoredPageToRows` used to refuse a hand-coded page unless it was the body's
+  only block. A comment, a block hidden by its own `display: none` (a preheader) or a block
+  holding only 1×1 images (a tracking pixel) may now stand beside it: they move into the
+  nearest row — the first before the page, the last after — still first or last in the
+  body, still unseen. Anything seen beside the page refuses, as before.
+- **A converted row keeps its classes and what a row has no word for.** A hand-coded row's
+  cell classes (the hooks of the head's phone rules) and its declarations beyond padding,
+  fill and type (a `border-radius`) used to be dropped by `convertAuthoredPageToRows`.
+  They now ride on the row as authored markup: sent on the row's cell, read back as
+  written. A cell that says nothing more still becomes a plain row.
+
 - **Removing a token closes the text up.** `removeMergeTag` (and `writeMergeTag` with an
   empty value) used to take the token alone, leaving the two spaces round it side by side.
   One of them now goes along — `invite {{ a }} to` reads `invite to`; at a line's start or
@@ -34,6 +54,19 @@ version may change behaviour, and says so here.
   with its caps; `true` still reads, as before.
 
 ### Added
+
+- **Columns written by hand, offered as a columns block.** A 100% table of one row whose two
+  cells or more all carry a class the head's `@media` rule turns into `display: block` — how
+  a hand stacks cells on a phone — is now recognised (`authoredStackRow`,
+  `authoredStackRowPositions`, `stackingClasses`) where the row it stands in says its
+  width: a row of a page of rows, or a section. `convertAuthoredStackRow` makes each cell a
+  column (its padding, fill and vertical alignment; capped at the width it says plus its
+  side padding, or an equal share of the rest), its words in a block with the type the cell
+  gave them, and a `border-top` / `border-bottom` of the table a rule of that colour and
+  height. A cell of a class of its own, corners, a fill on the table keep the table as
+  written. Nothing converts on parse. `createSectionHandles` puts a grip before each
+  (`SectionHandleTarget.kind` `'stack'`, `stackLabel`, class `aee-grip--stack` — a host
+  reveals it as it does `aee-grip--band`).
 
 - **iOS's own links read as text.** `emailDocument`'s head carries a second rule, in a sheet
   of its own (`DATA_DETECTORS_RULE`): the links iOS Mail makes of dates, addresses and phone

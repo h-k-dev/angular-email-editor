@@ -42,6 +42,8 @@ import {
   findSectionContext,
   authoredBand,
   authoredBandPositions,
+  authoredStackRow,
+  convertAuthoredStackRow,
   authoredPageBands,
   convertAuthoredBand,
   convertAuthoredBands,
@@ -160,19 +162,23 @@ export class SectionMenu {
   protected readonly page = computed(() => this.kind() === 'page');
   /** Markup kept as written — a page's or an MJML band's: its menu is
       Remove alone. */
-  protected readonly authored = computed(() => this.page() || this.kind() === 'band');
+  protected readonly authored = computed(
+    () => this.page() || this.kind() === 'band' || this.kind() === 'stack',
+  );
 
   protected readonly labels = {
     section: 'Section options',
     spacer: 'Spacer options',
     page: 'Page options',
     band: 'Band options',
+    stack: 'Columns options',
   } as const;
   protected readonly removeLabels = {
     section: 'Remove section',
     spacer: 'Remove spacer',
     page: 'Remove page',
     band: 'Remove band',
+    stack: 'Remove table',
   } as const;
 
   /** What the authored page whose grip opened the menu would be in our
@@ -236,6 +242,17 @@ export class SectionMenu {
     if (this.kind() !== 'band' || !state || pos === undefined) return null;
     const node = state.doc.nodeAt(pos);
     return node ? authoredBand(node) : null;
+  });
+
+  /** What the row of columns written by hand whose grip opened the menu
+      would be in our blocks — the card beside suggests it — or null where
+      it is no longer one. */
+  protected readonly stackSuggested = computed(() => {
+    const state = this.#state();
+    const pos = this.target()?.sectionPos;
+    if (this.kind() !== 'stack' || !state || pos === undefined) return null;
+    const node = state.doc.nodeAt(pos);
+    return node ? authoredStackRow(node, state.schema, state.doc) : null;
   });
 
   /** The band card's button says what the band makes. */
@@ -519,6 +536,14 @@ export class SectionMenu {
   protected convertBandColumns(): void {
     const pos = this.target()?.sectionPos;
     if (pos !== undefined) this.#commands.editor()?.exec(convertAuthoredColumns(pos));
+    this.#done();
+  }
+
+  /** The columns card's Convert: the hand's table becomes the columns
+      block it stands for — one undo step. */
+  protected convertStack(): void {
+    const pos = this.target()?.sectionPos;
+    if (pos !== undefined) this.#commands.editor()?.exec(convertAuthoredStackRow(pos));
     this.#done();
   }
 
