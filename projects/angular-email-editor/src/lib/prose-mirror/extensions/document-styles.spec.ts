@@ -46,6 +46,16 @@ describe('document styles', () => {
     expect(box('padding')).toBe('20px 0');
   });
 
+  it("leaves the body's geometry behind: the root's width is its host's", () => {
+    mount(
+      page('style="width: 100% !important; min-width: 100%; height: 100%; background: #ffffff"'),
+    );
+    expect(root().width).toBe('');
+    expect(root().minWidth).toBe('');
+    expect(root().height).toBe('');
+    expect(root().backgroundColor).toBe('rgb(255, 255, 255)');
+  });
+
   it('keeps each side of the box apart', () => {
     mount(page('style="padding-left: 8px; margin-top: 4px" bgcolor="#ffffff"'));
     expect(root().paddingLeft).toBe('');

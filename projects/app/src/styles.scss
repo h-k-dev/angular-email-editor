@@ -470,12 +470,17 @@ html {
  * editor root as custom properties (`--aee-page-width`, `-background`,
  * `-column`, their `-dark` variants, `--aee-page-ink`) and drawn as the
  * email draws it — no wrapper round the blocks, so every block gesture works
- * as before. The surface gives its inline inset to the page: the root runs
- * edge to edge, painted with the page's colour and the column's down the
- * middle (one gradient, so the column is unbroken by the blocks' margins),
- * and its inline padding stands the text in the column with the column's
- * inset. A section stays in the column, as in the email: it pulls out over
- * the column's inset onto the column's edges (its own rule above), its
+ * as before. The root IS the column, as the email's column table is: the
+ * layout's width at most, centred in the surface (which gives the page its
+ * inline inset), its own inline padding the column's inset round the text.
+ * So it is the column that answers what it holds — a whole document's grows
+ * with content wider than it (below), as a client's table does — and the
+ * room beside it is only what is left over, never a length of its own that
+ * content would have to fit between. The page's colour is painted out from
+ * the column's sides to the surface's edges (a border image set out past the
+ * box: paint only, no box and nothing to scroll to), the column's is the
+ * root's own. A section stays in the column, as in the email: it pulls out
+ * over the column's inset onto the column's edges (its own rule above), its
  * inner column the layout's width (the node's own style reads
  * `--aee-page-width`: a default band takes it, any other is held inside
  * it); a bare one shows the column.
@@ -492,22 +497,29 @@ html {
   // The column's inset round its runs (`--aee-page-inset`, the layout's —
   // 0 on a converted MJML page, whose bands bring their own).
   --_page-inset: var(--aee-page-inset, var(--mat-sys-inner-spacing, 16px));
-  --aee-page-gutter: calc(50cqi - var(--aee-page-half) + var(--_page-inset));
+  // The page's room above and below the column.
+  --_page-spacing: var(--aee-page-spacing, 0px);
   --aee-page-fill: var(--aee-page-background, transparent);
   --aee-page-column-fill: var(--aee-page-column, var(--aee-page-fill));
-  padding-inline: var(--aee-page-gutter);
+  max-inline-size: calc(2 * var(--aee-page-half));
+  margin-inline: auto;
+  padding-inline: var(--_page-inset);
   // The page's room above and below the column (`--aee-page-spacing`): a
-  // border in the page's colour, the column's gradient kept off it — the
-  // column a card on the page, as the email's padded page cell draws it.
-  border-block: var(--aee-page-spacing, 0px) solid var(--aee-page-fill);
+  // border, the column's colour kept off it — the column a card on the
+  // page, as the email's padded page cell draws it. The page's colour is
+  // one image over those borders and out past the column's sides, never
+  // over the column itself (no `fill`).
+  // Out as far as the surface's edges, no further — the surface's half
+  // less the column's (a column grown by its content reaches a little past
+  // them; the surface clips it wherever it is the scroller).
+  --_page-beside: calc(50cqi - var(--aee-page-half));
+  border-block: var(--_page-spacing) solid transparent;
+  border-image: conic-gradient(var(--aee-page-fill) 0 0) 1 / var(--_page-spacing)
+    var(--_page-beside) / 0 var(--_page-beside);
   background-clip: padding-box;
-  background-image: linear-gradient(
-    to right,
-    var(--aee-page-fill) calc(50% - var(--aee-page-half)),
-    var(--aee-page-column-fill) calc(50% - var(--aee-page-half)),
-    var(--aee-page-column-fill) calc(50% + var(--aee-page-half)),
-    var(--aee-page-fill) calc(50% + var(--aee-page-half))
-  );
+  // An image, not a colour: over a whole document's own body colour, which
+  // lands inline on this root.
+  background-image: linear-gradient(var(--aee-page-column-fill) 0 0);
 
   // A strip (a filled spacer) stands in the column as a band does.
   > :is(.aee-section, .aee-spacer[data-fill]) + :not(.aee-section, .aee-spacer[data-fill]) {
@@ -557,9 +569,16 @@ html {
  * canvas. The body's colour (on this root, DocumentStyles) ends with the
  * email, as a thumbnail draws it; below is the paper, where a click still
  * starts a line (ClickBelow). Only the floating foot's room stays, where
- * the foot floats over the text. */
+ * the foot floats over the text.
+ *
+ * As wide as what it holds, where that is wider than the root (a 600px
+ * table in a narrower window, or in a page's column with its inset): the
+ * root would otherwise stop short while its table ran on, and the body's
+ * colour with it — a strip of bare paper beside the email under its last
+ * row. On a page the column grows, centred while the surface has the room. */
 .email-compose__editor > .aee-editor.aee-document {
   min-height: 0;
+  min-inline-size: min-content;
   padding-block: 0 var(--email-compose-foot-room, 0px);
 }
 
@@ -638,7 +657,7 @@ section[email-compose][data-scroll='host']
 
   @container (max-width: 479px) {
     --_page-inset: var(--aee-page-phone-inset, 16px);
-    border-block-width: var(--aee-page-phone-spacing, 0px);
+    --_page-spacing: var(--aee-page-phone-spacing, 0px);
   }
 }
 

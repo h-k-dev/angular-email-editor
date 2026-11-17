@@ -126,14 +126,17 @@ function rootDeclaration(declaration: string): string | null {
 }
 
 /** The body's inline style plus its legacy `bgcolor`, as one declaration
-    list — its box as custom properties (see {@link createDocumentStyles}). */
+    list — its box as custom properties (see {@link createDocumentStyles}),
+    the rest of its geometry left out as a body rule's is: inline, a
+    template's `min-width: 100%` would beat every host rule for the root's
+    width — a page layout's column. */
 function bodyStyle(body: AttributePairs): string {
   const declarations: string[] = [];
   for (const [name, value] of body) {
     if (name === 'style') {
       for (const declaration of splitDeclarations(value)) {
         const own = rootDeclaration(declaration);
-        if (own) declarations.push(own);
+        if (own && !isGeometry(own)) declarations.push(own);
       }
     }
     if (name === 'bgcolor' && value.trim()) declarations.push(`background-color: ${value.trim()}`);
@@ -481,11 +484,16 @@ function rootDeclarations(block: string): string[] {
   const declarations: string[] = [];
   for (const declaration of splitDeclarations(withoutComments(block))) {
     const own = rootDeclaration(declaration);
-    if (!own) continue;
-    const property = own.slice(0, own.indexOf(':')).trim().toLowerCase();
-    if (!GEOMETRY_PROPERTY.test(property)) declarations.push(own);
+    if (own && !isGeometry(own)) declarations.push(own);
   }
   return declarations;
+}
+
+/** Whether a declaration sets the box's geometry ({@link GEOMETRY_PROPERTY}). */
+function isGeometry(declaration: string): boolean {
+  return GEOMETRY_PROPERTY.test(
+    declaration.slice(0, declaration.indexOf(':')).trim().toLowerCase(),
+  );
 }
 
 /** The colours among declarations, each drawn dark by Dawn, as important as
