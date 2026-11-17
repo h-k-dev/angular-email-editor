@@ -151,17 +151,14 @@
 
 // The foot: the strip and the dock, over the end of the text — the text
 // scrolls on under it (floating-foot.ts). It paints the sheet's paper (or
-// an island's) so what is under it is hidden, fading in over a breath above
-// its first row so the text goes under it softly rather than cut at a line
-// — Gemini's prompt box. The fade is the foot's own top room and is
-// counted in what it covers, so the text's last line comes to rest above it,
-// never in it; it lets the pointer through (only what is in the foot takes
-// it). Over the text's own layers — its grips and handles — but under the
+// an island's) so what is under it is hidden, from its first row down: the
+// text goes under a plain edge, and its last line comes to rest above it.
+// It lets the pointer through (only what is in the foot takes it). Over the
+// text's own layers — its grips and handles — but under the
 // suggestion menu (z 10), which opens from the text and may hang over it.
 // `--email-compose-foot-inset`: room the host floats something of its own
 // into, at the foot's foot (the writer's bar, message-form.scss).
 .email-compose__foot {
-  --email-compose-foot-fade: 16px;
   --_foot-paper: var(--email-paper, var(--mat-sys-surface-bright));
   position: absolute;
   inset-inline: 0;
@@ -170,13 +167,10 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding-block: var(--email-compose-foot-fade) var(--email-compose-foot-inset, 0px);
+  padding-block: 0 var(--email-compose-foot-inset, 0px);
   // The host may lay it on other glass (`--email-compose-foot-background`,
   // `--email-compose-foot-backdrop`: a document's frosted pane).
-  background: var(
-    --email-compose-foot-background,
-    linear-gradient(to bottom, transparent, var(--_foot-paper) var(--email-compose-foot-fade))
-  );
+  background: var(--email-compose-foot-background, var(--_foot-paper));
   backdrop-filter: var(--email-compose-foot-backdrop, none);
   pointer-events: none;
 
