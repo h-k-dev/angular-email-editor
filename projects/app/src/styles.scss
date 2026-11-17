@@ -502,6 +502,10 @@ html {
   --aee-page-fill: var(--aee-page-background, transparent);
   --aee-page-column-fill: var(--aee-page-column, var(--aee-page-fill));
   max-inline-size: calc(2 * var(--aee-page-half));
+  // …and as wide as what it holds, where that is wider: the column grows
+  // with it, as a client's table does — a fragment's too (a template kept
+  // without its envelope is no whole document, below).
+  min-inline-size: min-content;
   margin-inline: auto;
   padding-inline: var(--_page-inset);
   // The page's room above and below the column (`--aee-page-spacing`): a
