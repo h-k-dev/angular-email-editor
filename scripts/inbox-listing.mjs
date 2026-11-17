@@ -10,7 +10,7 @@
  *   node scripts/inbox-listing.mjs --check  fail where it is not what the
  *                                           catalogue makes (CI)
  *
- * Run it after adding an example to the catalogue's `reply` or `mjml` set.
+ * Run it after adding an example to the catalogue's `reply`, `html` or `mjml` set.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -19,8 +19,8 @@ const dir = resolve('projects/app/public/examples');
 const out = join(dir, 'inbox.json');
 
 /** The catalogue's sets the inbox holds, in its order: the inbound
-    messages first, then the newsletters. */
-const INBOX_SETS = ['reply', 'mjml'];
+    messages first, then the hand-written mail and the newsletters. */
+const INBOX_SETS = ['reply', 'html', 'mjml'];
 
 /** "Jane Doe <jane@x>" → "Jane Doe"; a bare address stays as it is. */
 const displayName = (from) => from.replace(/\s*<[^>]*>\s*$/, '').trim() || from;

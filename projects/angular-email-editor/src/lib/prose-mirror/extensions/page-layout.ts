@@ -225,7 +225,7 @@ const BROWSER_CELL_PADDING = 1;
 function rootAttributes(layout: PageLayout | null): Record<string, string> {
   if (!layout) return {};
   // Dark is drawn, never chosen: the light fill as Dawn draws it.
-  const dark = (hex: string) => dawnDarkColor(hex);
+  const dark = (hex: string) => dawnDarkColor(hex, 'surface');
   const vars: [string, string | null][] = [
     ['--aee-page-width', `${layout.width}px`],
     ['--aee-page-spacing', `${layout.spacing}px`],

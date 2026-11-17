@@ -13,7 +13,8 @@ describe('createDarkRendering', () => {
       content,
     });
     const id = editor.view.dom.getAttribute('data-aee-render');
-    const sheet = () => document.head.querySelector<HTMLStyleElement>(`style[data-aee-render="${id}"]`);
+    const sheet = () =>
+      document.head.querySelector<HTMLStyleElement>(`style[data-aee-render="${id}"]`);
     const unmount = () => {
       editor.destroy();
       host.remove();
@@ -28,7 +29,7 @@ describe('createDarkRendering', () => {
     );
     const css = sheet()?.textContent ?? '';
     const root = `.paper-dark .aee-editor[data-aee-render="${id}"]`;
-    expect(css).toContain(`${root} { color: rgb(255, 255, 255); background-color: #1e1e1e; }`);
+    expect(css).toContain(`${root} { color: rgb(255, 255, 255); background-color: #1e1e1e; `);
     expect(css).toContain(
       `${root} [style="color: #000000"] { color: rgb(255, 255, 255) !important; }`,
     );
@@ -49,15 +50,38 @@ describe('createDarkRendering', () => {
   it('draws the legacy colour attributes too — the inline style’s rules after them', () => {
     const dom = document.createElement('div');
     dom.innerHTML =
-      '<table bgcolor="#ffffff"><tr><td style="background-color: #000000">x</td></tr></table>' +
-      '<font color="#ffffff">y</font>';
+      '<table bgcolor="#ffffff"><tr><td style="color: #000000">x</td></tr></table>' +
+      '<font color="#000000">y</font><font color="#ffffff">z</font>';
     const { css } = darkRenderingCss(dom, '.r');
-    const bg = css.indexOf('[bgcolor="#ffffff" i] { background-color: #333333 !important; }');
-    const font = css.indexOf('font[color="#ffffff" i] { color: #333333 !important; }');
-    const style = css.indexOf('[style="background-color: #000000"]');
+    const bg = css.indexOf('[bgcolor="#ffffff" i] { background-color: #333333 !important; ');
+    const font = css.indexOf('font[color="#000000" i] { color: #ffffff !important; }');
+    const style = css.indexOf('[style="color: #000000"]');
     expect(bg).toBeGreaterThan(-1);
     expect(font).toBeGreaterThan(-1);
     expect(style).toBeGreaterThan(bg);
+    // Light text is light already: as written, no rule.
+    expect(css).not.toContain('font[color="#ffffff" i]');
+  });
+
+  it('draws a border by the band beneath it: two inherited flags pick the value', () => {
+    const dom = document.createElement('div');
+    dom.innerHTML =
+      '<div style="background-color: #0f0f0f"><p style="border-top: 1px solid #2a2a2a">x</p></div>' +
+      '<div style="background-color: #ffffff">y</div>';
+    const { css } = darkRenderingCss(dom, '.r');
+    // The root lies on a drawn surface.
+    expect(css).toContain('--aee-not-kept: ; --aee-not-drawn: initial; }');
+    // An ink band keeps its fill and says so to what lies on it.
+    expect(css).toContain(
+      '.r [style="background-color: #0f0f0f"] { --aee-not-kept: initial; --aee-not-drawn: ; }',
+    );
+    expect(css).toContain(
+      '.r [style="background-color: #ffffff"] { background-color: rgb(51, 51, 51) !important; --aee-not-kept: ; --aee-not-drawn: initial; }',
+    );
+    // The border: as written on a kept band, drawn on any other.
+    expect(css).toContain(
+      '.r [style="border-top: 1px solid #2a2a2a"] { border-top: var(--aee-not-kept, 1px solid #2a2a2a) var(--aee-not-drawn, 1px solid rgb(',
+    );
   });
 
   it('draws the root’s own fill dark, and leaves its custom properties as written', () => {

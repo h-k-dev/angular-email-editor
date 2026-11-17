@@ -4,7 +4,7 @@
  * server linkedom / happy-dom / jsdom set as the globals).
  */
 
-export type { DawnScheme, Rgba } from './lib/color';
+export type { DawnRole, DawnScheme, Rgba } from './lib/color';
 export {
   DAWN_SURFACE,
   dawnDarkColor,

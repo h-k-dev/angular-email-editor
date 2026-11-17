@@ -9,6 +9,13 @@
       "autoPort": false
     },
     {
+      "name": "app-4200",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "start", "--", "--port", "4200"],
+      "port": 4200,
+      "autoPort": false
+    },
+    {
       "name": "app-alt",
       "runtimeExecutable": "npx",
       "runtimeArgs": ["ng", "serve", "app", "--port", "4310"],

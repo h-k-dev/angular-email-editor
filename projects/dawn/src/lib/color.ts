@@ -151,7 +151,9 @@ function hueRotate([r, g, b, a]: Rgba, amount: number): Rgba {
   }
   hue = (hue + amount) % 1;
   const temp2 =
-    lightness <= 0.5 ? lightness * (1 + saturation) : lightness + saturation - lightness * saturation;
+    lightness <= 0.5
+      ? lightness * (1 + saturation)
+      : lightness + saturation - lightness * saturation;
   const temp1 = 2 * lightness - temp2;
   const sixths = hue * 6;
   const channel = (at: number): number => {
@@ -173,10 +175,26 @@ export function invertLightness(color: Rgba): Rgba {
   return [red, green, blue, a];
 }
 
+/** What a colour paints: a `surface` (a background) or `ink` (text). */
+export type DawnRole = 'surface' | 'ink';
+
+/** How light a colour reads, 0–1 (Rec. 709 weights). */
+const luma = ([r, g, b]: Rgba): number => 0.2126 * r + 0.7152 * g + 0.0722 * b;
+
 /** One CSS colour token as Dawn draws it dark — the light value in, the
     drawn value out; anything that is no colour (a `url(…)`, a keyword) as
-    it was. What a swatch on a dark paper shows. */
-export function dawnDarkColor(token: string): string {
+    it was. What a swatch on a dark paper shows.
+
+    With a `role`, what is dark already stays as written, as a mail client
+    on a phone keeps it: a surface is never drawn lighter (an ink band
+    stays ink, and a white logo on it stays readable), ink is never drawn
+    darker (white text on that band stays white). Without one — a border,
+    a swatch — the colour is always drawn. */
+export function dawnDarkColor(token: string, role?: DawnRole): string {
   const color = parseCssColor(token);
-  return color ? rgbaToCss(invertLightness(color)) : token;
+  if (!color) return token;
+  const drawn = invertLightness(color);
+  if (role === 'surface' && luma(drawn) >= luma(color)) return token;
+  if (role === 'ink' && luma(drawn) <= luma(color)) return token;
+  return rgbaToCss(drawn);
 }

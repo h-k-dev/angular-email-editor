@@ -184,6 +184,18 @@
       ]
     },
     {
+      "key": "html",
+      "label": "Hand-written HTML example",
+      "short": "HTML",
+      "kind": "html",
+      "examples": [
+        {
+          "name": "Hand Written",
+          "file": "html/hand-written.html"
+        }
+      ]
+    },
+    {
       "key": "mjml",
       "label": "MJML template example",
       "short": "MJML",

@@ -3,6 +3,7 @@ import { EditorView } from 'prosemirror-view';
 import { defineExtension } from '../extension';
 import {
   DAWN_SURFACE,
+  dawnBandOf,
   dawnDarkColor,
   dawnDarkDeclarationsOf,
   dawnDarkLegacyColor,
@@ -32,6 +33,40 @@ const LEGACY: readonly [attribute: string, selector: string, property: string][]
   ['bordercolor', '[bordercolor=%]', 'border-color'],
 ];
 
+/**
+ * The band an element lies on, as two inherited flags — CSS has no "nearest
+ * ancestor" selector, and inheritance is exactly that. A flag is empty while
+ * it holds and `initial` (no value at all) while it does not, so of
+ * `var(--aee-not-kept, written) var(--aee-not-drawn, drawn)` exactly one
+ * fallback is read: the written value on a band kept as written, the drawn
+ * one on any other. Every element that paints a band sets both.
+ */
+const BAND = {
+  kept: '--aee-not-kept: initial; --aee-not-drawn: ;',
+  drawn: '--aee-not-kept: ; --aee-not-drawn: initial;',
+} as const;
+
+/** A border's value by the band beneath it: as written on a kept one. */
+const onBand = (written: string, drawn: string): string =>
+  `var(--aee-not-kept, ${written}) var(--aee-not-drawn, ${drawn})`;
+
+/** One style spelling's rule body: its colours drawn dark, its borders by
+    the band beneath, and — where it paints a band itself — the flags for
+    what lies on it. Empty where dark changes nothing. Without `custom`,
+    its custom properties are left as written. */
+function darkBody(style: string, custom = true): string {
+  const body = dawnDarkDeclarationsOf(style)
+    .filter(([property]) => custom || !property.startsWith('--'))
+    .map(([property, value, written]) =>
+      written === undefined
+        ? `${property}: ${value} !important;`
+        : `${property}: ${onBand(written, value)} !important;`,
+    );
+  const band = dawnBandOf(style);
+  if (band) body.push(BAND[band]);
+  return body.join(' ');
+}
+
 let nextId = 0;
 
 /**
@@ -47,6 +82,8 @@ let nextId = 0;
  * declarations drawn dark (`!important`, over the inline ones), and its
  * legacy colour attributes (`bgcolor`, `<font color>`, `bordercolor`) the
  * same — the style's rules last, as an inline style beats an attribute.
+ * A border follows the band it lies on, as in the reading pane: as written
+ * on a background kept as written (`BAND`).
  * The root takes Dawn's ink and dark surface — and where it carries a look
  * of its own (a document's `<body>` fill, put on it inline by
  * `DocumentStyles`), that is drawn dark like any other: a white body is no
@@ -114,23 +151,34 @@ export function darkRenderingCss(dom: Element, root: string): { css: string; key
     }
   }
   const rules = [
-    `${root} { color: ${dawnDarkColor('#000000')}; background-color: ${DAWN_SURFACE.dark}; }`,
+    `${root} { color: ${dawnDarkColor('#000000')}; background-color: ${DAWN_SURFACE.dark}; ${BAND.drawn} }`,
   ];
   for (const [attribute, selector, property] of LEGACY) {
     for (const value of legacy.get(attribute)!) {
-      const drawn = dawnDarkLegacyColor(value);
+      const drawn = dawnDarkLegacyColor(
+        value,
+        attribute === 'bgcolor' ? 'surface' : attribute === 'color' ? 'ink' : undefined,
+      );
+      const body: string[] = [];
       if (drawn) {
+        body.push(
+          attribute === 'bordercolor'
+            ? `${property}: ${onBand(value, drawn)} !important;`
+            : `${property}: ${drawn} !important;`,
+        );
+      }
+      const band = attribute === 'bgcolor' ? dawnBandOf(`background-color: ${value}`) : null;
+      if (band) body.push(BAND[band]);
+      if (body.length) {
         rules.push(
-          `${root} ${selector.replace('%', cssString(value) + ' i')} { ${property}: ${drawn} !important; }`,
+          `${root} ${selector.replace('%', cssString(value) + ' i')} { ${body.join(' ')} }`,
         );
       }
     }
   }
   for (const style of styles) {
-    const declarations = dawnDarkDeclarationsOf(style);
-    if (!declarations.length) continue;
-    const body = declarations.map(([property, value]) => `${property}: ${value} !important;`);
-    rules.push(`${root} [style=${cssString(style)}] { ${body.join(' ')} }`);
+    const body = darkBody(style);
+    if (body) rules.push(`${root} [style=${cssString(style)}] { ${body} }`);
   }
   // The root's own look — a document's body, on it inline: drawn dark too,
   // over the surface above. Never its custom properties: those are the
@@ -138,13 +186,8 @@ export function darkRenderingCss(dom: Element, root: string): { css: string; key
   // `-dark`, each already written for its light) — drawn dark again, the
   // dark one comes out light, and the page's room with it.
   const own = dom.getAttribute('style') ?? '';
-  const ownDeclarations = (own ? dawnDarkDeclarationsOf(own) : []).filter(
-    ([property]) => !property.startsWith('--'),
-  );
-  if (ownDeclarations.length) {
-    const body = ownDeclarations.map(([property, value]) => `${property}: ${value} !important;`);
-    rules.push(`${root}[style=${cssString(own)}] { ${body.join(' ')} }`);
-  }
+  const ownBody = own ? darkBody(own, false) : '';
+  if (ownBody) rules.push(`${root}[style=${cssString(own)}] { ${ownBody} }`);
   const key = [
     own,
     '|',

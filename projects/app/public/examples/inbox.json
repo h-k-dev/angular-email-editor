@@ -99,6 +99,14 @@
       "subject": "Nutzungsrechtsanfrage Fotografie – Print, Digital, Social, OOH"
     },
     {
+      "id": "html-hand-written",
+      "file": "html/hand-written.html",
+      "kind": "html",
+      "name": "Hand Written",
+      "from": "Hand Written <hand-written@example.com>",
+      "subject": "Am Montag kommt das neue Engine"
+    },
+    {
       "id": "mjml-worldly",
       "file": "mjml/worldly.html",
       "kind": "html",
