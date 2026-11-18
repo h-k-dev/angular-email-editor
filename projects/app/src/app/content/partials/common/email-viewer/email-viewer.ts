@@ -1,4 +1,14 @@
-import { Component, DestroyRef, ElementRef, computed, effect, inject, input, signal } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  ElementRef,
+  computed,
+  effect,
+  inject,
+  input,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 import { PaperScheme, dawnDocument } from '../../../../core/dawn/dawn.render';
@@ -104,6 +114,16 @@ export class EmailViewer {
   protected readonly height = signal(0);
   #observer: ResizeObserver | null = null;
 
+  private readonly frameRef = viewChild<ElementRef<HTMLIFrameElement>>('frame');
+
+  /** The document last fitted. */
+  #fitted: Document | null = null;
+
+  /** The pending look for the next document, and what tells the frame is
+      in sight to look at (`#fitOnceParsed`). */
+  #look = 0;
+  #inSight: IntersectionObserver | null = null;
+
   /** How wide the email is where it is wider than the room it was given,
       px — the frame's least width; 0 where it fits (a responsive email
       always does). */
@@ -123,21 +143,65 @@ export class EmailViewer {
 
   constructor() {
     const destroyRef = inject(DestroyRef);
-    destroyRef.onDestroy(() => this.#observer?.disconnect());
+    destroyRef.onDestroy(() => {
+      this.#observer?.disconnect();
+      this.#stopLooking();
+    });
     // A new document unloads the one the observer measures, which drops to
     // nothing before the new one loads: stop measuring it with the change,
     // or the frame folds to 0 until `fit` — and moves what was just
     // measured (a ResizeObserver loop).
     effect(() => {
       this.document();
+      const frame = this.frameRef()?.nativeElement;
       this.#observer?.disconnect();
       this.#observer = null;
+      if (frame) this.#fitOnceParsed(frame, frame.contentDocument);
     });
     if (typeof ResizeObserver === 'undefined') return;
     const host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
     const room = new ResizeObserver(([entry]) => this.#room.set(entry.contentRect.width));
     room.observe(host);
     destroyRef.onDestroy(() => room.disconnect());
+  }
+
+  /** Fits the document that follows `previous` as soon as it is parsed. The
+      frame's `load` waits for every picture, and one that never answers (a
+      tracking pixel behind a firewall) holds it back for good — the email
+      would stay in the frame's default 150px, scrolling in itself. Parsed is
+      all `fit` needs; the pictures reflow it afterwards, as ever.
+
+      A frame tells nothing before `load`, so it is looked at, a frame at a
+      time — a read of one property, no layout — and only while it is in
+      sight: a frame out of it need not be fitted yet, and would be looked
+      at for as long as it stays there. Once fitted, nothing looks or
+      watches any more. */
+  #fitOnceParsed(frame: HTMLIFrameElement, previous: Document | null) {
+    this.#stopLooking();
+    if (typeof IntersectionObserver === 'undefined') return;
+    const look = () => {
+      const doc = frame.contentDocument;
+      // Not the blank page a frame starts on, whichever came first.
+      const next = doc !== previous && doc?.URL !== 'about:blank' ? doc : null;
+      if (!next || next.readyState === 'loading') {
+        this.#look = requestAnimationFrame(look);
+        return;
+      }
+      this.#stopLooking();
+      // Unless `load` came first.
+      if (next !== this.#fitted) this.fit(frame);
+    };
+    this.#inSight = new IntersectionObserver((entries) => {
+      cancelAnimationFrame(this.#look);
+      if (entries.at(-1)?.isIntersecting) this.#look = requestAnimationFrame(look);
+    });
+    this.#inSight.observe(frame);
+  }
+
+  #stopLooking() {
+    this.#inSight?.disconnect();
+    this.#inSight = null;
+    if (typeof cancelAnimationFrame !== 'undefined') cancelAnimationFrame(this.#look);
   }
 
   /** The frame has drawn its document (again, after a change): fit it, and
@@ -150,8 +214,10 @@ export class EmailViewer {
     // see it change.
     frame.style.minInlineSize = '';
     this.width.set(0);
-    const root = frame.contentDocument?.documentElement;
-    if (!root) return;
+    const doc = frame.contentDocument;
+    if (!doc) return;
+    this.#fitted = doc;
+    const root = doc.documentElement;
     // The frame is as big as its email both ways: its document never
     // scrolls. Left to itself, an email that just fills the frame keeps a
     // classic bar each way — each one's room making the other overflow.

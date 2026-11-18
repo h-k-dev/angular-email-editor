@@ -190,6 +190,12 @@
   .section-menu__button {
     // A text button, at the card's inline end.
     align-self: flex-end;
+    // The card has one width and its words wrap in it; so does a label
+    // longer than the card (a translation's), where a menu's row would
+    // run on in one line and be cut at the card's edge.
+    white-space: normal;
+    text-align: end;
+    text-wrap: balance;
   }
 }
 
