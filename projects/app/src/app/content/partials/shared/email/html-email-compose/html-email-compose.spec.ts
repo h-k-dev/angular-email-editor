@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Selection, TextSelection } from 'prosemirror-state';
 
 import { HtmlEmailCompose } from './html-email-compose';
 
@@ -61,6 +62,42 @@ describe('HtmlEmailCompose', () => {
     component.html.set('<p>One</p><p>Two</p>');
     await paced();
     expect(component.editor()!.getText()).toContain('<p>Two</p>');
+  });
+
+  it('takes a press on its own room under the last line as a press on the source’s end', async () => {
+    component.html.set('<p>One</p><p>Two</p>');
+    await paced();
+    const host = fixture.nativeElement as HTMLElement;
+    const editor = component.editor()!;
+    editor.view.dispatch(
+      editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1)),
+    );
+
+    // jsdom lays nothing out: give the pane a box for the press to land in.
+    Object.defineProperty(host, 'clientWidth', { value: 400 });
+    Object.defineProperty(host, 'clientHeight', { value: 300 });
+    const press = new MouseEvent('mousedown', {
+      button: 0,
+      clientX: 0,
+      clientY: 0,
+      bubbles: true,
+      cancelable: true,
+    });
+    host.dispatchEvent(press);
+
+    expect(press.defaultPrevented).toBe(true);
+    const { selection, doc } = editor.state;
+    expect(selection.empty).toBe(true);
+    expect(selection.head).toBe(Selection.atEnd(doc).head);
+  });
+
+  it('leaves a press on its scrollbar to the scrollbar', async () => {
+    const host = fixture.nativeElement as HTMLElement;
+    // No box in jsdom: every press is past the pane's client area, where
+    // its scrollbars are.
+    const press = new MouseEvent('mousedown', { button: 0, bubbles: true, cancelable: true });
+    host.dispatchEvent(press);
+    expect(press.defaultPrevented).toBe(false);
   });
 
   describe('while hidden', () => {

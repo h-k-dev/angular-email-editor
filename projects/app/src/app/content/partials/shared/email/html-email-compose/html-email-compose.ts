@@ -16,7 +16,7 @@ import {
 } from '@angular/core';
 
 // ProseMirror
-import { TextSelection } from 'prosemirror-state';
+import { Selection, TextSelection } from 'prosemirror-state';
 
 // Library
 import {
@@ -67,6 +67,7 @@ export abstract class SourceTool {
   host: {
     '[attr.data-wrap]': "wrap() ? null : 'off'",
     '(keydown)': 'onKeydown($event)',
+    '(mousedown)': 'onPress($event)',
   },
 })
 export class HtmlEmailCompose {
@@ -141,6 +142,45 @@ export class HtmlEmailCompose {
     if (!event.altKey || event.ctrlKey || event.metaKey || event.code !== 'KeyZ') return;
     event.preventDefault();
     this.wrap.update((wrap) => !wrap);
+  }
+
+  /**
+   * A press on the pane's own room — the padding round the source, most of
+   * it the room under the last line — as a code editor takes it: the caret
+   * goes to the text nearest the press. Under the last line that is the
+   * source's end; beside or above the lines, the line at the press's height.
+   * The pane's own scrollbars are not that room: a press there scrolls.
+   */
+  protected onPress(event: MouseEvent): void {
+    const editor = this.editor();
+    const host = event.currentTarget as HTMLElement;
+    if (!editor || event.button !== 0 || event.target !== host) return;
+    const frame = host.getBoundingClientRect();
+    if (
+      event.clientX - frame.left - host.clientLeft >= host.clientWidth ||
+      event.clientY - frame.top - host.clientTop >= host.clientHeight
+    ) {
+      return;
+    }
+    // The press stays the editor's: no focus lost to the pane, no selection
+    // started in its padding.
+    event.preventDefault();
+    const { view, state } = editor;
+    const text = view.dom.getBoundingClientRect();
+    const within = (value: number, from: number, to: number) =>
+      Math.min(Math.max(value, from + 1), to - 1);
+    const near =
+      event.clientY < text.bottom
+        ? view.posAtCoords({
+            left: within(event.clientX, text.left, text.right),
+            top: within(event.clientY, text.top, text.bottom),
+          })
+        : null;
+    const selection = near
+      ? Selection.near(state.doc.resolve(near.pos))
+      : Selection.atEnd(state.doc);
+    view.dispatch(state.tr.setSelection(selection));
+    editor.focus();
   }
 
   constructor() {
