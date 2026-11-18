@@ -163,6 +163,15 @@
             "subject": "All layout elements",
             "previewText": "Sections, columns, layout tables, layout headings and lists, spacers."
           }
+        },
+        {
+          "name": "Paragraph spacing (Outlook check)",
+          "file": "angularjs/outlook-paragraph-spacing.html",
+          "envelope": {
+            "from": ["kanzlei@example.com"],
+            "subject": "Ihre Gebührenkürzung zu {{ case_number }}",
+            "previewText": "Bare <p>, <p><br></p> spacers and whitespace-only <p>: wider apart in Outlook than in the editor."
+          }
         }
       ]
     },

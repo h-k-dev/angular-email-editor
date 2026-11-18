@@ -1208,6 +1208,12 @@ section[email-compose][data-scroll='host']
   display: inline;
 }
 
+/* An empty `<p>` the source wrote: no height in a client, so none here —
+ * its break is ProseMirror's, shown only where the caret stands in it. */
+.aee-editor .aee-empty-paragraph:not(.aee-caret-line) > br.ProseMirror-trailingBreak {
+  display: none;
+}
+
 /* What the library does not know yet (the lib's UnknownMarkup): markup kept
  * as written that no block of ours models, and tags, attributes or styles
  * outside the email vocabulary. Shown on a design desk only — the designer

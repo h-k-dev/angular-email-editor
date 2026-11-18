@@ -1,9 +1,14 @@
+import { Node } from 'prosemirror-model';
 import { EditorState, Plugin, PluginKey } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import { defineExtension } from '../extension';
 
 /** Class on the line (the textblock) the caret is in. */
 export const CARET_LINE_CLASS = 'aee-caret-line';
+
+/** Class on an empty `<p>` kept as the source wrote it: no line in a
+    client, so none in the editor but where the caret is. */
+export const EMPTY_PARAGRAPH_CLASS = 'aee-empty-paragraph';
 
 /**
  * ProseMirror's caret aids, drawn only where the caret is. Beside an inline
@@ -30,26 +35,61 @@ export const CARET_LINE_CLASS = 'aee-caret-line';
  *       display: inline;
  *     }
  *
+ * An empty `<p>` the source wrote (`<p></p>`, kept as written) is the other
+ * case: its break is ProseMirror's, not the email's, and gives it a line's
+ * height a client never draws — a browser gives an empty paragraph no height
+ * at all. It carries {@link EMPTY_PARAGRAPH_CLASS}, for the host to hide the
+ * break there too, off the caret's line:
+ *
+ *     .aee-editor .aee-empty-paragraph:not(.aee-caret-line) > br.ProseMirror-trailingBreak {
+ *       display: none;
+ *     }
+ *
+ * The composer's own empty line is written with a `<br>` and is a line in
+ * the email: never marked.
+ *
  * The app owns the pixels, as for the layout guides.
  */
 export const TrailingBreakLine = defineExtension({
   name: 'trailingBreakLine',
-  plugins: () => [
-    new Plugin({
-      key: new PluginKey('trailingBreakLine'),
-      props: {
-        decorations: (state) => caretLine(state),
-      },
-    }),
-  ],
+  plugins: () => {
+    const key = new PluginKey<Decoration[]>('trailingBreakLine');
+    return [
+      new Plugin<Decoration[]>({
+        key,
+        // The empty paragraphs, found again only when the document changes.
+        state: {
+          init: (_, state) => emptyParagraphs(state.doc),
+          apply: (tr, found) => (tr.docChanged ? emptyParagraphs(tr.doc) : found),
+        },
+        props: {
+          decorations: (state) => {
+            const marks = [...(key.getState(state) ?? []), ...caretLine(state)];
+            return marks.length ? DecorationSet.create(state.doc, marks) : null;
+          },
+        },
+      }),
+    ];
+  },
 });
 
-function caretLine(state: EditorState): DecorationSet | null {
+function caretLine(state: EditorState): Decoration[] {
   const { $head } = state.selection;
   const line = $head.parent;
-  if (!line.isTextblock || $head.depth === 0) return null;
+  if (!line.isTextblock || $head.depth === 0) return [];
   const from = $head.before();
-  return DecorationSet.create(state.doc, [
-    Decoration.node(from, from + line.nodeSize, { class: CARET_LINE_CLASS }),
-  ]);
+  return [Decoration.node(from, from + line.nodeSize, { class: CARET_LINE_CLASS })];
+}
+
+/** Every `<p>` kept as written with nothing in it, marked with
+    {@link EMPTY_PARAGRAPH_CLASS}. */
+function emptyParagraphs(doc: Node): Decoration[] {
+  const marks: Decoration[] = [];
+  doc.descendants((node, pos) => {
+    if (node.type.name === 'htmlTextElement' && node.attrs['tag'] === 'p' && !node.content.size) {
+      marks.push(Decoration.node(pos, pos + node.nodeSize, { class: EMPTY_PARAGRAPH_CLASS }));
+    }
+    return !node.isTextblock;
+  });
+  return marks;
 }
