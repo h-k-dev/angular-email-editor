@@ -10,6 +10,7 @@ import { liftPageLayout } from './page-layout';
 export function emailPlainText(html: string): string {
   const body = new DOMParser().parseFromString(html, 'text/html').body;
   liftPageLayout(body);
+
   const lines: string[] = [];
   renderChildren(body, lines, '');
   return lines.join('\n');
