@@ -151,6 +151,9 @@ version may change behaviour, and says so here.
 
 ### Fixed
 
+- **No empty pill beside a previewed value.** The `merge-tags` style mixin hides a token's
+  pill while `createMergeTagPreview` shows its value; only its text was hidden, and the
+  pill's padding and fill were left drawn after the value.
 - **A document's body rules reach the editor's root.** `DocumentStyles` put the `<body>`'s
   inline style on the root, but a rule of the head for the body (`body { … }`, `body.page`,
   `[dir="rtl"] body`) matched nothing inside the editor's `@scope`. Such a rule is now read

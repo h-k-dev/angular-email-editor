@@ -51,7 +51,11 @@
     box-decoration-break: clone;
   }
 
-  .aee-merge-tag-previewed {
+  // A token behind its value: its text hidden by the preview itself, and
+  // here its pill — the mark round the text (padding and fill) — so no
+  // empty pill is left beside the value.
+  .aee-merge-tag-previewed,
+  .aee-merge-tag:has(.aee-merge-tag-previewed) {
     display: none;
   }
 
