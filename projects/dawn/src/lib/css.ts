@@ -180,12 +180,18 @@ export function declaresDark(doc: Document): boolean {
 }
 
 /** The surface, and the browser's own colours a message leans on — its ink
-    and its links — as Dawn draws them on `scheme`. */
+    and its links — as Dawn draws them on `scheme`.
+
+    The body paints the surface as the root does: a message that clears its
+    root (`<html style="background-color: transparent">`) would else leave
+    the frame nothing painted at all, and a frame on another scheme than the
+    page round it is then filled by the browser — white, under Dawn's light
+    ink. */
 export function dawnSurfaceRules(scheme: DawnScheme): string {
   const paint = (token: string) => (scheme === 'dark' ? dawnDarkColor(token) : token);
   return (
     `html { background: ${DAWN_SURFACE[scheme]}; }` +
-    ` body { background: transparent; color: ${paint('#000000')}; }` +
+    ` body { background: ${DAWN_SURFACE[scheme]}; color: ${paint('#000000')}; }` +
     ` :where(a:link) { color: ${paint('#0000ee')}; }` +
     ` :where(a:visited) { color: ${paint('#551a8b')}; }`
   );

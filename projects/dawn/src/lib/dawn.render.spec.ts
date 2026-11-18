@@ -35,6 +35,27 @@ describe('Dawn (render)', () => {
     expect(html).not.toContain('invert(');
   });
 
+  it('keeps its dark surface under a message that clears its root', () => {
+    // A cleared root leaves the body to fill the frame: were it clear too,
+    // the browser would fill a frame on another scheme than its page — white.
+    const html = renderDawn(
+      '<html style="background-color: transparent"><body><p>Hi</p></body></html>',
+      { scheme: 'dark' },
+    );
+    const frame = document.createElement('iframe');
+    frame.srcdoc = html;
+    document.body.appendChild(frame);
+    return new Promise<void>((done) => {
+      frame.onload = () => {
+        const drawn = frame.contentDocument!;
+        const surface = getComputedStyle(drawn.body).backgroundColor;
+        frame.remove();
+        expect(surface).toBe('rgb(30, 30, 30)');
+        done();
+      };
+    });
+  });
+
   it('draws a message that declares dark with its own dark rules, untouched', () => {
     const html = renderDawn(
       '<!doctype html><html><head><meta name="color-scheme" content="light dark">' +
