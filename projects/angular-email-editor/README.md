@@ -143,6 +143,21 @@ were while Ctrl is held (needs `LayoutGuides`, which the email kit has):
 }
 ```
 
+The editor draws the email in your page, so your app's element rules reach it. If the app
+has a reset (Tailwind's preflight, Bootstrap's reboot, a `p { margin: 0 }`), include
+`client-defaults`: it puts the email's paragraphs, headings, lists, links and images back at
+the browser's defaults, which is where a mail client starts — otherwise the editor shows the
+email tighter than it is sent. It is the weakest rule in the editor: your own rules for it
+still win.
+
+```scss
+@use '@h-k-dev/angular-email-editor/styles/client-defaults';
+
+.aee-editor {
+  @include client-defaults.client-defaults;
+}
+```
+
 The [demo app](https://github.com/h-k-dev/angular-email-editor/tree/main/projects/app) is
 the reference composer — toolbar, menus, compose windows — built only on this public API.
 

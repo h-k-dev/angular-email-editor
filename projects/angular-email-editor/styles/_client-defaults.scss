@@ -1,0 +1,90 @@
+// The email's elements at a mail client's defaults, whatever the host app's
+// own stylesheet says of them.
+//
+//     @use '@h-k-dev/angular-email-editor/styles/client-defaults';
+//
+//     .aee-editor {
+//       @include client-defaults.client-defaults;
+//     }
+//
+// The editor draws the email in the host's page — no shadow root, no frame —
+// so the host's element rules reach it. An app with a reset (Tailwind's
+// preflight, Bootstrap's reboot, a `p { margin: 0 }` of its own) takes the
+// margin off every paragraph and heading, flattens the headings, un-bullets
+// the lists, makes every image a block: the email in the editor is then set
+// tighter and plainer than any client draws it. A client knows nothing of
+// the host: it starts from the browser's own sheet. This puts the email's
+// elements back there (`revert`), so the editor shows what is sent.
+//
+// A mixin, not a class: nothing reaches a stylesheet that does not include
+// it — an app with no reset needs none of it. Included on the editor's root
+// (`.aee-editor`).
+//
+// Always the weakest rule in the editor (`:where`, no specificity of its
+// own): the host's stylesheet for the editor, an email's own stylesheet
+// (scoped to its editor) and every inline style win — a block the kit writes
+// with `margin: 0` stays as written.
+//
+// What it does not bring back:
+//
+// - An image's `max-width`. A reset's `img { max-width: 100% }` keeps a wide
+//   picture inside the editing surface; that is the host's to decide.
+// - Borders. A reset's `* { border: 0 solid }` beats the `border` attribute
+//   of a `<table>`, and `revert` rolls an attribute back with the rule: only
+//   a rule naming the border can draw it again. An email that draws its
+//   borders in `style`, as one written for clients does, is unaffected.
+@mixin client-defaults {
+  // The room round a block, and inside a list or a quote.
+  :where(p, h1, h2, h3, h4, h5, h6, figure, blockquote, pre, dl, dd, ol, ul) {
+    margin: revert;
+    padding: revert;
+  }
+
+  // A list's markers.
+  :where(ol, ul) {
+    list-style: revert;
+  }
+
+  // A heading's and a paragraph's type: the email's own, inherited.
+  :where(p, h1, h2, h3, h4, h5, h6) {
+    font-family: revert;
+  }
+
+  :where(h1, h2, h3, h4, h5, h6) {
+    font-size: revert;
+    font-weight: revert;
+    line-height: revert;
+    letter-spacing: revert;
+    color: revert;
+  }
+
+  // A rule: the browser's own line and room.
+  :where(hr) {
+    margin: revert;
+    border: revert;
+    color: revert;
+    opacity: revert;
+  }
+
+  // A link with no colour of its own: the client's link colour, underlined.
+  :where(a) {
+    color: revert;
+    text-decoration: revert;
+  }
+
+  // An image among words stays among them, on the line's baseline.
+  :where(img) {
+    display: revert;
+    vertical-align: revert;
+  }
+
+  // A table's cells apart unless it says otherwise; a header cell's own type.
+  :where(table) {
+    border-collapse: revert;
+  }
+
+  :where(th) {
+    font-weight: revert;
+    text-align: revert;
+  }
+}

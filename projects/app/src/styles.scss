@@ -6,6 +6,8 @@
 @use '@h-k-dev/angular-email-editor/styles/scroll';
 // The library's merge-tag pill and filled-value look (the Ctrl peek).
 @use '@h-k-dev/angular-email-editor/styles/merge-tags';
+// The email's elements at a client's defaults, under any host reset.
+@use '@h-k-dev/angular-email-editor/styles/client-defaults';
 // The floating scrollbar's bar, drawn outside any component's view.
 @use 'styles/floating-scrollbar';
 // Avatars and the containers in their hue ([avatar], [hueOf]): any element
@@ -992,6 +994,14 @@ section[email-compose][data-scroll='host']
  * Ctrl peek — the library's look (styles/merge-tags), on our tokens. */
 .aee-editor {
   @include merge-tags.merge-tags;
+}
+
+/* The email's elements as a mail client draws them — the browser's own
+ * margins, heading sizes, list markers — whatever a host's reset says
+ * (styles/client-defaults). This app has no reset, so nothing moves here:
+ * included as every host should include it. */
+.aee-editor {
+  @include client-defaults.client-defaults;
 }
 
 /* A suggestion menu's session — the trigger and the query being typed — is
