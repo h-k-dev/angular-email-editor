@@ -84,6 +84,7 @@ export * from './authored-band';
 export * from './authored-stack';
 export * from './extensions/send-intent';
 export * from './extensions/placeholder';
+export * from './extensions/clear-content';
 export * from './extensions/merge-tag-resolution';
 export * from './extensions/merge-tag-preview';
 export * from './extensions/inline-images';

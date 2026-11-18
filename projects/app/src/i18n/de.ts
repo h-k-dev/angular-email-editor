@@ -562,6 +562,10 @@ export default {
       outdent: { title: 'Einzug verkleinern', keywords: 'einzug, ausrücken' },
       'clear-formatting': { title: 'Formatierung entfernen', keywords: 'formatierung, löschen' },
       send: { title: 'Senden', keywords: 'senden, abschicken' },
+      'clear-content': {
+        title: 'Inhalt löschen',
+        keywords: 'inhalt, löschen, leeren, zurücksetzen',
+      },
       'preview-placeholders': {
         title: 'Platzhalter-Vorschau',
         keywords: 'platzhalter, vorschau, parsen, variablen, felder',

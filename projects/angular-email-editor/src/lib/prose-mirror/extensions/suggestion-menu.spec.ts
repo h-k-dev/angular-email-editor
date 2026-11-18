@@ -115,6 +115,7 @@ describe('createSuggestionMenu — the / menu', () => {
       'Underline',
       'Strike',
       'Uppercase',
+      'Clear content',
     ]);
     expect(menu.hasAttribute('style')).toBe(false);
   });

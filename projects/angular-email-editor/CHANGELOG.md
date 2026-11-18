@@ -60,6 +60,10 @@ version may change behaviour, and says so here.
 
 ### Added
 
+- **`/clear` clears what is written.** `ClearContent` (in the email and rich-text kits)
+  declares the `clear-content` action and the `clearContent` command: the body goes, all of
+  it, in one undo step — and nothing else: the quoted history a reply answers and a page's
+  layout stay. Not offered on a message that is empty already.
 - **A placeholder preview, for a template's desk.** `createMergeTagPreview` shows each
   `{{ token }}` of running text as its value and writes nothing: the tokens stay the
   document's text (hidden behind a decoration, the value a widget in the token's

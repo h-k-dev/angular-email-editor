@@ -40,6 +40,7 @@ import { NoTextDrag } from './no-text-drag';
 import { SplitKeepingMarks } from './split-keeping-marks';
 import { BaseKeymap } from './base-keymap';
 import { PasteHygiene } from './paste-hygiene';
+import { ClearContent } from './clear-content';
 import { ClearFormatting } from './clear-formatting';
 import { QuotedHistory } from './quoted-history';
 import { Section } from './nodes/section';
@@ -121,6 +122,7 @@ const withParagraph = (paragraph: NodeExtension): Extension[] => [
   BaseKeymap,
   PasteHygiene,
   ClearFormatting,
+  ClearContent,
   // The structural family: authored markup kept verbatim (the parse, the
   // source pane, `setContent`, a paste, the seeds). Last, so the canonical
   // nodes stay the defaults of every group.
@@ -205,6 +207,7 @@ export const snippetExtensions: Extension[] = [
   BaseKeymap,
   PasteHygiene,
   ClearFormatting,
+  ClearContent,
 ];
 
 /**
