@@ -36,7 +36,10 @@ engine, the behaviour and accessible building blocks.
   value that comes back empty keeps its token — unless your evaluator answers
   `REMOVE_MERGE_TAG`, which takes it out in the same step, the text closed up behind it —
   and `checkMergeTagValues` stops a send on each placeholder without a value:
-  `focusBoundControl` puts the caret on that token.
+  `focusBoundControl` puts the caret on that token. On a template's desk,
+  `createMergeTagPreview` shows the values in the tokens' places instead and writes
+  nothing — on and off as often as wanted, the document still the template. In a template:
+  `<div [emailEditor]="kit" [(emailMergeTagPreview)]="filled" [emailMergeTagPreviewOf]="recordId()">`.
 - **Compose workflow** — reply/forward seeds with localized labels, quoted history kept
   beside the body, inline images (`cid:`), a send intent with `text/plain` alternative.
 - **Address fields that implement the RFCs** — RFC 5322/5321/6531 parsing and

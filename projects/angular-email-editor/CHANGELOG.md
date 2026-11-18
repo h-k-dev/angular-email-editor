@@ -7,6 +7,11 @@ version may change behaviour, and says so here.
 
 ### Changed — behaviour
 
+- **A suggestion trigger's `items` function is asked as the menu opens.** It used to be
+  called once, as the editor was made: rows that came later (a catalogue still loading) or
+  changed with the host's state never showed, and a group among them could not be entered.
+  It is now asked at the start of every session, like `i18n`, `label` and `placeholder`; a
+  session already open keeps the rows it opened with. (In 0.7.3.)
 - **Dark paper keeps what is dark already.** `createDarkRendering` draws as Dawn 1.1 does: a
   background is never drawn lighter and text never darker, so an ink band stays ink (a white
   logo on it stays readable) and white text on it stays white. It used to invert every
@@ -55,6 +60,25 @@ version may change behaviour, and says so here.
 
 ### Added
 
+- **A placeholder preview, for a template's desk.** `createMergeTagPreview` shows each
+  `{{ token }}` of running text as its value and writes nothing: the tokens stay the
+  document's text (hidden behind a decoration, the value a widget in the token's
+  formatting), so what is saved, the source pane and `getHTML()` never know it is on, and
+  off again there is nothing to restore. `resolve` has the fill's contract (each distinct
+  expression once, raw; `''`/`null` keeps the token showing, `REMOVE_MERGE_TAG` shows
+  nothing); a token written while it is on is asked for when complete, and
+  `previewMergeTags(true)` while on asks afresh — another record. `onChange` reports
+  `{ on, pending }`; the action is `preview-placeholders`, bound to no key. The
+  `merge-tags` style mixin paints the values under the Ctrl peek, as it does filled ones.
+  Tokens in attributes stay as written.
+- **The preview, bound.** `[emailMergeTagPreview]` (the `editor` entry) binds it two-way to
+  a signal — `[(emailMergeTagPreview)]="filled"` on or inside an `[emailEditor]` — and
+  follows a preview turned on by anything else (the action's button, a `/` row).
+  `[emailMergeTagPreviewOf]="recordId()"` asks every value afresh when the record changes
+  while it is on; `pending()` is the spinner. `injectMergeTagPreview(() => editor())` is
+  the same from code (`on`, `pending`, `available`, `show()`, `refresh()`), and
+  `mergeTagPreviewOn` / `mergeTagPreviewPending` read an editor state. A kit without
+  `createMergeTagPreview()` is said so when the binding turns true.
 - **Columns written by hand, offered as a columns block.** A 100% table of one row whose two
   cells or more all carry a class the head's `@media` rule turns into `display: block` — how
   a hand stacks cells on a phone — is now recognised (`authoredStackRow`,
@@ -112,7 +136,7 @@ version may change behaviour, and says so here.
   one of them, one undo step, the text closed up as above. Also the `removeMergeTags`
   editor command.
 - **Signal-forms check at send** (`/editor`) — `checkMergeTagValues(field, editor,
-  { resolve })` returns a `MergeTagUnfilled` error (`mergeTag.unfilled`, with its `expr`)
+{ resolve })` returns a `MergeTagUnfilled` error (`mergeTag.unfilled`, with its `expr`)
   for each placeholder without a value; `isMergeTagUnfilled`. `EmailEditor` takes the
   field's `errors` and its `focus()` — the form's `focusBoundControl` — selects the named
   token and emits `(emailEditorMergeTagRevealed)` with the element, for a card beside it.

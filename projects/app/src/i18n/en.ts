@@ -505,6 +505,7 @@ export default {
       remove: 'Remove placeholder',
     },
     actions: {
+      'preview-placeholders': { title: 'Preview placeholders' },
       'resolve-placeholders': { title: 'Fill in placeholders' },
     },
     ai: {

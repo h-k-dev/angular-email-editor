@@ -32,6 +32,10 @@
 // - `.aee-filled-merge-tag--edited` — that value written over by hand (a
 //   decoration over the whole of it): still the token's, but not what the
 //   data said — a dashed ring and no fill, so the two read apart.
+// - `.aee-merge-tag-preview` — a value drawn in its token's place while
+//   the preview is on (`createMergeTagPreview`): the token is still the
+//   document's text, hidden behind it (`.aee-merge-tag-previewed`). Like a
+//   filled value, nothing at rest and the pill's colour under the peek.
 
 @mixin merge-tags {
   --_aee-merge-tag-fill: var(
@@ -47,7 +51,12 @@
     box-decoration-break: clone;
   }
 
-  .aee-filled-merge-tag {
+  .aee-merge-tag-previewed {
+    display: none;
+  }
+
+  .aee-filled-merge-tag,
+  .aee-merge-tag-preview {
     border-radius: 2px;
     -webkit-box-decoration-break: clone;
     box-decoration-break: clone;
@@ -56,7 +65,8 @@
       box-shadow 120ms ease;
   }
 
-  &.aee-guides-peek .aee-filled-merge-tag {
+  &.aee-guides-peek .aee-filled-merge-tag,
+  &.aee-guides-peek .aee-merge-tag-preview {
     background-color: var(--_aee-merge-tag-fill);
     box-shadow: 0 0 0 2px var(--_aee-merge-tag-fill);
   }

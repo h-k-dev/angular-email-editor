@@ -553,6 +553,10 @@ export default {
       outdent: { title: 'インデントを減らす', keywords: 'インデント, 字上げ' },
       'clear-formatting': { title: '書式をクリア', keywords: '書式, クリア, しょしき' },
       send: { title: '送信', keywords: '送信, そうしん' },
+      'preview-placeholders': {
+        title: 'プレースホルダーをプレビュー',
+        keywords: 'プレースホルダー, プレビュー, 差し込み, 変数',
+      },
       'resolve-placeholders': {
         title: 'プレースホルダーを埋める',
         keywords: 'プレースホルダー, 差し込み, 変数, さしこみ',

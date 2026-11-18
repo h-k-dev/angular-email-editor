@@ -59,9 +59,10 @@ function whenStill(then: () => void): () => void {
 /** The card's rows, as its menu names them (`ngMenuItem` values). */
 export type FilledCardAction = 'edit' | 'remove' | 'reset' | 'restore';
 
-/** How long the card stays after the pointer has left the value and the
-    card — time to cross into it (a hover card's own hide delay). */
-const HIDE_DELAY = 300;
+/** How long the card stays once focus has left it for somewhere else —
+    time for focus to come back (it crosses the text on its way from a row
+    to the field). */
+const FOCUS_GRACE = 300;
 
 /**
  * The card beside a placeholder, two ways in:
@@ -76,9 +77,10 @@ const HIDE_DELAY = 300;
  *   value**, or **Remove placeholder** — an empty value is only ever the
  *   writer's explicit say.
  *
- * Comes at once, stays while the pointer is on the value or in the card and
- * while focus is in it (read when it would go, not tracked). Escape takes it
- * away, the caret back in the text.
+ * Comes at once and stays, as a menu does: the pointer leaving the value or
+ * the card never takes it. A pick closes it, and so do Escape (the caret
+ * back in the text), a press anywhere outside — on its own value too —
+ * focus leaving it, and a scroll.
  *
  * Fed by `createMergeTagResolution({ onFilledHover })` and the pane's
  * {@link showUnfilled}; drawn by the HoverCards service, one card app-wide.
@@ -107,7 +109,6 @@ export class FilledValueCard {
   });
 
   #card: HoverCardOpen | null = null;
-  #onCard = false;
   #timer: ReturnType<typeof setTimeout> | undefined;
 
   /** `focusText` puts the caret back in the text when the card goes with
@@ -120,7 +121,9 @@ export class FilledValueCard {
 
   /** The extension's `onFilledHover`. */
   readonly onHover = (hover: FilledMergeTagHover | null): void => {
-    if (!hover) return this.#closeLater();
+    // Off the value: the card is a menu by now, and stays — the pointer
+    // does not close it.
+    if (!hover) return;
     this.#clearTimer();
     const same = this.#card && hover.element === this.hover()?.element;
     // The same value again: it changed under the card — read it anew.
@@ -218,8 +221,13 @@ export class FilledValueCard {
   }
 
   #open(anchor: HTMLElement): void {
-    this.#onCard = false;
     this.editing.set(false);
+    // A press anywhere but in the card takes it, as for any menu — on the
+    // value it stands on too. Heard on the way down, before anything stops it.
+    const onPress = (event: PointerEvent) => {
+      if (!card.pane.contains(event.target as Node | null)) this.#close();
+    };
+    document.addEventListener('pointerdown', onPress, true);
     const card = this.#cards.open(
       this,
       anchor,
@@ -227,6 +235,7 @@ export class FilledValueCard {
       {
         position: 'below',
         closed: () => {
+          document.removeEventListener('pointerdown', onPress, true);
           // Taken away with focus in it (Escape): the caret back in the text.
           const active = document.activeElement;
           if (!active || active === document.body || card.pane.contains(active)) this.#focusText();
@@ -239,18 +248,16 @@ export class FilledValueCard {
       },
     );
     const pane = card.pane;
-    pane.addEventListener('pointerenter', () => {
-      this.#onCard = true;
-      this.#clearTimer();
-    });
-    pane.addEventListener('pointerleave', () => {
-      this.#onCard = false;
-      this.#closeLater();
-    });
-    // Focus leaving the card (a click back in the text) lets it go.
+    // Focus leaving the card for somewhere else (Tab) lets it go, as a menu
+    // goes. Focus going nowhere does not: the row that had it was taken
+    // away — Edit swaps the rows for the field, which takes focus a render
+    // later.
     pane.addEventListener('focusout', (event) => {
-      if (!pane.contains(event.relatedTarget as Node | null)) this.#closeLater();
+      const to = event.relatedTarget as Node | null;
+      if (to && !pane.contains(to)) this.#closeLater();
     });
+    // …and focus coming back holds it again.
+    pane.addEventListener('focusin', () => this.#clearTimer());
     // Escape takes the card away, from anywhere in it, the caret back in
     // the text. Caught on the way down: the menu's rows answer Escape
     // themselves (a menu closing its submenus) and stop it there, before
@@ -287,16 +294,14 @@ export class FilledValueCard {
     this.#timer = setTimeout(() => {
       this.#timer = undefined;
       // Read, not tracked: where focus is when the wait is over.
-      const focused = !!this.#card?.pane.contains(document.activeElement);
-      if (!this.#onCard && !focused) this.#close();
-    }, HIDE_DELAY);
+      if (!this.#card?.pane.contains(document.activeElement)) this.#close();
+    }, FOCUS_GRACE);
   }
 
   #close(): void {
     this.#clearTimer();
     this.#stopWaiting();
     this.#card = null;
-    this.#onCard = false;
     // `hover` stays as it was while the card leaves (`closed` clears it).
     this.#cards.close(this);
   }
