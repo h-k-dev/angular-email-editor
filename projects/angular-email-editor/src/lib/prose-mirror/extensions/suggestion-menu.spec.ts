@@ -2478,6 +2478,120 @@ describe('createSuggestionMenu — a translation looked up when the menu opens',
   });
 });
 
+describe('createSuggestionMenu — items read when the menu opens', () => {
+  let host: HTMLElement;
+  let menu: HTMLElement;
+  let editor: Editor;
+  let state: SuggestionMenuState | undefined;
+  let rows: SuggestionItem[];
+  const read = vi.fn(() => rows);
+
+  const row = (id: string, title: string): SuggestionCommandItem => ({
+    id,
+    title,
+    command: () => true,
+  });
+  const type = (text: string) =>
+    editor.exec((editorState, dispatch) => {
+      dispatch?.(editorState.tr.insertText(text));
+      return true;
+    });
+  const reopen = (text: string) => {
+    keydown(editor, 'Escape');
+    type(' ' + text);
+  };
+  const titles = () => state?.items.map((item) => item.title);
+
+  beforeEach(() => {
+    host = document.createElement('div');
+    menu = document.createElement('div');
+    host.appendChild(menu);
+    document.body.appendChild(host);
+    state = undefined;
+    rows = [row('first', 'First name')];
+    read.mockClear();
+    document.elementFromPoint ??= () => null;
+    editor = createEditor({
+      parent: host,
+      extensions: [
+        ...richTextExtensions,
+        createSuggestionMenu({
+          trigger: '{{',
+          startOfWord: false,
+          element: menu,
+          items: read,
+          onChange: (s) => (state = s),
+        }),
+      ],
+    });
+    vi.spyOn(editor.view, 'coordsAtPos').mockReturnValue({ left: 0, right: 0, top: 0, bottom: 0 });
+  });
+
+  afterEach(() => {
+    editor.destroy();
+    host.remove();
+  });
+
+  it('lists the rows the host has when the menu opens, not the ones it was created with', () => {
+    type('{{');
+    expect(titles()).toEqual(['First name']);
+
+    // What a host's catalogue answers later — a group among it.
+    rows = [
+      row('first', 'First name'),
+      row('last', 'Last name'),
+      { id: 'case', title: 'Case', children: [row('case.number', 'Case number')] },
+    ];
+    reopen('{{');
+    expect(titles()).toEqual(['First name', 'Last name', 'Case']);
+  });
+
+  it('opens a group that was not there when the editor was created', () => {
+    rows = [{ id: 'case', title: 'Case', children: [row('case.number', 'Case number')] }];
+    type('{{');
+    state?.select(state.items[0]);
+    expect(state).toMatchObject({ level: 2, parent: { id: 'case' } });
+    expect(titles()).toEqual(['Case number']);
+    expect(editor.view.dom.querySelector('.aee-suggestion-level')?.textContent).toBe('Case ');
+  });
+
+  it('opens for rows that came after a session that had none', () => {
+    rows = [];
+    type('{{');
+    expect(state?.open ?? false).toBe(false);
+    rows = [row('first', 'First name')];
+    // No Escape in between: the next trigger simply starts a new session.
+    type(' {{');
+    expect(titles()).toEqual(['First name']);
+  });
+
+  it('keeps the rows a session started with while it is typed in', () => {
+    type('{{');
+    const perOpen = read.mock.calls.length;
+    rows = [row('last', 'Last name')];
+    type('na');
+    expect(titles()).toEqual(['First name']);
+    type('me');
+    expect(titles()).toEqual(['First name']);
+    expect(read.mock.calls.length).toBe(perOpen);
+  });
+
+  it('keeps the group a session is inside, and its children, when the host’s rows change', () => {
+    rows = [{ id: 'case', title: 'Case', children: [row('case.number', 'Case number')] }];
+    type('{{');
+    state?.select(state.items[0]);
+    rows = [row('last', 'Last name')];
+    type('num');
+    expect(state).toMatchObject({ level: 2, parent: { id: 'case' } });
+    expect(titles()).toEqual(['Case number']);
+
+    // Back on level 1 it is still the session's own list.
+    state?.back();
+    expect(state?.level).toBe(1);
+    expect(titles()).toEqual(['Case']);
+  });
+});
+
 describe('createSuggestionMenu — scripts that write no spaces', () => {
   let host: HTMLElement;
   let menu: HTMLElement;

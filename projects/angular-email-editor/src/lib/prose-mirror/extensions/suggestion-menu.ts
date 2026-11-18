@@ -160,7 +160,11 @@ export interface SuggestionTrigger {
   maxLength?: number;
   /** The menu's own items — a list, or a function of the editor's extensions
       (`extensionSuggestions` for the kit's `/` commands). Filtered and
-      ranked by the query; groups among them open a second level. */
+      ranked by the query; groups among them open a second level. A function
+      is asked afresh whenever the menu opens, like `i18n`: rows that arrive
+      later (a catalogue still loading) or change with the host's state are
+      there the next time, groups included. A menu already open keeps the
+      rows it opened with. */
   items?: readonly SuggestionItem[] | ((ctx: ExtensionContext) => readonly SuggestionItem[]);
   /**
    * The menu's dynamic items, asked per query and per page — a server
@@ -493,9 +497,10 @@ function createSuggestionMenuPlugin(
   const first = escapeRegExp(trigger[0]);
   const queryPattern = options.query ?? new RegExp(`^(?:[^\\s${first}][^${first}]*)?$`);
 
-  const given = typeof options.items === 'function' ? options.items(ctx) : (options.items ?? []);
-  /** The menu's items in the words of the moment — relabelled whenever a
-      session starts, so an `i18n` function is heard after a language switch. */
+  /** The menu's items as the host has them at the moment, in the words of
+      the moment — read whenever a session starts, so an `items` function is
+      heard once its rows have come (or changed), and an `i18n` function after
+      a language switch. A session keeps what it started with. */
   let allItems: SuggestionItem[] = [];
   let groups: SuggestionGroup[] = [];
   let label: string | null = null;
@@ -505,6 +510,7 @@ function createSuggestionMenuPlugin(
   const relabel = () => {
     label = words(options.label) ?? null;
     placeholder = words(options.placeholder);
+    const given = typeof options.items === 'function' ? options.items(ctx) : (options.items ?? []);
     allItems = given.map((item) => localize(item, i18n));
     groups = allItems.filter((item): item is SuggestionGroup => !!item.children);
   };
