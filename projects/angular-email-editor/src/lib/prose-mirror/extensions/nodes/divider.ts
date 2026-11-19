@@ -1,6 +1,6 @@
 import { Command } from 'prosemirror-state';
 import { defineNode } from '../../extension';
-import { insertBlock } from '../insert-block';
+import { insertBlockAndStep } from '../insert-block';
 
 /** A block-level rule. Ledger row: horizontal rule → `width: 100%`, done —
     no fixed pixel width to overflow a phone. Colour is a faint neutral line,
@@ -30,7 +30,7 @@ export const Divider = defineNode({
   },
   commands: ({ schema }) => ({
     insertDivider: (): Command => (state, dispatch) => {
-      dispatch?.(insertBlock(state, schema.nodes['divider'].create()).scrollIntoView());
+      dispatch?.(insertBlockAndStep(state, schema.nodes['divider'].create()).scrollIntoView());
       return true;
     },
   }),
@@ -42,7 +42,7 @@ export const Divider = defineNode({
       keywords: ['divider', 'separator', 'rule', 'hr', 'line'],
       icon: 'horizontal_rule',
       command: (state, dispatch) => {
-        dispatch?.(insertBlock(state, schema.nodes['divider'].create()).scrollIntoView());
+        dispatch?.(insertBlockAndStep(state, schema.nodes['divider'].create()).scrollIntoView());
         return true;
       },
     },

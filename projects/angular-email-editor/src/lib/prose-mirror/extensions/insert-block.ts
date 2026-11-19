@@ -1,5 +1,5 @@
 import { Node } from 'prosemirror-model';
-import { EditorState, Transaction } from 'prosemirror-state';
+import { EditorState, Selection, TextSelection, Transaction } from 'prosemirror-state';
 
 /** A space as the text has it — typed twice, the editor writes a no-break
     space for one of them. */
@@ -51,4 +51,53 @@ export function insertBlock(state: EditorState, block: Node): Transaction {
     tr.delete($from.pos - 1, $from.pos);
   }
   return tr.replaceSelectionWith(block);
+}
+
+/** Whether the selection stands in a table: a block asked for there goes
+    under the table, and the caret stays in its cell. */
+const inTable = (state: EditorState): boolean => {
+  const { $from } = state.selection;
+  for (let depth = $from.depth; depth > 0; depth--) {
+    if ($from.node(depth).type.name === 'table') return true;
+  }
+  return false;
+};
+
+/**
+ * {@link insertBlock} for a block that holds no text — a divider, a spacer —
+ * with the caret left **right under it, in the same container**: on the
+ * line that follows it there, or, where it is the container's last block, on
+ * a new empty line made for it.
+ *
+ * Without that the caret went to the next text anywhere: a divider asked
+ * for in a list item, a column or a section — where it is the last block —
+ * threw the caret out of the list, the column, the section, onto whatever
+ * line came after it. The writer carries on where the block was put.
+ *
+ * In a table cell the caret stays in the cell ({@link insertBlock} puts the
+ * block under the table).
+ */
+export function insertBlockAndStep(state: EditorState, block: Node): Transaction {
+  const tr = insertBlock(state, block);
+  if (inTable(state)) return tr;
+  let at = -1;
+  tr.doc.descendants((node, pos) => {
+    if (at < 0 && node === block) at = pos;
+    return at < 0;
+  });
+  if (at < 0) return tr;
+  const after = at + block.nodeSize;
+  const $after = tr.doc.resolve(after);
+  const next = $after.nodeAfter;
+  // A line follows it in the same container: the caret at its start.
+  if (next)
+    return next.isTextblock
+      ? tr.setSelection(TextSelection.create(tr.doc, after + 1))
+      : tr.setSelection(Selection.near($after, 1));
+  const paragraph = state.schema.nodes['paragraph'];
+  if (!paragraph || !$after.parent.canReplaceWith($after.index(), $after.index(), paragraph)) {
+    return tr;
+  }
+  tr.insert(after, paragraph.create());
+  return tr.setSelection(TextSelection.create(tr.doc, after + 1));
 }

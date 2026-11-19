@@ -242,3 +242,127 @@ describe('a block asked for between the words of a line', () => {
     expect(editor.state.selection.$from.node(1).type.name).toBe('section');
   });
 });
+
+describe('a divider or a spacer asked for inside a container', () => {
+  let host: HTMLElement;
+  let editor: Editor;
+
+  const run = (id: string) => editor.exec(editor.actions.find((action) => action.id === id)!.command);
+
+  /** `content`, the caret at the end of the text `after`. */
+  const mount = (content: string, after: string) => {
+    editor = createEditor({ parent: host, extensions: emailExtensions, content });
+    let at = -1;
+    editor.state.doc.descendants((node, pos) => {
+      if (at < 0 && node.isText && node.text!.includes(after)) {
+        at = pos + node.text!.indexOf(after) + after.length;
+      }
+    });
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, at)));
+  };
+
+  /** What the caret stands in, outermost first. */
+  const caretIn = () => {
+    const { $from } = editor.state.selection;
+    return Array.from({ length: $from.depth + 1 }, (_, depth) => $from.node(depth).type.name);
+  };
+  /** The blocks of the container the caret stands in. */
+  const siblings = () => {
+    const { $from } = editor.state.selection;
+    const container = $from.node($from.depth - 1);
+    return Array.from({ length: container.childCount }, (_, index) => container.child(index).type.name);
+  };
+  const outside = () => editor.state.doc.lastChild!.textContent;
+
+  const LIST =
+    '<div>Vor</div><ul class="aee-layout-list" style="margin: 0px; padding-left: 24px;">' +
+    '<li><div>Punkt eins</div></li></ul><div>Nach</div>';
+
+  beforeEach(() => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+  });
+
+  afterEach(() => {
+    editor.destroy();
+    host.remove();
+  });
+
+  for (const id of ['divider', 'spacer']) {
+    // The caret used to land on the line after the list.
+    it(`keeps the caret in the list item, on a new line under the ${id}`, () => {
+      mount(LIST, 'Punkt eins');
+      run(id);
+      expect(caretIn()).toEqual(['doc', 'bulletList', 'listItem', 'paragraph']);
+      expect(siblings()).toEqual(['paragraph', id, 'paragraph']);
+      expect(editor.state.selection.$from.parent.textContent).toBe('');
+      // The line after the list is as it was.
+      expect(outside()).toBe('Nach');
+    });
+
+    it(`keeps the caret in a section, under the ${id}`, () => {
+      mount('<div>Vor</div><div>Mitte</div><div>Nach</div>', 'Mitte');
+      run('section');
+      editor.view.dispatch(editor.state.tr.insertText('Im Band'));
+      run(id);
+      expect(caretIn().slice(0, 2)).toEqual(['doc', 'section']);
+      expect(siblings()).toEqual(['paragraph', id, 'paragraph']);
+    });
+
+    it(`keeps the caret in a column, under the ${id}`, () => {
+      mount('<div>Vor</div><div><br></div><div>Nach</div>', 'Vor');
+      editor.view.dispatch(
+        editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 6)),
+      );
+      run('columns');
+      run(id);
+      expect(caretIn()).toContain('column');
+      expect(siblings()[0]).toBe(id);
+    });
+  }
+
+  it('takes the line that already follows it in the container — no new one', () => {
+    mount(
+      '<div>Vor</div><ul class="aee-layout-list" style="margin: 0px; padding-left: 24px;">' +
+        '<li><div>Punkt eins</div><div>darunter</div></li></ul><div>Nach</div>',
+      'Punkt eins',
+    );
+    run('divider');
+    expect(siblings()).toEqual(['paragraph', 'divider', 'paragraph']);
+    expect(editor.state.selection.$from.parent.textContent).toBe('darunter');
+    expect(editor.state.selection.$from.parentOffset).toBe(0);
+  });
+
+  it('writes on under the divider: what is typed next is the list item’s', () => {
+    mount(LIST, 'Punkt eins');
+    run('divider');
+    editor.view.dispatch(editor.state.tr.insertText('weiter'));
+    const item = editor.state.doc.child(1).child(0);
+    expect(item.lastChild!.textContent).toBe('weiter');
+    expect(outside()).toBe('Nach');
+  });
+
+  it('is one step: one undo takes the divider and its line away', () => {
+    mount(LIST, 'Punkt eins');
+    const before = editor.state.doc;
+    run('divider');
+    editor.exec((state, dispatch, view) => editor.commands['undo'](state, dispatch, view));
+    expect(editor.state.doc.eq(before)).toBe(true);
+  });
+
+  it('leaves a line of the page as before: the caret on the line under the divider', () => {
+    mount('<div>Vor</div><div>Mitte</div><div>Nach</div>', 'Mitte');
+    run('divider');
+    expect(caretIn()).toEqual(['doc', 'paragraph']);
+    expect(editor.state.selection.$from.parent.textContent).toBe('Nach');
+    expect(editor.state.doc.childCount).toBe(4);
+  });
+
+  it('leaves the caret in the cell for a divider put under a table', () => {
+    mount('<div>Vor</div><div><br></div><div>Nach</div>', 'Vor');
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 6)));
+    run('table');
+    run('divider');
+    expect(caretIn()).toContain('tableCell');
+  });
+});

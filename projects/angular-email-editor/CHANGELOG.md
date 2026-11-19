@@ -7,6 +7,11 @@ version may change behaviour, and says so here.
 
 ### Fixed
 
+- **A divider or a spacer keeps the caret where it was put.** Asked for in a list item, a
+  column or a section — as its last block — it threw the caret out of the container, onto
+  whatever line came after it. The caret now stays right under it in the same container:
+  on the line that follows there, or on a new empty line made for it. On a line of the page
+  nothing changes, and in a table cell the caret stays in the cell.
 - **A block cut into a line leaves no space at the cut.** A divider, a spacer, a section,
   columns or a table inserted between the words of a line (`Hallo Welt| hier`) left the
   second half starting with the space — shown by no browser and dropped at the next
