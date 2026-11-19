@@ -25,7 +25,9 @@ import {
 import { NgTemplateOutlet } from '@angular/common';
 
 // Material
+import { MatIconButton } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatTooltip } from '@angular/material/tooltip';
 
 // CDK
 import { Portal, PortalModule } from '@angular/cdk/portal';
@@ -55,6 +57,7 @@ import { PopoverOutlet } from './popover/popover-outlet';
 import { Examples } from '../../../../../core/email/examples';
 import { Preferences } from '../../../../../core/storages/preferences';
 import { examplesGroup } from './examples-group';
+import { Menu, MenuItem } from '@angular/aria/menu';
 import { MergeTags } from '../../../../../core/email/merge-tags';
 import { I18n } from '../../../../../core/translations/i18n';
 import { createAiWriter } from './ai-writer';
@@ -117,13 +120,17 @@ import {
   storedMistakes,
 } from '@h-k-dev/angular-email-editor';
 import { EMAIL_ACTIONS, EMAIL_EDITOR, atRest } from '@h-k-dev/angular-email-editor/actions';
-import { EditorKit, EmailEditor, MergeTagRevealed } from '@h-k-dev/angular-email-editor/editor';
+import {
+  EditorKit,
+  EmailEditor,
+  type MergeTagCardAction,
+  MergeTagRevealed,
+} from '@h-k-dev/angular-email-editor/editor';
 import {
   SuggestionMenu,
   SuggestionMenuItem,
   SuggestionMenuSection,
 } from '@h-k-dev/angular-email-editor/suggestion-menu';
-import { MergeTagCard } from '@h-k-dev/angular-email-editor/merge-tag-card';
 import {
   EMAIL_CUSTOM_SWATCHES,
   colorSuggestions,
@@ -164,13 +171,26 @@ export type ComposeKit = BodyFormat | 'snippet';
  * `FormattingCommands` binds them all to this editor; one `Popover` is
  * what floats, and each menu only a panel of it.
  */
+/** The glyph of each row of a placeholder's card. */
+const FILLED_ROW_ICONS: Record<MergeTagCardAction, string> = {
+  parse: 'data_object',
+  write: 'edit',
+  edit: 'edit',
+  reset: 'history',
+  unparse: 'code',
+  restore: 'undo',
+  remove: 'delete',
+};
+
 @Component({
   selector: 'section[email-compose]',
   imports: [
     TranslatePipe,
     NgTemplateOutlet,
     // Material
+    MatIconButton,
     MatIconModule,
+    MatTooltip,
 
     // CDK
     PortalModule,
@@ -195,7 +215,8 @@ export type ComposeKit = BodyFormat | 'snippet';
     SuggestionMenuItem,
     SuggestionMenuSection,
     // The filled-value card's rows: arrows walk them.
-    MergeTagCard,
+    Menu,
+    MenuItem,
   ],
   // The formatting commands this composer's toolbar, bubble menu and ⋯ menu
   // share — one per composer, bound to its editor and code view — and the
@@ -414,6 +435,9 @@ export class EmailCompose implements FormValueControl<string> {
       switch (a `computed`, never a pipe per kind): a language switch is a
       new value, shown at once. None by default. */
   placeholder = input<PlaceholderText>('');
+
+  /** The glyph of each row of a placeholder's card (`MergeTagCardAction`). */
+  protected readonly filledRowIcon = (row: MergeTagCardAction): string => FILLED_ROW_ICONS[row];
 
   /** What a placeholder stands for, in a word — "Company", "Custom field" —
       for its card: said beside the token, before a parse and after. The

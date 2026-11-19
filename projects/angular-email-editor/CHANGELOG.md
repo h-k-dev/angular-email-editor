@@ -7,9 +7,10 @@ version may change behaviour, and says so here.
 
 ### Added
 
-- **One card for every placeholder: `…/merge-tag-card` and `createMergeTagHover`.** A
-  message's composer and a template's design desk show the same card on ⌘ (Ctrl off a Mac)
-  held over a placeholder — before a parse and after it.
+- **One card for every placeholder: `createMergeTagHover` and `mergeTagCard`.** A message's
+  composer and a template's design desk can show the same card on ⌘ (Ctrl off a Mac) held
+  over a placeholder — before a parse and after it. The card itself is the host's; the
+  library gives what is behind it.
   - `createMergeTagHover({ onHover })` reports every placeholder of the text under the
     pointer while the peek is on — a token, a previewed value, a filled value
     (`MergeTagHover.state`) — each with the ways this kit has for it: `parse`, `write`,
@@ -18,10 +19,11 @@ version may change behaviour, and says so here.
     the fill's `onFilledHover`, which knows filled values only and stays as it was.
     `mergeTagHoverOf(view, element)` reads the same off an element, for a card opened some
     other way.
-  - `[email-merge-tag-card]` (the new `merge-tag-card` entry) is that card's content: the
-    token, its **type** where the host says it (`type` — said before a parse and after),
-    the rows, and the value field with Apply as an icon button at its end. No Material, no
-    icon font; every word an input. Where it floats is the host's.
+  - `mergeTagCard({ done, fieldOpened })` (the `editor` entry) is the binding a host draws
+    its card from: `tag`, `token`, `expr` (what a **type** is looked up by — said before a
+    parse and after), `rows` in the order they read, the value field (`editing`, `draft`,
+    `canApply`, `fieldKeys`, `apply`) and `choose(row)`. Signals only; no template, no
+    styles, no words — the host's menu, icons and overlay stay its own.
   - **Parse one placeholder.** `resolveMergeTagAt(pos)` fills in the one token there, the
     host asked for its expression alone; `previewMergeTag(expr, shown?)` draws one
     expression as its value while the rest stays as written (or takes one back out of a

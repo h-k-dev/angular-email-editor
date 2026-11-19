@@ -222,32 +222,79 @@
   </div>
 </ng-template>
 
-<!-- The card beside a placeholder (filled-value-card.ts) — the library's
-     `email-merge-tag-card`, in the words of the moment. ⌘ (Ctrl off a Mac)
-     held over a placeholder (the layout guides' peek): a token before a
-     parse (parse this one, write a value, remove it), a value after one
-     (edit, reset, restore). A token with no value, where Send put the
-     caret: write a value, or remove it — an empty value is only ever
-     explicit. What it stands for (`tokenType`) is said beside the token,
-     before a parse and after. -->
-<ng-template #filledValueCard let-card>
-  @if (card.hover(); as tag) {
-    <div
-      email-merge-tag-card
-      class="email-compose__filled"
-      [tag]="tag"
-      [type]="tokenType()?.(tag.expr)"
-      [note]="card.unfilled() ? ('editor.filled.noValue' | translate) : null"
-      [parseLabel]="'editor.filled.parse' | translate"
-      [writeLabel]="'editor.filled.write' | translate"
-      [removeLabel]="'editor.filled.remove' | translate"
-      [unparseLabel]="'editor.filled.unparse' | translate"
-      [editLabel]="'editor.filled.edit' | translate"
-      [resetLabel]="'editor.filled.reset' | translate"
-      [restoreLabel]="'editor.filled.restore' | translate"
-      [valueLabel]="'editor.filled.value' | translate"
-      [applyLabel]="'editor.filled.apply' | translate"
-      (done)="card.done()"
-    ></div>
+<!-- The card beside a placeholder (filled-value-card.ts) — this app's own,
+     drawn from the library's binding (`host.card`: what it is about, its
+     rows, its value field). ⌘ (Ctrl off a Mac) held over a placeholder (the
+     layout guides' peek): a token before a parse (parse this one, write a
+     value, remove it), a value after one (edit, reset, restore). A token
+     with no value, where Send put the caret: write a value, or remove it —
+     an empty value is only ever explicit. What it stands for (`tokenType`)
+     is said over the token, before a parse and after. Each row is one
+     undo step. -->
+<ng-template #filledValueCard let-host>
+  @let card = host.card;
+  @if (card.tag()) {
+    <div class="email-compose__filled">
+      <!-- What it stands for, then the token under it: a token can run
+           long (an expression), and takes the card's whole width. -->
+      <div class="email-compose__filled-head">
+        @if (tokenType()?.(card.expr()); as type) {
+          <span class="email-compose__filled-type">{{ type }}</span>
+        }
+        <span class="email-compose__filled-token">{{ card.token() }}</span>
+      </div>
+      @if (card.value(); as value) {
+        <span class="email-compose__filled-value">{{ value }}</span>
+      }
+      @if (host.unfilled()) {
+        <span class="email-compose__filled-note">{{ 'editor.filled.noValue' | translate }}</span>
+      }
+      @if (card.editing()) {
+        <!-- The value, written by hand: Enter applies, Shift-Enter breaks the
+             line; Apply is the icon button at the field's end. -->
+        <div class="email-compose__filled-field">
+          <textarea
+            rows="2"
+            [attr.aria-label]="'editor.filled.value' | translate"
+            [value]="card.draft()"
+            (input)="card.fieldInput($event)"
+            (keydown)="card.fieldKeys($event)"
+          ></textarea>
+          <button
+            matIconButton
+            type="button"
+            class="email-compose__filled-apply"
+            [attr.aria-label]="'editor.filled.apply' | translate"
+            [matTooltip]="'editor.filled.apply' | translate"
+            [disabled]="!card.canApply()"
+            (click)="card.apply()"
+          >
+            <mat-icon>check</mat-icon>
+          </button>
+        </div>
+      } @else {
+        <!-- The rows: Angular Aria's menu — the arrows walk them, Enter picks;
+             the card opens on the first. Which rows there are is the
+             binding's: the ways the editor has for this placeholder. -->
+        <div
+          ngMenu
+          class="email-compose__filled-menu"
+          [attr.aria-label]="card.token()"
+          (itemSelected)="card.choose($event)"
+        >
+          @for (row of card.rows(); track row) {
+            <div
+              ngMenuItem
+              class="email-compose__filled-row"
+              [value]="row"
+              [attr.title]="row === 'reset' ? card.tag()?.value : null"
+            >
+              <mat-icon class="email-compose__filled-icon" aria-hidden="true">{{ filledRowIcon(row) }}</mat-icon>
+              <span>{{ 'editor.filled.' + row | translate }}</span>
+            </div>
+          }
+        </div>
+      }
+    </div>
   }
 </ng-template>

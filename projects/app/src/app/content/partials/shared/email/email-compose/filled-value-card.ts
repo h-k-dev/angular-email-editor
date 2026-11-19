@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import { TemplatePortal } from '@angular/cdk/portal';
 import type { MergeTagHover } from '@h-k-dev/angular-email-editor';
+import { mergeTagCard } from '@h-k-dev/angular-email-editor/editor';
 import { HoverCardOpen, HoverCards } from '../../../common/hover-card/hover-card';
 
 /** What the card's template is handed: the card itself. */
@@ -48,8 +49,10 @@ function whenStill(then: () => void): () => void {
 const FOCUS_GRACE = 300;
 
 /**
- * The card beside a placeholder — the library's (`email-merge-tag-card`),
- * held up here. Two ways in:
+ * The card beside a placeholder — this app's own (its template in the
+ * composer's, its rows Angular Aria's menu), drawn from the library's
+ * binding (`mergeTagCard`: what it is about, its rows, its value field).
+ * Two ways in:
  *
  * - **⌘ (Ctrl off a Mac) held over a placeholder** — the layout guides'
  *   peek: a token before a parse (**Parse** this one alone, **Write a
@@ -70,8 +73,8 @@ const FOCUS_GRACE = 300;
  *
  * Fed by `createMergeTagHover({ onHover })` and the pane's
  * {@link showUnfilled}; drawn by the HoverCards service, one card app-wide.
- * This holds only where the card floats and when it goes: what it says and
- * does is the library's. Made in an injection context.
+ * This holds where the card floats and when it goes; what its rows are and
+ * do is the binding's ({@link card}). Made in an injection context.
  */
 export class FilledValueCard {
   readonly #cards = inject(HoverCards);
@@ -81,8 +84,13 @@ export class FilledValueCard {
   readonly #template: () => TemplateRef<FilledValueContext>;
   readonly #focusText: () => void;
 
-  /** The placeholder the card is up for, as last reported. */
-  readonly hover = signal<MergeTagHover | null>(null);
+  /** What the card is about, its rows and its value field — the library's
+      binding, which the template draws from. A way that ran closes the
+      card; the field, opened, takes the focus. */
+  readonly card = mergeTagCard({
+    done: () => this.#close(),
+    fieldOpened: () => this.#focusIn('textarea', true),
+  });
   /** It is up for a token with no value, where Send put the caret — the
       card says so. */
   readonly unfilled = signal(false);
@@ -104,9 +112,9 @@ export class FilledValueCard {
     // does not close it.
     if (!hover) return;
     this.#clearTimer();
-    const same = this.#card && hover.element === this.hover()?.element;
+    const same = this.#card && hover.element === this.card.tag()?.element;
     // The same value again: it changed under the card — read it anew.
-    this.hover.set(hover);
+    this.card.show(hover);
     if (same) return;
     this.unfilled.set(false);
     this.#open(hover.element);
@@ -118,28 +126,23 @@ export class FilledValueCard {
   showUnfilled(token: MergeTagHover): void {
     this.#clearTimer();
     this.#stopWaiting();
-    this.hover.set(token);
+    this.card.show(token);
     this.unfilled.set(true);
     // Revealing the token scrolled to it — and a scroll's events come a
     // frame late, so a card opened now would be taken by the first of them
     // (cards go on scroll). It opens once the page has stopped moving.
     this.#stopWaiting = whenStill(() => {
-      if (this.hover() !== token || !token.element.isConnected) return;
+      if (this.card.tag() !== token || !token.element.isConnected) return;
       this.#open(token.element);
       // Opened from a timer, no render is coming: one now, so the rows are
       // there before the first takes focus.
       this.#appRef.tick();
-      this.#focusIn('[role="menuitem"]');
+      this.#focusIn('[ngMenuItem][tabindex="0"], [ngMenuItem]');
     });
   }
 
   /** Cancels a card still waiting for the page to stop scrolling. */
   #stopWaiting: () => void = () => {};
-
-  /** A way of the card ran (`email-merge-tag-card`'s `done`): it goes. */
-  done(): void {
-    this.#close();
-  }
 
   #open(anchor: HTMLElement): void {
     // A press anywhere but in the card takes it, as for any menu — on the
@@ -161,7 +164,7 @@ export class FilledValueCard {
           if (!active || active === document.body || card.pane.contains(active)) this.#focusText();
           if (this.#card !== card) return;
           this.#card = null;
-          this.hover.set(null);
+          this.card.show(null);
           this.unfilled.set(false);
         },
       },
@@ -197,11 +200,12 @@ export class FilledValueCard {
 
   /** Focuses the card's first `selector` — at once when it is there (the
       card's rows are drawn as it opens, and it may open from a timer, with
-      no render to come), else once it is drawn. */
-  #focusIn(selector: string): void {
+      no render to come), else once it is drawn (the field a row asks for). */
+  #focusIn(selector: string, select = false): void {
     const focus = () => {
       const element = this.#card?.pane.querySelector<HTMLElement>(selector);
       element?.focus();
+      if (select && element instanceof HTMLTextAreaElement) element.select();
       return !!element;
     };
     if (!focus()) afterNextRender(focus, { injector: this.#injector });
@@ -220,7 +224,7 @@ export class FilledValueCard {
     this.#clearTimer();
     this.#stopWaiting();
     this.#card = null;
-    // `hover` stays as it was while the card leaves (`closed` clears it).
+    // What it is about stays as it was while the card leaves (`closed` clears it).
     this.#cards.close(this);
   }
 
