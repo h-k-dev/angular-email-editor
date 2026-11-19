@@ -7,6 +7,12 @@ version may change behaviour, and says so here.
 
 ### Fixed
 
+- **A block cut into a line leaves no space at the cut.** A divider, a spacer, a section,
+  columns or a table inserted between the words of a line (`Hallo Welt| hier`) left the
+  second half starting with the space — shown by no browser and dropped at the next
+  opening, so the saved HTML was not what reopened. The one space right before the caret
+  and the one right after it now go with the cut; a `/divider` typed after `Hallo ` leaves
+  `Hallo`. One undo brings the line back as it was.
 - **Text on a background that stays light is readable on dark paper.** A marker's yellow
   (and the few other saturated light colours WebKit's transform leaves bright) kept its
   background on a dark paper while its text took the paper's light ink: white on yellow.
