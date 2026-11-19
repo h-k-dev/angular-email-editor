@@ -492,7 +492,7 @@ export default {
     },
     filled: {
       parse: 'テキストを解析',
-      unparse: 'プレースホルダーを表示',
+      unparse: '元に戻す',
       restore: 'プレースホルダーに戻す',
       edit: '値を編集',
       reset: '差し込んだ値に戻す',
@@ -500,7 +500,7 @@ export default {
       value: '値',
       noValue: 'この連絡先には値がありません',
       write: '値を入力',
-      remove: 'プレースホルダーを削除',
+      remove: '削除',
     },
     actions: {
       text: { title: 'テキスト', keywords: '段落, 本文, だんらく' },

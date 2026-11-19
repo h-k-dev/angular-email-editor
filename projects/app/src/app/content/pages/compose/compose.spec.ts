@@ -1518,13 +1518,13 @@ describe('Compose', () => {
     expect(selected()).toBe('{{ nobody.title }}');
     expect(card()?.textContent).toContain('No value for this contact');
     expect(row('Write a value')).toBeDefined();
-    expect(row('Remove placeholder')).toBeDefined();
+    expect(row('Remove')).toBeDefined();
     // The keyboard carries on from Send: focus on the card's first row; the
     // arrows walk the rows (a menu's), Enter picks.
     expect(card()!.querySelector('[role="menu"]')).not.toBeNull();
     expect(document.activeElement).toBe(row('Write a value'));
     await key('ArrowDown');
-    expect(document.activeElement).toBe(row('Remove placeholder'));
+    expect(document.activeElement).toBe(row('Remove'));
     await key('ArrowUp');
     expect(document.activeElement).toBe(row('Write a value'));
 

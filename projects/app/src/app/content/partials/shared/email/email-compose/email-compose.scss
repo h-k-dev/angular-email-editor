@@ -373,8 +373,9 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
-  margin: 4px 8px;
+  // Room under the type: it is a caption of the token, not a line of it.
+  gap: 6px;
+  margin: 6px 8px 4px;
 }
 
 .email-compose__filled-token {
@@ -391,14 +392,6 @@
 .email-compose__filled-type {
   color: var(--mat-sys-on-surface-variant);
   font: var(--mat-sys-label-medium);
-}
-
-// The value a preview draws in the token's place.
-.email-compose__filled-value {
-  margin: 0 8px 4px;
-  font: var(--mat-sys-body-small);
-  overflow-wrap: anywhere;
-  white-space: pre-line;
 }
 
 // A token with no value: says so, under the token.

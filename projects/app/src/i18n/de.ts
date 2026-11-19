@@ -495,7 +495,7 @@ export default {
     },
     filled: {
       parse: 'Text parsen',
-      unparse: 'Platzhalter anzeigen',
+      unparse: 'Zurücksetzen',
       restore: 'Platzhalter wiederherstellen',
       edit: 'Wert bearbeiten',
       reset: 'Eingesetzten Wert zurückholen',
@@ -503,7 +503,7 @@ export default {
       value: 'Wert',
       noValue: 'Kein Wert für diesen Kontakt',
       write: 'Wert eingeben',
-      remove: 'Platzhalter entfernen',
+      remove: 'Entfernen',
     },
     actions: {
       text: { title: 'Text', keywords: 'absatz, fließtext' },

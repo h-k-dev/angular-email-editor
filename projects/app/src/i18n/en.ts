@@ -496,7 +496,7 @@ export default {
     },
     filled: {
       parse: 'Parse text',
-      unparse: 'Show placeholder',
+      unparse: 'Revert',
       restore: 'Restore placeholder',
       edit: 'Edit value',
       reset: 'Reset to the filled-in value',
@@ -504,7 +504,7 @@ export default {
       value: 'Value',
       noValue: 'No value for this contact',
       write: 'Write a value',
-      remove: 'Remove placeholder',
+      remove: 'Remove',
     },
     actions: {
       'clear-content': { title: 'Clear content' },

@@ -243,9 +243,6 @@
         }
         <span class="email-compose__filled-token">{{ card.token() }}</span>
       </div>
-      @if (card.value(); as value) {
-        <span class="email-compose__filled-value">{{ value }}</span>
-      }
       @if (host.unfilled()) {
         <span class="email-compose__filled-note">{{ 'editor.filled.noValue' | translate }}</span>
       }
