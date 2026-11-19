@@ -5,6 +5,14 @@ version may change behaviour, and says so here.
 
 ## Unreleased
 
+### Changed — dependencies
+
+- **Needs `@h-k-dev/dawn` 1.3.2 or later** (was `^1.1.0`). The dark paper reads
+  `DAWN_LIGHT_INK` from it since 0.7.7: with an older Dawn installed the import fails and
+  the app does not load. A consumer that pins Dawn itself raises its own range too.
+
+## 0.7.7 — 2026-11-19
+
 ### Fixed
 
 - **A list can be started in an empty `<p>` kept as written.** An empty `<p></p>` is kept as
@@ -39,6 +47,11 @@ version may change behaviour, and says so here.
   cell, the block, and the rest as a second table. A cell holds inline content only, so the
   block now goes under the table, which stays whole — in a bordered table and a layout
   table alike. What a cell can hold (a button, an image) still goes into the cell.
+
+## 0.7.6 and earlier
+
+Kept as it was written, before the releases were told apart here: the placeholder card
+shipped in 0.7.6; an entry older than that says its version where it matters.
 
 ### Added
 
