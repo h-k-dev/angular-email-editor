@@ -42,13 +42,25 @@ export const GUIDES_PEEK_CLASS = 'aee-guides-peek';
     placeholder's token) to follow it without a pointer move. */
 export const GUIDES_PEEK_EVENT = 'aee-guides-peek';
 
-/** Whether the peek is on in `view` — Ctrl held. */
+/**
+ * The key held to peek: ⌘ on a Mac, Ctrl everywhere else — the platform's
+ * shortcut modifier, what ProseMirror's keymaps call `Mod-` (and tell a Mac
+ * by the same test). On a Mac Ctrl is no modifier to hold over a page: with
+ * a click it is the context menu.
+ */
+export const guidesPeekKey = (): 'Meta' | 'Control' =>
+  typeof navigator !== 'undefined' && /Mac|iP(hone|[oa]d)/.test(navigator.platform)
+    ? 'Meta'
+    : 'Control';
+
+/** Whether the peek is on in `view` — the peek key ({@link guidesPeekKey}) held. */
 export const isPeeking = (view: { dom: Element }): boolean =>
   view.dom.classList.contains(GUIDES_PEEK_CLASS);
 
 /**
- * How long Ctrl must be held before guides appear. Ctrl is also the prefix for
- * every shortcut (Ctrl-B, Ctrl-C, Ctrl-Z), so revealing instantly would make the
+ * How long the peek key (⌘ on a Mac, Ctrl elsewhere — {@link guidesPeekKey})
+ * must be held before guides appear. It is also the prefix for every
+ * shortcut (Mod-B, Mod-C, Mod-Z), so revealing instantly would make the
  * grid flash on every one of them. A hold delay — cancelled by any other key —
  * separates "I'm peeking at the layout" from "I'm running a shortcut".
  *
@@ -69,8 +81,9 @@ export const GUIDES_PEEK_DELAY_MS = 100;
  * as transparent*, so revealing a guide never shifts layout:
  *   1. **Cursor inside** — the block being edited is tagged {@link GUIDES_ACTIVE_CLASS}.
  *   2. **Hover** — pure CSS on the block itself; nothing to coordinate here.
- *   3. **Peek** — hold Ctrl ({@link GUIDES_PEEK_DELAY_MS}) to reveal every block
- *      at once via {@link GUIDES_PEEK_CLASS} on the editor root.
+ *   3. **Peek** — hold ⌘ on a Mac, Ctrl elsewhere ({@link guidesPeekKey}, for
+ *      {@link GUIDES_PEEK_DELAY_MS}) to reveal every block at once via
+ *      {@link GUIDES_PEEK_CLASS} on the editor root.
  *
  * The app owns the pixels (see the `.aee-guides-*` rules in its global styles);
  * this extension only supplies the state.
@@ -92,6 +105,7 @@ export const LayoutGuides = defineExtension({
         },
       },
       view: (view) => {
+        const peekKey = guidesPeekKey();
         let timer: ReturnType<typeof setTimeout> | undefined;
 
         const clearTimer = () => {
@@ -108,7 +122,7 @@ export const LayoutGuides = defineExtension({
         const onKeyDown = (event: KeyboardEvent) => {
           // Any key that isn't the modifier itself means a shortcut is being
           // typed, not a peek — cancel the pending reveal and hide.
-          if (event.key !== 'Control') {
+          if (event.key !== peekKey) {
             setPeek(false);
             return;
           }
@@ -116,7 +130,7 @@ export const LayoutGuides = defineExtension({
           timer = setTimeout(() => setPeek(true), GUIDES_PEEK_DELAY_MS);
         };
         const onKeyUp = (event: KeyboardEvent) => {
-          if (event.key === 'Control') setPeek(false);
+          if (event.key === peekKey) setPeek(false);
         };
         // A lost keyup (tabbing away mid-hold) would strand the guides on.
         const onBlur = () => setPeek(false);

@@ -35,6 +35,21 @@ export const EMPTY_PARAGRAPH_CLASS = 'aee-empty-paragraph';
  *       display: inline;
  *     }
  *
+ * A line that holds nothing but the editor's own widgets (a table's grips,
+ * in a cell with nothing written) is still an empty line: ProseMirror puts
+ * a separator after a widget as well, so its break stands behind one and
+ * the rule above would take the line's height with it. That one stays:
+ *
+ *     .aee-editor
+ *       :not(
+ *         .aee-empty-paragraph,
+ *         :has(> :not(.ProseMirror-widget, img.ProseMirror-separator,
+ *                     br.ProseMirror-trailingBreak))
+ *       )
+ *       > img.ProseMirror-separator + br.ProseMirror-trailingBreak {
+ *       display: inline;
+ *     }
+ *
  * An empty `<p>` the source wrote (`<p></p>`, kept as written) is the other
  * case: its break is ProseMirror's, not the email's, and gives it a line's
  * height a client never draws — a browser gives an empty paragraph no height

@@ -67,7 +67,7 @@ const FOCUS_GRACE = 300;
 /**
  * The card beside a placeholder, two ways in:
  *
- * - **A filled-in value, Ctrl held over it** — the layout guides' peek,
+ * - **A filled-in value, ⌘ (Ctrl off a Mac) held over it** — the layout guides' peek,
  *   which paints every value the pill's colour: the token it was, then
  *   **Edit value** (a field over the value as it reads; Enter writes it in
  *   by hand, Shift-Enter a line break — still the token's), **Reset** on a

@@ -520,7 +520,7 @@ export class EmailCompose implements FormValueControl<string> {
   protected readonly altTextEditor = viewChild.required(AltTextEditor);
   protected readonly imageLinkEditor = viewChild.required(ImageLinkEditor);
   protected readonly suggestion = viewChild.required(ChatBasedSuggestion);
-  /** A filled-in placeholder's card, Ctrl held over its value: the token it
+  /** A filled-in placeholder's card, ⌘ (Ctrl off a Mac) held over its value: the token it
       was, and Restore. */
   private readonly filledValueTemplate =
     viewChild.required<TemplateRef<FilledValueContext>>('filledValueCard');

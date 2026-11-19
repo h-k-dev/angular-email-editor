@@ -86,7 +86,7 @@ function spacerHeight(dom: HTMLElement): number | null {
  *
  * **In the editor** invisible as sent; revealed — a colour-coded band, its
  * height written in it, a handle on its lower edge — while it is selected,
- * under the pointer, or while Ctrl is held (the layout guides' peek). The
+ * under the pointer, or while ⌘ (Ctrl off a Mac) is held (the layout guides' peek). The
  * handle drags its height in 4px steps from 4 to 160px; one drag, one undo
  * step. A layout block: static while layout is off (`setLayoutInteraction`,
  * `spacer`) — no handle, no colour; it still deletes like any block. The

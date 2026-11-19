@@ -40,6 +40,7 @@ import { defineNode } from '../../extension';
 import { fillTextColor } from '../../dual-contrast';
 import { isSafeColor, toEmailSafeColor } from '../marks/text-style';
 import { marksAcrossBreak } from '../split-keeping-marks';
+import { suggestionMenuOpen } from '../suggestion-menu';
 import { inlinePadding } from '../../inline-style';
 import { markedAs, markerAttrs } from '../../layout-marker';
 
@@ -1519,20 +1520,11 @@ export const deleteFullySelected: Command = (state, dispatch) => {
   return false;
 };
 
-/** A suggestion menu (slash, tokens, …) is open at the caret — its plugin
-    state carries a `session`. Those keys are the menu's, not the table's. */
-function suggestionMenuIsOpen(state: EditorState): boolean {
-  for (const plugin of state.plugins) {
-    const value = plugin.getState(state) as { session?: unknown } | undefined;
-    if (value?.session) return true;
-  }
-  return false;
-}
-
-/** Runs `command` only when no suggestion menu is claiming the key. */
+/** Runs `command` only when no suggestion menu (slash, tokens, …) is
+    showing: those keys are the menu's then, not the table's. */
 function yieldToSuggestion(command: Command): Command {
   return (state, dispatch, view) =>
-    suggestionMenuIsOpen(state) ? false : command(state, dispatch, view);
+    view && suggestionMenuOpen(view) ? false : command(state, dispatch, view);
 }
 
 type Axis = 'horiz' | 'vert';

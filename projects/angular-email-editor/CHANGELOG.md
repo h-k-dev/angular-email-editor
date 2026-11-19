@@ -7,6 +7,11 @@ version may change behaviour, and says so here.
 
 ### Changed — behaviour
 
+- **The peek is ⌘ on a Mac.** `LayoutGuides` shows every layout block's guides — and with
+  them a filled or previewed merge tag's token — while the platform's shortcut modifier is
+  held: ⌘ on a Mac, Ctrl everywhere else, as `Mod-` in a keymap. It was Ctrl on every
+  platform, which on a Mac opens the context menu with a click. `guidesPeekKey()` says
+  which key it is, for a host's hint.
 - **A suggestion trigger's `items` function is asked as the menu opens.** It used to be
   called once, as the editor was made: rows that came later (a catalogue still loading) or
   changed with the host's state never showed, and a group among them could not be entered.
@@ -151,6 +156,19 @@ version may change behaviour, and says so here.
 
 ### Fixed
 
+- **A suggestion menu keeps its arrows inside a section.** With a `/` or token menu open on
+  a line that is the only one of an isolating block (a section, a column), ArrowUp and
+  ArrowDown left for the gap beside the block instead of moving the highlight: the gap
+  cursor stands before a host's menu in the kit and took the key. It now lets those two
+  arrows through while a menu shows, as the table's keymap does — both ask the new
+  `suggestionMenuOpen(view)`, which is true only while a menu is on screen (the table used
+  to step aside for any text that read as a query, shown or not).
+- **An empty table's first row keeps its height.** With `createTableHandles` every cell of
+  the first row holds a column grip, a widget — and ProseMirror puts a separator after a
+  widget, so the host rule that hides its caret aids (`TrailingBreakLine`) hid the break
+  that is an empty cell's whole height: the row went flat once the caret left it. The
+  documented rules have one more, which keeps the break of a line holding only widgets;
+  a host that copied them needs it too.
 - **No empty pill beside a previewed value.** The `merge-tags` style mixin hides a token's
   pill while `createMergeTagPreview` shows its value; only its text was hidden, and the
   pill's padding and fill were left drawn after the value.

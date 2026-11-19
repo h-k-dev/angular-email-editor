@@ -136,7 +136,7 @@ ProseMirror's required CSS (`prosemirror-view/style/prosemirror.css`, and
 ```
 
 So is the merge-tag look — the `{{ … }}` pill, and filled-in values shown for what they
-were while Ctrl is held (needs `LayoutGuides`, which the email kit has):
+were while ⌘ (Ctrl off a Mac) is held (needs `LayoutGuides`, which the email kit has):
 
 ```scss
 @use '@h-k-dev/angular-email-editor/styles/merge-tags';

@@ -207,6 +207,25 @@ describe('createSuggestionMenu — the / menu', () => {
     expect(editor.state.selection.from).toBe(from);
   });
 
+  it('keeps the arrows inside a section — the menu wins, not the gap beside it', () => {
+    editor.commands['insertSection']();
+    type('/');
+    expect(state?.open).toBe(true);
+    const before = editor.state.selection;
+
+    // The line is the section's only one, so it is its textblock's end both
+    // ways (jsdom lays nothing out: said here) — where the gap cursor's own
+    // arrows would step out to the gap after, or before, the section.
+    vi.spyOn(editor.view, 'endOfTextblock').mockReturnValue(true);
+    keydown('ArrowDown');
+    expect(state?.activeIndex).toBe(1);
+    expect(editor.state.selection.eq(before)).toBe(true);
+
+    keydown('ArrowUp');
+    expect(state?.activeIndex).toBe(0);
+    expect(editor.state.selection.eq(before)).toBe(true);
+  });
+
   it('navigates with arrows and applies with Enter, removing the query text', () => {
     type('/head');
     keydown('ArrowDown');

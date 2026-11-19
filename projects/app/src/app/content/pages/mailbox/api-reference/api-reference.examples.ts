@@ -304,7 +304,7 @@ const editor = createEditor({
       },
       onResolved: ({ filled, empty, kept }) => notify(filled, empty.length, kept.length),
       onPendingChange: (pending) => busy.set(pending),
-      // Ctrl held over a filled value (the layout guides' peek): your card.
+      // ⌘ (Ctrl off a Mac) held over a filled value (the layout guides' peek): your card.
       onFilledHover: (hover) => (hover ? card.open(hover.element, hover) : card.closeSoon()),
     }),
   ],

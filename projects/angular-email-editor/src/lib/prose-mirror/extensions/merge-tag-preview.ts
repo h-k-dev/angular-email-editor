@@ -35,7 +35,7 @@ import { mergeTagRanges } from './nodes/merge-tag';
  * Tokens in attributes (a link's `href`, an image's `src`) are not drawn
  * filled: they stay as written.
  *
- * Under the layout guides' peek (Ctrl held) the values wear the pill's
+ * Under the layout guides' peek (⌘ held, Ctrl off a Mac) the values wear the pill's
  * colour — where the tokens are, at a glance — by the host's stylesheet
  * (`.aee-guides-peek .aee-merge-tag-preview`; the library's `merge-tags`
  * mixin does it).

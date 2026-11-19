@@ -1,5 +1,7 @@
 import { gapCursor } from 'prosemirror-gapcursor';
+import { Plugin } from 'prosemirror-state';
 import { defineExtension } from '../extension';
+import { suggestionMenuOpen } from './suggestion-menu';
 
 /**
  * A real cursor in the gaps *between* block nodes — ProseMirror's own answer to
@@ -17,11 +19,33 @@ import { defineExtension } from '../extension';
  * table's own ArrowDown escape (which writes a paragraph below a trailing
  * table rather than parking a cursor in the gap) has to be reached first.
  *
+ * The same order puts it *before* a host's suggestion menu, which is added
+ * after the kit — and inside an isolating block (a section, a column, a
+ * cell) a one-line textblock is its own end both ways, so ArrowUp/ArrowDown
+ * on a `/` query stepped out to the gap beside the block instead of moving
+ * the menu's highlight. While a menu shows, those two arrows are let through
+ * to it (see `suggestionMenuOpen`).
+ *
  * Pixels: `.ProseMirror-gapcursor` in the app's global styles, transcribed
  * from `prosemirror-gapcursor/style/gapcursor.css` (MIT) and scoped to
  * `.aee-editor` like everything else we ship.
  */
 export const Gapcursor = defineExtension({
   name: 'gapcursor',
-  plugins: () => [gapCursor()],
+  plugins: () => {
+    const { props } = gapCursor();
+    const arrows = props.handleKeyDown!;
+    return [
+      new Plugin({
+        props: {
+          ...props,
+          handleKeyDown(view, event) {
+            const vertical = event.key === 'ArrowUp' || event.key === 'ArrowDown';
+            if (vertical && suggestionMenuOpen(view)) return false;
+            return arrows.call(this, view, event);
+          },
+        },
+      }),
+    ];
+  },
 });

@@ -1,5 +1,5 @@
 // The library's merge-tag look — the pill on a `{{ … }}` token, and a
-// filled-in value shown for what it was while Ctrl is held (the layout
+// filled-in value shown for what it was while ⌘ (Ctrl off a Mac) is held (the layout
 // guides' peek). Editor-only chrome: none of it reaches the email.
 //
 //     @use '@h-k-dev/angular-email-editor/styles/merge-tags';
@@ -26,7 +26,7 @@
 //   and the rest — always on the whole token — show through.
 // - `.aee-filled-merge-tag` — a value the fill put in (`FilledMergeTag`).
 //   Nothing at rest: the mail reads as it will be sent. Under the peek
-//   (`.aee-guides-peek`, which `LayoutGuides` puts on the root while Ctrl
+//   (`.aee-guides-peek`, which `LayoutGuides` puts on the root while ⌘ (Ctrl off a Mac)
 //   is held) it wears the pill's colour, bled out as a ring (a shadow) so
 //   the reveal moves no word.
 // - `.aee-filled-merge-tag--edited` — that value written over by hand (a

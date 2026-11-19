@@ -322,6 +322,23 @@ let nextListboxId = 0;
     for a state — so that only the one nearest the caret opens. */
 const menusOf = new WeakMap<EditorView, Set<(state: EditorState) => number | null>>();
 
+/** The menus of each editor again, as whether each is showing. */
+const showingOf = new WeakMap<EditorView, Set<() => boolean>>();
+
+/**
+ * Whether a suggestion menu of `view` is showing. Its keys — the arrows up
+ * and down, Enter, Tab, Escape — are then the menu's, and it takes them in
+ * `handleKeyDown`. A plugin that stands before the menu in the kit is asked
+ * first, though (the table's own keymap, the gap cursor), and what it does
+ * with an arrow at a textblock's end is leave: to the next cell, to the gap
+ * beside a section. Whatever handles one of those keys that early asks this,
+ * and lets the key through while the menu shows.
+ */
+export const suggestionMenuOpen = (view: EditorView): boolean => {
+  for (const showing of showingOf.get(view) ?? []) if (showing()) return true;
+  return false;
+};
+
 /** What may stand right before a trigger that wants the start of a word:
     whitespace — or a character of a script that writes no spaces between its
     words (kana, CJK ideographs and their punctuation, full-width forms), where
@@ -1158,6 +1175,9 @@ function createSuggestionMenuPlugin(
       const menus = menusOf.get(editorView) ?? new Set();
       menus.add(candidate);
       menusOf.set(editorView, menus);
+      const showing = showingOf.get(editorView) ?? new Set();
+      showing.add(isOpen);
+      showingOf.set(editorView, showing);
       element.addEventListener('mousedown', onMenuMousedown);
       element.addEventListener('mousemove', onMenuMousemove);
       editorView.dom.addEventListener('blur', onBlur);
@@ -1174,6 +1194,7 @@ function createSuggestionMenuPlugin(
           element.removeEventListener('mousemove', onMenuMousemove);
           element.removeEventListener('mousedown', onMenuMousedown);
           menus.delete(candidate);
+          showing.delete(isOpen);
           invalidateSource();
           session = null;
           describe();

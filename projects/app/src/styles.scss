@@ -4,7 +4,7 @@
 // The library's scrollbar — from its source, by the path a host imports it
 // by (`projects` is a Sass load path, angular.json).
 @use '@h-k-dev/angular-email-editor/styles/scroll';
-// The library's merge-tag pill and filled-value look (the Ctrl peek).
+// The library's merge-tag pill and filled-value look (the ⌘/Ctrl peek).
 @use '@h-k-dev/angular-email-editor/styles/merge-tags';
 // The email's elements at a client's defaults, under any host reset.
 @use '@h-k-dev/angular-email-editor/styles/client-defaults';
@@ -373,7 +373,7 @@ html {
  * layout. Three ways to reveal, same for both blocks:
  *   1. the cursor is inside the block   (.aee-guides-active)
  *   2. the pointer hovers the block     (:hover — reveals the whole block)
- *   3. Ctrl is held (~300ms)            (.aee-guides-peek on the editor root)
+ *   3. ⌘ / Ctrl is held (~100ms)        (.aee-guides-peek on the editor root)
  */
 .aee-editor .aee-table-wrap:not(.aee-table-wrap--authored) td,
 .aee-editor .aee-column {
@@ -727,7 +727,7 @@ section[email-compose][data-scroll='host']
 
 /* The spacer (the library's Spacer node view): a gap exactly its height,
  * invisible as sent. Revealed like the layout guides — selected, under the
- * pointer, mid-drag, or while Ctrl is held (`aee-guides-peek`) — it is a
+ * pointer, mid-drag, or while ⌘ (Ctrl off a Mac) is held (`aee-guides-peek`) — it is a
  * colour-coded band, Figma's spacing pink in stripes, its height written in
  * it and a handle on its lower edge to drag. Static (layout off,
  * `data-aee-static~=spacer`): never revealed, no handle. The ring is an
@@ -991,7 +991,7 @@ section[email-compose][data-scroll='host']
 }
 
 /* The merge-tag pill, and a filled-in value shown for what it was under the
- * Ctrl peek — the library's look (styles/merge-tags), on our tokens. */
+ * ⌘/Ctrl peek — the library's look (styles/merge-tags), on our tokens. */
 .aee-editor {
   @include merge-tags.merge-tags;
 }
@@ -1208,6 +1208,21 @@ section[email-compose][data-scroll='host']
 
 .aee-editor :is(br, img.ProseMirror-separator) + br.ProseMirror-trailingBreak {
   display: none;
+}
+
+/* …and a line is still empty when all it holds is the editor's own controls
+ * (a table's grips, in a cell with nothing written): ProseMirror puts its
+ * separator after a widget too, so the break looks like an aid — but it is
+ * the line's only content, and its height. Without it a table's first row,
+ * every cell of which carries a column grip, went flat once the caret left. */
+.aee-editor
+  :not(
+    .aee-empty-paragraph,
+    :has(> :not(.ProseMirror-widget, img.ProseMirror-separator, br.ProseMirror-trailingBreak))
+  )
+  > img.ProseMirror-separator
+  + br.ProseMirror-trailingBreak {
+  display: inline;
 }
 
 .aee-editor .aee-caret-line img.ProseMirror-separator {
@@ -1970,7 +1985,7 @@ section[email-compose][data-scroll='host'] .email-compose__editor > .aee-editor 
 
 /* A layout table has no room: the text below wins the pointer, unless the
  * table is asked for — its last row hovered (the way down, kept while the
- * zone itself is), or Ctrl held, the peek that shows its grid too. */
+ * zone itself is), or ⌘ (Ctrl) held, the peek that shows its grid too. */
 .aee-editor .aee-table-wrap:has(tr:last-child:hover) .aee-add-zone--row,
 .aee-editor.aee-guides-peek .aee-add-zone--row,
 .aee-editor .aee-add-zone--row:hover {

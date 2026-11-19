@@ -541,7 +541,7 @@ export const HOOK_GROUPS: readonly HookGroup[] = [
       {
         name: '.aee-filled-merge-tag · .aee-filled-merge-tag--edited',
         applies:
-          'A filled-in value, drawn only while Ctrl is held (`.aee-guides-peek`), and one written over by hand. `@include merge-tags.merge-tags` (`styles/merge-tags`) draws these and the pill, on `--email-merge-tag-*`.',
+          'A filled-in value, drawn only while ⌘ (Ctrl off a Mac) is held (`.aee-guides-peek`), and one written over by hand. `@include merge-tags.merge-tags` (`styles/merge-tags`) draws these and the pill, on `--email-merge-tag-*`.',
       },
       {
         name: '.aee-quoted · .aee-quote-fold',

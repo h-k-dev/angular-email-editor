@@ -1,7 +1,12 @@
 import { TextSelection } from 'prosemirror-state';
 import { createEditor, Editor } from '../editor';
 import { emailExtensions } from './kits';
-import { GUIDES_ACTIVE_CLASS } from './layout-guides';
+import {
+  GUIDES_ACTIVE_CLASS,
+  GUIDES_PEEK_CLASS,
+  GUIDES_PEEK_DELAY_MS,
+  guidesPeekKey,
+} from './layout-guides';
 
 describe('layout guides', () => {
   let host: HTMLElement;
@@ -65,5 +70,69 @@ describe('layout guides', () => {
     expect(html).not.toContain('aee-columns');
     expect(html).not.toContain('class="aee-column ');
     expect(html).toContain('display: inline-block');
+  });
+});
+
+describe('layout guides — the peek key', () => {
+  let host: HTMLElement;
+  let editor: Editor;
+
+  /** An editor made on `platform` — the key is read as the editor is made. */
+  const on = (platform: string) => {
+    vi.spyOn(navigator, 'platform', 'get').mockReturnValue(platform);
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    editor = createEditor({ parent: host, extensions: emailExtensions, content: '<div>a</div>' });
+  };
+  const key = (type: 'keydown' | 'keyup', name: string) =>
+    document.dispatchEvent(new KeyboardEvent(type, { key: name, bubbles: true }));
+  const hold = (name: string) => {
+    key('keydown', name);
+    vi.advanceTimersByTime(GUIDES_PEEK_DELAY_MS + 1);
+  };
+  const peeking = () => editor.view.dom.classList.contains(GUIDES_PEEK_CLASS);
+
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => {
+    editor.destroy();
+    host.remove();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('is ⌘ on a Mac — Ctrl held there shows nothing', () => {
+    on('MacIntel');
+    expect(guidesPeekKey()).toBe('Meta');
+
+    hold('Control');
+    expect(peeking()).toBe(false);
+    key('keyup', 'Control');
+
+    hold('Meta');
+    expect(peeking()).toBe(true);
+    key('keyup', 'Meta');
+    expect(peeking()).toBe(false);
+  });
+
+  it('is Ctrl everywhere else — the Windows key shows nothing', () => {
+    on('Win32');
+    expect(guidesPeekKey()).toBe('Control');
+
+    hold('Meta');
+    expect(peeking()).toBe(false);
+    key('keyup', 'Meta');
+
+    hold('Control');
+    expect(peeking()).toBe(true);
+    key('keyup', 'Control');
+    expect(peeking()).toBe(false);
+  });
+
+  it('is no peek when it starts a shortcut: ⌘-B within the delay', () => {
+    on('MacIntel');
+    key('keydown', 'Meta');
+    key('keydown', 'b');
+    vi.advanceTimersByTime(GUIDES_PEEK_DELAY_MS + 1);
+    expect(peeking()).toBe(false);
   });
 });

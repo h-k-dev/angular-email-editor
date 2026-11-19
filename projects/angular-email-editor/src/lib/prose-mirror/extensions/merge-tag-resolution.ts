@@ -80,7 +80,7 @@ import { mergeTagRanges, scanMergeTags } from './nodes/merge-tag';
  * ({@link restoreMergeTag}). An edited value carries the class
  * {@link FILLED_EDITED_CLASS} (a decoration over the whole of it).
  *
- * Painted by the host only while Ctrl is held — the layout guides' peek
+ * Painted by the host only while ⌘ (Ctrl off a Mac) is held — the layout guides' peek
  * (`.aee-guides-peek .aee-filled-merge-tag`) — and reported to it on hover
  * then ({@link MergeTagResolutionOptions.onFilledHover}), with those ways.
  */
@@ -321,7 +321,7 @@ export const restoreMergeTag =
     return true;
   };
 
-/** A filled value under the pointer while Ctrl is held — what the host's
+/** A filled value under the pointer while ⌘ (Ctrl off a Mac) is held — what the host's
     card shows. */
 export interface FilledMergeTagHover {
   /** The value's piece under the pointer — the card's anchor. */
@@ -406,10 +406,10 @@ export interface MergeTagResolutionOptions {
       settled — the host's spinner. */
   onPendingChange?: (pending: boolean) => void;
   /**
-   * Told when the pointer comes onto a filled value while Ctrl is held (the
+   * Told when the pointer comes onto a filled value while ⌘ (Ctrl off a Mac) is held (the
    * layout guides' peek), and `null` when it leaves — the host's card: the
    * token it was, an edit by hand, and the ways back. A card already up
-   * stays while the pointer is on the value, Ctrl released or not, so its
+   * stays while the pointer is on the value, the key released or not, so its
    * buttons can be reached; told again (the same `element`) when the value
    * changes under it.
    */

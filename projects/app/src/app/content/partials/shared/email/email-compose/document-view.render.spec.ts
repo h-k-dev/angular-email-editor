@@ -15,6 +15,7 @@
 import {
   convertAuthoredPageToStylesheet,
   createEditor,
+  createTableHandles,
   Editor,
   emailExtensions,
 } from '@h-k-dev/angular-email-editor';
@@ -189,6 +190,31 @@ describe('A whole email document in the editor (render)', () => {
   it('sees the break ProseMirror adds after a line-end <br>', async () => {
     override('.aee-editor br.ProseMirror-trailingBreak { display: inline !important; }');
     expect((await differences(newSignIn, 600)).length).toBeGreaterThan(0);
+  });
+
+  // A table's grips are widgets in its cells — a column's in every cell of
+  // the first row. ProseMirror puts a separator after a widget, which makes
+  // an empty cell's break look like a caret aid: hidden with the others,
+  // the whole first row went flat as soon as the caret was anywhere else.
+  it('keeps an empty table’s first row its height once the caret is elsewhere', () => {
+    host = document.createElement('div');
+    host.style.cssText = 'position: absolute; left: 0; top: 0; width: 600px;';
+    document.body.append(host);
+    editor = createEditor({
+      parent: host,
+      extensions: [...emailExtensions, createTableHandles({ onOpen: () => {} })],
+      content:
+        '<div>above</div><table><tbody><tr><td></td><td></td></tr>' +
+        '<tr><td></td><td></td></tr></tbody></table>',
+    });
+    // The caret starts in the line above: no cell is the caret's line.
+    expect(host.querySelector('td.aee-caret-line')).toBeNull();
+    const [first, second] = [...host.querySelectorAll('tr')].map(
+      (row) => row.getBoundingClientRect().height,
+    );
+    expect(host.querySelectorAll('tr:first-child .aee-grip--column')).toHaveLength(2);
+    expect(second).toBeGreaterThan(20);
+    expect(first).toBe(second);
   });
 
   it('sees spaces kept at a line’s end (break-spaces)', async () => {
