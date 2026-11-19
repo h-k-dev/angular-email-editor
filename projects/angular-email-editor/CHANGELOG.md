@@ -7,6 +7,13 @@ version may change behaviour, and says so here.
 
 ### Fixed
 
+- **A list can be started in an empty `<p>` kept as written.** An empty `<p></p>` is kept as
+  the source wrote it (no line in a mail client), so it is not the composer's own line, and
+  the list commands — bulleted, numbered, and their layout forms — were refused in it: a
+  dead button on what looks like an empty line. A command built with `guarded` that does
+  not run there now makes the `<p>` the composer's line first (its alignment carried over)
+  and runs on that, in one transaction and one undo. A `<p></p>` nobody asks a block of
+  stays as written.
 - **A divider or a spacer keeps the caret where it was put.** Asked for in a list item, a
   column or a section — as its last block — it threw the caret out of the container, onto
   whatever line came after it. The caret now stays right under it in the same container:
