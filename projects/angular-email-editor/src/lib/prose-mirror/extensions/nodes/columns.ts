@@ -2,6 +2,7 @@ import { Command, EditorState, NodeSelection, Selection, TextSelection } from 'p
 import { DOMOutputSpec, Node, Schema } from 'prosemirror-model';
 import { keymap } from 'prosemirror-keymap';
 import { defineNode } from '../../extension';
+import { insertBlock } from '../insert-block';
 import { fillTextColor } from '../../dual-contrast';
 import { isSafeColor, toEmailSafeColor } from '../marks/text-style';
 import { CellVerticalAlignment, parsePadding } from './table';
@@ -481,7 +482,7 @@ function insertColumns(schema: Schema, count: number): Command {
     const node = columnsType.create(null, columns);
 
     const from = state.selection.from;
-    const tr = state.tr.replaceSelectionWith(node);
+    const tr = insertBlock(state, node);
     let pos = -1;
     tr.doc.descendants((n, p) => {
       if (pos !== -1) return false;

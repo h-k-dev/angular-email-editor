@@ -37,6 +37,7 @@ import {
   tableEditing,
 } from 'prosemirror-tables';
 import { defineNode } from '../../extension';
+import { insertBlock } from '../insert-block';
 import { fillTextColor } from '../../dual-contrast';
 import { isSafeColor, toEmailSafeColor } from '../marks/text-style';
 import { marksAcrossBreak } from '../split-keeping-marks';
@@ -844,7 +845,8 @@ function insertTableFocused(schema: Schema, rows: number, cols: number, kind: Ta
     // An empty line — the one a `/table` was typed in and taken out of —
     // is replaced by the table (ProseMirror swaps an empty textblock for
     // the block); a line with words keeps them, and the table goes under it.
-    const tr = state.tr.replaceSelectionWith(table);
+    // Asked for in a cell, it goes under that table (`insertBlock`).
+    const tr = insertBlock(state, table);
 
     let tablePos = -1;
     tr.doc.descendants((node, pos) => {

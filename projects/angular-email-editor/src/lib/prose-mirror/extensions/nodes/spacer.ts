@@ -2,6 +2,7 @@ import { Command, EditorState, NodeSelection, Plugin, PluginKey } from 'prosemir
 import { Node } from 'prosemirror-model';
 import { EditorView, NodeView } from 'prosemirror-view';
 import { defineNode } from '../../extension';
+import { insertBlock } from '../insert-block';
 import { paddingSides, parseDeclarations } from '../../inline-style';
 import { isSafeColor, toEmailSafeColor } from '../marks/text-style';
 import { declaredBackground, findSectionContext } from './section';
@@ -138,7 +139,7 @@ export const Spacer = defineNode({
       (height = SPACER_DEFAULT): Command =>
       (state, dispatch) => {
         const spacer = schema.nodes['spacer'].create({ height: snapSpacerHeight(height) });
-        dispatch?.(state.tr.replaceSelectionWith(spacer).scrollIntoView());
+        dispatch?.(insertBlock(state, spacer).scrollIntoView());
         return true;
       },
     /** The selected spacer's height, snapped. */
@@ -170,7 +171,7 @@ export const Spacer = defineNode({
       keywords: ['spacer', 'space', 'gap', 'vertical', 'whitespace', 'room'],
       icon: 'height',
       command: (state, dispatch) => {
-        dispatch?.(state.tr.replaceSelectionWith(schema.nodes['spacer'].create()).scrollIntoView());
+        dispatch?.(insertBlock(state, schema.nodes['spacer'].create()).scrollIntoView());
         return true;
       },
     },

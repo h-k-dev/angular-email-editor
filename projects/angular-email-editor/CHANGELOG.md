@@ -5,6 +5,15 @@ version may change behaviour, and says so here.
 
 ## Unreleased
 
+### Fixed
+
+- **A block asked for in a table cell no longer tears the table apart.** A divider, a
+  spacer, a section, columns or another table inserted with the caret in a cell (`/divider`
+  typed there) split the table round the caret: the cell's words left in a table of one
+  cell, the block, and the rest as a second table. A cell holds inline content only, so the
+  block now goes under the table, which stays whole — in a bordered table and a layout
+  table alike. What a cell can hold (a button, an image) still goes into the cell.
+
 ### Added
 
 - **One card for every placeholder: `createMergeTagHover` and `mergeTagCard`.** A message's

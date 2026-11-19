@@ -1,6 +1,7 @@
 import { Command, EditorState, TextSelection } from 'prosemirror-state';
 import { DOMOutputSpec, Node, Schema } from 'prosemirror-model';
 import { defineNode } from '../../extension';
+import { insertBlock } from '../insert-block';
 import { emailBackgroundPalette, fillTextColor } from '../../dual-contrast';
 import { isSafeColor, toEmailSafeColor } from '../marks/text-style';
 import { parsePadding } from './table';
@@ -648,7 +649,7 @@ function insertSection(schema: Schema, background: string | null = null): Comman
     const type = schema.nodes['section'];
     const node = type.createAndFill({ background })!;
     const from = state.selection.from;
-    const tr = state.tr.replaceSelectionWith(node);
+    const tr = insertBlock(state, node);
     let pos = -1;
     tr.doc.descendants((n, p) => {
       if (pos !== -1) return false;
