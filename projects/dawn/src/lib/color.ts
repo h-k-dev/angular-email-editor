@@ -198,3 +198,17 @@ export function dawnDarkColor(token: string, role?: DawnRole): string {
   if (role === 'ink' && luma(drawn) <= luma(color)) return token;
   return rgbaToCss(drawn);
 }
+
+/** The ink the light scheme writes with where a message says none: what
+    text on a background that stays light is written in, dark or not. */
+export const DAWN_LIGHT_INK = '#000000';
+
+/** Whether a background still reads light once dark has drawn it. WebKit's
+    transform turns a white page dark, but leaves a few saturated light
+    colours — a marker's yellow, a lime — as bright as they were: the light
+    ink dark writes with is unreadable on those. False for what is no
+    colour. */
+export function dawnStaysLight(token: string): boolean {
+  const drawn = parseCssColor(dawnDarkColor(token, 'surface'));
+  return !!drawn && luma(drawn) >= 0.5;
+}

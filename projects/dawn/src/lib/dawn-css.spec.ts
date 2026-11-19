@@ -1,4 +1,4 @@
-import { dawnDarkColor, parseCssColor } from './color';
+import { dawnDarkColor, dawnStaysLight, parseCssColor } from './color';
 import {
   dawnBandOf,
   dawnDarkDeclarations,
@@ -123,5 +123,67 @@ describe('Dawn on CSS', () => {
     );
     expect(declaresDark(doc('<meta name="color-scheme" content="light"><p>x</p>'))).toBe(false);
     expect(declaresDark(doc('<p style="color: red">x</p>'))).toBe(false);
+  });
+
+  // A marker's yellow: WebKit's transform leaves it as bright as it was,
+  // and the light ink dark writes with could not be read on it.
+  describe('a background that stays light', () => {
+    const YELLOW = 'background-color: rgb(255, 255, 0);';
+
+    it('knows the few light colours dark leaves light — never a page’s white or grey', () => {
+      expect(dawnStaysLight('#ffff00')).toBe(true);
+      expect(dawnStaysLight('rgb(255, 255, 0)')).toBe(true);
+      expect(dawnStaysLight('#ffffff')).toBe(false);
+      expect(dawnStaysLight('#f5f5f5')).toBe(false);
+      expect(dawnStaysLight('#000000')).toBe(false);
+      expect(dawnStaysLight('url(a.png)')).toBe(false);
+    });
+
+    it('is a band of its own: drawn, and still light', () => {
+      expect(dawnBandOf(YELLOW)).toBe('light');
+      expect(dawnBandOf('background-color: #ffffff')).toBe('drawn');
+      expect(dawnBandOf('background-color: #000000')).toBe('kept');
+    });
+
+    it('writes its text in the light scheme’s ink where it says none', () => {
+      expect(dawnDarkDeclarations(YELLOW)).toMatch(/color: #000000;$/);
+      expect(dawnDarkDeclarations('background-color: yellow')).toMatch(/; color: #000000;$/);
+      expect(dawnDarkDeclarationsOf(YELLOW)).toContainEqual(['color', '#000000']);
+    });
+
+    it('keeps the ink it says itself as written — never drawn lighter', () => {
+      const style = `${YELLOW} color: #333333; border: 1px solid #000000`;
+      const dark = dawnDarkDeclarations(style);
+      expect(dark).toContain('color: #333333');
+      expect(dark.match(/color: #000000/g)).toBeNull();
+      // Its border is drawn, like on any drawn band.
+      expect(dark).not.toContain('solid #000000');
+      expect(dawnDarkDeclarationsOf(style).map(([property]) => property)).not.toContain('color');
+    });
+
+    it('leaves every other band’s text to dark, as before', () => {
+      expect(dawnDarkDeclarations('background-color: #ffffff')).not.toContain('color: #000000');
+      expect(dawnDarkDeclarations('background-color: #ffffff; color: #000000')).toContain(
+        'color: rgb(255, 255, 255)',
+      );
+      expect(dawnDarkDeclarationsOf('background-color: #ffffff').map(([p]) => p)).toEqual([
+        'background-color',
+      ]);
+    });
+
+    it('holds for what lies on it in a message: its own text, and a child’s own colour', () => {
+      const message = doc(
+        `<p>before <span id="mark" style="${YELLOW}">DATUM <b id="in" style="color: #222222">x</b>` +
+          '<font id="font" color="#111111">y</font></span> after</p>' +
+          '<table><tr><td id="cell" bgcolor="#ffff00">z</td></tr></table>',
+      );
+      dawnDarkDocument(message);
+      const style = (id: string) => message.getElementById(id)!.getAttribute('style') ?? '';
+      expect(style('mark')).toMatch(/color: #000000;$/);
+      expect(style('in')).toBe('color: #222222');
+      expect(message.getElementById('font')!.getAttribute('color')).toBe('#111111');
+      // A band by its `bgcolor` alone gets a style to say its ink in.
+      expect(style('cell')).toBe('color: #000000;');
+    });
   });
 });

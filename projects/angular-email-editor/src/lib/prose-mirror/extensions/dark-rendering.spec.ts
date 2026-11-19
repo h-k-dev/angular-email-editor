@@ -116,4 +116,32 @@ describe('createDarkRendering', () => {
     const { css } = darkRenderingCss(dom, '.r');
     expect(css).toContain('.r [style="font-family: \\"Tan\\"; color: #000000"]');
   });
+
+  // A marker's yellow stays as bright on a dark paper as it was: the text on
+  // it in the paper's light ink could not be read.
+  it('writes the text on a background that stays light in the light scheme’s ink', () => {
+    const { editor, id, sheet, unmount } = mount(
+      '<div>vom <span style="background-color: rgb(255, 255, 0);">DATUM</span> an</div>',
+    );
+    const css = sheet()?.textContent ?? '';
+    const rule = css
+      .split('\n')
+      .find((line) => line.includes('[style="background-color: rgb(255, 255, 0);"]'));
+    expect(rule).toContain('color: #000000 !important;');
+    // The document says nothing new.
+    expect(editor.getHTML()).not.toContain('color: #000000');
+    expect(id).toBeTruthy();
+    unmount();
+  });
+
+  it('leaves the ink such a background says itself as written', () => {
+    const { sheet, unmount } = mount(
+      '<div><span style="background-color: rgb(255, 255, 0); color: rgb(51, 51, 51);">x</span></div>',
+    );
+    const rule = (sheet()?.textContent ?? '')
+      .split('\n')
+      .find((line) => line.includes('rgb(51, 51, 51)'));
+    expect(rule).not.toMatch(/(?:^|[ {;])color:/);
+    unmount();
+  });
 });

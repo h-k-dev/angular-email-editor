@@ -1,9 +1,11 @@
 import {
+  DAWN_LIGHT_INK,
   DAWN_SURFACE,
   DawnRole,
   DawnScheme,
   VALUE_TOKEN,
   dawnDarkColor,
+  dawnStaysLight,
   parseCssColor,
   rgbaToHex,
 } from './color';
@@ -14,7 +16,9 @@ import {
  * nothing else touched. A background that is dark already and text that is
  * light already stay as written (`DawnRole`). A border, an outline, a
  * shadow follow the band they lie on (`DawnBand`): as written on a
- * background kept as written, drawn on any other.
+ * background kept as written, drawn on any other. Text follows it too where
+ * the band stays light once drawn (a marker's yellow): it is written in the
+ * light scheme's ink there, not the dark one's.
  */
 
 /** The properties that paint a colour. */
@@ -32,10 +36,12 @@ function roleOf(property: string): DawnRole | undefined {
   return /^background/i.test(property) ? 'surface' : undefined;
 }
 
-/** A background as dark draws it: `kept` as written (dark already) or
-    `drawn`. What lies on it follows: a border on a kept band stays as
-    written too. */
-export type DawnBand = 'kept' | 'drawn';
+/** A background as dark draws it: `kept` as written (dark already),
+    `drawn` — or `light`: drawn, and still light (`dawnStaysLight`: a
+    marker's yellow). What lies on it follows: a border on a kept band
+    stays as written too, and text on a light one stays in the ink it was
+    written in — the light ink dark writes with could not be read there. */
+export type DawnBand = 'kept' | 'drawn' | 'light';
 
 /** The band a declaration block paints — its `background` or
     `background-color`, the last colour said — or null where it paints
@@ -47,17 +53,27 @@ export function dawnBandOf(text: string): DawnBand | null {
     for (const token of value.match(VALUE_TOKEN) ?? []) {
       const color = parseCssColor(token);
       if (!color || color[3] < 0.5) continue;
-      band = dawnDarkColor(token, 'surface') === token ? 'kept' : 'drawn';
+      band =
+        dawnDarkColor(token, 'surface') === token
+          ? 'kept'
+          : dawnStaysLight(token)
+            ? 'light'
+            : 'drawn';
     }
   }
   return band;
 }
+
+/** Whether a declaration block says the colour of its text. */
+const saysInk = (text: string): boolean => /(?:^|;)\s*color\s*:/i.test(text);
 
 /** One declaration's value with each colour drawn dark; its `url(…)`s as
     they were — and all of it as it was where it follows a kept `band`. */
 function darkValue(property: string, value: string, band?: DawnBand | null): string {
   const role = roleOf(property);
   if (!role && band === 'kept') return value;
+  // Text on a band that stays light: as written, never drawn lighter.
+  if (role === 'ink' && band === 'light') return value;
   return value.replace(VALUE_TOKEN, (token) =>
     token.toLowerCase().startsWith('url(') ? token : dawnDarkColor(token, role),
   );
@@ -81,6 +97,9 @@ export function dawnDarkDeclarationsOf(
     if (own || roleOf(property)) out.push([property.toLowerCase(), drawn]);
     else out.push([property.toLowerCase(), drawn, written]);
   }
+  // A band that stays light, with no ink said: the light scheme's, so the
+  // text on it reads (it would inherit the light ink dark writes with).
+  if (own === 'light' && !saysInk(text)) out.push(['color', DAWN_LIGHT_INK]);
   return out;
 }
 
@@ -88,12 +107,16 @@ export function dawnDarkDeclarationsOf(
     `url(…)`s and every other property untouched. Its borders follow the
     band it paints itself, else the one `beneath` it. */
 export function dawnDarkDeclarations(text: string, beneath?: DawnBand | null): string {
-  const band = dawnBandOf(text) ?? beneath;
-  return text.replace(
+  const own = dawnBandOf(text);
+  const band = own ?? beneath;
+  const drawn = text.replace(
     /([\w-]+)(\s*:\s*)([^;]*)/g,
     (whole, property: string, colon: string, value: string) =>
       COLOR_PROPERTY.test(property) ? property + colon + darkValue(property, value, band) : whole,
   );
+  // A band that stays light, with no ink said: the light scheme's.
+  if (own !== 'light' || saysInk(text)) return drawn;
+  return `${drawn.trimEnd().replace(/;?$/, ';')} color: ${DAWN_LIGHT_INK};`;
 }
 
 /** A style sheet with each declaration block drawn dark — its selectors and
@@ -151,10 +174,22 @@ export function dawnDarkDocument(doc: Document): void {
       dawnDarkDeclarations(element.getAttribute('style') ?? '', bandAt(element.parentElement)),
     );
   }
+  // A band that stays light by its `bgcolor` alone has no style to say its
+  // ink in: it gets one.
+  for (const [element, band] of bands) {
+    const style = element.getAttribute('style') ?? '';
+    if (band !== 'light' || saysInk(style) || element.hasAttribute('color')) continue;
+    element.setAttribute(
+      'style',
+      `${style.trimEnd().replace(/;?$/, style.trim() ? ';' : '')} color: ${DAWN_LIGHT_INK};`.trim(),
+    );
+  }
   for (const [attribute, role] of LEGACY_COLOR_ATTRIBUTES) {
     for (const element of Array.from(doc.querySelectorAll(`[${attribute}]`))) {
       // A border colour on a kept band stays as written, like any border.
       if (!role && bandAt(element) === 'kept') continue;
+      // …and a text colour on a band that stays light, like any ink there.
+      if (role === 'ink' && bandAt(element) === 'light') continue;
       const drawn = dawnDarkLegacyColor(element.getAttribute(attribute) ?? '', role);
       if (drawn) element.setAttribute(attribute, drawn);
     }

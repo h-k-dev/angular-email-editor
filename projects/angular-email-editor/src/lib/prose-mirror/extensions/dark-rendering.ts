@@ -3,6 +3,7 @@ import { EditorView } from 'prosemirror-view';
 import { defineExtension } from '../extension';
 import {
   DAWN_SURFACE,
+  DAWN_LIGHT_INK,
   dawnBandOf,
   dawnDarkColor,
   dawnDarkDeclarationsOf,
@@ -44,6 +45,9 @@ const LEGACY: readonly [attribute: string, selector: string, property: string][]
 const BAND = {
   kept: '--aee-not-kept: initial; --aee-not-drawn: ;',
   drawn: '--aee-not-kept: ; --aee-not-drawn: initial;',
+  // Drawn, and still light (a marker's yellow): a border on it is drawn
+  // like on any drawn band; its text is Dawn's to say (the light ink).
+  light: '--aee-not-kept: ; --aee-not-drawn: initial;',
 } as const;
 
 /** A border's value by the band beneath it: as written on a kept one. */
@@ -169,6 +173,9 @@ export function darkRenderingCss(dom: Element, root: string): { css: string; key
       }
       const band = attribute === 'bgcolor' ? dawnBandOf(`background-color: ${value}`) : null;
       if (band) body.push(BAND[band]);
+      // A band that stays light by its `bgcolor`: its text in the light
+      // scheme's ink — never over a colour the element says itself.
+      if (band === 'light') body.push(`color: ${DAWN_LIGHT_INK};`);
       if (body.length) {
         rules.push(
           `${root} ${selector.replace('%', cssString(value) + ' i')} { ${body.join(' ')} }`,

@@ -7,6 +7,14 @@ version may change behaviour, and says so here.
 
 ### Fixed
 
+- **Text on a background that stays light is readable on dark paper.** A marker's yellow
+  (and the few other saturated light colours WebKit's transform leaves bright) kept its
+  background on a dark paper while its text took the paper's light ink: white on yellow.
+  Dawn now knows such a background as a band of its own (`DawnBand` `'light'`,
+  `dawnStaysLight`): the text on it is written in the light scheme's ink
+  (`DAWN_LIGHT_INK`), and an ink the element says itself stays as written. In the reading
+  pane a child's own colour on such a band stays as written too. Needs the next
+  `@h-k-dev/dawn` after 1.3.1.
 - **A block asked for in a table cell no longer tears the table apart.** A divider, a
   spacer, a section, columns or another table inserted with the caret in a cell (`/divider`
   typed there) split the table round the caret: the cell's words left in a table of one

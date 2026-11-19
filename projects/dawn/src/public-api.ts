@@ -6,8 +6,10 @@
 
 export type { DawnRole, DawnScheme, Rgba } from './lib/color';
 export {
+  DAWN_LIGHT_INK,
   DAWN_SURFACE,
   dawnDarkColor,
+  dawnStaysLight,
   invertLightness,
   parseCssColor,
   rgbaToCss,
