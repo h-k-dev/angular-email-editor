@@ -3,6 +3,16 @@ import { Service } from '@angular/core';
 import { evaluateExpression } from './expression-evaluator';
 import { Filter, applyFilter, respond } from './loopback-filter';
 
+/** What each namespace of the catalogue is, as a placeholder's card says it. */
+const TYPES: Record<string, string> = {
+  company: 'Company',
+  otp: 'One-time code',
+  order: 'Order',
+  shipment: 'Shipment',
+  clearance: 'Rights clearance',
+  custom: 'Custom field',
+};
+
 /** A personalization variable, as the backend's `MergeTag` model returns it. */
 export interface MergeTag {
   /** The dotted path the token serializes as — `firstName`, `company.name`. */
@@ -59,6 +69,18 @@ export class MergeTags {
       label: `Custom field ${i + 1}`,
     })),
   ];
+
+  /** What the placeholder `expression` stands for, in a word — the kind of
+      record its field is read from, by the field's namespace. The field is
+      the expression's first path (`order.total | currency` is the order's).
+      Null for an expression that names no field of the catalogue. */
+  typeOf(expression: string): string | null {
+    const path = /^\s*([A-Za-z_$][\w$]*(?:\.[\w$]+)*)/.exec(expression)?.[1];
+    if (!path || !this.#rows.some((row) => row.path === path)) return null;
+    const [namespace, field] = path.split('.');
+    if (!field) return namespace === 'case_number' ? 'Case' : 'Contact';
+    return TYPES[namespace] ?? null;
+  }
 
   find(filter: Filter<MergeTag> = {}, signal?: AbortSignal): Promise<MergeTag[]> {
     return respond(applyFilter(this.#rows, filter), signal);

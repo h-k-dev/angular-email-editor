@@ -1,0 +1,91 @@
+<!-- The head: the token as the editor's pill shows it, and what kind of
+     placeholder it is, where the host says. -->
+<div class="email-merge-tag-card__head">
+  <span class="email-merge-tag-card__token">{{ token() }}</span>
+  @if (type(); as type) {
+    <span class="email-merge-tag-card__type">{{ type }}</span>
+  }
+</div>
+@if (shownValue(); as value) {
+  <span class="email-merge-tag-card__value">{{ value }}</span>
+}
+@if (note(); as note) {
+  <span class="email-merge-tag-card__note">{{ note }}</span>
+}
+
+@if (editing()) {
+  <!-- The value, written by hand: Enter applies, Shift-Enter breaks the
+       line; Apply is the button at the field's end. -->
+  <div class="email-merge-tag-card__field">
+    <textarea
+      rows="2"
+      [attr.aria-label]="valueLabel()"
+      [value]="draft()"
+      (input)="input($event)"
+      (keydown)="fieldKeys($event)"
+    ></textarea>
+    <button
+      type="button"
+      class="email-merge-tag-card__apply"
+      [attr.aria-label]="applyLabel()"
+      [title]="applyLabel()"
+      [disabled]="!draft()"
+      (click)="apply()"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
+    </button>
+  </div>
+} @else {
+  <div
+    role="menu"
+    class="email-merge-tag-card__menu"
+    [attr.aria-label]="menuLabel() ?? token()"
+    (keydown)="rowKeys($event)"
+  >
+    @for (row of rows(); track row.action; let first = $first) {
+      <button
+        type="button"
+        role="menuitem"
+        class="email-merge-tag-card__row"
+        [attr.data-action]="row.action"
+        [attr.tabindex]="first ? 0 : -1"
+        [attr.title]="row.title || null"
+        (click)="choose(row.action)"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          @switch (row.action) {
+            @case ('parse') {
+              <path
+                d="M4 7v2c0 .55-.45 1-1 1H2v4h1c.55 0 1 .45 1 1v2c0 1.65 1.35 3 3 3h3v-2H7c-.55 0-1-.45-1-1v-2c0-1.3-.84-2.42-2-2.83v-.34C5.16 11.42 6 10.3 6 9V7c0-.55.45-1 1-1h3V4H7C5.35 4 4 5.35 4 7m17 3c-.55 0-1-.45-1-1V7c0-1.65-1.35-3-3-3h-3v2h3c.55 0 1 .45 1 1v2c0 1.3.84 2.42 2 2.83v.34c-1.16.41-2 1.52-2 2.83v2c0 .55-.45 1-1 1h-3v2h3c1.65 0 3-1.35 3-3v-2c0-.55.45-1 1-1h1v-4z"
+              />
+            }
+            @case ('remove') {
+              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6zM19 4h-3.5l-1-1h-5l-1 1H5v2h14z" />
+            }
+            @case ('reset') {
+              <path
+                d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18m-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8z"
+              />
+            }
+            @case ('unparse') {
+              <path
+                d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8"
+              />
+            }
+            @case ('restore') {
+              <path
+                d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8"
+              />
+            }
+            @default {
+              <path
+                d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75z"
+              />
+            }
+          }
+        </svg>
+        <span>{{ row.label }}</span>
+      </button>
+    }
+  </div>
+}

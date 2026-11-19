@@ -7,6 +7,7 @@ import {
   MergeTagPreview,
   createMergeTagPreview,
   mergeTagPreviewOn,
+  mergeTagPreviewShows,
 } from './merge-tag-preview';
 
 /** A host evaluator the test answers by hand: each request waits until
@@ -216,5 +217,69 @@ describe('merge tag preview', () => {
     expect(action.isActive?.(editor.state)).toBe(false);
     preview();
     expect(action.isActive?.(editor.state)).toBe(true);
+  });
+
+  describe('one placeholder', () => {
+    const one = (expr: string, shown?: boolean) => editor.commands['previewMergeTag'](expr, shown);
+
+    it('shows one placeholder as its value while the rest stays as written', async () => {
+      mount('<div>{{ a }} und {{ b }} und {{ a }}</div>');
+      expect(one(' a ')).toBe(true);
+      expect(evaluator.asked).toEqual([['a']]);
+      await evaluator.answer(['A']);
+      // Wherever the expression stands: the value is the expression's.
+      expect(values()).toEqual(['A', 'A']);
+      expect(hidden()).toEqual(['{{ a }}', '{{ a }}']);
+      expect(mergeTagPreviewOn(editor.state)).toBe(false);
+      expect(mergeTagPreviewShows(editor.state, 'a')).toBe(true);
+      expect(mergeTagPreviewShows(editor.state, 'b')).toBe(false);
+    });
+
+    it('writes nothing: the document is the template still', async () => {
+      mount('<div>{{ a }}</div>');
+      const before = editor.state.doc;
+      one('a');
+      await evaluator.answer(['A']);
+      expect(editor.state.doc.eq(before)).toBe(true);
+    });
+
+    it('takes one placeholder back out of a whole preview', async () => {
+      mount('<div>{{ a }} und {{ b }}</div>');
+      preview();
+      await evaluator.answer(['A', 'B']);
+      one('a', false);
+      expect(values()).toEqual(['B']);
+      // …and no argument is the other of the two.
+      one('a');
+      await evaluator.answer(['A2']);
+      expect(values()).toEqual(['A2', 'B']);
+    });
+
+    it('asks for it afresh each time it is shown', async () => {
+      mount('<div>{{ a }}</div>');
+      one('a', true);
+      await evaluator.answer([null]);
+      expect(values()).toEqual([]);
+      one('a', true);
+      expect(evaluator.asked).toEqual([['a'], ['a']]);
+      await evaluator.answer(['A']);
+      expect(values()).toEqual(['A']);
+    });
+
+    it('ends with the whole preview turned on or off', async () => {
+      mount('<div>{{ a }} und {{ b }}</div>');
+      one('a');
+      await evaluator.answer(['A']);
+      preview(true);
+      await evaluator.answer(['A', 'B']);
+      preview(false);
+      expect(values()).toEqual([]);
+      expect(mergeTagPreviewShows(editor.state, 'a')).toBe(false);
+    });
+
+    it('is refused without an expression', () => {
+      mount('<div>{{ a }}</div>');
+      expect(one('  ')).toBe(false);
+    });
   });
 });

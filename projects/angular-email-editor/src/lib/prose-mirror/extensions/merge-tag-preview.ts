@@ -83,12 +83,23 @@ interface PreviewState {
   /** Which turning-on this is: answers of an earlier one are dropped. */
   run: number;
   values: ReadonlyMap<string, Shown>;
+  /** The expressions that go their own way: shown while the rest is as
+      written (`true`), or as written while the rest is shown (`false`) —
+      {@link previewMergeTag}. Gone when the whole is turned on or off. */
+  only: ReadonlyMap<string, boolean>;
   /** Some token of the text has no answer yet: it is out with the host. */
   pending: boolean;
   decorations: DecorationSet;
 }
 
-type PreviewMeta = { on: boolean } | { run: number; values: ReadonlyMap<string, Shown> };
+type PreviewMeta =
+  | { on: boolean }
+  | { expr: string; shown: boolean }
+  | { run: number; values: ReadonlyMap<string, Shown> };
+
+/** Whether `expr` is shown as its value: its own say, else the whole's. */
+const shows = (state: Pick<PreviewState, 'on' | 'only'>, expr: string): boolean =>
+  state.only.get(expr) ?? state.on;
 
 const previewKey = new PluginKey<PreviewState>('mergeTagPreview');
 
@@ -124,6 +135,41 @@ export const previewMergeTags =
     return true;
   };
 
+/**
+ * Shows the one placeholder `expr` as its value (`true`), as written
+ * (`false`), or the other of the two (no argument) — whatever the rest of
+ * the document shows: one token previewed in a template shown as written,
+ * or one token back as written in a previewed one. Every token holding
+ * `expr` follows (the value is the expression's). `true` asks the host for
+ * it afresh. Turning the whole preview on or off ({@link previewMergeTags})
+ * ends every such exception. False without the extension.
+ */
+export const previewMergeTag =
+  (expr: string, shown?: boolean): Command =>
+  (state, dispatch) => {
+    const current = previewKey.getState(state);
+    const key = expr.trim();
+    if (!current || !key) return false;
+    dispatch?.(
+      state.tr
+        .setMeta(previewKey, { expr: key, shown: shown ?? !shows(current, key) } satisfies PreviewMeta)
+        .setMeta('addToHistory', false),
+    );
+    return true;
+  };
+
+/** Whether the placeholder `expr` is shown as its value — by the whole
+    preview, or its own ({@link previewMergeTag}). */
+export function mergeTagPreviewShows(state: EditorState, expr: string): boolean {
+  const current = previewKey.getState(state);
+  return !!current && shows(current, expr.trim());
+}
+
+/** Whether the kit previews its tokens ({@link createMergeTagPreview}). */
+export function hasMergeTagPreview(state: EditorState): boolean {
+  return !!previewKey.getState(state);
+}
+
 /** A value as it is drawn: text, a `<br>` per line break. */
 function valueElement(document: Document, expr: string, value: string): HTMLElement {
   const element = document.createElement('span');
@@ -142,13 +188,17 @@ function valueElement(document: Document, expr: string, value: string): HTMLElem
 
 /** Every token of running text that has something to show in its place:
     hidden, and — with a value — the value drawn before it. */
-function decorate(doc: Node, values: ReadonlyMap<string, Shown>): DecorationSet {
+function decorate(
+  doc: Node,
+  values: ReadonlyMap<string, Shown>,
+  state: Pick<PreviewState, 'on' | 'only'>,
+): DecorationSet {
   if (!values.size) return DecorationSet.empty;
   const mergeTag = doc.type.schema.marks['mergeTag'];
   const decorations: Decoration[] = [];
   for (const tag of mergeTagRanges(doc)) {
     const expr = tag.expr.trim();
-    const value = values.get(expr);
+    const value = shows(state, expr) ? values.get(expr) : undefined;
     if (typeof value !== 'string') continue;
     if (value) {
       // In the token's own formatting — never its pill.
@@ -182,9 +232,12 @@ const expressionsOf = (doc: Node): string[] => [
   ...new Set(mergeTagRanges(doc).map((tag) => tag.expr.trim())),
 ];
 
-/** Whether a token of the text has no answer yet. */
-const unanswered = (doc: Node, values: ReadonlyMap<string, Shown>): boolean =>
-  expressionsOf(doc).some((expr) => !values.has(expr));
+/** Whether a token of the text that is shown has no answer yet. */
+const unanswered = (
+  doc: Node,
+  values: ReadonlyMap<string, Shown>,
+  state: Pick<PreviewState, 'on' | 'only'>,
+): boolean => expressionsOf(doc).some((expr) => shows(state, expr) && !values.has(expr));
 
 /**
  * The placeholder preview: `resolve` asks the host, the values are drawn
@@ -224,9 +277,9 @@ export const createMergeTagPreview = (options: MergeTagPreviewOptions): Function
         run = state.run;
         asking.clear();
       }
-      if (state.on) {
+      if (state.on || state.only.size) {
         const unknown = expressionsOf(view.state.doc).filter(
-          (expr) => !state.values.has(expr) && !asking.has(expr),
+          (expr) => shows(state, expr) && !state.values.has(expr) && !asking.has(expr),
         );
         if (unknown.length) {
           for (const expr of unknown) asking.add(expr);
@@ -282,6 +335,7 @@ export const createMergeTagPreview = (options: MergeTagPreviewOptions): Function
             on: false,
             run: 0,
             values: new Map(),
+            only: new Map(),
             pending: false,
             decorations: DecorationSet.empty,
           }),
@@ -293,27 +347,43 @@ export const createMergeTagPreview = (options: MergeTagPreviewOptions): Function
                 on: meta.on,
                 run: state.run + 1,
                 values: new Map(),
+                only: new Map(),
                 // Every token is asked for as the view takes this state in.
                 pending: meta.on && expressionsOf(tr.doc).length > 0,
                 decorations: DecorationSet.empty,
               };
             }
+            if (meta && 'expr' in meta) {
+              const only = new Map(state.only);
+              // Its own say only where it differs from the whole's.
+              if (meta.shown === state.on) only.delete(meta.expr);
+              else only.set(meta.expr, meta.shown);
+              // Shown: asked for afresh, as the view takes this state in.
+              const values = new Map(state.values);
+              if (meta.shown) values.delete(meta.expr);
+              const next = { ...state, only, values };
+              return {
+                ...next,
+                pending: unanswered(tr.doc, values, next),
+                decorations: decorate(tr.doc, values, next),
+              };
+            }
             if (meta && 'values' in meta) {
-              if (!state.on || meta.run !== state.run) return state;
+              if ((!state.on && !state.only.size) || meta.run !== state.run) return state;
               const values = new Map([...state.values, ...meta.values]);
               return {
                 ...state,
                 values,
-                pending: unanswered(tr.doc, values),
-                decorations: decorate(tr.doc, values),
+                pending: unanswered(tr.doc, values, state),
+                decorations: decorate(tr.doc, values, state),
               };
             }
-            if (!state.on || !tr.docChanged) return state;
+            if ((!state.on && !state.only.size) || !tr.docChanged) return state;
             // The tokens are read off the text: what was written decides.
             return {
               ...state,
-              pending: unanswered(tr.doc, state.values),
-              decorations: decorate(tr.doc, state.values),
+              pending: unanswered(tr.doc, state.values, state),
+              decorations: decorate(tr.doc, state.values, state),
             };
           },
         },
@@ -323,7 +393,7 @@ export const createMergeTagPreview = (options: MergeTagPreviewOptions): Function
         view: follow,
       }),
     ],
-    commands: () => ({ previewMergeTags }),
+    commands: () => ({ previewMergeTags, previewMergeTag }),
     actions: () => [
       {
         id: 'preview-placeholders',

@@ -494,6 +494,8 @@ export default {
       remove: 'Zitierten Text entfernen',
     },
     filled: {
+      parse: 'Text parsen',
+      unparse: 'Platzhalter anzeigen',
       restore: 'Platzhalter wiederherstellen',
       edit: 'Wert bearbeiten',
       reset: 'Eingesetzten Wert zurückholen',

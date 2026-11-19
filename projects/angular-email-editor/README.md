@@ -110,6 +110,7 @@ Every UI piece is its own secondary entry point, so you only bundle what you imp
 | `…/toggle-button-group` | `<hk-tgb>` with `hkTgbIcon` (round) and `hkTgbText` (pill) items on any element, a sliding thumb, a `FormValueControl` |
 | `…/split-button` | `<hk-split-button>` with `hkSplitButtonLeading` / `hkSplitButtonTrailing` on the host's own buttons: an icon button that grows into a Material 3 split button (`split`) |
 | `…/suggestion-menu` | The `/` and `{{` menus' floating box, with roles and ids |
+| `…/merge-tag-card` | A placeholder's card: the token, its type, and what can be done to it — parse, write, edit, restore, remove |
 | `…/palette` | The colour palette (readable on light and dark) |
 | `…/proposal` | A streamed proposal's state for your panel (accept / discard) |
 | `…/chat-input` | A chat-style prompt input on the same engine |

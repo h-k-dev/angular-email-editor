@@ -495,6 +495,8 @@ export default {
       remove: 'Remove quoted text',
     },
     filled: {
+      parse: 'Parse text',
+      unparse: 'Show placeholder',
       restore: 'Restore placeholder',
       edit: 'Edit value',
       reset: 'Reset to the filled-in value',

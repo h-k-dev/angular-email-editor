@@ -29,7 +29,6 @@ import { MatIconModule } from '@angular/material/icon';
 
 // CDK
 import { Portal, PortalModule } from '@angular/cdk/portal';
-import { Menu, MenuItem } from '@angular/aria/menu';
 
 import { AngularFileDrop, FileDropEvent, claimDragEvent } from '@h-k-dev/angular-file-drop';
 import type { FormValueControl, ValidationError } from '@angular/forms/signals';
@@ -80,6 +79,8 @@ import {
   createColumnHandles,
   createSectionHandles,
   createBubbleMenu,
+  createMergeTagHover,
+  mergeTagHoverOf,
   createDarkRendering,
   createDocumentStyles,
   dawnDarkColor,
@@ -122,6 +123,7 @@ import {
   SuggestionMenuItem,
   SuggestionMenuSection,
 } from '@h-k-dev/angular-email-editor/suggestion-menu';
+import { MergeTagCard } from '@h-k-dev/angular-email-editor/merge-tag-card';
 import {
   EMAIL_CUSTOM_SWATCHES,
   colorSuggestions,
@@ -193,8 +195,7 @@ export type ComposeKit = BodyFormat | 'snippet';
     SuggestionMenuItem,
     SuggestionMenuSection,
     // The filled-value card's rows: arrows walk them.
-    Menu,
-    MenuItem,
+    MergeTagCard,
   ],
   // The formatting commands this composer's toolbar, bubble menu and ⋯ menu
   // share — one per composer, bound to its editor and code view — and the
@@ -413,6 +414,14 @@ export class EmailCompose implements FormValueControl<string> {
       switch (a `computed`, never a pipe per kind): a language switch is a
       new value, shown at once. None by default. */
   placeholder = input<PlaceholderText>('');
+
+  /** What a placeholder stands for, in a word — "Company", "Custom field" —
+      for its card: said beside the token, before a parse and after. The
+      demo's catalogue by default; a host with types of its own (a field's
+      kind) hands its own. Null or undefined says nothing. */
+  readonly tokenType = input<((expression: string) => string | null | undefined) | undefined>(
+    (expression) => this.#mergeTags.typeOf(expression),
+  );
 
   /** Which layout blocks take their gestures — a section's menu, the
       columns' drags and pills, a table's grips, drags, pills and menus —
@@ -752,6 +761,10 @@ export class EmailCompose implements FormValueControl<string> {
         // Its colour pane is its own: typing a hex there keeps it open.
         holdsFocus: '[color-picker]',
       }),
+      // The placeholders' card: ⌘ (Ctrl off a Mac) held over a token, a
+      // previewed value or a filled-in value — in a message and on a design
+      // desk alike, each with the ways this kit has for it.
+      createMergeTagHover({ onHover: this.#filledValueCard.onHover }),
       // Notion's marquee: a drag from the paper's margin, or the room
       // between and below the blocks, selects the blocks it touches. It
       // starts only there, but on a paper island (a compose window) the
@@ -826,7 +839,6 @@ export class EmailCompose implements FormValueControl<string> {
               resolve: (expressions) => this.#mergeTags.resolve(expressions),
               onResolved: (report) => this.placeholdersFilled.emit(report),
               onError: (error) => this.placeholdersFailed.emit(error),
-              onFilledHover: this.#filledValueCard.onHover,
             }),
           ]),
     ];
@@ -1047,15 +1059,19 @@ export class EmailCompose implements FormValueControl<string> {
       beside it — write a value, or remove it. */
   protected placeholderRevealed({ expr, element }: MergeTagRevealed): void {
     const editor = this.editor();
-    if (!editor) return;
+    const token = editor && mergeTagHoverOf(editor.view, element);
+    if (!editor || !token) return;
     const run = (command: Command) => {
       const done = editor.exec(command);
       editor.view.focus();
       return done;
     };
+    // What Send asked about is the expression, wherever it stands: a value
+    // written here, or its removal, is every such token's. No Parse: it
+    // was just asked, and had no value.
+    const { parse: _parse, ...ways } = token;
     this.#filledValueCard.showUnfilled({
-      element,
-      expr,
+      ...ways,
       write: (text) => run(writeMergeTag(expr, text)),
       remove: () => run(removeMergeTag(expr)),
     });

@@ -87,6 +87,7 @@ export * from './extensions/placeholder';
 export * from './extensions/clear-content';
 export * from './extensions/merge-tag-resolution';
 export * from './extensions/merge-tag-preview';
+export * from './extensions/merge-tag-hover';
 export * from './extensions/inline-images';
 export * from './extensions/no-text-drag';
 export * from './extensions/split-keeping-marks';

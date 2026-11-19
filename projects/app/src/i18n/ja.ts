@@ -491,6 +491,8 @@ export default {
       remove: '引用テキストを削除',
     },
     filled: {
+      parse: 'テキストを解析',
+      unparse: 'プレースホルダーを表示',
       restore: 'プレースホルダーに戻す',
       edit: '値を編集',
       reset: '差し込んだ値に戻す',

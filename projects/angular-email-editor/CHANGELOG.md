@@ -5,6 +5,31 @@ version may change behaviour, and says so here.
 
 ## Unreleased
 
+### Added
+
+- **One card for every placeholder: `…/merge-tag-card` and `createMergeTagHover`.** A
+  message's composer and a template's design desk show the same card on ⌘ (Ctrl off a Mac)
+  held over a placeholder — before a parse and after it.
+  - `createMergeTagHover({ onHover })` reports every placeholder of the text under the
+    pointer while the peek is on — a token, a previewed value, a filled value
+    (`MergeTagHover.state`) — each with the ways this kit has for it: `parse`, `write`,
+    `remove`, `unparse`, `edit`, `reset`, `restore`. A way that does not apply is not there
+    (a template has no `write`), so a card offers the rows it finds. It takes the place of
+    the fill's `onFilledHover`, which knows filled values only and stays as it was.
+    `mergeTagHoverOf(view, element)` reads the same off an element, for a card opened some
+    other way.
+  - `[email-merge-tag-card]` (the new `merge-tag-card` entry) is that card's content: the
+    token, its **type** where the host says it (`type` — said before a parse and after),
+    the rows, and the value field with Apply as an icon button at its end. No Material, no
+    icon font; every word an input. Where it floats is the host's.
+  - **Parse one placeholder.** `resolveMergeTagAt(pos)` fills in the one token there, the
+    host asked for its expression alone; `previewMergeTag(expr, shown?)` draws one
+    expression as its value while the rest stays as written (or takes one back out of a
+    whole preview), with `mergeTagPreviewShows(state, expr)`. `writeMergeTagAt` and
+    `removeMergeTagAt` are `writeMergeTag` / `removeMergeTag` for the one token at a
+    position. `hasMergeTagResolution(state)` / `hasMergeTagPreview(state)` say what a kit
+    holds.
+
 ### Changed — behaviour
 
 - **The peek is ⌘ on a Mac.** `LayoutGuides` shows every layout block's guides — and with

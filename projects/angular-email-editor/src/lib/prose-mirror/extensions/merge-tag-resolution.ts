@@ -12,7 +12,7 @@ import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import { FunctionalExtension, defineExtension, defineMark } from '../extension';
 import { AUTHORED_ATTR } from '../authored';
 import { GUIDES_PEEK_EVENT, isPeeking } from './layout-guides';
-import { mergeTagRanges, scanMergeTags } from './nodes/merge-tag';
+import { mergeTagAt, mergeTagRanges, scanMergeTags } from './nodes/merge-tag';
 
 /**
  * Fills the document's placeholders in with their values — the step a CRM
@@ -733,6 +733,79 @@ export const removeMergeTags =
 export const removeMergeTag = (expr: string): Command => removeMergeTags([expr]);
 
 // ---------------------------------------------------------------------------
+// One token, by where it stands
+
+/** The token of running text at `pos` (default: the caret's) — inside it or
+    at either edge — with its expression trimmed, as the host is asked. */
+const tokenAt = (state: EditorState, pos?: number) => {
+  const tag = mergeTagAt(state.doc, pos ?? state.selection.from);
+  return tag ? { from: tag.from, to: tag.to, expr: tag.expr.trim() } : null;
+};
+
+/**
+ * Writes `value` by hand in place of the one token at `pos` (default: the
+ * caret's) — {@link writeMergeTag} for this occurrence alone: the same
+ * expression elsewhere stays a token. One step, undone with Mod-Z. An empty
+ * `value` is refused ({@link removeMergeTagAt} is the say for that). False
+ * when no token stands there.
+ */
+export const writeMergeTagAt =
+  (value: string, pos?: number): Command =>
+  (state, dispatch) => {
+    const token = tokenAt(state, pos);
+    const next = value.replace(/\r\n?/g, '\n');
+    if (!token || !next) return false;
+    if (dispatch) {
+      const tr = state.tr;
+      fill(tr, token.from, token.to, new Map([[token.expr, next]]), true);
+      if (!state.selection.empty) {
+        tr.setSelection(TextSelection.near(tr.doc.resolve(tr.mapping.map(token.to))));
+      }
+      dispatch(tr.scrollIntoView());
+    }
+    return true;
+  };
+
+/**
+ * Removes the one token at `pos` (default: the caret's) and closes the text
+ * up behind it — {@link removeMergeTag} for this occurrence alone. One
+ * step, undone with Mod-Z. False when no token stands there.
+ */
+export const removeMergeTagAt =
+  (pos?: number): Command =>
+  (state, dispatch) => {
+    const token = tokenAt(state, pos);
+    if (!token) return false;
+    if (dispatch) {
+      const tr = state.tr;
+      fill(tr, token.from, token.to, new Map([[token.expr, '']]), true);
+      dispatch(tr);
+    }
+    return true;
+  };
+
+/**
+ * Fills in the one token at `pos` (default: the caret's): the host is asked
+ * for its expression alone, and the value takes this token's place — the
+ * fill ({@link createMergeTagResolution}) for one placeholder, every other
+ * left as written. False without the extension, while a request is out, or
+ * when no token stands there.
+ */
+export const resolveMergeTagAt =
+  (pos?: number): Command =>
+  (state, dispatch, view) => {
+    const token = tokenAt(state, pos);
+    const resolveIn = resolutionKey.get(state)?.spec['resolveIn'] as ResolveIn | undefined;
+    if (!token || !resolveIn) return false;
+    return resolveIn({ from: token.from, to: token.to, selection: true })(state, dispatch, view);
+  };
+
+/** Whether the kit fills its tokens in ({@link createMergeTagResolution}). */
+export function hasMergeTagResolution(state: EditorState): boolean {
+  return !!resolutionKey.get(state);
+}
+
+// ---------------------------------------------------------------------------
 // The request
 
 interface Pending {
@@ -747,6 +820,10 @@ interface ResolutionState {
 }
 
 type ResolutionMeta = { start: Pending } | { settle: number };
+
+/** The fill for a stretch of the document — the extension's, kept on its
+    plugin for {@link resolveMergeTagAt}. */
+type ResolveIn = (scope: { from: number; to: number; selection: boolean }) => Command;
 
 const resolutionKey = new PluginKey<ResolutionState>('mergeTagResolution');
 
@@ -855,9 +932,9 @@ export const createMergeTagResolution = (options: MergeTagResolutionOptions): Fu
     return true;
   };
 
-  const resolveMergeTags: Command = (state, dispatch, view) => {
+  const resolveIn: ResolveIn = (given) => (state, dispatch, view) => {
     if (mergeTagResolutionPending(state)) return false;
-    const scope = scopeOf(state);
+    const scope = given;
     const found = occurrences(state.doc, scope.from, scope.to);
     if (!found.length) return false;
     if (!dispatch || !view) return true;
@@ -901,11 +978,15 @@ export const createMergeTagResolution = (options: MergeTagResolutionOptions): Fu
     return true;
   };
 
+  const resolveMergeTags: Command = (state, dispatch, view) =>
+    resolveIn(scopeOf(state))(state, dispatch, view);
+
   return defineExtension({
     name: 'mergeTagResolution',
     plugins: () => [
       new Plugin<ResolutionState>({
         key: resolutionKey,
+        resolveIn,
         state: {
           init: () => ({ pending: null }),
           apply: (tr, value) => {
@@ -930,6 +1011,9 @@ export const createMergeTagResolution = (options: MergeTagResolutionOptions): Fu
     keymap: () => ({ 'Mod-Shift-Enter': resolveMergeTags }),
     commands: () => ({
       resolveMergeTags: (): Command => resolveMergeTags,
+      resolveMergeTagAt,
+      writeMergeTagAt,
+      removeMergeTagAt,
       restoreMergeTag,
       editFilledValue,
       resetFilledValue,

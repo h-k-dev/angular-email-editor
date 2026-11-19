@@ -222,74 +222,32 @@
   </div>
 </ng-template>
 
-<!-- The card beside a placeholder (filled-value-card.ts), two ways in. ⌘ (Ctrl off a Mac)
-     held over a filled-in value (the layout guides' peek paints every value
-     the pill's colour): the token it was, the value written by hand (still
-     the token's), and the ways back. A token with no value, where Send put
-     the caret: write a value, or remove it — an empty value is only ever
-     explicit. Each is one undo step. -->
+<!-- The card beside a placeholder (filled-value-card.ts) — the library's
+     `email-merge-tag-card`, in the words of the moment. ⌘ (Ctrl off a Mac)
+     held over a placeholder (the layout guides' peek): a token before a
+     parse (parse this one, write a value, remove it), a value after one
+     (edit, reset, restore). A token with no value, where Send put the
+     caret: write a value, or remove it — an empty value is only ever
+     explicit. What it stands for (`tokenType`) is said beside the token,
+     before a parse and after. -->
 <ng-template #filledValueCard let-card>
-  @if (card.token()) {
-    <div class="email-compose__filled">
-      <span class="email-compose__filled-token">{{ card.token() }}</span>
-      @if (card.unfilled()) {
-        <span class="email-compose__filled-note">{{ 'editor.filled.noValue' | translate }}</span>
-      }
-      @if (card.editing()) {
-        <textarea
-          class="email-compose__filled-field"
-          rows="2"
-          [attr.aria-label]="'editor.filled.value' | translate"
-          [value]="card.draft()"
-          (input)="card.input($event)"
-          (keydown)="card.keydown($event)"
-        ></textarea>
-        <button
-          type="button"
-          class="email-compose__filled-row"
-          [disabled]="!card.draft()"
-          (click)="card.apply()"
-        >
-          <mat-icon class="email-compose__filled-icon" aria-hidden="true">check</mat-icon>
-          <span>{{ 'editor.filled.apply' | translate }}</span>
-        </button>
-      } @else {
-        <!-- The rows: Angular Aria's menu — the arrows walk them, Enter picks;
-             the card opens on the first. -->
-        <div
-          ngMenu
-          class="email-compose__filled-menu"
-          [attr.aria-label]="card.token()"
-          (itemSelected)="card.choose($event)"
-        >
-          @if (card.unfilled()) {
-            <div ngMenuItem class="email-compose__filled-row" value="edit">
-              <mat-icon class="email-compose__filled-icon" aria-hidden="true">edit</mat-icon>
-              <span>{{ 'editor.filled.write' | translate }}</span>
-            </div>
-            <div ngMenuItem class="email-compose__filled-row" value="remove">
-              <mat-icon class="email-compose__filled-icon" aria-hidden="true">delete</mat-icon>
-              <span>{{ 'editor.filled.remove' | translate }}</span>
-            </div>
-          } @else if (card.hover(); as hover) {
-            <div ngMenuItem class="email-compose__filled-row" value="edit">
-              <mat-icon class="email-compose__filled-icon" aria-hidden="true">edit</mat-icon>
-              <span>{{ 'editor.filled.edit' | translate }}</span>
-            </div>
-            <!-- Reset only to a value that was filled in: one written by hand has none. -->
-            @if (hover.edited && hover.value) {
-              <div ngMenuItem class="email-compose__filled-row" value="reset" [title]="hover.value">
-                <mat-icon class="email-compose__filled-icon" aria-hidden="true">history</mat-icon>
-                <span>{{ 'editor.filled.reset' | translate }}</span>
-              </div>
-            }
-            <div ngMenuItem class="email-compose__filled-row" value="restore">
-              <mat-icon class="email-compose__filled-icon" aria-hidden="true">undo</mat-icon>
-              <span>{{ 'editor.filled.restore' | translate }}</span>
-            </div>
-          }
-        </div>
-      }
-    </div>
+  @if (card.hover(); as tag) {
+    <div
+      email-merge-tag-card
+      class="email-compose__filled"
+      [tag]="tag"
+      [type]="tokenType()?.(tag.expr)"
+      [note]="card.unfilled() ? ('editor.filled.noValue' | translate) : null"
+      [parseLabel]="'editor.filled.parse' | translate"
+      [writeLabel]="'editor.filled.write' | translate"
+      [removeLabel]="'editor.filled.remove' | translate"
+      [unparseLabel]="'editor.filled.unparse' | translate"
+      [editLabel]="'editor.filled.edit' | translate"
+      [resetLabel]="'editor.filled.reset' | translate"
+      [restoreLabel]="'editor.filled.restore' | translate"
+      [valueLabel]="'editor.filled.value' | translate"
+      [applyLabel]="'editor.filled.apply' | translate"
+      (done)="card.done()"
+    ></div>
   }
 </ng-template>
