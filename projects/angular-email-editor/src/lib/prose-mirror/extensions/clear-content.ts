@@ -7,20 +7,26 @@ import { LAYOUT_EDIT_META } from '../layout-marker';
 const emptyContent = (state: EditorState): Fragment =>
   state.schema.topNodeType.createAndFill()?.content ?? Fragment.empty;
 
-/** Whether there is anything written to clear. */
-const hasContent = (state: EditorState): boolean => !state.doc.content.eq(emptyContent(state));
+/** The page the document stands in (`pageLayout`), where its schema has one. */
+const pageOf = (state: EditorState): unknown => state.doc.attrs['pageLayout'] ?? null;
+
+/** Whether there is anything to clear: something written, or a page round it. */
+const hasContent = (state: EditorState): boolean =>
+  !state.doc.content.eq(emptyContent(state)) || pageOf(state) !== null;
 
 /**
- * Clears what is written — the body, all of it — and nothing else: the
- * document's attributes stay, so the quoted history a reply answers is still
- * under the (now empty) body, and a page's layout is the page's still. One
- * step: Mod-Z brings the text back. False on a document that is empty
- * already.
+ * Clears the content — a new, blank one in its place: the body, all of it,
+ * and the page it stood in (`pageLayout`) with it, rows, column and colours.
+ * What is round the content stays: the envelope (doctype, head, the
+ * `<html>` and `<body>` attributes) and the quoted history a reply answers,
+ * still under the (now empty) body. One step: Mod-Z brings text and page
+ * back. False on a document that is blank already.
  */
 export const clearContent: Command = (state, dispatch) => {
   if (!hasContent(state)) return false;
   if (dispatch) {
     const tr = state.tr.replaceWith(0, state.doc.content.size, emptyContent(state));
+    if (pageOf(state) !== null) tr.setDocAttribute('pageLayout', null);
     dispatch(
       tr
         .setMeta(LAYOUT_EDIT_META, true)
@@ -32,7 +38,7 @@ export const clearContent: Command = (state, dispatch) => {
   return true;
 };
 
-/** `/clear`: the written content gone, in one step — see {@link clearContent}. */
+/** `/clear`: the content gone, its page with it, in one step — see {@link clearContent}. */
 export const ClearContent = defineExtension({
   name: 'clearContent',
   commands: () => ({ clearContent: () => clearContent }),
@@ -44,7 +50,7 @@ export const ClearContent = defineExtension({
       keywords: ['clear', 'empty', 'erase', 'delete', 'reset', 'start over'],
       icon: 'delete_sweep',
       command: clearContent,
-      // Said out loud: an empty message's `/` menu offers no row that would
+      // Said out loud: a blank message's `/` menu offers no row that would
       // do nothing.
       isEnabled: hasContent,
     },

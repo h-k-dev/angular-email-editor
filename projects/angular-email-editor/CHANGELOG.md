@@ -11,6 +11,13 @@ version may change behaviour, and says so here.
   `DAWN_LIGHT_INK` from it since 0.7.7: with an older Dawn installed the import fails and
   the app does not load. A consumer that pins Dawn itself raises its own range too.
 
+### Changed
+
+- **`/clear` opens a blank content.** `clearContent` used to leave the page the body stood
+  in; it now takes the page layout (`pageLayout`) with the body — rows, column and colours
+  — in the same undo step, and is offered on a page with nothing written in it. The
+  envelope and the quoted history a reply answers stay, as before.
+
 ## 0.7.7 — 2026-11-19
 
 ### Fixed

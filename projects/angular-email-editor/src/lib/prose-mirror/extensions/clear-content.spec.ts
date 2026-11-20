@@ -3,6 +3,8 @@ import { Selection } from 'prosemirror-state';
 import { createEditor, Editor } from '../editor';
 import { extensionSuggestions } from '../extension';
 import { emailExtensions } from './kits';
+import { centeredPageLayout, tablePageLayout } from '../page-layout';
+import { isRowsPage, pageLayoutOf, setPageLayout } from './page-layout';
 import { quotedHistory } from './quoted-history';
 import { SuggestionMenuState, createSuggestionMenu } from './suggestion-menu';
 
@@ -52,6 +54,44 @@ describe('clear content', () => {
     editor.commands['clearContent']();
     expect(editor.getText()).toBe('');
     expect(quotedHistory(editor.state)).toBe(quoted);
+  });
+
+  it('takes the page with it — rows, column and colours — and Mod-Z brings both back', () => {
+    mount('<div>Dear Ada,</div>');
+    editor.exec(setPageLayout(tablePageLayout({ background: '#f4f4f4' })));
+    const written = editor.getHTML();
+    expect(isRowsPage(editor.state)).toBe(true);
+
+    expect(editor.commands['clearContent']()).toBe(true);
+    expect(pageLayoutOf(editor.state)).toBeNull();
+    expect(editor.state.doc.eq(editor.state.schema.topNodeType.createAndFill()!)).toBe(true);
+
+    expect(editor.exec(undo)).toBe(true);
+    expect(editor.getHTML()).toBe(written);
+  });
+
+  it('clears a page with nothing written in it', () => {
+    mount('');
+    editor.exec(setPageLayout(centeredPageLayout()));
+    expect(action().isEnabled?.(editor.state)).toBe(true);
+
+    expect(editor.commands['clearContent']()).toBe(true);
+    expect(pageLayoutOf(editor.state)).toBeNull();
+    expect(action().isEnabled?.(editor.state)).toBe(false);
+  });
+
+  it('leaves the envelope as it was', () => {
+    mount(
+      '<!doctype html><html lang="en"><head><title>Hello</title></head>' +
+        '<body class="mail"><div>Dear Ada,</div></body></html>',
+    );
+    editor.exec(setPageLayout(centeredPageLayout()));
+    const envelope = editor.state.doc.attrs['envelope'];
+    expect(envelope).not.toBeNull();
+
+    editor.commands['clearContent']();
+    expect(editor.state.doc.attrs['envelope']).toEqual(envelope);
+    expect(pageLayoutOf(editor.state)).toBeNull();
   });
 
   it('has nothing to do on an empty message, and says so', () => {
