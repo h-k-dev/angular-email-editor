@@ -657,6 +657,22 @@ describe('ComposeWindows', () => {
     }
   });
 
+  describe('what leaving would lose', () => {
+    it('closeAll closes every window, the stacked ones too', async () => {
+      const first = await windows.open();
+      await windows.open();
+      windows.minimize(first);
+      await settle();
+      expect(stack.entries()).toHaveLength(1);
+
+      windows.closeAll();
+      await settle();
+      expect(windows.windows()).toEqual([]);
+      expect(stack.entries()).toEqual([]);
+      expect(frames()).toEqual([]);
+    });
+  });
+
   it('Discard closes the window', async () => {
     await windows.open();
     await settle();

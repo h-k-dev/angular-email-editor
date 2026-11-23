@@ -5,7 +5,9 @@
 // the root of its stylesheet, and places itself by what it gives back:
 //
 // - `--dock-stack-x`: the stack's place, px from the right side of the
-//   screen — the right side of the bar on the edge.
+//   screen — the right side of the bar on the edge. Unset, the stack is at
+//   rest (nothing open on the edge, `DockEdge.place` null): in the corner,
+//   or wherever the app seats it (`--dock-stack-rest`).
 // - `--dock-stack-bar-width`: how wide the bar on the edge is, on
 //   `[data-stack-top]`: `$bar-width` wherever the screen has room for it
 //   and the counter beside it.
@@ -29,7 +31,7 @@
   :host([data-stack-top]) {
     --dock-stack-bar-width: min(
       #{$bar-width},
-      calc(100vw - var(--dock-stack-x, 16px) - 16px - var(--dock-stack-counter, 0px))
+      calc(100vw - var(--dock-stack-x, var(--dock-stack-rest, 16px)) - 16px - var(--dock-stack-counter, 0px))
     );
     visibility: visible;
   }

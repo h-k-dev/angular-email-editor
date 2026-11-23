@@ -12,6 +12,7 @@ import { provideEveryScroll } from './core/layout/scrolling';
 import { PageScroller } from './core/router/page-scroller';
 import { Preferences } from './core/storages/preferences';
 import { provideCustomSwatches } from '@h-k-dev/angular-email-editor/swatches';
+import { provideUnsavedWindowsWarning } from './core/email/unsaved-windows';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -43,6 +44,9 @@ export const appConfig: ApplicationConfig = {
     // window's alone: a menu closes as what it stands over scrolls, a
     // popover keeps to its trigger.
     provideEveryScroll(),
+    // A reload or a closing tab asks first while a window is on the edge
+    // (core/email/unsaved-windows.ts).
+    provideUnsavedWindowsWarning(),
     // Every tooltip waits a moment before it shows: a pointer passing over a
     // row of buttons on its way elsewhere raises none. Hiding stays
     // Material's.

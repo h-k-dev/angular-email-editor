@@ -8,7 +8,7 @@
 :host {
   position: fixed;
   inset-block-end: clamp(0px, (100vw - #{bp.$full-width-max}) * 100, 16px);
-  inset-inline-end: var(--dock-stack-x, 16px);
+  inset-inline-end: var(--dock-stack-x, var(--dock-stack-rest, 16px));
   z-index: 2;
   pointer-events: auto;
   display: inline-flex;
@@ -41,8 +41,8 @@
 // counter stands 8px left of it — the bar's width worked out as the bar
 // does (styles/_dock-stack.scss), from the place and the counter's 48px.
 :host(.dock-stack-counter--beside) {
-  --_bar-width: min(280px, calc(100vw - var(--dock-stack-x, 16px) - 16px - 48px));
-  inset-inline-end: calc(var(--dock-stack-x, 16px) + var(--_bar-width) + 8px);
+  --_bar-width: min(280px, calc(100vw - var(--dock-stack-x, var(--dock-stack-rest, 16px)) - 16px - 48px));
+  inset-inline-end: calc(var(--dock-stack-x, var(--dock-stack-rest, 16px)) + var(--_bar-width) + 8px);
 }
 
 // A kind out of sight: its mark in a small bubble over the pill's top, one

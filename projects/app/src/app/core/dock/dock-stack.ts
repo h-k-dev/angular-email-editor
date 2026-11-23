@@ -2,6 +2,7 @@ import {
   ApplicationRef,
   DOCUMENT,
   EnvironmentInjector,
+  InjectionToken,
   PendingTasks,
   Service,
   Signal,
@@ -29,6 +30,14 @@ export const STACK_COUNTER_GAP = 8;
     leaves it, ms — long enough to cross the gap between two of its bars. */
 export const STACK_CLOSE_DELAY = 250;
 
+/** The element the stack's layer is appended to, for an app whose windows
+    live somewhere other than the body (an overlay container): the body
+    unless it says so. Where the layer stands among its new siblings is the
+    stylesheet's (`--dock-stack-layer-z`, `--dock-stack-layer-open-z`). */
+export const DOCK_STACK_HOST = new InjectionToken<HTMLElement>('DOCK_STACK_HOST', {
+  factory: () => inject(DOCUMENT).body,
+});
+
 /** One thing minimized onto the stack — a compose window, a note, whatever
     minimizes onto the edge. The stack keeps its name, its sort and the two
     things its menu can do with it: what it is, is its owner's. */
@@ -52,9 +61,10 @@ export interface DockStackEntry {
 /** The edge the stack stands on, as whoever lays it out sees it. */
 export interface DockEdge {
   /** Where the stack goes, as px from the right side of the screen: left
-      of the leftmost thing open on the edge, or the corner with nothing
-      open. */
-  readonly place: Signal<number>;
+      of the leftmost thing open on the edge — or `null` for its place at
+      rest, which is the stylesheet's (`--dock-stack-rest`: the corner,
+      unless the app seats it elsewhere). */
+  readonly place: Signal<number | null>;
   /** Whether anything is open on the edge. */
   readonly occupied: Signal<boolean>;
 }
@@ -86,7 +96,7 @@ export interface DockEdge {
  */
 @Service()
 export class DockStack {
-  readonly #document = inject(DOCUMENT);
+  readonly #host = inject(DOCK_STACK_HOST);
   readonly #app = inject(ApplicationRef);
   readonly #injector = inject(EnvironmentInjector);
   readonly #tasks = inject(PendingTasks);
@@ -98,8 +108,9 @@ export class DockStack {
 
   readonly #edge = signal<DockEdge | null>(null);
   /** Where the stack sits, as px from the right side of the screen: where
-      the edge's owner says ({@link attach}) — the corner until one does. */
-  readonly place = computed(() => this.#edge()?.place() ?? DOCK_GAP);
+      the edge's owner says ({@link attach}) — `null`, its place at rest
+      (the stylesheet's), until one does and wherever the owner leaves it. */
+  readonly place = computed(() => this.#edge()?.place() ?? null);
 
   /** How many of its bars the edge shows while the stack is folded: the
       top one when nothing is open there; none beside something open, where
@@ -149,6 +160,13 @@ export class DockStack {
       whether anything is open there. */
   attach(edge: DockEdge): void {
     this.#edge.set(edge);
+  }
+
+  /** The edge's owner is gone — one that lives no longer than a page: the
+      stack goes back to its place at rest, unless another owner has taken
+      the edge since. */
+  detach(edge: DockEdge): void {
+    if (this.#edge() === edge) this.#edge.set(null);
   }
 
   /** Onto the stack, on top. The stack folds: a pointer is on the thing
@@ -222,7 +240,7 @@ export class DockStack {
       if (this.#app.destroyed) return;
       const ref = createComponent(DockStackLayer, { environmentInjector: this.#injector });
       this.#app.attachView(ref.hostView);
-      this.#document.body.appendChild(ref.location.nativeElement);
+      this.#host.appendChild(ref.location.nativeElement);
     });
   }
 }

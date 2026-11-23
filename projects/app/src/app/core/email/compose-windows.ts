@@ -465,6 +465,12 @@ export class ComposeWindows {
     if (this.#front() === id) this.#front.set(this.#windows().at(-1)?.id ?? null);
   }
 
+  /** Closes every window, those on the stack with them — what is in them
+      goes. For a host whose windows belong to what is being left. */
+  closeAll(): void {
+    for (const window of this.#windows()) this.close(window.id);
+  }
+
   /** Onto the stack, on top: the window gives its place on the edge up,
       and the newer ones move in over it. The stack folds — a pointer is on the window minimizing, not on it. */
   minimize(id: number): void {

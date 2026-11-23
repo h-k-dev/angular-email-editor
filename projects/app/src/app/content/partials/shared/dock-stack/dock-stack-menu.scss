@@ -13,7 +13,7 @@
   inset-block-end: calc(var(--_gap) + 40px);
   inset-inline-end: clamp(
     8px,
-    calc(var(--dock-stack-x, 16px) - 8px),
+    calc(var(--dock-stack-x, var(--dock-stack-rest, 16px)) - 8px),
     max(8px, calc(100vw - 296px - 8px))
   );
   display: flex;
@@ -142,9 +142,9 @@
 
   @include mat.icon-button-overrides(
     (
-      icon-size: 20px,
-      state-layer-size: 32px,
-      touch-target-size: 32px,
+      icon-size: 16px,
+      state-layer-size: 28px,
+      touch-target-size: 28px,
     )
   );
 }

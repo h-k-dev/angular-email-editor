@@ -125,4 +125,17 @@ describe('DockStack', () => {
     // Its one entry is the bar on the edge already.
     expect(stack.open()).toBe(false);
   });
+
+  it("goes back to its place at rest when the edge's owner lets go — and only that owner", () => {
+    const edge = { place, occupied };
+    stack.attach(edge);
+    expect(stack.place()).toBe(16);
+
+    // Another owner's edge leaving changes nothing.
+    stack.detach({ place: signal(900), occupied: signal(true) });
+    expect(stack.place()).toBe(16);
+
+    stack.detach(edge);
+    expect(stack.place()).toBeNull();
+  });
 });
