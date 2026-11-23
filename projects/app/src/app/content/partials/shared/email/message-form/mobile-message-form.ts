@@ -29,7 +29,6 @@ import { HeightSwitch } from '../../../../../core/directives/height-switch/heigh
 import { HoverLinger } from '../../../../../core/directives/hover-linger/hover-linger';
 import { ScrollOwner } from '../../../../../core/directives/scroll-owner/scroll-owner';
 import { OverflowRow } from '../../../common/overflow-row/overflow-row';
-import { ActionTrigger } from '@h-k-dev/angular-email-editor/actions';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { EmailCompose } from '../email-compose/email-compose';
@@ -83,7 +82,6 @@ import { MessageSheet } from './message-sheet';
     MatIconButton,
     MatTooltip,
     AngularFileDrop,
-    ActionTrigger,
   ],
   providers: [{ provide: MessageSheet, useExisting: MobileMessageForm }],
   templateUrl: './mobile-message-form.html',

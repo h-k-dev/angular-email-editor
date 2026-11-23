@@ -99,6 +99,7 @@ import {
   removeMergeTag,
   writeMergeTag,
   MergeTagResolutionReport,
+  MergeTagResolutionRequest,
   createSuggestionMenu,
   extensionSuggestions,
   ExpressionDiagnostic,
@@ -511,6 +512,10 @@ export class EmailCompose implements FormValueControl<string> {
       host's message. Mod-Shift-Enter, the `/` row and the writer's
       button all end here. */
   placeholdersFilled = output<MergeTagResolutionReport>();
+  /** A fill of the body's placeholders started — Mod-Shift-Enter, the `/`
+      row, the writer's button alike (the library's `onRequest`): where a
+      host fills in what it keeps beside the body, the envelope's rows. */
+  placeholdersRequested = output<MergeTagResolutionRequest>();
   /** The evaluator failed; the body is as it was. */
   placeholdersFailed = output<unknown>();
 
@@ -861,6 +866,7 @@ export class EmailCompose implements FormValueControl<string> {
             this.#sendIntent(),
             createMergeTagResolution({
               resolve: (expressions) => this.#mergeTags.resolve(expressions),
+              onRequest: (request) => this.placeholdersRequested.emit(request),
               onResolved: (report) => this.placeholdersFilled.emit(report),
               onError: (error) => this.placeholdersFailed.emit(error),
             }),

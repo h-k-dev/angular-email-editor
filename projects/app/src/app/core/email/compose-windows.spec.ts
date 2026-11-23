@@ -673,6 +673,56 @@ describe('ComposeWindows', () => {
     });
   });
 
+  it('Ctrl+Shift+Enter in a row of the envelope fills its placeholders — the editor never sees that key there', async () => {
+    await windows.open();
+    await settle();
+    const subject = frames()[0].querySelector<HTMLInputElement>('input[aria-label="Subject"]')!;
+    subject.value = 'Hello {{ firstName }}';
+    subject.dispatchEvent(new Event('input'));
+    await settle();
+
+    const key = new KeyboardEvent('keydown', {
+      key: 'Enter',
+      ctrlKey: true,
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    subject.dispatchEvent(key);
+    expect(key.defaultPrevented).toBe(true);
+    // The demo's evaluator answers after a small latency.
+    for (let i = 0; i < 30 && subject.value !== 'Hello Ada'; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      await settle();
+    }
+    expect(subject.value).toBe('Hello Ada');
+  });
+
+  it('a fill started in the body — the editor’s own key there — fills the envelope with it', async () => {
+    await windows.open({
+      content: {
+        message: { ...BLANK, subject: 'Hello {{ firstName }}', html: '<div>Dear {{ lastName }}</div>' },
+        images: [],
+      },
+    });
+    for (let i = 0; i < 4; i++) await settle();
+    const frame = frames()[0];
+    const subject = frame.querySelector<HTMLInputElement>('input[aria-label="Subject"]')!;
+    expect(subject.value).toBe('Hello {{ firstName }}');
+
+    // The editor's own Mod-Shift-Enter, pressed in the body's text.
+    const editor = frame.querySelector<HTMLElement>('.ProseMirror')!;
+    editor.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true }),
+    );
+    for (let i = 0; i < 30 && subject.value !== 'Hello Ada'; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      await settle();
+    }
+    expect(subject.value).toBe('Hello Ada');
+    expect(editor.textContent).toContain('Dear Lovelace');
+  });
+
   it('Discard closes the window', async () => {
     await windows.open();
     await settle();

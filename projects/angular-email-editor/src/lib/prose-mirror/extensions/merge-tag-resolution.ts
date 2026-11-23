@@ -380,6 +380,16 @@ export const REMOVE_MERGE_TAG: unique symbol = Symbol.for('angular-email-editor.
     its tokens out, or no value (`''`, `null`, `undefined`). */
 export type MergeTagAnswer = string | typeof REMOVE_MERGE_TAG | null | undefined;
 
+/** A fill as it starts — whichever way it was asked for: Mod-Shift-Enter,
+    the `resolve-placeholders` action (a `/` row, a toolbar button) or the
+    `resolveMergeTags` command. */
+export interface MergeTagResolutionRequest {
+  /** Where the request applies. */
+  scope: 'selection' | 'document';
+  /** The distinct expressions the evaluator is about to be asked for. */
+  expressions: string[];
+}
+
 export interface MergeTagResolutionOptions {
   /**
    * Values for the distinct expressions asked for, in the same order — each
@@ -398,6 +408,15 @@ export interface MergeTagResolutionOptions {
    * ```
    */
   resolve: (expressions: string[]) => Promise<readonly MergeTagAnswer[]>;
+  /**
+   * Called as a fill starts, before `resolve` is asked — once per request,
+   * however it was started. For the host whose placeholders are not all the
+   * editor's: a subject line, address rows, a file name. It fills those in
+   * here ({@link mergeTagExpressionsInText}, {@link fillMergeTagsInText}),
+   * so one "fill in" covers the whole message without the host watching
+   * keys or wrapping every trigger.
+   */
+  onRequest?: (request: MergeTagResolutionRequest) => void;
   /** Called once the values are in the document. */
   onResolved?: (report: MergeTagResolutionReport) => void;
   /** Called when `resolve` rejects — the document is left as it was. */
@@ -434,6 +453,35 @@ type Occurrence =
 /** The expressions a string holds, trimmed — as the host is asked. */
 const expressionsIn = (text: string): string[] =>
   scanMergeTags(text).map((tag) => text.slice(tag.expr[0], tag.expr[1]).trim());
+
+/**
+ * The distinct expressions plain text holds — one string or several, in
+ * reading order — each trimmed, as an evaluator is asked them
+ * (`MergeTagResolutionOptions.resolve`). For the placeholders a host keeps
+ * outside the editor: a subject line, address rows, a file name. Pure.
+ */
+export function mergeTagExpressionsInText(text: string | readonly string[]): string[] {
+  const texts = typeof text === 'string' ? [text] : text;
+  return [...new Set(texts.flatMap(expressionsIn))];
+}
+
+/**
+ * Plain text with its tokens filled in from `answers` (by expression, as
+ * {@link mergeTagExpressionsInText} lists them) — by the editor's own rules:
+ * a value takes the token's place, {@link REMOVE_MERGE_TAG} takes the token
+ * out, and no value (`''`, `null`, `undefined`, or no answer at all) leaves
+ * the token as it is. Pure.
+ */
+export function fillMergeTagsInText(
+  text: string,
+  answers: ReadonlyMap<string, MergeTagAnswer>,
+): string {
+  const values = new Map<string, string | null>();
+  for (const [expr, answer] of answers) {
+    values.set(expr, answer === REMOVE_MERGE_TAG ? '' : answer || null);
+  }
+  return fillString(text, values);
+}
 
 /** The attributes that can hold a token: strings — never the authored
     markup, which is the element as written and follows the modelled
@@ -947,6 +995,10 @@ export const createMergeTagResolution = (options: MergeTagResolutionOptions): Fu
         .setMeta('addToHistory', false),
     );
     options.onPendingChange?.(true);
+    options.onRequest?.({
+      scope: scope.selection ? 'selection' : 'document',
+      expressions: [...expressions],
+    });
 
     options.resolve(expressions).then(
       (answers) => {

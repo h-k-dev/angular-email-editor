@@ -5,6 +5,21 @@ version may change behaviour, and says so here.
 
 ## Unreleased
 
+### Added
+
+- **A fill says when it starts: `MergeTagResolutionOptions.onRequest`.** Called once per
+  request, before `resolve` is asked, with the scope and the distinct expressions —
+  however the fill was started: Mod-Shift-Enter, the `resolve-placeholders` action (a `/`
+  row, a toolbar button) or the `resolveMergeTags` command. For the host whose
+  placeholders are not all in the editor (a subject line, address rows, a file name): it
+  fills those in from here, so one "fill in" covers the whole message — without watching
+  keys or wrapping every trigger, which missed the `/` row.
+- **Placeholders in plain text: `mergeTagExpressionsInText`, `fillMergeTagsInText`.** The
+  distinct expressions one string or several hold, trimmed as an evaluator is asked them;
+  and a string with its tokens filled in from the answers by the editor's own rules — a
+  value replaces the token, `REMOVE_MERGE_TAG` takes it out, no value leaves it. Pure
+  functions, for the fields beside the editor.
+
 ### Changed — dependencies
 
 - **Needs `@h-k-dev/dawn` 1.3.2 or later** (was `^1.1.0`). The dark paper reads

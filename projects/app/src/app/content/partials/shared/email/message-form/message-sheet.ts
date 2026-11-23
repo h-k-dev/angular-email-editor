@@ -67,6 +67,7 @@ import { MergeTags } from '../../../../../core/email/merge-tags';
 import { checkMergeTagValues } from '@h-k-dev/angular-email-editor/editor';
 import { Preferences } from '../../../../../core/storages/preferences';
 import { Viewport } from '../../../../../core/layout/viewport';
+import { envelopeMergeTags, fillEnvelopeMergeTags } from '../../../../../core/email/envelope-merge-tags';
 import { EnvelopeRows } from './envelope-rows/envelope-rows';
 import { BLANK, Envelope, hasContent, isBlank } from '../../../../../core/email/envelope';
 import type { TemplateEnvelope } from '../../../../../core/email/templates';
@@ -149,7 +150,14 @@ interface AttachmentRing {
  * shared with whatever else the frame shows of the message (the page's
  * preview).
  */
-@Directive()
+@Directive({
+  host: {
+    // The fill's key on the sheet outside the body's text — the envelope's
+    // rows, where the editor never hears its own Mod-Shift-Enter (`fillKey`).
+    '(keydown.control.shift.enter)': 'fillKey($event)',
+    '(keydown.meta.shift.enter)': 'fillKey($event)',
+  },
+})
 export abstract class MessageSheet {
   /** The upload store: the strip's chips read their progress from it, and a
       removed chip stops its transfer there. */
@@ -192,11 +200,77 @@ export abstract class MessageSheet {
   private readonly pane = viewChild(EmailCompose);
   protected readonly actions = injectActions(() => this.pane()?.editor());
 
-  /** Core's "Parse" is on the bar while it can run: placeholders to fill,
-      and no evaluation under way. */
+  /** Placeholders in the envelope's rows — From, To, Cc, Bcc, the subject,
+      the preview text: the fill's beside the body's. */
+  readonly #envelopePlaceholders = computed(() => envelopeMergeTags(this.message()));
+  /** An envelope fill is out — its evaluation under way. */
+  readonly #fillingEnvelope = signal(false);
+
+  /** Core's "Parse" is on the bar while it can run: placeholders to fill —
+      in the body (the action's own answer) or the envelope — and no
+      evaluation under way. */
   protected readonly fillOffered = computed(
-    () => this.actions.get('resolve-placeholders')?.disabled() === false,
+    () =>
+      this.actions.get('resolve-placeholders')?.disabled() === false ||
+      (!!this.#envelopePlaceholders().length && !this.#fillingEnvelope()),
   );
+
+  /** The fill — the bar's Parse, and Mod-Shift-Enter outside the body: the
+      body by the editor's own action, which tells the sheet as it starts
+      ({@link fillEnvelope}) and says what it did itself
+      (`placeholdersFilled`); with nothing to fill in the body, the
+      envelope's rows alone, which the sheet then says. */
+  protected fillPlaceholders(): void {
+    const body = this.actions.get('resolve-placeholders');
+    if (body?.disabled() === false && body.run()) return;
+    void this.#fillEnvelope({ report: true });
+  }
+
+  /** A fill of the body started (the editor's `placeholdersRequested` —
+      its key, its `/` row, its action): the envelope's rows are filled in
+      with it, quietly — the body's fill says how it went. */
+  protected fillEnvelope(): void {
+    void this.#fillEnvelope({ report: false });
+  }
+
+  /** Mod-Shift-Enter on the sheet outside the body's text — a row of the
+      envelope, where the editor never hears the key: the whole fill. In the
+      body the editor has taken the key, and started its fill, already. */
+  protected fillKey(event: Event): void {
+    if (event.defaultPrevented) return;
+    event.preventDefault();
+    this.fillPlaceholders();
+  }
+
+  /** Fills the envelope's placeholders in: asks the evaluator for each,
+      then writes the values into the message as it is by then (whatever was
+      typed meanwhile stays). `report`: says what it did, where no body fill
+      says it instead. */
+  async #fillEnvelope({ report }: { report: boolean }): Promise<void> {
+    const expressions = this.#envelopePlaceholders();
+    if (!expressions.length || this.#fillingEnvelope()) return;
+    this.#fillingEnvelope.set(true);
+    try {
+      const values = await this.#mergeTags.resolve(expressions);
+      const answers = new Map(expressions.map((expression, i) => [expression, values[i]] as const));
+      this.message.update((message) => fillEnvelopeMergeTags(message, answers));
+      if (report) {
+        // The envelope's own report, in the body fill's terms: the demo's
+        // evaluator answers a value or `''`, never a removal.
+        this.placeholdersFilled({
+          scope: 'document',
+          filled: values.filter((value) => !!value).length,
+          empty: expressions.filter((_, i) => !values[i]),
+          kept: [],
+          removed: [],
+        });
+      }
+    } catch {
+      if (report) this.placeholdersFailed();
+    } finally {
+      this.#fillingEnvelope.set(false);
+    }
+  }
 
   /** The fill's key, as the platform spells Mod-Shift-Enter. */
   protected readonly fillShortcut = /Mac|iPhone|iPad/.test(navigator.userAgent)

@@ -7,10 +7,13 @@ import {
   FilledMergeTagHover,
   MergeTagAnswer,
   MergeTagResolutionReport,
+  MergeTagResolutionRequest,
   REMOVE_MERGE_TAG,
   createMergeTagResolution,
+  fillMergeTagsInText,
   filledMergeTagAt,
   distinctMergeTagExpressions,
+  mergeTagExpressionsInText,
   mergeTagResolutionPending,
   revealMergeTag,
 } from './merge-tag-resolution';
@@ -53,6 +56,7 @@ describe('merge tag resolution', () => {
   let reports: MergeTagResolutionReport[];
   let errors: unknown[];
   let pending: boolean[];
+  let requests: MergeTagResolutionRequest[];
   let hovers: (FilledMergeTagHover | null)[];
 
   const mount = (content: string) => {
@@ -63,6 +67,7 @@ describe('merge tag resolution', () => {
         ...emailExtensions,
         createMergeTagResolution({
           resolve: evaluator.resolve,
+          onRequest: (request) => requests.push(request),
           onResolved: (report) => reports.push(report),
           onError: (error) => errors.push(error),
           onPendingChange: (value) => pending.push(value),
@@ -81,12 +86,33 @@ describe('merge tag resolution', () => {
     reports = [];
     errors = [];
     pending = [];
+    requests = [];
     hovers = [];
   });
 
   afterEach(() => {
     editor.destroy();
     host.remove();
+  });
+
+  it('tells the host as a fill starts, however it was started — and not when there is nothing to fill', () => {
+    mount('<div>{{ a }} and {{ b }} and {{ a }}</div>');
+    // The command (the key's own), then — once that one is settled — the
+    // action a `/` row or a toolbar button runs.
+    editor.commands['resolveMergeTags']();
+    expect(requests).toEqual([{ scope: 'document', expressions: ['a', 'b'] }]);
+    // One out already: a second ask starts nothing, and says nothing.
+    expect(editor.commands['resolveMergeTags']()).toBe(false);
+    expect(requests).toHaveLength(1);
+
+    mount('<div>{{ c }}</div>');
+    action().command(editor.view.state, editor.view.dispatch, editor.view);
+    expect(requests.at(-1)).toEqual({ scope: 'document', expressions: ['c'] });
+
+    mount('<div>nothing to fill</div>');
+    const before = requests.length;
+    expect(editor.commands['resolveMergeTags']()).toBe(false);
+    expect(requests).toHaveLength(before);
   });
 
   it('asks for each distinct expression once, raw — no entity in sight', () => {
@@ -703,5 +729,31 @@ describe('merge tag resolution', () => {
         });
       });
     });
+  });
+});
+
+describe('merge tags in plain text', () => {
+  it('lists the distinct expressions of one string or several, trimmed, in reading order', () => {
+    expect(mergeTagExpressionsInText('Re {{ case_name }} — {{case_name}} / {{ cf_7 | formatDateDE }}')).toEqual([
+      'case_name',
+      'cf_7 | formatDateDE',
+    ]);
+    expect(mergeTagExpressionsInText(['{{ email }}', 'plain', 'Hello {{ firstName }}', '{{ email }}'])).toEqual([
+      'email',
+      'firstName',
+    ]);
+    expect(mergeTagExpressionsInText('no token here')).toEqual([]);
+  });
+
+  it('fills by the editor’s rules: a value replaces, a removal takes out, no value keeps', () => {
+    const answers = new Map<string, MergeTagAnswer>([
+      ['firstName', 'Ada'],
+      ['gone', REMOVE_MERGE_TAG],
+      ['empty', ''],
+      ['unknown', null],
+    ]);
+    expect(
+      fillMergeTagsInText('Hi {{ firstName }}{{gone}}, {{ empty }} {{unknown}} {{ unasked }} — {{firstName}}', answers),
+    ).toBe('Hi Ada, {{ empty }} {{unknown}} {{ unasked }} — Ada');
   });
 });

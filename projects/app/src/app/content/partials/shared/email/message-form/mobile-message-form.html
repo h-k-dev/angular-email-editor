@@ -43,8 +43,7 @@
         [attr.aria-label]="'editor.actions.resolve-placeholders.title' | translate"
         [matTooltip]="'editor.actions.resolve-placeholders.title' | translate"
         [matTooltipPosition]="barTooltipPosition()"
-        emailAction="resolve-placeholders"
-        [emailActionFrom]="actions"
+        (click)="fillPlaceholders()"
       >
         <mat-icon>data_object</mat-icon>
       </button>
@@ -143,6 +142,7 @@
     [formField]="envelope.html"
     [(quoted)]="quoted"
     (send)="send()"
+    (placeholdersRequested)="fillEnvelope()"
     (placeholdersFilled)="placeholdersFilled($event)"
     (templatePicked)="templatePicked($event)"
     (placeholdersFailed)="placeholdersFailed()"

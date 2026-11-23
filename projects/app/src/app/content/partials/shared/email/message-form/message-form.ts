@@ -30,7 +30,6 @@ import { HeightSwitch } from '../../../../../core/directives/height-switch/heigh
 import { HoverLinger } from '../../../../../core/directives/hover-linger/hover-linger';
 import { ScrollOwner } from '../../../../../core/directives/scroll-owner/scroll-owner';
 import { OverflowRow } from '../../../common/overflow-row/overflow-row';
-import { ActionTrigger } from '@h-k-dev/angular-email-editor/actions';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { Viewport } from '../../../../../core/layout/viewport';
@@ -92,7 +91,6 @@ export type MessageLayout = 'sheet' | 'document';
     AngularFileDrop,
     MarqueeStart,
     ScrollOwner,
-    ActionTrigger,
   ],
   providers: [{ provide: MessageSheet, useExisting: MessageForm }],
   templateUrl: './message-form.html',

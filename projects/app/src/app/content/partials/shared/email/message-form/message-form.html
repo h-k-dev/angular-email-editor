@@ -147,9 +147,10 @@
   <ng-template #settings>
     <message-settings-button [side]="mirrored() ? 'below' : 'above'" />
   </ng-template>
-  <!-- Core's "Parse": offered while the body holds placeholders (the
-       action's own answer) and not while the evaluator works. The same as
-       Mod-Shift-Enter and the `/` row. -->
+  <!-- Core's "Parse": offered while the body or the envelope holds
+       placeholders and not while the evaluator works. Fills both — the same
+       as Mod-Shift-Enter anywhere on the sheet (the `/` row is the body's
+       alone). -->
   <ng-template #fill>
     @if (fillOffered()) {
       <button
@@ -160,8 +161,7 @@
           ('editor.actions.resolve-placeholders.title' | translate) + ' (' + fillShortcut + ')'
         "
         [matTooltipPosition]="barTooltipPosition()"
-        emailAction="resolve-placeholders"
-        [emailActionFrom]="actions"
+        (click)="fillPlaceholders()"
       >
         <mat-icon>data_object</mat-icon>
       </button>
@@ -239,6 +239,7 @@
     [formField]="envelope.html"
     [(quoted)]="quoted"
     (send)="send()"
+    (placeholdersRequested)="fillEnvelope()"
     (placeholdersFilled)="placeholdersFilled($event)"
     (templatePicked)="templatePicked($event)"
     (placeholdersFailed)="placeholdersFailed()"
