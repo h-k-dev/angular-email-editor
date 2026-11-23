@@ -864,12 +864,17 @@ section[email-compose][data-scroll='host']
  * raw selection through the whole hold. The `selectedCell` decorations do NOT
  * lag (the tint proves it), so they gate the same blanking for the drag's
  * duration. Scoped to cell selections: ordinary text selection inside one
- * cell keeps its native highlight. */
+ * cell keeps its native highlight.
+ *
+ * Blanked through the selection colour token, which every `::selection` in
+ * the editor reads and every descendant inherits — never through a
+ * `:has(…) *::selection` rule. A `:has()` on an ancestor of a universal
+ * subject makes Chrome re-check that rule for every element, on every page:
+ * in a host app that one rule made each forced layout read ~10x dearer
+ * app-wide (iusta core: a large diagram frozen for over a minute). */
 .aee-editor:has(td.selectedCell) {
   caret-color: transparent;
-}
-.aee-editor:has(td.selectedCell) *::selection {
-  background: transparent;
+  --email-text-selection: transparent;
 }
 
 /* Drawn as ONE object, Tiptap-style: a primary-tinted fill under a crisp

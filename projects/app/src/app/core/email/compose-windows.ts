@@ -2,6 +2,7 @@ import {
   ApplicationRef,
   ComponentRef,
   DOCUMENT,
+  DestroyRef,
   EnvironmentInjector,
   Service,
   createComponent,
@@ -269,6 +270,10 @@ export class ComposeWindows {
       place: computed(() => slotPosition(this.#held().length)),
       occupied: computed(() => this.#held().length > 0),
     });
+
+    // The unload's listener goes with the service (a spec's; the app's
+    // lives as long as the page).
+    inject(DestroyRef).onDestroy(() => this.#guardUnload(false));
   }
 
   /**
@@ -424,6 +429,32 @@ export class ComposeWindows {
           return w.slot === place ? w : { ...w, slot: place };
         }),
     );
+    this.#guardUnload(windows.length > 0);
+  }
+
+  /** Whether the page's unload is being listened for. */
+  #guarding = false;
+  /** A reload or a closing tab asks first — the browser's own prompt; its
+      words are not the app's. */
+  readonly #warn = (event: BeforeUnloadEvent) => {
+    event.preventDefault();
+    // Engines that predate preventDefault() here.
+    event.returnValue = true;
+  };
+
+  /** Asks before the page unloads while any window is there, on the edge or
+      its stack, whatever is in it: the windows live for the page, and
+      nothing of them is kept past it. Listened for only while a window is —
+      a page that always listens for `beforeunload` is never kept in the
+      back/forward cache — and switched right where the windows change
+      (`#commit`, their one write): nothing watches for it. Here, not at the
+      app's start: the windows' code is fetched with the first window. */
+  #guardUnload(on: boolean): void {
+    if (on === this.#guarding) return;
+    this.#guarding = on;
+    const view = this.#document.defaultView;
+    if (on) view?.addEventListener('beforeunload', this.#warn);
+    else view?.removeEventListener('beforeunload', this.#warn);
   }
 
   /** Takes a minimized window off the stack, back into the row on the edge

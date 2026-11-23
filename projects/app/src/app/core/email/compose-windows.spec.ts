@@ -658,6 +658,24 @@ describe('ComposeWindows', () => {
   });
 
   describe('what leaving would lose', () => {
+    it('asks before the page unloads only while a window is there — stacked or open, whatever is in it', async () => {
+      const unload = () => {
+        const event = new Event('beforeunload', { cancelable: true });
+        window.dispatchEvent(event);
+        return event.defaultPrevented;
+      };
+      expect(unload()).toBe(false);
+
+      const id = await windows.open();
+      windows.minimize(id);
+      await settle();
+      expect(unload()).toBe(true);
+
+      windows.close(id);
+      await settle();
+      expect(unload()).toBe(false);
+    });
+
     it('closeAll closes every window, the stacked ones too', async () => {
       const first = await windows.open();
       await windows.open();
