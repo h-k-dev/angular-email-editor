@@ -14,7 +14,7 @@
   >
     @if (!message()) {
       <!-- Not a message: its kind's mark before its name. -->
-      <mat-icon class="compose-window__kind" aria-hidden="true">sticky_note_2</mat-icon>
+      <mat-icon class="compose-window__kind" aria-hidden="true">{{ kindIcon() }}</mat-icon>
     }
     <button
       type="button"
@@ -103,9 +103,12 @@
      sheet keeps to a document's centred column.
      Opened on a phone, it holds the phone's sheet instead (chosen once, as
      the window opens): bar on top, the whole sheet scrolling, no zoom. -->
-@if (window().note; as note) {
+@if (window().kind === 'note' && window().item; as note) {
   <!-- A note's window: the same frame, the note in it. -->
   <div note-sheet class="compose-window__sheet" [note]="note"></div>
+} @else if (window().kind === 'event' && window().item; as event) {
+  <!-- An event's: the same frame, the rows of an event in it. -->
+  <form event-sheet class="compose-window__sheet" [event]="event"></form>
 } @else if (window().sheet === 'mobile') {
   <div
     mobile-message-form

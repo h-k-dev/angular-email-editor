@@ -63,7 +63,7 @@ describe('Notes', () => {
     await settle();
 
     // One row: the message in the corner, the note beside it.
-    expect(windows.windows().map((w) => [w.kind, w.note, w.mode, w.slot])).toEqual([
+    expect(windows.windows().map((w) => [w.kind, w.item, w.mode, w.slot])).toEqual([
       ['compose', null, 'docked', 0],
       ['note', id, 'docked', 1],
     ]);
@@ -103,11 +103,12 @@ describe('Notes', () => {
     expect(notes.state(first)).toBe('open');
 
     windows.minimize(message);
-    windows.minimize(windows.windows().find((w) => w.note === first)!.id);
+    windows.minimize(windows.windows().find((w) => w.item === first)!.id);
     await settle();
     expect(notes.state(first)).toBe('minimized');
     expect(stack.entries().map((entry) => entry.kind)).toEqual(['note', 'compose']);
-    // The second note is still open: only the counter shows, counting both.
+    // The second note is still open: only the counter shows, counting both
+    // — and saying what they are, a mark a kind.
     expect(counter()!.firstChild!.textContent!.trim()).toBe('2');
     expect(
       [...counter()!.querySelectorAll<HTMLElement>('.dock-stack-counter__kind')].map((bubble) => [
@@ -115,8 +116,8 @@ describe('Notes', () => {
         bubble.textContent!.trim(),
       ]),
     ).toEqual([
-      ['note', '1'],
-      ['compose', '1'],
+      ['note', 'sticky_note_2'],
+      ['compose', 'mail'],
     ]);
     expect(notes.state(second)).toBe('open');
 
@@ -142,7 +143,7 @@ describe('Notes', () => {
       windows
         .windows()
         .filter((w) => w.mode !== 'minimized')
-        .map((w) => [w.kind, w.note, w.slot]);
+        .map((w) => [w.kind, w.item, w.slot]);
     expect(edge()).toEqual([
       ['compose', null, 0],
       ['note', first, 1],

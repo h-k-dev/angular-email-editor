@@ -1,0 +1,28 @@
+@if (draft(); as draft) {
+  <input
+    class="event-sheet__title"
+    type="text"
+    cdkFocusInitial
+    [attr.aria-label]="'eventDraft.title' | translate"
+    [placeholder]="'eventDraft.title' | translate"
+    [value]="draft.title"
+    (input)="write('title', $event)"
+  />
+  <label class="event-sheet__row">
+    <span class="event-sheet__label">{{ 'eventDraft.start' | translate }}</span>
+    <input type="datetime-local" [value]="draft.start" (input)="write('start', $event)" />
+  </label>
+  <label class="event-sheet__row">
+    <span class="event-sheet__label">{{ 'eventDraft.end' | translate }}</span>
+    <input type="datetime-local" [value]="draft.end" (input)="write('end', $event)" />
+  </label>
+  <label class="event-sheet__row">
+    <span class="event-sheet__label">{{ 'eventDraft.location' | translate }}</span>
+    <input type="text" [value]="draft.location" (input)="write('location', $event)" />
+  </label>
+  <footer class="event-sheet__foot">
+    <button mat-flat-button type="submit" [disabled]="!drafts.valid(draft.id)">
+      {{ 'eventDraft.save' | translate }}
+    </button>
+  </footer>
+}

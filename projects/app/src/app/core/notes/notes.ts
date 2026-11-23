@@ -42,7 +42,7 @@ export class Notes {
   readonly #held = computed(() => {
     const held = new Map<number, ComposeWindow>();
     for (const window of this.#windows.windows()) {
-      if (window.kind === 'note' && window.note !== null) held.set(window.note, window);
+      if (window.kind === 'note' && window.item !== null) held.set(window.item, window);
     }
     return held;
   });
@@ -78,7 +78,7 @@ export class Notes {
   /** A window for the note — a pending task, so the app is not stable
       until it is on the edge (the dock's code is fetched on the first). */
   #show(id: number): void {
-    void this.#tasks.run(() => this.#windows.open({ kind: 'note', note: id, mobile: 'window' }));
+    void this.#tasks.run(() => this.#windows.open({ kind: 'note', item: id, mobile: 'window' }));
   }
 
   write(id: number, text: string): void {

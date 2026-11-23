@@ -385,6 +385,15 @@ export default {
     closed: 'Geschlossen',
     empty: 'Noch keine Notizen. Fügen Sie eine hinzu: Sie öffnet sich in einem Fenster am Seitenende.',
   },
+  eventDraft: {
+    new: 'Neuer Termin',
+    title: 'Titel',
+    start: 'Beginn',
+    end: 'Ende',
+    location: 'Ort',
+    save: 'Speichern',
+    saved: 'Termin gespeichert',
+  },
   dockStack: {
     count: 'Minimiert: {{count}}',
     more: 'Weitere minimiert: {{count}}',

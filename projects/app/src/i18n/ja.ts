@@ -384,6 +384,15 @@ export default {
     closed: '閉じています',
     empty: 'メモはまだありません。追加すると、ページ下部のウィンドウで開きます。',
   },
+  eventDraft: {
+    new: '新しい予定',
+    title: 'タイトル',
+    start: '開始',
+    end: '終了',
+    location: '場所',
+    save: '保存',
+    saved: '予定を保存しました',
+  },
   dockStack: {
     count: '最小化: {{count}} 件',
     more: 'ほかに最小化: {{count}} 件',

@@ -249,6 +249,11 @@
   block-size: 18px;
   font-size: 18px;
   color: var(--mat-sys-tertiary);
+
+  // An event's, in the calendar's colour.
+  :host([data-kind='event']) & {
+    color: var(--mat-sys-secondary);
+  }
 }
 
 .compose-window__title {

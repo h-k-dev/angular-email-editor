@@ -40,6 +40,7 @@ import {
   ComposeWindows,
   DOCK_GAP,
   InlinePart,
+  WINDOW_KIND_ICONS,
   slotPosition,
   windowStackKey,
 } from '../../../../core/email/compose-windows';
@@ -48,6 +49,8 @@ import { DockStackItem } from '../../../../core/dock/dock-stack-item';
 import { PopOuts } from '../../../../core/email/pop-outs';
 import { Notes } from '../../../../core/notes/notes';
 import { NoteSheet } from '../notes/note-sheet';
+import { EventDrafts } from '../../../../core/calendar/event-drafts';
+import { EventSheet } from '../event-draft/event-sheet';
 
 /** How far a press on the title bar travels before it is a drag and no
     longer a click, px. */
@@ -68,8 +71,8 @@ interface Grab {
 
 /**
  * One window on the edge: a title bar, and what it holds — a message sheet
- * of its own or, for a window of kind `note`, a note's (`NoteSheet`): the
- * same frame, different content. What the
+ * of its own or, for a window of another kind, a note's (`NoteSheet`) or
+ * an event draft's (`EventSheet`): the same frame, different content. What the
  * window does is the {@link ComposeWindows} service's — this draws the
  * state it is handed and passes the gestures back:
  *
@@ -100,7 +103,15 @@ interface Grab {
  */
 @Component({
   selector: 'section[compose-window]',
-  imports: [TranslatePipe, MessageForm, MobileMessageForm, NoteSheet, MatIcon, MatIconButton],
+  imports: [
+    TranslatePipe,
+    MessageForm,
+    MobileMessageForm,
+    NoteSheet,
+    EventSheet,
+    MatIcon,
+    MatIconButton,
+  ],
   // One inline image registry per composer: this window's message. And
   // the window is a paper island (`scheme`) for everything it holds.
   providers: [InlineImages, { provide: PaperIsland, useExisting: ComposeWindowFrame }],
@@ -131,6 +142,9 @@ interface Grab {
 export class ComposeWindowFrame implements PaperIsland {
   protected readonly windows = inject(ComposeWindows);
   readonly #notes = inject(Notes);
+  readonly #events = inject(EventDrafts);
+  /** The window's kind's mark, before its name. */
+  protected readonly kindIcon = computed(() => WINDOW_KIND_ICONS[this.window().kind]);
   readonly #stack = inject(DockStack);
   protected readonly i18n = inject(I18n);
   protected readonly viewport = inject(Viewport);
@@ -242,12 +256,15 @@ export class ComposeWindowFrame implements PaperIsland {
       line), or what an unnamed message (note) is called. The title bar shows it; a page, which has no title
       bar, says it to assistive tech instead. */
   protected readonly label = computed(() => {
-    const { kind, note } = this.window();
+    const { kind, item } = this.window();
     if (kind === 'note') {
       return (
-        (note !== null && this.#notes.title(note)) ||
-        this.i18n.t('notes.untitled', { number: note })
+        (item !== null && this.#notes.title(item)) ||
+        this.i18n.t('notes.untitled', { number: item })
       );
+    }
+    if (kind === 'event') {
+      return (item !== null && this.#events.title(item)) || this.i18n.t('eventDraft.new');
     }
     return this.sheet()?.message().subject.trim() || this.i18n.t('composeWindow.new');
   });

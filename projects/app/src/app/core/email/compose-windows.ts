@@ -42,15 +42,26 @@ export type ComposeOpenMode = 'window' | 'zoom' | 'pop-out';
 /** What a window on the edge holds — the frame is the same, the content
     is its kind's:
     - `compose`: a message being written, on its sheet;
-    - `note`: a note (`Notes`), named by {@link ComposeWindow.note}. */
-export type ComposeWindowKind = 'compose' | 'note';
+    - `note`: a note (`Notes`);
+    - `event`: a calendar event being written (`EventDrafts`).
+    The last two are named by {@link ComposeWindow.item}. */
+export type ComposeWindowKind = 'compose' | 'note' | 'event';
+
+/** A kind's mark — in a window's title bar, in the dock stack's menu and
+    on its counter (a Material symbol's name). */
+export const WINDOW_KIND_ICONS: Readonly<Record<ComposeWindowKind, string>> = {
+  compose: 'mail',
+  note: 'sticky_note_2',
+  event: 'event',
+};
 
 /** What a new window opens with — see {@link ComposeWindows.open}. */
 export interface ComposeOptions {
   /** What it holds: a message, unless it says otherwise. */
   readonly kind?: ComposeWindowKind;
-  /** The note a `note` window holds, by its id. */
-  readonly note?: number;
+  /** What a window that is not a message's holds — the note, the event
+      draft — by its id. */
+  readonly item?: number;
   readonly mobile?: ComposeWindowMobile;
   readonly content?: ComposeWindowContent;
   readonly focus?: ComposeWindowFocus;
@@ -98,8 +109,9 @@ export interface ComposeWindow {
   /** What it holds. Everything about its place — the row, the stack, the
       dialog — is the same whatever that is. */
   readonly kind: ComposeWindowKind;
-  /** The note it holds, where it is a note's window. */
-  readonly note: number | null;
+  /** What it holds, by its id — the note, the event draft — where it is
+      not a message's window. */
+  readonly item: number | null;
   /** Which place on the edge is this window's, counted from the corner: 0
       is the corner itself, 1 the one beside it, and so on. Never chosen and
       never remembered: the open windows — on the edge or in the dialog —
@@ -325,7 +337,7 @@ export class ComposeWindows {
     if (
       kind === 'compose' &&
       (messages.length >= MAX_MESSAGES ||
-        (full() && messages.length > 0 && !this.#held().some((w) => w.kind === 'note')))
+        (full() && messages.length > 0 && !this.#held().some((w) => w.kind !== 'compose')))
     ) {
       const oldest = messages[0];
       this.reveal(oldest.id);
@@ -337,7 +349,7 @@ export class ComposeWindows {
     while (full()) {
       const held = [...this.#held()].reverse();
       const last =
-        held.find((w) => w.kind === 'note' && w.mode === 'docked') ??
+        held.find((w) => w.kind !== 'compose' && w.mode === 'docked') ??
         held.find((w) => w.mode === 'docked') ??
         held[0];
       this.minimize(last.id);
@@ -356,7 +368,7 @@ export class ComposeWindows {
       {
         id,
         kind,
-        note: options?.note ?? null,
+        item: options?.item ?? null,
         slot: 0,
         mode: zoom ? 'expanded' : 'docked',
         pin: null,
@@ -462,7 +474,7 @@ export class ComposeWindows {
     this.#stack.push({
       key: windowStackKey(window),
       kind: window.kind,
-      icon: window.kind === 'note' ? 'sticky_note_2' : 'mail',
+      icon: WINDOW_KIND_ICONS[window.kind],
       restore: () => this.dock(id),
       close: () => this.close(id),
     });

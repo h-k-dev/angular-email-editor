@@ -120,6 +120,16 @@ export class DockStack {
     return counts;
   });
 
+  /** The kinds out of sight, each once, with its mark — in the order they
+      first come up from the top: what the counter shows it is counting. */
+  readonly hiddenKinds = computed(() => {
+    const kinds = new Map<string, string | undefined>();
+    for (const entry of this.hiddenEntries()) {
+      if (!kinds.has(entry.kind)) kinds.set(entry.kind, entry.icon);
+    }
+    return [...kinds].map(([kind, icon]) => ({ kind, icon }));
+  });
+
   readonly #open = signal(false);
   /** Whether the stack is fanned out. With nothing out of sight there is
       nothing to fan. */

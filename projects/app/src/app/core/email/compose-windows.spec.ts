@@ -171,7 +171,7 @@ describe('ComposeWindows', () => {
       expect([placeOf(first), placeOf(third)]).toEqual([0, 1]);
       expect(stack.place()).toBe(1248);
       expect([stack.shown(), stack.hidden()]).toEqual([0, 1]);
-      expect(counter()!.textContent!.trim()).toBe('1');
+      expect(counter()!.firstChild!.textContent!.trim()).toBe('1');
       expect(counter()!.getAttribute('aria-label')).toBe('Minimized: 1');
       expect(counter()!.closest('section[compose-window]')).toBeNull();
       expect(counter()!.classList).not.toContain('dock-stack-counter--beside');
@@ -189,7 +189,7 @@ describe('ComposeWindows', () => {
       // One window left, in the corner: the counter is beside it.
       expect(placeOf(third)).toBe(0);
       expect(stack.place()).toBe(632);
-      expect(counter()!.textContent!.trim()).toBe('2');
+      expect(counter()!.firstChild!.textContent!.trim()).toBe('2');
       expect(stackOf().map((frame) => frame.hasAttribute('inert'))).toEqual([true, true]);
 
       // Restored, the second goes back between its neighbours' places: the
@@ -198,7 +198,7 @@ describe('ComposeWindows', () => {
       await settle();
       expect([placeOf(second), placeOf(third)]).toEqual([0, 1]);
       expect(stack.place()).toBe(1248);
-      expect(counter()!.textContent!.trim()).toBe('1');
+      expect(counter()!.firstChild!.textContent!.trim()).toBe('1');
     });
 
     it('with no window open the last one minimized stays on the edge, and the counter beside it counts the ones under it', async () => {
@@ -228,7 +228,7 @@ describe('ComposeWindows', () => {
       // Three minimized: the last on the edge, and the counter left of it
       // says two — what is under it.
       expect(windows.minimized().map((w) => w.id)).toEqual([third, second, first]);
-      expect(counter()!.textContent!.trim()).toBe('2');
+      expect(counter()!.firstChild!.textContent!.trim()).toBe('2');
       expect(counter()!.getAttribute('aria-label')).toBe('More minimized: 2');
       expect(counter()!.classList).toContain('dock-stack-counter--beside');
       const bars = stackOf();
@@ -246,7 +246,7 @@ describe('ComposeWindows', () => {
       // all three.
       await windows.open();
       await settle();
-      expect(counter()!.textContent!.trim()).toBe('3');
+      expect(counter()!.firstChild!.textContent!.trim()).toBe('3');
       expect(stackOf().some((frame) => frame.hasAttribute('data-stack-top'))).toBe(false);
     });
 

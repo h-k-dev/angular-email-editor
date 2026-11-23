@@ -33,6 +33,7 @@ import { HoverCard } from '../../partials/common/hover-card/hover-card';
 import { DocPageLink } from '../../partials/common/doc-page/doc';
 import { ToolbarMenu, ToolbarMenuItem } from '../../partials/common/toolbar-menu/toolbar-menu';
 import { Notes } from '../../../core/notes/notes';
+import { EventDrafts } from '../../../core/calendar/event-drafts';
 import { API_PAGES } from './api-reference/api-pages';
 import { COMPONENT_PAGES, UTILITY_PAGES } from './components/component-pages';
 import { STYLING_PAGES } from './styling/styling-pages';
@@ -143,6 +144,7 @@ const pageLinks = (base: string, pages: readonly DocPageLink[]): MailboxLink[] =
 export class Mailbox {
   readonly #composeWindows = inject(ComposeWindows);
   readonly #notes = inject(Notes);
+  readonly #events = inject(EventDrafts);
   readonly #mailbox = inject(ReceivedMail);
   /** The inbox's unread, as it goes down. */
   readonly #unread = computed(() => this.#mailbox.unread().size);
@@ -261,6 +263,7 @@ export class Mailbox {
           icon: 'calendar_month',
           key: 'app.nav.calendar',
           nested: true,
+          action: { icon: 'add', key: 'eventDraft.new', run: () => this.#events.add() },
         },
         {
           kind: 'link',

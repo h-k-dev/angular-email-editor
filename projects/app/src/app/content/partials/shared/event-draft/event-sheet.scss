@@ -1,0 +1,55 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+  padding: 4px 16px 16px;
+}
+
+.event-sheet__title {
+  block-size: 44px;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: none;
+  color: inherit;
+  font: var(--mat-sys-title-large);
+}
+
+// A row: its name, and its field under a hairline — the envelope rows'
+// way.
+.event-sheet__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  block-size: 44px;
+  border-block-end: 1px solid var(--mat-sys-outline-variant);
+
+  input {
+    flex: 1 1 auto;
+    min-inline-size: 0;
+    border: none;
+    outline: none;
+    background: none;
+    color: inherit;
+    color-scheme: inherit;
+    font: var(--mat-sys-body-large);
+  }
+
+  &:focus-within {
+    border-block-end-color: var(--mat-sys-primary);
+  }
+}
+
+.event-sheet__label {
+  flex: none;
+  inline-size: 72px;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+}
+
+// Save, at the sheet's foot — where a message's Send is.
+.event-sheet__foot {
+  display: flex;
+  margin-block-start: auto;
+  padding-block-start: 16px;
+}

@@ -10,6 +10,8 @@ import {
   inject,
 } from '@angular/core';
 
+import { MatIcon } from '@angular/material/icon';
+
 import { DockStack } from '../../../../core/dock/dock-stack';
 import { I18n } from '../../../../core/translations/i18n';
 
@@ -25,14 +27,16 @@ import { I18n } from '../../../../core/translations/i18n';
  * - A pointer over it opens the stack's menu (`DockStackMenu`); a press
  *   does it for a touch, or a key — which takes the focus into the menu.
  *   Escape closes it.
- * - With more than one kind out of sight, a bubble over the pill for each
- *   says how many of that kind (`data-kind`, for whoever styles them).
+ * - A bubble over the pill for each kind out of sight shows that kind's
+ *   mark — a message's, a note's, an event's (`data-kind`, for its
+ *   colour): what the one number counts.
  *
  * Whoever owns the layer on the edge renders it while the stack hides
  * anything: `@if (stack.hidden()) { <button dock-stack-counter></button> }`.
  */
 @Component({
   selector: 'button[dock-stack-counter]',
+  imports: [MatIcon],
   templateUrl: './dock-stack-counter.html',
   styleUrl: './dock-stack-counter.scss',
   host: {
@@ -63,12 +67,11 @@ export class DockStackCounter {
     }),
   );
 
-  /** The count by kind, where more than one kind is out of sight: one
-      bubble each. One kind is the pill's own number. */
-  protected readonly kinds = computed(() => {
-    const counts = [...this.stack.hiddenByKind()];
-    return counts.length > 1 ? counts.map(([kind, count]) => ({ kind, count })) : [];
-  });
+  /** The kinds out of sight that have a mark: one bubble each, saying
+      what the number counts — messages, notes, events. */
+  protected readonly kinds = computed(() =>
+    this.stack.hiddenKinds().filter((kind): kind is { kind: string; icon: string } => !!kind.icon),
+  );
 
   constructor() {
     // Where the focus goes back to when the stack folds under it.

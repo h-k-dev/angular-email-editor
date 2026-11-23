@@ -104,9 +104,13 @@
   font-size: 18px;
   color: var(--mat-sys-primary);
 
-  // A note's mark, in the notes' colour.
+  // A note's mark, in the notes' colour; an event's, in the calendar's.
   [data-kind='note'] > & {
     color: var(--mat-sys-tertiary);
+  }
+
+  [data-kind='event'] > & {
+    color: var(--mat-sys-secondary);
   }
 }
 

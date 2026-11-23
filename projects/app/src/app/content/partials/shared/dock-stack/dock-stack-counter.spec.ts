@@ -71,32 +71,40 @@ describe('DockStackCounter and DockStackMenu', () => {
     stack.attach({ place: signal(632), occupied });
   });
 
-  it('one stack and one counter for every kind of thing, with a bubble a kind once there are two', async () => {
+  it('one stack and one counter for every kind of thing, each kind there shown by its mark', async () => {
     const { fixture, counter, note } = await mount();
     expect(counter()).toBeNull();
 
-    stack.push(entry('compose:1', 'compose'));
-    stack.push(entry('compose:2', 'compose'));
+    stack.push(entry('compose:1', 'compose', 'mail'));
+    stack.push(entry('compose:2', 'compose', 'mail'));
     await fixture.whenStable();
-    // One kind: the total is all there is to say.
+    // One number for all of them, and what they are: a mark a kind — not
+    // a number each.
     expect(counter()!.firstChild!.textContent!.trim()).toBe('2');
     expect(counter()!.getAttribute('aria-label')).toBe('Minimized: 2');
     expect(counter()!.style.getPropertyValue('--dock-stack-x')).toBe('632px');
-    expect(counter()!.querySelectorAll('.dock-stack-counter__kind')).toHaveLength(0);
+    const marks = () =>
+      [...counter()!.querySelectorAll<HTMLElement>('.dock-stack-counter__kind')].map((mark) => [
+        mark.dataset['kind'],
+        mark.textContent!.trim(),
+      ]);
+    expect(marks()).toEqual([['compose', 'mail']]);
 
-    // A note minimizes onto the same stack: the same total counts it, and
-    // each kind gets its own bubble.
-    stack.push(entry('note:1', 'note'));
+    // A note and an event minimize onto the same stack: the same total
+    // counts them, and each kind shows its own mark, once.
+    stack.push(entry('note:1', 'note', 'sticky_note_2'));
+    stack.push(entry('event:1', 'event', 'event'));
+    stack.push(entry('note:2', 'note', 'sticky_note_2'));
     await fixture.whenStable();
-    expect(counter()!.firstChild!.textContent!.trim()).toBe('3');
-    const bubbles = [...counter()!.querySelectorAll<HTMLElement>('.dock-stack-counter__kind')];
-    expect(bubbles.map((bubble) => [bubble.dataset['kind'], bubble.textContent!.trim()])).toEqual([
-      ['note', '1'],
-      ['compose', '2'],
+    expect(counter()!.firstChild!.textContent!.trim()).toBe('5');
+    expect(marks()).toEqual([
+      ['note', 'sticky_note_2'],
+      ['event', 'event'],
+      ['compose', 'mail'],
     ]);
     // Its element is on the stack like any other: out of sight and out of
     // reach, in the stack's place.
-    expect(note().dataset['stacked']).toBe('0');
+    expect(note().dataset['stacked']).toBe('2');
     expect(note().hasAttribute('inert')).toBe(true);
     expect(note().style.getPropertyValue('--dock-stack-x')).toBe('632px');
   });

@@ -30,7 +30,7 @@ const windowState = (mode: ComposeWindowMode): ComposeWindow => ({
   focus: 'to',
   guard: null,
   kind: 'compose',
-  note: null,
+  item: null,
 });
 
 /** Ctrl-Enter, as the keyboard sends it, on `target`. */

@@ -387,6 +387,15 @@ export default {
     closed: 'Closed',
     empty: 'No notes yet. Add one: it opens in a window at the foot of the page.',
   },
+  eventDraft: {
+    new: 'New event',
+    title: 'Title',
+    start: 'Starts',
+    end: 'Ends',
+    location: 'Location',
+    save: 'Save',
+    saved: 'Event saved',
+  },
   dockStack: {
     count: 'Minimized: {{count}}',
     more: 'More minimized: {{count}}',
