@@ -32,6 +32,7 @@ import {
 import { HoverCard } from '../../partials/common/hover-card/hover-card';
 import { DocPageLink } from '../../partials/common/doc-page/doc';
 import { ToolbarMenu, ToolbarMenuItem } from '../../partials/common/toolbar-menu/toolbar-menu';
+import { Notes } from '../../../core/notes/notes';
 import { API_PAGES } from './api-reference/api-pages';
 import { COMPONENT_PAGES, UTILITY_PAGES } from './components/component-pages';
 import { STYLING_PAGES } from './styling/styling-pages';
@@ -47,6 +48,16 @@ interface MailboxLink {
   /** Lit for its places under it too (`/calendar` for `/calendar/week/…`);
       only for its own path otherwise. */
   readonly nested?: boolean;
+  /** Something to do there without going: a button at the row's end — the
+      notes' "new note". Not on the rail, where a row is its icon. */
+  readonly action?: MailboxLinkAction;
+}
+
+/** A button at the end of a place's row. */
+interface MailboxLinkAction {
+  readonly icon: string;
+  readonly key: string;
+  readonly run: () => void;
 }
 
 /** Places one level down, behind a row of their own that folds them —
@@ -131,6 +142,7 @@ const pageLinks = (base: string, pages: readonly DocPageLink[]): MailboxLink[] =
 })
 export class Mailbox {
   readonly #composeWindows = inject(ComposeWindows);
+  readonly #notes = inject(Notes);
   readonly #mailbox = inject(ReceivedMail);
   /** The inbox's unread, as it goes down. */
   readonly #unread = computed(() => this.#mailbox.unread().size);
@@ -249,6 +261,13 @@ export class Mailbox {
           icon: 'calendar_month',
           key: 'app.nav.calendar',
           nested: true,
+        },
+        {
+          kind: 'link',
+          path: '/notes',
+          icon: 'sticky_note_2',
+          key: 'app.nav.notes',
+          action: { icon: 'add', key: 'notes.new', run: () => this.#notes.add() },
         },
       ],
     },

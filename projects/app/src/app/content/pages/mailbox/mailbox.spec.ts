@@ -80,7 +80,13 @@ describe('Mailbox', () => {
         el.textContent?.trim(),
       );
       // A one-way trip: no place leads back to the composer's front page.
-      expect(labels.slice(0, 3)).toEqual(['Inbox', 'Calendar', 'Templates']);
+      expect(labels.slice(0, 4)).toEqual(['Inbox', 'Calendar', 'Notes', 'Templates']);
+      // The notes' row has a button of its own at its end — a new note,
+      // without going there — beside the link, not in it.
+      const add = root.querySelector<HTMLButtonElement>('.mailbox-link__action')!;
+      expect(add.getAttribute('aria-label')).toBe('New note');
+      expect(add.closest('a')).toBeNull();
+      expect(add.previousElementSibling).toBe(link('Notes'));
       // The calendar's link opens it, on today.
       expect(link('Calendar').getAttribute('href')).toBe('/calendar');
       expect(labels).toContain('Editor');

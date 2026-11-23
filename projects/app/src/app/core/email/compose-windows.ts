@@ -17,10 +17,15 @@ import type { MessageSheetKind } from '../../content/partials/shared/email/messa
 import { Viewport } from '../layout/viewport';
 import { Preferences } from '../storages/preferences';
 import { PopOuts } from './pop-outs';
+import { DOCK_GAP, DockStack, STACK_COUNTER_WIDTH } from '../dock/dock-stack';
+
+export { DOCK_GAP };
 
 /** How a compose window shows, Gmail's three states:
     - `docked`: a window in its place on the bottom edge of the screen;
-    - `minimized`: only its title bar, in that same place;
+    - `minimized`: on the stack (`DockStack`) — its place
+      given up, its title bar shown when the stack fans out (and, the top
+      one, while no window is open);
     - `expanded`: a 16:9 dialog in the middle of the screen, over a scrim —
       one at a time. */
 export type ComposeWindowMode = 'docked' | 'minimized' | 'expanded';
@@ -34,8 +39,18 @@ export type ComposeWindowMode = 'docked' | 'minimized' | 'expanded';
     A phone's window is the screen either way. */
 export type ComposeOpenMode = 'window' | 'zoom' | 'pop-out';
 
-/** What a new message opens with — see {@link ComposeWindows.open}. */
+/** What a window on the edge holds — the frame is the same, the content
+    is its kind's:
+    - `compose`: a message being written, on its sheet;
+    - `note`: a note (`Notes`), named by {@link ComposeWindow.note}. */
+export type ComposeWindowKind = 'compose' | 'note';
+
+/** What a new window opens with — see {@link ComposeWindows.open}. */
 export interface ComposeOptions {
+  /** What it holds: a message, unless it says otherwise. */
+  readonly kind?: ComposeWindowKind;
+  /** The note a `note` window holds, by its id. */
+  readonly note?: number;
   readonly mobile?: ComposeWindowMobile;
   readonly content?: ComposeWindowContent;
   readonly focus?: ComposeWindowFocus;
@@ -77,15 +92,22 @@ export interface ComposeWindowContent {
   readonly images: readonly InlinePart[];
 }
 
-/** One open compose window. */
+/** One open window on the edge. */
 export interface ComposeWindow {
   readonly id: number;
+  /** What it holds. Everything about its place — the row, the stack, the
+      dialog — is the same whatever that is. */
+  readonly kind: ComposeWindowKind;
+  /** The note it holds, where it is a note's window. */
+  readonly note: number | null;
   /** Which place on the edge is this window's, counted from the corner: 0
-      is the corner itself, 1 the one beside it, and so on. Taken when the
-      window opens and held until it closes — windows never shuffle, so
-      nothing on the edge moves when a neighbour opens, minimizes, leaves
-      for the dialog or closes. A place given up is free for the next
-      window. */
+      is the corner itself, 1 the one beside it, and so on. Never chosen and
+      never remembered: the open windows — on the edge or in the dialog —
+      stand from the corner out in the order they were opened, with no gap
+      between them, so a window's place is how many open ones are older than
+      it. It moves in when an older one minimizes or closes, and back out
+      when one is restored. Minimized, the window holds no place, and this
+      is only the last one it had. */
   readonly slot: number;
   readonly mode: ComposeWindowMode;
   /** Where a drag has put the window instead — px from the right side of
@@ -120,14 +142,21 @@ export const DOCKED_WIDTH = 600;
 /** A minimized window's width, px: its title bar, in the same place as the
     window it belongs to. */
 export const MINIMIZED_WIDTH = 280;
-/** Between two places on the edge, and between the first and the screen's
-    side, px. */
-export const DOCK_GAP = 16;
-
-/** However wide the screen, never more messages open than this: three is
-    what anyone keeps track of, and a fourth Compose is far more often the
-    message already started than a new one. */
+/** However wide the screen, never more messages open on the edge than
+    this: three is what anyone keeps track of side by side. */
 export const MAX_WINDOWS = 3;
+
+/** However many are minimized, never more messages at all than this —
+    open and stacked together: a Compose past it is far more often the
+    message already started than a new one. Messages only: there is no end
+    to the notes. */
+export const MAX_MESSAGES = 6;
+
+/** A window's name on the dock's stack (`DockStack`): its kind — its sort
+    there, what the stack's counter counts it under — and its id. */
+export function windowStackKey(window: Pick<ComposeWindow, 'id' | 'kind'>): string {
+  return `${window.kind}:${window.id}`;
+}
 
 /** Where a window's place on the edge is, as px from the right side of the
     screen — every place worked out once, from its number. */
@@ -140,18 +169,32 @@ export function slotPosition(slot: number): number {
  * a message in a window of its own — `open()` — and keep reading while it
  * is written; each is its own message, sent or discarded on its own.
  *
- * - **A place of its own.** Every window takes a place on the bottom edge
- *   when it opens — the corner first, then leftwards — and keeps it: the
- *   places are worked out from their numbers ({@link slotPosition}), not
- *   from what happens to be open, so nothing ever slides sideways because
- *   a neighbour opened, minimized, went to the dialog or closed. A closed
- *   window's place is free for the next one.
+ * The windows are not only a message's: a window has a kind
+ * ({@link ComposeWindowKind}) — a note opens in the very same frame, in
+ * the same row, onto the same stack — and nothing below cares which.
+ *
+ * - **In a row from the corner, in order.** The open windows stand on the
+ *   bottom edge from the right corner leftwards, oldest first, with no gap
+ *   between them: only their order is kept, never a place. A window that
+ *   minimizes or closes lets the newer ones move in towards the corner; one
+ *   restored goes back between the same neighbours, and the newer ones
+ *   move out again. The dialog keeps its window's place in the row.
  * - **As many as the edge holds**, and never more than {@link MAX_WINDOWS}:
  *   the screen's width over a window's own 600px says how many places there
- *   are ({@link capacity}). Compose with every place taken hands the oldest
- *   window back instead.
- * - **Minimized** to its title bar, in the same place; the title bar
- *   restores it.
+ *   are ({@link capacity}). Compose with every place taken by messages —
+ *   or with {@link MAX_MESSAGES} of them open and stacked — hands the
+ *   oldest message back instead. A note always opens: with no place free
+ *   the last note on the edge goes onto the stack for it.
+ * - **Minimized** into a stack, the way a dock's stack holds its files:
+ *   the window gives its place up, and its title bar goes on the stack.
+ *   Beside an open window the edge shows only a counter — how many are
+ *   minimized — left of the leftmost one. With none open it shows the
+ *   stack's top bar, the last window minimized, in the corner, and the
+ *   counter to its left counts the ones under it. Hovering (or pressing)
+ *   the counter fans the bars out of sight upwards over everything, each
+ *   restoring its window. Restored, a window goes
+ *   back into the row where its age puts it; with no place free, the
+ *   oldest open window goes onto the stack in its stead.
  * - **Expanded** into a centred 16:9 dialog over a scrim — one at a time:
  *   expanding another returns the first to its place, which is still there.
  * - **Dragged sideways** by its title bar (ProtonMail): the drag patches
@@ -189,19 +232,45 @@ export class ComposeWindows {
       window itself does the focusing (it owns its sheet). */
   readonly wanted = this.#wanted.asReadonly();
 
+  /** The dock's stack: where a minimized window's bar goes — with whatever
+      else minimizes onto the edge — and what says how it shows. */
+  readonly #stack = inject(DockStack);
+  /** The minimized windows, top of the stack first — the one minimized
+      last. */
+  readonly minimized = computed(() => {
+    const windows = this.#windows();
+    return this.#stack
+      .entries()
+      .map((entry) => windows.find((w) => windowStackKey(w) === entry.key))
+      .filter((w): w is ComposeWindow => w !== undefined);
+  });
+
   #nextId = 1;
   #seq = 0;
   #dock: Promise<ComponentRef<unknown>> | null = null;
+
+  constructor() {
+    // The edge is the windows' row: the stack stands left of the leftmost
+    // open one — the place after the row's last — or in the corner with
+    // none open, where it leaves its top bar on the edge.
+    this.#stack.attach({
+      place: computed(() => slotPosition(this.#held().length)),
+      occupied: computed(() => this.#held().length > 0),
+    });
+  }
 
   /**
    * How many places the edge has, right now: how many whole windows the
    * screen's width holds beside each other — its width over 600px and a
    * gap — never more than {@link MAX_WINDOWS} however wide it is, and never
-   * fewer than one however narrow.
+   * fewer than one however narrow. While anything is on the dock's stack
+   * (`stacked`, the stack as it is by default) its counter's room
+   * ({@link STACK_COUNTER_WIDTH}) comes off first.
    */
-  capacity(): number {
+  capacity(stacked = this.#stack.entries().length > 0): number {
     const screen = this.#document.defaultView?.innerWidth ?? Infinity;
-    const fits = Math.floor((screen - DOCK_GAP) / (DOCKED_WIDTH + DOCK_GAP));
+    const room = stacked ? STACK_COUNTER_WIDTH + DOCK_GAP : 0;
+    const fits = Math.floor((screen - DOCK_GAP - room) / (DOCKED_WIDTH + DOCK_GAP));
     return Math.min(MAX_WINDOWS, Math.max(1, fits));
   }
 
@@ -221,8 +290,8 @@ export class ComposeWindows {
   }
 
   /**
-   * Opens a new message in the first free place on the edge and brings it
-   * to the front. Resolves to its id once the dock is on the page.
+   * Opens a new message at the end of the row on the edge — the newest
+   * window, so the leftmost — and brings it to the front. Resolves to its id once the dock is on the page.
    *
    * `mobile` says how it shows on a phone, where it is the screen: as the
    * page itself (the default — no title bar; the back button closes it) or
@@ -237,31 +306,58 @@ export class ComposeWindows {
    * otherwise, pop-out included: this is the message in this tab
    * ({@link compose} pops it out).
    *
-   * With every place taken there is nothing new to open: the oldest window
-   * comes back instead — restored if it was minimized, in front, with the
-   * caret in it.
+   * A message with every place taken by messages — minimized windows hold
+   * none — or with {@link MAX_MESSAGES} messages open and stacked, has
+   * nothing new to open: the oldest message comes back instead — restored
+   * if it was minimized, in front, with the caret in it.
+   *
+   * A note always opens, however many there are: a note is a line jotted
+   * down, not a message to keep track of. With no place free it takes the
+   * place of the last note opened on the edge, which goes onto the stack
+   * (the last window, where no note is there). A note on the edge gives
+   * way to a new message the same way.
    */
   async open(options?: ComposeOptions): Promise<number> {
     await this.#mount();
-    const open = this.#windows();
-    const slot = this.#freeSlot();
-    if (slot >= this.capacity()) {
-      const oldest = open[0];
+    const kind = options?.kind ?? 'compose';
+    const messages = this.#windows().filter((w) => w.kind === 'compose');
+    const full = () => this.#held().length >= this.capacity();
+    if (
+      kind === 'compose' &&
+      (messages.length >= MAX_MESSAGES ||
+        (full() && messages.length > 0 && !this.#held().some((w) => w.kind === 'note')))
+    ) {
+      const oldest = messages[0];
       this.reveal(oldest.id);
       return oldest.id;
     }
+    // Room for it: the newest note on the edge goes onto the stack — the
+    // newest window, for a note among messages only — until there is a
+    // place (the stack's counter may take one too).
+    while (full()) {
+      const held = [...this.#held()].reverse();
+      const last =
+        held.find((w) => w.kind === 'note' && w.mode === 'docked') ??
+        held.find((w) => w.mode === 'docked') ??
+        held[0];
+      this.minimize(last.id);
+    }
+    const open = this.#windows();
     const id = this.#nextId++;
     const sheet = this.#viewport.compact() ? 'mobile' : 'desktop';
     // Zoomed (the settings' Open mode): the dialog, one at a time — any
     // other goes back to its place.
-    const zoom = sheet === 'desktop' && this.#preferences.composeOpenMode() === 'zoom';
-    this.#windows.update((windows) => [
+    const zoom =
+      kind === 'compose' && sheet === 'desktop' && this.#preferences.composeOpenMode() === 'zoom';
+    this.#commit([
       ...(zoom
-        ? windows.map((w) => (w.mode === 'expanded' ? { ...w, mode: 'docked' as const } : w))
-        : windows),
+        ? open.map((w) => (w.mode === 'expanded' ? { ...w, mode: 'docked' as const } : w))
+        : open),
       {
         id,
-        slot,
+        kind,
+        note: options?.note ?? null,
+        slot: 0,
         mode: zoom ? 'expanded' : 'docked',
         pin: null,
         mobile: options?.mobile ?? 'page',
@@ -277,31 +373,62 @@ export class ComposeWindows {
 
   /**
    * Puts a closed window back as it was — its message, the inline parts its
-   * HTML names, its place on the edge and the id it went by — which is what
-   * the browser's forward button does after a back press closed it (see
-   * BackButton). Its own place if that is still free, the first free one
-   * otherwise; with every place taken there is nowhere to put it back, and
-   * the press does nothing rather than push a window off the edge.
+   * HTML names and the id it went by — which is what the browser's forward
+   * button does after a back press closed it (see BackButton). Back into
+   * the row where its age puts it; with every place taken there is nowhere
+   * to put it back, and the press does nothing rather than push a window
+   * off the edge.
    *
    * Never minimized, whatever it was: a window the browser is handing back
    * is one the user is being shown again.
    */
   reopen(window: ComposeWindow): void {
     if (this.#find(window.id)) return;
-    const taken = new Set(this.#windows().map((w) => w.slot));
-    const slot = taken.has(window.slot) ? this.#freeSlot() : window.slot;
-    if (slot >= this.capacity()) return;
+    if (this.#held().length >= this.capacity()) return;
     const mode = window.mode === 'minimized' ? 'docked' : window.mode;
-    this.#windows.update((windows) => [...windows, { ...window, slot, mode }]);
+    this.#commit([...this.#windows(), { ...window, mode }]);
     this.#front.set(window.id);
   }
 
-  /** The place nearest the corner that no window holds. */
-  #freeSlot(): number {
-    const taken = new Set(this.#windows().map((w) => w.slot));
+  /** The windows holding a place on the edge — every one not minimized
+      (the dialog keeps its place for coming back to), oldest first. */
+  #held(): ComposeWindow[] {
+    return this.#windows().filter((w) => w.mode !== 'minimized');
+  }
+
+  /** The windows as they are from now on: oldest first (ids are handed out
+      in opening order — a window put back goes where its id says), and the
+      open ones placed from the corner out in that order, no gap between
+      them. A window whose place has not changed is left the object it was,
+      so nothing that reads it sees a change. */
+  #commit(windows: readonly ComposeWindow[]): void {
     let slot = 0;
-    while (taken.has(slot)) slot++;
-    return slot;
+    this.#windows.set(
+      [...windows]
+        .sort((a, b) => a.id - b.id)
+        .map((w) => {
+          if (w.mode === 'minimized') return w;
+          const place = slot++;
+          return w.slot === place ? w : { ...w, slot: place };
+        }),
+    );
+  }
+
+  /** Takes a minimized window off the stack, back into the row on the edge
+      (`mode`: docked, or the dialog). With no place free beside what is
+      left on the stack, the oldest open window goes onto it first — a
+      docked one before the dialog. */
+  #unstack(id: number, mode: 'docked' | 'expanded'): void {
+    const key = windowStackKey(this.#find(id)!);
+    const stacked = () => this.#stack.entries().some((entry) => entry.key !== key);
+    for (;;) {
+      const held = this.#held();
+      if (held.length < this.capacity(stacked())) break;
+      const oldest = held.find((w) => w.mode === 'docked') ?? held[0];
+      this.minimize(oldest.id);
+    }
+    this.#stack.remove(key);
+    this.#set(id, { mode });
   }
 
   /** Brings a window back: on the edge (never left minimized), in front,
@@ -317,30 +444,47 @@ export class ComposeWindows {
   /** Closes the window — its message goes with it, unless something took a
       copy of it first ({@link reopen}). Focus goes back to where it was when
       the window opened — the window's focus trap hands it back as it goes.
-      Its place on the edge is free for the next window; the windows still
-      open stay where they are. */
+      The newer windows on the edge move in over its place. */
   close(id: number): void {
     const closing = this.#find(id);
     if (!closing) return;
-    this.#windows.update((windows) => windows.filter((w) => w.id !== id));
+    this.#stack.remove(windowStackKey(closing));
+    this.#commit(this.#windows().filter((w) => w.id !== id));
     if (this.#front() === id) this.#front.set(this.#windows().at(-1)?.id ?? null);
   }
 
+  /** Onto the stack, on top: the window gives its place on the edge up,
+      and the newer ones move in over it. The stack folds — a pointer is on the window minimizing, not on it. */
   minimize(id: number): void {
+    const window = this.#find(id);
+    if (!window || window.mode === 'minimized') return;
     this.#set(id, { mode: 'minimized' });
+    this.#stack.push({
+      key: windowStackKey(window),
+      kind: window.kind,
+      icon: window.kind === 'note' ? 'sticky_note_2' : 'mail',
+      restore: () => this.dock(id),
+      close: () => this.close(id),
+    });
   }
 
-  /** Back to the edge — from minimized, or from the dialog — which is back
-      to its own place, or to where a drag pinned it. */
+  /** Back to the edge — from the stack, into the row where its age puts it
+      (see {@link #unstack}), or from the dialog, whose place the row kept —
+      or to where a drag pinned it. */
   dock(id: number): void {
-    this.#set(id, { mode: 'docked' });
+    const window = this.#find(id);
+    if (!window) return;
+    if (window.mode === 'minimized') this.#unstack(id, 'docked');
+    else this.#set(id, { mode: 'docked' });
     this.#front.set(id);
   }
 
-  /** The dialog: any other expanded window goes back to its place first. */
+  /** The dialog: any other expanded window goes back to its place first;
+      a minimized one comes off the stack for it. */
   expand(id: number): void {
-    this.#windows.update((windows) =>
-      windows.map((w) =>
+    if (this.#find(id)?.mode === 'minimized') this.#unstack(id, 'expanded');
+    this.#commit(
+      this.#windows().map((w) =>
         w.id === id
           ? { ...w, mode: 'expanded' }
           : w.mode === 'expanded'
@@ -373,18 +517,20 @@ export class ComposeWindows {
   }
 
   #set(id: number, change: Partial<Pick<ComposeWindow, 'mode' | 'pin'>>): void {
-    this.#windows.update((windows) => windows.map((w) => (w.id === id ? { ...w, ...change } : w)));
+    this.#commit(this.#windows().map((w) => (w.id === id ? { ...w, ...change } : w)));
   }
 
   /** Puts the dock on the page, once: its code is fetched on the first
       open, and it stays for the next. */
   #mount(): Promise<ComponentRef<unknown>> {
-    this.#dock ??= import('../../content/partials/shared/compose-window/compose-dock').then(({ ComposeDock }) => {
-      const ref = createComponent(ComposeDock, { environmentInjector: this.#injector });
-      this.#app.attachView(ref.hostView);
-      this.#document.body.appendChild(ref.location.nativeElement);
-      return ref;
-    });
+    this.#dock ??= import('../../content/partials/shared/compose-window/compose-dock').then(
+      ({ ComposeDock }) => {
+        const ref = createComponent(ComposeDock, { environmentInjector: this.#injector });
+        this.#app.attachView(ref.hostView);
+        this.#document.body.appendChild(ref.location.nativeElement);
+        return ref;
+      },
+    );
     return this.#dock;
   }
 }

@@ -1,3 +1,4 @@
+@use '@angular/material' as mat;
 @use '@h-k-dev/angular-email-editor/styles/scroll';
 @use '../../../../styles/breakpoints' as bp;
 
@@ -363,6 +364,34 @@
   min-inline-size: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+
+  :host([data-collapsed]) & {
+    display: none;
+  }
+}
+
+// A place's own button — the notes' "new note": over the end of its row,
+// beside the link rather than in it (a button in a link is no button).
+.mailbox-section__links > li,
+.mailbox-group__links > li {
+  position: relative;
+}
+
+.mailbox-link__action {
+  position: absolute;
+  inset-block-start: 4px;
+  inset-inline-end: 4px;
+  color: var(--mat-sys-on-surface-variant);
+
+  // Material's icon button as it is — its shape, its state layer, its
+  // focus ring — at the row's size: 24px round an 18px glyph.
+  @include mat.icon-button-overrides(
+    (
+      icon-size: 18px,
+      state-layer-size: 24px,
+      touch-target-size: 24px,
+    )
+  );
 
   :host([data-collapsed]) & {
     display: none;

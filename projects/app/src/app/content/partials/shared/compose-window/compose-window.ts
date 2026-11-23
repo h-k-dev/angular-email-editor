@@ -9,6 +9,7 @@ import {
   effect,
   inject,
   input,
+  linkedSignal,
   untracked,
   viewChild,
 } from '@angular/core';
@@ -40,8 +41,13 @@ import {
   DOCK_GAP,
   InlinePart,
   slotPosition,
+  windowStackKey,
 } from '../../../../core/email/compose-windows';
+import { DockStack } from '../../../../core/dock/dock-stack';
+import { DockStackItem } from '../../../../core/dock/dock-stack-item';
 import { PopOuts } from '../../../../core/email/pop-outs';
+import { Notes } from '../../../../core/notes/notes';
+import { NoteSheet } from '../notes/note-sheet';
 
 /** How far a press on the title bar travels before it is a drag and no
     longer a click, px. */
@@ -61,13 +67,25 @@ interface Grab {
 }
 
 /**
- * One compose window: a title bar, and a message sheet of its own. What the
+ * One window on the edge: a title bar, and what it holds — a message sheet
+ * of its own or, for a window of kind `note`, a note's (`NoteSheet`): the
+ * same frame, different content. What the
  * window does is the {@link ComposeWindows} service's — this draws the
  * state it is handed and passes the gestures back:
  *
  * - The title bar names the message by its subject ("New message" before
  *   it has one). A click on it minimizes the window, or restores it, as
  *   Gmail's does — it is a button, so a keyboard gets the same.
+ * - Minimized, it is on the dock's stack (`DockStack`), which says how it
+ *   shows: out of sight — the stack's menu lists it, by the name given
+ *   here, and brings it back — but for the top one while no window is
+ *   open, which stays on the edge in the corner as its title bar. All of
+ *   that is `DockStackItem`'s, a host directive, and `dock-stack.item`'s
+ *   in the stylesheet; the window only names its entry and stands in the
+ *   stack's place.
+ * - On the edge it stands in the row's place the service hands it, and
+ *   slides to a new one when the row closes up or opens for a window
+ *   coming back.
  * - Dragging the title bar moves the window along the bottom edge, never
  *   off the screen (ProtonMail's). Not in the dialog, and not on a phone,
  *   where a window is the whole screen.
@@ -82,11 +100,12 @@ interface Grab {
  */
 @Component({
   selector: 'section[compose-window]',
-  imports: [TranslatePipe, MessageForm, MobileMessageForm, MatIcon, MatIconButton],
+  imports: [TranslatePipe, MessageForm, MobileMessageForm, NoteSheet, MatIcon, MatIconButton],
   // One inline image registry per composer: this window's message. And
   // the window is a paper island (`scheme`) for everything it holds.
   providers: [InlineImages, { provide: PaperIsland, useExisting: ComposeWindowFrame }],
-  hostDirectives: [CdkTrapFocus],
+  // A bar on the dock's stack while it is minimized (`DockStackItem`).
+  hostDirectives: [CdkTrapFocus, DockStackItem],
   templateUrl: './compose-window.html',
   styleUrl: './compose-window.scss',
   host: {
@@ -95,9 +114,11 @@ interface Grab {
     '[attr.aria-label]': 'bare() ? label() : null',
     '[attr.aria-modal]': 'expanded() || null',
     '[attr.data-mode]': 'window().mode',
+    '[attr.data-kind]': 'window().kind',
     '[attr.data-bare]': 'bare() || null',
     '[class.compose-window--front]': 'front()',
     '[class.compose-window--full]': 'full()',
+    '[class.compose-window--sliding]': 'sliding()',
     '[attr.data-slot]': 'window().slot',
     '[attr.data-paper-scheme]': 'scheme()',
     '[style.--compose-window-x.px]': 'x()',
@@ -109,6 +130,8 @@ interface Grab {
 })
 export class ComposeWindowFrame implements PaperIsland {
   protected readonly windows = inject(ComposeWindows);
+  readonly #notes = inject(Notes);
+  readonly #stack = inject(DockStack);
   protected readonly i18n = inject(I18n);
   protected readonly viewport = inject(Viewport);
   readonly #host = inject<ElementRef<HTMLElement>>(ElementRef);
@@ -145,11 +168,23 @@ export class ComposeWindowFrame implements PaperIsland {
   );
   protected readonly front = computed(() => this.windows.front() === this.window().id);
 
+  /** The window's bar on the dock's stack: this element, while the window
+      is minimized. The directive carries the stack's state onto it — where
+      it stands, whether it shows — and the stylesheet draws it
+      (`dock-stack.item`). */
+  readonly #bar = inject(DockStackItem);
+  protected readonly stacked = this.#bar.stacked;
+
+  /** Whether the window holds a message — its sheet, and what only a
+      message has: a pop-out, Send. A note's window has the frame alone. */
+  protected readonly message = computed(() => this.window().kind === 'compose');
+
   /** Whether the message can be popped out now: where it can be zoomed (a
       desk's sheet), and with nothing still uploading — an upload has no id
       a draft could keep, and would be lost on the way. */
   protected readonly poppable = computed(
     () =>
+      this.message() &&
       this.zoomable() &&
       !this.sheet()
         ?.message()
@@ -165,14 +200,33 @@ export class ComposeWindowFrame implements PaperIsland {
   protected readonly bare = computed(() => this.full() && this.mobile() === 'page');
 
   /** On the edge, where a drag can move it. */
-  protected readonly movable = computed(() => !this.expanded() && !this.full());
+  protected readonly movable = computed(() => !this.expanded() && !this.full() && !this.stacked());
 
   /** Where the window sits, as px from the right side of the screen: its
       own place on the edge, worked out from its number, or wherever a drag
       has pinned it instead. The dialog and a phone's full screen lay
       themselves out (they are the screen) and this is simply kept — coming
-      back from either puts the window exactly where it was. */
-  protected readonly x = computed(() => this.window().pin ?? slotPosition(this.window().slot));
+      back from either puts the window exactly where it was. On the stack
+      it is the stack's place, whatever a drag did before: the bar on the
+      edge stands there. */
+  protected readonly x = computed(() =>
+    this.stacked() ? this.#stack.place() : (this.window().pin ?? slotPosition(this.window().slot)),
+  );
+
+  /** Whether the window is on its way to a new place in the row: the last
+      thing that changed about it was its place, while it stood docked — an
+      older window minimized, closed or came back. Not a drag (the pin
+      changed), and not its own way onto the edge from the stack or the
+      dialog (its mode did): those are not slides. */
+  protected readonly sliding = linkedSignal<ComposeWindow, boolean>({
+    source: () => this.window(),
+    computation: (now, previous) =>
+      !!previous &&
+      previous.source.mode === 'docked' &&
+      now.mode === 'docked' &&
+      previous.source.slot !== now.slot &&
+      previous.source.pin === now.pin,
+  });
 
   /** The message this window holds — on the desktop's sheet or the
       phone's (`ComposeWindow.sheet`), read as either. */
@@ -184,12 +238,19 @@ export class ComposeWindowFrame implements PaperIsland {
       edge, zoomed, minimized or as a phone's page alike. */
   readonly scheme = computed(() => this.sheet()?.editorScheme() ?? null);
 
-  /** What the window is called: the message's subject, or what an unnamed
-      message is called. The title bar shows it; a page, which has no title
+  /** What the window is called: the message's subject (a note's first
+      line), or what an unnamed message (note) is called. The title bar shows it; a page, which has no title
       bar, says it to assistive tech instead. */
-  protected readonly label = computed(
-    () => this.sheet()?.message().subject.trim() || this.i18n.t('composeWindow.new'),
-  );
+  protected readonly label = computed(() => {
+    const { kind, note } = this.window();
+    if (kind === 'note') {
+      return (
+        (note !== null && this.#notes.title(note)) ||
+        this.i18n.t('notes.untitled', { number: note })
+      );
+    }
+    return this.sheet()?.message().subject.trim() || this.i18n.t('composeWindow.new');
+  });
 
   /** What the sheet starts from: what the window opened with (a reply its
       opener prepared, or a message the forward button put back), else a
@@ -200,6 +261,11 @@ export class ComposeWindowFrame implements PaperIsland {
   #grab: Grab | null = null;
 
   constructor() {
+    this.#bar.bind(
+      () => windowStackKey(this.window()),
+      () => this.label(),
+    );
+
     // A window that opens with a message: its inline parts go into this
     // window's registry — a new one; a closed window's object URLs died
     // with it — before the editor mounts (a render after the sheet), so
@@ -330,7 +396,8 @@ export class ComposeWindowFrame implements PaperIsland {
   }
 
   /** Escape leaves the dialog for the edge — unless something inside took
-      the key first (a menu closing, the editor's own). */
+      the key first (a menu closing, the editor's own). On the stack the
+      dock's: it folds the stack. */
   protected leaveDialog(event: Event): void {
     if (!this.expanded() || event.defaultPrevented) return;
     event.preventDefault();

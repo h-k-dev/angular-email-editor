@@ -16,6 +16,7 @@ export default {
     nav: {
       inbox: 'Inbox',
       calendar: 'Calendar',
+      notes: 'Notes',
       templates: 'Templates',
       snippets: 'Snippets',
       api: 'API',
@@ -375,6 +376,22 @@ export default {
       archive: 'Moved to archive',
       snoozed: 'Snoozed',
     },
+  },
+  notes: {
+    new: 'New note',
+    untitled: 'Note {{number}}',
+    text: 'Note',
+    placeholder: 'Write a note…',
+    open: 'Open',
+    minimized: 'Minimized',
+    closed: 'Closed',
+    empty: 'No notes yet. Add one: it opens in a window at the foot of the page.',
+  },
+  dockStack: {
+    count: 'Minimized: {{count}}',
+    more: 'More minimized: {{count}}',
+    menu: 'Minimized',
+    close: 'Close {{name}}',
   },
   composeWindow: {
     new: 'New message',

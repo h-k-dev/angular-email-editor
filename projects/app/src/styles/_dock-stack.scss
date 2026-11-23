@@ -1,0 +1,50 @@
+// The dock's stack, for the elements whose things minimize onto it — the
+// twin of `DockStackItem` (core/dock/dock-stack-item.ts), which carries the
+// stack's state onto the element as the attributes and properties read
+// here. A component whose host is a stack item includes `item` once, at
+// the root of its stylesheet, and places itself by what it gives back:
+//
+// - `--dock-stack-x`: the stack's place, px from the right side of the
+//   screen — the right side of the bar on the edge.
+// - `--dock-stack-bar-width`: how wide the bar on the edge is, on
+//   `[data-stack-top]`: `$bar-width` wherever the screen has room for it
+//   and the counter beside it.
+//
+// The element is `position: fixed` on the bottom edge by its own rules;
+// this only says what the stack does to it. No motion: going onto the
+// stack snaps, and what opens is the stack's menu, not these.
+
+/// `$bar-width`: the width of the bar on the edge. `$narrow-hides`: a
+/// selector inside the bar that goes when it is narrower than `$narrow` —
+/// its buttons, before they would be cut.
+@mixin item($bar-width: 280px, $narrow: 200px, $narrow-hides: null) {
+  // On the stack: out of sight. The stack's menu lists it.
+  :host([data-stacked]) {
+    visibility: hidden;
+  }
+
+  // But for the bar on the edge — the last thing minimized, with nothing
+  // open there: narrower than a bar only on a screen too small for it and
+  // the counter beside it (a phone).
+  :host([data-stack-top]) {
+    --dock-stack-bar-width: min(
+      #{$bar-width},
+      calc(100vw - var(--dock-stack-x, 16px) - 16px - var(--dock-stack-counter, 0px))
+    );
+    visibility: visible;
+  }
+
+  @if $narrow-hides {
+    :host([data-stack-top]) {
+      container: dock-stack-bar / inline-size;
+    }
+
+    // (The host's own selector, to outweigh the component's own rule for
+    // what is hidden.)
+    @container dock-stack-bar (max-width: #{$narrow}) {
+      :host([data-stack-top]) #{$narrow-hides} {
+        display: none;
+      }
+    }
+  }
+}

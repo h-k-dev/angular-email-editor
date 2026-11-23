@@ -1,0 +1,7 @@
+{{ stack.hidden() }}
+<!-- More than one kind out of sight: a bubble for each, over the pill. -->
+@for (entry of kinds(); track entry.kind) {
+  <span class="dock-stack-counter__kind" aria-hidden="true" [attr.data-kind]="entry.kind">
+    {{ entry.count }}
+  </span>
+}

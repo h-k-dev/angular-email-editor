@@ -984,6 +984,9 @@ export class AddressInput implements FormValueControl<string[]> {
       come back as plain typing, not flagged: the caret is on them, and the
       next commit judges them again. */
   protected onFocus(input: HTMLInputElement): void {
+    // `focus` comes before the host's `focusin`: the list is measured here
+    // first, typos and all — a typo cleared is a change to say on leaving.
+    this.onFocusin();
     const typos = this.#trailingMalformed();
     if (input.value || !typos.length || this.locked()) return;
     this.value.update((current) => current.slice(0, current.length - typos.length));

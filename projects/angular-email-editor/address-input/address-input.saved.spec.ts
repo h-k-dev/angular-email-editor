@@ -122,6 +122,31 @@ describe('AddressInput savedModelChange', () => {
     expect(host.toSaves).toEqual([]);
   });
 
+  it('says a typo cleared out of the input, as the row is left', async () => {
+    host.to.set(['asdf']);
+    await fixture.whenStable();
+    input(0).focus();
+    await fixture.whenStable();
+    expect(input(0).value).toBe('asdf');
+
+    type(input(0), '');
+    leave();
+    await fixture.whenStable();
+    expect(host.to()).toEqual([]);
+    expect(host.toSaves).toEqual([[]]);
+  });
+
+  it('says nothing for a typo entered and left as it was', async () => {
+    host.to.set(['asdf']);
+    await fixture.whenStable();
+    input(0).focus();
+    await fixture.whenStable();
+    leave();
+    await fixture.whenStable();
+    expect(host.to()).toEqual(['asdf']);
+    expect(host.toSaves).toEqual([]);
+  });
+
   it('says nothing for a value set from outside', async () => {
     host.to.set(['ada@example.com', 'grace@example.com']);
     await fixture.whenStable();

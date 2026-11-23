@@ -1,0 +1,146 @@
+@use '@angular/material' as mat;
+@use '../../../../../styles/breakpoints' as bp;
+
+// One panel over the counter, nothing behind its rows: the bars' width and
+// their right side on the stack's place (`--dock-stack-x`), kept on the
+// screen. Its foot is on the counter's top — the 8px between them is the
+// panel's own padding, so the pointer goes from one to the other without
+// leaving — and it is as tall as its rows up to a ceiling, then scrolls.
+:host {
+  --_gap: clamp(0px, (100vw - #{bp.$full-width-max}) * 100, 16px);
+
+  position: fixed;
+  inset-block-end: calc(var(--_gap) + 40px);
+  inset-inline-end: clamp(
+    8px,
+    calc(var(--dock-stack-x, 16px) - 8px),
+    max(8px, calc(100vw - 296px - 8px))
+  );
+  display: flex;
+  // From the foot up: the top of the stack nearest the counter, and the
+  // scroller resting on it.
+  flex-direction: column-reverse;
+  gap: 8px;
+  box-sizing: border-box;
+  inline-size: min(296px, calc(100vw - 16px));
+  // Eight rows and a half — the half says there is more — or what the
+  // screen has over the counter.
+  max-block-size: min(416px, calc(100svh - var(--_gap) - 40px - 64px));
+  // Room round the rows for their shadows, which the scroller would cut.
+  padding: 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--mat-sys-on-surface) 30%, transparent) transparent;
+  pointer-events: auto;
+  background: none;
+
+  // A slim fade at an end that has more rows past it — none at an end
+  // that is the stack's own: the panel has no background to shade, so it
+  // is the rows themselves that fade.
+  --_fade-above: 0px;
+  --_fade-below: 0px;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 var(--_fade-above),
+    #000 calc(100% - var(--_fade-below)),
+    transparent
+  );
+}
+
+:host([data-more-above]) {
+  --_fade-above: 20px;
+}
+
+:host([data-more-below]) {
+  --_fade-below: 20px;
+}
+
+// As a card comes (styles/_theme.scss, `--app-motion-*`): up from the
+// counter.
+:host(.dock-stack-menu--enter) {
+  animation: dock-stack-menu-in var(--app-motion-duration, 250ms)
+    var(--app-motion-easing, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+@keyframes dock-stack-menu-in {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host(.dock-stack-menu--enter) {
+    animation: none;
+  }
+}
+
+// A row: a minimized window's bar — 40px, the extra-large corner, the
+// window's lift.
+.dock-stack-menu__row {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  block-size: 40px;
+  padding-inline: 12px 4px;
+  box-sizing: border-box;
+  border-radius: var(--mat-sys-corner-extra-large, 14px);
+  background: var(--mat-sys-surface-bright);
+  color: var(--mat-sys-on-surface);
+  box-shadow: var(--mat-sys-level3);
+
+  &:hover {
+    background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, var(--mat-sys-surface-bright));
+  }
+}
+
+.dock-stack-menu__icon {
+  flex: none;
+  inline-size: 18px;
+  block-size: 18px;
+  font-size: 18px;
+  color: var(--mat-sys-primary);
+
+  // A note's mark, in the notes' colour.
+  [data-kind='note'] > & {
+    color: var(--mat-sys-tertiary);
+  }
+}
+
+.dock-stack-menu__name {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  align-self: stretch;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  text-align: start;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: var(--mat-sys-title-small);
+  letter-spacing: var(--mat-sys-title-small-tracking);
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: -2px;
+    border-radius: var(--mat-sys-corner-extra-small, 4px);
+  }
+}
+
+.dock-stack-menu__close {
+  flex: none;
+
+  @include mat.icon-button-overrides(
+    (
+      icon-size: 20px,
+      state-layer-size: 32px,
+      touch-target-size: 32px,
+    )
+  );
+}

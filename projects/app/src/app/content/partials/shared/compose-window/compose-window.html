@@ -12,6 +12,10 @@
     (pointerup)="drop($event)"
     (pointercancel)="drop($event)"
   >
+    @if (!message()) {
+      <!-- Not a message: its kind's mark before its name. -->
+      <mat-icon class="compose-window__kind" aria-hidden="true">sticky_note_2</mat-icon>
+    }
     <button
       type="button"
       class="compose-window__title"
@@ -25,7 +29,7 @@
     <!-- Pop out, minimize, zoom, close: the way furthest out first, the
          window's own last. -->
     <span class="compose-window__controls" data-slot="controls">
-      @if (zoomable()) {
+      @if (zoomable() && message()) {
         <!-- Pop out: a browser window of its own, message and all. Not
              while an attachment is still uploading — it would not come. -->
         <button
@@ -99,7 +103,10 @@
      sheet keeps to a document's centred column.
      Opened on a phone, it holds the phone's sheet instead (chosen once, as
      the window opens): bar on top, the whole sheet scrolling, no zoom. -->
-@if (window().sheet === 'mobile') {
+@if (window().note; as note) {
+  <!-- A note's window: the same frame, the note in it. -->
+  <div note-sheet class="compose-window__sheet" [note]="note"></div>
+} @else if (window().sheet === 'mobile') {
   <div
     mobile-message-form
     class="compose-window__sheet"

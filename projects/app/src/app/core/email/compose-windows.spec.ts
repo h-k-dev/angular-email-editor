@@ -5,7 +5,8 @@ import { InteractivityChecker } from '@angular/cdk/a11y';
 import { replyEnvelope, replyQuote } from '@h-k-dev/angular-email-editor';
 
 import { BLANK } from './envelope';
-import { ComposeWindows } from './compose-windows';
+import { ComposeWindows, MAX_MESSAGES } from './compose-windows';
+import { DockStack, STACK_CLOSE_DELAY } from '../dock/dock-stack';
 import { Viewport } from '../layout/viewport';
 import { EMAIL_SEND_LATENCY } from './email-send';
 
@@ -40,6 +41,7 @@ const pointer = (target: Element, type: string, clientX: number) =>
 
 describe('ComposeWindows', () => {
   let windows: ComposeWindows;
+  let stack: DockStack;
   let app: ApplicationRef;
 
   const dock = () => document.querySelector('[compose-dock]');
@@ -61,6 +63,7 @@ describe('ComposeWindows', () => {
       providers: [{ provide: EMAIL_SEND_LATENCY, useValue: 0 }],
     });
     windows = TestBed.inject(ComposeWindows);
+    stack = TestBed.inject(DockStack);
     app = TestBed.inject(ApplicationRef);
     // Wide enough for the three a screen is ever allowed (3 × 616 + 16).
     screen(2000);
@@ -68,6 +71,7 @@ describe('ComposeWindows', () => {
 
   afterEach(() => {
     dock()?.remove();
+    document.querySelector('[dock-stack-layer]')?.remove();
     if (realWidth) Object.defineProperty(window, 'innerWidth', realWidth);
   });
 
@@ -84,28 +88,303 @@ describe('ComposeWindows', () => {
   });
 
   it('opening past what the screen holds hands back the first window, with the caret in it', async () => {
-    screen(1400);
+    screen(1700); // two places, both beside a stack too
     const first = await windows.open();
     await settle();
     const second = await windows.open();
     await settle();
-    // Two fit at 1400: the second is a window of its own.
+    // Two fit at 1700: the second is a window of its own.
     expect(second).not.toBe(first);
 
     windows.minimize(first);
     await settle();
+    // Minimized, the first gives its place up — so the next Compose is a
+    // window of its own…
+    const third = await windows.open();
+    await settle();
+    expect(third).not.toBe(first);
+    expect(windows.windows()).toHaveLength(3);
+
+    // …and with both places taken again, nothing new opens: the first
+    // window comes off the stack, the oldest open one goes onto it in its
+    // stead, and the first is in front, holding the caret.
     const again = await windows.open();
     await settle();
-
-    // Nothing new opened: the first window is back on the edge, in front,
-    // and holding the caret.
     expect(again).toBe(first);
-    expect(windows.windows()).toHaveLength(2);
-    expect(windows.windows()[0].mode).toBe('docked');
+    expect(windows.windows()).toHaveLength(3);
+    const modeOf = (id: number) => windows.windows().find((w) => w.id === id)!.mode;
+    expect(modeOf(first)).toBe('docked');
+    expect(windows.minimized().map((w) => w.id)).toEqual([second]);
     expect(windows.front()).toBe(first);
     const oldest = frames()[0];
     expect(oldest.getAttribute('aria-labelledby')).toBe(`compose-window-title-${first}`);
     expect(oldest.contains(document.activeElement)).toBe(true);
+  });
+
+  it(`never holds more than ${MAX_MESSAGES} messages, open and stacked together`, async () => {
+    const ids: number[] = [];
+    for (let i = 0; i < MAX_MESSAGES; i++) {
+      ids.push(await windows.open());
+      windows.minimize(ids.at(-1)!);
+    }
+    await settle();
+    expect(windows.minimized()).toHaveLength(MAX_MESSAGES);
+
+    // The next Compose is the oldest message, back off the stack.
+    expect(await windows.open()).toBe(ids[0]);
+    expect(windows.windows()).toHaveLength(MAX_MESSAGES);
+    expect(windows.minimized().map((w) => w.id)).not.toContain(ids[0]);
+  });
+
+  describe('the stack of minimized windows', () => {
+    const stackOf = () =>
+      frames()
+        .filter((frame) => frame.hasAttribute('data-stacked'))
+        .sort((a, b) => +a.dataset['stacked']! - +b.dataset['stacked']!);
+    const counter = () => document.querySelector<HTMLButtonElement>('[dock-stack-counter]');
+    const menu = () => document.querySelector<HTMLElement>('[dock-stack-menu]');
+    const rows = () => [...document.querySelectorAll<HTMLElement>('.dock-stack-menu__row')];
+    const nameOf = (row: Element) =>
+      row.querySelector<HTMLButtonElement>('.dock-stack-menu__name')!;
+    const placeOf = (id: number) => windows.windows().find((w) => w.id === id)!.slot;
+    /** Names a window by its subject, as its title bar and the menu do. */
+    const name = async (frame: Element, subject: string) => {
+      const input = frame.querySelector<HTMLInputElement>('input[aria-label="Subject"]')!;
+      input.value = subject;
+      input.dispatchEvent(new Event('input'));
+      await settle();
+    };
+
+    it('beside open windows the edge shows only a counter, left of the leftmost one, counting every minimized window', async () => {
+      const first = await windows.open();
+      const second = await windows.open();
+      const third = await windows.open();
+      await settle();
+
+      windows.minimize(second);
+      await settle();
+      // The row closes up over its place: the third moves in beside the
+      // first. All the edge shows of the stack is its counter, left of the
+      // leftmost window — the window itself is out of sight and out of
+      // reach.
+      expect(windows.windows().map((w) => w.mode)).toEqual(['docked', 'minimized', 'docked']);
+      expect([placeOf(first), placeOf(third)]).toEqual([0, 1]);
+      expect(stack.place()).toBe(1248);
+      expect([stack.shown(), stack.hidden()]).toEqual([0, 1]);
+      expect(counter()!.textContent!.trim()).toBe('1');
+      expect(counter()!.getAttribute('aria-label')).toBe('Minimized: 1');
+      expect(counter()!.closest('section[compose-window]')).toBeNull();
+      expect(counter()!.classList).not.toContain('dock-stack-counter--beside');
+      expect(counter()!.style.getPropertyValue('--dock-stack-x')).toBe('1248px');
+      const [bar] = stackOf();
+      expect(bar.hasAttribute('inert')).toBe(true);
+      expect(bar.hasAttribute('data-stack-top')).toBe(false);
+      // Folded: no menu.
+      expect(menu()).toBeNull();
+
+      windows.minimize(first);
+      await settle();
+      expect(windows.minimized().map((w) => w.id)).toEqual([first, second]);
+      expect(stackOf().map((frame) => frame.dataset['stacked'])).toEqual(['0', '1']);
+      // One window left, in the corner: the counter is beside it.
+      expect(placeOf(third)).toBe(0);
+      expect(stack.place()).toBe(632);
+      expect(counter()!.textContent!.trim()).toBe('2');
+      expect(stackOf().map((frame) => frame.hasAttribute('inert'))).toEqual([true, true]);
+
+      // Restored, the second goes back between its neighbours' places: the
+      // corner, the third being newer.
+      windows.dock(second);
+      await settle();
+      expect([placeOf(second), placeOf(third)]).toEqual([0, 1]);
+      expect(stack.place()).toBe(1248);
+      expect(counter()!.textContent!.trim()).toBe('1');
+    });
+
+    it('with no window open the last one minimized stays on the edge, and the counter beside it counts the ones under it', async () => {
+      const first = await windows.open();
+      await settle();
+      windows.minimize(first);
+      await settle();
+      // One minimized, none open: its bar, in the corner — never a counter
+      // alone, and no counter with nothing under the bar.
+      expect(stack.place()).toBe(16);
+      expect([stack.shown(), stack.hidden()]).toEqual([1, 0]);
+      expect(counter()).toBeNull();
+      let [top] = stackOf();
+      expect(top.hasAttribute('data-stack-top')).toBe(true);
+      expect(top.hasAttribute('inert')).toBe(false);
+      expect(top.style.getPropertyValue('--compose-window-x')).toBe('16px');
+      expect(top.style.getPropertyValue('--dock-stack-counter')).toBe('');
+
+      const second = await windows.open();
+      const third = await windows.open();
+      windows.minimize(second);
+      windows.minimize(third);
+      await settle();
+      (document.activeElement as HTMLElement | null)?.blur();
+      stack.fold(true);
+      await settle();
+      // Three minimized: the last on the edge, and the counter left of it
+      // says two — what is under it.
+      expect(windows.minimized().map((w) => w.id)).toEqual([third, second, first]);
+      expect(counter()!.textContent!.trim()).toBe('2');
+      expect(counter()!.getAttribute('aria-label')).toBe('More minimized: 2');
+      expect(counter()!.classList).toContain('dock-stack-counter--beside');
+      const bars = stackOf();
+      [top] = bars;
+      expect(bars.map((frame) => frame.hasAttribute('data-stack-top'))).toEqual([
+        true,
+        false,
+        false,
+      ]);
+      expect(bars.map((frame) => frame.hasAttribute('inert'))).toEqual([false, true, true]);
+      // The bar on the edge makes room for the counter.
+      expect(top.style.getPropertyValue('--dock-stack-counter')).toBe('48px');
+
+      // A window opens: the bar leaves the edge, and the counter counts
+      // all three.
+      await windows.open();
+      await settle();
+      expect(counter()!.textContent!.trim()).toBe('3');
+      expect(stackOf().some((frame) => frame.hasAttribute('data-stack-top'))).toBe(false);
+    });
+
+    it('the counter opens a menu of the windows out of sight — one panel, the last minimized first — and Escape closes it', async () => {
+      const first = await windows.open();
+      const second = await windows.open();
+      await windows.open();
+      await settle();
+      await name(frames()[0], 'Quarterly report');
+      await name(frames()[1], 'Lunch?');
+      windows.minimize(first);
+      windows.minimize(second);
+      await settle();
+      expect(counter()!.getAttribute('aria-expanded')).toBe('false');
+
+      counter()!.click(); // no pointer behind it: a key's click
+      await settle();
+      expect(stack.open()).toBe(true);
+      expect(counter()!.getAttribute('aria-expanded')).toBe('true');
+      // One panel in the stack's place, its rows named as the windows are.
+      expect(menu()!.style.getPropertyValue('--dock-stack-x')).toBe('632px');
+      expect(rows().map((row) => nameOf(row).textContent!.trim())).toEqual([
+        'Lunch?',
+        'Quarterly report',
+      ]);
+      expect(rows().every((row) => row.dataset['kind'] === 'compose')).toBe(true);
+      // The windows themselves stay out of sight: the rows stand for them.
+      expect(stackOf().map((frame) => frame.hasAttribute('inert'))).toEqual([true, true]);
+      // A key's press takes the focus onto the first row.
+      expect(document.activeElement).toBe(nameOf(rows()[0]));
+
+      // A renamed window is renamed in the menu.
+      await name(frames()[0], 'Q3 report');
+      expect(nameOf(rows()[1]).textContent!.trim()).toBe('Q3 report');
+
+      // Escape closes it, the focus back on the counter.
+      nameOf(rows()[0]).dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      );
+      await settle();
+      expect(stack.open()).toBe(false);
+      expect(menu()).toBeNull();
+      expect(document.activeElement).toBe(counter());
+    });
+
+    it('a pointer opens it, and it closes a moment after the pointer leaves — the menu is one piece, gaps and all', async () => {
+      const first = await windows.open();
+      const second = await windows.open();
+      await windows.open();
+      windows.minimize(first);
+      windows.minimize(second);
+      await settle();
+      (document.activeElement as HTMLElement | null)?.blur();
+      stack.fold(true);
+      await settle();
+      counter()!.dispatchEvent(new Event('pointerenter'));
+      expect(stack.open()).toBe(true);
+      await settle();
+      vi.useFakeTimers();
+      try {
+        // Crossing from the counter to the menu keeps it open…
+        counter()!.dispatchEvent(new Event('pointerleave'));
+        vi.advanceTimersByTime(STACK_CLOSE_DELAY / 2);
+        menu()!.dispatchEvent(new Event('pointerenter'));
+        vi.advanceTimersByTime(STACK_CLOSE_DELAY * 4);
+        // …and so does resting anywhere in it: the rows are in the panel,
+        // and only leaving the panel is leaving.
+        expect(stack.open()).toBe(true);
+        expect(rows().every((row) => row.parentElement === menu())).toBe(true);
+
+        menu()!.dispatchEvent(new Event('pointerleave'));
+        vi.advanceTimersByTime(STACK_CLOSE_DELAY);
+        expect(stack.open()).toBe(false);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('a row restores its window into the row where its age puts it; its button closes it where it is', async () => {
+      const first = await windows.open();
+      const second = await windows.open();
+      const third = await windows.open();
+      windows.minimize(first);
+      windows.minimize(second);
+      await settle();
+      // The third moved in to the corner meanwhile.
+      expect(placeOf(third)).toBe(0);
+
+      stack.fan();
+      await settle();
+      // The first is under the second on the stack: the second row.
+      nameOf(rows()[1]).click();
+      await settle();
+      // The first is the older: the corner is its again, the third beside.
+      expect(windows.windows().map((w) => [w.id, w.mode])).toEqual([
+        [first, 'docked'],
+        [second, 'minimized'],
+        [third, 'docked'],
+      ]);
+      expect([placeOf(first), placeOf(third)]).toEqual([0, 1]);
+      expect(windows.minimized().map((w) => w.id)).toEqual([second]);
+
+      // The row's close button closes the window without bringing it back.
+      rows()[0].querySelector<HTMLButtonElement>('.dock-stack-menu__close')!.click();
+      await settle();
+      expect(windows.windows().map((w) => w.id)).toEqual([first, third]);
+      expect(stack.entries()).toEqual([]);
+      expect(counter()).toBeNull();
+      expect(menu()).toBeNull();
+    });
+
+    it('restored with no place free beside the stack, the oldest open window goes onto it in its stead', async () => {
+      screen(1260); // two places — but only one beside a stack
+      const first = await windows.open();
+      const second = await windows.open();
+      windows.minimize(first);
+      windows.minimize(second);
+      const third = await windows.open(); // the corner, free again
+      await settle();
+      expect(windows.minimized().map((w) => w.id)).toEqual([second, first]);
+
+      windows.dock(first);
+      await settle();
+      // The second is still stacked, so one place is all the edge has: the
+      // third, the oldest open window, makes room — and the first is back
+      // in the corner.
+      expect(windows.minimized().map((w) => w.id)).toEqual([third, second]);
+      const restored = windows.windows().find((w) => w.id === first)!;
+      expect([restored.mode, restored.slot]).toEqual(['docked', 0]);
+    });
+
+    it('takes room of its own: while anything is stacked, the edge may hold one window fewer', async () => {
+      screen(1900); // three windows; three and the counter need 1920
+      expect(windows.capacity()).toBe(3);
+      expect(windows.capacity(true)).toBe(2);
+      screen(1920);
+      expect(windows.capacity(true)).toBe(3);
+    });
   });
 
   it('a window writes: its layout blocks start static, and the settings turn them on', async () => {
@@ -113,7 +392,9 @@ describe('ComposeWindows', () => {
     for (let i = 0; i < 4; i++) await settle();
     const frame = frames()[0];
     const editor = () => frame.querySelector<HTMLElement>('.ProseMirror')!;
-    expect(editor().getAttribute('data-aee-static')).toBe('section columns table spacer heading list');
+    expect(editor().getAttribute('data-aee-static')).toBe(
+      'section columns table spacer heading list',
+    );
 
     // The settings' switch overrides the mode's default, for this message.
     // The settings dialog — this window's gear — is the overlay's.
@@ -166,24 +447,48 @@ describe('ComposeWindows', () => {
     expect(windows.front()).toBe(second);
   });
 
-  it('a window keeps its place while its neighbours come and go, and takes a free one back', async () => {
+  it('the open windows stand from the corner in the order they were opened, with no gap between them', async () => {
     const first = await windows.open();
     const second = await windows.open();
     const third = await windows.open();
     await settle();
     const placeOf = (id: number) => windows.windows().find((w) => w.id === id)?.slot;
+    const frameOf = (id: number) =>
+      frames().find(
+        (frame) => frame.getAttribute('aria-labelledby') === `compose-window-title-${id}`,
+      )!;
     expect([placeOf(first), placeOf(second), placeOf(third)]).toEqual([0, 1, 2]);
 
-    // The middle one closes: nothing shuffles.
+    // The middle one closes: the newer one moves in over its place — and
+    // slides there — while the older one, nearer the corner, stays put.
+    const corner = windows.windows()[0];
     windows.close(second);
     await settle();
-    expect([placeOf(first), placeOf(third)]).toEqual([0, 2]);
+    expect([placeOf(first), placeOf(third)]).toEqual([0, 1]);
+    expect(windows.windows()[0]).toBe(corner);
+    expect(frameOf(third).style.getPropertyValue('--compose-window-x')).toBe('632px');
+    expect(frameOf(third).classList).toContain('compose-window--sliding');
+    expect(frameOf(first).classList).not.toContain('compose-window--sliding');
 
-    // The next message takes the place that was given up.
+    // The next message is the newest: at the end of the row.
     const fourth = await windows.open();
     await settle();
-    expect(placeOf(fourth)).toBe(1);
-    expect([placeOf(first), placeOf(third)]).toEqual([0, 2]);
+    expect([placeOf(first), placeOf(third), placeOf(fourth)]).toEqual([0, 1, 2]);
+
+    // The corner minimizes: everything newer moves in. Restored, it goes
+    // back to the corner — only the order is kept — and they move out.
+    windows.minimize(first);
+    await settle();
+    expect([placeOf(third), placeOf(fourth)]).toEqual([0, 1]);
+    windows.dock(first);
+    await settle();
+    expect([placeOf(first), placeOf(third), placeOf(fourth)]).toEqual([0, 1, 2]);
+    // Its own way back onto the edge is no slide; a drag is none either.
+    expect(frameOf(first).classList).not.toContain('compose-window--sliding');
+    expect(frameOf(third).classList).toContain('compose-window--sliding');
+    windows.pinTo(third, 700);
+    await settle();
+    expect(frameOf(third).classList).not.toContain('compose-window--sliding');
   });
 
   it('each window is a message of its own, named by its subject', async () => {

@@ -60,6 +60,11 @@ export const routes: Routes = [
         loadChildren: () =>
           import('./content/pages/mailbox/calendar/calendar.routes').then((m) => m.CALENDAR_ROUTES),
       },
+      // The notes: the session's, and where each is.
+      {
+        path: 'notes',
+        loadComponent: () => import('./content/pages/mailbox/notes/notes').then((m) => m.NotesPage),
+      },
       // The template gallery: every template the store holds, a feed of
       // thumbnails.
       {

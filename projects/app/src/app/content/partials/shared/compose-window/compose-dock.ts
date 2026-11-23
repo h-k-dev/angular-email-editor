@@ -8,11 +8,14 @@ import { ComposeWindows } from '../../../../core/email/compose-windows';
  * the first time one opens, over the whole page and click-through, so the
  * page stays usable around its windows.
  *
- * Windows sit on the bottom edge from the right corner leftwards, each in a
- * place of its own that it keeps for as long as it is open (the service
- * hands it the number; the window works out the position). An expanded
- * window leaves its place for the middle of the screen, over a scrim that
- * sends it back — and its place is still there when it returns.
+ * Windows sit on the bottom edge from the right corner leftwards, in the
+ * order they were opened and with no gap between them (the service hands
+ * each the number of its place; the window works out the position, and
+ * slides to a new one). An expanded window leaves its place for the middle
+ * of the screen, over a scrim that sends it back — and its place is still
+ * there when it returns. Minimized
+ * windows go on the dock's stack (`DockStack`), which shows its counter on
+ * a layer of its own.
  */
 @Component({
   selector: 'div[compose-dock]',

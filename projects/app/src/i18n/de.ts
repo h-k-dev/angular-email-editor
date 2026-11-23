@@ -13,6 +13,7 @@ export default {
     nav: {
       inbox: 'Posteingang',
       calendar: 'Kalender',
+      notes: 'Notizen',
       templates: 'Vorlagen',
       snippets: 'Textbausteine',
       api: 'API',
@@ -373,6 +374,22 @@ export default {
       archive: 'Archiviert',
       snoozed: 'Zurückgestellt',
     },
+  },
+  notes: {
+    new: 'Neue Notiz',
+    untitled: 'Notiz {{number}}',
+    text: 'Notiz',
+    placeholder: 'Notiz schreiben …',
+    open: 'Geöffnet',
+    minimized: 'Minimiert',
+    closed: 'Geschlossen',
+    empty: 'Noch keine Notizen. Fügen Sie eine hinzu: Sie öffnet sich in einem Fenster am Seitenende.',
+  },
+  dockStack: {
+    count: 'Minimiert: {{count}}',
+    more: 'Weitere minimiert: {{count}}',
+    menu: 'Minimiert',
+    close: '{{name}} schließen',
   },
   composeWindow: {
     new: 'Neue Nachricht',

@@ -1,0 +1,89 @@
+@use '@angular/material' as mat;
+
+:host {
+  display: block;
+  max-inline-size: 640px;
+  margin-inline: auto;
+  padding: 32px 24px;
+}
+
+.notes-page__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-block-end: 24px;
+}
+
+// A new note: the aside's own button for it, at a page's size — Material's
+// icon button as it is, only larger (32px round a 20px glyph).
+.notes-page__add {
+  @include mat.icon-button-overrides(
+    (
+      icon-size: 20px,
+      state-layer-size: 32px,
+      touch-target-size: 32px,
+    )
+  );
+}
+
+.notes-page__title {
+  margin: 0;
+  font: var(--mat-sys-headline-small);
+}
+
+.notes-page__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.notes-page__note {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  inline-size: 100%;
+  block-size: 44px;
+  padding-inline: 12px;
+  border: none;
+  border-radius: var(--mat-sys-corner-small);
+  background: none;
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
+  text-align: start;
+  cursor: pointer;
+
+  &:hover {
+    background: color-mix(in srgb, var(--mat-sys-on-surface) 5%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: -2px;
+  }
+
+  mat-icon {
+    color: var(--mat-sys-tertiary);
+  }
+}
+
+.notes-page__name {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notes-page__state,
+.notes-page__empty {
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-medium);
+}
+
+.notes-page__empty {
+  font: var(--mat-sys-body-medium);
+}

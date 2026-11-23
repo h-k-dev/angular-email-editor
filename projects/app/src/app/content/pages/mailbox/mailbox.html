@@ -183,6 +183,20 @@
         <span class="mailbox-link__count">{{ count }}</span>
       }
     </a>
+    <!-- What can be done there without going: a button over the row's
+         end, beside the link — not inside it. -->
+    @if (link.action; as action) {
+      <button
+        mat-icon-button
+        type="button"
+        class="mailbox-link__action"
+        [attr.aria-label]="action.key | translate"
+        [title]="action.key | translate"
+        (click)="action.run()"
+      >
+        <mat-icon>{{ action.icon }}</mat-icon>
+      </button>
+    }
     <ng-template #linkName>
       <span class="mailbox-rail-name">{{ link.key | translate }}</span>
     </ng-template>
@@ -204,11 +218,7 @@
       <mat-icon>settings</mat-icon>
     </button>
     <span class="mailbox-aside__spacer" aria-hidden="true"></span>
-    <div
-      language-menu
-      side="above"
-      [align]="collapsed() ? 'start' : 'end'"
-    ></div>
+    <div language-menu side="above" [align]="collapsed() ? 'start' : 'end'"></div>
   </footer>
 </aside>
 

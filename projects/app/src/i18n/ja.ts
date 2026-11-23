@@ -12,6 +12,7 @@ export default {
     nav: {
       inbox: '受信トレイ',
       calendar: 'カレンダー',
+      notes: 'メモ',
       templates: 'テンプレート',
       snippets: 'スニペット',
       api: 'API',
@@ -372,6 +373,22 @@ export default {
       archive: 'アーカイブしました',
       snoozed: 'スヌーズしました',
     },
+  },
+  notes: {
+    new: '新しいメモ',
+    untitled: 'メモ {{number}}',
+    text: 'メモ',
+    placeholder: 'メモを書く…',
+    open: '開いています',
+    minimized: '最小化',
+    closed: '閉じています',
+    empty: 'メモはまだありません。追加すると、ページ下部のウィンドウで開きます。',
+  },
+  dockStack: {
+    count: '最小化: {{count}} 件',
+    more: 'ほかに最小化: {{count}} 件',
+    menu: '最小化されたもの',
+    close: '{{name}} を閉じる',
   },
   composeWindow: {
     new: '新規メッセージ',

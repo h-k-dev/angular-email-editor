@@ -1,0 +1,79 @@
+@use '../../../../../styles/breakpoints' as bp;
+
+// A pill the height of a minimized bar, in the stack's place
+// (`--dock-stack-x`, px from the right side of the screen) — left of the
+// leftmost thing open on the edge. Over the bottom edge as the windows are:
+// 16px off it on a desk, on it on a phone. Over what is open (it never
+// meets it) but under a dialog's scrim — its layer's z-index 3.
+:host {
+  position: fixed;
+  inset-block-end: clamp(0px, (100vw - #{bp.$full-width-max}) * 100, 16px);
+  inset-inline-end: var(--dock-stack-x, 16px);
+  z-index: 2;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 40px;
+  block-size: 40px;
+  padding-inline: 12px;
+  box-sizing: border-box;
+  border: none;
+  border-radius: 20px;
+  background: var(--mat-sys-surface-bright);
+  color: var(--mat-sys-on-surface);
+  box-shadow: var(--mat-sys-level3);
+  font: var(--mat-sys-title-small);
+  letter-spacing: var(--mat-sys-title-small-tracking);
+  cursor: pointer;
+}
+
+:host(:hover) {
+  background: color-mix(in srgb, var(--mat-sys-on-surface) 8%, var(--mat-sys-surface-bright));
+}
+
+:host(:focus-visible) {
+  outline: 2px solid var(--mat-sys-primary);
+  outline-offset: 2px;
+}
+
+// With nothing open the stack's top bar is in the stack's place, and the
+// counter stands 8px left of it — the bar's width worked out as the bar
+// does (styles/_dock-stack.scss), from the place and the counter's 48px.
+:host(.dock-stack-counter--beside) {
+  --_bar-width: min(280px, calc(100vw - var(--dock-stack-x, 16px) - 16px - 48px));
+  inset-inline-end: calc(var(--dock-stack-x, 16px) + var(--_bar-width) + 8px);
+}
+
+// A kind's own count: a small bubble over the pill's top, one beside the
+// other from its right side. `data-kind` is there for a colour of its own.
+.dock-stack-counter__kind {
+  position: absolute;
+  inset-block-end: calc(100% - 6px);
+  inset-inline-end: -4px;
+  display: inline-grid;
+  place-items: center;
+  min-inline-size: 18px;
+  block-size: 18px;
+  padding-inline: 4px;
+  box-sizing: border-box;
+  border-radius: 9px;
+  background: var(--mat-sys-primary);
+  color: var(--mat-sys-on-primary);
+  font: var(--mat-sys-label-small);
+
+  // A note's count, in the notes' colour (their icon's): the theme's
+  // tertiary.
+  &[data-kind='note'] {
+    background: var(--mat-sys-tertiary);
+    color: var(--mat-sys-on-tertiary);
+  }
+
+  & + & {
+    inset-inline-end: 16px;
+  }
+
+  & + & + & {
+    inset-inline-end: 36px;
+  }
+}

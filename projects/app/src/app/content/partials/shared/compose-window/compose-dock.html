@@ -9,10 +9,11 @@
   ></div>
 }
 
-<!-- Every window places itself (its own slot, or where a drag pinned it),
-     so this lists them in the order they were opened: opening one appends a
-     node and moves none — and a moved node would blur the editor inside it
-     and re-measure its toolbar. -->
+<!-- Every window places itself (its place in the row, or where a drag
+     pinned it), so this lists them in the order they were opened, whatever
+     the row does: a window changing place is a style changing, never a node
+     moving — and a moved node would blur the editor inside it and
+     re-measure its toolbar. -->
 @for (window of windows.windows(); track window.id) {
   <section compose-window [window]="window" [mobile]="window.mobile"></section>
 }

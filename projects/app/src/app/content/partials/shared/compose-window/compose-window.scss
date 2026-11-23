@@ -1,5 +1,6 @@
 @use '@angular/material' as mat;
 @use '../../../../../styles/breakpoints' as bp;
+@use '../../../../../styles/dock-stack';
 
 // A window floating over the bottom edge: exactly 600px — the measure the
 // email is designed for, so the text in a window sits in the same column as
@@ -42,8 +43,8 @@
   // Its place on the edge, handed down as px from the right side of the
   // screen (its slot's, or where a drag pinned it) — never so far that it
   // would leave the screen, whatever the screen becomes. Every window is
-  // placed on its own: nothing flows, so no window moves because another
-  // one opened, minimized, went to the dialog or closed.
+  // placed on its own: nothing flows, so a window changes place only when
+  // the row hands it a new one (`--sliding`, below).
   position: fixed;
   inset-block-end: var(--compose-window-gap);
   inset-inline-end: clamp(
@@ -90,6 +91,21 @@
   z-index: 2;
 }
 
+// Handed a new place in the row — an older window minimized, closed or
+// came back: it slides there. Only then: a drag follows the pointer, and a
+// window coming off the stack or out of the dialog is simply in its place.
+:host(.compose-window--sliding) {
+  // The theme's motion (styles/_theme.scss).
+  transition: inset-inline-end var(--app-motion-duration, 250ms)
+    var(--app-motion-easing, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host(.compose-window--sliding) {
+    transition: none;
+  }
+}
+
 // Minimized: the title bar alone — a dock, iusta core's footer docks' row:
 // 40px, 32px buttons with 4px round them, 12px before the title, the
 // extra-large corner drawn as a squircle. Square on a phone, on the edge,
@@ -129,6 +145,20 @@
 
 :host([data-mode='minimized']) .compose-window__sheet {
   display: none;
+}
+
+// Minimized, on the dock's stack: what the stack does to it — out of
+// sight, but for the top one on the edge with no window open — is the
+// stack's own (styles/_dock-stack.scss, the twin of `DockStackItem`). The
+// bar on the edge loses its buttons before they would be cut (the title
+// restores it).
+@include dock-stack.item($narrow-hides: '.compose-window__controls');
+
+// The bar on the edge takes the width the stack leaves it — the window's
+// width itself, not only its inline-size: its place on the edge is kept on
+// screen by that width (the host's inset).
+:host([data-stack-top]) {
+  --compose-window-width: var(--dock-stack-bar-width);
 }
 
 // The dialog: centred on the screen at 16:9 — the height derived from the
@@ -210,6 +240,15 @@
   &:active {
     cursor: grabbing;
   }
+}
+
+// A window that is not a message's says what it is before its name.
+.compose-window__kind {
+  flex: none;
+  inline-size: 18px;
+  block-size: 18px;
+  font-size: 18px;
+  color: var(--mat-sys-tertiary);
 }
 
 .compose-window__title {

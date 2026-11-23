@@ -1,0 +1,33 @@
+<header class="notes-page__head">
+  <h1 class="notes-page__title">{{ 'app.nav.notes' | translate }}</h1>
+  <button
+    mat-icon-button
+    type="button"
+    class="notes-page__add"
+    [attr.aria-label]="'notes.new' | translate"
+    [title]="'notes.new' | translate"
+    (click)="notes.add()"
+  >
+    <mat-icon>add</mat-icon>
+  </button>
+</header>
+
+@if (notes.notes().length) {
+  <ul class="notes-page__list">
+    @for (note of notes.notes(); track note.id) {
+      <li>
+        <button type="button" class="notes-page__note" (click)="notes.open(note.id)">
+          <mat-icon>sticky_note_2</mat-icon>
+          <span class="notes-page__name">
+            {{ notes.title(note.id) || ('notes.untitled' | translate: { number: note.id }) }}
+          </span>
+          <span class="notes-page__state">
+            {{ 'notes.' + notes.state(note.id) | translate }}
+          </span>
+        </button>
+      </li>
+    }
+  </ul>
+} @else {
+  <p class="notes-page__empty">{{ 'notes.empty' | translate }}</p>
+}

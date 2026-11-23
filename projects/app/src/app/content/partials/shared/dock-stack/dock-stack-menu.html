@@ -1,0 +1,23 @@
+<!-- Top of the stack first — and drawn from the foot up (column-reverse),
+     so the last thing minimized is nearest the counter, and the list starts
+     scrolled to it. -->
+@for (entry of stack.hiddenEntries(); track entry.key) {
+  <div class="dock-stack-menu__row" [attr.data-kind]="entry.kind">
+    @if (entry.icon; as icon) {
+      <mat-icon class="dock-stack-menu__icon" aria-hidden="true">{{ icon }}</mat-icon>
+    }
+    <button type="button" class="dock-stack-menu__name" (click)="entry.restore()">
+      {{ label(entry) }}
+    </button>
+    <button
+      mat-icon-button
+      type="button"
+      class="dock-stack-menu__close"
+      [attr.aria-label]="'dockStack.close' | translate: { name: label(entry) }"
+      [title]="'composeWindow.close' | translate"
+      (click)="entry.close()"
+    >
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+}
