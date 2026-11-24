@@ -14,6 +14,13 @@ import { parseDeclarations } from './style-text';
  * - **Apple Mail** and **Thunderbird** quote in `<blockquote type="cite">`,
  *   Thunderbird's attribution in `.moz-cite-prefix` over it.
  * - **Yahoo** (`.yahoo_quoted`) and **Proton** (`.protonmail_quote`) wrap it.
+ * - **Plain-text headers** (WEB.DE, GMX, Outlook plain text): a block opening
+ *   with `From:` / `Von:`, then date, recipient and `Subject:` / `Betreff:`
+ *   fields (with a `-----Original Message-----` separator over it, a date or
+ *   a recipient is enough), followed by the answered mail. Unless a separator
+ *   opens it, a reply's mark must stand right over it — a rule, a separator,
+ *   or an attribution line ("Am … schrieb …", its colon optional) — so a
+ *   notification's field list is never taken for one.
  * - Anything else: a `<blockquote>` right under a line that ends as an
  *   attribution does ("On … wrote:").
  *
@@ -49,7 +56,7 @@ export function splitQuoted(html: string): QuotedSplit {
 
 export interface FoldQuotedOptions {
   /** What the toggle is called for assistive tech and on hover — "Quoted
-      text", in the reader's language. What is shown is Gmail's `⋯`. */
+      text", in the reader's language. What is shown is a `⋯` toggle. */
   readonly label: string;
   /** CSS for the fold inside the frame: omitted uses Dawn's default thin `⋯`
       pill and each quoted message in a box of its own, the boxes straight
@@ -60,12 +67,12 @@ export interface FoldQuotedOptions {
 }
 
 /**
- * A received body with the history it quotes folded behind a `⋯` — Gmail's
- * — and the body as it came where it quotes nothing. The fold is a
- * `<details>`: it opens and closes in a frame that runs no script, by
- * pointer and by keyboard, and says which it is to assistive tech. Drawn
- * with the text's own ink on a grey that reads on light and dark paper, so
- * it needs no scheme — or headless with `style: false`, and themeable via
+ * A received body with the history it quotes folded behind a `⋯` — and the
+ * body as it came where it quotes nothing. The fold is a `<details>`: it
+ * opens and closes in a frame that runs no script, by pointer and by
+ * keyboard, and says which it is to assistive tech. Drawn with the text's
+ * own ink on a grey that reads on light and dark paper, so it needs no
+ * scheme — or headless with `style: false`, and themeable via
  * `--dawn-quoted-*` custom properties.
  *
  * Fold first, then draw (`renderDawn`): the fold is part of the document
@@ -77,8 +84,6 @@ export function foldQuoted(html: string, { label, style }: FoldQuotedOptions): s
   const head = history[0];
   const parent = head?.parentElement;
   if (!head || !parent || !foldable(history)) return html;
-  for (const quote of history) markJoined(quote);
-  markAttributions(history);
 
   const fold = message.createElement('details');
   fold.setAttribute('data-dawn-quoted', '');
@@ -95,7 +100,7 @@ export function foldQuoted(html: string, { label, style }: FoldQuotedOptions): s
     sheet.textContent = style ? `${FOLD_STYLE}\n${style}` : FOLD_STYLE;
     fold.append(toggle, sheet, ...history);
   }
-  markLast(fold);
+  markFold(fold);
   return serialize(message, html);
 }
 
@@ -114,27 +119,20 @@ const BOX_PAPER = 'var(--dawn-quoted-paper, Canvas)';
 const BOX_LINE = `var(--dawn-quoted-box-line, color-mix(in srgb, rgb(128, 128, 128) 36%, ${BOX_PAPER}))`;
 const STEM = 'var(--dawn-quoted-stem, rgba(128, 128, 128, 0.36))';
 
-/** A plain attribution line over a `<blockquote>`, marked by
-    `markAttributions` — even when blank lines (`<div><br></div>`,
-    `<div>&nbsp;</div>`) or a wrapper `<div>` stand around it, and never
-    Outlook's `#divRplyFwdMsg` or the mail under it. */
-const ATTRIBUTION_LINE = '[data-dawn-quoted-attr]';
-
-/** A quoted message whose line stands over it, outside it — Thunderbird's
-    `.moz-cite-prefix`, or a plain attribution line over a quote — drawn
-    as one box in two parts: the line its top, the quote its foot. */
-const HEAD = `:is(.moz-cite-prefix, ${ATTRIBUTION_LINE}):has(+ blockquote, + br + blockquote)`;
-const FOOT = `:is(.moz-cite-prefix, ${ATTRIBUTION_LINE}) + blockquote, :is(.moz-cite-prefix, ${ATTRIBUTION_LINE}) + br + blockquote`;
-
-/** A quoted message that is its own wrapper, the line over it inside:
-    Gmail's (a bare `blockquote.gmail_quote` too, where no wrapper holds
-    it), Yahoo's, Proton's, and Apple Mail's cite — never the foot of a box
-    in two parts, nor a Gmail quote joined to its parent's
-    (`data-dawn-quoted-joined`, see `markJoined`). */
-const TURN = `:is(div.gmail_quote, .gmail_quote_container, blockquote.gmail_quote:not(:is(div.gmail_quote, .gmail_quote_container) > *), .yahoo_quoted, .protonmail_quote, blockquote[type="cite"]):not([data-dawn-quoted-joined], ${FOOT})`;
+/** Semantic markers stamped by `markFold` so Dawn's stylesheet stays
+    completely client-agnostic (no `.gmail_*`, `.moz-*`, `.yahoo_*`,
+    `.protonmail_*`, or `#divRplyFwdMsg` selectors in CSS). */
+const BOX = '[data-dawn-quoted-box]';
+const HEAD = '[data-dawn-quoted-head]';
+const FOOT = '[data-dawn-quoted-foot]';
+const ATTR = '[data-dawn-quoted-attr]';
+const HEADER = '[data-dawn-quoted-header]';
+const JOINED = '[data-dawn-quoted-joined]';
+const LAST = '[data-dawn-quoted-last]';
+const STEM_RULE = '[data-dawn-quoted-stem]';
 
 /** Every box, whole or in two parts. */
-const BOXES = `${TURN}, ${HEAD}, ${FOOT}`;
+const BOXES = `${BOX}, ${HEAD}, ${FOOT}`;
 
 /** Under a box (a message quoted in the one that quotes it): out over that
     box's sides and foot, so its sides and foot are the box's own and the
@@ -202,37 +200,36 @@ const IN_BOX = `details[data-dawn-quoted] :is(${BOXES})`;
  * foot (`BREAK_OUT`), draws its foot (`FOOT_OF_ABOVE`, its `::before`) and
  * paints the gap (`GAP_OVER`, its `::after`). Each box its own formatting
  * context (`flow-root`): the margin of the text inside it stays inside,
- * never opening a gap between a box's two parts. Outlook's history is no
- * nest (its header and the mail run on as siblings), and keeps the
- * thread's stem.
+ * never opening a gap between a box's two parts. Unwrapped histories (such
+ * as Outlook's, where header and mail run on as siblings) keep the thread's
+ * stem.
  */
 const BOX_STYLE = [
   `details[data-dawn-quoted] { --_pad: var(--dawn-quoted-box-padding, 12px); --_gap: var(--dawn-quoted-box-gap, 16px); --_r: var(--dawn-quoted-box-radius, 8px); --_out: calc(-1 * (var(--_pad) + 1px)); }`,
-  // A blank line that only leads into the box under it (Gmail's `<br><br>`
-  // over a forward): the box's padding is that room already.
-  `${IN_BOX} br:has(+ br + :is(${TURN}, [data-dawn-quoted-joined])) { display: none; }`,
-  `details[data-dawn-quoted] :is(${TURN}) { display: flow-root !important; margin: 8px 0 0 !important; padding: var(--_pad) !important; border: 1px solid ${BOX_LINE} !important; border-radius: var(--_r) !important; }`,
-  `details[data-dawn-quoted] :is(${HEAD}) { display: flow-root !important; margin: 8px 0 0 !important; padding: var(--_pad) var(--_pad) 4px !important; border: 1px solid ${BOX_LINE} !important; border-block-end: 0 !important; border-radius: var(--_r) var(--_r) 0 0 !important; }`,
-  `details[data-dawn-quoted] :is(${FOOT}) { display: flow-root !important; margin: 0 !important; padding: 0 var(--_pad) var(--_pad) !important; border: 1px solid ${BOX_LINE} !important; border-block-start: 0 !important; border-radius: 0 0 var(--_r) var(--_r) !important; }`,
+  // A blank line that only leads into the box under it (`<br><br>` over a
+  // forward): the box's padding is that room already.
+  `${IN_BOX} br:has(+ br + :is(${BOX}, ${JOINED})) { display: none; }`,
+  `details[data-dawn-quoted] ${BOX} { display: flow-root !important; margin: 8px 0 0 !important; padding: var(--_pad) !important; border: 1px solid ${BOX_LINE} !important; border-radius: var(--_r) !important; }`,
+  `details[data-dawn-quoted] ${HEAD} { display: flow-root !important; margin: 8px 0 0 !important; padding: var(--_pad) var(--_pad) 4px !important; border: 1px solid ${BOX_LINE} !important; border-block-end: 0 !important; border-radius: var(--_r) var(--_r) 0 0 !important; }`,
+  `details[data-dawn-quoted] ${FOOT} { display: flow-root !important; margin: 0 !important; padding: 0 var(--_pad) var(--_pad) !important; border: 1px solid ${BOX_LINE} !important; border-block-start: 0 !important; border-radius: 0 0 var(--_r) var(--_r) !important; }`,
   // A box with the parent's text after it (or inside a layout barrier): inside the parent's, room under it.
-  `${IN_BOX} :is(${TURN}, ${FOOT}):not([data-dawn-quoted-last]) { margin-block-end: 8px !important; }`,
-  `${IN_BOX} :is(${TURN})[data-dawn-quoted-last] { ${BREAK_OUT} }`,
-  `${IN_BOX} :is(${HEAD})[data-dawn-quoted-last] { ${BREAK_OUT} margin-block-end: 0 !important; }`,
-  `${IN_BOX} :is(${FOOT})[data-dawn-quoted-last] { margin: 0 var(--_out) var(--_out) !important; }`,
-  `${IN_BOX} :is(${TURN}, ${HEAD})[data-dawn-quoted-last]::before { ${FOOT_OF_ABOVE}; }`,
-  `${IN_BOX} :is(${TURN}, ${HEAD})[data-dawn-quoted-last]::after { ${GAP_OVER}; }`,
+  `${IN_BOX} :is(${BOX}, ${FOOT}):not(${LAST}) { margin-block-end: 8px !important; }`,
+  `${IN_BOX} ${BOX}${LAST} { ${BREAK_OUT} }`,
+  `${IN_BOX} ${HEAD}${LAST} { ${BREAK_OUT} margin-block-end: 0 !important; }`,
+  `${IN_BOX} ${FOOT}${LAST} { margin: 0 var(--_out) var(--_out) !important; }`,
+  `${IN_BOX} :is(${BOX}, ${HEAD})${LAST}::before { ${FOOT_OF_ABOVE}; }`,
+  `${IN_BOX} :is(${BOX}, ${HEAD})${LAST}::after { ${GAP_OVER}; }`,
   // A forward with no word of its own: no box, its line under its parent's.
-  `details[data-dawn-quoted] [data-dawn-quoted-joined] { margin: 8px 0 0 !important; padding: 0 !important; border: 0 !important; }`,
+  `details[data-dawn-quoted] ${JOINED} { margin: 8px 0 0 !important; padding: 0 !important; border: 0 !important; }`,
 ];
 
 /**
- * The fold's own rules: Gmail's thin `⋯` pill (16px tall visually, with a
- * 24px vertical hit target via `::after` for WCAG 2.5.8), WebKit's marker
- * off `<summary>`, attribution lines muted and small, and the quoted
- * messages in boxes (`BOX_STYLE`) — Outlook's history, which runs on as
- * siblings, keeps its rules as the thread's gap and stem. Themeable via
- * `--dawn-quoted-*` custom properties; pure presentation so the message's
- * markup stays as it came.
+ * The fold's own rules: a thin `⋯` pill (16px tall visually, with a 24px
+ * vertical hit target via `::after` for WCAG 2.5.8), WebKit's marker off
+ * `<summary>`, attribution lines muted and small, and the quoted messages
+ * in boxes (`BOX_STYLE`) — unwrapped histories keep their rules as the
+ * thread's gap and stem. Themeable via `--dawn-quoted-*` custom properties;
+ * pure presentation so the message's markup stays as it came.
  *
  * Spacing stays on a 4px grid (4 / 8 / 12 / 16px) with a 2px thread stem.
  */
@@ -242,30 +239,52 @@ const FOLD_STYLE = [
   'details[data-dawn-quoted] > summary::after { content: ""; position: absolute; inset: -4px 0; }',
   'details[data-dawn-quoted] > summary::-webkit-details-marker { display: none; }',
   'details[data-dawn-quoted][open] > summary { margin-bottom: 0; }',
+  // A header written out as text has no box and no rule over it: the gap
+  // a box keeps under the ⋯, kept here too.
+  `details[data-dawn-quoted] ${HEADER} { margin-block-start: 8px !important; }`,
   'details[data-dawn-quoted] blockquote { margin: 0 !important; padding: 0 !important; border: 0 !important; }',
-  'details[data-dawn-quoted] > style + br, details[data-dawn-quoted] br:has(+ .gmail_quote, + .gmail_attr, + .moz-cite-prefix, + .yahoo_quoted, + .protonmail_quote, + blockquote) { display: none; }',
-  'details[data-dawn-quoted] .gmail_attr > br:last-child, details[data-dawn-quoted] .moz-cite-prefix > br:last-child { display: none; }',
-  `details[data-dawn-quoted] .gmail_attr, details[data-dawn-quoted] .moz-cite-prefix, details[data-dawn-quoted] ${ATTRIBUTION_LINE}:has(+ blockquote, + br + blockquote), details[data-dawn-quoted] :is(.yahoo_quoted, .protonmail_quote) > :first-child:has(+ blockquote) { margin: 0 0 4px !important; padding: 0 !important; border: 0 !important; font-size: 0.875em; color: var(--dawn-quoted-attr-color, color-mix(in srgb, currentColor 72%, transparent)); }`,
+  `details[data-dawn-quoted] > style + br, details[data-dawn-quoted] br:has(+ :is(${BOX}, ${HEAD}, ${ATTR}, ${HEADER}, ${JOINED}, blockquote)) { display: none; }`,
+  `details[data-dawn-quoted] ${ATTR} > br:last-child { display: none; }`,
+  `details[data-dawn-quoted] ${ATTR} { margin: 0 0 4px !important; padding: 0 !important; border: 0 !important; font-size: 0.875em; color: var(--dawn-quoted-attr-color, color-mix(in srgb, currentColor 72%, transparent)); }`,
   // A quote first in the fold that is no box (its line no element of its
   // own): the thread's gap over it, as over a box.
-  `details[data-dawn-quoted] > blockquote:not(:where(${TURN}, ${FOOT}))::before { content: ""; ${THREAD_GAP} }`,
+  `details[data-dawn-quoted] > blockquote:not(:where(${BOX}, ${FOOT}))::before { content: ""; ${THREAD_GAP} }`,
   `details[data-dawn-quoted] hr { ${THREAD_GAP} }`,
-  `details[data-dawn-quoted] blockquote hr, details[data-dawn-quoted] #divRplyFwdMsg ~ hr { ${THREAD_STEM} }`,
+  `details[data-dawn-quoted] :is(blockquote hr, hr${STEM_RULE}) { ${THREAD_STEM} }`,
   ...BOX_STYLE,
 ].join('\n');
 
 /**
- * A Gmail quote that is all its parent's message, marked
- * `data-dawn-quoted-joined`: nothing to read between the parent's
- * attribution and it — a forward, the parent sent with no word of its own.
- * It is no box of its own: it carries on in the parent's, its line under
- * the parent's. Read here, not by style: a word written straight into a
- * wrapper (Gmail's from a phone: `Works for me.<br><div class="gmail_quote">`)
- * is a text node, which no selector sees.
+ * Stamps Dawn's semantic `data-dawn-quoted-*` markers across the folded
+ * history so both `FOLD_STYLE` and headless (`style: false`) consumers style
+ * every client's quotes uniformly without client-specific selectors.
  */
-function markJoined(root: ChildNode): void {
-  if (!(root instanceof Element)) return;
-  for (const quote of Array.from(root.querySelectorAll('div.gmail_quote'))) {
+function markFold(fold: Element): void {
+  const elements = Array.from(fold.querySelectorAll('*')).filter(
+    (element) =>
+      !(
+        element.parentElement === fold &&
+        (element.tagName === 'SUMMARY' || element.tagName === 'STYLE')
+      ),
+  );
+  markJoined(fold);
+  const footToHead = markBoxesAndAttributions(elements);
+  markHeaders(elements, fold);
+  markStems(fold);
+  markLast(fold, elements, footToHead);
+}
+
+/**
+ * A forwarded quote wrapper that is all its parent's message, marked
+ * `data-dawn-quoted-joined`: nothing to read between the parent's
+ * attribution and it — a forward sent with no word of its own. It is no box
+ * of its own: it carries on in the parent's, its line under the parent's.
+ * Read here, not by style: a word written straight into a wrapper
+ * (`Works for me.<br><div class="gmail_quote">`) is a text node, which no
+ * selector sees.
+ */
+function markJoined(fold: Element): void {
+  for (const quote of Array.from(fold.querySelectorAll('div.gmail_quote'))) {
     const parent = quote.parentElement?.closest('blockquote');
     if (!parent?.matches(':is(div.gmail_quote, .gmail_quote_container) > .gmail_attr + blockquote'))
       continue;
@@ -284,24 +303,128 @@ function nothingBefore(node: Node, top: Node): boolean {
 }
 
 /**
- * Plain attribution lines immediately before a `<blockquote>` inside the
- * fold, marked `data-dawn-quoted-attr`: works even when blank blocks
- * (`<div><br></div>`, `<div>&nbsp;</div>`) or a wrapper `<div>` stand
- * around them, and never matches Outlook's `#divRplyFwdMsg` or the mail
- * under it, nor a client wrapper's own leading attribution.
+ * Marks attribution lines (`data-dawn-quoted-attr`), two-part boxes
+ * (`data-dawn-quoted-head` + `data-dawn-quoted-foot`), and single-element
+ * boxes (`data-dawn-quoted-box`) across every supported client's markup.
  */
-function markAttributions(history: readonly ChildNode[]): void {
-  const check = (element: Element) => {
-    if (element.matches('.gmail_attr, .moz-cite-prefix')) return;
-    if (element.parentElement?.matches(WRAPPED) && !previous(element)) return;
-    if (adjacentBlockquote(element) && isAttribution(element)) {
+function markBoxesAndAttributions(elements: readonly Element[]): WeakMap<Element, Element> {
+  const footToHead = new WeakMap<Element, Element>();
+
+  for (const element of elements) {
+    if (element.matches('.gmail_attr')) {
       element.setAttribute('data-dawn-quoted-attr', '');
+      continue;
     }
-  };
-  for (const node of history) {
-    if (!(node instanceof Element)) continue;
-    check(node);
-    for (const child of Array.from(node.querySelectorAll('*'))) check(child);
+    if (element.matches('.moz-cite-prefix')) {
+      element.setAttribute('data-dawn-quoted-attr', '');
+      const foot = adjacentBlockquote(element);
+      if (foot) pairTwoPartBox(element, foot, footToHead);
+      continue;
+    }
+    if (
+      element.parentElement?.matches('.yahoo_quoted, .protonmail_quote') &&
+      !previous(element) &&
+      adjacentBlockquote(element)
+    ) {
+      element.setAttribute('data-dawn-quoted-attr', '');
+      continue;
+    }
+    if (element.parentElement?.matches(WRAPPED) && !previous(element)) continue;
+    const foot = adjacentBlockquote(element);
+    if (foot && isAttribution(element)) {
+      element.setAttribute('data-dawn-quoted-attr', '');
+      pairTwoPartBox(element, foot, footToHead);
+    }
+  }
+
+  for (const element of elements) {
+    if (
+      element.hasAttribute('data-dawn-quoted-joined') ||
+      element.hasAttribute('data-dawn-quoted-foot')
+    ) {
+      continue;
+    }
+    if (isWrappedBox(element)) element.setAttribute('data-dawn-quoted-box', '');
+  }
+
+  return footToHead;
+}
+
+function pairTwoPartBox(head: Element, foot: Element, footToHead: WeakMap<Element, Element>): void {
+  head.setAttribute('data-dawn-quoted-head', '');
+  foot.setAttribute('data-dawn-quoted-foot', '');
+  footToHead.set(foot, head);
+}
+
+/** Marks plain-text quoted headers (`isHeaderBlock`) — skipping anything
+    already boxed, inside an attribution or known header container
+    (`#divRplyFwdMsg`, Word's ruled header), or standing first inside a box
+    that already provides padding. */
+function markHeaders(elements: readonly Element[], fold: Element): void {
+  for (const element of elements) {
+    if (
+      element.matches(BOXES) ||
+      element.closest(`${ATTR}, ${HEADED}`) ||
+      insideWordHeader(element, fold)
+    ) {
+      continue;
+    }
+    const enclosingBox = element.closest(BOX);
+    if (enclosingBox && nothingBefore(element, enclosingBox)) continue;
+    if (!isHeaderBlock(element)) continue;
+    // A separator or attribution in a block of its own right over the fields
+    // — or over the wrappers they open — goes with them: the gap sits over
+    // that block, not between the two.
+    const lead = lineBefore(opened(element, enclosingBox ?? fold));
+    if (lead instanceof Element && HEADER_BLOCK_TAGS.has(lead.tagName) && isReplyMarkLine(lead)) {
+      // First in a box, the box's padding is that gap already.
+      if (!(enclosingBox && nothingBefore(lead, enclosingBox))) {
+        lead.setAttribute('data-dawn-quoted-header', '');
+      }
+      continue;
+    }
+    // Prefer the tightest leading header block over a short mail wrapper around it.
+    if (
+      Array.from(element.querySelectorAll('*')).some(
+        (child) => isHeaderBlock(child) && nothingBefore(child, element),
+      )
+    ) {
+      continue;
+    }
+    // When a separator line stands in its own sibling block over the fields,
+    // mark that leading block so the gap sits above it (never an inline tag
+    // like `<b>`, where `margin-block-start` has no effect).
+    const first = firstContentChild(element);
+    if (
+      first instanceof Element &&
+      HEADER_BLOCK_TAGS.has(first.tagName) &&
+      SEPARATOR_LINE.test((first.textContent ?? '').trim())
+    ) {
+      first.setAttribute('data-dawn-quoted-header', '');
+    } else {
+      element.setAttribute('data-dawn-quoted-header', '');
+    }
+  }
+}
+
+function insideWordHeader(element: Element, fold: Element): boolean {
+  for (let at: Element | null = element; at && at !== fold; at = at.parentElement) {
+    if (isWordHeader(at)) return true;
+  }
+  return false;
+}
+
+function firstContentChild(element: Element): ChildNode | null {
+  let child = element.firstChild;
+  while (child && isBlank(child)) child = child.nextSibling;
+  return child;
+}
+
+/** Marks `<hr>` rules that follow a known unwrapped header container as
+    vertical thread stems. */
+function markStems(fold: Element): void {
+  for (const hr of Array.from(fold.querySelectorAll(`${HEADED} ~ hr`))) {
+    hr.setAttribute('data-dawn-quoted-stem', '');
   }
 }
 
@@ -330,37 +453,9 @@ function adjacentBlockquote(element: Element): Element | null {
   return null;
 }
 
-/** The attribution head (`.moz-cite-prefix` or `[data-dawn-quoted-attr]`)
-    paired with a `<blockquote>` foot, or null where it has none. */
-function headOf(element: Element): Element | null {
-  if (element.tagName !== 'BLOCKQUOTE') return null;
-  let prev = element.previousSibling;
-  let br = false;
-  while (prev) {
-    if (prev.nodeType === 3 && !(prev.textContent ?? '').trim()) {
-      prev = prev.previousSibling;
-      continue;
-    }
-    if (prev.nodeType === 8) {
-      prev = prev.previousSibling;
-      continue;
-    }
-    if (!br && prev instanceof Element && prev.tagName === 'BR') {
-      br = true;
-      prev = prev.previousSibling;
-      continue;
-    }
-    return prev instanceof Element && prev.matches('.moz-cite-prefix, [data-dawn-quoted-attr]')
-      ? prev
-      : null;
-  }
-  return null;
-}
-
-/** Whether `element` is drawn as a single-element box (`TURN`), matching
-    CSS's `TURN` selector without relying on complex `:not()` support. */
-function isTurn(element: Element): boolean {
-  if (element.hasAttribute('data-dawn-quoted-joined') || headOf(element)) return false;
+/** Whether `element` is a client-wrapped quoted message drawn as a
+    single-element box. */
+function isWrappedBox(element: Element): boolean {
   if (
     element.matches(
       'div.gmail_quote, .gmail_quote_container, .yahoo_quoted, .protonmail_quote, blockquote[type="cite"]',
@@ -379,9 +474,14 @@ function isTurn(element: Element): boolean {
  * sibling or layout barrier in the way, marked `data-dawn-quoted-last`:
  * only those break out over their parent's sides and foot.
  */
-function markLast(fold: Element): void {
-  const isBox = (el: Element): boolean => isTurn(el) || headOf(el) !== null;
-  for (const element of Array.from(fold.querySelectorAll('*'))) {
+function markLast(
+  fold: Element,
+  elements: readonly Element[],
+  footToHead: WeakMap<Element, Element>,
+): void {
+  const isBox = (el: Element): boolean =>
+    el.hasAttribute('data-dawn-quoted-box') || el.hasAttribute('data-dawn-quoted-foot');
+  for (const element of elements) {
     if (!isBox(element)) continue;
     let outer: Element | null = null;
     for (let at = element.parentElement; at && at !== fold; at = at.parentElement) {
@@ -393,8 +493,7 @@ function markLast(fold: Element): void {
     if (!outer) continue;
     if (!trails(element, outer) || hasLayoutBarrier(element, outer)) continue;
     element.setAttribute('data-dawn-quoted-last', '');
-    const head = headOf(element);
-    if (head) head.setAttribute('data-dawn-quoted-last', '');
+    footToHead.get(element)?.setAttribute('data-dawn-quoted-last', '');
   }
 }
 
@@ -455,12 +554,64 @@ const HEADED = '#divRplyFwdMsg, #mail-editor-reference-message-container';
 const WORD_HEADER =
   /border-top:\s*(?:[\d.]+[a-z]*\s+)?solid\s+(?:[\d.]+[a-z]*\s+)?#(?:e1e1e1|b5c4df)\b/i;
 
+/** Sender field labels across the languages mail clients write headers in. */
+const FROM_LABELS =
+  'from|von|de|da|van|från|fra|od|lähettäjä|от|від|差出人|发件人|寄件[者人]|보낸\\s*사람|kimden|feladó|de la|από|من|מאת';
+
 /** Outlook/Word's "From:" header field, bold, in the languages Word writes
     it in — tells Word's reply header from a receipt or newsletter divider
     that shares the same `#e1e1e1` top rule with a bold label ("Total:",
     "Order ID:"). */
-const FROM_FIELD =
-  /^(?:from|von|de|da|van|från|fra|od|lähettäjä|от|від|差出人|发件人|寄件[者人]|보낸\s*사람|kimden|feladó|de la|από|من|מאת)\s*[:：]$/iu;
+const FROM_FIELD = new RegExp(`^(?:${FROM_LABELS})\\s*[:：]$`, 'iu');
+
+/** A header field line that opens a quoted mail written out as text —
+    "Von: …", "From: …" — its value after it. */
+const FROM_LINE = new RegExp(`^(?:${FROM_LABELS})\\s*[:：]\\s*\\S`, 'iu');
+
+/** The subject field of such a header, in the same languages. */
+const SUBJECT_LINE =
+  /^(?:subject|betreff|objet|asunto|oggetto|onderwerp|ämne|emne|aihe|assunto|temat|předmět|predmet|тема|件名|主题|主旨|제목|konu|tárgy|subiect|θέμα|الموضوع|נושא)\s*[:：]/iu;
+
+/** The date/sent field of a plain-text header, in the same languages. */
+const DATE_LINE =
+  /^(?:date|sent|datum|gesendet|envoyé|fecha|enviado|data|inviato|verzonden|skickat|dato|sendt|wysłano|dátum|odesláno|päiväys|päivämäärä|lähetetty|enviada|дата|отправлено|надіслано|日時|日付|送信日時|日期|发送时间|寄件日期|傳送時間|날짜|보낸\s*날짜|tarih|gönderildi|küldve|trimis|ημερομηνία|απεστάλη|التاريخ|تاريخ|תאריך|נשלח)\s*[:：]/iu;
+
+/** The recipient field of a plain-text header, in the same languages. */
+const TO_LINE =
+  /^(?:to|an|à|pour|para|a|aan|till|til|do|komu|pro|pre|vastaanottaja|кому|宛先|收件[者人]|받는\s*사람|kime|címzett|către|προς|إلى|אל)\s*[:：]/iu;
+
+/** The line some clients set over that header: "-----Original Message-----",
+    "-----Ursprüngliche E-Mail-----", "---------- Forwarded message ---------",
+    or Outlook's plain-text rule of underscores. */
+const SEPARATOR_LINE = /^(?:-{2,}\s*[^-\s].{1,58}[^-\s]\s*-{2,}|_{10,})$/u;
+
+/** Block elements that can hold an unwrapped plain-text header — never inline
+    wrappers (`<font>`, `<span>`, `<b>`), blockquotes, or table/list items
+    that cannot have `<details>` inserted beside them. */
+const HEADER_BLOCK_TAGS = new Set([
+  'DIV',
+  'P',
+  'SECTION',
+  'ARTICLE',
+  'ASIDE',
+  'MAIN',
+  'HEADER',
+  'FOOTER',
+  'CENTER',
+  'ADDRESS',
+  'PRE',
+]);
+
+/** Non-rendered element blocks stripped before measuring plain-text headers. */
+const NON_CONTENT_BLOCK = /<(style|script|title|noscript)\b[^>]*>[\s\S]*?<\/\1>/gi;
+
+/** How far into a header its subject may come (From, Sent/Date, To, Cc,
+    Bcc, Subject — and a line to spare). */
+const HEADER_LINES = 8;
+
+/** How long a header written out as text may be, at most: a block that long
+    is the mail itself, not its header. */
+const HEADER_LENGTH = 1000;
 
 /**
  * A line that is an attribution, in the languages a client writes it in —
@@ -522,8 +673,9 @@ function trailingHistory(body: HTMLElement): ChildNode[] {
     const start = historyStart(element, body);
     if (!start) continue;
     const history = [start, ...following(start)];
-    // A mark with nothing in it (an empty quote) folds nothing away.
-    if (history.every(isBlank)) continue;
+    // An unfoldable mark (a table cell or list item) or an empty one folds
+    // nothing away and does not stand in the way of a real history below.
+    if (!foldable(history) || history.every(isBlank)) continue;
     // What is left without it: the message's own text, or nothing.
     const own = body.cloneNode(true) as HTMLElement;
     const kept = nodeAt(own, pathTo(body, start));
@@ -536,12 +688,66 @@ function trailingHistory(body: HTMLElement): ChildNode[] {
 /** Where the history this element marks starts — its first node, the
     attribution line over it included — or null where it marks none. */
 function historyStart(element: Element, body: HTMLElement): ChildNode | null {
-  // What follows a header is the answered mail, to the end.
+  // A wrapped quote or blockquote is a history only at the message's end —
+  // never via `isHeaderBlock`, even when a short forward opens with headers.
+  if (element.matches(WRAPPED) || element.tagName === 'BLOCKQUOTE') {
+    if (!(element.matches(WRAPPED) || isAttributed(element)) || !trails(element, body)) return null;
+    const line = lineBefore(element);
+    return rise(line && isAttribution(line) ? line : element, body);
+  }
+  // What follows an unwrapped header is the answered mail, to the end.
   if (element.matches(HEADED) || isWordHeader(element)) return rise(element, body);
-  // A quote is a history only at the message's end.
-  if (!(element.matches(WRAPPED) || isAttributed(element)) || !trails(element, body)) return null;
-  const line = lineBefore(element);
-  return rise(line && isAttribution(line) ? line : element, body);
+  if (isHeaderBlock(element) && headsQuote(element, body)) {
+    // A reply's mark on a line of its own over the header — or over the
+    // wrappers the header opens — goes with it.
+    const line = lineBefore(opened(element, body));
+    return rise(line && isReplyMarkLine(line) ? line : element, body);
+  }
+  return null;
+}
+
+/**
+ * Whether a plain-text header heads a quoted mail, not a notification's
+ * fields ("New ticket: From / Date / To / Subject"): a separator line opens
+ * it, or a reply's mark stands right over it — a rule, a separator line, or
+ * an attribution line, its colon optional (WEB.DE's "Am 17.11.26 um 11:19
+ * schrieb Kanzlei Novak" has none). What stands over it is the last line
+ * before it, out through the wrappers it opens.
+ */
+function headsQuote(element: Element, body: HTMLElement): boolean {
+  if (SEPARATOR_LINE.test(linesOf(element)[0] ?? '')) return true;
+  for (let at: Element | null = element; at && at !== body; at = at.parentElement) {
+    for (let before = at.previousSibling; before; before = before.previousSibling) {
+      if (isRule(before)) return true;
+      if (isBlank(before)) continue;
+      const lines =
+        before instanceof Element ? linesOf(before) : [(before.textContent ?? '').trim()];
+      return isReplyMark(lines[lines.length - 1] ?? '');
+    }
+  }
+  return false;
+}
+
+/** A rule: an `<hr>`, or a block that holds nothing else (`<div><hr></div>`). */
+function isRule(node: ChildNode): boolean {
+  if (!(node instanceof Element)) return false;
+  return node.tagName === 'HR' || (isBlank(node) && node.querySelector('hr') !== null);
+}
+
+/** A node that is a reply's mark and nothing else: one line, a separator
+    or an attribution. */
+function isReplyMarkLine(node: ChildNode): boolean {
+  if (node instanceof Element && !isOneLine(node)) return false;
+  return isReplyMark((node.textContent ?? '').trim());
+}
+
+/** A line that marks a reply: a separator, or an attribution with or
+    without its closing colon. */
+function isReplyMark(line: string): boolean {
+  if (SEPARATOR_LINE.test(line)) return true;
+  if (line.length > ATTRIBUTION_LENGTH) return false;
+  const closed = /[:：]\s*$/u.test(line) ? line : `${line}:`;
+  return ATTRIBUTIONS.some((form) => form.test(closed));
 }
 
 function isWordHeader(element: Element): boolean {
@@ -551,6 +757,65 @@ function isWordHeader(element: Element): boolean {
       FROM_FIELD.test((bold.textContent ?? '').trim()),
     )
   );
+}
+
+/**
+ * A quoted mail's header written out as plain text, in a block of its own —
+ * no class, no id, no rule over it: "Von: … / Datum: … / An: … / Betreff: …"
+ * as WEB.DE's and GMX's apps write it, and Outlook's plain
+ * "-----Original Message-----" over the same fields. Without a separator
+ * line, all four standard fields (From, Date/Sent, To, Subject) are required
+ * so ticket and contact-form summaries stay untouched; with a separator line,
+ * From + Subject + Date/To suffice. A block much longer than a header is the
+ * mail round it, not the header.
+ */
+function isHeaderBlock(element: Element): boolean {
+  if (!HEADER_BLOCK_TAGS.has(element.tagName) || element.matches(WRAPPED)) return false;
+  // A wrapper whose leading content is a wrapped quote or blockquote belongs
+  // to that quote's trailing check, never to the unwrapped header path.
+  if (
+    Array.from(element.querySelectorAll(`blockquote, ${WRAPPED}`)).some((quote) =>
+      nothingBefore(quote, element),
+    )
+  ) {
+    return false;
+  }
+  const hasNonContent = element.querySelector('style, script, title, noscript') !== null;
+  if (!hasNonContent) {
+    const text = element.textContent ?? '';
+    if (text.length > HEADER_LENGTH || (!text.includes(':') && !text.includes('：'))) return false;
+  }
+  const lines = linesOf(element);
+  if (hasNonContent && lines.reduce((sum, line) => sum + line.length, 0) > HEADER_LENGTH) {
+    return false;
+  }
+  const hasSeparator = SEPARATOR_LINE.test(lines[0] ?? '');
+  const from = hasSeparator ? 1 : 0;
+  if (!FROM_LINE.test(lines[from] ?? '')) return false;
+  const rest = lines.slice(from + 1, from + HEADER_LINES);
+  if (!rest.some((line) => SUBJECT_LINE.test(line))) return false;
+  const hasDate = rest.some((line) => DATE_LINE.test(line));
+  const hasTo = rest.some((line) => TO_LINE.test(line));
+  return hasSeparator ? hasDate || hasTo : hasDate && hasTo;
+}
+
+/** An element's text, a line at a time: split at its line breaks and its
+    blocks' edges, non-rendered blocks and blank lines dropped. */
+function linesOf(element: Element): string[] {
+  return element.innerHTML
+    .replace(NON_CONTENT_BLOCK, '')
+    .split(BREAKS)
+    .map((line) =>
+      line
+        .replace(/<!--[\s\S]*?-->/g, '')
+        .replace(/<[^>]*>/g, '')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
+        .replace(/&amp;/gi, '&')
+        .trim(),
+    )
+    .filter(Boolean);
 }
 
 /** A plain `<blockquote>` under an attribution line: a client that marks
@@ -609,20 +874,27 @@ function previous(node: ChildNode): ChildNode | null {
   return before;
 }
 
-/** Out of the wrappers a history is the whole of: a `<div>` round the
-    quote alone is the history too. Stops where something stands before it —
-    the message's own text, in the same wrapper — and inside a cell or a
-    list's item: beside those, nothing but their own kind can stand. */
-function rise(start: ChildNode, body: HTMLElement): ChildNode {
+/** The outermost wrapper the node opens, up to `top`: out of each parent it
+    stands first in. Stops where something stands before it, and inside a
+    cell or a list's item: beside those, nothing but their own kind can
+    stand. */
+function opened(start: ChildNode, top: Element): ChildNode {
   let from = start;
   while (
     from.parentElement &&
-    from.parentElement !== body &&
+    from.parentElement !== top &&
     !HOLDS_ITS_OWN.has(from.parentElement.parentElement?.tagName ?? '') &&
     !previous(from)
   ) {
     from = from.parentElement;
   }
+  return from;
+}
+
+/** Out of the wrappers a history is the whole of (`opened`): a `<div>`
+    round the quote alone is the history too. */
+function rise(start: ChildNode, body: HTMLElement): ChildNode {
+  let from = opened(start, body);
   // Blank lines over it go with it — Outlook's rule and the empty mark it
   // leaves where the answer was appended too: the gap is the history's,
   // not the text's. Non-content tags (`<style>`, `<meta>`) stay in place.

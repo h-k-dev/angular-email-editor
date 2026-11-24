@@ -23,6 +23,10 @@
           "file": "reply/gmail-forward-in-quote.json"
         },
         {
+          "name": "WEB.DE reply, header written out as text",
+          "file": "reply/webde-reply.json"
+        },
+        {
           "name": "Outlook memo",
           "file": "reply/outlook-memo.json"
         },

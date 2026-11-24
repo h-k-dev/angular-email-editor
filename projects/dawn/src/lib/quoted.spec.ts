@@ -90,6 +90,252 @@ describe('splitQuoted', () => {
   });
 });
 
+// A quoted mail's header written out as text, in a block of its own: no
+// class, no id, no rule — WEB.DE's and GMX's apps, Outlook's plain text.
+describe('splitQuoted, on a header written out as text', () => {
+  // As WEB.DE's app answers: its own text and the attribution line in one
+  // block (no colon at its end), the quoted mail in the next — its header a
+  // block of its own, the mail under it.
+  const own =
+    '<div><p>Dear Ms Novak,</p><p>thank you for the call yesterday.</p><p>Kind regards<br>Lena</p><br>Sent with the WEB.DE Mail App<br><br>On 17.11.26 at 11:19 Novak Legal wrote<br><br></div>';
+  const header =
+    '<div>From: "Novak Legal" &lt;office@novak.example&gt;<br>Date: 17 November 2026<br>To: lena@example.com<br>Cc: <br>Subject: Your case 2874/24</div>';
+  const mail =
+    '<div class="WordSection1"><p class="MsoNormal">Dear Ms Weber,</p><p>please find the offer attached.</p></div>';
+  const history = `<div>${header}<p></p>${mail}</div>`;
+
+  it('takes the header block and the mail under it, the answer kept', () => {
+    expect(splitQuoted(`<div id="message">${own}${history}</div>`)).toEqual({
+      body: `<div id="message">${own}</div>`,
+      quoted: history,
+    });
+  });
+
+  it('reads the header in the languages it is written in', () => {
+    const german =
+      '<div>Von: "Novak Legal" &lt;office@novak.example&gt;<br>Datum: 17. November 2026<br>An: lena@example.com<br>Betreff: Ihre Angelegenheit</div>';
+    // An attribution on a line of its own over it (no colon, as WEB.DE
+    // writes it) goes with it.
+    const attribution = '<p>Am 17.11.26 um 11:19 schrieb Kanzlei Novak</p>';
+    expect(
+      splitQuoted(`<p>Danke.</p>${attribution}${german}<p>Sehr geehrte Frau Weber,</p>`).quoted,
+    ).toBe(`${attribution}${german}<p>Sehr geehrte Frau Weber,</p>`);
+    // A rule over it, and the rule with it.
+    const romanian =
+      '<div>De la: Ana Popescu<br>Data: 17 noiembrie 2026<br>Către: ioana@example.com<br>Subiect: Contract</div>';
+    expect(splitQuoted(`<p>Mulțumesc.</p><hr>${romanian}<p>Bună ziua,</p>`).quoted).toBe(
+      `<hr>${romanian}<p>Bună ziua,</p>`,
+    );
+  });
+
+  it('takes Outlook’s plain-text rule of underscores as a separator', () => {
+    const plain =
+      '<div>________________________________<br>From: Sam Lee<br>Sent: Monday, 17 August 2026 09:00<br>To: Lena<br>Subject: Agenda</div>';
+    expect(splitQuoted(`<p>Fine.</p>${plain}<p>Draft attached.</p>`).quoted).toBe(
+      `${plain}<p>Draft attached.</p>`,
+    );
+  });
+
+  it('is no header where no reply’s mark stands over it — a notification’s fields', () => {
+    const fields =
+      '<div>From: Jane Doe &lt;jane@example.com&gt;<br>Date: 17 Nov 2026<br>To: support@acme.example<br>Subject: Pricing</div>';
+    const ticket = `<p>New ticket #4411:</p>${fields}<p>How much is Pro?</p><p>Reply in the portal.</p>`;
+    expect(splitQuoted(ticket)).toEqual({ body: ticket, quoted: '' });
+    expect(foldQuoted(ticket, { label: 'Quoted text' })).toBe(ticket);
+    // Nested in a wrapper, the line over the wrapper is still no attribution.
+    const wrapped = `<p>New ticket #4411:</p><div>${fields}<p>How much is Pro?</p></div>`;
+    expect(splitQuoted(wrapped).quoted).toBe('');
+  });
+
+  it('takes Outlook’s plain separator over the header with it', () => {
+    const plain =
+      '<div>-----Original Message-----<br>From: Sam Lee<br>Sent: Monday, 17 August 2026 09:00<br>To: Lena<br>Subject: Agenda</div>';
+    expect(splitQuoted(`<p>Fine.</p>${plain}<p>Draft attached.</p>`).quoted).toBe(
+      `${plain}<p>Draft attached.</p>`,
+    );
+    // Separator labels with internal hyphens (e.g. German "E-Mail").
+    const hyphenated =
+      '<div>-----Ursprüngliche E-Mail-----<br>Von: Kanzlei Novak<br>Datum: 17. November 2026<br>Betreff: Akte</div>';
+    expect(splitQuoted(`<p>Danke.</p>${hyphenated}<p>Text.</p>`).quoted).toBe(
+      `${hyphenated}<p>Text.</p>`,
+    );
+  });
+
+  it('marks only plain-text headers in the fold, never client headers, boxes or inline elements', () => {
+    const fold = (html: string) =>
+      new DOMParser().parseFromString(foldQuoted(html, { label: 'Quoted text' }), 'text/html');
+
+    const webde = fold(`<div id="message">${own}${history}</div>`);
+    const marked = Array.from(webde.querySelectorAll('[data-dawn-quoted-header]'));
+    expect(marked.map((element) => element.textContent?.trim().slice(0, 5))).toEqual(['From:']);
+    expect(marked[0]?.closest('details[data-dawn-quoted]')).not.toBeNull();
+
+    // Inline wrapper inside a plain-text header: marks the block container, not the `<span>`.
+    const inlineWrapped = fold(
+      '<p>Danke.<br>Am Montag schrieb Kanzlei:</p><div><div><span>Von: Kanzlei<br>Datum: 17. Nov<br>An: lena@example.com<br>Betreff: Akte</span></div><p>Hallo,</p></div>',
+    );
+    const wrappedMarked = Array.from(inlineWrapped.querySelectorAll('[data-dawn-quoted-header]'));
+    expect(wrappedMarked.map((el) => el.tagName)).toEqual(['DIV']);
+
+    // Inline separator (`<b>-----Original Message-----</b>`): marks the block container, not `<b>`.
+    const inlineSep = fold(
+      '<p>Fine.</p><div><b>-----Original Message-----</b><br>From: Sam<br>Sent: Mon<br>To: Lena<br>Subject: Agenda</div><p>Draft.</p>',
+    );
+    const inlineSepMarked = Array.from(inlineSep.querySelectorAll('[data-dawn-quoted-header]'));
+    expect(inlineSepMarked.map((el) => el.tagName)).toEqual(['DIV']);
+
+    // Separator in its own sibling block over the fields: marks the separator, not the fields.
+    const siblingSep = fold(
+      '<p>Fine.</p><div><div>-----Original Message-----</div><div>From: Sam<br>Sent: Mon<br>To: Lena<br>Subject: Agenda</div><p>Draft.</p></div>',
+    );
+    const sepMarked = Array.from(siblingSep.querySelectorAll('[data-dawn-quoted-header]'));
+    expect(sepMarked.map((el) => el.textContent?.trim())).toEqual(['-----Original Message-----']);
+
+    // An attribution in its own block over the fields: in the fold, and the gap over it.
+    const attributed = fold(
+      '<p>Danke.</p><p>Am Montag schrieb Kanzlei:</p><div>Von: Kanzlei<br>Datum: 17. Nov<br>An: Lena<br>Betreff: Akte</div><p>Hallo,</p>',
+    );
+    const attributedMarked = Array.from(attributed.querySelectorAll('[data-dawn-quoted-header]'));
+    expect(attributedMarked.map((el) => el.textContent?.trim())).toEqual([
+      'Am Montag schrieb Kanzlei:',
+    ]);
+    expect(attributedMarked[0]?.parentElement?.tagName).toBe('DETAILS');
+
+    // Already-known client headers and boxed forwards (Gmail `.gmail_attr`, Apple Mail
+    // `<blockquote type="cite">`, Outlook `#divRplyFwdMsg`, Word's ruled header) never get
+    // `data-dawn-quoted-header`.
+    const gmailForward = fold(
+      '<div>Fine.</div><div class="gmail_quote"><div class="gmail_attr">---------- Forwarded message ---------<br>From: Sam<br>Date: Mon<br>Subject: Agenda<br>To: Lena</div><div>Draft.</div></div>',
+    );
+    expect(gmailForward.querySelector('[data-dawn-quoted-header]')).toBeNull();
+
+    const appleForward = fold(
+      '<div>See below.</div><blockquote type="cite"><div>From: Sam<br>Date: Mon<br>To: Lena<br>Subject: Agenda</div><div>Draft.</div></blockquote>',
+    );
+    expect(appleForward.querySelector('[data-dawn-quoted-box]')?.tagName).toBe('BLOCKQUOTE');
+    expect(appleForward.querySelector('[data-dawn-quoted-header]')).toBeNull();
+
+    const outlookWithFont = fold(
+      '<div>Thanks.</div><hr><div id="divRplyFwdMsg"><font><b>From:</b> Sam<br><b>Sent:</b> Mon<br><b>To:</b> Lena<br><b>Subject:</b> Agenda</font></div><div>Draft.</div>',
+    );
+    expect(outlookWithFont.querySelector('[data-dawn-quoted-header]')).toBeNull();
+
+    const outlookPlain = fold(
+      '<div>Thanks.</div><hr><div id="divRplyFwdMsg"><b>From:</b> Sam<br><b>Sent:</b> Mon<br><b>Subject:</b> Agenda</div><div>Draft.</div>',
+    );
+    expect(outlookPlain.querySelector('[data-dawn-quoted-header]')).toBeNull();
+
+    const wordHeader = fold(
+      '<p>Thanks.</p><div style="border-top: solid #E1E1E1 1.0pt"><p><b>From:</b> Sam<br><b>Sent:</b> Mon<br><b>Subject:</b> Agenda</p></div><p>Draft.</p>',
+    );
+    expect(wordHeader.querySelector('[data-dawn-quoted-header]')).toBeNull();
+  });
+
+  it('never folds wrapped forwards that have reply text after them', () => {
+    const gmailInline =
+      '<div>See the forward below:</div>' +
+      '<div class="gmail_quote"><div class="gmail_attr">---------- Forwarded message ---------<br>From: Sam<br>Date: Mon<br>To: Lena<br>Subject: Agenda</div><div>Draft.</div></div>' +
+      '<div>What do you think?</div>';
+    expect(splitQuoted(gmailInline)).toEqual({ body: gmailInline, quoted: '' });
+
+    // Even when wrapped in an extra `<div>`.
+    const wrappedGmailInline =
+      '<div>See below:</div>' +
+      '<div><div class="gmail_quote"><div class="gmail_attr">---------- Forwarded message ---------<br>From: Sam<br>Date: Mon<br>To: Lena<br>Subject: Agenda</div><div>Draft.</div></div></div>' +
+      '<div>My reply underneath.</div>';
+    expect(splitQuoted(wrappedGmailInline)).toEqual({ body: wrappedGmailInline, quoted: '' });
+
+    const appleInline =
+      '<div>See below:</div>' +
+      '<blockquote type="cite"><div>From: Sam<br>Date: Mon<br>To: Lena<br>Subject: Agenda</div><div>Draft.</div></blockquote>' +
+      '<div>My reply underneath.</div>';
+    expect(splitQuoted(appleInline)).toEqual({ body: appleInline, quoted: '' });
+  });
+
+  it('ignores <style> inside a plain-text header block when detecting and measuring it', () => {
+    const bigCss = `.x { color: red; /* ${'a'.repeat(1200)} */ }`;
+    const styledHeader = `<div><style>${bigCss}</style>Von: Kanzlei Novak<br>Datum: 17. November 2026<br>An: lena@example.com<br>Betreff: Akte</div>`;
+    expect(
+      splitQuoted(`<p>Danke.<br>Am Montag schrieb Kanzlei Novak:</p>${styledHeader}<p>Sehr geehrte Frau Weber,</p>`)
+        .quoted,
+    ).toBe(`${styledHeader}<p>Sehr geehrte Frau Weber,</p>`);
+  });
+
+  it('never lets an unfoldable cell or list item block a real quote further down', () => {
+    const realQuote = '<div class="gmail_quote">Earlier message.</div>';
+    const withCell =
+      '<p>Summary:</p>' +
+      '<table><tbody><tr><td>From: Sam<br>Date: Mon<br>To: Lena<br>Subject: Ticket</td></tr></tbody></table>' +
+      realQuote;
+    expect(splitQuoted(withCell).quoted).toBe(realQuote);
+
+    const withQuotedCell =
+      '<p>Summary:</p>' +
+      '<table><tbody><tr><td class="gmail_quote">Cell quote</td></tr></tbody></table>' +
+      realQuote;
+    expect(splitQuoted(withQuotedCell).quoted).toBe(realQuote);
+
+    const withListItem =
+      '<p>Summary:</p>' +
+      '<ul><li>From: Sam<br>Date: Mon<br>To: Lena<br>Subject: Ticket</li></ul>' +
+      realQuote;
+    expect(splitQuoted(withListItem).quoted).toBe(realQuote);
+  });
+
+  // Each under a reply's mark (a rule), so the guard named is what turns
+  // it down, not the missing mark.
+  it('is no header without all four fields (when unseparated), nor a block as long as a mail', () => {
+    const noSubject = '<p>Hi,</p><hr><div>From: our team<br>Date: Mon<br>To: you<br>With love</div>';
+    expect(splitQuoted(noSubject).quoted).toBe('');
+    // Contact-form / ticket summaries missing Date or To.
+    const twoLineForm =
+      '<p>New inquiry:</p><hr><div>From: Jane Doe<br>Subject: Pricing</div><p>How much is Pro?</p>';
+    expect(splitQuoted(twoLineForm).quoted).toBe('');
+    const threeLineNoTo =
+      '<p>New ticket:</p><hr><div>From: Jane Doe<br>Date: 17 Nov 2026<br>Subject: Pricing</div><p>How much is Pro?</p>';
+    expect(splitQuoted(threeLineNoTo).quoted).toBe('');
+    const threeLineNoDate =
+      '<p>New ticket:</p><hr><div>From: Jane Doe<br>To: Support<br>Subject: Pricing</div><p>How much is Pro?</p>';
+    expect(splitQuoted(threeLineNoDate).quoted).toBe('');
+    const long = `<p>Hi,</p><hr><div>From: our team<br>Date: Today<br>To: you<br>Subject: News<br>${'More news. '.repeat(120)}</div>`;
+    expect(splitQuoted(long).quoted).toBe('');
+    // A forward and nothing else: no answer of its own to keep.
+    expect(splitQuoted(`<hr>${header}${mail}`).quoted).toBe('');
+  });
+
+  it('finds the reply’s mark over the wrappers a header opens, and takes it along', () => {
+    const fields = '<div>Von: Kanzlei<br>Datum: 17. Nov<br>An: Lena<br>Betreff: Akte</div>';
+    const attribution = '<p>Am Montag schrieb Kanzlei:</p>';
+    const separator = '<div>-----Original Message-----</div>';
+    // The mail too long for its wrapper to be the header: the inner block is.
+    const longMail = `<p>${'Sehr geehrte Frau Weber. '.repeat(60)}</p>`;
+    for (const mark of [attribution, separator]) {
+      const history = `${mark}<div>${fields}${longMail}</div>`;
+      expect(splitQuoted(`<p>Danke.</p>${history}`)).toEqual({
+        body: '<p>Danke.</p>',
+        quoted: history,
+      });
+    }
+    // Short: the wrapper and the block in it are both headers; only the mark
+    // gets the gap, never the fields under it too.
+    const folded = new DOMParser().parseFromString(
+      foldQuoted(`<p>Danke.</p>${attribution}<div>${fields}<p>Hallo,</p></div>`, {
+        label: 'Quoted text',
+      }),
+      'text/html',
+    );
+    const marked = Array.from(folded.querySelectorAll('[data-dawn-quoted-header]'));
+    expect(marked.map((el) => el.textContent?.trim())).toEqual(['Am Montag schrieb Kanzlei:']);
+  });
+
+  it('takes a rule in a wrapper of its own for a reply’s mark', () => {
+    const fields = '<div>Von: Kanzlei<br>Datum: 17. Nov<br>An: Lena<br>Betreff: Akte</div>';
+    expect(splitQuoted(`<p>Danke.</p><div><hr></div>${fields}<p>Hallo,</p>`).quoted).toBe(
+      `<div><hr></div>${fields}<p>Hallo,</p>`,
+    );
+  });
+});
+
 describe('splitQuoted, on what is not quite a history', () => {
   const quote = '<blockquote>First draft attached.</blockquote>';
 
@@ -333,12 +579,15 @@ describe('foldQuoted, on a history seven quotes deep', () => {
     expect(doc.body.firstElementChild?.textContent).toBe('Answer 6.');
     expect(doc.querySelector('details')?.querySelectorAll('blockquote')).toHaveLength(7);
     // By style alone: the seven blockquotes stay in the markup, and the
-    // fold's sheet draws each message a box, one under the other.
+    // fold's sheet draws each message a box using Dawn's own semantic
+    // attributes — never client class names like `.gmail_*`.
     const css = doc.querySelector('details > style')?.textContent ?? '';
     expect(css).toContain(
       'details[data-dawn-quoted] blockquote { margin: 0 !important; padding: 0 !important; border: 0 !important; }',
     );
-    expect(css).toContain('details[data-dawn-quoted] .gmail_attr');
+    expect(css).toContain('details[data-dawn-quoted] [data-dawn-quoted-attr]');
+    expect(css).toContain('details[data-dawn-quoted] [data-dawn-quoted-box]');
+    expect(css).not.toMatch(/gmail|moz-cite|yahoo_quoted|protonmail_quote|divRplyFwdMsg/i);
   });
 });
 
@@ -383,23 +632,32 @@ describe('foldQuoted, on a Gmail quote joined to its parent', () => {
     expect(drawn.body.firstElementChild?.getAttribute('style')).not.toContain('#000000');
   });
 
-  it('marks plain attributions even after blank blocks or in wrappers, never Outlook headers', () => {
+  it('marks plain attributions as two-part box heads, never Outlook headers or client wrapper attributions', () => {
     const afterBlank = fold(
       '<div>Thanks.</div><div><br></div><div>On Monday, Sam wrote:</div><blockquote>Draft.</blockquote>',
     );
     expect(afterBlank.querySelector('[data-dawn-quoted-attr]')?.textContent).toBe(
       'On Monday, Sam wrote:',
     );
+    expect(afterBlank.querySelector('[data-dawn-quoted-head]')?.textContent).toBe(
+      'On Monday, Sam wrote:',
+    );
+    expect(afterBlank.querySelector('[data-dawn-quoted-foot]')?.tagName).toBe('BLOCKQUOTE');
 
     const outlook = fold(
       '<div>Thanks.</div><hr><div id="divRplyFwdMsg"><b>From:</b> Sam</div><blockquote>Quote.</blockquote>',
     );
     expect(outlook.querySelector('[data-dawn-quoted-attr]')).toBeNull();
+    expect(outlook.querySelector('[data-dawn-quoted-head]')).toBeNull();
 
     const yahoo = fold(
       '<div>Thanks.</div><div class="yahoo_quoted"><div>On Monday, Sam wrote:</div><blockquote>Draft.</blockquote></div>',
     );
-    expect(yahoo.querySelector('[data-dawn-quoted-attr]')).toBeNull();
+    expect(yahoo.querySelector('[data-dawn-quoted-attr]')?.textContent).toBe(
+      'On Monday, Sam wrote:',
+    );
+    expect(yahoo.querySelector('[data-dawn-quoted-head]')).toBeNull();
+    expect(yahoo.querySelector('[data-dawn-quoted-box]')?.className).toBe('yahoo_quoted');
   });
 
   it('ignores <style> inside <body> when checking blankness and trailing quotes', () => {

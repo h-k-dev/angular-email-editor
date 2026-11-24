@@ -121,4 +121,21 @@ describe('foldQuoted’s boxes (render)', () => {
     );
     expect(style(drawn.querySelector('[data-dawn-quoted-joined]')).borderTopWidth).toBe('0px');
   });
+
+  // A header written out as text (WEB.DE's) has no box and no rule to keep
+  // it off the ⋯: the gap a box keeps under it, kept for it too.
+  it('keeps a header written out as text off the ⋯, as far as a box', async () => {
+    const header =
+      '<div>Von: Kanzlei Novak<br>Datum: 17. November 2026<br>An: lena@example.com<br>Betreff: Ihre Angelegenheit</div>';
+    const plain = await laidOut(
+      `<div>Danke.<br>Am Montag schrieb Kanzlei Novak</div><div>${header}<p>Sehr geehrte Frau Weber,</p></div>`,
+    );
+    const boxed = await laidOut(`<div>Fine.</div>${quote('Alex', 'Draft.')}`);
+    const gap = (drawn: Document, first: Element) =>
+      first.getBoundingClientRect().top -
+      drawn.querySelector('summary')!.getBoundingClientRect().bottom;
+    const headerGap = gap(plain, plain.querySelector('[data-dawn-quoted-header]')!);
+    expect(headerGap).toBeGreaterThanOrEqual(8);
+    expect(headerGap).toBe(gap(boxed, boxed.querySelector('[data-dawn-quoted-box]')!));
+  });
 });

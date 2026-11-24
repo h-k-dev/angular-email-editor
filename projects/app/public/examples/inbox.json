@@ -45,6 +45,16 @@
       "references": "<deep-quote-1@mail.example.com> <deep-quote-2@mail.example.com> <deep-quote-3@mail.example.com> <deep-quote-4@mail.example.com> <deep-quote-5@mail.example.com> <deep-quote-6@mail.example.com> <deep-quote-7@mail.example.com> <deep-quote-8@mail.example.com> <deep-quote-9@mail.example.com>"
     },
     {
+      "id": "reply-webde-reply",
+      "file": "reply/webde-reply.json",
+      "kind": "reply",
+      "name": "Lena Weber",
+      "from": "Lena Weber <lena.weber@example.com>",
+      "to": "info@kanzlei-novak.example",
+      "date": "2026-11-17T15:24:00.000Z",
+      "subject": "Re: Ihre Angelegenheit 2874/24 - Weber ./. Beispiel GmbH"
+    },
+    {
       "id": "reply-outlook-memo",
       "file": "reply/outlook-memo.json",
       "kind": "reply",
