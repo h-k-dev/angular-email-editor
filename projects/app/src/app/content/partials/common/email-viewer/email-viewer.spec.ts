@@ -22,7 +22,7 @@ describe('EmailViewer, with a picture that never loads', () => {
   const documentAt = (readyState: DocumentReadyState) => {
     const root = document.createElement('html');
     root.getBoundingClientRect = () => ({ height: 1682 }) as DOMRect;
-    return { readyState, URL: 'about:srcdoc', documentElement: root };
+    return { readyState, URL: 'about:srcdoc', documentElement: root, addEventListener: vi.fn() };
   };
   // What `fit` leaves on the document tells it ran.
   const fitted = (doc: ReturnType<typeof documentAt>) =>
@@ -91,5 +91,38 @@ describe('EmailViewer, with a picture that never loads', () => {
     sight(true);
     nextFrame();
     expect(fitted(doc)).toBe(true);
+  });
+});
+
+// A frame's document keeps its keys: said again on the frame, the page's
+// shortcuts work while the email has the focus.
+describe('EmailViewer, with a key pressed in the email', () => {
+  it('says it again on the frame', async () => {
+    const fixture = TestBed.createComponent(EmailViewer);
+    fixture.componentRef.setInput('html', '<p>Hallo</p>');
+    await fixture.whenStable();
+    const iframe = fixture.nativeElement.querySelector('iframe') as HTMLIFrameElement;
+    // jsdom loads no `srcdoc`: a document of its own, drawn as far as `load`.
+    const email = document.implementation.createHTMLDocument();
+    Object.defineProperty(iframe, 'contentDocument', { get: () => email });
+    iframe.dispatchEvent(new Event('load'));
+
+    const heard: KeyboardEvent[] = [];
+    iframe.addEventListener('keydown', (event) => {
+      heard.push(event);
+      event.preventDefault();
+    });
+    const pressed = new KeyboardEvent('keydown', {
+      key: 'r',
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    email.body.dispatchEvent(pressed);
+
+    expect(heard.map(({ key, shiftKey }) => ({ key, shiftKey }))).toEqual([
+      { key: 'r', shiftKey: true },
+    ]);
+    expect(pressed.defaultPrevented).toBe(true);
   });
 });

@@ -15,6 +15,13 @@
   color: var(--mat-sys-on-surface);
 }
 
+// A keyboard stop (mail-view.ts): the ring inside the sheet's edge, so no
+// host has to leave room for it.
+:host(:focus-visible) {
+  outline: 2px solid var(--mat-sys-primary);
+  outline-offset: -2px;
+}
+
 // The sheet: the room's width (the host's, the container), or an email's
 // wider than it — a fixed-width table — spilling out of the host, so
 // whatever scrolls the host scrolls it sideways, one scroller both ways.

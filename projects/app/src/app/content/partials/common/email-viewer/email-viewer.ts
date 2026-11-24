@@ -25,7 +25,9 @@ import { Paper } from '../../../../core/theme/paper';
  * and so the box round it: whatever scrolls the page scrolls it sideways
  * too, one scroller both ways. Asked to `shrink`, it is drawn down to the
  * room instead — a phone's mail app's way: the whole email in sight, as
- * small as it has to be, and nothing round it pushed wider.
+ * small as it has to be, and nothing round it pushed wider. Its keys are
+ * the page's too: a key pressed in the email is said again on the frame, so
+ * a shortcut works wherever the focus is.
  *
  *     <email-viewer [html]="mail.html" label="Message" />
  *
@@ -204,6 +206,28 @@ export class EmailViewer {
     if (typeof cancelAnimationFrame !== 'undefined') cancelAnimationFrame(this.#look);
   }
 
+  /** A key pressed in the email, said again on the frame: a frame's document
+      keeps its keys to itself, and the page round it — the reader's
+      shortcuts, the app's — would hear none while the email has the focus
+      (a click in its text is enough). What the page prevents is prevented
+      in the email as well. */
+  #forwardKey(frame: HTMLIFrameElement, event: KeyboardEvent) {
+    const { key, code, location, repeat, ctrlKey, metaKey, altKey, shiftKey } = event;
+    const said = new KeyboardEvent('keydown', {
+      key,
+      code,
+      location,
+      repeat,
+      ctrlKey,
+      metaKey,
+      altKey,
+      shiftKey,
+      bubbles: true,
+      cancelable: true,
+    });
+    if (!frame.dispatchEvent(said)) event.preventDefault();
+  }
+
   /** The frame has drawn its document (again, after a change): fit it, and
       keep fitting it as its width reflows the email. */
   protected fit(frame: HTMLIFrameElement): void {
@@ -232,6 +256,7 @@ export class EmailViewer {
     }
     const measure = () => this.height.set(Math.ceil(root.getBoundingClientRect().height));
     measure();
+    doc.addEventListener('keydown', (event) => this.#forwardKey(frame, event));
     if (typeof ResizeObserver === 'undefined') return;
     this.#observer = new ResizeObserver(measure);
     this.#observer.observe(root);

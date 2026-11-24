@@ -53,7 +53,8 @@ const INSET = { wide: 32, phone: 16 } as const;
  *     <article mail-view [subject]="…" [name]="…" [html]="body" (answer)="reply($event)"></article>
  *
  * What a press does is the host's (`answer`, `flipPaper`); a host that only
- * shows a message (a preview) makes it `inert`.
+ * shows a message (a preview) makes it `inert`. R, A and F answer from
+ * anywhere in it, the email included.
  */
 @Component({
   selector: 'article[mail-view]',
@@ -75,6 +76,12 @@ const INSET = { wide: 32, phone: 16 } as const;
     class: 'mail-view',
     '[attr.aria-label]': 'subject()',
     '[attr.data-width]': "phone() ? 'phone' : 'wide'",
+    // A stop of its own, where its shortcuts are pressed — Gmail's letters,
+    // one binding per key: a chord (Cmd+R) stays the browser's.
+    tabindex: '0',
+    '(keydown.r)': "shortcut($event, 'reply')",
+    '(keydown.a)': "shortcut($event, 'reply-all')",
+    '(keydown.f)': "shortcut($event, 'forward')",
   },
 })
 export class MailView {
@@ -111,9 +118,24 @@ export class MailView {
 
   /** ⋮: the answers beside Reply, in the app's language. */
   protected readonly moreItems = computed<ToolbarMenuItem<ReplyKind>[]>(() => [
-    { value: 'reply-all', label: this.#i18n.t('inbox.replyAll'), icon: 'reply_all' },
-    { value: 'forward', label: this.#i18n.t('inbox.forward'), icon: 'forward' },
+    { value: 'reply-all', label: this.#i18n.t('inbox.replyAll'), icon: 'reply_all', shortcut: 'A' },
+    { value: 'forward', label: this.#i18n.t('inbox.forward'), icon: 'forward', shortcut: 'F' },
   ]);
+
+  /** A shortcut's letter was pressed in the view — on it, or in the email
+      (`email-viewer` says its keys again). Not before the message has come,
+      nor on a control inside: a button keeps its keys, a menu its typeahead. */
+  protected shortcut(event: Event, kind: ReplyKind) {
+    if (!this.html()) return;
+    if (
+      event.target instanceof Element &&
+      event.target.closest('button, input, textarea, [contenteditable]')
+    )
+      return;
+
+    event.preventDefault();
+    this.answer.emit(kind);
+  }
 
   /** The details card under the to line: Gmail's, read as Notion's
       properties — who, when, what, and how it came (made up: the sender's

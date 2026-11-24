@@ -1,4 +1,4 @@
-import { PAPER, messageHtml, dawnDocument } from './dawn.render';
+import { PAPER, READING_CSP, messageHtml, dawnDocument } from './dawn.render';
 import { DAWN_SURFACE, dawnDarkColor } from '@h-k-dev/angular-email-editor';
 
 const DAWN_DARK_SURFACE = DAWN_SURFACE.dark;
@@ -15,6 +15,21 @@ describe('dawnDocument', () => {
     const dark = dawnDocument(body, { scheme: 'dark' });
     expect(dark).toContain(`html { background: ${DAWN_DARK_SURFACE}; }`);
     expect(DAWN_DARK_SURFACE).toBe(PAPER.dark);
+  });
+
+  // The frame's second lock, behind the sandbox: first in the head, so it
+  // holds for everything the email brings after it.
+  it('locks what the frame may load, before anything of the email’s', () => {
+    const page =
+      '<!doctype html><html><head><style>@import url(https://example.com/a.css);</style></head><body><p>Hi</p></body></html>';
+    for (const html of [body, page]) {
+      const drawn = dawnDocument(html, { scheme: 'light' });
+      const policy = `<meta http-equiv="Content-Security-Policy" content="${READING_CSP}">`;
+      expect(drawn).toContain(policy);
+      expect(drawn.indexOf(policy)).toBeLessThan(drawn.indexOf('<style'));
+    }
+    expect(READING_CSP).toContain("default-src 'none'");
+    expect(READING_CSP).not.toContain('script-src');
   });
 
   it('insets a letter’s text at its sides, a whole document’s as well', () => {

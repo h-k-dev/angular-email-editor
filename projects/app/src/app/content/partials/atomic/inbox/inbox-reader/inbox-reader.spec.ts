@@ -139,6 +139,22 @@ describe('InboxReader', () => {
     expect(options?.content?.message.subject).toBe('Fwd: Plain note');
   });
 
+  // Gmail's letters, pressed anywhere on the mail (the email says its keys
+  // again on its frame): a chord stays the browser's, a button keeps its keys.
+  it('answers on R, A and F — not on a chord, nor from a button', () => {
+    const view = root.querySelector<HTMLElement>('[mail-view]')!;
+    const press = (target: Element, init: KeyboardEventInit) =>
+      target.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, ...init }));
+
+    expect(view.tabIndex).toBe(0);
+    press(view, { key: 'r', metaKey: true });
+    press(button('Reply'), { key: 'r' });
+    expect(opened).toHaveLength(0);
+
+    for (const key of ['r', 'a', 'f']) press(frame(), { key });
+    expect(opened).toHaveLength(3);
+  });
+
   it('writes the answers out under the mail too, Gmail’s, each the header’s own', () => {
     const answers = [...root.querySelectorAll<HTMLButtonElement>('.mail-view__answers button')];
     // After the body: where the reading ends.

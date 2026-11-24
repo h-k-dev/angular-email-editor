@@ -43,7 +43,8 @@ export interface DawnOptions {
  * that lays itself out (a newsletter, a page) runs to the frame's edges, a
  * simple email's body keeps `inset` at its sides.
  * Links leave for a tab of their own: a reading frame is never navigated
- * away from its email.
+ * away from its email. It loads only what an email is drawn with
+ * ({@link READING_CSP}).
  *
  * Takes a fragment (a message body) or a whole document.
  */
@@ -51,8 +52,33 @@ export function dawnDocument(html: string, { scheme, inset = 0 }: DawnOptions): 
   const document = renderDawn(html, { scheme });
   const sides = inset > 0 && !laysItselfOut(html) ? ` padding-inline: ${inset}px;` : '';
   const reading = `<base target="_blank"><style>body { margin: 0;${sides} }</style>`;
-  return document.replace('</head>', `${reading}</head>`);
+  return document
+    .replace(/<head[^>]*>/, (head) => `${head}${READING_POLICY}`)
+    .replace('</head>', `${reading}</head>`);
 }
+
+/**
+ * What a reading frame may load, whatever its email asks for — the frame's
+ * second lock, behind the sanitizer and the sandbox: nothing by default — no
+ * script, no frame, no plugin, no request of its own, no form sent, no
+ * `<base>` to bend its links — and only what an email is drawn with: its
+ * styles and the fonts they name, its pictures and media. Remote pictures
+ * still load; holding them back is Dawn's to do, on the document itself.
+ *
+ * A `<meta>`, first in the `<head>`: it holds for what is parsed after it,
+ * and a `srcdoc` frame has no response header to carry it.
+ */
+export const READING_CSP = [
+  "default-src 'none'",
+  "style-src 'unsafe-inline' https:",
+  'font-src https: data:',
+  'img-src http: https: data: blob:',
+  'media-src https: data: blob:',
+  "form-action 'none'",
+  "base-uri 'none'",
+].join('; ');
+
+const READING_POLICY = `<meta http-equiv="Content-Security-Policy" content="${READING_CSP}">`;
 
 /** A received message's body as HTML to read: its HTML part, or — a
     text-only message — its text as lines (the library's plain-text
