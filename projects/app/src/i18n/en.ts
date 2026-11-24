@@ -303,6 +303,9 @@ export default {
     },
   },
   inbox: {
+    count: '{{count}} messages',
+    quoted: 'Quoted text',
+    earlier: 'Open the message from {{name}}',
     back: 'Back to Inbox',
     title: 'Inbox',
     more: 'More',

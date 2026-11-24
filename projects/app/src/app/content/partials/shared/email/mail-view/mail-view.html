@@ -8,7 +8,9 @@
      mail app does, and the sheet never grows past it. -->
 <div class="mail-view__sheet">
   <header class="mail-view__header">
-    <h1 class="mail-view__subject">{{ subject() }}</h1>
+    @if (!bare()) {
+      <h1 class="mail-view__subject">{{ subject() }}</h1>
+    }
     <!-- What the reader knows of the message beyond its header — an
        invitation's card, Gmail's — between the subject and who sent it. -->
     <ng-content select="[mailViewLead]" />
@@ -37,7 +39,7 @@
               #detailsButton
               aria-haspopup="dialog"
               [attr.aria-expanded]="detailsOpen()"
-              [attr.aria-controls]="detailsOpen() ? 'mail-view-details' : null"
+              [attr.aria-controls]="detailsOpen() ? detailsId : null"
               [attr.aria-label]="'inbox.details.show' | translate"
               [title]="'inbox.details.show' | translate"
               (click)="detailsOpen.set(!detailsOpen())"
@@ -59,7 +61,7 @@
             <!-- Notion's properties: an icon and a quiet name on the left, the
                value after them, every row starting at the card's start. -->
             <section
-              id="mail-view-details"
+              [id]="detailsId"
               class="mail-view__details"
               role="dialog"
               paperIslandScheme
@@ -141,7 +143,7 @@
         }
       </div>
       <span class="mail-view__date">{{ date() }}</span>
-      <div class="mail-view__actions" role="group" [attr.aria-label]="subject()">
+      <div class="mail-view__actions" role="group" [attr.aria-label]="label()">
         <button
           matIconButton
           type="button"
@@ -203,6 +205,7 @@
       [inset]="inset()"
       [shrink]="phone()"
       [label]="bodyLabel()"
+      [fold]="fold()"
     />
 
     <!-- Gmail's answers under the mail, written out: where the reading ends,

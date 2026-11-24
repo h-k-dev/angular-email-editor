@@ -1,12 +1,98 @@
+@use '../../../../../../styles/breakpoints' as bp;
+
 // The pane the inbox gives it, as tall as the mail: the pane scrolls, its
 // header and this sheet (`mail-view`) as one.
 :host {
+  --_inset: 32px;
+
   display: block;
+  container: inbox-reader / inline-size;
+}
+
+// As the sheet's own inset (`mail-view`): a phone's width, a phone's inset.
+// Asked by what is in the pane — a container answers for what it holds,
+// never for itself.
+.inbox-reader__missing,
+.inbox-reader__subject,
+.inbox-reader__earlier {
+  @include bp.phone-container(inbox-reader) {
+    --_inset: 16px;
+  }
 }
 
 .inbox-reader__missing {
   margin: 0;
-  padding: 24px 32px;
+  padding: 24px var(--_inset);
   color: var(--mat-sys-on-surface-variant);
   font: var(--mat-sys-body-medium);
+}
+
+// A conversation's subject, once over its messages: the sheet's subject
+// line, on the sheet's paper.
+.inbox-reader__subject {
+  margin: 0;
+  padding: 24px var(--_inset) 8px;
+  background: var(--email-paper, var(--mat-sys-surface-bright));
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-title-large);
+}
+
+// A message under another: a hairline between the two.
+.inbox-reader__mail ~ .inbox-reader__mail,
+.inbox-reader__earlier ~ .inbox-reader__mail {
+  border-block-start: 1px solid var(--mat-sys-outline-variant);
+}
+
+// An earlier message, a line: who sent it, how it starts, when — the whole
+// line the button. On the sheet's paper, the hairline of a message over it.
+.inbox-reader__earlier {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 12px;
+  inline-size: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 12px var(--_inset);
+  border: 0;
+  border-block-start: 1px solid var(--mat-sys-outline-variant);
+  background: var(--email-paper, var(--mat-sys-surface-bright));
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+  text-align: start;
+  cursor: pointer;
+
+  &:hover {
+    background: color-mix(
+      in oklch,
+      var(--mat-sys-on-surface) 6%,
+      var(--email-paper, var(--mat-sys-surface-bright))
+    );
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: -2px;
+  }
+}
+
+.inbox-reader__subject + .inbox-reader__earlier {
+  border-block-start: 0;
+}
+
+.inbox-reader__earlier-name {
+  color: var(--mat-sys-on-surface);
+  font-weight: 500;
+}
+
+.inbox-reader__earlier-name,
+.inbox-reader__earlier-start {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inbox-reader__earlier-when {
+  font: var(--mat-sys-label-medium);
+  white-space: nowrap;
 }

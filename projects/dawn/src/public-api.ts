@@ -23,3 +23,4 @@ export * from './lib/sent';
 export * from './lib/style-text';
 export * from './lib/envelope';
 export * from './lib/layout';
+export * from './lib/quoted';

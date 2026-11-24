@@ -35,6 +35,8 @@ import { ToolbarMenu, ToolbarMenuItem } from '../../../common/toolbar-menu/toolb
     wide as a phone. */
 const INSET = { wide: 32, phone: 16 } as const;
 
+let nextDetailsId = 0;
+
 /**
  * A received message as the app shows it — one sheet of paper: Gmail's
  * header without its avatar (the subject; who sent it and to whom; at the
@@ -74,7 +76,7 @@ const INSET = { wide: 32, phone: 16 } as const;
   styleUrl: './mail-view.scss',
   host: {
     class: 'mail-view',
-    '[attr.aria-label]': 'subject()',
+    '[attr.aria-label]': 'label()',
     '[attr.data-width]': "phone() ? 'phone' : 'wide'",
     // A stop of its own, where its shortcuts are pressed — Gmail's letters,
     // one binding per key: a chord (Cmd+R) stays the browser's.
@@ -103,6 +105,18 @@ export class MailView {
   readonly scheme = input<PaperScheme>('light');
   /** What the body's frame is, for assistive tech. */
   readonly bodyLabel = input('');
+  /** The history the message quotes folded behind a `⋯`, called this for
+      assistive tech ("Quoted text"); the message as it came, without. */
+  readonly fold = input<string | null>(null);
+  /** One message of a conversation, under the conversation's subject: no
+      subject line of its own, and named by who sent it. */
+  readonly bare = input(false);
+
+  /** Accessible name for this message sheet and its header actions. */
+  protected readonly label = computed(() => (this.bare() ? this.name() : this.subject()));
+
+  /** Unique id for this instance's details dialog (`aria-controls`). */
+  protected readonly detailsId = `mail-view-details-${++nextDetailsId}`;
 
   /** An answer asked for: Reply, Reply all or Forward. */
   readonly answer = output<ReplyKind>();

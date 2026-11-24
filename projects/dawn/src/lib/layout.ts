@@ -26,6 +26,8 @@ export function laysItselfOut(html: string): boolean {
     hasDocumentEnvelope(html) ? html : `<body>${html}`,
     'text/html',
   ).body;
+  // A folded quoted history is closed behind a `⋯`, not this message's layout.
+  for (const fold of Array.from(body.querySelectorAll('details[data-dawn-quoted]'))) fold.remove();
   return isPage(body) || Array.from(body.querySelectorAll<HTMLElement>('*')).some(setsAColumn);
 }
 

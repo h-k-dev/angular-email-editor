@@ -19,6 +19,32 @@
       "subject": "Gmail thread"
     },
     {
+      "id": "reply-gmail-deep-quote",
+      "file": "reply/gmail-deep-quote.json",
+      "kind": "reply",
+      "name": "Alex Morgan",
+      "from": "Alex Morgan <alex.morgan@example.com>",
+      "to": "Alex Morgan <alex.morgan@example.com>",
+      "date": "2026-11-24T15:56:15.000Z",
+      "subject": "Re: Test reply quote",
+      "messageId": "<deep-quote-8@mail.example.com>",
+      "inReplyTo": "<deep-quote-7@mail.example.com>",
+      "references": "<deep-quote-1@mail.example.com> <deep-quote-2@mail.example.com> <deep-quote-3@mail.example.com> <deep-quote-4@mail.example.com> <deep-quote-5@mail.example.com> <deep-quote-6@mail.example.com> <deep-quote-7@mail.example.com>"
+    },
+    {
+      "id": "reply-gmail-forward-in-quote",
+      "file": "reply/gmail-forward-in-quote.json",
+      "kind": "reply",
+      "name": "Alex Morgan",
+      "from": "Alex Morgan <alex.morgan@example.com>",
+      "to": "alex.morgan@example.net",
+      "date": "2026-11-24T16:22:43.000Z",
+      "subject": "Re: Test reply quote",
+      "messageId": "<deep-quote-10@mail.example.com>",
+      "inReplyTo": "<deep-quote-9@mail.example.com>",
+      "references": "<deep-quote-1@mail.example.com> <deep-quote-2@mail.example.com> <deep-quote-3@mail.example.com> <deep-quote-4@mail.example.com> <deep-quote-5@mail.example.com> <deep-quote-6@mail.example.com> <deep-quote-7@mail.example.com> <deep-quote-8@mail.example.com> <deep-quote-9@mail.example.com>"
+    },
+    {
       "id": "reply-outlook-memo",
       "file": "reply/outlook-memo.json",
       "kind": "reply",
@@ -97,6 +123,45 @@
       "from": "Vogue Legal Desk <legal@vogue.example>",
       "date": "2026-10-29T09:30:00.000Z",
       "subject": "Nutzungsrechtsanfrage Fotografie – Print, Digital, Social, OOH"
+    },
+    {
+      "id": "reply-conversation-kickoff",
+      "file": "reply/conversation-kickoff.json",
+      "kind": "reply",
+      "name": "Sam Lee",
+      "from": "Sam Lee <sam@example.com>",
+      "to": "Offsite team <offsite@example.com>",
+      "date": "2026-08-17T09:00:00.000Z",
+      "subject": "Offsite agenda",
+      "messageId": "<offsite-1@mail.example.com>"
+    },
+    {
+      "id": "reply-conversation-outlook-answer",
+      "file": "reply/conversation-outlook-answer.json",
+      "kind": "reply",
+      "name": "Monika Weber",
+      "from": "Monika Weber <monika@example.com>",
+      "to": "Sam Lee <sam@example.com>",
+      "cc": "Offsite team <offsite@example.com>",
+      "date": "2026-08-18T08:12:00.000Z",
+      "subject": "RE: Offsite agenda",
+      "messageId": "<offsite-2@outlook.example.com>",
+      "inReplyTo": "<offsite-1@mail.example.com>",
+      "references": "<offsite-1@mail.example.com>"
+    },
+    {
+      "id": "reply-conversation-apple-answer",
+      "file": "reply/conversation-apple-answer.json",
+      "kind": "reply",
+      "name": "Ravi Patel",
+      "from": "Ravi Patel <ravi@example.com>",
+      "to": "Monika Weber <monika@example.com>",
+      "cc": "Sam Lee <sam@example.com>, Offsite team <offsite@example.com>",
+      "date": "2026-08-18T09:40:00.000Z",
+      "subject": "Re: Offsite agenda",
+      "messageId": "<offsite-3@icloud.example.com>",
+      "inReplyTo": "<offsite-2@outlook.example.com>",
+      "references": "<offsite-1@mail.example.com> <offsite-2@outlook.example.com>"
     },
     {
       "id": "html-hand-written",

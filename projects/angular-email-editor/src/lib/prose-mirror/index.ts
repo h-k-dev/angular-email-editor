@@ -17,6 +17,7 @@ export * from '@h-k-dev/dawn';
 export * from './plain-text';
 export * from './email-document';
 export * from './reply';
+export * from './thread';
 export * from './editor';
 export * from './extensions/kits';
 export * from './extensions/html-language';

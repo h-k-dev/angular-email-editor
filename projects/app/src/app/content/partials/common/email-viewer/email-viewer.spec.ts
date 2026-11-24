@@ -22,7 +22,13 @@ describe('EmailViewer, with a picture that never loads', () => {
   const documentAt = (readyState: DocumentReadyState) => {
     const root = document.createElement('html');
     root.getBoundingClientRect = () => ({ height: 1682 }) as DOMRect;
-    return { readyState, URL: 'about:srcdoc', documentElement: root, addEventListener: vi.fn() };
+    return {
+      readyState,
+      URL: 'about:srcdoc',
+      documentElement: root,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    };
   };
   // What `fit` leaves on the document tells it ran.
   const fitted = (doc: ReturnType<typeof documentAt>) =>
@@ -118,11 +124,42 @@ describe('EmailViewer, with a key pressed in the email', () => {
       bubbles: true,
       cancelable: true,
     });
+    // Fitted again on its `load`, after it was fitted parsed: still once.
+    iframe.dispatchEvent(new Event('load'));
     email.body.dispatchEvent(pressed);
 
     expect(heard.map(({ key, shiftKey }) => ({ key, shiftKey }))).toEqual([
       { key: 'r', shiftKey: true },
     ]);
     expect(pressed.defaultPrevented).toBe(true);
+  });
+});
+
+// A fold in the email (Dawn's ⋯ over a quoted history) opens onto a mail
+// that may be wider than the answer over it.
+describe('EmailViewer, with a fold opened in the email', () => {
+  it('reads how wide the email is again, and widens the frame to it', async () => {
+    const fixture = TestBed.createComponent(EmailViewer);
+    fixture.componentRef.setInput('html', '<p>Hallo</p>');
+    await fixture.whenStable();
+    const iframe = fixture.nativeElement.querySelector('iframe') as HTMLIFrameElement;
+    // jsdom loads no `srcdoc`, and lays nothing out: a document of its own,
+    // its widths said by hand.
+    const email = document.implementation.createHTMLDocument();
+    email.body.innerHTML = '<details><summary>⋯</summary><table width="600"></table></details>';
+    let wide = 320;
+    Object.defineProperty(email.documentElement, 'clientWidth', { get: () => 320 });
+    Object.defineProperty(email.documentElement, 'scrollWidth', { get: () => wide });
+    Object.defineProperty(iframe, 'contentDocument', { get: () => email });
+    iframe.dispatchEvent(new Event('load'));
+    expect(iframe.style.minInlineSize).toBe('');
+
+    wide = 600;
+    email.querySelector('details')!.dispatchEvent(new Event('toggle'));
+    expect(iframe.style.minInlineSize).toBe('600px');
+
+    wide = 320;
+    email.querySelector('details')!.dispatchEvent(new Event('toggle'));
+    expect(iframe.style.minInlineSize).toBe('');
   });
 });

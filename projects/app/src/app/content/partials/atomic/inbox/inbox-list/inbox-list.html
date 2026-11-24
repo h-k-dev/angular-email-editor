@@ -27,11 +27,18 @@
         (selectedChange)="pick(row.mail.id)"
         [current]="row.open ? 'page' : false"
         [attr.aria-labelledby]="
-          id + '-name ' + (row.unread ? id + '-unread ' : '') + id + '-when ' + id + '-subject'
+          id +
+          '-name ' +
+          (row.ids.length > 1 ? id + '-count ' : '') +
+          (row.unread ? id + '-unread ' : '') +
+          id +
+          '-when ' +
+          id +
+          '-subject'
         "
         (activate)="openMail(row.mail.id)"
-        (focus)="prefetch(row.mail.id)"
-        (pointerenter)="prefetch(row.mail.id)"
+        (focus)="prefetch(row.ids)"
+        (pointerenter)="prefetch(row.ids)"
       >
         <!-- Proton's leading avatar: the sender's initials on the sender's
          own hue (the row's, `[hueOf]` — its wash and frame are in it
@@ -59,7 +66,17 @@
             [routerLink]="row.mail.id"
             [class.inbox-row--unread]="row.unread"
           >
-            <span class="inbox-row__name" [id]="id + '-name'">{{ row.mail.name }}</span>
+            <!-- Gmail's count beside the sender: a conversation's messages,
+                 the row its latest. -->
+            <span class="inbox-row__name">
+              <span [id]="id + '-name'">{{ row.mail.name }}</span>
+              @if (row.ids.length > 1) {
+                <span class="inbox-row__count" aria-hidden="true">{{ row.ids.length }}</span>
+                <span hidden [id]="id + '-count'">{{
+                  'inbox.count' | translate: { count: row.ids.length }
+                }}</span>
+              }
+            </span>
             @if (row.unread) {
               <span hidden [id]="id + '-unread'">{{ 'inbox.unread' | translate }}</span>
             }
@@ -107,7 +124,7 @@
             tabindex="-1"
             [attr.aria-label]="'inbox.actions.trash' | translate"
             [matTooltip]="'inbox.actions.trash' | translate"
-            (click)="move(row.mail.id, 'trash')"
+            (click)="move(row, 'trash')"
           >
             <mat-icon>delete</mat-icon>
           </button>
@@ -119,7 +136,7 @@
             tabindex="-1"
             [attr.aria-label]="'inbox.actions.archive' | translate"
             [matTooltip]="'inbox.actions.archive' | translate"
-            (click)="move(row.mail.id, 'archive')"
+            (click)="move(row, 'archive')"
           >
             <mat-icon>archive</mat-icon>
           </button>
@@ -131,7 +148,7 @@
             tabindex="-1"
             [attr.aria-label]="'inbox.actions.snooze' | translate"
             [matTooltip]="'inbox.actions.snooze' | translate"
-            (click)="move(row.mail.id, 'snoozed')"
+            (click)="move(row, 'snoozed')"
           >
             <mat-icon>schedule</mat-icon>
           </button>
@@ -145,7 +162,7 @@
             [attr.aria-pressed]="row.starred"
             [attr.aria-label]="'inbox.actions.star' | translate"
             [matTooltip]="(row.starred ? 'inbox.actions.unstar' : 'inbox.actions.star') | translate"
-            (click)="toggleStar(row.mail.id)"
+            (click)="toggleStar(row)"
           >
             <mat-icon>star</mat-icon>
           </button>

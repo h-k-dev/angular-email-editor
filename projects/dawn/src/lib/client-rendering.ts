@@ -116,19 +116,19 @@ export function renderForClient(
     viewer's own scheme is: the frame is the client, not the page round it. */
 const SURFACE: Record<RenderingClient, string> = {
   'apple-mail': `
-    :root { color-scheme: light !important; }
+    :root { color-scheme: light !important; --dawn-quoted-paper: #ffffff; }
     body { margin: 16px; background: #ffffff; color: #000000;
            font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
            font-size: 15px; line-height: 1.35; -webkit-text-size-adjust: 100%; }
   `,
   gmail: `
-    :root { color-scheme: light !important; }
+    :root { color-scheme: light !important; --dawn-quoted-paper: #ffffff; }
     body { margin: 16px; background: #ffffff; color: #222222;
            font-family: Arial, Helvetica, sans-serif; font-size: 13px; line-height: 1.4;
            word-wrap: break-word; }
   `,
   'outlook-desktop': `
-    :root { color-scheme: light !important; }
+    :root { color-scheme: light !important; --dawn-quoted-paper: #ffffff; }
     body { margin: 16px; background: #ffffff; color: #000000;
            font-family: Calibri, Arial, sans-serif; font-size: 14.67px; line-height: 1.2; }
     /* The Word engine draws no block side by side: a column stacks. */
@@ -146,7 +146,7 @@ const SURFACE: Record<RenderingClient, string> = {
     range. */
 const DARK: Record<RenderingClient, string> = {
   'apple-mail': `
-    :root { color-scheme: dark !important; }
+    :root { color-scheme: dark !important; --dawn-quoted-paper: #1e1e1e; }
     html { background: #1e1e1e; } body { background: #1e1e1e; color: #ffffff; }
   `,
   gmail: `

@@ -166,6 +166,7 @@ export function dawnDarkDocument(doc: Document): void {
     return null;
   };
   for (const sheet of Array.from(doc.querySelectorAll('style'))) {
+    if (isFoldSheet(sheet)) continue;
     sheet.textContent = dawnDarkStyleSheet(sheet.textContent ?? '');
   }
   for (const element of Array.from(doc.querySelectorAll('[style]'))) {
@@ -209,10 +210,16 @@ export function declaresDark(doc: Document): boolean {
       return true;
     }
   }
-  return Array.from(doc.querySelectorAll('style')).some((sheet) =>
-    /(?:supported-)?color-schemes?\s*:[^;}]*\bdark\b/i.test(sheet.textContent ?? ''),
+  return Array.from(doc.querySelectorAll('style')).some(
+    (sheet) =>
+      !isFoldSheet(sheet) &&
+      /(?:supported-)?color-schemes?\s*:[^;}]*\bdark\b/i.test(sheet.textContent ?? ''),
   );
 }
+
+/** Dawn's own fold stylesheet (`foldQuoted`): already drawn for light and
+    dark paper alike, never part of the message's own rules. */
+const isFoldSheet = (sheet: Element): boolean => sheet.matches('details[data-dawn-quoted] > style');
 
 /** The surface, and the browser's own colours a message leans on — its ink
     and its links — as Dawn draws them on `scheme`.
@@ -226,6 +233,8 @@ export function dawnSurfaceRules(scheme: DawnScheme): string {
   const paint = (token: string) => (scheme === 'dark' ? dawnDarkColor(token) : token);
   return (
     `html { background: ${DAWN_SURFACE[scheme]}; }` +
+    // The paper the quoted messages' boxes lie on (`foldQuoted`).
+    ` :root { --dawn-quoted-paper: ${DAWN_SURFACE[scheme]}; }` +
     ` body { background: ${DAWN_SURFACE[scheme]}; color: ${paint('#000000')}; }` +
     ` :where(a:link) { color: ${paint('#0000ee')}; }` +
     ` :where(a:visited) { color: ${paint('#551a8b')}; }`

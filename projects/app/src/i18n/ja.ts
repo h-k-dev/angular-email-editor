@@ -300,6 +300,9 @@ export default {
     },
   },
   inbox: {
+    count: '{{count}} 件のメッセージ',
+    quoted: '引用テキスト',
+    earlier: '{{name}} さんのメッセージを開く',
     back: '受信トレイに戻る',
     title: '受信トレイ',
     more: 'その他',

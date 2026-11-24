@@ -1,6 +1,8 @@
 import {
   DAWN_SURFACE,
+  type FoldQuotedOptions,
   InboundMessage,
+  foldQuoted,
   laysItselfOut,
   plainTextHTML,
   renderDawn,
@@ -33,6 +35,12 @@ export interface DawnOptions {
       (Dawn's `laysItselfOut`: a newsletter, a page) runs edge to edge, whatever
       this says. None by default. */
   readonly inset?: number;
+  /** The history the message quotes — what an answer carries of the mail
+      it answers — folded behind a `⋯` (Dawn's `foldQuoted`), the toggle
+      called this for assistive tech ("Quoted text"), or full
+      {@link FoldQuotedOptions} (e.g. custom CSS or `style: false`). Not
+      folded by default: the whole message, as it came. */
+  readonly fold?: string | FoldQuotedOptions;
 }
 
 /**
@@ -48,9 +56,16 @@ export interface DawnOptions {
  *
  * Takes a fragment (a message body) or a whole document.
  */
-export function dawnDocument(html: string, { scheme, inset = 0 }: DawnOptions): string {
-  const document = renderDawn(html, { scheme });
-  const sides = inset > 0 && !laysItselfOut(html) ? ` padding-inline: ${inset}px;` : '';
+export function dawnDocument(html: string, { scheme, inset = 0, fold }: DawnOptions): string {
+  // A toggle with no name folds nothing: it could not be told to assistive tech.
+  const candidate = typeof fold === 'string' ? { label: fold } : fold;
+  const foldOptions = candidate?.label.trim() ? candidate : undefined;
+  const folded = foldOptions ? foldQuoted(html, foldOptions) : html;
+  const document = renderDawn(folded, { scheme });
+  // Folded, `laysItselfOut` ignores what is closed behind `⋯`: a short answer
+  // over a quoted newsletter is a letter, and keeps its inset. (Dawn's surfaces
+  // say the paper the quoted messages' boxes lie on.)
+  const sides = inset > 0 && !laysItselfOut(folded) ? ` padding-inline: ${inset}px;` : '';
   const reading = `<base target="_blank"><style>body { margin: 0;${sides} }</style>`;
   return document
     .replace(/<head[^>]*>/, (head) => `${head}${READING_POLICY}`)

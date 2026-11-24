@@ -23,7 +23,11 @@ import { HueOf } from '../../../common/hue-of/hue-of';
 /** One row of the list: the message, the date as the list shows it, and
     where it stands — read, starred, picked, open. */
 interface InboxRow {
+  /** The message the row shows and opens: its conversation's latest. */
   readonly mail: InboxHeader;
+  /** Every message of its conversation, by id — the row stands for them
+      all; the one alone where it is in none. */
+  readonly ids: readonly string[];
   readonly when: string;
   readonly unread: boolean;
   readonly starred: boolean;
@@ -60,7 +64,9 @@ function sent(date: InboxHeader['date']): Date | string {
 
 /**
  * The inbox's list (`ReceivedMail`) — the imported section on top, then the
- * catalogue's (Gmail's Priority Inbox sections) — Proton's rows on a `grid` — Gmail's
+ * catalogue's (Gmail's Priority Inbox sections) — a row a conversation
+ * (`ReceivedMail.conversations`: its latest message, and how many there
+ * are beside the sender), Proton's rows on a `grid` — Gmail's
  * keyboard: one tab stop, ↑ ↓ the rows, Enter opens, Space ticks, → to a
  * row's checkbox and quick actions. A row still links to its message
  * (`/inbox/:id`) for the pointer: a click, a middle click, a copied link.
@@ -117,28 +123,32 @@ export class InboxList {
     const starred = this.#mailbox.starred();
     const picked = this.#picked();
     const open = this.open();
-    const row = (mail: InboxHeader): InboxRow => {
+    const row = (conversation: readonly InboxHeader[]): InboxRow => {
+      const mail = conversation.at(-1)!;
+      const ids = conversation.map(({ id }) => id);
       const date = sent(mail.date);
       return {
         mail,
+        ids,
         when:
           date instanceof Date ? (date.toDateString() === today ? time : day).format(date) : date,
-        unread: unread.has(mail.id),
-        starred: starred.has(mail.id),
+        // Unread or starred while any of it is; open whichever of them the path names.
+        unread: ids.some((id) => unread.has(id)),
+        starred: ids.some((id) => starred.has(id)),
         picked: picked.has(mail.id),
-        open: mail.id === open,
+        open: open !== null && ids.includes(open),
       };
     };
     return [
       {
         id: 'imported',
         label: this.#i18n.t('inbox.import.title'),
-        rows: this.#mailbox.imported().map(row),
+        rows: this.#mailbox.importedConversations().map(row),
       },
       {
         id: 'mail',
         label: this.#i18n.t('inbox.import.rest'),
-        rows: this.#mailbox.inbox().map(row),
+        rows: this.#mailbox.conversations().map(row),
       },
     ];
   });
@@ -157,25 +167,37 @@ export class InboxList {
     void this.#router.navigate([id], { relativeTo: this.#route });
   }
 
-  /** Read ⇄ unread. */
+  /** Read ⇄ unread — the whole conversation. */
   protected toggleRead(row: InboxRow): void {
-    if (row.unread) this.#mailbox.read(row.mail.id);
-    else this.#mailbox.markUnread(row.mail.id);
+    for (const id of row.ids) {
+      if (row.unread) this.#mailbox.read(id);
+      else this.#mailbox.markUnread(id);
+    }
   }
 
-  protected toggleStar(id: string): void {
-    this.#mailbox.toggleStar(id);
+  /** Starred ⇄ not: starring marks the latest message; unstarring clears
+      every starred message in the conversation. */
+  protected toggleStar(row: InboxRow): void {
+    if (!row.starred) {
+      this.#mailbox.toggleStar(row.mail.id);
+      return;
+    }
+    const starred = this.#mailbox.starred();
+    for (const id of row.ids) {
+      if (starred.has(id)) this.#mailbox.toggleStar(id);
+    }
   }
 
-  /** Out of the inbox — the trash, the archive, snoozed — with a moment to
-      take it back. The open message moved out closes with it. */
-  protected move(id: string, place: MailPlace): void {
-    this.#mailbox.move(id, place);
-    if (this.open() === id) void this.#router.navigate(['.'], { relativeTo: this.#route });
+  /** Out of the inbox — the trash, the archive, snoozed — the whole
+      conversation, with a moment to take it back. The open message moved
+      out closes with it. */
+  protected move(row: InboxRow, place: MailPlace): void {
+    for (const id of row.ids) this.#mailbox.move(id, place);
+    if (row.open) void this.#router.navigate(['.'], { relativeTo: this.#route });
     this.#snackBar
       .open(this.#i18n.t(MOVED[place]), this.#i18n.t('inbox.undo'), { duration: 4000 })
       .onAction()
-      .subscribe(() => this.#mailbox.restore(id));
+      .subscribe(() => row.ids.forEach((id) => this.#mailbox.restore(id)));
   }
 
   constructor() {
@@ -183,9 +205,10 @@ export class InboxList {
     inject(Grid).multi.set(true);
   }
 
-  /** A row pointed at or focused: Gmail's head start — its body fetched
-      before the click, so the message opens at once. */
-  protected prefetch(id: string): void {
-    this.#mailbox.prefetch(id);
+  /** A row pointed at or focused: Gmail's head start — its bodies fetched
+      before the click, every message of its conversation (the reader waits
+      on all of them), so it opens at once. */
+  protected prefetch(ids: readonly string[]): void {
+    for (const id of ids) this.#mailbox.prefetch(id);
   }
 }

@@ -301,6 +301,9 @@ export default {
     },
   },
   inbox: {
+    count: '{{count}} Nachrichten',
+    quoted: 'Zitierter Text',
+    earlier: 'Nachricht von {{name}} öffnen',
     back: 'Zurück zum Posteingang',
     title: 'Posteingang',
     more: 'Mehr',
@@ -383,7 +386,8 @@ export default {
     open: 'Geöffnet',
     minimized: 'Minimiert',
     closed: 'Geschlossen',
-    empty: 'Noch keine Notizen. Fügen Sie eine hinzu: Sie öffnet sich in einem Fenster am Seitenende.',
+    empty:
+      'Noch keine Notizen. Fügen Sie eine hinzu: Sie öffnet sich in einem Fenster am Seitenende.',
   },
   eventDraft: {
     new: 'Neuer Termin',

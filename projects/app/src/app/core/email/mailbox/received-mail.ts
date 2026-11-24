@@ -1,6 +1,10 @@
 import { Service, computed, inject, resource, signal } from '@angular/core';
 
-import { type InboundMessage, toInboundMessage } from '@h-k-dev/angular-email-editor';
+import {
+  type InboundMessage,
+  threadMessages,
+  toInboundMessage,
+} from '@h-k-dev/angular-email-editor';
 
 import type { Attachment } from 'postal-mime';
 
@@ -111,6 +115,13 @@ export class ReceivedMail {
     this.#imported().filter((mail) => !this.#moved().has(mail.id)),
   );
 
+  /** The inbox's conversations (`threadMessages`: by what the messages say
+      of each other, never by subject), each oldest first — a message in
+      none is one of its own. A section each: what was brought in by hand,
+      then the catalogue's. */
+  readonly importedConversations = computed(() => threadMessages(this.imported()));
+  readonly conversations = computed(() => threadMessages(this.inbox()));
+
   /** How many have been brought in: each one's id. */
   #imports = 0;
 
@@ -158,6 +169,9 @@ export class ReceivedMail {
       to: message.to ?? '',
       cc: message.cc,
       replyTo: message.replyTo,
+      messageId: message.messageId,
+      inReplyTo: message.inReplyTo,
+      references: message.references,
       date: message.date,
       subject: message.subject ?? '',
       text: message.text,
@@ -245,6 +259,24 @@ export class ReceivedMail {
       this.#opened.set(id, pending);
     }
     return pending;
+  }
+
+  /** The conversation the message with this id is part of, every body
+      fetched, oldest first — the message alone where it is in none; null
+      where the listing names no such message. */
+  async openConversation(id: string): Promise<readonly InboxMail[] | null> {
+    // Off the listing itself, not its signal: the signal has it a moment
+    // later. A message moved out of the inbox is out of its conversation —
+    // and still read by its own path.
+    const moved = this.#moved();
+    const here = (mail: InboxHeader) => mail.id === id || !moved.has(mail.id);
+    const conversation = [
+      ...threadMessages(this.#imported().filter(here)),
+      ...threadMessages((await this.#listing).filter(here)),
+    ].find((mails) => mails.some((mail) => mail.id === id));
+    const ids = conversation?.map((mail) => mail.id) ?? [id];
+    const mails = await Promise.all(ids.map((each) => this.open(each)));
+    return mails.every((mail) => mail !== null) ? (mails as InboxMail[]) : null;
   }
 
   /** A message about to be opened (its row pointed at, focused): its body

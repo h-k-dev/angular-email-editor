@@ -135,6 +135,13 @@
   grid-column: 2;
 }
 
+// How many messages the conversation holds, quiet beside the sender.
+.inbox-row__count {
+  margin-inline-start: 4px;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-medium);
+}
+
 // The date, a filled star before it on a starred message.
 .inbox-row__when {
   grid-column: 3;

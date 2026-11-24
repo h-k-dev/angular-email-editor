@@ -15,6 +15,14 @@
           "file": "reply/gmail-thread.json"
         },
         {
+          "name": "Gmail thread, seven quotes deep",
+          "file": "reply/gmail-deep-quote.json"
+        },
+        {
+          "name": "Gmail thread, a forward inside the quote",
+          "file": "reply/gmail-forward-in-quote.json"
+        },
+        {
           "name": "Outlook memo",
           "file": "reply/outlook-memo.json"
         },
@@ -49,6 +57,18 @@
         {
           "name": "Poor Fix Width",
           "file": "reply/poor-fix-width.json"
+        },
+        {
+          "name": "Conversation: the first mail (Gmail)",
+          "file": "reply/conversation-kickoff.json"
+        },
+        {
+          "name": "Conversation: an answer (Outlook)",
+          "file": "reply/conversation-outlook-answer.json"
+        },
+        {
+          "name": "Conversation: the answer to it (Apple Mail)",
+          "file": "reply/conversation-apple-answer.json"
         }
       ]
     },

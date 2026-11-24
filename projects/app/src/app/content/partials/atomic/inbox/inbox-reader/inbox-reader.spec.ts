@@ -35,7 +35,7 @@ describe('InboxReader', () => {
           provide: ComposeWindows,
           useValue: { compose: (options: (typeof opened)[number]) => opened.push(options) },
         },
-        provideExampleMail(),
+        provideExampleMail([], { conversation: true }),
         // The inbox page's, in the app.
         InboxPaper,
       ],
@@ -137,6 +137,60 @@ describe('InboxReader', () => {
     expect(options?.focus).toBe('to');
     expect(options?.content?.message.to).toEqual([]);
     expect(options?.content?.message.subject).toBe('Fwd: Plain note');
+  });
+
+  // Gmail's conversation: the subject once, the messages oldest first — the
+  // latest open, the earlier ones a line each until pressed.
+  it('reads a message in its conversation: the latest open, the earlier a line each', async () => {
+    await open('talk-3');
+
+    expect(root.querySelector('.inbox-reader__subject')?.textContent).toBe('Offsite agenda');
+    expect(root.querySelector('.mail-view__subject')).toBeNull();
+    const earlier = [...root.querySelectorAll<HTMLButtonElement>('.inbox-reader__earlier')];
+    // Each by how its own text starts — never the history it quotes.
+    const part = (line: Element, name: string) =>
+      line.querySelector(`.inbox-reader__earlier-${name}`)?.textContent;
+    expect(earlier.map((line) => [part(line, 'name'), part(line, 'start')])).toEqual([
+      ['Sam Lee', 'Here is the first draft.'],
+      ['Monika Weber', 'Could we start at two?'],
+    ]);
+    expect(
+      [...root.querySelectorAll('[mail-view] .mail-view__name')].map((n) => n.textContent),
+    ).toEqual(['Ravi Patel']);
+
+    earlier[1]!.focus();
+    earlier[1]!.click();
+    await fixture.whenStable();
+    expect(
+      [...root.querySelectorAll('[mail-view] .mail-view__name')].map((n) => n.textContent),
+    ).toEqual(['Monika Weber', 'Ravi Patel']);
+    // The keyboard stays where it was: on the message its line opened.
+    expect(document.activeElement).toBe(root.querySelector('[mail-view]'));
+  });
+
+  it('opens the message the path names with the latest, and answers the one pressed', async () => {
+    await open('talk-1');
+    const sheets = [...root.querySelectorAll<HTMLElement>('[mail-view]')];
+    expect(sheets.map((sheet) => sheet.getAttribute('aria-label'))).toEqual([
+      'Sam Lee',
+      'Ravi Patel',
+    ]);
+
+    sheets[0]!.querySelector<HTMLButtonElement>('button[aria-label="Reply"]')!.click();
+    expect(opened[0]?.content?.message.to).toEqual(['Sam Lee <sam@example.com>']);
+  });
+
+  it('folds what a message quotes behind a ⋯, in a conversation or alone', async () => {
+    await open('talk-3');
+    const fold = new DOMParser()
+      .parseFromString(frame().srcdoc, 'text/html')
+      .querySelector('details[data-dawn-quoted]')!;
+    expect(fold.querySelector('summary')?.getAttribute('aria-label')).toBe('Quoted text');
+    expect(fold.querySelector('blockquote')?.textContent).toContain('Could we start at two?');
+    expect(fold.previousElementSibling?.textContent).toBe('Two works for me.');
+
+    await open('reply-plain-note');
+    expect(frame().srcdoc).not.toContain('data-dawn-quoted');
   });
 
   // Gmail's letters, pressed anywhere on the mail (the email says its keys

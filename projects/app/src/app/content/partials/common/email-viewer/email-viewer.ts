@@ -101,6 +101,10 @@ export class EmailViewer {
       regardless (`dawnDocument`). */
   readonly inset = input(0);
 
+  /** The history the message quotes folded behind a `⋯`, called this for
+      assistive tech (`dawnDocument`'s `fold`); as it came, without. */
+  readonly fold = input<string | null>(null);
+
   /** The document for the frame — a frame with no scripts, so passing the
       sanitizer by is safe here, as the compose preview's is. */
   protected readonly document = computed<SafeHtml>(() =>
@@ -108,6 +112,7 @@ export class EmailViewer {
       dawnDocument(this.html(), {
         scheme: this.scheme() ?? this.#paper(),
         inset: this.inset(),
+        fold: this.fold() ?? undefined,
       }),
     ),
   );
@@ -117,6 +122,13 @@ export class EmailViewer {
   #observer: ResizeObserver | null = null;
 
   private readonly frameRef = viewChild<ElementRef<HTMLIFrameElement>>('frame');
+
+  /** Lets go of what listens in the document last fitted: called when it
+      is fitted again (its `load` after it was fitted parsed), or the next
+      one is — so a key is said once, however often it was fitted. Removed
+      by hand: the frame's document is another window's, and takes no
+      `AbortSignal` of this one's everywhere. */
+  #release: (() => void) | null = null;
 
   /** The document last fitted. */
   #fitted: Document | null = null;
@@ -147,6 +159,7 @@ export class EmailViewer {
     const destroyRef = inject(DestroyRef);
     destroyRef.onDestroy(() => {
       this.#observer?.disconnect();
+      this.#release?.();
       this.#stopLooking();
     });
     // A new document unloads the one the observer measures, which drops to
@@ -232,6 +245,8 @@ export class EmailViewer {
       keep fitting it as its width reflows the email. */
   protected fit(frame: HTMLIFrameElement): void {
     this.#observer?.disconnect();
+    this.#release?.();
+    this.#release = null;
     // Measured at the room's width, never the last email's: a frame still
     // as wide as the email before would read as one that fits. Set here,
     // not bound — cleared and set again in one go, a binding would never
@@ -247,16 +262,29 @@ export class EmailViewer {
     // classic bar each way — each one's room making the other overflow.
     root.style.overflow = 'hidden';
     // Only an overflow says how wide the email is: one that fits fills the
-    // frame, whatever its own width. Read once, as it is drawn — widened to
-    // it the email fits, and that width holds until the next document (a
-    // width set from the observer would resize what it observes, a loop).
-    if (root.scrollWidth > root.clientWidth) {
+    // frame, whatever its own width. Read as it is drawn — widened to it the
+    // email fits, and that width holds until the next document (a width set
+    // from the observer would resize what it observes, a loop) — and again
+    // when a fold in it opens or closes (Dawn's `⋯` over a quoted history):
+    // the quoted mail may be wider than the answer over it. `toggle` does
+    // not bubble: heard on its way down.
+    const widen = () => {
+      frame.style.minInlineSize = '';
+      this.width.set(0);
+      if (root.scrollWidth <= root.clientWidth) return;
       this.width.set(root.scrollWidth);
       frame.style.minInlineSize = `${root.scrollWidth}px`;
-    }
+    };
+    widen();
+    doc.addEventListener('toggle', widen, true);
     const measure = () => this.height.set(Math.ceil(root.getBoundingClientRect().height));
     measure();
-    doc.addEventListener('keydown', (event) => this.#forwardKey(frame, event));
+    const forward = (event: KeyboardEvent) => this.#forwardKey(frame, event);
+    doc.addEventListener('keydown', forward);
+    this.#release = () => {
+      doc.removeEventListener('toggle', widen, true);
+      doc.removeEventListener('keydown', forward);
+    };
     if (typeof ResizeObserver === 'undefined') return;
     this.#observer = new ResizeObserver(measure);
     this.#observer.observe(root);

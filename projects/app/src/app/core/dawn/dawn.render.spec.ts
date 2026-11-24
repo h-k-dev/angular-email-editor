@@ -32,6 +32,39 @@ describe('dawnDocument', () => {
     expect(READING_CSP).not.toContain('script-src');
   });
 
+  describe('with the quoted history folded', () => {
+    const newsletter = '<table width="600"><tbody><tr><td>Spring sale</td></tr></tbody></table>';
+    // As Outlook answers: the answered mail under its header, in no quote.
+    const answer = `<div>Not for us, thanks.</div><hr><div id="divRplyFwdMsg"><b>From:</b> Deals</div>${newsletter}`;
+    const parse = (html: string) => new DOMParser().parseFromString(html, 'text/html');
+
+    it('folds it behind a ⋯ called as asked, light or dark, and not unasked', () => {
+      for (const scheme of ['light', 'dark'] as const) {
+        const fold = parse(dawnDocument(answer, { scheme, fold: 'Quoted text' })).querySelector(
+          'details[data-dawn-quoted]',
+        )!;
+        expect(fold.querySelector('summary')?.getAttribute('aria-label')).toBe('Quoted text');
+        expect(fold.querySelector('table')?.textContent).toBe('Spring sale');
+      }
+      expect(dawnDocument(answer, { scheme: 'light' })).not.toContain('data-dawn-quoted');
+      // A toggle with no name is none: nothing folded, the inset the whole's.
+      for (const empty of ['', '   ', { label: '' }, { label: '  ' }] as const) {
+        const unnamed = dawnDocument(answer, { scheme: 'light', inset: 32, fold: empty });
+        expect(unnamed).not.toContain('data-dawn-quoted');
+        expect(unnamed).not.toContain('padding-inline');
+      }
+    });
+
+    it('insets the answer as the letter it is, whatever it quotes', () => {
+      const sides = 'padding-inline: 32px';
+      expect(dawnDocument(answer, { scheme: 'light', inset: 32, fold: 'Quoted text' })).toContain(
+        sides,
+      );
+      // Unfolded, the newsletter is in sight, and lays the message out.
+      expect(dawnDocument(answer, { scheme: 'light', inset: 32 })).not.toContain(sides);
+    });
+  });
+
   it('insets a letter’s text at its sides, a whole document’s as well', () => {
     expect(dawnDocument(body, { scheme: 'light', inset: 32 })).toContain(
       '<style>body { margin: 0; padding-inline: 32px; }</style>',

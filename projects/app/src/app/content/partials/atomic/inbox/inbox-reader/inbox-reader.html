@@ -1,31 +1,63 @@
 @if (missing()) {
   <p class="inbox-reader__missing">{{ 'inbox.missing' | translate }}</p>
-} @else if (mail(); as mail) {
-  <!-- One sheet of paper (`mail-view`): the header and the body on the
-       reading paper — the inbox's pane is the island it lies on. -->
-  <article
-    mail-view
-    [subject]="mail.subject"
-    [name]="mail.name"
-    [address]="address()"
-    [to]="mail.to"
-    [cc]="mail.cc ?? null"
-    [date]="date()"
-    [html]="mail.html"
-    [scheme]="paper()"
-    [bodyLabel]="'inbox.body' | translate"
-    (answer)="answer($event)"
-    (flipPaper)="flipPaper()"
-  >
-    <!-- An invitation's card, Gmail's: in a chunk of its own (ical.js's
-         reader is the import's; Luxon is the calendar's), fetched only for
-         a message that is one. -->
-    @if (mail.invite; as invite) {
-      <div mailViewLead>
-        @defer {
-          <app-invite-card [invite]="invite" />
+} @else if (conversation(); as conversation) {
+  @let many = conversation.length > 1;
+  <!-- A conversation (Gmail's): its subject once, then its messages, oldest
+       first — the latest open, the earlier ones a line each until asked
+       for. A message in none is the sheet alone, its subject its own. -->
+  @if (many) {
+    <h1 class="inbox-reader__subject">{{ conversation[0].subject }}</h1>
+  }
+  <!-- By place, not by message: from one message to the next the sheet
+       stays and only what is on it changes. -->
+  @for (mail of conversation; track $index) {
+    @if (expanded().has(mail.id)) {
+      <!-- One sheet of paper (`mail-view`): the header and the body on the
+           reading paper — the inbox's pane is the island it lies on. What
+           the message quotes of the mail it answers is folded behind a ⋯:
+           in a conversation it stands right above. -->
+      <article
+        mail-view
+        class="inbox-reader__mail"
+        [attr.data-mail]="mail.id"
+        [bare]="many"
+        [subject]="mail.subject"
+        [name]="mail.name"
+        [address]="address(mail)"
+        [to]="mail.to"
+        [cc]="mail.cc ?? null"
+        [date]="date(mail)"
+        [html]="mail.html"
+        [scheme]="paper()"
+        [bodyLabel]="'inbox.body' | translate"
+        [fold]="'inbox.quoted' | translate"
+        (answer)="answer($event, mail)"
+        (flipPaper)="flipPaper()"
+      >
+        <!-- An invitation's card, Gmail's: in a chunk of its own (ical.js's
+             reader is the import's; Luxon is the calendar's), fetched only for
+             a message that is one. -->
+        @if (mail.invite; as invite) {
+          <div mailViewLead>
+            @defer {
+              <app-invite-card [invite]="invite" />
+            }
+          </div>
         }
-      </div>
+      </article>
+    } @else {
+      <!-- An earlier message, folded to a line: who, how it starts, when. -->
+      <button
+        type="button"
+        class="inbox-reader__earlier"
+        aria-expanded="false"
+        [attr.aria-label]="'inbox.earlier' | translate: { name: mail.name }"
+        (click)="expand(mail.id)"
+      >
+        <span class="inbox-reader__earlier-name">{{ mail.name }}</span>
+        <span class="inbox-reader__earlier-start">{{ starts().get(mail.id) }}</span>
+        <span class="inbox-reader__earlier-when">{{ date(mail) }}</span>
+      </button>
     }
-  </article>
+  }
 }

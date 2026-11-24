@@ -39,6 +39,12 @@ export interface InboundMessage {
   /** Where the sender asked answers to go — a reply goes there instead of
       `from` when it is set. Never rendered. */
   replyTo?: string;
+  /** Its `Message-ID`, `In-Reply-To` and `References`, as the message has
+      them — what gathers it into its conversation (`threadMessages`).
+      Never rendered. */
+  messageId?: string;
+  inReplyTo?: string;
+  references?: string;
 }
 
 export interface ComposeSeedOptions {
@@ -123,6 +129,9 @@ export interface ParsedEmailLike {
   to?: ParsedAddressLike[] | null;
   cc?: ParsedAddressLike[] | null;
   replyTo?: ParsedAddressLike[] | null;
+  messageId?: string | null;
+  inReplyTo?: string | null;
+  references?: string | null;
 }
 
 export interface ParsedAddressLike {
@@ -161,6 +170,9 @@ export function toInboundMessage(
     to: formatAddresses(parsed.to),
     cc: formatAddresses(parsed.cc),
     replyTo: formatAddresses(parsed.replyTo),
+    messageId: parsed.messageId ?? undefined,
+    inReplyTo: parsed.inReplyTo ?? undefined,
+    references: parsed.references ?? undefined,
   };
 }
 
