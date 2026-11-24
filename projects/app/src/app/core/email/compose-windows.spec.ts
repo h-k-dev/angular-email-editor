@@ -33,11 +33,15 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 /** jsdom has no PointerEvent everywhere; a MouseEvent carries what the
-    window reads (button, clientX) — its pointerId is the same `undefined`
-    for every event of a gesture. */
+    window reads (button, buttons, clientX) — its pointerId is the same
+    `undefined` for every event of a gesture, as a mouse's is the same 1.
+    The primary button is held unless the event is a release or `held`
+    says otherwise (a hover). */
 const Pointer = (globalThis.PointerEvent ?? MouseEvent) as typeof MouseEvent;
-const pointer = (target: Element, type: string, clientX: number) =>
-  target.dispatchEvent(new Pointer(type, { clientX, button: 0, bubbles: true }));
+const pointer = (target: Element, type: string, clientX: number, held = type !== 'pointerup') =>
+  target.dispatchEvent(
+    new Pointer(type, { clientX, button: 0, buttons: held ? 1 : 0, bubbles: true }),
+  );
 
 describe('ComposeWindows', () => {
   let windows: ComposeWindows;
@@ -632,6 +636,15 @@ describe('ComposeWindows', () => {
       const close = frame.querySelector<HTMLElement>('[data-slot="controls"] button')!;
       pointer(close, 'pointerdown', 500);
       pointer(bar, 'pointermove', 100);
+      expect(pin()).toBe(16);
+
+      // A press that leaves the bar upwards before it is a drag is released
+      // off the bar, which never hears it: hovering the bar afterwards, the
+      // button up, moves nothing.
+      pointer(bar, 'pointerdown', 700);
+      pointer(bar, 'pointermove', 701);
+      pointer(bar, 'pointermove', 300, false);
+      pointer(bar, 'pointermove', 200, false);
       expect(pin()).toBe(16);
     } finally {
       delete (document.documentElement as { clientWidth?: number }).clientWidth;

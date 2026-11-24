@@ -445,10 +445,16 @@ export class ComposeWindowFrame implements PaperIsland {
   /** Past the threshold the press is a drag: the bar captures the pointer
       — so the release lands on the bar and never clicks the title — and
       the window follows it sideways, kept on screen. Dragging pins it: it
-      leaves the row and keeps this place whatever the other windows do. */
+      leaves the row and keeps this place whatever the other windows do.
+      A press that left the bar before it was a drag is released elsewhere,
+      where the bar never hears it: a move with the button up ends it. */
   protected drag(event: PointerEvent): void {
     const grab = this.#grab;
     if (!grab || event.pointerId !== grab.pointer) return;
+    if (!(event.buttons & 1)) {
+      this.#grab = null;
+      return;
+    }
     const dx = event.clientX - grab.x;
     if (!grab.moving) {
       if (Math.abs(dx) < DRAG_THRESHOLD) return;
