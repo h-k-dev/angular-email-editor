@@ -155,6 +155,20 @@ describe('InboxReader', () => {
     expect(opened).toHaveLength(3);
   });
 
+  // ⋮ open, the focus is in its overlay: the row's own letter chooses it.
+  it('answers on a row’s letter while ⋮ is open', async () => {
+    button('More').click();
+    await fixture.whenStable();
+    const menu = document.querySelector<HTMLElement>('.toolbar-menu')!;
+
+    menu.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', metaKey: true, bubbles: true }));
+    expect(opened).toHaveLength(0);
+
+    menu.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', bubbles: true }));
+    expect(opened).toHaveLength(1);
+    expect(opened[0]?.focus).toBe('to');
+  });
+
   it('writes the answers out under the mail too, Gmail’s, each the header’s own', () => {
     const answers = [...root.querySelectorAll<HTMLButtonElement>('.mail-view__answers button')];
     // After the body: where the reading ends.

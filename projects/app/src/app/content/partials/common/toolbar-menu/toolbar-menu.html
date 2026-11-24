@@ -34,6 +34,7 @@
     [animate.enter]="'menu-enter'"
     [animate.leave]="'menu-leave'"
     (itemSelected)="onSelected($event)"
+    (keydown)="onShortcut($event)"
   >
     @for (item of items(); track item.value) {
       @if (item.separated) {

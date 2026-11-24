@@ -178,6 +178,25 @@ export class ToolbarMenu<V> {
     this.selected.emit(value);
   }
 
+  /** A key pressed in the open menu: the item whose shortcut is that one
+      letter (the mail's A and F, the calendar's C) is chosen, as a click on
+      it — the page's own shortcut cannot hear a key pressed in an overlay.
+      A plain `keydown`, read by hand: the letters are the items', not known
+      to a binding. A chord is left alone, and so is a shortcut that is one
+      (⌘C). */
+  protected onShortcut(event: KeyboardEvent): void {
+    if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+    const pressed = event.key.toLowerCase();
+    const item = this.items().find(
+      ({ shortcut, disabled }) => !disabled && shortcut?.toLowerCase() === pressed,
+    );
+    if (!item) return;
+
+    event.preventDefault();
+    this.trigger().close();
+    this.onSelected(item.value);
+  }
+
   /** The Aria menu, for the trigger's `[menu]`. It renders inside the
       overlay, so it only exists while open. */
   readonly menu = viewChild<Menu<V>>(Menu);
