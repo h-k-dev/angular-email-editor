@@ -154,8 +154,8 @@
 // an island's) so what is under it is hidden, from its first row down: the
 // text goes under a plain edge, and its last line comes to rest above it.
 // It lets the pointer through (only what is in the foot takes it). Over the
-// text's own layers — its grips and handles — but under the
-// suggestion menu (z 10), which opens from the text and may hang over it.
+// text's own layers — its grips and handles — while the suggestion menu
+// floats in the top layer (`popover="manual"`, fallback z 10) over it.
 // `--email-compose-foot-inset`: room the host floats something of its own
 // into, at the foot's foot (the writer's bar, message-form.scss).
 .email-compose__foot {

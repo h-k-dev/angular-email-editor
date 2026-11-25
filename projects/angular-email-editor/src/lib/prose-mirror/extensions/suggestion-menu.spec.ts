@@ -176,6 +176,38 @@ describe('createSuggestionMenu — the / menu', () => {
     expect(state?.open).toBe(true);
   });
 
+  it('triggers after a line break — a <br> starts a new line, as a block does', () => {
+    type('Ihr Termin');
+    editor.exec((editorState, dispatch) => {
+      dispatch?.(editorState.tr.replaceSelectionWith(editorState.schema.nodes['hardBreak'].create()));
+      return true;
+    });
+    type('/');
+    expect(state?.open).toBe(true);
+  });
+
+  it('does not carry a query across a line break', () => {
+    type('/head');
+    expect(state?.open).toBe(true);
+    editor.exec((editorState, dispatch) => {
+      dispatch?.(editorState.tr.replaceSelectionWith(editorState.schema.nodes['hardBreak'].create()));
+      return true;
+    });
+    expect(state?.open).toBe(false);
+    type('ing');
+    expect(state?.open).toBe(false);
+  });
+
+  it('stays shut right after an inline atom such as an image', () => {
+    editor.exec((editorState, dispatch) => {
+      const image = editorState.schema.nodes['image']?.create({ src: 'https://example.com/a.png' });
+      if (image) dispatch?.(editorState.tr.replaceSelectionWith(image));
+      return true;
+    });
+    type('/');
+    expect(state?.open ?? false).toBe(false);
+  });
+
   it('filters by title and keywords as the query grows', () => {
     type('/head');
     expect(state?.items.map((item) => item.title)).toEqual([

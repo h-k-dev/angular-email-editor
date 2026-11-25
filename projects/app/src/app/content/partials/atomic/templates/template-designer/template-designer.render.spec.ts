@@ -10,8 +10,10 @@
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { page, userEvent } from 'vitest/browser';
 
+import { Templates } from '../../../../../core/email/templates';
 import { TemplateDesigner } from './template-designer';
 
 /** A fixed-width template: one table 2000px wide, wider than any desk. */
@@ -181,6 +183,43 @@ describe('TemplateDesigner desk (render)', () => {
       .filter((row) => row.getBoundingClientRect().height > 1)
       .map((row) => row.querySelector('.writer-field__label')?.textContent?.trim());
     expect(rows.slice(0, 4)).toEqual(['From', 'To', 'Cc', 'Bcc']);
+  });
+
+  it('saves nothing while an address row is wrong — the caret goes to that row, the snack says why', async () => {
+    await open(1600, PLAIN, () => expect(el('.designer-canvas').textContent).toContain('friendly reminder'));
+    const store = vi.spyOn(TestBed.inject(Templates), 'save');
+    const snack = vi.spyOn(TestBed.inject(MatSnackBar), 'open');
+    fixture.componentInstance.envelope.cc().value.set(['test']);
+    await settle();
+
+    el('.designer-bar__save').click();
+    await settle();
+
+    expect(store).not.toHaveBeenCalled();
+    const cc = Array.from(host().querySelectorAll<HTMLElement>('.designer-details .writer-field')).find(
+      (row) => row.querySelector('.writer-field__label')?.textContent?.trim() === 'Cc',
+    )!;
+    expect(cc.contains(document.activeElement)).toBe(true);
+    expect(snack).toHaveBeenCalledWith('“test” is not an email address', undefined, { duration: 6000 });
+  });
+
+  it('reveals the folded details panel so focus lands on a wrong address row when Save refuses', async () => {
+    await open(1600, PLAIN, () => expect(el('.designer-canvas').textContent).toContain('friendly reminder'));
+    const store = vi.spyOn(TestBed.inject(Templates), 'save');
+    fixture.componentInstance.envelope.cc().value.set(['test']);
+    fixture.componentInstance['toggleAside']();
+    await settle();
+    expect(host().getAttribute('data-details')).toBe('folded');
+
+    el('.designer-bar__save').click();
+    await settle();
+
+    expect(store).not.toHaveBeenCalled();
+    expect(host().getAttribute('data-details')).toBe('docked');
+    const cc = Array.from(host().querySelectorAll<HTMLElement>('.designer-details .writer-field')).find(
+      (row) => row.querySelector('.writer-field__label')?.textContent?.trim() === 'Cc',
+    )!;
+    expect(cc.contains(document.activeElement)).toBe(true);
   });
 
   it('docks the HTML source beside the editor, a tab beside the details, in a window of its own', async () => {

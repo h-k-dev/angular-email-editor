@@ -37,6 +37,24 @@ version may change behaviour, and says so here.
   and margins no longer outlive the clear, and the editor drops back to a message's
   geometry. Still one undo step; offered on an envelope or a quote with nothing written.
 
+### Fixed
+
+- **A trigger opens after a line break.** `/` (and every trigger that wants the start of
+  a word) was refused right after a `<br>`: the text before the caret read every inline
+  leaf as an object character, a line break too. It reads a line break (the schema's
+  `linebreakReplacement`) as the new line it is now — so `/` opens on the line Shift-Enter
+  starts, and on every line of a template's kept cell, where Enter makes a `<br>`. A
+  placeholder or an image right before the trigger still keeps it shut.
+- **A floating menu keeps off a host's floating foot, and floats in the top layer.**
+  `email-suggestion-menu` now uses the browser's native Popover API (`popover="manual"`)
+  when placed at the caret, promoting it to the top layer — above ancestor stacking
+  contexts (`container-type`, `isolation`), floating footer toolbars, and scroll clipping
+  — while keeping the element in its DOM and CSS token tree and tracking ancestor scroll.
+  `measureMenuPlacement` leaves out what each scroll container says its edges are covered
+  by (`scroll-padding-top` / `-bottom`, in px) so a menu flips over the line instead of
+  sitting on a toolbar when it fits clear above, and falls back to the full viewport
+  (floating cleanly over the toolbar) when neither clear side holds it.
+
 ## 0.7.7 — 2026-11-19
 
 ### Fixed

@@ -1,5 +1,6 @@
 import { EditorState, Plugin, PluginKey } from 'prosemirror-state';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import {
   ExtensionContext,
   FunctionalExtension,
@@ -345,6 +346,10 @@ export const suggestionMenuOpen = (view: EditorView): boolean => {
     every character is a place a word may start. */
 const WORD_BREAK = /[\s\u3000-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uff00-\uffef]/;
 
+/** An inline leaf as one character of the text before a trigger: a line
+    break as the new line it is, anything else as the object it stands for. */
+const leafChar = (leaf: ProseMirrorNode): string => (leaf.type.spec.linebreakReplacement ? '\n' : '\uFFFC');
+
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** A map's own entry for an id — never what every object inherits: an id
@@ -512,7 +517,7 @@ function createSuggestionMenuPlugin(
   const key = new PluginKey<SessionState>('suggestionMenu');
 
   const first = escapeRegExp(trigger[0]);
-  const queryPattern = options.query ?? new RegExp(`^(?:[^\\s${first}][^${first}]*)?$`);
+  const queryPattern = options.query ?? new RegExp(`^(?:[^\\s${first}][^\\n${first}]*)?$`);
 
   /** The menu's items as the host has them at the moment, in the words of
       the moment — read whenever a session starts, so an `items` function is
@@ -573,9 +578,12 @@ function createSuggestionMenuPlugin(
     // would be turned down for its length anyway, and so is one at the
     // window's very start (its query is one too long): `prefix` is only
     // ever null at the start of the block. Inline leaves count one
-    // character, as they do one position.
+    // character, as they do one position: a line break (`<br>`, the
+    // schema's `linebreakReplacement`) a new line — a word starts after it,
+    // as at the start of a block — and any other (a placeholder, an image)
+    // a character of the word before.
     const windowStart = Math.max(0, $from.parentOffset - (maxLength + trigger.length + 1));
-    const textBefore = $from.parent.textBetween(windowStart, $from.parentOffset, undefined, '￼');
+    const textBefore = $from.parent.textBetween(windowStart, $from.parentOffset, undefined, leafChar);
     const at = textBefore.lastIndexOf(trigger);
     if (at < 0) return null;
     const raw = textBefore.slice(at + trigger.length);

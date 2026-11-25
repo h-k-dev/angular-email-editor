@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   DestroyRef,
   ElementRef,
@@ -9,17 +10,31 @@ import {
   computed,
   contentChild,
   debounced,
+  effect,
   input,
   linkedSignal,
   viewChild,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import {
+  MenuPlacement,
   SuggestionItem,
   SuggestionMenuState,
   measureMenuPlacement,
 } from '@h-k-dev/angular-email-editor';
 import { SuggestionMenuHeader, SuggestionMenuHeaderContext } from './suggestion-menu.slots';
+
+interface MenuLayout {
+  from: number;
+  rows: number;
+  level: 1 | 2;
+  query: string;
+  status: string;
+  clientRect: SuggestionMenuState['clientRect'];
+  offset: number;
+}
+
+type MeasuredPlacement = MenuPlacement & { chrome: number };
 
 /**
  * A suggestion menu's floating box — the element `createSuggestionMenu` is
@@ -73,7 +88,9 @@ import { SuggestionMenuHeader, SuggestionMenuHeaderContext } from './suggestion-
   imports: [NgTemplateOutlet],
   templateUrl: './suggestion-menu.html',
   styleUrl: './suggestion-menu.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
+    '[attr.popover]': "placement() === 'caret' && hasPopover ? 'manual' : null",
     '[attr.data-level]': 'state()?.level ?? 1',
     '[attr.data-placement]': 'placement()',
     '[attr.data-open]': 'state()?.open || null',
@@ -113,6 +130,12 @@ export class SuggestionMenu {
   readonly placement = input<'caret' | 'docked'>('caret');
 
   readonly #host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+
+  /** Whether the browser supports the native Popover API (`popover="manual"`),
+      which promotes caret-placed menus to the top layer — above every ancestor
+      stacking context, floating toolbar, and overflow clip. */
+  protected readonly hasPopover =
+    typeof this.#host.showPopover === 'function' && typeof this.#host.hidePopover === 'function';
 
   /** The state's list. The extension reports a new state for every arrow
       press but the same list until it changes — so what hangs off the list
@@ -201,7 +224,7 @@ export class SuggestionMenu {
   /** What the box's place depends on: where the session starts, and what
       decides its size (rows, header, status line, query). An arrow press
       changes none of it, so it measures nothing. */
-  readonly #layout = computed(
+  readonly #layout = computed<MenuLayout | null>(
     () => {
       const state = this.state();
       if (!state?.open || !state.range) return null;
@@ -229,6 +252,12 @@ export class SuggestionMenu {
     },
   );
 
+  /** Whether scroll / viewport resize tracking is needed: only while open in
+      the top layer (`caret` + native Popover API). */
+  readonly #tracking = computed(
+    () => this.hasPopover && this.placement() === 'caret' && !!this.#layout(),
+  );
+
   /** What moves the highlight: the row it is on, and the list it is in — a
       level, a query. Null while closed. */
   readonly #highlight = computed(() => {
@@ -243,7 +272,10 @@ export class SuggestionMenu {
   #endObserver: IntersectionObserver | undefined;
 
   constructor() {
-    inject(DestroyRef).onDestroy(() => this.#endObserver?.disconnect());
+    inject(DestroyRef).onDestroy(() => {
+      this.#endObserver?.disconnect();
+      this.#setPopover(false);
+    });
 
     // Watched only while a page can be loaded. Observing afresh reports the
     // marker's current state, so a page too short to fill the box (the
@@ -284,49 +316,41 @@ export class SuggestionMenu {
         // Docked, the flow places it: nothing to measure.
         if (this.placement() === 'docked') return 'docked' as const;
         const layout = this.#layout();
-        const anchor = layout?.clientRect();
-        if (!layout || !anchor) return null;
-        const list = this.listbox().nativeElement;
-        const rendered = this.#host.offsetHeight;
-        const cap = parseFloat(getComputedStyle(this.#host).maxHeight);
-        const full = rendered + list.scrollHeight - list.clientHeight;
-        const height = cap >= 0 ? Math.min(full, cap) : full;
-        const place = measureMenuPlacement(anchor, this.#host, layout.offset, height);
-        return place && { ...place, chrome: rendered - list.offsetHeight };
+        return layout ? this.#measure(layout) : null;
       },
-      write: (placement) => {
-        const place = placement();
-        const style = this.#host.style;
-        if (place === 'docked') {
-          // Nothing of the caret's left over: the stylesheet shows it.
-          style.removeProperty('left');
-          style.removeProperty('top');
-          style.removeProperty('visibility');
-          style.removeProperty('--email-suggestion-menu-anchor-x');
-          delete this.#host.dataset['side'];
-          this.listbox().nativeElement.style.removeProperty('max-height');
-          return;
-        }
-        const visibility = place ? 'visible' : 'hidden';
-        if (place) {
-          // Where it opened, for a stylesheet to grow it out of the caret:
-          // the side of the line, and the caret across the box.
-          const anchorX = `${place.anchorX}px`;
-          if (this.#host.dataset['side'] !== place.side) this.#host.dataset['side'] = place.side;
-          if (style.getPropertyValue('--email-suggestion-menu-anchor-x') !== anchorX) {
-            style.setProperty('--email-suggestion-menu-anchor-x', anchorX);
-          }
-          const left = `${place.left}px`;
-          const top = `${place.top}px`;
-          const listHeight =
-            place.maxHeight === null ? '' : `${Math.max(place.maxHeight - place.chrome, 0)}px`;
-          const list = this.listbox().nativeElement.style;
-          if (style.left !== left) style.left = left;
-          if (style.top !== top) style.top = top;
-          if (list.maxHeight !== listHeight) list.maxHeight = listHeight;
-        }
-        if (style.visibility !== visibility) style.visibility = visibility;
-      },
+      write: (placement) => this.#apply(placement()),
+    });
+
+    // Top-layer (`position: fixed`) does not move with an ancestor scroller:
+    // keep the box anchored to the caret on scroll and viewport resize, and
+    // hide it if the caret scrolls out of sight. Running directly in the
+    // scroll/resize handler (which browsers already coalesce per frame before
+    // paint) avoids one-frame lag.
+    effect((onCleanup) => {
+      if (!this.#tracking()) return;
+      const doc = this.#host.ownerDocument;
+      const win = doc.defaultView;
+      if (!win) return;
+      const reposition = () => {
+        if (this.placement() !== 'caret') return;
+        const layout = this.#layout();
+        if (!layout) return;
+        this.#apply(this.#measure(layout));
+      };
+      const onScroll = (event: Event) => {
+        if (this.#host.contains(event.target as Node | null)) return;
+        reposition();
+      };
+      doc.addEventListener('scroll', onScroll, { capture: true, passive: true });
+      win.addEventListener('resize', reposition, { passive: true });
+      win.visualViewport?.addEventListener('resize', reposition, { passive: true });
+      win.visualViewport?.addEventListener('scroll', reposition, { passive: true });
+      onCleanup(() => {
+        doc.removeEventListener('scroll', onScroll, true);
+        win.removeEventListener('resize', reposition);
+        win.visualViewport?.removeEventListener('resize', reposition);
+        win.visualViewport?.removeEventListener('scroll', reposition);
+      });
     });
 
     // The highlighted row stays visible as the arrows walk past the fold —
@@ -362,6 +386,66 @@ export class SuggestionMenu {
         this.listbox().nativeElement.scrollTop = 0;
       },
     });
+  }
+
+  #measure(layout: MenuLayout): MeasuredPlacement | null {
+    const anchor = layout.clientRect();
+    if (!anchor) return null;
+    const list = this.listbox().nativeElement;
+    const rendered = this.#host.offsetHeight;
+    const cap = parseFloat(getComputedStyle(this.#host).maxHeight);
+    const full = rendered + list.scrollHeight - list.clientHeight;
+    const height = cap >= 0 ? Math.min(full, cap) : full;
+    const place = measureMenuPlacement(anchor, this.#host, layout.offset, height);
+    return place && { ...place, chrome: rendered - list.offsetHeight };
+  }
+
+  #apply(place: MeasuredPlacement | 'docked' | null): void {
+    const style = this.#host.style;
+    if (place === 'docked') {
+      this.#setPopover(false);
+      // Nothing of the caret's left over: the stylesheet shows it.
+      style.removeProperty('left');
+      style.removeProperty('top');
+      style.removeProperty('visibility');
+      style.removeProperty('--email-suggestion-menu-anchor-x');
+      delete this.#host.dataset['side'];
+      this.listbox().nativeElement.style.removeProperty('max-height');
+      return;
+    }
+    if (place) {
+      // Where it opened, for a stylesheet to grow it out of the caret:
+      // the side of the line, and the caret across the box.
+      const anchorX = `${place.anchorX}px`;
+      if (this.#host.dataset['side'] !== place.side) this.#host.dataset['side'] = place.side;
+      if (style.getPropertyValue('--email-suggestion-menu-anchor-x') !== anchorX) {
+        style.setProperty('--email-suggestion-menu-anchor-x', anchorX);
+      }
+      const left = `${place.left}px`;
+      const top = `${place.top}px`;
+      const listHeight =
+        place.maxHeight === null ? '' : `${Math.max(place.maxHeight - place.chrome, 0)}px`;
+      const list = this.listbox().nativeElement.style;
+      if (style.left !== left) style.left = left;
+      if (style.top !== top) style.top = top;
+      if (list.maxHeight !== listHeight) list.maxHeight = listHeight;
+      this.#setPopover(true);
+      if (style.visibility !== 'visible') style.visibility = 'visible';
+    } else {
+      if (style.visibility !== 'hidden') style.visibility = 'hidden';
+      this.#setPopover(false);
+    }
+  }
+
+  #setPopover(open: boolean): void {
+    if (!this.hasPopover) return;
+    try {
+      const isOpen = this.#host.matches(':popover-open');
+      if (open && !isOpen) this.#host.showPopover();
+      else if (!open && isOpen) this.#host.hidePopover();
+    } catch {
+      // Detached or popover attribute toggled off — harmless.
+    }
   }
 
   protected readonly back = (): void => this.state()?.back();

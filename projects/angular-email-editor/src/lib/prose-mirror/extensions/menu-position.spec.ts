@@ -212,4 +212,174 @@ describe('measureMenuPlacement', () => {
       sheet.remove();
     }
   });
+  it('leaves out what the scroller says its foot covers — a short box flips over the line, off the toolbar', () => {
+    // A one-row box (56px) on a line 220px down: 380 − 240 = 140px below
+    // on screen, but the floating foot covers the last 88 of them
+    // (`scroll-padding-bottom`), which leaves 52 — so above it goes.
+    const menu = mount({ height: 56 });
+    menu.parentElement!.style.scrollPaddingBottom = '88px';
+    expect(measureMenuPlacement(line(220), menu, 4)).toEqual({
+      left: 130,
+      top: 220 - 4 - 56,
+      maxHeight: null,
+      side: 'above',
+      anchorX: 0,
+    });
+  });
+
+  it('leaves out what a scroller round the container says is stuck at its top', () => {
+    // An editor that grows with its text inside a sheet that scrolls; a bar
+    // covers the sheet's top 48px (`scroll-padding-top`). A 300px box on a
+    // line 330px down: 30px below it, 326 above — but only 278 of them
+    // clear of the bar. It fits neither: above, shrunk to start under the
+    // bar, never drawn beneath it. (Detached: jsdom's <body> has no height
+    // and would clip everything.)
+    const sheet = document.createElement('div');
+    sheet.style.overflowY = 'auto';
+    sheet.style.scrollPaddingTop = '48px';
+    sheet.getBoundingClientRect = () => new DOMRect(0, 100, 600, 380);
+    Object.defineProperties(sheet, { clientTop: { value: 0 }, clientHeight: { value: 380 } });
+    const container = document.createElement('div');
+    const menu = document.createElement('div');
+    container.appendChild(menu);
+    sheet.appendChild(container);
+    container.getBoundingClientRect = () => new DOMRect(0, 100, 600, 2000);
+    Object.defineProperties(container, {
+      clientHeight: { value: 2000 },
+      clientWidth: { value: 600 },
+      scrollWidth: { value: 600 },
+      scrollLeft: { value: 0 },
+      scrollTop: { value: 0 },
+    });
+    Object.defineProperties(menu, { offsetWidth: { value: 240 }, offsetHeight: { value: 300 } });
+    expect(measureMenuPlacement(line(330), menu, 4)).toEqual({
+      left: 130,
+      top: 48,
+      maxHeight: 278,
+      side: 'above',
+      anchorX: 0,
+    });
+  });
+
+  it('ignores scroll-padding on a non-scrolling container (`overflow: visible`)', () => {
+    // Host-scroll mode (template designer, document sheet): the editor grows
+    // (`overflow: visible`) and ends above the sticky foot; its own
+    // `scroll-padding-bottom` must not be subtracted a second time.
+    const menu = mount({ height: 56 });
+    menu.parentElement!.style.overflowY = 'visible';
+    menu.parentElement!.style.scrollPaddingBottom = '88px';
+    // 380 − 240 = 140px below, not 52 — stays below.
+    expect(measureMenuPlacement(line(220), menu, 4)).toEqual({
+      left: 130,
+      top: 240,
+      maxHeight: null,
+      side: 'below',
+      anchorX: 0,
+    });
+  });
+
+  describe('fixed (top-layer)', () => {
+    /** Mounts a `position: fixed` menu inside a scroller at (0, 100, 600, 380). */
+    const mountFixed = (
+      opts: {
+        height?: number;
+        scrollPaddingBottom?: number;
+        scrollerTop?: number;
+        scrollerHeight?: number;
+      } = {},
+    ): HTMLElement => {
+      const top = opts.scrollerTop ?? 100;
+      const height = opts.scrollerHeight ?? 380;
+      const scroller = document.createElement('div');
+      scroller.style.overflowY = 'auto';
+      if (opts.scrollPaddingBottom) {
+        scroller.style.scrollPaddingBottom = `${opts.scrollPaddingBottom}px`;
+      }
+      scroller.getBoundingClientRect = () => new DOMRect(0, top, 600, height);
+      Object.defineProperties(scroller, {
+        clientTop: { value: 0 },
+        clientLeft: { value: 0 },
+        clientHeight: { value: height },
+        clientWidth: { value: 600 },
+      });
+      const menu = document.createElement('div');
+      menu.style.position = 'fixed';
+      Object.defineProperties(menu, {
+        offsetWidth: { value: 240 },
+        offsetHeight: { value: opts.height ?? 320 },
+      });
+      scroller.appendChild(menu);
+      return menu;
+    };
+
+    const withViewport = (width: number, height: number, run: () => void) => {
+      const prevW = window.innerWidth;
+      const prevH = window.innerHeight;
+      Object.defineProperties(window, {
+        innerWidth: { value: width, configurable: true },
+        innerHeight: { value: height, configurable: true },
+      });
+      try {
+        run();
+      } finally {
+        Object.defineProperties(window, {
+          innerWidth: { value: prevW, configurable: true },
+          innerHeight: { value: prevH, configurable: true },
+        });
+      }
+    };
+
+    it('flips above a floating foot when clear room above holds it', () => {
+      withViewport(1200, 800, () => {
+        // Scroller 100..480, floating foot covers bottom 88px (clearBottom = 392).
+        // Line at 320..336: clearBelow = 392 − 340 = 52 (< 56), clearAbove = 316 − 100 = 216.
+        const menu = mountFixed({ height: 56, scrollPaddingBottom: 88 });
+        expect(measureMenuPlacement({ left: 130, top: 320, bottom: 336 }, menu, 4)).toEqual({
+          left: 130,
+          top: 320 - 4 - 56,
+          maxHeight: null,
+          side: 'above',
+          anchorX: 0,
+        });
+      });
+    });
+
+    it('floats at full height over the footer toolbar when neither clear side holds it', () => {
+      withViewport(1200, 800, () => {
+        // Scroller 100..480 (380px), floating foot 88px (clearBottom = 392).
+        // Line at 160..176: clearBelow = 212 (< 320), clearAbove = 56 (< 320),
+        // but viewBelow = 792 − 180 = 612 (>= 320) — opens below at full height.
+        const menu = mountFixed({ height: 320, scrollPaddingBottom: 88 });
+        expect(measureMenuPlacement({ left: 130, top: 160, bottom: 176 }, menu, 4)).toEqual({
+          left: 130,
+          top: 180,
+          maxHeight: null,
+          side: 'below',
+          anchorX: 0,
+        });
+      });
+    });
+
+    it('shrinks to whichever viewport side has more room when neither side of the viewport fits', () => {
+      withViewport(600, 380, () => {
+        // Viewport 8..372. Line at 260..276: viewBelow = 372 − 280 = 92, viewAbove = 256 − 8 = 248.
+        const menu = mountFixed({ height: 320, scrollerTop: 0, scrollerHeight: 380 });
+        expect(measureMenuPlacement({ left: 130, top: 260, bottom: 276 }, menu, 4)).toEqual({
+          left: 130,
+          top: 8,
+          maxHeight: 248,
+          side: 'above',
+          anchorX: 0,
+        });
+      });
+    });
+
+    it('returns null when the caret has scrolled out of its scroller', () => {
+      withViewport(1200, 800, () => {
+        const menu = mountFixed({ height: 56 });
+        expect(measureMenuPlacement({ left: 130, top: 60, bottom: 76 }, menu, 4)).toBeNull();
+        expect(measureMenuPlacement({ left: 130, top: 500, bottom: 516 }, menu, 4)).toBeNull();
+      });
+    });
+  });
 });

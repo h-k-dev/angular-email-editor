@@ -3,6 +3,7 @@ import {
   DOCUMENT,
   DestroyRef,
   ElementRef,
+  Injector,
   afterNextRender,
 
   // Signals
@@ -139,6 +140,9 @@ interface DeskTab<T extends string> {
 
 /** The left column's panels. */
 type AsideTab = 'envelope' | 'source';
+
+/** The rows Save checks before it stores: the addresses, in reading order. */
+const ADDRESS_ROWS: readonly AddressRow[] = ['from', 'to', 'cc', 'bcc'];
 
 /** Their tabs, top to bottom. */
 const ASIDE_TABS: readonly DeskTab<AsideTab>[] = [
@@ -286,6 +290,7 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
   readonly #templates = inject(Templates);
   readonly #inlineImages = inject(Preferences).inlineImages;
   readonly #snack = inject(MatSnackBar);
+  readonly #injector = inject(Injector);
 
   /** Whether the editor's formatting toolbar shows — the bar's switch, the
       writer bar's preference (`formattingToolbar`), shared. */
@@ -824,9 +829,29 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
     return withoutEmbeddedImages(html);
   }
 
-  /** Stores the template as it stands. */
+  /** Stores the template as it stands — unless an address row holds an
+      entry the form refuses (`saveRow` keeps those out too): then nothing
+      is sent, the caret goes to that row and the snack says what is wrong.
+      Only the rows are asked: a template may be saved with an empty body
+      or no recipient, which a send would refuse. */
   protected async save(): Promise<void> {
     if (this.saving()) return;
+    const wrong = ADDRESS_ROWS.map((row) => this.envelope[row]()).find((row) => row.invalid());
+    if (wrong) {
+      // Said before the caret goes there: focus hands a wrong entry back to
+      // the row's typing, and the error goes with it. If the envelope panel
+      // is folded or showing HTML source, open it first so focus can land.
+      const problem = wrong.errors()[0]?.message ?? this.i18n.t('designer.saveFailed');
+      wrong.markAsTouched();
+      if (this.shownPanel() !== 'envelope') {
+        this.pickAside('envelope');
+        afterNextRender(() => wrong.focusBoundControl(), { injector: this.#injector });
+      } else {
+        wrong.focusBoundControl();
+      }
+      this.#snack.open(problem, undefined, { duration: 6000 });
+      return;
+    }
     const message = this.message();
     const { from, to, cc, bcc, subject, previewText, attachments } = message;
     await this.#enqueue(async () => {
