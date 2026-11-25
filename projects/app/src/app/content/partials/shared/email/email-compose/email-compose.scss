@@ -147,6 +147,12 @@
   // the form layout that places this pane between the envelope rows and
   // whatever follows — sets it through this token.
   --email-editor-padding-block: var(--email-compose-surface-padding-block, 16px);
+  // Above the first line, where the employer wants more than below the last
+  // (a message under its envelope).
+  --email-editor-padding-block-start: var(
+    --email-compose-surface-padding-block-start,
+    var(--email-compose-surface-padding-block, 16px)
+  );
 }
 
 // The foot: the strip and the dock, over the end of the text — the text

@@ -433,7 +433,7 @@ $source-head: 32px;
 
 // The envelope: the rows straight away, the files under them — scrolling
 // down on its own when they outgrow the room. Every part inside starts
-// 16px in.
+// 16px in, and 16px off the panel's top and foot alike.
 .designer-envelope {
   @include scroll.scroll;
 
@@ -443,7 +443,50 @@ $source-head: 32px;
   gap: 12px;
   min-block-size: 0;
   overflow-y: auto;
-  padding-block: 4px 12px;
+  padding-block: var(--mat-sys-inner-spacing, 16px);
+}
+
+// The address banner (`invalidRows`): above the rows, on the panel's 16px
+// inset — the wrong rows' own tone (the error hue), washed for the fill and
+// the edge, held as ink for the glyph and the title; the lines on-surface.
+.designer-notice {
+  --_hue: var(--mat-sys-error);
+
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-inline: var(--mat-sys-inner-spacing, 16px);
+  padding: 12px 16px;
+  border: 1px solid color-mix(in oklab, var(--_hue) 30%, transparent);
+  border-radius: var(--mat-sys-corner-medium, 12px);
+  background-color: color-mix(in oklab, var(--_hue) 10%, transparent);
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
+}
+
+.designer-notice__icon {
+  --mat-icon-size: 20px;
+
+  flex: none;
+  block-size: 20px;
+  inline-size: 20px;
+  font-size: 20px;
+  color: var(--_hue);
+}
+
+// The title, then a line a row.
+.designer-notice__text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-inline-size: 0;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+
+.designer-notice__title {
+  font-weight: 500;
+  color: var(--_hue);
 }
 
 // The source's panel: its window, the second one, Hyprland's — the
@@ -497,8 +540,8 @@ section[html-email-compose][hidden] {
 .designer-tabs[data-side='aside'] {
   grid-area: 1 / aside-rail;
   // The details' tab level with From, the row it opens on: the envelope's
-  // 4px and half what the row's 40px has over the tab's 32px.
-  padding-block-start: 8px;
+  // top inset and half what the row's 40px has over the tab's 32px.
+  padding-block-start: calc(var(--mat-sys-inner-spacing, 16px) + 4px);
 }
 
 .designer-tabs[data-side='stage'] {

@@ -246,6 +246,7 @@ export default {
     empty: 'Select a snippet to write it',
   },
   designer: {
+    invalidAddresses: 'Invalid email addresses',
     source: 'HTML source',
     close: 'Close',
     unsaved: 'Unsaved changes',

@@ -243,6 +243,7 @@ export default {
     empty: 'Wählen Sie einen Textbaustein aus',
   },
   designer: {
+    invalidAddresses: 'Ungültige E-Mail-Adressen',
     source: 'HTML-Quelltext',
     close: 'Schließen',
     unsaved: 'Nicht gespeichert',

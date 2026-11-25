@@ -89,6 +89,10 @@
     >
       @if (gutterRows()?.to) {
         <span class="writer-gutter">To</span>
+      } @else if (!gutter() && toLabel() === 'always') {
+        <!-- To labelled at all times (`toLabel`): the merged line wears
+             the label its row wears. -->
+        <span class="writer-field__label">To</span>
       }
       <span class="writer-summary__line">
         @for (group of groups; track group.label) {

@@ -133,13 +133,6 @@
 .writer-bar {
   position: relative;
   z-index: 1;
-  // How far the glyph sits inside its icon button: half of what the state
-  // layer has over the glyph. The bar's inset and Send's margin take it
-  // back, so the glyphs land on the text edge at whatever size the bar's
-  // buttons are.
-  --writer-bar-glyph-inset: calc(
-    (var(--mat-icon-button-state-layer-size, 40px) - var(--mat-icon-button-icon-size, 20px)) / 2
-  );
   flex: none;
   display: flex;
   align-items: center;
@@ -151,10 +144,10 @@
   // the glyphs centre on. Whatever joins Send never changes the bar's
   // height — a row that grows with its content would shift the sheet.
   block-size: var(--writer-bar-size);
-  // Optical, not geometric: inset the box by the glyph's own inset less, and
-  // the glyph — the only part anyone sees — lands on the same edge as the
-  // address labels and the body text.
-  padding-inline: 0.25rem;
+  // The same inset as every envelope row and the body: the first button's
+  // edge and Send's land on the line the labels, the row hairlines' ends
+  // and the text keep.
+  padding-inline: var(--mat-sys-inner-spacing, 16px);
 }
 
 // Dense (`dense`, the desktop sheet's) — under the text or heading a zoomed
@@ -177,12 +170,9 @@
 // instead of a pill — its container height, inline padding and shape set
 // through Material's own button tokens
 // (material.angular.dev/components/button/styling), so the theme's colours
-// and type stay — its edge on the text edge: the bar is inset for icon
-// buttons, whose glyph sits inside their state layer; a filled button has
-// no such margin, so it takes the glyph's inset itself — on whichever edge
-// it sits: the start at the foot, the end heading the sheet (mirrored).
-// Drawn as a glyph (`sendButton="icon"`) it is one of the icon buttons, and
-// takes none of this.
+// and type stay — its edge on the bar's inset, the text edge, on whichever
+// edge it sits: the start at the foot, the end heading the sheet
+// (mirrored).
 .writer-bar__send--filled {
   @include mat.button-overrides(
     (
@@ -192,14 +182,6 @@
     )
   );
   flex: none;
-
-  &:first-child {
-    margin-inline-start: var(--writer-bar-glyph-inset);
-  }
-
-  &:last-child {
-    margin-inline-end: var(--writer-bar-glyph-inset);
-  }
 }
 
 // The writer's column. The sheet is as wide as its frame; what is written

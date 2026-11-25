@@ -32,11 +32,14 @@ section[email-compose] {
   // The paper starts at the Subject hairline: the writer's gap above it is
   // taken back, so no band of the sheet shows between the envelope and the
   // text, whatever the paper's colour (`colorScheme`). Above the first line
-  // and below the last, only a breath: 4px, the same at both ends, painted
-  // in the paper's colour — the message starts almost on the hairline, as
-  // the email starts at its top (Gmail keeps 10px).
+  // 10px, and below the last only a breath, 4px, both painted in the
+  // paper's colour — the message starts close under the hairline, as
+  // Gmail's does (10px).
   margin-block-start: calc(-1 * var(--writer-gap, 8px));
   --email-compose-surface-padding-block: 4px;
+  // The first line 10px under the Subject's hairline (USER 2026-11-25,
+  // Gmail's and Apple Mail's air), the last line's breath stays 4px.
+  --email-compose-surface-padding-block-start: 10px;
   // A bar at the foot floats over the text with the composer's own foot
   // (email-writer.scss): the composer runs on under it, and its foot keeps
   // the bar's room at its own foot.
@@ -58,14 +61,25 @@ section[email-compose] {
 // padding: a single line is a 40px row, and when a row's chips wrap its
 // label stays on the first line, as Gmail keeps it.
 .writer-field {
+  // The row's inset, both ends: its `padding-inline`, and the hairline
+  // keeps to it — from where the label starts to as far from the end. In
+  // a window the form field sits inside it, so its line (primary while
+  // focused, red when invalid) is as wide, over the hairline.
+  --writer-row-inset: var(--mat-sys-inner-spacing, 16px);
+
   display: flex;
   align-items: flex-start;
   gap: 8px;
   min-height: 40px;
-  padding: 8px var(--mat-sys-inner-spacing, 16px);
+  padding: 8px var(--writer-row-inset);
   box-sizing: border-box;
   // The hairline is painted, not laid out: the row is exactly 40px.
-  box-shadow: inset 0 -1px var(--mat-sys-outline-variant);
+  // Its colour: a host's (`--writer-row-rule`, set where its own outline
+  // is in force), else the outline, mostly see-through, so it blends into
+  // whatever paper the rows sit on — a quiet rule, not a border.
+  --_rule: var(--writer-row-rule, color-mix(in oklab, var(--mat-sys-outline-variant) 40%, transparent));
+  background: linear-gradient(var(--_rule), var(--_rule)) bottom center /
+    calc(100% - 2 * var(--writer-row-inset)) 1px no-repeat;
   cursor: text;
   // The gutter's box hangs off the row.
   position: relative;
@@ -268,19 +282,12 @@ ul[email-attachment-chips] {
   --email-attachment-chips-inset: var(--mat-sys-inner-spacing, 16px);
 }
 
-// The Material frame (`fields="material"`): the row *is* the form field —
-// iusta core's rows — so the row gives it all its padding (the field puts
-// the row's inset back, global styles), and the red line of an invalid
-// field runs under the whole row.
+// The Material frame (`fields="material"`): the form field fills the row
+// inside its inset — the row keeps its `padding-inline`, the field none of
+// its own (global styles) — so the field's line, primary while focused, red
+// under an invalid control, runs exactly over the row's hairline.
 .writer-field--material {
-  padding: 0;
-}
-
-// The rows draw no hairline of their own there — the merged recipients
-// line neither: the form field's line is the only one, clear at rest,
-// primary while focused, red when invalid (styles.scss).
-:host([data-fields='material']) .writer-field {
-  box-shadow: none;
+  padding-block: 0;
 }
 
 .writer-field__form-field {

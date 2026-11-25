@@ -829,6 +829,20 @@ export class TemplateDesigner extends MessageSheet implements PaperIsland {
     return withoutEmbeddedImages(html);
   }
 
+  /** The address rows the form finds wrong — a wrong address in Cc — and
+      what is wrong with each: a banner over the rows says so for as long as
+      it is there, and Save stops at it (`save`). A row the caret is in hands
+      its wrong entries back to its typing, so the banner shows what was
+      left, not what is being typed. */
+  protected readonly invalidRows = computed(() =>
+    ADDRESS_ROWS.map((row) => ({ row, message: this.envelope[row]().errors()[0]?.message })).filter(
+      (invalid): invalid is { row: AddressRow; message: string } => !!invalid.message,
+    ),
+  );
+
+  /** Each row's name, as its row says it. */
+  protected readonly rowNames: Record<AddressRow, string> = { from: 'From', to: 'To', cc: 'Cc', bcc: 'Bcc' };
+
   /** Stores the template as it stands — unless an address row holds an
       entry the form refuses (`saveRow` keeps those out too): then nothing
       is sent, the caret goes to that row and the snack says what is wrong.

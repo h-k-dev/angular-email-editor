@@ -814,8 +814,12 @@ describe('Compose', () => {
 
   it('Cc and Bcc sit on the To row like Gmail: each opens its row focused, and an empty row folds back', async () => {
     const root = fixture.nativeElement as HTMLElement;
+    // The rows' labels — the merged line wears To's too (`toLabel`), and is
+    // asked about on its own.
     const labels = () =>
-      [...root.querySelectorAll('.writer-field__label')].map((el) => el.textContent?.trim());
+      [...root.querySelectorAll('.writer-field:not(.writer-summary) .writer-field__label')].map((el) =>
+        el.textContent?.trim(),
+      );
     const actions = () =>
       [...root.querySelectorAll('.writer-field__action')].map((el) => el.textContent?.trim());
     const action = (name: string) =>
@@ -872,6 +876,7 @@ describe('Compose', () => {
     row('Bcc').dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: subject }));
     await fixture.whenStable();
     expect(labels()).toEqual(['From', 'To', 'Bcc']);
+    expect(root.querySelector('.writer-summary .writer-field__label')?.textContent?.trim()).toBe('To');
     expect(actions()).toEqual(['Cc', 'Preview']);
     expect((component as any).sheet().message().bcc).toEqual(['grace@example.com']);
   });

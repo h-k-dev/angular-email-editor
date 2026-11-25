@@ -242,6 +242,7 @@ export default {
     empty: 'スニペットを選択してください',
   },
   designer: {
+    invalidAddresses: '無効なメールアドレス',
     source: 'HTML ソース',
     close: '閉じる',
     unsaved: '未保存の変更',

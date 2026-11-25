@@ -86,11 +86,14 @@ section[email-compose] {
   // The paper starts at the Subject hairline: the writer's gap above it is
   // taken back, so no band of the sheet shows between the envelope and the
   // text, whatever the paper's colour (`colorScheme`). Above the first line
-  // and below the last, only a breath: 4px, the same at both ends, painted
-  // in the paper's colour — the message starts almost on the hairline, as
-  // the email starts at its top (Gmail keeps 10px).
+  // 10px, and below the last only a breath, 4px, both painted in the
+  // paper's colour — the message starts close under the hairline, as
+  // Gmail's does (10px).
   margin-block-start: calc(-1 * var(--writer-gap, 8px));
   --email-compose-surface-padding-block: 4px;
+  // The first line 10px under the Subject's hairline (USER 2026-11-25,
+  // Gmail's and Apple Mail's air), the last line's breath stays 4px.
+  --email-compose-surface-padding-block-start: 10px;
   // A bar at the foot floats over the text with the composer's own foot
   // (email-writer.scss): the composer runs on under it, and its foot keeps
   // the bar's room at its own foot.

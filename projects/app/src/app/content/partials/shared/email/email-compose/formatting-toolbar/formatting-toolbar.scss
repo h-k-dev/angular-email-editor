@@ -45,17 +45,17 @@
   // Wide: a dense line of tools, not a bar of actions — 28px state layers in
   // 32px touch targets and 16px glyphs, in place of the app's 40/48/20
   // (styles.scss), with 4px between them so the targets never overlap. The
-  // line is exactly one target tall. Inline, the glyphs land on the text
-  // edge: 8px here, 2px of row padding and 6px of state layer at the start;
-  // 10px and the 6px of state layer at the end.
+  // line is exactly one target tall. Inline, the same inset as the envelope
+  // rows, the writer's bar and the text: the first and last buttons' edges
+  // on the line the labels keep — at the start less the row's own 2px
+  // (`.formatting-toolbar__scroll`, room for the targets inside its clip).
   @include bp.wide {
     --mat-icon-button-state-layer-size: 28px;
     --mat-icon-button-touch-target-size: 32px;
     --mat-icon-button-icon-size: 16px;
     gap: 4px;
     padding-block: 0;
-    padding-inline: calc(var(--mat-sys-inner-spacing, 16px) - 8px)
-      calc(var(--mat-sys-inner-spacing, 16px) - 6px);
+    padding-inline: calc(var(--mat-sys-inner-spacing, 16px) - 2px) var(--mat-sys-inner-spacing, 16px);
 
     mat-divider {
       height: 16px;
@@ -77,8 +77,8 @@
     // no width to give to gaps, and the targets touch without overlapping.
     gap: 1px;
     padding-block: 0;
-    // The glyph on the text edge: the 10px of state layer around it.
-    padding-inline: calc(var(--mat-sys-inner-spacing, 16px) - 10px);
+    // The rows' inset, as wide.
+    padding-inline: var(--mat-sys-inner-spacing, 16px);
   }
 }
 

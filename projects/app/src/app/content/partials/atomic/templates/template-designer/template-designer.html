@@ -380,6 +380,21 @@
       aria-labelledby="designer-tab-envelope"
       [hidden]="shownPanel() !== 'envelope'"
     >
+      <!-- A row the form finds wrong — a wrong address in Cc — is never
+           stored, and Save stops at it: this says so above the rows, for as
+           long as it is there (`invalidRows`). -->
+      @if (invalidRows().length) {
+        <div class="designer-notice" role="status">
+          <mat-icon class="designer-notice__icon" aria-hidden="true">error</mat-icon>
+          <div class="designer-notice__text">
+            <span class="designer-notice__title">{{ 'designer.invalidAddresses' | translate }}</span>
+            @for (invalid of invalidRows(); track invalid.row) {
+              <span>{{ rowNames[invalid.row] }}: {{ invalid.message }}</span>
+            }
+          </div>
+        </div>
+      }
+
       <!-- Every address row is stored as soon as it is left. -->
       <div
         envelope-rows

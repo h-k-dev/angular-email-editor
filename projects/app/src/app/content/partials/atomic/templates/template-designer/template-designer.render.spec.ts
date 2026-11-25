@@ -185,6 +185,25 @@ describe('TemplateDesigner desk (render)', () => {
     expect(rows.slice(0, 4)).toEqual(['From', 'To', 'Cc', 'Bcc']);
   });
 
+  it('says above the rows which address row is wrong, for as long as it is', async () => {
+    await open(1600, PLAIN, () => expect(el('.designer-canvas').textContent).toContain('friendly reminder'));
+    expect(host().querySelector('.designer-notice')).toBeNull();
+
+    fixture.componentInstance.envelope.cc().value.set(['test']);
+    await settle();
+    const notice = el('.designer-notice');
+    expect(notice.textContent).toContain('Invalid email addresses');
+    expect(notice.textContent).toContain('Cc: “test” is not an email address');
+    // Above the rows, in the envelope's panel.
+    expect(notice.compareDocumentPosition(el('.designer-envelope [envelope-rows]'))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+
+    fixture.componentInstance.envelope.cc().value.set(['ada@example.com']);
+    await settle();
+    expect(host().querySelector('.designer-notice')).toBeNull();
+  });
+
   it('saves nothing while an address row is wrong — the caret goes to that row, the snack says why', async () => {
     await open(1600, PLAIN, () => expect(el('.designer-canvas').textContent).toContain('friendly reminder'));
     const store = vi.spyOn(TestBed.inject(Templates), 'save');

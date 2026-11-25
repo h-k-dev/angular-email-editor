@@ -111,11 +111,11 @@ export class EnvelopeRows {
       HTML document. */
   readonly plainText = input(false);
 
-  /** To's label: Gmail's — shown only while focus is in its row, the row
-      its addresses alone at rest (`on-focus`, a message being written) —
-      or always there, From's way (`always`: a template's details, a form
-      read row by row). */
-  readonly toLabel = input<'on-focus' | 'always'>('on-focus');
+  /** To's label: always there, From's way — in its row and on the merged
+      line alike (`always`, every envelope's) — or Gmail's, shown only while
+      focus is in its row, the row its addresses alone at rest
+      (`on-focus`). */
+  readonly toLabel = input<'on-focus' | 'always'>('always');
 
   /** Notion's gutter, for a document on a desk (`MessageForm.labelGutter`):
       every row wears its label in the margin before it instead of in it —

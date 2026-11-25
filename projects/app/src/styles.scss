@@ -339,9 +339,11 @@ html {
   box-sizing: border-box;
   // The room above and below the text, inside the editor: where a host sets
   // it (the composer does, email-compose.scss), the first line starts that
-  // far down and scrolls up through it. None elsewhere — the source pane's
-  // editor has its own padding round it.
-  padding-block: var(--email-editor-padding-block, 0);
+  // far down and scrolls up through it — the top its own where a host says
+  // (`--email-editor-padding-block-start`). None elsewhere — the source
+  // pane's editor has its own padding round it.
+  padding-block: var(--email-editor-padding-block-start, var(--email-editor-padding-block, 0))
+    var(--email-editor-padding-block, 0);
   // The text column is as wide as its host makes it — no ceiling of its
   // own: the parent container is the bound. The email is designed for 600
   // *and below*, and the hosts here mostly give it that or less (the page's
@@ -3119,9 +3121,9 @@ section[html-email-compose]:not([data-wrap='off']) .aee-source-gutter > .aee-cod
 /* A compose window's envelope rows: each control inside a Material form
  * field that looks like the page's bare row — density -4 is the row's 40px;
  * no fill, no state layer, no side padding — and whose line is the input's
- * own, as any Material input draws it: none at rest (the row draws no
- * hairline either, message-form.scss), the primary colour while the row has
- * focus, red under an invalid control (no message — iusta core's rows).
+ * own, as any Material input draws it: none at rest (the row's hairline is
+ * there, envelope-rows.scss), the primary colour while the row has focus,
+ * red under an invalid control (no message — iusta core's rows).
  * Global: the parts are Material's own DOM. */
 .writer-field__form-field {
   @include mat.form-field-density(-4);
@@ -3145,12 +3147,13 @@ section[html-email-compose]:not([data-wrap='off']) .aee-source-gutter > .aee-cod
     )
   );
 
-  // The row's inset, which the row gave the field so the line runs full
-  // width — kept with a prefix or suffix too, where Material drops that
-  // side's padding (`.mat-mdc-form-field-has-icon-prefix …`, loaded later
-  // at the same weight, hence the doubled class).
+  // No inset of its own: the row's `padding-inline` is the inset, and the
+  // field — its line with it — keeps inside it, as the row's hairline does.
+  // Set with a prefix or suffix too, where Material sets that side's padding
+  // (`.mat-mdc-form-field-has-icon-prefix …`, loaded later at the same
+  // weight, hence the doubled class).
   &.mat-mdc-form-field .mat-mdc-text-field-wrapper {
-    padding-inline: var(--mat-sys-inner-spacing, 16px);
+    padding-inline: 0;
   }
 
   .mat-mdc-form-field-subscript-wrapper,
