@@ -30,8 +30,12 @@ version may change behaviour, and says so here.
 
 - **`/clear` opens a blank content.** `clearContent` used to leave the page the body stood
   in; it now takes the page layout (`pageLayout`) with the body — rows, column and colours
-  — in the same undo step, and is offered on a page with nothing written in it. The
-  envelope and the quoted history a reply answers stay, as before.
+  — in the same undo step, and is offered on a page with nothing written in it.
+- **`/clear` leaves nothing of the source.** `clearContent` now also takes the envelope
+  (doctype, head, the `<html>` and `<body>` attributes) and the quoted history, so a
+  cleared message is exactly a blank one: a stored template's `<body>` background, font
+  and margins no longer outlive the clear, and the editor drops back to a message's
+  geometry. Still one undo step; offered on an envelope or a quote with nothing written.
 
 ## 0.7.7 — 2026-11-19
 

@@ -211,7 +211,10 @@ export class EnvelopeRows {
    * To row, each opening its own row (focused) and stepping aside; a row
    * that is left empty when focus moves elsewhere folds back into its
    * button. A row with addresses in it stays whatever the button state, so
-   * a message seeded with a Cc shows it from the start.
+   * a message seeded with a Cc shows it from the start — and focus arriving
+   * in a row opens it, so emptying it while focused (a typo handed back to
+   * the typing, the last chip taken back) never unmounts the control under
+   * the caret; leaving the recipients empty folds it as ever.
    */
   protected readonly ccOpen = signal(false);
   protected readonly bccOpen = signal(false);

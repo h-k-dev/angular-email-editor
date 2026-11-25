@@ -202,7 +202,9 @@
       ></div>
     }
   </div>
-  <!-- Each copy row lives only while open or filled. -->
+  <!-- Each copy row lives only while open or filled; focus in it opens it,
+       so emptying it in place — a typo handed back to the typing, the last
+       chip taken back — never takes the row from under the caret. -->
   @if (showCc()) {
     <div
       class="writer-field"
@@ -210,6 +212,7 @@
       [class.writer-field--material]="material()"
       [emailKeepFocusExcept]="rowControls"
       (click)="ccField()?.focus()"
+      (focusin)="ccOpen.set(true)"
     >
       <!-- A companion row's gutter (envelope-rows.scss): shown while its
            group — the recipients — has the pointer or focus, the only time
@@ -258,6 +261,7 @@
       [class.writer-field--material]="material()"
       [emailKeepFocusExcept]="rowControls"
       (click)="bccField()?.focus()"
+      (focusin)="bccOpen.set(true)"
     >
       <!-- A companion row's gutter (envelope-rows.scss): shown while its
            group — the recipients — has the pointer or focus, the only time

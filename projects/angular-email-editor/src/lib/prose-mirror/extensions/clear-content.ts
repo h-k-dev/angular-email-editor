@@ -7,26 +7,31 @@ import { LAYOUT_EDIT_META } from '../layout-marker';
 const emptyContent = (state: EditorState): Fragment =>
   state.schema.topNodeType.createAndFill()?.content ?? Fragment.empty;
 
-/** The page the document stands in (`pageLayout`), where its schema has one. */
-const pageOf = (state: EditorState): unknown => state.doc.attrs['pageLayout'] ?? null;
+/** What a document holds besides its content, each `null` when blank: the
+    page it stands in (`pageLayout`), the HTML round it (`envelope`: doctype,
+    head, the `<html>` and `<body>` attributes) and the quoted history a reply
+    answers (`quoted`) — where its schema has them. */
+const wrappings = (state: EditorState): string[] =>
+  ['pageLayout', 'envelope', 'quoted'].filter((name) => (state.doc.attrs[name] ?? null) !== null);
 
-/** Whether there is anything to clear: something written, or a page round it. */
+/** Whether there is anything to clear: something written, or anything round it. */
 const hasContent = (state: EditorState): boolean =>
-  !state.doc.content.eq(emptyContent(state)) || pageOf(state) !== null;
+  !state.doc.content.eq(emptyContent(state)) || wrappings(state).length > 0;
 
 /**
- * Clears the content — a new, blank one in its place: the body, all of it,
- * and the page it stood in (`pageLayout`) with it, rows, column and colours.
- * What is round the content stays: the envelope (doctype, head, the
- * `<html>` and `<body>` attributes) and the quoted history a reply answers,
- * still under the (now empty) body. One step: Mod-Z brings text and page
- * back. False on a document that is blank already.
+ * Clears the document — a new, blank one in its place, as a message starts:
+ * the body, all of it; the page it stood in (`pageLayout`) with its rows,
+ * column and colours; the HTML round it (`envelope`: doctype, head, the
+ * `<html>` and `<body>` attributes — a stored template's background, font
+ * and margins); and the quoted history. Nothing of what was there is left
+ * in the source. One step: Mod-Z brings it all back. False on a document
+ * that is blank already.
  */
 export const clearContent: Command = (state, dispatch) => {
   if (!hasContent(state)) return false;
   if (dispatch) {
     const tr = state.tr.replaceWith(0, state.doc.content.size, emptyContent(state));
-    if (pageOf(state) !== null) tr.setDocAttribute('pageLayout', null);
+    for (const name of wrappings(state)) tr.setDocAttribute(name, null);
     dispatch(
       tr
         .setMeta(LAYOUT_EDIT_META, true)
@@ -38,7 +43,8 @@ export const clearContent: Command = (state, dispatch) => {
   return true;
 };
 
-/** `/clear`: the content gone, its page with it, in one step — see {@link clearContent}. */
+/** `/clear`: a blank document — content, page, envelope and quoted history gone, in one
+    step — see {@link clearContent}. */
 export const ClearContent = defineExtension({
   name: 'clearContent',
   commands: () => ({ clearContent: () => clearContent }),

@@ -45,15 +45,18 @@ describe('clear content', () => {
     expect(editor.getHTML()).toBe(written);
   });
 
-  it('leaves the quoted history where it is — only the written content goes', () => {
+  it('takes the quoted history too — nothing of the reply is left', () => {
     mount('<div>My answer.</div>');
     editor.setQuoted(QUOTE);
-    const quoted = quotedHistory(editor.state);
-    expect(quoted).not.toBeNull();
+    expect(quotedHistory(editor.state)).not.toBeNull();
 
     editor.commands['clearContent']();
     expect(editor.getText()).toBe('');
-    expect(quotedHistory(editor.state)).toBe(quoted);
+    expect(quotedHistory(editor.state)).toBeNull();
+    expect(editor.getQuoted()).toBeFalsy();
+
+    expect(editor.exec(undo)).toBe(true);
+    expect(quotedHistory(editor.state)).not.toBeNull();
   });
 
   it('takes the page with it — rows, column and colours — and Mod-Z brings both back', () => {
@@ -80,18 +83,35 @@ describe('clear content', () => {
     expect(action().isEnabled?.(editor.state)).toBe(false);
   });
 
-  it('leaves the envelope as it was', () => {
+  it('takes the envelope — a stored template’s <body> style and all: the source is a blank document’s', () => {
+    const empty = createEditor({ parent: host, extensions: emailExtensions });
+    const blank = empty.getHTML();
+    empty.destroy();
     mount(
       '<!doctype html><html lang="en"><head><title>Hello</title></head>' +
-        '<body class="mail"><div>Dear Ada,</div></body></html>',
+        '<body class="mail" style="margin:0;background-color:#f2f2f2;font-family:Helvetica"><div>Dear Ada,</div></body></html>',
     );
     editor.exec(setPageLayout(centeredPageLayout()));
-    const envelope = editor.state.doc.attrs['envelope'];
-    expect(envelope).not.toBeNull();
+    const written = editor.getHTML();
+    expect(editor.state.doc.attrs['envelope']).not.toBeNull();
 
     editor.commands['clearContent']();
-    expect(editor.state.doc.attrs['envelope']).toEqual(envelope);
+    expect(editor.state.doc.attrs['envelope']).toBeNull();
     expect(pageLayoutOf(editor.state)).toBeNull();
+    expect(editor.getHTML()).toBe(blank);
+    expect(editor.state.doc.eq(editor.state.schema.topNodeType.createAndFill()!)).toBe(true);
+
+    expect(editor.exec(undo)).toBe(true);
+    expect(editor.getHTML()).toBe(written);
+  });
+
+  it('clears an envelope with nothing written in it', () => {
+    mount('<!doctype html><html><body style="background-color:#f2f2f2"></body></html>');
+    expect(action().isEnabled?.(editor.state)).toBe(true);
+
+    expect(editor.commands['clearContent']()).toBe(true);
+    expect(editor.state.doc.attrs['envelope']).toBeNull();
+    expect(action().isEnabled?.(editor.state)).toBe(false);
   });
 
   it('has nothing to do on an empty message, and says so', () => {
