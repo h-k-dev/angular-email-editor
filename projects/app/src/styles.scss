@@ -164,6 +164,12 @@ html {
   --mat-sys-mobile-edge: calc(var(--mat-sys-spacing) * 5); // 20px
   --mat-sys-outer-spacing: calc(var(--mat-sys-spacing) * 6); // 24px
 
+  // The envelope rows' hairline (envelope-rows.scss): this palette's
+  // outline-variant is all but the paper's own, so the rule is mixed from
+  // the outline — a quarter of it reads as iusta core's 40% of its own
+  // outline-variant, light and dark.
+  --writer-row-rule: color-mix(in oklab, var(--mat-sys-outline) 25%, transparent);
+
   --mat-sys-corner-extra-small: 0.125rem;
   --mat-sys-corner-small: calc(var(--radius, 0.625rem) * 0.6); // 6px
   --mat-sys-corner-medium: calc(var(--radius, 0.625rem) * 0.8); // 8px
